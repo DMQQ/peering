@@ -26,6 +26,7 @@ struct HostStatusView: View {
                         HStack(alignment: .top, spacing: 32) {
                             VStack(alignment: .leading, spacing: 28) {
                                 permissionsSection
+                                settingsSection
                                 trustedDevicesSection
                             }
                             .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -220,6 +221,45 @@ struct HostStatusView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    // MARK: - Settings
+
+    private var settingsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeading("Settings", detail: "Options for this Mac host.")
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Image(systemName: "moon.zzz")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(model.preventLidCloseSleep ? HostPalette.ink : HostPalette.muted)
+                        .frame(width: 26, height: 26)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Prevent lid-close sleep")
+                            .font(.subheadline.weight(.medium))
+                        Text("Keeps the Mac awake when the lid is closed. Lifted automatically when Peering quits.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    Toggle("", isOn: Binding(
+                        get: { model.preventLidCloseSleep },
+                        set: { model.setPreventLidCloseSleep($0) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
+            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
     }
 
     // MARK: - Devices and activity

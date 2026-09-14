@@ -52,6 +52,12 @@ final class HostModel {
     // still dim, but the CPU and network stay live so the session survives a dark screen.
     private var sleepAssertionID: IOPMAssertionID = 0
 
+    // Optional stronger assertion that also prevents lid-close sleep.
+    // Uses the same "PreventSystemSleep" type that `caffeinate -s` uses — no admin prompt,
+    // automatically released when this process exits (even on crash).
+    private var lidSleepAssertionID: IOPMAssertionID = 0
+    private(set) var preventLidCloseSleep: Bool = UserDefaults.standard.bool(forKey: "preventLidCloseSleep")
+
     /// Whether a given trusted device is attached right now.
     ///
     /// Matched on the ID, which is the only thing the two lists have in common. The name is the
@@ -101,6 +107,7 @@ final class HostModel {
         guard server == nil else { return }
         status = .starting
         permissions.refresh()
+        if preventLidCloseSleep { acquireLidSleepAssertion() }
         permissions.requestMissing()
 
         let device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
@@ -455,6 +462,41 @@ final class HostModel {
     }
 
     // MARK: - Sleep prevention
+
+    /// Toggles the lid-close sleep prevention assertion on or off.
+    ///
+    /// The assertion uses `PreventSystemSleep` — the same type `caffeinate -s` acquires —
+    /// which survives closing the lid on most Macs. Unlike a `pmset` change it is
+    /// process-scoped: the OS releases it automatically when this process exits, so a crash
+    /// can never leave the Mac permanently unable to sleep.
+    func setPreventLidCloseSleep(_ on: Bool) {
+        preventLidCloseSleep = on
+        UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
+        if on {
+            acquireLidSleepAssertion()
+        } else {
+            releaseLidSleepAssertion()
+        }
+    }
+
+    private func acquireLidSleepAssertion() {
+        guard lidSleepAssertionID == 0 else { return }
+        let result = IOPMAssertionCreateWithName(
+            "PreventSystemSleep" as CFString,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            "MacCast lid-close sleep prevention" as CFString,
+            &lidSleepAssertionID
+        )
+        if result != kIOReturnSuccess {
+            hostLog.notice("could not acquire lid sleep assertion (IOReturn \(result, privacy: .public))")
+        }
+    }
+
+    private func releaseLidSleepAssertion() {
+        guard lidSleepAssertionID != 0 else { return }
+        IOPMAssertionRelease(lidSleepAssertionID)
+        lidSleepAssertionID = 0
+    }
 
     private func acquireSleepAssertion() {
         guard sleepAssertionID == 0 else { return }
