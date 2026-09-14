@@ -182,12 +182,31 @@ PEERINGD_VIDEO_BIND=[::]:0
 `[::]` accepts IPv4 as well on Linux, where `net.ipv6.bindv6only` is 0 by default, so this covers
 both.
 
-**A grey-cloud name pointing only at IPv6 will not work for IPv4-only clients.** Cloudflare's proxy
-hides that for HTTP — it terminates the connection and reaches your origin however it can — but
-control and video go straight to the origin, so a client on an IPv4-only network simply cannot reach
-them. Polish fixed-line and much of mobile is IPv6-reachable, so this may be fine in practice, but
-it is the thing to know before wondering why one particular network never connects. An `A` record
-alongside the `AAAA` removes the question entirely.
+**An IPv6-only server is a real limitation, and it constrains both ends.** Cloudflare's proxy hides
+the problem for signalling — it terminates the connection and reaches the origin however it can, so
+a dual-stack edge covers an IPv6-only origin. But control and video go straight to the origin, so
+*both* the phone and the Mac must have IPv6 to open a session. The Mac matters more than the phone,
+and is easier to overlook: it is the end that has to be reachable at all times, from whatever
+network it happens to be sitting on.
+
+What it looks like when it fails is signalling connecting, the host appearing online, and the
+session never opening — on some networks and not others, which reads as flakiness rather than as a
+missing address family.
+
+Three ways out, in the order worth trying:
+
+1. **Buy an IPv4 address.** Most providers that offer IPv6-only instances sell an IPv4 for a small
+   monthly fee — around €0.50 at the common European hosts. This is by far the cheapest fix, and it
+   is a line on a bill rather than a piece of architecture. Check the provider's console before
+   designing around the absence.
+2. **Move the relay to a dual-stack host.** The relay is a 4 MB static binary with no runtime
+   dependencies; it has no attachment to any particular machine.
+3. **Accept IPv6-only and be explicit about it.** Legitimate for a personal tool used from networks
+   you control, and worth stating plainly in the app rather than leaving users to infer it from a
+   session that will not open.
+
+Cloudflare Spectrum can proxy arbitrary TCP and UDP and would solve this, but it is priced for
+enterprises and is not a reasonable line item for this product.
 
 #### Firewall
 
