@@ -18,11 +18,16 @@ struct SettingsPanel: View {
 
     @State private var confirmReset = false
 
+    /// Read here as well as in the screen that obeys it. Same key, one name for it in
+    /// ``PreferenceKey`` — two spellings would be a switch that does nothing for one of them.
+    @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 session
                 stream
+                panels
                 keyboard
                 macros
                 pairedMacs
@@ -80,6 +85,25 @@ struct SettingsPanel: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(RailButtonStyle(scale: 0.98))
+        }
+    }
+
+    private var panels: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel("Panels")
+            Toggle(isOn: $hidesPanelAfterSelect) {
+                Text("Close after selecting")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+            Text("""
+                Desktops and sources put themselves away once you have picked one. Shortcuts \
+                stays open either way — its buttons are key presses rather than choices, and a \
+                panel that shut after every one would have to be reopened for the next.
+                """)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

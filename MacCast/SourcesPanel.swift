@@ -12,6 +12,11 @@ struct SourcesPanel: View {
     @Environment(SessionModel.self) private var model
 
     @Binding var chromeFrames: [ChromeRegion: CGRect]
+
+    /// Called once the user has picked a source or opened an application, so the caller can put the
+    /// panel away — see the setting it consults.
+    var onSelect: () -> Void = {}
+
     @State private var query = ""
 
     var body: some View {
@@ -74,7 +79,10 @@ struct SourcesPanel: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(title)
                 ForEach(matches) { descriptor in
-                    Button { model.selectSource(descriptor) } label: {
+                    Button {
+                        model.selectSource(descriptor)
+                        onSelect()
+                    } label: {
                         row(descriptor, fallbackIcon: fallbackIcon)
                     }
                     .buttonStyle(.plain)
@@ -90,7 +98,10 @@ struct SourcesPanel: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel("Installed on your Mac")
                 ForEach(installed) { application in
-                    Button { model.launchApplication(application) } label: {
+                    Button {
+                        model.launchApplication(application)
+                        onSelect()
+                    } label: {
                         HStack(spacing: 10) {
                             ApplicationIcon(data: application.iconPNGData, fallback: "app.dashed")
                             Text(application.title)

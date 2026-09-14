@@ -116,6 +116,16 @@ enum ColorPalette {
     }
 }
 
+/// The keys the app persists its own settings under.
+///
+/// Named in one place when two views read one — the screen that obeys a setting and the panel that
+/// offers it. Two spellings of the same key is a switch that silently does nothing for one of them,
+/// which is the sort of bug that survives a lot of testing.
+enum PreferenceKey {
+    /// Whether picking something from a floating panel puts the panel away.
+    static let hidesPanelAfterSelect = "Peering.hidesPanelAfterSelect"
+}
+
 /// A section heading: small, tracked, uppercase.
 ///
 /// One voice for every label in the app rather than each screen choosing its own size. A headline

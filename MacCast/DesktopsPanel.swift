@@ -19,6 +19,10 @@ struct DesktopsPanel: View {
     /// the Mac underneath it.
     @Binding var chromeFrames: [ChromeRegion: CGRect]
 
+    /// Called once the user has picked a desktop, so the caller can put the panel away. What
+    /// "away" means is the caller's business — see the setting it consults.
+    var onSelect: () -> Void = {}
+
     /// Whether the panel is worth offering at all.
     ///
     /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
@@ -164,7 +168,11 @@ struct DesktopsPanel: View {
         model.send(.switchToSpace(display: display.displayID, index: index))
 
         let source = CaptureSource.display(display.displayID)
-        guard model.activeSourceID != source.stableID else { return }
-        model.send(.setCaptureSource(source))
+        if model.activeSourceID != source.stableID {
+            model.send(.setCaptureSource(source))
+        }
+        // Even when no source change was needed: the tap was still a choice, and the panel gets
+        // out of the way for all of them or none.
+        onSelect()
     }
 }

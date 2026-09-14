@@ -26,6 +26,13 @@ struct RemoteScreen: View {
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
     @State private var canvasSize: CGSize = .zero
+    /// Whether picking something from a floating panel puts the panel away.
+    ///
+    /// Persisted, because it is a working style rather than a moment: someone moving between a
+    /// Mac's desktops wants the panel out of the way after each one, and someone picking their way
+    /// through several sources in a row wants it to stay put.
+    @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+
     @State private var openPanel: Panel?
     @State private var statusBarExpanded = true
 
@@ -700,10 +707,10 @@ struct RemoteScreen: View {
             shortcutsPanel
                 .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .desktops:
-            DesktopsPanel(chromeFrames: $chromeFrames)
+            DesktopsPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
                 .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .sources:
-            SourcesPanel(chromeFrames: $chromeFrames)
+            SourcesPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
                 .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .settings:
             SettingsPanel(chromeFrames: $chromeFrames) {
@@ -718,6 +725,17 @@ struct RemoteScreen: View {
     /// The widest a floating panel may be. Wide enough for a source picker's names and icons to be
     /// scanned, narrow enough that it stays clear of the rails on a phone held sideways.
     private static let panelWidth: CGFloat = 520
+
+    /// Puts the panel away once the user has picked something from it, if that is what they asked
+    /// for.
+    ///
+    /// Shortcuts is exempt and always will be, whatever the setting says: its buttons are momentary
+    /// key presses rather than choices, and a panel that shut after every keystroke would have to
+    /// be reopened for the next one.
+    private func closePanelAfterSelection() {
+        guard hidesPanelAfterSelect else { return }
+        withAnimation(Motion.settle) { openPanel = nil }
+    }
 
     /// Return, beside the pointer rather than inside the shortcuts panel — see ``QuickKeyButton``
     /// for why it earns a permanent place. The arrow strip in the panel keeps its own copy: that
