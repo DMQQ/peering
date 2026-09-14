@@ -59,24 +59,99 @@ detail; `info` shows registrations and session allocations.
 
 ### On a server
 
-Three ports, and only the first needs to be memorable:
+**The relay is not an HTTP service, and only one of its three listeners can be proxied.**
+Signalling is a WebSocket and nginx can front it. Control is a raw TCP splice carrying a TLS session
+belonging to the two ends — nginx's `sites-enabled` cannot proxy it, and neither can anything else
+that expects HTTP. Video is UDP. So the shape depends on whether the machine already serves HTTPS.
 
-| Port | Protocol | What |
+| Port | Protocol | Proxied? |
 |---|---|---|
-| 443 | TCP | Signalling. 443 rather than something free, because it is the one port guest and corporate networks never block |
-| 9443 | TCP | Control relay |
-| 40000–40100 | UDP | Video, one port per live session |
+| signalling | TCP | Yes, if you want — see B |
+| control | TCP | **No.** Direct only |
+| video | UDP | **No.** Direct only |
 
-**DNS** — an `A` record for the relay host pointing at the server. Add an `AAAA` too if it has IPv6,
-and check which the clients actually pick, because a broken IPv6 route shows up as a connection
-that hangs rather than one that fails.
+**DNS** — an `A` record for the relay host. Add an `AAAA` if the server has IPv6, and check which one
+clients actually pick: a broken IPv6 route shows up as a connection that hangs rather than one that
+fails, which is much harder to diagnose.
 
-**Firewall** — open exactly the three above and nothing else. The video rule can only be written
-once `PEERINGD_VIDEO_PORTS` is set.
+#### A — direct ports
+
+Simplest, and right for a machine with nothing else on it. The relay owns its ports and terminates
+its own TLS.
+
+```ini
+Environment=PEERINGD_SIGNAL_ADDR=0.0.0.0:8443
+Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
+Environment=PEERINGD_VIDEO_PORTS=40000-40100
+Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem
+Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/peering.dmqq.dev/privkey.pem
+```
+
+Bind 443 if it is free — it is the one port guest and corporate networks never block. Otherwise use
+anything, accepting that a restrictive network may refuse it.
+
+#### B — nginx in front of signalling
+
+For a machine already serving HTTPS, where 443 is taken. nginx terminates TLS for the WebSocket and
+the relay does not need a certificate at all.
+
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name peering.dmqq.dev;
+
+    ssl_certificate     /etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/peering.dmqq.dev/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8443;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Not optional. A Mac that is registered holds this socket open and says nothing for
+        # minutes at a time, and nginx closes an idle proxied connection at 60 seconds. Drop it
+        # and the Mac looks offline to every phone, intermittently, for no visible reason.
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
+}
+```
+
+```ini
+Environment=PEERINGD_SIGNAL_ADDR=127.0.0.1:8443
+Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
+Environment=PEERINGD_VIDEO_PORTS=40000-40100
+
+# Required here, and the one setting that is easy to miss. Without it the relay reports the address
+# each client reached it on as the place to connect for control and video — which is right when
+# clients address it directly, and behind nginx is 127.0.0.1, so every client would be told to
+# connect to itself.
+Environment=PEERINGD_PUBLIC_HOST=peering.dmqq.dev
+```
+
+The relay's signalling listener stays on loopback; nginx is the only thing that reaches it. Control
+and video are opened directly in the firewall and are **not** proxied.
+
+#### Firewall
+
+Open exactly the ports in use and nothing else:
 
 ```sh
-certbot certonly --standalone -d peering.dmqq.dev
+# shape A
+ufw allow 8443/tcp && ufw allow 9443/tcp && ufw allow 40000:40100/udp
+# shape B
+ufw allow 443/tcp  && ufw allow 9443/tcp && ufw allow 40000:40100/udp
 ```
+
+The video rule can only be written once `PEERINGD_VIDEO_PORTS` is set.
+
+#### Unit, and updating
 
 ```ini
 [Unit]
@@ -85,27 +160,20 @@ After=network-online.target
 
 [Service]
 ExecStart=/usr/local/bin/peeringd
-Environment=PEERINGD_SIGNAL_ADDR=0.0.0.0:443
-Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
-Environment=PEERINGD_VIDEO_PORTS=40000-40100
-Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem
-Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/peering.dmqq.dev/privkey.pem
+EnvironmentFile=/etc/peeringd.env
 Environment=RUST_LOG=info
 Restart=always
-# Binding 443 as a non-root user needs this, and it is narrower than running the relay as root.
-AmbientCapabilities=CAP_NET_BIND_SERVICE
 User=peering
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Only signalling needs a certificate, and only so the token exchange is not readable in transit —
-the media is encrypted end to end regardless and does not depend on it. Binding 443 as a normal user
-needs `CAP_NET_BIND_SERVICE`, which is preferable to running a network-facing service as root.
+`Environment=` lines go in `/etc/peeringd.env`, which keeps the unit readable and the settings
+greppable. Binding 443 directly needs `AmbientCapabilities=CAP_NET_BIND_SERVICE`; shape B does not,
+since nginx owns that port.
 
-**Updating.** The binary is static and has no runtime dependencies, so an update is a file
-replacement and a restart:
+The binary is static with no runtime dependencies, so an update is a file replacement:
 
 ```sh
 systemctl stop peeringd
@@ -113,8 +181,15 @@ scp peeringd-linux-x86_64 server:/usr/local/bin/peeringd
 ssh server 'chmod +x /usr/local/bin/peeringd && systemctl start peeringd'
 ```
 
-Restarting drops live sessions, and the two ends reconnect on their own — the Mac re-registers and
-the phone asks again. Worth doing when nobody is mid-session anyway.
+Restarting drops live sessions and both ends reconnect on their own — the Mac re-registers, the
+phone asks again. Worth doing when nobody is mid-session anyway.
+
+#### One limitation worth knowing
+
+Shape B gets signalling onto 443, but **control still needs 9443**. Some corporate and hotel
+networks allow only 80 and 443 outbound, so the app will find the Mac and then fail to open the
+control connection. Cellular and home networks are unaffected, which covers the intended use, but
+it is a real edge and worth recognising from the symptom rather than debugging from scratch.
 
 Bandwidth is the only real running cost: see the note below.
 

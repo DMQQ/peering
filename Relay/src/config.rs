@@ -29,6 +29,14 @@ pub struct Config {
     /// Video failing while control works is what a closed range looks like, and it is a miserable
     /// thing to debug, so it is better to say which ports will be used and let them be opened.
     pub video_ports: Option<PortRange>,
+    /// The address to tell clients to connect back to, when it differs from the address they
+    /// reached us on.
+    ///
+    /// **Required behind any proxy.** The relay otherwise reports the local address of the accepted
+    /// socket as the place to connect for control and video — which is exactly right when clients
+    /// address it directly, and exactly wrong when they come through nginx, where that address is
+    /// `127.0.0.1` and every client would be told to connect to itself.
+    pub public_host: Option<String>,
     /// TLS for the signalling listener. `None` serves plaintext, which is only appropriate for
     /// loopback; the two ends' own traffic is encrypted end-to-end regardless.
     pub tls: Option<TlsFiles>,
@@ -143,6 +151,7 @@ impl Config {
             control_addr: address(&get, "PEERINGD_CONTROL_ADDR", "0.0.0.0:9443")?,
             video_bind: address(&get, "PEERINGD_VIDEO_BIND", "0.0.0.0:0")?,
             video_ports,
+            public_host: get("PEERINGD_PUBLIC_HOST"),
             tls,
             session_ttl: Duration::from_secs(seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
         })
@@ -250,6 +259,14 @@ mod tests {
             configured(&[("PEERINGD_SESSION_TTL", "soon")]),
             Err(ConfigError::BadDuration(_, _))
         ));
+    }
+
+    #[test]
+    fn a_public_host_is_optional_until_a_proxy_is_in_front() {
+        assert!(configured(&[]).unwrap().public_host.is_none());
+
+        let config = configured(&[("PEERINGD_PUBLIC_HOST", "peering.dmqq.dev")]).unwrap();
+        assert_eq!(config.public_host.as_deref(), Some("peering.dmqq.dev"));
     }
 
     #[test]

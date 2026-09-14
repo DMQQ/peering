@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let settings = Settings {
-        host: None,
+        host: config.public_host.clone(),
         control_port: config.control_addr.port(),
         video_bind: config.video_bind,
         video_ports,
