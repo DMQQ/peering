@@ -24,17 +24,27 @@ struct ContentView: View {
         }
         .animation(.default, value: model.phase)
         .onChange(of: isRemoteScreen, initial: true) { _, remote in
-            if remote {
-                // Unlock — just update the mask; no geometry request needed. iOS will use
-                // the device's current orientation on the next layout pass. Sending an active
-                // requestGeometryUpdate(.allButUpsideDown) while in portrait would tell iOS
-                // "portrait is fine" and it would stay locked there.
-                OrientationLock.shared.allowed = .allButUpsideDown
-            } else {
-                // Landing screen: actively snap back to portrait.
-                OrientationLock.shared.allowed = .portrait
-                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-                scene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: .portrait))
+            // The mask is what *permits* rotation, and it is read through
+            // `AppDelegate.application(_:supportedInterfaceOrientationsFor:)`.
+            OrientationLock.shared.allowed = remote ? .allButUpsideDown : .portrait
+
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene }).first
+            else { return }
+
+            // Writing the mask is not enough, and this is the line that was missing.
+            // UIKit consults the delegate at its own discretion and otherwise keeps the
+            // value it last read — which was `.portrait`, set by the landing screen. So
+            // the remote screen went on offering portrait while `allowed` said otherwise,
+            // and no geometry request could fix that: the mask still excluded landscape.
+            scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+
+            // Only the landing screen asks for an actual rotation. On the remote screen
+            // the device decides — requesting a geometry there would name the orientation
+            // the phone is already in (portrait, a member of the allowed set) and read as
+            // "stay put", which is what made rotation look disabled while sharing.
+            if !remote {
+                scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
             }
         }
     }
