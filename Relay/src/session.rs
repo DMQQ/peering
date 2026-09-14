@@ -138,6 +138,14 @@ pub struct Allocated {
     /// Shared with the task that owns the session's UDP socket. Nothing else touches it, so it
     /// needs no lookup by token.
     pub video: Arc<std::sync::Mutex<VideoPairing>>,
+    /// Resolves when this session stops being the current one — superseded by a reconnect, or
+    /// released. The UDP task waits on it so it can hand its port back at once.
+    ///
+    /// **This is what makes a one-port video range usable.** Without it the task would hold its
+    /// socket until the idle timeout, and a phone reconnecting inside that window would find the
+    /// only port taken and be refused — so every reconnect would fail for the next few minutes,
+    /// which is precisely when reconnects happen.
+    pub shutdown: oneshot::Receiver<()>,
 }
 
 struct Session {
@@ -145,6 +153,17 @@ struct Session {
     client_id: String,
     video_tokens: [Token; 2],
     control: ControlPairing,
+    /// Dropped when the session is superseded or released. Dropping it is the whole signal — the
+    /// receiver resolves with an error and the UDP task stops — so there is no separate teardown
+    /// path to keep in step with this one.
+    ///
+    /// **Deliberately never read**, which is what the attribute is about: it exists for its `Drop`
+    /// and for nothing else. Kept as a named field rather than an underscore binding so that what
+    /// it is stays legible where it is constructed, since the thing it prevents — a reconnect
+    /// refused because the previous session is still holding the only video port — is not obvious
+    /// from the code that would otherwise look like it does nothing.
+    #[allow(dead_code)]
+    shutdown: oneshot::Sender<()>,
     last_activity: Instant,
 }
 
@@ -183,8 +202,11 @@ impl Registry {
         let control_token = new_token();
         let video_tokens = [new_token(), new_token()];
         let video = Arc::new(std::sync::Mutex::new(VideoPairing::new(video_tokens)));
+        let (shutdown, shutdown_signal) = oneshot::channel();
 
         let mut inner = self.inner.lock().await;
+        // Superseding the previous session drops its `shutdown` sender, which is what tells its
+        // video task to stop and release the port. Nothing else has to be arranged.
         inner.sessions.retain(|_, session| {
             !(session.host_id == host_id && session.client_id == client_id)
         });
@@ -195,6 +217,7 @@ impl Registry {
                 client_id: client_id.to_string(),
                 video_tokens,
                 control: ControlPairing::default(),
+                shutdown,
                 last_activity: Instant::now(),
             },
         );
@@ -203,6 +226,7 @@ impl Registry {
             control_token,
             video_tokens,
             video,
+            shutdown: shutdown_signal,
         }
     }
 

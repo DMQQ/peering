@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use tokio::net::UdpSocket;
+use tokio::sync::oneshot;
 use tokio::time::timeout;
 use tracing::{debug, info};
 
@@ -124,6 +125,7 @@ pub async fn serve_session(
     bind: SocketAddr,
     pool: Arc<PortPool>,
     pairing: Arc<Mutex<VideoPairing>>,
+    shutdown: oneshot::Receiver<()>,
     idle_ttl: Duration,
 ) -> std::io::Result<u16> {
     let mut addr = bind;
@@ -154,7 +156,7 @@ pub async fn serve_session(
     let port = socket.local_addr()?.port();
 
     tokio::spawn(async move {
-        forward(socket, pairing, idle_ttl).await;
+        forward(socket, pairing, shutdown, idle_ttl).await;
         if fixed.is_some() {
             pool.release(port);
         }
@@ -164,12 +166,31 @@ pub async fn serve_session(
     Ok(port)
 }
 
-async fn forward(socket: UdpSocket, pairing: Arc<Mutex<VideoPairing>>, idle_ttl: Duration) {
+async fn forward(
+    socket: UdpSocket,
+    pairing: Arc<Mutex<VideoPairing>>,
+    mut shutdown: oneshot::Receiver<()>,
+    idle_ttl: Duration,
+) {
     let mut buf = vec![0u8; MAX_DATAGRAM];
     let mut dropped_unbound: u64 = 0;
 
     loop {
-        match timeout(IDLE_POLL, socket.recv_from(&mut buf)).await {
+        // The shutdown arm breaks, so the receiver is never polled after it has resolved — which
+        // matters, because polling a completed `oneshot` a second time panics.
+        //
+        // Waiting on this at all is what makes a one-port video range work. Otherwise the socket
+        // lives out the idle timeout after a phone has already reconnected, and the replacement
+        // session is refused the only port there is.
+        let received = tokio::select! {
+            _ = &mut shutdown => {
+                debug!("session superseded; releasing the video port");
+                break;
+            }
+            received = timeout(IDLE_POLL, socket.recv_from(&mut buf)) => received,
+        };
+
+        match received {
             Ok(Ok((len, from))) => {
                 let packet = &buf[..len];
 
@@ -269,13 +290,21 @@ mod tests {
         assert_eq!(video.peer_of(&local(5000)), None);
     }
 
-    /// Binds both ends and returns the relay address, a socket for each end, and the pairing.
-    async fn connected_session() -> (SocketAddr, UdpSocket, UdpSocket) {
+    /// Binds both ends, and returns the relay address, a socket for each end, and the session's
+    /// keep-alive.
+    ///
+    /// The keep-alive is handed back rather than held here, and it has to be: it drives the
+    /// shutdown signal, so dropping it on return would close the relay before the caller could use
+    /// it. Every caller binds it for the length of the test.
+    async fn connected_session() -> (SocketAddr, UdpSocket, UdpSocket, oneshot::Sender<()>) {
         let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+        let (keep_alive, shutdown) = oneshot::channel();
+
         let port = serve_session(
             ephemeral(),
             Arc::new(PortPool::new(None)),
             Arc::clone(&pairing),
+            shutdown,
             Duration::from_secs(30),
         )
         .await
@@ -291,12 +320,12 @@ mod tests {
         host.send_to(&bind_packet(&HOST_TOKEN), relay).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        (relay, client, host)
+        (relay, client, host, keep_alive)
     }
 
     #[tokio::test]
     async fn a_datagram_reaches_the_other_end_and_not_back_to_its_sender() {
-        let (relay, client, host) = connected_session().await;
+        let (relay, client, host, _session) = connected_session().await;
 
         client.send_to(b"from the phone", relay).await.unwrap();
 
@@ -320,10 +349,15 @@ mod tests {
     #[tokio::test]
     async fn traffic_from_an_unbound_address_is_dropped_without_a_reply() {
         let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+        // Held for the test's lifetime: dropping it would fire the shutdown signal immediately and
+        // close the relay the test is about to use.
+        let (_keep_alive, shutdown) = oneshot::channel();
+
         let port = serve_session(
             ephemeral(),
             Arc::new(PortPool::new(None)),
             Arc::clone(&pairing),
+            shutdown,
             Duration::from_secs(30),
         )
         .await
@@ -389,11 +423,13 @@ mod tests {
         // The property the firewall rule depends on: if it says these ports, these are the ports.
         let pool = Arc::new(PortPool::new(PortRange::parse("47800-47805")));
         let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+        let (_keep_alive, shutdown) = oneshot::channel();
 
         let port = serve_session(
             "127.0.0.1:0".parse().unwrap(),
             Arc::clone(&pool),
             pairing,
+            shutdown,
             Duration::from_secs(30),
         )
         .await
@@ -403,5 +439,76 @@ mod tests {
             (47800..=47805).contains(&port),
             "bound {port}, which is outside the range the firewall would open"
         );
+    }
+
+    #[tokio::test]
+    async fn a_superseded_session_gives_its_port_back_at_once() {
+        // A range of exactly one, which is what a server with a single forwarded UDP port looks
+        // like. Without the shutdown signal the first session would hold that port for the whole
+        // idle timeout, so a phone reconnecting inside that window would be refused — and a phone
+        // reconnects precisely when something has just gone wrong, which is the worst moment to
+        // also be unable to start a session.
+        let pool = Arc::new(PortPool::new(PortRange::parse("47900-47900")));
+        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+
+        let (first_keep_alive, first_shutdown) = oneshot::channel();
+        let first = serve_session(
+            ephemeral(),
+            Arc::clone(&pool),
+            Arc::clone(&pairing),
+            first_shutdown,
+            Duration::from_secs(300),
+        )
+        .await
+        .expect("the first session should get the only port");
+        assert_eq!(first, 47900);
+
+        // A second session while the first is still live is genuinely refused — there is one port
+        // and it is taken. This is the correct answer, not a bug.
+        let (_second_keep_alive, second_shutdown) = oneshot::channel();
+        assert!(
+            serve_session(
+                ephemeral(),
+                Arc::clone(&pool),
+                Arc::clone(&pairing),
+                second_shutdown,
+                Duration::from_secs(300),
+            )
+            .await
+            .is_err(),
+            "a second session cannot have the port while the first holds it"
+        );
+
+        // Dropping the sender is what the registry does when a reconnect supersedes a session.
+        drop(first_keep_alive);
+
+        // The task has to wake and release, which is asynchronous — poll rather than sleeping a
+        // fixed amount, so the test does not encode a guess about scheduling.
+        let mut second_keep_alive = None;
+        let mut reclaimed = None;
+        for _ in 0..50 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            let (keep_alive, shutdown) = oneshot::channel();
+            if let Ok(port) = serve_session(
+                ephemeral(),
+                Arc::clone(&pool),
+                Arc::clone(&pairing),
+                shutdown,
+                Duration::from_secs(300),
+            )
+            .await
+            {
+                second_keep_alive = Some(keep_alive);
+                reclaimed = Some(port);
+                break;
+            }
+        }
+
+        assert_eq!(
+            reclaimed,
+            Some(47900),
+            "the port must come back as soon as the old session is superseded, not when it expires"
+        );
+        drop(second_keep_alive);
     }
 }

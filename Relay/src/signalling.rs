@@ -287,6 +287,7 @@ async fn dispatch(
                 settings.video_bind,
                 Arc::clone(&settings.video_ports),
                 Arc::clone(&allocated.video),
+                allocated.shutdown,
                 settings.session_ttl,
             )
             .await

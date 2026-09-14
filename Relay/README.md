@@ -208,6 +208,32 @@ Three ways out, in the order worth trying:
 Cloudflare Spectrum can proxy arbitrary TCP and UDP and would solve this, but it is priced for
 enterprises and is not a reasonable line item for this product.
 
+#### Shared IPv4 with forwarded ports
+
+Some hosts — mikr.us among them — give you a public IPv6 address and no IPv4 of your own, but
+forward a handful of ports on a shared IPv4 address. **That is enough, and it needs only two of
+them**, because signalling rides Cloudflare and never touches IPv4 directly:
+
+| Forwarded port | To | Carries |
+|---|---|---|
+| one TCP | the relay's control port, e.g. 9443 | Control |
+| one UDP | the relay's video port | Video |
+
+```
+PEERINGD_VIDEO_PORTS=40000-40000
+PEERINGD_PUBLIC_HOST=relay.dmqq.dev
+```
+
+**The video range must be as small as the number of ports you forward** — with one forwarded UDP
+port, a single-port range. The relay refuses a session when its range is exhausted rather than
+quietly sharing a port, so a range wider than the forwarding is a session that cannot start rather
+than two sessions that interfere.
+
+One port is genuinely enough for this product: one phone, one Mac, one session. A reconnect
+supersedes the previous session and takes the port straight back, rather than waiting for it to
+expire — which is the behaviour a one-port range depends on, and which is why a session's video
+task stops the moment it is superseded.
+
 #### Firewall
 
 Open exactly the ports in use and nothing else:
