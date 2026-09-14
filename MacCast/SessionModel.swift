@@ -74,6 +74,12 @@ struct Macro: Identifiable, Hashable {
 @Observable
 @MainActor
 final class SessionModel {
+    enum ConnectionPath: String, Sendable {
+        case lan = "LAN"
+        case relay = "RELAY"
+        case direct = "DIRECT"
+    }
+
     // MARK: - Connection state
 
     private(set) var phase: ClientSession.Phase = .idle
@@ -85,6 +91,7 @@ final class SessionModel {
     private(set) var catalog: CaptureCatalog?
     private(set) var notes: [String] = []
     private(set) var videoStatus = "No video stream"
+    private(set) var connectionPath: ConnectionPath?
     private(set) var pairedHostIDs: [String] = []
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
@@ -240,6 +247,20 @@ final class SessionModel {
         // reads its own defaults, and the widget can only see the shared container.
         UserDefaults.standard.set(target.displayName, forKey: Self.lastHostNameKey)
         SharedStore.lastHostName = target.displayName
+        switch target {
+        case .discovered(let host):
+            connectionPath = .lan
+            UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
+        case .relay(let hostID, _):
+            connectionPath = .relay
+            UserDefaults.standard.set(hostID, forKey: Self.lastHostIDKey)
+        case .address:
+            connectionPath = .direct
+            // The handshake will replace this with the server's real ID. Keeping the ID of a
+            // different Mac during that window could make an automatic retry dial the relay for
+            // the wrong machine.
+            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
+        }
         // A widget is not a live view and is not told anything. Without this it goes on showing
         // the previous Mac until the system next feels like refreshing it, which on a widget
         // that changes twice a year could be tomorrow.
@@ -398,6 +419,7 @@ final class SessionModel {
             // The host's own name is authoritative. Bonjour is only a hint about where to
             // find it, and it can be stale by minutes.
             hostName = hello.hostName
+            UserDefaults.standard.set(hello.serverID, forKey: Self.lastHostIDKey)
             if hostNames[hello.serverID] != hello.hostName {
                 hostNames[hello.serverID] = hello.hostName
                 UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
@@ -489,11 +511,15 @@ final class SessionModel {
         videoPoll?.cancel()
         videoPoll = nil
         renderer.reset()
+        connectionPath = nil
         latchedModifiers = []
         phase = .disconnected
     }
 
     /// A trusted Mac the user asked for, waiting on discovery to produce it.
+    ///
+    /// Kept for an in-flight Bonjour update from an older request. New requests no longer need
+    /// to wait: they use the relay immediately when the Mac is not visible on the LAN.
     private var pendingHostID: String?
 
     /// Whether a trusted Mac has been asked for and not yet found.
@@ -501,18 +527,16 @@ final class SessionModel {
 
     /// Connects to a Mac this device has paired with before, by ID.
     ///
-    /// Discovery still has to find it, and that is not laziness: a Bonjour endpoint carries the
-    /// interface it was seen on, and a remembered address would be the wrong one the moment the
-    /// network changed. What this saves is the *second* tap — the request is remembered and acted
-    /// on the moment the Mac appears, instead of the user staring at an empty list, deciding it
-    /// did not work, and trying again.
+    /// Bonjour wins when it has the Mac, preserving the existing direct LAN path. Otherwise the
+    /// same stable host ID is sent to the relay; no remembered IP address is involved.
     func connectToTrusted(hostID: String) {
         if let host = hosts.first(where: { $0.id == hostID }) {
             pendingHostID = nil
             connect(to: .discovered(host))
             return
         }
-        pendingHostID = hostID
+        pendingHostID = nil
+        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
     }
 
     // MARK: - Quick connect
@@ -524,22 +548,20 @@ final class SessionModel {
     /// to what. That keeps a shared container, its entitlement and its provisioning out of a
     /// feature whose whole job is to save one tap.
     private static let lastHostNameKey = "Peering.lastHostName"
+    private static let lastHostIDKey = "Peering.lastHostID"
 
-    /// Reconnects to the Mac this device used last, if it can still be found.
-    ///
-    /// Matched by **name** against the hosts currently being advertised rather than by a
-    /// remembered address: a Mac's address changes with the network and its name does not.
-    ///
-    /// Finding nothing does nothing, deliberately. The obvious fallback — the manual address
-    /// field — is the wrong guess on a phone: it is `127.0.0.1` until someone types into it, and
-    /// "connect to the phone you are holding" is a worse answer than leaving the picker up. A
-    /// tap that lands on the picker because discovery has not finished yet is a tap the user can
-    /// repeat; a tap that dials a loopback is one they have to diagnose.
+    /// Reconnects to the Mac this device used last. A matching Bonjour result uses the direct
+    /// LAN path; a trusted ID that is not currently visible uses the relay.
     func reconnectToLastHost() {
         guard !phase.holdsSession else { return }
-        guard let name = UserDefaults.standard.string(forKey: Self.lastHostNameKey) else { return }
-        guard let host = hosts.first(where: { $0.name == name }) else { return }
-        connect(to: .discovered(host))
+        let defaults = UserDefaults.standard
+        let hostID = defaults.string(forKey: Self.lastHostIDKey)
+        let name = defaults.string(forKey: Self.lastHostNameKey)
+        if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
+            connect(to: .discovered(host))
+        } else if let hostID, pins.hostIDs.contains(hostID) {
+            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+        }
     }
 
     /// Whether the next sight of the last Mac should put the session back.
@@ -588,17 +610,18 @@ final class SessionModel {
         }
         guard UserDefaults.standard.bool(forKey: Self.resumeKey) else { return }
 
-        guard let name = UserDefaults.standard.string(forKey: Self.lastHostNameKey),
-              let host = hosts.first(where: { $0.name == name })
-        else {
-            // Not in the list yet, or the Mac has stopped advertising because it is asleep.
-            // Scheduled rather than given up on, for the same reason: both are temporary.
+        let defaults = UserDefaults.standard
+        let hostID = defaults.string(forKey: Self.lastHostIDKey)
+        let name = defaults.string(forKey: Self.lastHostNameKey)
+        if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
+            stopReconnecting()
+            connect(to: .discovered(host))
+        } else if let hostID, pins.hostIDs.contains(hostID) {
+            stopReconnecting()
+            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+        } else {
             scheduleReconnect()
-            return
         }
-
-        stopReconnecting()
-        connect(to: .discovered(host))
     }
 
     /// Arms the next attempt, if there is one left to make.

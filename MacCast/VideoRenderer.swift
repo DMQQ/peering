@@ -47,6 +47,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var renderer: AVSampleBufferVideoRenderer?
     private var formatDescription: CMVideoFormatDescription?
     private var snapshot = Snapshot()
+    private var debugTimingOrigin: (arrival: TimeInterval, pts: Double)?
+    private var debugTimingFrameCount = 0
 
     // MARK: - Attachment
 
@@ -102,6 +104,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             }
 
             self.formatDescription = format
+            self.debugTimingOrigin = nil
+            self.debugTimingFrameCount = 0
             // The old pictures are in the old format. Flushing before the new frames arrive
             // is what stops the layer rendering a frame whose SPS it has already replaced.
             self.renderer?.flush()
@@ -139,7 +143,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // the way out. The frame could not decode, the layer failed again, and the stream
             // stayed broken while the log said it was waiting for a keyframe.
             if renderer.status == .failed {
-                videoLog.notice("renderer failed; flushing and waiting for a keyframe")
+                videoLog.notice("renderer failed; flushing and waiting for a keyframe · \(renderer.error?.localizedDescription ?? "no error", privacy: .public)")
                 renderer.flush()
                 self.lock.withLock {
                     self.snapshot.awaitingKeyframe = true
@@ -170,6 +174,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
             guard let sample = Self.makeSampleBuffer(frame, format: format) else {
                 self.lock.withLock { self.snapshot.framesDropped += 1 }
+                videoLog.error("makeSampleBuffer failed for a \(frame.isKeyframe ? "key" : "delta", privacy: .public) frame")
                 return
             }
 
@@ -187,6 +192,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer?.flush()
             self.formatDescription = nil
+            self.debugTimingOrigin = nil
+            self.debugTimingFrameCount = 0
             self.lock.withLock {
                 self.snapshot = Snapshot()
             }
@@ -265,7 +272,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// with `AllowFrameReordering = false`, so presentation order *is* decode order and there
     /// is no second timestamp to supply. Declaring one would make the layer wait for a
     /// reorder that never comes.
-    private static func makeSampleBuffer(
+    static func makeSampleBuffer(
         _ frame: EncodedVideoFrame,
         format: CMVideoFormatDescription
     ) -> CMSampleBuffer? {
@@ -323,15 +330,35 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return nil
         }
 
-        // Without this the layer schedules the picture against the presentation timestamp and
-        // holds it for a frame interval. For a remote desktop that is pure added latency: the
-        // picture is already late by the time it arrives, and there is nothing to smooth.
-        CMSetAttachment(
-            sampleBuffer,
-            key: kCMSampleAttachmentKey_DisplayImmediately,
-            value: kCFBooleanTrue,
-            attachmentMode: kCMAttachmentMode_ShouldPropagate
-        )
+        // All three keys are sample-level attachments. AVSampleBufferVideoRenderer reads them
+        // from the sample attachment dict (CMSampleBufferGetSampleAttachmentsArray), not from
+        // the buffer-level bearer (CMSetAttachment/CMGetAttachment). Setting them at the wrong
+        // level is silently ignored.
+        //
+        // DisplayImmediately: bypasses the timebase scheduler so frames render as they arrive
+        // rather than being held until their PTS. Without it the renderer buffers frames until
+        // its queue is full, isReadyForMoreMediaData stays false, and P-frames are all dropped.
+        //
+        // NotSync / DependsOnOthers: tell the renderer which frames are independently
+        // decodable. Without them every P-frame looks like a sync sample; the renderer tries
+        // to present each one independently, which fails, and only actual keyframes display —
+        // one every ~2 seconds.
+        if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
+           CFArrayGetCount(attachments) > 0,
+           let rawDict = CFArrayGetValueAtIndex(attachments, 0) {
+            let dict = Unmanaged<CFMutableDictionary>.fromOpaque(rawDict).takeUnretainedValue()
+            let isKeyframe = frame.isKeyframe
+            func set(_ key: CFString, _ value: CFBoolean) {
+                CFDictionarySetValue(
+                    dict,
+                    Unmanaged.passUnretained(key).toOpaque(),
+                    Unmanaged.passUnretained(value).toOpaque()
+                )
+            }
+            set(kCMSampleAttachmentKey_DisplayImmediately, kCFBooleanTrue)
+            set(kCMSampleAttachmentKey_NotSync,            isKeyframe ? kCFBooleanFalse : kCFBooleanTrue)
+            set(kCMSampleAttachmentKey_DependsOnOthers,    isKeyframe ? kCFBooleanFalse : kCFBooleanTrue)
+        }
 
         return sampleBuffer
     }

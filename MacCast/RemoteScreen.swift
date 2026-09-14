@@ -310,6 +310,7 @@ struct RemoteScreen: View {
                             .lineLimit(1)
                     }
                     Spacer()
+                    connectionPathChip
                     sessionClock
                     if let latency = model.latencyMilliseconds {
                         Text("\(Int(latency.rounded())) ms")
@@ -346,6 +347,7 @@ struct RemoteScreen: View {
                     Text(model.hostName ?? "Mac")
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
+                    connectionPathChip
                     if model.sessionStartedAt != nil {
                         Text("·").font(.caption2).foregroundStyle(.tertiary)
                         sessionClock
@@ -374,6 +376,17 @@ struct RemoteScreen: View {
             try? await Task.sleep(for: .seconds(4))
             withAnimation { statusBarExpanded = false }
         }
+    }
+
+    private var connectionPathChip: some View {
+        Text(model.connectionPath?.rawValue ?? "—")
+            .font(.caption2.weight(.bold))
+            .tracking(0.5)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(.primary.opacity(0.08), in: Capsule())
+            .accessibilityLabel("Connection path")
     }
 
     /// How long the session has been up.

@@ -80,6 +80,7 @@ final class HostModel {
     private var coordinator: VideoCoordinator?
 
     private var server: HostServer?
+    private var relayRegistration: RelayHostRegistration?
     private var pins: PinStore?
     private var identity: SelfSignedIdentity?
     private var spaceObserver: NSObjectProtocol?
@@ -220,6 +221,15 @@ final class HostModel {
 
         do {
             try server.start()
+            let registration = RelayHostRegistration(
+                device: device,
+                onSession: { [weak server] session in server?.connectThroughRelay(session) },
+                onStatus: { [weak self] message in
+                    Task { @MainActor [weak self] in self?.record(message) }
+                }
+            )
+            relayRegistration = registration
+            registration.start()
         } catch {
             let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             status = .failed(message)
@@ -237,6 +247,8 @@ final class HostModel {
         input.releaseAll()
         server?.stop()
         server = nil
+        relayRegistration?.stop()
+        relayRegistration = nil
         coordinator?.stop()
         coordinator = nil
         if let observer = spaceObserver {

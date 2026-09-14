@@ -494,6 +494,7 @@ struct DiagnosticsView: View {
             Section("Connection") {
                 LabeledContent("Mac", value: model.hostName ?? "—")
                 LabeledContent("State", value: state)
+                LabeledContent("Path", value: model.connectionPath?.rawValue ?? "—")
                 LabeledContent("Display", value: model.videoStatus)
                 if let tls = model.tlsDescription {
                     LabeledContent("Transport", value: tls)

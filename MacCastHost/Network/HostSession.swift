@@ -67,6 +67,9 @@ final class HostSession: @unchecked Sendable {
     var onCommand: (@Sendable (RemoteCommand) -> Void)?
     /// Invoked with the video connection once a client opens one.
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)?
+    /// Used by relayed sessions that temporarily carry video on the control stream. Invoked only
+    /// after the same pin/SAS authorization required by a normal video connection.
+    var onAuthorized: (@Sendable (PeerConnection) -> Void)?
 
     private var state: State = .awaitingRole
     private(set) var clientID = ""
@@ -264,6 +267,7 @@ final class HostSession: @unchecked Sendable {
 
         if alreadyPaired {
             state = .ready
+            onAuthorized?(connection)
             return
         }
         try beginPairing()
@@ -362,6 +366,7 @@ final class HostSession: @unchecked Sendable {
         send(.pairResult, PairResult(accepted: true))
         emit(.pairingCompleted(clientName: clientName, accepted: true))
         state = .ready
+        onAuthorized?(connection)
     }
 
     // MARK: - Authenticated commands

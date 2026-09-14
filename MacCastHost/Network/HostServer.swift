@@ -23,6 +23,8 @@ final class HostServer: @unchecked Sendable {
 
     private var listener: NWListener?
     private var controlSessions: [HostSession] = []
+    private var pendingRelayBridges: [RelayControlBridge] = []
+    private var activeRelayBridges: [RelayControlBridge] = []
 
     /// Each video connection is tagged with the client key that authorized it, so it can be
     /// torn down when that client's control session ends.
@@ -140,8 +142,11 @@ final class HostServer: @unchecked Sendable {
             listener = nil
             for session in controlSessions { session.cancel() }
             for entry in videoConnections { entry.peer.cancel() }
+            for bridge in pendingRelayBridges + activeRelayBridges { bridge.cancel() }
             controlSessions.removeAll()
             videoConnections.removeAll()
+            pendingRelayBridges.removeAll()
+            activeRelayBridges.removeAll()
         }
     }
 
@@ -155,6 +160,8 @@ final class HostServer: @unchecked Sendable {
     // MARK: - Connections
 
     private func accept(_ connection: NWConnection) {
+        let relayBridge = pendingRelayBridges.isEmpty ? nil : pendingRelayBridges.removeFirst()
+        if let relayBridge { activeRelayBridges.append(relayBridge) }
         let peer = PeerConnection(connection: connection, queue: queue)
 
         let session = HostSession(
@@ -191,6 +198,13 @@ final class HostServer: @unchecked Sendable {
             videoConnections.append((peer: videoPeer, clientKey: key))
             onVideoConnection?(videoPeer)
         }
+        if relayBridge != nil {
+            // The remote transport currently multiplexes encoded video onto this TLS stream. The
+            // relay still cannot read it; this is the same authenticated connection as control.
+            session.onAuthorized = { [weak self] controlPeer in
+                self?.onVideoConnection?(controlPeer)
+            }
+        }
 
         session.onEnded = { [weak self] in
             guard let self else { return }
@@ -202,10 +216,33 @@ final class HostServer: @unchecked Sendable {
             // stop: a video connection that outlived its control session would keep
             // delivering the screen to a client the host believes is gone.
             closeVideoConnections(for: session.peerPublicKey)
+            if let relayBridge {
+                relayBridge.cancel()
+                activeRelayBridges.removeAll { $0 === relayBridge }
+            }
         }
 
         controlSessions.append(session)
         session.start()
+    }
+
+    /// Opens the host half of a relay session. A tiny loopback bridge feeds the outbound internet
+    /// socket back into this listener, so Network.framework still sees an accepted TLS connection
+    /// and preserves the Mac's server role and the existing mTLS/pinning implementation.
+    func connectThroughRelay(_ relaySession: RelaySession) {
+        queue.async { [weak self] in
+            guard let self, self.listener != nil else { return }
+            do {
+                let bridge = try RelayControlBridge(
+                    session: relaySession,
+                    localPort: ProtocolInfo.defaultPort
+                )
+                self.pendingRelayBridges.append(bridge)
+                bridge.start()
+            } catch {
+                self.emit(.failed("Could not open the relay control tunnel: \(error.localizedDescription)"))
+            }
+        }
     }
 
     /// Pushes an updated capture catalogue to every authorized client.

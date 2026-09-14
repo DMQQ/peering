@@ -6,10 +6,52 @@
 //
 
 import RemoteCore
+import AVFoundation
 import XCTest
 @testable import MacCast
 
 final class MacCastTests: XCTestCase {
+
+    func testDeltaVideoSampleIsMarkedAsDependentAndNotSync() throws {
+        let sample = try makeVideoSample(isKeyframe: false)
+
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_NotSync), true)
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_DependsOnOthers), true)
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_DisplayImmediately), true)
+    }
+
+    func testKeyframeVideoSampleIsMarkedAsIndependentAndSync() throws {
+        let sample = try makeVideoSample(isKeyframe: true)
+
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_NotSync), false)
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_DependsOnOthers), false)
+        XCTAssertEqual(attachmentBool(sample, kCMSampleAttachmentKey_DisplayImmediately), true)
+    }
+
+    private func makeVideoSample(isKeyframe: Bool) throws -> CMSampleBuffer {
+        var format: CMVideoFormatDescription?
+        XCTAssertEqual(CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            codecType: kCMVideoCodecType_H264,
+            width: 16,
+            height: 16,
+            extensions: nil,
+            formatDescriptionOut: &format
+        ), noErr)
+        let frame = EncodedVideoFrame(
+            isKeyframe: isKeyframe,
+            pixelWidth: 16,
+            pixelHeight: 16,
+            presentationTime: VideoTimestamp(value: 0, timescale: 600),
+            data: Data([0, 0, 0, 1])
+        )
+        return try XCTUnwrap(VideoRenderer.makeSampleBuffer(frame, format: try XCTUnwrap(format)))
+    }
+
+    private func attachmentBool(_ sample: CMSampleBuffer, _ key: CFString) -> Bool? {
+        CMGetAttachment(sample, key: key, attachmentModeOut: nil)
+            .map { CFBooleanGetValue($0 as! CFBoolean) }
+    }
 
     // Gesture locations and the bounds used to normalize them must come from the same UIKit
     // view. RemoteScreen used to mix this full-screen coordinate space with its safe-area-sized

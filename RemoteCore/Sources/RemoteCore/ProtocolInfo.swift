@@ -9,7 +9,12 @@ public enum ProtocolInfo {
     /// display it acts on. An older host cannot decode either, so this is an incompatible change
     /// and is declared as one — the handshake turns it into "update whichever is older" rather
     /// than a decode failure in the middle of a session.
-    public static let version: UInt16 = 2
+    /// 3: adds relay signalling and routed control/video transports.
+    public static let version: UInt16 = 3
+
+    /// Public signalling endpoint. Control and video endpoints are supplied per session by the
+    /// relay, so only this address belongs in the apps.
+    public static let relaySignallingURL = URL(string: "wss://peering.dmqq.dev/")!
 
     /// Bonjour service type. Must also appear in the client's `NSBonjourServices`
     /// Info.plist key, or browsing fails silently with no prompt and no error.

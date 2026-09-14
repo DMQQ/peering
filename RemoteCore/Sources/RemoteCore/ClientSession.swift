@@ -81,11 +81,14 @@ public final class ClientSession: @unchecked Sendable {
         /// A literal address. What the simulator needs, since Bonjour there is unreliable —
         /// and the honest fallback for a network that blocks multicast.
         case address(host: String, port: UInt16)
+        /// A previously paired Mac reached through `peeringd` by its stable device ID.
+        case relay(hostID: String, name: String)
 
         public var displayName: String {
             switch self {
             case .discovered(let host): return host.name
             case .address(let host, let port): return "\(host):\(port)"
+            case .relay(_, let name): return name
             }
         }
     }
@@ -143,6 +146,8 @@ public final class ClientSession: @unchecked Sendable {
     private var _phase: Phase = .idle
     private var control: ClientConnection?
     private var video: ClientConnection?
+    private var relayProxy: RelayControlProxy?
+    private var usesRelayedSingleStream = false
     private var _serverHello: ServerHello?
     private var _catalog: CaptureCatalog?
     private var _serverKey: Data?
@@ -234,6 +239,7 @@ public final class ClientSession: @unchecked Sendable {
 
         let pinned: Data? = {
             if case .discovered(let host) = target { return pins.pin(for: host.id) }
+            if case .relay(let hostID, _) = target { return pins.pin(for: hostID) }
             // A literal address says nothing about *which* Mac is at it, so there is no pin
             // to insist on before the handshake. The post-handshake check below covers it.
             return nil
@@ -261,9 +267,31 @@ public final class ClientSession: @unchecked Sendable {
                     pinnedServerKey: nil,
                     timeout: timeout
                 )
+            case .relay(let hostID, _):
+                guard let pin = pins.pin(for: hostID) else {
+                    throw Failure.pinMismatch(hostID: hostID)
+                }
+                let allocation = try await RelaySignallingConnection.requestSession(
+                    at: ProtocolInfo.relaySignallingURL,
+                    hostID: hostID,
+                    clientID: clientID
+                )
+                let proxy = RelayControlProxy(session: allocation)
+                let endpoint = try await proxy.start()
+                lock.withLock {
+                    relayProxy = proxy
+                    usesRelayedSingleStream = true
+                }
+                try await connection.connect(
+                    to: endpoint,
+                    identity: identity,
+                    pinnedServerKey: pin,
+                    timeout: timeout
+                )
             }
         } catch {
-            let message = (pinned != nil)
+            let isRelaySetupFailure = error is RelaySignallingError || error is RelayTunnelError
+            let message = (pinned != nil && !isRelaySetupFailure)
                 // A pin was in force and TLS refused, which is the one failure worth naming
                 // precisely: it is either an impostor or a Mac that was reset.
                 ? "The Mac at \(target.displayName) did not present the key this device has pinned for it. If it was reset, forget it here and pair again."
@@ -286,6 +314,7 @@ public final class ClientSession: @unchecked Sendable {
         //    Mac knows its own pin store.
         let hostID: String? = {
             if case .discovered(let host) = target { return host.id }
+            if case .relay(let hostID, _) = target { return hostID }
             return nil
         }()
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
@@ -548,7 +577,12 @@ public final class ClientSession: @unchecked Sendable {
 
         // A video connection is authorized by an *authenticated* control session for the same
         // peer key, so it can only be opened once the handshake above has finished.
-        openVideoIfNeeded()
+        if lock.withLock({ usesRelayedSingleStream }) {
+            emit(.video(.connecting))
+            emit(.note("Remote session open; video is sharing the encrypted relay stream."))
+        } else {
+            openVideoIfNeeded()
+        }
         startPinging()
     }
 
@@ -568,6 +602,9 @@ public final class ClientSession: @unchecked Sendable {
         case .error:
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)
             fail(payload?.message ?? "The Mac reported an error.")
+
+        case .videoConfig, .videoFrame:
+            handleVideoFrame(frame)
 
         default:
             sessionLog.notice("ignoring unexpected \(String(describing: frame.kind), privacy: .public) on a ready session")
@@ -723,8 +760,11 @@ public final class ClientSession: @unchecked Sendable {
         lock.lock()
         let control = self.control
         let video = self.video
+        let relayProxy = self.relayProxy
         self.control = nil
         self.video = nil
+        self.relayProxy = nil
+        usesRelayedSingleStream = false
         pingTask?.cancel()
         pingTask = nil
         state = .idle
@@ -737,6 +777,7 @@ public final class ClientSession: @unchecked Sendable {
         coalescer.flush()
         video?.cancel()
         control?.cancel()
+        relayProxy?.cancel()
         emit(.phase(.disconnected))
     }
 
@@ -746,7 +787,9 @@ public final class ClientSession: @unchecked Sendable {
         state = .failed
         _phase = .failed(message)
         let video = self.video
+        let relayProxy = self.relayProxy
         self.video = nil
+        self.relayProxy = nil
         pingTask?.cancel()
         pingTask = nil
         lock.unlock()
@@ -757,6 +800,7 @@ public final class ClientSession: @unchecked Sendable {
         // The video socket carries no handshake of its own and is authorized only by this
         // control session, so it dies with it.
         video?.cancel()
+        relayProxy?.cancel()
         connection()?.cancel()
     }
 

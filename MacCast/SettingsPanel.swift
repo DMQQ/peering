@@ -56,6 +56,7 @@ struct SettingsPanel: View {
             SectionLabel("Session")
             info("Mac", model.hostName ?? "—")
             info("State", stateDescription)
+            info("Path", model.connectionPath?.rawValue ?? "—")
             info("Video", model.videoStatus)
             if let latency = model.latencyMilliseconds {
                 info("Latency", "\(Int(latency.rounded())) ms")
