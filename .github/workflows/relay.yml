@@ -1,0 +1,77 @@
+# Builds the relay on a native Linux runner and hands back a static binary.
+#
+# This is the answer to "do I cross-compile from my Mac, or build on the VPS?" — neither. A GitHub
+# runner is already x86_64 Linux, so there is no cross-compilation to get wrong, no build toolchain
+# to install on a public-facing machine, and the artefact is reproducible from the lockfile rather
+# than from whatever state the server happened to be in.
+#
+# The binary is built against musl so it is statically linked: one file, no runtime dependencies, and
+# it runs on any Linux regardless of the distribution's libc.
+
+name: relay
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "Relay/**"
+      - ".github/workflows/relay.yml"
+  pull_request:
+    paths:
+      - "Relay/**"
+  # So a binary can be produced on demand without cutting a tag first.
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+      # The suite includes five tests that drive the whole relay over real sockets, so this is a
+      # real check that the thing works rather than only that it compiles.
+      - run: cargo test --locked
+        working-directory: Relay
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: x86_64-unknown-linux-musl
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Relay
+
+      # `musl-tools` supplies musl-gcc, which the `ring` crate needs to compile its C for the musl
+      # target. This is the whole build dependency list — see the comment in Cargo.toml about why
+      # the provider is ring rather than aws-lc-rs.
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - run: cargo build --release --locked --target x86_64-unknown-linux-musl
+        working-directory: Relay
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+
+      - run: cp Relay/target/x86_64-unknown-linux-musl/release/peeringd peeringd-linux-x86_64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: peeringd-linux-x86_64
+          path: peeringd-linux-x86_64
+
+      # Tagging is what turns the build into something downloadable without logging in, which is
+      # what you want when a server needs updating.
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: peeringd-linux-x86_64
+
+# To also ship an arm64 build — for Hetzner CAX, Oracle Ampere, Graviton — add a matrix over
+# x86_64-unknown-linux-musl and aarch64-unknown-linux-musl. The arm64 target additionally needs an
+# aarch64 musl cross-compiler, which `musl-tools` does not provide, so it wants either the `cross`
+# tool or `messense/rust-musl-cross`. Not worth the complexity until a server actually needs it.
