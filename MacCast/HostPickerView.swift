@@ -444,80 +444,136 @@ struct HostPickerView: View {
 /// that gap — the dots are the connection, and they are drawn at the same opacity the app uses
 /// everywhere else for "this is on".
 private struct DeviceLinkArtwork: View {
-    @State private var animating = false
+    /// How far a device drifts from centre, in points.
+    ///
+    /// Small and *bounded*: the card is sized to the tallest device plus twice this, so no
+    /// amount of drift can carry one past an edge.
+    private static let drift: CGFloat = 5
+
+    private static let cardHeight: CGFloat = 132
+
+    /// Where the phone sits in its cycle relative to the Mac's, as a fraction of its period.
+    ///
+    /// The two are deliberately out of step — a Mac and a phone that rose and fell together
+    /// would read as one object breathing rather than two devices reaching for each other.
+    private static let phonePhase = 0.35
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [.white.opacity(0.06), .white.opacity(0.02)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.16), .white.opacity(0.03)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                }
+        // The motion is computed from a clock rather than handed to SwiftUI as an animation, and
+        // that is load-bearing rather than a style preference.
+        //
+        // `.animation(_:value:)` with `repeatForever` reads as the obvious tool here and is not
+        // safe in this position: the modifier covers *every* animatable change in the subtree
+        // beneath it, so it does not capture only the offset it was written for — it captures the
+        // devices' own sizing too, and repeating that makes them grow and shrink forever. An
+        // `.animation` on an ancestor then captures the whole thing a second time. That is how a
+        // five-point float turns into devices walking out of the card.
+        //
+        // A value derived from `timeline.date` has no animation to capture, re-time or restart,
+        // and its amplitude is a number this file can bound rather than one SwiftUI derives.
+        TimelineView(.animation) { context in
+            let now = context.date.timeIntervalSinceReferenceDate
 
-            HStack(spacing: 26) {
-                ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(.white.opacity(0.12))
-                        .frame(width: 122, height: 78)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(ColorPalette.surface)
-                                .padding(4)
-                                .overlay {
-                                    Image(systemName: "cursorarrow.motionlines")
-                                        .font(.system(size: 21, weight: .medium))
-                                        .foregroundStyle(ColorPalette.ink)
-                                }
-                        }
-                    Capsule()
-                        .fill(.white.opacity(0.18))
-                        .frame(width: 142, height: 6)
-                        .offset(y: 6)
-                }
-                .offset(y: animating ? -5 : 0)
-                .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: animating)
+            ZStack {
+                card
 
-                HStack(spacing: 5) {
-                    Circle().fill(ColorPalette.ink).frame(width: 4, height: 4)
-                        .opacity(animating ? 0.9 : 0.2)
-                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0), value: animating)
-                    Circle().fill(ColorPalette.ink).frame(width: 5, height: 5)
-                        .opacity(animating ? 0.9 : 0.2)
-                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0.25), value: animating)
-                    Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)
-                        .opacity(animating ? 0.9 : 0.2)
-                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0.5), value: animating)
+                HStack(spacing: 26) {
+                    mac
+                        .offset(y: Self.wave(now, period: 5.2) * Self.drift)
+                    dots(at: now)
+                    phone
+                        .offset(y: Self.wave(now, period: 6.4, phase: Self.phonePhase) * Self.drift)
                 }
-
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(.white.opacity(0.13))
-                    .frame(width: 50, height: 94)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(ColorPalette.ink.opacity(0.55), lineWidth: 1.5)
-                            .padding(4)
-                    }
-                    .offset(y: animating ? 5 : 0)
-                    .animation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true), value: animating)
+                .offset(x: -3, y: -2)
             }
-            .offset(x: -3, y: -2)
         }
-        .onAppear { animating = true }
+        .frame(height: Self.cardHeight)
         .accessibilityHidden(true)
+    }
+
+    private var card: some View {
+        RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.06), .white.opacity(0.02)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.16), .white.opacity(0.03)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            }
+            // Stated rather than left to the ZStack to infer, so the card is exactly the box the
+            // drift above is bounded against.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var mac: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(.white.opacity(0.12))
+                .frame(width: 122, height: 78)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(ColorPalette.surface)
+                        .padding(4)
+                        .overlay {
+                            Image(systemName: "cursorarrow.motionlines")
+                                .font(.system(size: 21, weight: .medium))
+                                .foregroundStyle(ColorPalette.ink)
+                        }
+                }
+            Capsule()
+                .fill(.white.opacity(0.18))
+                .frame(width: 142, height: 6)
+                .offset(y: 6)
+        }
+    }
+
+    private var phone: some View {
+        RoundedRectangle(cornerRadius: 13, style: .continuous)
+            .fill(.white.opacity(0.13))
+            .frame(width: 50, height: 94)
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(ColorPalette.ink.opacity(0.55), lineWidth: 1.5)
+                    .padding(4)
+            }
+    }
+
+    /// The link itself: three dots lighting in sequence, which is the whole claim of the screen.
+    ///
+    /// Each is a quarter-second behind the last, and the curve spans the same 0.2–0.9 the rest of
+    /// the app uses for "this is on".
+    private func dots(at now: TimeInterval) -> some View {
+        HStack(spacing: 5) {
+            ForEach(Array([CGFloat(4), 5, 6].enumerated()), id: \.offset) { index, diameter in
+                Circle()
+                    .fill(ColorPalette.ink)
+                    .frame(width: diameter, height: diameter)
+                    .opacity(0.55 + 0.35 * Self.wave(
+                        now,
+                        period: 1.5,
+                        phase: -Double(index) * (0.25 / 1.5)
+                    ))
+            }
+        }
+    }
+
+    /// A value in `-1...1` cycling with `period` seconds, shifted `phase` of the way along.
+    ///
+    /// A sine rather than a triangle so the turnaround is soft at both ends; `easeInOut` was
+    /// standing in for exactly this shape.
+    private static func wave(_ now: TimeInterval, period: Double, phase: Double = 0) -> CGFloat {
+        CGFloat(sin(2 * .pi * (now / period + phase)))
     }
 }
 
