@@ -17,5 +17,11 @@ xcuserdata/
 # versions is what keeps a checkout reproducible.
 .swiftpm/
 
+# Cargo's build output for the relay, including the pinned toolchain's artefacts.
+# `cargo init` writes its own .gitignore only when it creates a git repository,
+# and the relay is a subdirectory of one that already exists — so the rule has to
+# live here or several hundred MB of intermediates get committed.
+Relay/target/
+
 # macOS
 .DS_Store

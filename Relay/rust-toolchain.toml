@@ -1,0 +1,8 @@
+# Pinned to this directory only.
+#
+# The machine's default toolchain is 1.80.1, which predates the 2024 edition that current crates
+# in this dependency tree require — `zeroize` is the first one to refuse to build. Rather than move
+# the global default, which every other Rust project on this machine would inherit, the relay pins
+# its own. Delete this file and the directory falls back to whatever `rustup` is set to.
+[toolchain]
+channel = "1.98.1"
