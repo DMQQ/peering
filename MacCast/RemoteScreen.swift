@@ -2,54 +2,6 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-/// A piece of chrome that owns the touches that land on it.
-private enum ChromeRegion: Hashable {
-    case leadingRail
-    case trailingRail
-    /// The scroll wheel, on its own rather than as part of the row it sits in.
-    ///
-    /// A row is mostly empty space between its controls, and a region that covers the whole row
-    /// claims all of it: touches in the gap would stop reaching the Mac, and — worse — a tap
-    /// beside an open panel would count as landing on chrome and so would neither dismiss the
-    /// panel nor click anything. Reporting the controls is what makes the gaps behave like the
-    /// picture they are.
-    case wheel
-    /// The joystick with Return and Back above and beside it.
-    case pointer
-    case panel
-    case statusBar
-    case dock
-}
-
-/// Reports where a piece of chrome is, in the canvas's coordinates.
-///
-/// The gesture surface needs to be told, because it cannot work it out: it is a UIKit view and
-/// the chrome is SwiftUI drawing on top of it, so a touch aimed at a button is delivered to the
-/// canvas as well. See ``CanvasGeometry/isBlocked``.
-private struct ChromeFrameReporter: ViewModifier {
-    let region: ChromeRegion
-    @Binding var frames: [ChromeRegion: CGRect]
-
-    func body(content: Content) -> some View {
-        content.onGeometryChange(for: CGRect.self) {
-            $0.frame(in: .global)
-        } action: { rect in
-            // Guarded, because writing state from a layout callback that state feeds back into
-            // is how a layout loop starts.
-            if frames[region] != rect { frames[region] = rect }
-        }
-    }
-}
-
-private extension View {
-    func reportChromeFrame(
-        _ region: ChromeRegion,
-        into frames: Binding<[ChromeRegion: CGRect]>
-    ) -> some View {
-        modifier(ChromeFrameReporter(region: region, frames: frames))
-    }
-}
-
 /// The pointer's radius.
 ///
 /// A file-level constant because three numbers have to agree: the circle's size, the horizontal
@@ -468,7 +420,8 @@ struct RemoteScreen: View {
                         shortcutsPanel.frame(maxWidth: 520)
                     }
                     if openPanel == .desktops {
-                        desktopStrip.frame(maxWidth: 520, maxHeight: panelHeightLimit(available))
+                        DesktopsPanel(chromeFrames: $chromeFrames)
+                            .frame(maxWidth: 520, maxHeight: panelHeightLimit(available))
                     }
 
                     HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
@@ -502,7 +455,8 @@ struct RemoteScreen: View {
                     shortcutsPanel.frame(maxHeight: panelHeightLimit(available))
                 }
                 if openPanel == .desktops {
-                    desktopStrip.frame(maxHeight: panelHeightLimit(available))
+                    DesktopsPanel(chromeFrames: $chromeFrames)
+                        .frame(maxHeight: panelHeightLimit(available))
                 }
                 // Wheel on the left, pointer on the right, where each thumb already is.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
@@ -557,7 +511,7 @@ struct RemoteScreen: View {
     /// ones around it.
     @ViewBuilder
     private var desktopsButton: some View {
-        if let info = model.catalog?.spaceInfo, showsDesktops(info) {
+        if let info = model.catalog?.spaceInfo, DesktopsPanel.showsDesktops(info) {
             RailButton(
                 icon: "rectangle.split.3x1",
                 label: "Desktops",
@@ -575,160 +529,6 @@ struct RemoteScreen: View {
     /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
     /// even with a single desktop on it, because tapping that desktop is how the picture is moved
     /// to it — a control that can only ever do nothing is clutter, and this one can do something.
-    private func showsDesktops(_ info: SpaceInfo) -> Bool {
-        info.totalCount > 1 || info.displays.count > 1
-    }
-
-    /// The desktops of every screen, as pictures.
-    ///
-    /// Pictures rather than a list of numbers because the question being asked is "which one had
-    /// my browser on it", and a number cannot answer that. Each tile is a snapshot taken when that
-    /// desktop was last active — see ``SpacePreview`` for why it cannot be live.
-    ///
-    /// One row per screen. Spaces are per-display, so a single flat strip of five tiles would be
-    /// five unlabelled pictures two of which are called "Desktop 1" — the grouping is the answer
-    /// to which screen a tile belongs to, and the chip is the label for it. The chip only appears
-    /// when there is more than one screen to tell apart.
-    @ViewBuilder
-    private var desktopStrip: some View {
-        if let info = model.catalog?.spaceInfo, showsDesktops(info) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Desktops")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-
-                // Scrolls when it has to, which is what keeps a third screen or a fourth from
-                // pushing the first row off the top of the panel and out of reach.
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(info.displays) { display in
-                            VStack(alignment: .leading, spacing: 6) {
-                                if info.displays.count > 1 {
-                                    displayChip(display)
-                                }
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        // Offsets rather than `1...count`, which is an empty range
-                                        // when a display reports nothing and traps on the way.
-                                        ForEach(0..<display.count, id: \.self) { offset in
-                                            desktopTile(
-                                                display: display,
-                                                index: offset + 1,
-                                                showsScreenName: info.displays.count > 1
-                                            )
-                                        }
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(10)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 10)
-            .reportChromeFrame(.panel, into: $chromeFrames)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    /// A screen's name, on its own line above that screen's desktops.
-    ///
-    /// Above rather than beside, and hugging its text rather than given a width. Display names are
-    /// arbitrary user-facing strings — "Built-in Retina Display" is a normal one and a phone panel
-    /// is narrow — so sitting beside the tiles would mean a fixed width, and a fixed width would
-    /// mean truncating real names to fit around a thumbnail. Given the whole row's width there is
-    /// nothing to truncate. Each row still starts at the same left edge, which is what keeps the
-    /// panel reading as rows rather than as a ragged list.
-    ///
-    /// The name is read from the catalogue rather than sent alongside the desktops: it is the same
-    /// `NSScreen.localizedName` the source picker shows, so the two can never describe one screen
-    /// two ways.
-    private func displayChip(_ display: SpaceDisplay) -> some View {
-        Text(displayName(display))
-            .font(.system(size: 10, weight: .semibold))
-            .lineLimit(1)
-            .foregroundStyle(ColorPalette.ink)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(ColorPalette.surface, in: Capsule())
-            .overlay {
-                Capsule().strokeBorder(ColorPalette.ink.opacity(0.15))
-            }
-    }
-
-    private func displayName(_ display: SpaceDisplay) -> String {
-        model.catalog?.descriptor(for: .display(display.displayID))?.title ?? "Display"
-    }
-
-    private func desktopTile(display: SpaceDisplay, index: Int, showsScreenName: Bool) -> some View {
-        let isCurrent = index == display.current
-        let label = "Desktop \(index)\(isCurrent ? ", current" : "")"
-        return Button {
-            switchToDesktop(display: display, index: index)
-        } label: {
-            VStack(spacing: 5) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(ColorPalette.surface)
-
-                    if let data = display.preview(for: index)?.jpegData,
-                       let image = UIImage(data: data) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } else {
-                        // An empty tile is the truth: this desktop has not been on screen since
-                        // the host started, so there is no picture of it to show. A placeholder
-                        // image would be a picture of a desktop that does not exist.
-                        Image(systemName: "rectangle.dashed")
-                            .font(.system(size: 15))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .frame(width: 104, height: 65)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(
-                            isCurrent ? ColorPalette.accent : ColorPalette.ink.opacity(0.18),
-                            lineWidth: isCurrent ? 2 : 1
-                        )
-                }
-
-                Text("Desktop \(index)")
-                    .font(.system(size: 10, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? ColorPalette.accent : Color.secondary)
-            }
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.94))
-        .accessibilityLabel(showsScreenName ? "\(displayName(display)) \(label)" : label)
-    }
-
-    /// Reveals a desktop, and takes the picture with it. Always both.
-    ///
-    /// A desktop tile names a *screen* as well as a desktop, so tapping one is a statement about
-    /// where to look. Switching only the Space left the user watching one screen while another
-    /// rearranged itself off-camera — and when the source was a window rather than a display,
-    /// which follows its window wherever that window is, nothing visible happened at all.
-    ///
-    /// This used to insist the current source be a display first, on the theory that a user
-    /// watching one window had asked to watch *that*. That was the wrong call: the tap is a
-    /// destination, and refusing to go there is what made the tiles look broken.
-    ///
-    /// The Space goes out first so the move reads as one thing. The Mac rearranges the desktop
-    /// that was asked for while the picture is still where it was, and the picture then arrives on
-    /// it already showing the right thing; the other order shows the screen being left, and then a
-    /// second jump.
-    private func switchToDesktop(display: SpaceDisplay, index: Int) {
-        model.send(.switchToSpace(display: display.displayID, index: index))
-
-        let source = CaptureSource.display(display.displayID)
-        guard model.activeSourceID != source.stableID else { return }
-        model.send(.setCaptureSource(source))
-    }
-
     private var keysButton: some View {
         RailButton(
             icon: model.showKeyboard ? "keyboard.fill" : "keyboard",
