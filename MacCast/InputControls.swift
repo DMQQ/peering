@@ -57,7 +57,11 @@ struct JoystickView: View {
                 }
                 .offset(knob)
                 .shadow(radius: 3)
-                .animation(Motion.settle, value: knob)
+                // Deliberately *not* animated on `knob`. It is set on every sample of a drag, so
+                // this was starting a spring a hundred-odd times a second on the main thread —
+                // for a view whose whole job is to be under the finger, where anything but
+                // following it exactly is a lag the user can feel. The return to centre is
+                // animated at the one moment it happens, in `onEnded`.
                 .animation(Motion.tap, value: isLongPress)
         }
         .frame(width: radius * 2, height: radius * 2)
@@ -98,7 +102,9 @@ struct JoystickView: View {
                     holdTask?.cancel()
                     holdTask = nil
                     let wasLong = isLongPress
-                    knob = .zero
+                    // The one animation the knob gets: it springs back to the middle rather than
+                    // snapping there, which is what says the stick is at rest.
+                    withAnimation(Motion.settle) { knob = .zero }
                     lastSample = nil
                     touchStart = nil
                     isLongPress = false

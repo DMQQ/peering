@@ -21,6 +21,13 @@ final class InputInjector: @unchecked Sendable {
     private let lock = NSLock()
     private var _transform: InputTransform?
     private var cursor: CGPoint = .zero
+
+    /// When the last joystick nudge arrived. See the `.joystickMove` case: it is what separates
+    /// the first nudge of a gesture from the rest of one.
+    private var lastJoystickAt: DispatchTime?
+
+    /// How long a quiet gap makes the next joystick nudge the start of a new gesture.
+    private static let joystickResyncGap: UInt64 = 250_000_000
     private var hasWarnedUntrusted = false
 
     /// Which modifiers the system currently believes are held. Necessary because a modifier
@@ -139,13 +146,27 @@ final class InputInjector: @unchecked Sendable {
             break
 
         case .joystickMove(let dx, let dy):
-            // The one case that reads the live cursor. A joystick is a *relative* nudge, so
-            // it is relative to wherever the pointer actually is — including movement the
-            // user made physically, which the tracked position knows nothing about.
-            guard dx.isFinite, dy.isFinite, let current = CGEvent(source: nil)?.location else {
-                return
+            guard dx.isFinite, dy.isFinite else { return }
+            let now = DispatchTime.now()
+
+            let origin = lock.withLock { () -> CGPoint in
+                // The first nudge of a gesture starts from the live cursor, which is the only way
+                // movement the user made with the physical mouse gets picked up.
+                //
+                // Every nudge after it starts from the position *this side last posted* instead.
+                // The live read is asynchronous: asking it again a few milliseconds after posting
+                // a move can still answer with the position from before that move. A relative
+                // nudge added to a stale position silently loses the step that just happened, and
+                // the window server catches up a moment later — which is precisely what a cursor
+                // that stutters under a held joystick is.
+                let idle = lastJoystickAt.map { now.uptimeNanoseconds - $0.uptimeNanoseconds } ?? .max
+                lastJoystickAt = now
+                return idle > Self.joystickResyncGap
+                    ? (CGEvent(source: nil)?.location ?? cursor)
+                    : cursor
             }
-            let target = CGPoint(x: current.x + dx, y: current.y + dy)
+
+            let target = CGPoint(x: origin.x + dx, y: origin.y + dy)
             lock.withLock { cursor = target }
             postMouse(.mouseMoved, at: target, button: .left)
 
