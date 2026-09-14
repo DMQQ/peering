@@ -1,0 +1,21 @@
+# Xcode / SwiftPM build output.
+# `build/` is also where xcodebuild is pointed via -derivedDataPath, so it holds
+# several hundred MB of products and intermediate objects.
+build/
+DerivedData/
+.build/
+*.xcarchive
+
+# Xcode per-user state. The shared schemes under xcshareddata are tracked; the
+# per-user ones (window layout, which scheme was last selected) are not.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# SwiftPM scratch state. Package.resolved is deliberately NOT ignored: once
+# MacCastHost takes a dependency on swift-certificates, committing the resolved
+# versions is what keeps a checkout reproducible.
+.swiftpm/
+
+# macOS
+.DS_Store

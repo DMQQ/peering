@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  This file exists because INFOPLIST_KEY_NSBonjourServices does not work.
+	  Xcode's Info.plist generator silently drops that key in both the plain and
+	  the space-separated array form (verified by building with the setting forced
+	  on the command line: the entry never appears in the built plist, with no
+	  warning). A missing NSBonjourServices makes Bonjour browsing fail with no
+	  prompt and no error, which is close to impossible to debug from the symptom.
+
+	  Only the keys the generator cannot produce live here. GENERATE_INFOPLIST_FILE
+	  is still on, so CFBundleIdentifier, CFBundleExecutable, LSMinimumSystemVersion
+	  and the rest are merged in at build time from the target's build settings.
+	-->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotedesktop._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MacCast Host accepts screen-sharing connections from devices you have paired with it.</string>
+</dict>
+</plist>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  See the note in MacCastHost/Info.plist: INFOPLIST_KEY_NSBonjourServices is
+	  silently dropped by Xcode's Info.plist generator, so the Bonjour service
+	  list has to live in a real plist file.
+
+	  On iOS a missing NSBonjourServices entry makes the whole local-network
+	  permission prompt never appear, and browsing then fails with no error —
+	  the connection attempts simply never find the Mac.
+	-->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotedesktop._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MacCast connects to your Mac on the local network to stream its screen and send input.</string>
+</dict>
+</plist>

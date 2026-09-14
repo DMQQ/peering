@@ -6,6 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
+		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
+		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
+		C2C039FD30574AB600ABF943 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FC30574AB600ABF943 /* X509 */; };
+		C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FF30574AB600ABF943 /* SwiftASN1 */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C2C039CF30574AB600ABF943 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +35,7 @@
 		C2C039BF30574AB400ABF943 /* MacCast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacCast.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039CE30574AB600ABF943 /* MacCastTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2C039D830574AB600ABF943 /* MacCastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MacCastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C039F330574AB600ABF943 /* MacCastHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacCastHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,6 +54,11 @@
 			path = MacCastUITests;
 			sourceTree = "<group>";
 		};
+		C2C039F230574AB600ABF943 /* MacCastHost */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MacCastHost;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +66,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,6 +74,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,6 +82,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2C039F630574AB600ABF943 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
+				C2C039FD30574AB600ABF943 /* X509 in Frameworks */,
+				C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +104,7 @@
 				C2C039C130574AB400ABF943 /* MacCast */,
 				C2C039D130574AB600ABF943 /* MacCastTests */,
 				C2C039DB30574AB600ABF943 /* MacCastUITests */,
+				C2C039F230574AB600ABF943 /* MacCastHost */,
 				C2C039C030574AB400ABF943 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,6 +115,7 @@
 				C2C039BF30574AB400ABF943 /* MacCast.app */,
 				C2C039CE30574AB600ABF943 /* MacCastTests.xctest */,
 				C2C039D830574AB600ABF943 /* MacCastUITests.xctest */,
+				C2C039F330574AB600ABF943 /* MacCastHost.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,6 +140,7 @@
 			);
 			name = MacCast;
 			packageProductDependencies = (
+				C2C039EC30574AB600ABF943 /* RemoteCore */,
 			);
 			productName = MacCast;
 			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
@@ -135,6 +164,7 @@
 			);
 			name = MacCastTests;
 			packageProductDependencies = (
+				C2C039EE30574AB600ABF943 /* RemoteCore */,
 			);
 			productName = MacCastTests;
 			productReference = C2C039CE30574AB600ABF943 /* MacCastTests.xctest */;
@@ -163,6 +193,31 @@
 			productReference = C2C039D830574AB600ABF943 /* MacCastUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		C2C039F430574AB600ABF943 /* MacCastHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastHost" */;
+			buildPhases = (
+				C2C039F530574AB600ABF943 /* Sources */,
+				C2C039F630574AB600ABF943 /* Frameworks */,
+				C2C039F730574AB600ABF943 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C2C039F230574AB600ABF943 /* MacCastHost */,
+			);
+			name = MacCastHost;
+			packageProductDependencies = (
+				C2C039ED30574AB600ABF943 /* RemoteCore */,
+				C2C039FC30574AB600ABF943 /* X509 */,
+				C2C039FF30574AB600ABF943 /* SwiftASN1 */,
+			);
+			productName = MacCastHost;
+			productReference = C2C039F330574AB600ABF943 /* MacCastHost.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +239,9 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = C2C039BE30574AB400ABF943;
 					};
+					C2C039F430574AB600ABF943 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 				};
 			};
 			buildConfigurationList = C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "MacCast" */;
@@ -195,6 +253,11 @@
 			);
 			mainGroup = C2C039B630574AB400ABF943;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */,
+				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
+				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C2C039C030574AB400ABF943 /* Products */;
 			projectDirPath = "";
@@ -203,6 +266,7 @@
 				C2C039BE30574AB400ABF943 /* MacCast */,
 				C2C039CD30574AB600ABF943 /* MacCastTests */,
 				C2C039D730574AB600ABF943 /* MacCastUITests */,
+				C2C039F430574AB600ABF943 /* MacCastHost */,
 			);
 		};
 /* End PBXProject section */
@@ -229,6 +293,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C2C039F730574AB600ABF943 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -247,6 +318,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C2C039D430574AB600ABF943 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2C039F530574AB600ABF943 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -400,6 +478,7 @@
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/MacCast-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -432,6 +511,7 @@
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/MacCast-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,6 +618,62 @@
 			};
 			name = Release;
 		};
+		C2C039F930574AB600ABF943 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.maccast.MacCastHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C2C039FA30574AB600ABF943 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/MacCastHost-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.maccast.MacCastHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -577,7 +713,67 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		C2C039F830574AB600ABF943 /* Build configuration list for PBXNativeTarget "MacCastHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2C039F930574AB600ABF943 /* Debug */,
+				C2C039FA30574AB600ABF943 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = RemoteCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-certificates.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.20.0;
+			};
+		};
+		C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-asn1.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.7.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C2C039EC30574AB600ABF943 /* RemoteCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RemoteCore;
+		};
+		C2C039ED30574AB600ABF943 /* RemoteCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RemoteCore;
+		};
+		C2C039EE30574AB600ABF943 /* RemoteCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RemoteCore;
+		};
+		C2C039FC30574AB600ABF943 /* X509 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */;
+			productName = X509;
+		};
+		C2C039FF30574AB600ABF943 /* SwiftASN1 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */;
+			productName = SwiftASN1;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C2C039B730574AB400ABF943 /* Project object */;
 }
