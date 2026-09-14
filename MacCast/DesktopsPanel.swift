@@ -27,16 +27,23 @@ struct DesktopsPanel: View {
     /// against it — see ``tileSize(count:rows:showsChips:)``.
     var maximumHeight: CGFloat = .infinity
 
-    /// The width one row of tiles has to work with, measured rather than worked out. The panel is
-    /// 520 points at most in landscape and nearly the whole screen in portrait, and the two are
-    /// not close enough for one number to serve both.
-    @State private var rowWidth: CGFloat = 0
+    /// The width the tiles have to work with, given by the panel that contains this one.
+    ///
+    /// Worked out by the caller rather than measured here, and that is a correction: measuring it
+    /// from inside made the number depend on the thing it was sizing. The rows are horizontal
+    /// scroll views, which take whatever they are offered, so the width they reported was the
+    /// width they had been given — which came from the tiles, which were sized from it. It settled
+    /// on the starting value and stayed there, which is why the tiles never grew.
+    var contentWidth: CGFloat = 0
 
     /// The smallest a tile may be. Below this the thumbnail stops being a picture of anything and
     /// the caption under it stops fitting.
     private static let minimumTile = CGSize(width: 104, height: 65)
-    /// The largest, so two desktops do not become two enormous pictures.
-    private static let maximumTileWidth: CGFloat = 240
+    /// The largest, so two desktops do not become two enormous pictures. Generous, because the
+    /// point of the exercise is that a screen with two desktops should not leave most of its panel
+    /// empty — and the height ceiling below is the limit that actually binds on a phone held
+    /// sideways, so this one only has to stop the absurd case.
+    private static let maximumTileWidth: CGFloat = 260
     /// Width over height, held constant so a tile keeps the shape of a screen rather than the
     /// shape of whatever room it was given.
     private static let tileAspect = 65.0 / 104.0
@@ -98,11 +105,6 @@ struct DesktopsPanel: View {
                             }
                         }
                     }
-                    .onGeometryChange(for: CGFloat.self) {
-                        $0.size.width
-                    } action: { width in
-                        rowWidth = width
-                    }
                 }
             }
             .padding(10)
@@ -153,7 +155,7 @@ struct DesktopsPanel: View {
         guard count > 0 else { return Self.minimumTile }
 
         let gaps = CGFloat(count - 1) * Self.tileGap
-        var width = rowWidth > 0 ? (rowWidth - gaps) / CGFloat(count) : Self.minimumTile.width
+        var width = contentWidth > 0 ? (contentWidth - gaps) / CGFloat(count) : Self.minimumTile.width
 
         if maximumHeight.isFinite, rows > 0 {
             let rowOverhead = Self.captionHeight + Self.rowInnerGap

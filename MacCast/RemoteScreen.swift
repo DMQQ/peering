@@ -502,7 +502,7 @@ struct RemoteScreen: View {
                     .padding(.horizontal, ChromeMetrics.edgeInset)
                     .padding(.bottom, ChromeMetrics.bottomInset)
 
-                    floatingPanel(available)
+                    floatingPanel(available, isLandscape: true)
                         .padding(.bottom, ChromeMetrics.bottomInset)
                 }
                 // Anchored to the bottom by the frame, not by the spacer above. A spacer only
@@ -519,7 +519,7 @@ struct RemoteScreen: View {
                 Spacer(minLength: 0)
                 // Above the controls, for the same reason as in landscape: below them it would
                 // push the wheel and the pointer up into the dock.
-                floatingPanel(available)
+                floatingPanel(available, isLandscape: false)
                 // Wheel on the left, pointer on the right, where each thumb already is.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
                     ScrollWheelView(
@@ -669,21 +669,47 @@ struct RemoteScreen: View {
     /// suggest it was ever there. Bounded against the height the chrome is laid out in for the
     /// same reason ``railMaxHeight(in:)`` is: the canvas ignores the safe area and the chrome
     /// does not.
-    private func panelHeightLimit(_ available: CGSize) -> CGFloat {
+    private func ceiling(_ available: CGSize, _ isLandscape: Bool) -> CGFloat {
         guard available.height > 0 else { return .infinity }
         // A ceiling, not a target. The panel is as tall as its contents and no taller; this only
         // stops a pathological number of screens from pushing the panel's own first row off the
         // top of the display, where it would be both invisible and unreachable.
         //
-        // It used to reserve the full height of the controls as well, and cap the result at a
-        // share of the screen. Both were attempts to stop the panel reaching the top — which the
-        // bottom alignment below already does. What they actually did was make a two-screen strip
-        // scroll inside a box half the size it needed.
-        let reserved = ChromeMetrics.buttonHeight
-            + ChromeMetrics.bottomInset
-            + ChromeMetrics.edgeInset * 2
+        // What it has to stay clear of differs by orientation, and that is the whole reason this
+        // takes a flag. In landscape the panel is drawn *over* the wheel and the pointer column,
+        // so only the status pill above it needs room. In portrait it is stacked above them and
+        // they are tall — the pointer column alone is 168 points, the dock another 70 — so they
+        // are reserved, or the panel would cover controls that are still meant to be usable.
+        //
+        // Over-reserving in landscape is what kept the desktop tiles small: the ceiling was 279
+        // points, two rows of chips and captions take 144 of it, and what was left made a tile 108
+        // points wide however much width the panel had going spare.
+        let reserved: CGFloat
+        if isLandscape {
+            reserved = ChromeMetrics.edgeInset * 2 + Self.statusBarHeight
+        } else {
+            reserved = ChromeMetrics.quickKeySize
+                + ChromeMetrics.panelGap
+                + joystickRadius * 2
+                + ChromeMetrics.bottomInset
+                + ChromeMetrics.edgeInset * 2
+                + ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2
+                + Self.statusBarHeight
+        }
         return max(140, available.height - reserved)
     }
+
+    /// The width a floating panel's contents have to work with.
+    ///
+    /// Worked out here rather than measured inside the panel: measuring it there made the number
+    /// depend on the thing being sized, which is how the desktop tiles came out the same size as
+    /// before the change that was supposed to grow them.
+    private func panelContentWidth(_ available: CGSize) -> CGFloat {
+        max(min(Self.panelWidth, available.width) - 20, 0)
+    }
+
+    /// The status pill, which is the one thing a panel must not be drawn over the top of.
+    private static let statusBarHeight: CGFloat = 44
 
     private var settingsButton: some View {
         RailButton(icon: "gearshape", label: "Settings", selected: openPanel == .settings) {
@@ -696,7 +722,7 @@ struct RemoteScreen: View {
     /// One place, because four panels across two orientations is eight arrangements to keep in
     /// step, and the difference between them is what they contain rather than how they are framed.
     @ViewBuilder
-    private func floatingPanel(_ available: CGSize) -> some View {
+    private func floatingPanel(_ available: CGSize, isLandscape: Bool) -> some View {
         // `alignment: .bottom` on every one of these, and it is load-bearing rather than tidy.
         // `maxHeight` makes a view *flexible* up to that height, so a panel whose contents are
         // shorter than the ceiling — the shortcuts panel nearly always — grows to the ceiling and
@@ -705,22 +731,23 @@ struct RemoteScreen: View {
         switch openPanel {
         case .shortcuts:
             shortcutsPanel
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
+                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .desktops:
             DesktopsPanel(
                 chromeFrames: $chromeFrames,
                 onSelect: closePanelAfterSelection,
-                maximumHeight: panelHeightLimit(available)
+                maximumHeight: ceiling(available, isLandscape),
+                contentWidth: panelContentWidth(available)
             )
-            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
+            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .sources:
             SourcesPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
+                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .settings:
             SettingsPanel(chromeFrames: $chromeFrames) {
                 withAnimation(Motion.settle) { openPanel = .sources }
             }
-            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
+            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case nil:
             EmptyView()
         }
@@ -745,7 +772,12 @@ struct RemoteScreen: View {
     /// for why it earns a permanent place. The arrow strip in the panel keeps its own copy: that
     /// one is for when the user is already in there moving around a window.
     private var returnKey: some View {
-        QuickKeyButton(icon: "return", label: "Return", caption: "Return") { model.pressReturn() }
+        // Captioned "Enter" and not "Return", though the key it sends is Return — see
+        // ``SessionModel/pressReturn()``. The caption's job is to be the word the user reaches for,
+        // and on a phone this key is Enter to everyone who is not reading Apple's keyboard
+        // documentation. The spoken name matches the visible one, so VoiceOver agrees with the
+        // screen.
+        QuickKeyButton(icon: "return", label: "Enter", caption: "Enter") { model.pressReturn() }
     }
 
     /// Back, to the left of the pointer.
