@@ -30,20 +30,34 @@ enum DisplayGeometry {
         )
     }
 
-    /// The transform for the display the pointer is on, falling back to the main display.
+    /// Every display under the pointer, in the order the window server reports them.
     ///
-    /// "Main" is not "the active one": on a multi-display Mac a user can be looking at a
-    /// secondary screen, and mapping input to the main display would drive the cursor
-    /// somewhere they are not looking.
-    static func activeTransform() -> InputTransform? {
+    /// The main display comes back rather than an empty list when the query fails, so no caller
+    /// has to handle "no display at all" — on a machine with a screen there is always one.
+    static func pointerDisplayIDs() -> [CGDirectDisplayID] {
         let point = CGEvent(source: nil)?.location ?? .zero
         var count: UInt32 = 0
         var displays = [CGDirectDisplayID](repeating: 0, count: 16)
 
-        if CGGetDisplaysWithPoint(point, 16, &displays, &count) == .success, count > 0 {
-            for index in 0..<Int(count) {
-                if let transform = transform(for: displays[index]) { return transform }
-            }
+        guard CGGetDisplaysWithPoint(point, 16, &displays, &count) == .success, count > 0 else {
+            return [CGMainDisplayID()]
+        }
+        return Array(displays.prefix(Int(count)))
+    }
+
+    /// The display the pointer is on, falling back to the main display.
+    ///
+    /// "Main" is not "the active one": on a multi-display Mac a user can be looking at a
+    /// secondary screen, and anything that acts on "the display the user means" — mapping input,
+    /// switching a Space — has to ask where the pointer is rather than assume.
+    static func pointerDisplayID() -> CGDirectDisplayID {
+        pointerDisplayIDs().first ?? CGMainDisplayID()
+    }
+
+    /// The transform for the display the pointer is on, falling back to the main display.
+    static func activeTransform() -> InputTransform? {
+        for display in pointerDisplayIDs() {
+            if let transform = transform(for: display) { return transform }
         }
         return transform(for: CGMainDisplayID())
     }

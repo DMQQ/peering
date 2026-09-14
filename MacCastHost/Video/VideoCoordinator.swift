@@ -284,8 +284,9 @@ final class VideoCoordinator: @unchecked Sendable {
                 \(catalog.applications.count, privacy: .public) application(s), \
                 \(catalog.windows.count, privacy: .public) window(s), \
                 \(catalog.installedApplications.count, privacy: .public) installed application(s), \
-                \(catalog.spaceInfo?.count ?? 0, privacy: .public) space(s) \
-                with \(catalog.spaceInfo?.previews.count ?? 0, privacy: .public) preview(s)
+                \(catalog.spaceInfo?.displays.count ?? 0, privacy: .public) display(s) with \
+                \(catalog.spaceInfo?.totalCount ?? 0, privacy: .public) space(s) \
+                and \(catalog.spaceInfo?.previews.count ?? 0, privacy: .public) preview(s)
                 """)
         } catch {
             coordinatorLog.notice("""

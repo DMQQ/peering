@@ -6,7 +6,16 @@ import UIKit
 private enum ChromeRegion: Hashable {
     case leadingRail
     case trailingRail
-    case bottomControls
+    /// The scroll wheel, on its own rather than as part of the row it sits in.
+    ///
+    /// A row is mostly empty space between its controls, and a region that covers the whole row
+    /// claims all of it: touches in the gap would stop reaching the Mac, and — worse — a tap
+    /// beside an open panel would count as landing on chrome and so would neither dismiss the
+    /// panel nor click anything. Reporting the controls is what makes the gaps behave like the
+    /// picture they are.
+    case wheel
+    /// The joystick with Return and Back above and beside it.
+    case pointer
     case panel
     case statusBar
     case dock
@@ -214,7 +223,9 @@ struct RemoteScreen: View {
             },
             onSizeChange: { canvasSize = $0 },
             interactionMode: interactionMode,
-            blockedRegions: blockedRegions
+            blockedRegions: blockedRegions,
+            isPanelOpen: openPanel != nil,
+            onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } }
         )
         .ignoresSafeArea()
     }
@@ -440,45 +451,46 @@ struct RemoteScreen: View {
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
-                // row up the screen — and the row is the pointer and the key stacked on it, which
+                // row up the screen — and the row is the pointer and the keys around it, which
                 // then landed under the buttons in the rail. Adding it above means the panel
                 // grows up over the picture and the controls it belongs to stay where they are.
                 VStack(spacing: ChromeMetrics.panelGap) {
-                    Spacer()
+                    // No spacer. The bottom edge is held by the frame's alignment below, and a
+                    // spacer in front of the same content is a second thing trying to do the same
+                    // job — the one that gets it wrong the moment the content outgrows the screen,
+                    // because a spacer can only push while there is slack to push into.
 
-                    // The wheel, the panel and the pointer share one row along the foot of the
-                    // screen. The wheel and the pointer live at the edges; a panel opens between
-                    // them, in the width that is otherwise empty — so it arrives at the bottom of
-                    // the screen rather than in the middle of it, and nothing it appears next to
-                    // has to move out of its way.
-                    HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
-                        // Scrolling the Mac is what the two-finger gesture is for, and in drag &
-                        // zoom the fingers move the picture instead — so the wheel only appears
-                        // in the mode where it means something.
-                        if interactionMode == .control {
-                            ScrollWheelView(onScroll: sendScroll(dy:))
-                                .transition(.opacity)
-                        }
-                        Spacer(minLength: 0)
-                        if openPanel == .shortcuts {
-                            shortcutsPanel.frame(maxWidth: 520)
-                        }
-                        if openPanel == .desktops {
-                            desktopStrip.frame(maxWidth: 520)
-                        }
-                        Spacer(minLength: 0)
-                        // Return sits directly above the pointer, on its axis, so the thumb
-                        // resting on the stick reaches it without crossing the screen.
-                        VStack(spacing: ChromeMetrics.panelGap) {
-                            returnKey
-                            joystick()
-                        }
-                        .offset(x: joystickColumnOffset)
+                    // The panel gets a row of its own, centred on the screen. It used to open in
+                    // the gap between the wheel and the pointer, which sounds like the middle and
+                    // is not: those two are different widths, so the middle of what is left
+                    // between them sits off to the left of the middle of the screen.
+                    if openPanel == .shortcuts {
+                        shortcutsPanel.frame(maxWidth: 520)
                     }
-                    .reportChromeFrame(.bottomControls, into: $chromeFrames)
+                    if openPanel == .desktops {
+                        desktopStrip.frame(maxWidth: 520, maxHeight: panelHeightLimit(available))
+                    }
+
+                    HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
+                        ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
+                            .reportChromeFrame(.wheel, into: $chromeFrames)
+                        Spacer(minLength: 0)
+                        // Return above the pointer and Back beside it, so the thumb resting on
+                        // the stick reaches both without crossing the screen.
+                        pointerColumn
+                            .reportChromeFrame(.pointer, into: $chromeFrames)
+                            .offset(x: joystickColumnOffset)
+                    }
                     .padding(.horizontal, ChromeMetrics.edgeInset)
                     .padding(.bottom, ChromeMetrics.bottomInset)
                 }
+                // Anchored to the bottom by the frame, not by the spacer above. A spacer only
+                // holds a column down while there is room to spare: the moment a panel made the
+                // contents taller than the screen the spacer collapsed to nothing, and this
+                // whole stack — which the enclosing ZStack aligns to the *top* — slid up the
+                // screen with it. The panel ended up at the top and the pointer off the bottom.
+                // An alignment pins the bottom edge whatever the content does.
+                .frame(maxHeight: .infinity, alignment: .bottom)
             }
         } else {
             VStack(spacing: 0) {
@@ -486,22 +498,21 @@ struct RemoteScreen: View {
                 Spacer(minLength: 0)
                 // Above the controls, for the same reason as in landscape: below them it would
                 // push the wheel and the pointer up into the dock.
-                if openPanel == .shortcuts { shortcutsPanel }
-                if openPanel == .desktops { desktopStrip }
+                if openPanel == .shortcuts {
+                    shortcutsPanel.frame(maxHeight: panelHeightLimit(available))
+                }
+                if openPanel == .desktops {
+                    desktopStrip.frame(maxHeight: panelHeightLimit(available))
+                }
                 // Wheel on the left, pointer on the right, where each thumb already is.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
-                    if interactionMode == .control {
-                        ScrollWheelView(onScroll: sendScroll(dy:))
-                            .transition(.opacity)
-                    }
+                    ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
+                        .reportChromeFrame(.wheel, into: $chromeFrames)
                     Spacer(minLength: 0)
-                    VStack(spacing: ChromeMetrics.panelGap) {
-                        returnKey
-                        joystick()
-                    }
-                    .offset(x: joystickColumnOffset)
+                    pointerColumn
+                        .reportChromeFrame(.pointer, into: $chromeFrames)
+                        .offset(x: joystickColumnOffset)
                 }
-                .reportChromeFrame(.bottomControls, into: $chromeFrames)
                 .padding(.horizontal, ChromeMetrics.edgeInset)
                 .padding(.bottom, ChromeMetrics.edgeInset)
                 portraitDock
@@ -546,7 +557,7 @@ struct RemoteScreen: View {
     /// ones around it.
     @ViewBuilder
     private var desktopsButton: some View {
-        if let info = model.catalog?.spaceInfo, info.count > 1 {
+        if let info = model.catalog?.spaceInfo, showsDesktops(info) {
             RailButton(
                 icon: "rectangle.split.3x1",
                 label: "Desktops",
@@ -559,26 +570,59 @@ struct RemoteScreen: View {
         }
     }
 
-    /// The desktops, as pictures.
+    /// Whether the desktops panel is worth offering at all.
+    ///
+    /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
+    /// even with a single desktop on it, because tapping that desktop is how the picture is moved
+    /// to it — a control that can only ever do nothing is clutter, and this one can do something.
+    private func showsDesktops(_ info: SpaceInfo) -> Bool {
+        info.totalCount > 1 || info.displays.count > 1
+    }
+
+    /// The desktops of every screen, as pictures.
     ///
     /// Pictures rather than a list of numbers because the question being asked is "which one had
     /// my browser on it", and a number cannot answer that. Each tile is a snapshot taken when that
     /// desktop was last active — see ``SpacePreview`` for why it cannot be live.
+    ///
+    /// One row per screen. Spaces are per-display, so a single flat strip of five tiles would be
+    /// five unlabelled pictures two of which are called "Desktop 1" — the grouping is the answer
+    /// to which screen a tile belongs to, and the chip is the label for it. The chip only appears
+    /// when there is more than one screen to tell apart.
     @ViewBuilder
     private var desktopStrip: some View {
-        if let info = model.catalog?.spaceInfo, info.count > 1 {
+        if let info = model.catalog?.spaceInfo, showsDesktops(info) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Desktops")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(1...info.count, id: \.self) { index in
-                            desktopTile(index: index, info: info)
+                // Scrolls when it has to, which is what keeps a third screen or a fourth from
+                // pushing the first row off the top of the panel and out of reach.
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(info.displays) { display in
+                            VStack(alignment: .leading, spacing: 6) {
+                                if info.displays.count > 1 {
+                                    displayChip(display)
+                                }
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        // Offsets rather than `1...count`, which is an empty range
+                                        // when a display reports nothing and traps on the way.
+                                        ForEach(0..<display.count, id: \.self) { offset in
+                                            desktopTile(
+                                                display: display,
+                                                index: offset + 1,
+                                                showsScreenName: info.displays.count > 1
+                                            )
+                                        }
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
                         }
                     }
-                    .padding(.horizontal, 2)
                 }
             }
             .padding(10)
@@ -589,17 +633,47 @@ struct RemoteScreen: View {
         }
     }
 
-    private func desktopTile(index: Int, info: SpaceInfo) -> some View {
-        let isCurrent = index == info.current
+    /// A screen's name, on its own line above that screen's desktops.
+    ///
+    /// Above rather than beside, and hugging its text rather than given a width. Display names are
+    /// arbitrary user-facing strings — "Built-in Retina Display" is a normal one and a phone panel
+    /// is narrow — so sitting beside the tiles would mean a fixed width, and a fixed width would
+    /// mean truncating real names to fit around a thumbnail. Given the whole row's width there is
+    /// nothing to truncate. Each row still starts at the same left edge, which is what keeps the
+    /// panel reading as rows rather than as a ragged list.
+    ///
+    /// The name is read from the catalogue rather than sent alongside the desktops: it is the same
+    /// `NSScreen.localizedName` the source picker shows, so the two can never describe one screen
+    /// two ways.
+    private func displayChip(_ display: SpaceDisplay) -> some View {
+        Text(displayName(display))
+            .font(.system(size: 10, weight: .semibold))
+            .lineLimit(1)
+            .foregroundStyle(ColorPalette.ink)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(ColorPalette.surface, in: Capsule())
+            .overlay {
+                Capsule().strokeBorder(ColorPalette.ink.opacity(0.15))
+            }
+    }
+
+    private func displayName(_ display: SpaceDisplay) -> String {
+        model.catalog?.descriptor(for: .display(display.displayID))?.title ?? "Display"
+    }
+
+    private func desktopTile(display: SpaceDisplay, index: Int, showsScreenName: Bool) -> some View {
+        let isCurrent = index == display.current
+        let label = "Desktop \(index)\(isCurrent ? ", current" : "")"
         return Button {
-            model.send(.switchToSpace(index: index))
+            switchToDesktop(display: display, index: index)
         } label: {
             VStack(spacing: 5) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(ColorPalette.surface)
 
-                    if let data = info.preview(for: index)?.jpegData,
+                    if let data = display.preview(for: index)?.jpegData,
                        let image = UIImage(data: data) {
                         Image(uiImage: image)
                             .resizable()
@@ -618,18 +692,41 @@ struct RemoteScreen: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(
-                            isCurrent ? ColorPalette.ink : ColorPalette.ink.opacity(0.18),
+                            isCurrent ? ColorPalette.accent : ColorPalette.ink.opacity(0.18),
                             lineWidth: isCurrent ? 2 : 1
                         )
                 }
 
                 Text("Desktop \(index)")
                     .font(.system(size: 10, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? ColorPalette.ink : Color.secondary)
+                    .foregroundStyle(isCurrent ? ColorPalette.accent : Color.secondary)
             }
         }
         .buttonStyle(RailButtonStyle(scale: 0.94))
-        .accessibilityLabel(isCurrent ? "Desktop \(index), current" : "Desktop \(index)")
+        .accessibilityLabel(showsScreenName ? "\(displayName(display)) \(label)" : label)
+    }
+
+    /// Reveals a desktop, and takes the picture with it. Always both.
+    ///
+    /// A desktop tile names a *screen* as well as a desktop, so tapping one is a statement about
+    /// where to look. Switching only the Space left the user watching one screen while another
+    /// rearranged itself off-camera — and when the source was a window rather than a display,
+    /// which follows its window wherever that window is, nothing visible happened at all.
+    ///
+    /// This used to insist the current source be a display first, on the theory that a user
+    /// watching one window had asked to watch *that*. That was the wrong call: the tap is a
+    /// destination, and refusing to go there is what made the tiles look broken.
+    ///
+    /// The Space goes out first so the move reads as one thing. The Mac rearranges the desktop
+    /// that was asked for while the picture is still where it was, and the picture then arrives on
+    /// it already showing the right thing; the other order shows the screen being left, and then a
+    /// second jump.
+    private func switchToDesktop(display: SpaceDisplay, index: Int) {
+        model.send(.switchToSpace(display: display.displayID, index: index))
+
+        let source = CaptureSource.display(display.displayID)
+        guard model.activeSourceID != source.stableID else { return }
+        model.send(.setCaptureSource(source))
     }
 
     private var keysButton: some View {
@@ -695,6 +792,31 @@ struct RemoteScreen: View {
         return max(160, availableHeight - reserved)
     }
 
+    /// How tall an open panel may grow before its contents have to scroll.
+    ///
+    /// A panel is laid out above the controls and grows upward, so an unbounded one on a short
+    /// screen pushes its own first row off the top — out of reach, and with nothing on screen to
+    /// suggest it was ever there. Bounded against the height the chrome is laid out in for the
+    /// same reason ``railMaxHeight(in:)`` is: the canvas ignores the safe area and the chrome
+    /// does not.
+    private func panelHeightLimit(_ available: CGSize) -> CGFloat {
+        guard available.height > 0 else { return .infinity }
+        let controls = ChromeMetrics.quickKeySize
+            + ChromeMetrics.panelGap
+            + joystickRadius * 2
+            + ChromeMetrics.bottomInset
+            + ChromeMetrics.edgeInset * 2
+        // The status line above and the portrait dock below. Whichever orientation is being laid
+        // out has one of them beside the panel, and reserving for both costs a little height here
+        // rather than leaving two numbers that quietly disagree about which edge they measure from.
+        let ends = ChromeMetrics.buttonHeight + ChromeMetrics.edgeInset * 2
+        // Capped at a share of the screen as well as at the room left over. A panel that grows to
+        // fill whatever gap it is given reaches the top of a short landscape display and reads as
+        // though it were anchored there — which is the opposite of where a panel belongs, and no
+        // amount of bottom-aligning the stack it sits in changes how that looks.
+        return max(120, min(available.height - controls - ends, available.height * 0.42))
+    }
+
     private var settingsButton: some View {
         RailButton(icon: "gearshape", label: "Settings") { showSheet = true }
     }
@@ -704,6 +826,46 @@ struct RemoteScreen: View {
     /// one is for when the user is already in there moving around a window.
     private var returnKey: some View {
         QuickKeyButton(icon: "return", label: "Return") { sendKey(keyCode: 36) }
+    }
+
+    /// Back, to the left of the pointer.
+    ///
+    /// ⌘← — an arrow rather than the bracket, and that choice is the whole point of this comment.
+    ///
+    /// ⌘[ is the other spelling of Back and the one that first went here, and it does not work
+    /// everywhere: an arrow key reports the same key code on every keyboard layout, while `[`
+    /// is matched by the *character* the key produces, so on a layout that puts the bracket
+    /// behind a modifier the shortcut never fires. Back is ⌘← in Safari, Chrome, Finder and
+    /// System Settings alike, and the arrow cannot be misread by a layout.
+    ///
+    /// A remote desktop has no history of its own to walk, so the only honest thing this button
+    /// can mean is what the Mac under it already means by Back.
+    ///
+    /// Smaller than Return and off its axis, because it is not the key that commits: it is the
+    /// one reached for in passing, so it sits beside the stick rather than above it.
+    private var backKey: some View {
+        QuickKeyButton(icon: "chevron.backward", label: "Back", size: 46) {
+            sendKey(keyCode: 123, modifiers: [.command])
+        }
+    }
+
+    /// Return above the pointer, Delete beside it.
+    ///
+    /// Trailing-aligned, with the top row framed to the stick's own width, so Return stays on the
+    /// stick's axis now that the column is wider than the pointer is. Centred in the column
+    /// instead, it would sit off to the left of the thing it belongs to.
+    ///
+    /// Shared by both layouts rather than written twice: the two used to be copies of each other,
+    /// which is how a control ends up in one orientation and not the other.
+    private var pointerColumn: some View {
+        VStack(alignment: .trailing, spacing: ChromeMetrics.panelGap) {
+            returnKey
+                .frame(width: joystickRadius * 2)
+            HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
+                backKey
+                joystick()
+            }
+        }
     }
 
     private func joystick(radius: CGFloat = joystickRadius) -> some View {
@@ -799,6 +961,11 @@ struct RemoteScreen: View {
                 tabButton
                 settingsButton
             }
+            // One width for all of them, and the rail's own at that, so the bar reads as evenly
+            // divided. Left to size themselves they are as wide as their captions — "Esc" beside
+            // "Shortcuts" — and the gaps look random even though the spacing between them is
+            // identical, which is the tell that it is the widths and not the spacing.
+            .environment(\.railButtonWidth, ChromeMetrics.panelWidth)
             .padding(.horizontal, 4)
         }
         .frame(height: 56)
@@ -820,6 +987,43 @@ struct RemoteScreen: View {
         model.send(.scroll(dx: 0, dy: Double(dy)))
     }
 
+    /// What the wheel does, which is the mode's business rather than the wheel's.
+    ///
+    /// In view & scroll it scrolls the Mac — the same thing the two-finger drag does, on a control
+    /// that can be found without aiming two fingers at the glass. In drag & zoom there is nothing
+    /// to scroll and a picture to resize, so it zooms. The pinch still does the same thing there:
+    /// this is a second way to ask, not a replacement for the first.
+    private func wheelScroll(dy: CGFloat) {
+        switch interactionMode {
+        case .control: sendScroll(dy: dy)
+        case .navigate: zoomByWheel(dy)
+        }
+    }
+
+    /// What the wheel is for at the moment, for anyone listening rather than looking.
+    private var wheelLabel: String {
+        interactionMode == .control ? "Scroll the Mac" : "Zoom the picture"
+    }
+
+    /// How far one pixel of wheel travel moves the zoom.
+    ///
+    /// Multiplicative, because zoom is: a fixed step is an enormous change at 1× and invisible at
+    /// 6×, and a finger on the wheel has no idea which end of the range it is at. A full drag of
+    /// the track works out at roughly six times either way — enough to be worth the space, not so
+    /// much that it overshoots what the user aimed at.
+    private static let zoomPerPixel: CGFloat = 1.0 / 400
+
+    /// Resizes the picture by a wheel drag. Up is closer, which is the way the two-finger pinch
+    /// already goes.
+    ///
+    /// Zooming back out past the fit drops the pan, exactly as the pinch does: the pan limits
+    /// shrink with the picture, so at 1× every offset is already out of bounds and holding one
+    /// would leave the picture pinned off-centre for no reason the user can see.
+    private func zoomByWheel(_ pixels: CGFloat) {
+        zoom = min(max(zoom * exp(-pixels * Self.zoomPerPixel), minimumZoom), maximumZoom)
+        if zoom <= 1.01 { pan = .zero }
+    }
+
     private func sendJoystick(_ travel: CGSize) {
         model.send(.joystickMove(dx: Double(travel.width), dy: Double(travel.height)))
     }
@@ -834,9 +1038,9 @@ struct RemoteScreen: View {
         model.send(.mouseUp(button: .right))
     }
 
-    private func sendKey(keyCode: UInt16) {
-        model.send(.keyDown(keyCode: keyCode, modifiers: []))
-        model.send(.keyUp(keyCode: keyCode, modifiers: []))
+    private func sendKey(keyCode: UInt16, modifiers: Modifiers = []) {
+        model.send(.keyDown(keyCode: keyCode, modifiers: modifiers))
+        model.send(.keyUp(keyCode: keyCode, modifiers: modifiers))
     }
 
     private func compactKeyButton(icon: String, keyCode: UInt16) -> some View {
@@ -882,274 +1086,4 @@ struct RemoteScreen: View {
         .padding(.top, ChromeMetrics.edgeInset)
     }
 
-}
-
-/// The blocking pairing prompt.
-///
-/// An overlay rather than a sheet, so it cannot be dismissed by a swipe. The connection is
-/// waiting on this answer: dismissing it without deciding would leave the session stalled
-/// with no way back to the question.
-struct PairingPrompt: View {
-    @Environment(SessionModel.self) private var model
-    let code: String
-    let hostName: String
-    @State private var enteredCode = ""
-    @State private var showsMismatch = false
-    @State private var showsScanner = false
-    @FocusState private var codeFieldFocused: Bool
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.75).ignoresSafeArea()
-            VStack(spacing: 20) {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 34))
-                    .foregroundStyle(.tint)
-
-                Text("Enter the code from your Mac")
-                    .font(.title3.weight(.semibold))
-
-                Text("Peering on “\(hostName)” is showing six digits.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                TextField("000 000", text: $enteredCode)
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
-                    .font(.system(size: 38, weight: .semibold, design: .monospaced))
-                    .tracking(7)
-                    .multilineTextAlignment(.center)
-                    .focused($codeFieldFocused)
-                    .padding(.vertical, 12)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") { codeFieldFocused = false }
-                        }
-                    }
-                    .onChange(of: enteredCode) { _, newValue in
-                        let digits = newValue.filter(\.isNumber)
-                        enteredCode = String(digits.prefix(6))
-                        showsMismatch = false
-                        if enteredCode.count == 6 { codeFieldFocused = false }
-                    }
-
-                Text(showsMismatch
-                     ? "That code does not match. Check the Mac and try again."
-                     : "The code is checked on this iPhone and is never used as a reusable password.")
-                    .font(.caption)
-                    .foregroundStyle(showsMismatch ? ColorPalette.ink : .secondary)
-                    .multilineTextAlignment(.center)
-
-                Button {
-                    showsScanner = true
-                } label: {
-                    Label("Scan QR code", systemImage: "qrcode.viewfinder")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-
-                HStack(spacing: 12) {
-                    Button(role: .cancel) {
-                        codeFieldFocused = false
-                        model.confirmPairing(accepted: false)
-                    } label: {
-                        Text("Cancel").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button {
-                        codeFieldFocused = false
-                        if enteredCode == code {
-                            model.confirmPairing(accepted: true)
-                        } else {
-                            showsMismatch = true
-                        }
-                    } label: {
-                        Text("Pair").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(enteredCode.count != 6)
-                }
-            }
-            .padding(26)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .padding(28)
-        }
-        .onAppear { codeFieldFocused = true }
-        .sheet(isPresented: $showsScanner) {
-            NavigationStack {
-                PairingCodeScanner { payload in
-                    guard let scannedCode = pairingCode(from: payload) else { return }
-                    showsScanner = false
-                    enteredCode = scannedCode
-                    if scannedCode == code {
-                        model.confirmPairing(accepted: true)
-                    } else {
-                        showsMismatch = true
-                    }
-                }
-                .ignoresSafeArea()
-                .navigationTitle("Scan your Mac")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showsScanner = false }
-                    }
-                }
-            }
-            .presentationDetents([.medium, .large])
-        }
-    }
-
-    private func pairingCode(from payload: String) -> String? {
-        guard let components = URLComponents(string: payload),
-              components.scheme == "peering",
-              components.host == "pair",
-              let value = components.queryItems?.first(where: { $0.name == "code" })?.value,
-              value.count == 6,
-              value.allSatisfy(\.isNumber)
-        else { return nil }
-        return value
-    }
-}
-
-struct ProgressOverlay: View {
-    let title: String
-    let detail: String?
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.6).ignoresSafeArea()
-            VStack(spacing: 12) {
-                ProgressView()
-                Text(title).font(.headline)
-                if let detail {
-                    Text(detail).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            .padding(24)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-    }
-}
-
-/// Session details, the capture-source picker, and the two destructive actions.
-struct SessionSheet: View {
-    @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @State private var confirmReset = false
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Stream") {
-                    NavigationLink {
-                        SourceList()
-                            .navigationTitle("What to share")
-                    } label: {
-                        Label("Display, app or window", systemImage: "rectangle.on.rectangle")
-                    }
-                }
-
-                Section("Session") {
-                    LabeledContent("Mac", value: model.hostName ?? "—")
-                    LabeledContent("State", value: stateDescription)
-                    LabeledContent("Video", value: model.videoStatus)
-                    if let latency = model.latencyMilliseconds {
-                        LabeledContent("Control latency", value: "\(Int(latency.rounded())) ms")
-                    }
-                    LabeledContent("This device", value: model.thisDeviceDescription)
-                }
-
-                Section("Keyboard") {
-                    Picker("Mode", selection: Binding(
-                        get: { model.keyboardMode },
-                        set: { model.setKeyboardMode($0) }
-                    )) {
-                        ForEach(KeyboardMode.allCases) { mode in
-                            Text(mode.label).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    Text(model.keyboardMode.explanation)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Macros") {
-                    ForEach(Macro.defaults) { macro in
-                        Button(macro.title) { model.run(macro) }
-                    }
-                }
-
-                Section("Diagnostics") {
-                    if model.notes.isEmpty {
-                        Text("Nothing to report yet.").foregroundStyle(.secondary)
-                    } else {
-                        ForEach(Array(model.notes.enumerated()), id: \.offset) { _, note in
-                            Text(note).font(.caption)
-                        }
-                    }
-                }
-
-                Section("Paired Macs") {
-                    if model.pairedHostIDs.isEmpty {
-                        Text("None").foregroundStyle(.secondary)
-                    } else {
-                        ForEach(model.pairedHostIDs, id: \.self) { hostID in
-                            Button(role: .destructive) {
-                                model.forget(hostID: hostID)
-                            } label: {
-                                Text("Forget \(hostID)")
-                            }
-                        }
-                    }
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        confirmReset = true
-                    } label: {
-                        Text("Reset this device's identity")
-                    }
-                } footer: {
-                    Text("Generates a new key and a new device ID. Every Mac that knows this device must pair with it again.")
-                }
-            }
-            .navigationTitle("Session")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .confirmationDialog(
-                "Reset this device's identity?",
-                isPresented: $confirmReset,
-                titleVisibility: .visible
-            ) {
-                Button("Reset", role: .destructive) {
-                    model.resetDeviceIdentity()
-                    dismiss()
-                }
-            } message: {
-                Text("Every Mac you have paired with will treat this device as a new one.")
-            }
-        }
-    }
-
-    private var stateDescription: String {
-        switch model.phase {
-        case .idle: return "Idle"
-        case .connecting: return "Connecting"
-        case .handshaking: return "Handshaking"
-        case .confirming: return "Waiting for the code comparison"
-        case .ready: return "Connected"
-        case .failed(let message): return "Failed — \(message)"
-        case .disconnected: return "Disconnected"
-        }
-    }
 }

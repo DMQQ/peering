@@ -151,17 +151,28 @@ public struct InstalledApplicationDescriptor: Codable, Sendable, Identifiable, H
     }
 }
 
-/// The host's desktop Spaces, as reported by the private CGS API.
+/// One display's desktops, and which of them is on screen.
 ///
-/// Populated on a best-effort basis: hosts that cannot read it (permission failure,
-/// or a future macOS that removes the private API) send `nil`, and clients fall back
-/// to the ← / → arrows without a visual indicator.
-public struct SpaceInfo: Codable, Sendable, Equatable {
-    /// Total number of Spaces configured in Mission Control.
+/// Spaces are per-display: the window server keeps a separate ordered list for every screen, so
+/// a desktop is only ever identified by the pair (*display*, position in that display's list).
+/// A Mac with 2 desktops on its built-in screen and 3 on a second one has five desktops and two
+/// of them are called "Desktop 1" — which is why the display is part of the type rather than a
+/// label hung on a flat list.
+public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
+    /// `CGDirectDisplayID`'s raw value, the same platform-neutral convention as
+    /// ``CaptureSource/display(_:)`` — and the value a client needs to build one.
+    public let displayID: UInt32
+
+    /// How many Spaces this display has.
+    ///
+    /// Sent rather than counted from ``previews``, which is sparse by design: a desktop never
+    /// visited since the host started has no picture and still has to be offered.
     public let count: Int
-    /// 1-based index of the currently active Space.
+
+    /// 1-based index of this display's active Space, in **this display's own** numbering.
     public let current: Int
-    /// What each Space looked like when the host last saw it.
+
+    /// This display's desktops, as the host last saw them.
     ///
     /// Sparse on purpose. A Space with no entry has never been visited since the host started,
     /// or could not be captured, and the client draws an empty tile for it — which is the truth.
@@ -169,30 +180,95 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
     /// screen.
     public let previews: [SpacePreview]
 
-    public init(count: Int, current: Int, previews: [SpacePreview] = []) {
+    public var id: UInt32 { displayID }
+
+    public init(displayID: UInt32, count: Int, current: Int, previews: [SpacePreview] = []) {
+        self.displayID = displayID
         self.count = count
         self.current = current
         self.previews = previews
     }
 
-    /// The preview for a 1-based Space index, if the host has one.
+    /// The preview for a 1-based index within this display, if the host has one.
     public func preview(for index: Int) -> SpacePreview? {
         previews.first { $0.index == index }
     }
 
     private enum CodingKeys: String, CodingKey {
-        case count, current, previews
+        case displayID, count, current, previews
     }
 
-    /// Lenient about `previews`, for the same reason ``CaptureCatalog`` is lenient about its own
-    /// fields: a host built before previews existed sends a count and an index and nothing else,
-    /// and a synthesised decoder would throw on the missing key — taking the whole catalogue, and
-    /// with it the session, down over a thumbnail.
+    /// Lenient about `previews` for the same reason ``SpaceInfo`` is lenient about its own
+    /// fields: one missing thumbnail is not worth the catalogue.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        displayID = try container.decode(UInt32.self, forKey: .displayID)
         count = try container.decode(Int.self, forKey: .count)
         current = try container.decode(Int.self, forKey: .current)
         previews = try container.decodeIfPresent([SpacePreview].self, forKey: .previews) ?? []
+    }
+}
+
+/// Every display's desktops, as reported by the private CGS API.
+///
+/// Populated on a best-effort basis: hosts that cannot read the Space lists (permission failure,
+/// or a future macOS that removes the private API) send `nil`, and clients fall back
+/// to the ← / → arrows without a visual indicator.
+public struct SpaceInfo: Codable, Sendable, Equatable {
+    /// One entry per display, **main display first**.
+    ///
+    /// The ordering is load-bearing rather than incidental: every property below that predates
+    /// this type described the main display, and reading the first entry is what keeps them
+    /// meaning that.
+    public let displays: [SpaceDisplay]
+
+    public init(displays: [SpaceDisplay]) {
+        self.displays = displays
+    }
+
+    /// Derived from the main display, for the readers that predate multiple displays.
+    public var count: Int { displays.first?.count ?? 0 }
+    public var current: Int { displays.first?.current ?? 1 }
+    /// Every display's previews, flattened.
+    public var previews: [SpacePreview] { displays.flatMap(\.previews) }
+    /// Desktops across every display.
+    public var totalCount: Int { displays.reduce(0) { $0 + $1.count } }
+
+    /// Only the stored property, so `encode(to:)` can still be synthesised — the three
+    /// properties above are computed and have nothing of their own to write.
+    private enum CodingKeys: String, CodingKey {
+        case displays
+    }
+
+    /// The pre-multi-display shape. Read, never written.
+    private enum LegacyCodingKeys: String, CodingKey {
+        case count, current, previews
+    }
+
+    /// Lenient in both directions, for the same reason ``CaptureCatalog`` is lenient about its
+    /// own fields: a payload from a host built before this type described more than one display
+    /// carries a flat `count`/`current`/`previews` and no `displays` key at all, and a
+    /// synthesised decoder would throw on the missing key — taking the whole catalogue, and with
+    /// it the session, down over a thumbnail.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let displays = try container.decodeIfPresent([SpaceDisplay].self, forKey: .displays) {
+            self.displays = displays
+            return
+        }
+
+        // The old shape, synthesised into one display. `displayID` is 0 because that payload
+        // never carried one: there is no display to name, so the client's fallback label and a
+        // switch the host will decline are both better than refusing to decode the catalogue.
+        let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+        self.displays = [
+            SpaceDisplay(
+                displayID: 0,
+                count: try legacy.decode(Int.self, forKey: .count),
+                current: try legacy.decode(Int.self, forKey: .current),
+                previews: try legacy.decodeIfPresent([SpacePreview].self, forKey: .previews) ?? []
+            )
+        ]
     }
 }
 

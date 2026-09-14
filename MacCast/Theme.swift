@@ -8,9 +8,23 @@ import SwiftUI
 /// other.
 enum ChromeMetrics {
     /// Every panel is this wide, so both columns line up top to bottom.
-    static let panelWidth: CGFloat = 64
+    ///
+    /// Narrowed from 64 with the rail in mind — see ``railPadding``.
+    static let panelWidth: CGFloat = 54
     /// Every panel corner, in every orientation.
     static let cornerRadius: CGFloat = 20
+    /// Inside a rail, above the first button and below the last — and the same as the gap either
+    /// side of one, so the first button sits in its panel the way the ones below it sit between
+    /// each other. An end gap larger than the side gaps is the shape that reads as a mistake
+    /// without anyone being able to say why.
+    ///
+    /// Four is enough now that the buttons are circles — see ``ControlRail``. A stadium's ends
+    /// curve inwards, and a square button needed a deep gap to stay inside that curve; a round one
+    /// is narrowest exactly where the curve is, so it clears at almost any inset.
+    static let railPadding: CGFloat = 4
+    /// From a rail's edge to a button's, horizontally. The buttons are narrower than the rail by
+    /// twice this, which is what keeps them inside the curve at the ends.
+    static let railSidePadding: CGFloat = 4
     /// From the safe area to the first panel, on all three edges the chrome touches.
     static let edgeInset: CGFloat = 8
     /// From the home-indicator area to the bottom row. Larger than `edgeInset`, because the
@@ -61,9 +75,21 @@ enum ColorPalette {
     static let ink = Color.white
     /// Drawn on top of a filled `ink` surface.
     static let onInk = Color.black
-    /// A selected control's fill: enough to read as a state, not enough to read as a button
-    /// inside a button.
-    static let selectedFill = Color.white.opacity(0.15)
+    /// The one colour in the app.
+    ///
+    /// Everything else here is brightness, deliberately — this screen is a frame around a
+    /// picture, and the picture is the only thing entitled to a hue. Selection is the case that
+    /// needed more than brightness: white at 15% is a *shade*, not a state, and over a bright
+    /// desktop at arm's length it is not a state at all. So the accent marks what is on, and
+    /// nothing else uses it.
+    ///
+    /// System blue rather than a chosen colour, because it is already what every other control
+    /// on the phone means by "this one is selected" and so needs no learning.
+    static let accent = Color.blue
+
+    /// A selected control's fill. Filled rather than tinted: the point of the accent is that a
+    /// glance finds it, and a 25%-opacity blue on a dark panel is a glance that misses.
+    static let selectedFill = Color.blue
     /// A resting surface — rows, chips, anything that needs a little more body than the glass
     /// behind it.
     static let surface = Color.white.opacity(0.07)

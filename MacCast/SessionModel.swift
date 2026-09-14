@@ -87,6 +87,29 @@ final class SessionModel {
     private(set) var videoStatus = "No video stream"
     private(set) var pairedHostIDs: [String] = []
 
+    /// What each trusted Mac is called, by the ID its pin is keyed by.
+    ///
+    /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user
+    /// expects the name of their Mac. The handshake is the only moment the client is told both,
+    /// so it is the only moment this can be recorded.
+    private(set) var hostNames: [String: String] = [:]
+
+    private static let hostNamesKey = "Peering.hostNames"
+
+    /// The failure to show the user, if the session is in one.
+    ///
+    /// The phase carries it and the diagnostics screen has always listed it, but the picker
+    /// showed nothing at all — so a connection that failed instantly looked exactly like a
+    /// button that did not work, which is a worse failure than the one being reported.
+    var failureMessage: String? {
+        if case .failed(let message) = phase { return message }
+        return nil
+    }
+
+    /// The name to show for a trusted Mac, or nil when this device has never seen that ID —
+    /// a Mac paired from somewhere else, or paired before names were being kept.
+    func displayName(forHostID id: String) -> String? { hostNames[id] }
+
     /// When the session that is up now came up, for the elapsed-time readout. `nil` whenever
     /// there is no ready session.
     ///
@@ -116,6 +139,14 @@ final class SessionModel {
     private let pins = ClientPinStore.standard
     private let browser = HostBrowser()
     private let notifier = SessionNotifier.shared
+
+    /// Whether the last thing Bonjour said was a failure.
+    ///
+    /// The browser replaces a dead one on its own, but a suspended app is not running to do it:
+    /// the retry it had scheduled sits behind the app's suspension and only fires once the app
+    /// is running again. Coming back to the foreground is the one moment worth restarting
+    /// immediately rather than waiting that out.
+    private var browseFailed = false
     private var identity: SelfSignedIdentity?
     private var device = DeviceIdentity(id: "", name: "")
     private var session: ClientSession?
@@ -132,6 +163,7 @@ final class SessionModel {
     init() {
         device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
         pairedHostIDs = pins.hostIDs
+        hostNames = UserDefaults.standard.dictionary(forKey: Self.hostNamesKey) as? [String: String] ?? [:]
         do {
             identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
         } catch {
@@ -168,9 +200,15 @@ final class SessionModel {
     private func apply(_ event: HostBrowser.Event) {
         switch event {
         case .started:
+            browseFailed = false
             browseStatus = "Looking for Macs on this network…"
         case .updated(let hosts):
+            browseFailed = false
             self.hosts = hosts
+            if let pending = pendingHostID, let host = hosts.first(where: { $0.id == pending }) {
+                pendingHostID = nil
+                connect(to: .discovered(host))
+            }
             self.resumeIfNeeded()
             browseStatus = hosts.isEmpty
                 ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network."
@@ -179,6 +217,11 @@ final class SessionModel {
             // Bonjour failing is silent on iOS without the local-network permission and the
             // NSBonjourServices entry, so the message is surfaced verbatim rather than
             // smoothed over — the manual address path below is the way past it.
+            //
+            // Shown even though the browser is already replacing itself: the retry can take half
+            // a minute, and a status line that said nothing would leave the user looking at a
+            // list that has quietly stopped updating.
+            browseFailed = true
             browseStatus = "Browsing failed: \(message)"
         }
     }
@@ -207,6 +250,12 @@ final class SessionModel {
         userEndedSession = false
         // An attempt from the backoff timer would race this one and start a second session.
         stopReconnecting()
+        // And a session that is already up must be torn down rather than replaced. Assigning
+        // over it leaves the first connection running with nothing holding it, so the peer sees
+        // it drop mid-handshake — which reads on the Mac as a clean disconnect and, with a retry
+        // following it, is a loop rather than a session.
+        session?.disconnect()
+        session = nil
         // The user has just asked to reach a Mac, which is the first moment the question
         // "tell you when it needs you?" means anything.
         notifier.prepareForFirstConnect()
@@ -292,6 +341,10 @@ final class SessionModel {
                 // emits `.ready` again, and elapsed time that kept counting through it would
                 // be describing a session that no longer exists.
                 if previous != .ready {
+                    // A session that came up is the only thing that clears the backoff, so a
+                    // failure a retry cannot fix spends its five attempts and then stops
+                    // rather than announcing itself once a second forever.
+                    reconnectAttempt = 0
                     sessionStartedAt = Date()
                     // Armed once the session is actually up, not when the user reached for one:
                     // a connect that failed halfway is not something to restore.
@@ -345,6 +398,10 @@ final class SessionModel {
             // The host's own name is authoritative. Bonjour is only a hint about where to
             // find it, and it can be stale by minutes.
             hostName = hello.hostName
+            if hostNames[hello.serverID] != hello.hostName {
+                hostNames[hello.serverID] = hello.hostName
+                UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
+            }
         case .catalog(let catalog):
             self.catalog = catalog
             if activeSourceID == nil, let first = catalog.displays.first ?? catalog.all.first {
@@ -436,6 +493,28 @@ final class SessionModel {
         phase = .disconnected
     }
 
+    /// A trusted Mac the user asked for, waiting on discovery to produce it.
+    private var pendingHostID: String?
+
+    /// Whether a trusted Mac has been asked for and not yet found.
+    var isWaitingForHost: Bool { pendingHostID != nil }
+
+    /// Connects to a Mac this device has paired with before, by ID.
+    ///
+    /// Discovery still has to find it, and that is not laziness: a Bonjour endpoint carries the
+    /// interface it was seen on, and a remembered address would be the wrong one the moment the
+    /// network changed. What this saves is the *second* tap — the request is remembered and acted
+    /// on the moment the Mac appears, instead of the user staring at an empty list, deciding it
+    /// did not work, and trying again.
+    func connectToTrusted(hostID: String) {
+        if let host = hosts.first(where: { $0.id == hostID }) {
+            pendingHostID = nil
+            connect(to: .discovered(host))
+            return
+        }
+        pendingHostID = hostID
+    }
+
     // MARK: - Quick connect
 
     /// Where the name of the last Mac this device connected to is kept.
@@ -499,7 +578,11 @@ final class SessionModel {
     /// A deliberate disconnect clears the flag and nothing here fires; a dropped connection
     /// leaves it set, which is exactly the case this exists for.
     private func resumeIfNeeded() {
-        guard !phase.holdsSession else {
+        // `session` is assigned synchronously in ``connect(to:)``, before the phase has heard
+        // anything, while the browser fires `updated` on its own schedule — so the session is
+        // the only reliable evidence that an attempt is already in flight. Without it the retry
+        // and the browser can both start one, and each silently closes the other's connection.
+        guard session == nil, !phase.holdsSession else {
             stopReconnecting()
             return
         }
@@ -536,10 +619,15 @@ final class SessionModel {
         }
     }
 
+    /// Stops the retry, *without* resetting the backoff.
+    ///
+    /// The counter belongs to a run of attempts, and resetting it here is what turned a failing
+    /// reconnect into a permanent loop: every cycle called this, so the attempt count returned to
+    /// zero and the delays never advanced past the first second. Only a session that actually
+    /// came up clears it — see the `.ready` branch in ``apply(_:)``.
     private func stopReconnecting() {
         reconnectTask?.cancel()
         reconnectTask = nil
-        reconnectAttempt = 0
         isReconnecting = false
     }
 
@@ -564,6 +652,10 @@ final class SessionModel {
 
     func enteringForeground() {
         endBackgroundAssertion()
+        // A browse that died while the app was in the background has been sitting behind its own
+        // backoff in a suspended process. Starting one now is the difference between a list that
+        // is there when the user looks and one that fills in several seconds later.
+        if browseFailed { restartBrowsing() }
         resumeIfNeeded()
     }
 

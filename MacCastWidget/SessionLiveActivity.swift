@@ -15,14 +15,20 @@ struct SessionLiveActivity: Widget {
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
+                // Both regions claim the full width and align inside it. A region otherwise sizes
+                // to its own content, which puts the timer wherever the Mac's name happens to end
+                // — mid-card — instead of against the trailing edge, where every other Live
+                // Activity and the Lock Screen card below both put it.
                 DynamicIslandExpandedRegion(.leading) {
                     Label(context.attributes.hostName, systemImage: symbol(for: context.state.phase))
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
                     elapsed(context)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {

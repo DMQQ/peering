@@ -201,9 +201,9 @@ final class HostModel {
                 }
                 return
             }
-            if case .switchToSpace(let index) = command {
+            if case .switchToSpace(let display, let index) = command {
                 Task { @MainActor in
-                    switchToSpace(index: index)
+                    switchToSpace(display: display, index: index)
                 }
                 return
             }

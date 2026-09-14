@@ -86,11 +86,18 @@ struct CanvasGestureView: UIViewRepresentable {
     var interactionMode: InteractionMode
     /// The window's own chrome, in the canvas's coordinates. See ``CanvasGeometry/isBlocked``.
     var blockedRegions: [CGRect] = []
+    /// Whether a floating panel is open. A tap on the picture then closes it instead of clicking
+    /// the Mac — see ``GestureSurfaceView/handleTap(_:)``.
+    var isPanelOpen: Bool = false
+    /// Called when such a tap lands.
+    var onDismissPanel: () -> Void = {}
 
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
         view.blockedRegions = blockedRegions
+        view.isPanelOpen = isPanelOpen
+        view.onDismissPanel = onDismissPanel
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -109,6 +116,8 @@ struct CanvasGestureView: UIViewRepresentable {
         // replaced on every update rather than captured once in `makeUIView`.
         view.interactionMode = interactionMode
         view.blockedRegions = blockedRegions
+        view.isPanelOpen = isPanelOpen
+        view.onDismissPanel = onDismissPanel
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -138,11 +147,37 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     var handlers: Handlers?
 
     /// Whether the fingers drive the Mac or the picture. Read by every handler below.
-    var interactionMode: InteractionMode = .control
+    var interactionMode: InteractionMode = .control {
+        didSet { applyTouchLimit() }
+    }
+
+    /// How many touches a one-finger drag is allowed to survive.
+    ///
+    /// Raised to two in drag & zoom, and that is not a relaxation of the rule below so much as
+    /// the point of the mode. A pinch and the drag that follows it are one continuous motion, and
+    /// a recogniser that has already *failed* cannot pick the remaining finger back up until
+    /// every touch has lifted — which is why moving a zoomed picture felt like it needed two
+    /// fingers when one is plainly enough.
+    ///
+    /// The strict limit stays in view & scroll. There a second finger has to *end* the drag: the
+    /// gesture is holding the Mac's mouse button down, and carrying on with whichever touch
+    /// happened to survive would leave the button pressed while the user thinks they are
+    /// scrolling.
+    private func applyTouchLimit() {
+        oneFingerPan.maximumNumberOfTouches = interactionMode == .navigate ? 2 : 1
+    }
 
     /// Where the window's own chrome is, in this view's coordinates. A touch that starts inside
     /// one of these belongs to a button and is never sent to the Mac.
     var blockedRegions: [CGRect] = []
+
+    /// Whether a floating panel is open, and what to do when a tap lands outside it.
+    ///
+    /// A panel is modal in intent but not in shape: it covers a corner of the picture and the
+    /// rest of the screen is still the Mac. Without this, the only way to put one away is the
+    /// button that opened it — which is a second target for a gesture the user has already made.
+    var isPanelOpen = false
+    var onDismissPanel: (() -> Void)?
 
     /// Set when a gesture began over the chrome, and cleared when it ends.
     ///
@@ -211,6 +246,10 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // which makes the view jump as soon as the user shifts the pinch centroid.
         pinch.delegate = self
         twoFingerPan.delegate = self
+
+        // The recogniser is lazy, so its touch limit is set here rather than in its own
+        // definition — the mode it depends on is not known until the view exists.
+        applyTouchLimit()
     }
 
     func gestureRecognizer(
@@ -253,9 +292,15 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         if interactionMode.oneFingerDragPansCanvas {
             // Incremental, and the accumulator is reset each time, for the same reason the
             // two-finger handler does it: a cumulative translation would make the view
-            // accelerate away from the finger.
+            // accelerate away from the finger. Reset before the guard below as well, so the
+            // travel of a two-finger stretch is thrown away rather than landing in one jump when
+            // the second finger lifts.
             let moved = gesture.translation(in: self)
             gesture.setTranslation(.zero, in: self)
+            // Two fingers are the pinch's. Ignored rather than failed, both so the picture does
+            // not jump to follow a centroid the user meant as a zoom, and so the finger left
+            // behind when the pinch ends goes on panning.
+            guard gesture.numberOfTouches <= 1 else { return }
             guard moved != .zero else { return }
             handlers?.onPanCanvas(CGSize(width: moved.x, height: moved.y))
             return
@@ -277,10 +322,21 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        let point = gesture.location(in: self)
+        // Checked *before* the mode guard below, because a mode that makes taps inert on the Mac
+        // is not a mode that makes them inert on this app's own chrome. A panel that could only
+        // be dismissed in one of the two modes would be a bug the user has to discover.
+        //
+        // Blocked points are excluded so the panel's own buttons still work: a tap inside one
+        // belongs to that button, and dismissing on it would close the panel out from under the
+        // tile the user was aiming at.
+        if CanvasGeometry.dismissesPanel(at: point, regions: blockedRegions, isPanelOpen: isPanelOpen) {
+            onDismissPanel?()
+            return
+        }
         // Nothing at all in drag & zoom, which is the point of that mode: the picture can be
         // moved and inspected without a stray tap landing on whatever is under it.
         guard interactionMode.tapsReachTheMac else { return }
-        let point = gesture.location(in: self)
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
         handlers?.onTouchDown(point)
         handlers?.onTouchUp(point)
@@ -371,6 +427,17 @@ enum CanvasGeometry {
     /// the caller knows where its chrome is, so it says so.
     static func isBlocked(_ point: CGPoint, regions: [CGRect]) -> Bool {
         regions.contains { $0.contains(point) }
+    }
+
+    /// Whether a tap should put an open panel away rather than reach the Mac.
+    ///
+    /// A pure decision for the same reason ``InteractionMode``'s routing is: a
+    /// `UITapGestureRecognizer` cannot be driven from a unit test, and the whole of the behaviour
+    /// is this one question. The chrome check is what keeps a tap *on* the panel from counting —
+    /// a tap inside one belongs to the button under it, and dismissing on that would close the
+    /// panel out from under the tile the user was aiming at.
+    static func dismissesPanel(at point: CGPoint, regions: [CGRect], isPanelOpen: Bool) -> Bool {
+        isPanelOpen && !isBlocked(point, regions: regions)
     }
 
     /// Turns a touch into a normalized position, undoing the canvas's zoom and pan first.

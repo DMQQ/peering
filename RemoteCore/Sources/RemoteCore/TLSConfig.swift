@@ -113,14 +113,24 @@ public enum TLSConfig {
                 return
             }
 
+            // Recorded unconditionally, before the pin decides anything.
+            //
+            // These are two separate questions and this block answers both: *may this
+            // connection proceed* (the pin's job, below) and *which key did the server
+            // present* (the caller's, whether or not a pin was supplied). Recording only on
+            // the unpinned path made the second answer a function of the first, so every
+            // connection to a Mac that had already been paired with came back with no key at
+            // all — and `ClientSession` treats a missing key as fatal, which is why a paired
+            // Mac could not be reached a second time.
+            observed?.set(presented)
+
             if let pinnedServerKey {
                 complete(SPKI.matches(pinnedServerKey, presented))
             } else {
                 // First pairing: no pin exists yet, and refusing here would make pairing
-                // impossible. Accept so the SAS comparison can run, and record what was
-                // seen so the pairing layer can bind it into the transcript. Nothing is
-                // trusted until the user confirms the digits match.
-                observed?.set(presented)
+                // impossible. Accept so the SAS comparison can run; the recorded key lets
+                // the pairing layer bind it into the transcript. Nothing is trusted until
+                // the user confirms the digits match.
                 complete(true)
             }
         }, queue)

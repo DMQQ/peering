@@ -140,11 +140,33 @@ struct JoystickView: View {
 /// Split out because the `Menu`s that sit in a rail take a label rather than a button as their
 /// content, and a menu that did not match the buttons beside it would read as a different kind
 /// of control. Built from one view, the two cannot disagree.
+/// A fixed width for rail buttons, set by a row that has to divide evenly.
+///
+/// An environment value rather than a parameter, because the buttons in the portrait dock are
+/// separate computed properties and one of them — Desktops — a `@ViewBuilder` may not produce at
+/// all. Threading a width through all of them would still leave that case applying a width to a
+/// view that is not there, which in an `HStack` is a gap the width of a button. Set on the row,
+/// it reaches every button that exists and nothing else.
+private struct RailButtonWidthKey: EnvironmentKey {
+    static let defaultValue: CGFloat? = nil
+}
+
+extension EnvironmentValues {
+    var railButtonWidth: CGFloat? {
+        get { self[RailButtonWidthKey.self] }
+        set { self[RailButtonWidthKey.self] = newValue }
+    }
+}
+
 struct RailButtonLabel: View {
     let icon: String
     let label: String
     var selected: Bool = false
     var enabled: Bool = true
+
+    /// Set by a row of buttons that have to be the same width as each other. Nil fills whatever
+    /// the button is given, which is what a rail wants.
+    @Environment(\.railButtonWidth) private var fixedWidth: CGFloat?
 
     /// Narrow enough that the rail does not eat into the picture, wide enough that the caption
     /// stays legible — the label shrinks before the rail grows.
@@ -161,10 +183,14 @@ struct RailButtonLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .frame(minWidth: Self.minimumWidth, maxWidth: .infinity)
+        .frame(width: fixedWidth)
+        .frame(minWidth: Self.minimumWidth, maxWidth: fixedWidth == nil ? .infinity : nil)
         .frame(height: ChromeMetrics.buttonHeight)
-        .background(selected ? ColorPalette.selectedFill : Color.clear,
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // A stadium, like the rail it sits in. A 10pt corner inside a capsule is a shape borrowed
+        // from somewhere else — the rail's ends and the button's ends are the only two curves on
+        // screen and they have to be the same curve. In the rail, where a button is as wide as it
+        // is tall, this makes it a circle.
+        .background(selected ? ColorPalette.selectedFill : Color.clear, in: Capsule())
         // On the label, so the icon, the caption and the fill all move as one thing.
         .animation(Motion.tap, value: selected)
         .animation(Motion.tap, value: enabled)
@@ -186,12 +212,15 @@ struct QuickKeyButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 20, weight: .medium))
+                // Proportional to the button, so a smaller one is a smaller button rather than a
+                // small button with a full-size glyph in it. At the default size this is the 20
+                // it has always been.
+                .font(.system(size: size / 3, weight: .medium))
                 .frame(width: size, height: size)
-                .glassEffect(
-                    .regular.interactive(),
-                    in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
-                )
+                // Round, like every other standalone control here. A key beside the pointer is the
+                // same kind of object as the joystick next to it, not the same kind as a rail
+                // button that happens to be alone.
+                .glassEffect(.regular.interactive(), in: Capsule())
         }
         .buttonStyle(RailButtonStyle())
         .accessibilityLabel(label)
@@ -264,17 +293,28 @@ struct ControlRail<Content: View>: View {
             VStack(spacing: ChromeMetrics.buttonGap) {
                 content
             }
-            .padding(.vertical, ChromeMetrics.panelPadding)
+            .padding(.vertical, ChromeMetrics.railPadding)
+            .padding(.horizontal, ChromeMetrics.railSidePadding)
         }
         // No rubber-banding when the buttons already fit, which is most of the time: a rail that
         // jiggles under a finger when there is nothing to scroll reads as a loose control.
         .scrollBounceBehavior(.basedOnSize)
         .frame(width: ChromeMetrics.panelWidth)
         .frame(maxHeight: maxHeight)
-        .glassEffect(
-            .regular,
-            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
-        )
+        // A stadium, not a rounded rectangle. At this width a 20pt radius is two thirds of the
+        // half-width, which is the one proportion that reads as neither — too round to be a
+        // rectangle, too square to be a pill — and the rail is the only panel here that is taller
+        // than it is wide, so it is the only one where that shows. The other panels keep
+        // `cornerRadius`: they are wider than they are tall, and a semicircular end would eat
+        // their content rather than frame it.
+        .glassEffect(.regular, in: Capsule())
+        // Clipped to that same capsule, and this is not the same thing as shaping the glass.
+        // `glassEffect(in:)` only draws the background in a capsule; the content is still bounded
+        // by the rail's *rectangle*, so a button scrolling past the end of a short rail shows
+        // through the transparent curve beside it and the caption appears to float outside its own
+        // panel. The padding above keeps buttons clear of the curve at rest; this is what keeps
+        // them clear while they move through it.
+        .clipShape(Capsule())
     }
 }
 
@@ -286,6 +326,12 @@ struct ControlRail<Content: View>: View {
 struct ScrollWheelView: View {
     /// Pixels to scroll, signed the way a two-finger drag is: positive is downward.
     var onScroll: (CGFloat) -> Void
+
+    /// What this wheel does at the moment — scrolling the Mac or resizing the picture. Only ever
+    /// spoken, and only because the same control means two different things depending on the mode
+    /// the user chose: a control whose name is fixed while its job is not is a control that lies
+    /// to whoever is listening rather than looking.
+    var label: String = "Scroll the Mac"
 
     /// A point of finger travel is several pixels of scroll. The track is short and has to cover
     /// a whole page, so one-to-one would feel stuck.
@@ -340,7 +386,7 @@ struct ScrollWheelView: View {
                         knob = 0
                     }
             )
-            .accessibilityLabel("Scroll the Mac")
+            .accessibilityLabel(label)
             .accessibilityHint("Drag up or down")
             .accessibilityAdjustableAction { direction in
                 switch direction {
@@ -398,8 +444,8 @@ struct ModifierBar: View {
                     Text(key.title)
                         .font(.system(size: 17, weight: .medium))
                         .frame(width: 38, height: 34)
-                        .foregroundStyle(isOn ? Color.black : Color.primary)
-                        .background(isOn ? ColorPalette.ink : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .foregroundStyle(isOn ? ColorPalette.ink : Color.primary)
+                        .background(isOn ? ColorPalette.selectedFill : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
                 .buttonStyle(RailButtonStyle(scale: 0.86))
@@ -548,7 +594,7 @@ struct SourceList: View {
             if source.id == model.activeSourceID {
                 // A checkmark and nothing else: tapping a row switches to it immediately, so a
                 // chevron promising another screen would be a lie.
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(ColorPalette.ink)
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(ColorPalette.accent)
             }
         }
         .contentShape(Rectangle())

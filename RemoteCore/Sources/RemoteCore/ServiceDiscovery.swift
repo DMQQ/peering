@@ -126,6 +126,29 @@ public final class HostBrowser: @unchecked Sendable {
     private var browser: NWBrowser?
     private var current: [DiscoveredHost] = []
 
+    /// Whether a browser is wanted right now.
+    ///
+    /// Distinguishes a browse that died from one that was put away: only the first is worth
+    /// replacing, and after ``stop()`` a restart would resurrect something the caller finished
+    /// with — a probe that has printed its answer, or an app being torn down.
+    private var isRunning = false
+
+    /// How many restarts have been scheduled back to back, reset by a browser reaching `.ready`.
+    private var restartAttempt = 0
+
+    /// Bumped by a deliberate stop, so a restart already in flight can tell it has been called
+    /// off. Compared rather than cancelled, because what is pending is a closure on this queue
+    /// and not a task.
+    private var restartGeneration = 0
+
+    /// How long to wait before replacing a browser that failed.
+    ///
+    /// Short at first: the common failure is the daemon dropping us during a network change and
+    /// is over before the first retry runs, so waiting longer only delays a list the user is
+    /// looking at. Capped so a device with Wi-Fi switched off settles into a retry every half
+    /// minute instead of spinning.
+    private static let restartDelays: [TimeInterval] = [1, 2, 5, 10, 20, 30]
+
     public var onEvent: (@Sendable (Event) -> Void)? {
         get { callbackLock.withLock { _onEvent } }
         set { callbackLock.withLock { _onEvent = newValue } }
@@ -135,7 +158,9 @@ public final class HostBrowser: @unchecked Sendable {
 
     public func start() {
         queue.async { [weak self] in
-            guard let self, self.browser == nil else { return }
+            guard let self else { return }
+            self.isRunning = true
+            guard self.browser == nil else { return }
 
             let parameters = NWParameters()
             // Peer-to-peer would add AWDL, discovering Macs that are nearby but on no shared
@@ -157,10 +182,11 @@ public final class HostBrowser: @unchecked Sendable {
                 guard let self else { return }
                 switch state {
                 case .ready:
+                    self.restartAttempt = 0
                     self.emit(.started)
                 case .failed(let error):
                     self.emit(.failed(error.localizedDescription))
-                    self.stop()
+                    self.replaceFailedBrowser()
                 case .cancelled:
                     self.emit(.updated([]))
                 default:
@@ -180,15 +206,43 @@ public final class HostBrowser: @unchecked Sendable {
     public func stop() {
         queue.async { [weak self] in
             guard let self else { return }
-            // Nil both handlers before cancelling. The NWBrowser fires .cancelled
-            // asynchronously on this queue *after* cancel() returns. If a new browser
-            // has already been started by then, the stateUpdateHandler would emit
-            // .updated([]) and wipe the new browser's live results.
-            self.browser?.stateUpdateHandler = nil
-            self.browser?.browseResultsChangedHandler = nil
-            self.browser?.cancel()
-            self.browser = nil
-            self.current = []
+            self.isRunning = false
+            self.restartGeneration += 1
+            self.teardown()
+        }
+    }
+
+    /// Tears the current browser down. Must run on ``queue``.
+    private func teardown() {
+        // Nil both handlers before cancelling. The NWBrowser fires .cancelled
+        // asynchronously on this queue *after* cancel() returns. If a new browser
+        // has already been started by then, the stateUpdateHandler would emit
+        // .updated([]) and wipe the new browser's live results.
+        browser?.stateUpdateHandler = nil
+        browser?.browseResultsChangedHandler = nil
+        browser?.cancel()
+        browser = nil
+        current = []
+    }
+
+    /// Replaces a browser that died, because a browse that failed is not a network that has been
+    /// proven wrong.
+    ///
+    /// `DefunctConnection` is the daemon saying it dropped us — after a Wi-Fi change, a daemon
+    /// restart, or a spell in the background — and the only cure for it is a new browser. This
+    /// used to tear the browser down and leave it, so from the first hiccup the picker read
+    /// "Browsing failed" until someone found the refresh button. That button is not on the
+    /// in-session screen at all, which made a transient daemon error look permanent.
+    private func replaceFailedBrowser() {
+        teardown()
+        guard isRunning else { return }
+
+        let delay = Self.restartDelays[min(restartAttempt, Self.restartDelays.count - 1)]
+        restartAttempt += 1
+        let generation = restartGeneration
+        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.restartGeneration == generation, self.isRunning else { return }
+            self.start()
         }
     }
 

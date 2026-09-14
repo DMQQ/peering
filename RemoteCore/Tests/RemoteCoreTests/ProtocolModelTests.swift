@@ -121,6 +121,68 @@ struct CaptureSourceTests {
         let catalog = CaptureCatalog(installedApplications: applications)
         #expect(catalog.installedApplications.count == CaptureCatalog.maximumInstalledApplicationCount)
     }
+
+    @Test("space info round-trips a desktop list per display")
+    func spaceInfoRoundTrip() throws {
+        let info = SpaceInfo(displays: [
+            SpaceDisplay(displayID: 1, count: 2, current: 2, previews: [
+                SpacePreview(index: 2, width: 320, height: 200, jpegData: Data([1, 2, 3]))
+            ]),
+            SpaceDisplay(displayID: 2, count: 3, current: 1),
+        ])
+
+        #expect(try roundTrip(info) == info)
+    }
+
+    /// The flat properties predate a second screen. They describe the first — the main — display,
+    /// so that everything written before this change keeps meaning what it meant.
+    @Test("flat accessors describe the main display")
+    func spaceInfoDerivedAccessors() {
+        let info = SpaceInfo(displays: [
+            SpaceDisplay(displayID: 1, count: 2, current: 2, previews: [
+                SpacePreview(index: 1, width: 320, height: 200, jpegData: Data([9]))
+            ]),
+            SpaceDisplay(displayID: 2, count: 3, current: 1, previews: [
+                SpacePreview(index: 3, width: 320, height: 200, jpegData: Data([8]))
+            ]),
+        ])
+
+        #expect(info.count == 2)
+        #expect(info.current == 2)
+        #expect(info.totalCount == 5)
+        // Flattened across screens, so a preview is never lost by looking at the wrong one.
+        #expect(info.previews.count == 2)
+    }
+
+    /// A deck built before this type described more than one display sends the old flat shape.
+    /// Refusing it would take the whole catalogue — and with it the session — down over a
+    /// thumbnail.
+    @Test("space info accepts the shape sent before a Mac had two screens")
+    func legacySpaceInfoDecode() throws {
+        let json = #"""
+        {"count":3,"current":2,"previews":[{"index":1,"width":320,"height":200,"jpegData":"AAEC"}]}
+        """#.data(using: .utf8)!
+
+        let info = try JSONDecoder().decode(SpaceInfo.self, from: json)
+
+        #expect(info.displays.count == 1)
+        #expect(info.totalCount == 3)
+        #expect(info.current == 2)
+        #expect(info.previews.count == 1)
+    }
+
+    /// Numbering restarts per display, which is why `count` and `current` had to stop being the
+    /// only things a payload carried: two screens each have a desktop numbered 1.
+    @Test("each display numbers its own desktops")
+    func perDisplayNumbering() {
+        let info = SpaceInfo(displays: [
+            SpaceDisplay(displayID: 1, count: 2, current: 1),
+            SpaceDisplay(displayID: 2, count: 3, current: 1),
+        ])
+
+        #expect(info.displays.map(\.current) == [1, 1])
+        #expect(info.displays.map(\.count) == [2, 3])
+    }
 }
 
 @Suite("RemoteCommand")
@@ -140,6 +202,9 @@ struct RemoteCommandTests {
             .keyUp(keyCode: 1, modifiers: []),
             .textInput("héllo 👋 世界"),
             .switchSpace(direction: .left),
+            // The display is part of the payload: index 1 names a different desktop on every
+            // screen, so a round trip that dropped it would still compare unequal.
+            .switchToSpace(display: 2, index: 3),
             .joystickMove(dx: -0.5, dy: 0.5),
             .setCaptureSource(.application(4242)),
             .launchApplication(bundleIdentifier: "com.example.Editor"),

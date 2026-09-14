@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import ImageIO
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -18,17 +19,23 @@ struct SpaceShot: Sendable, Equatable {
     let jpegData: Data
 }
 
-/// Numbers a set of captured desktops the way the client will display them.
+/// Numbers one display's captured desktops the way the client will display them.
 ///
 /// A free function on purpose. Which picture ends up under which number is the part of this
 /// feature that can be wrong while still looking plausible — every tile shows *a* desktop —
 /// and it is the only part that needs no window server, no display and no Screen Recording
 /// permission to exercise.
 ///
-/// `shots` is keyed by Space ID rather than by position. `activeID` is an input only so that a
-/// read which caught the window server mid-change — the list and the active Space are read one
-/// after the other, and the user can switch in between — produces no previews at all instead
-/// of tiles numbered against a list that no longer describes the screen.
+/// Numbering always restarts at 1, because it is called once per display and that is how the
+/// window server numbers Spaces and how the client labels the tiles: a Mac with two screens has
+/// two desktops called "Desktop 1". Running a single count across every screen would disagree
+/// with the `current` the window server reports for each.
+///
+/// `shots` is keyed by Space ID rather than by position — IDs are unique across displays, so one
+/// cache answers every screen. `activeID` is an input only so that a read which caught the window
+/// server mid-change — the list and the active Space are read one after the other, and the user
+/// can switch in between — produces no previews at all instead of tiles numbered against a list
+/// that no longer describes the screen.
 func orderedSpacePreviews(
     ids: [Int32],
     activeID: Int32,
@@ -76,21 +83,44 @@ final class SpacePreviewCache: @unchecked Sendable {
     /// image rather than that the desktop is busy.
     static let maximumByteCount = 64 * 1_024
 
-    /// The previews to send, in Space order and numbered as the client numbers them.
-    ///
-    /// Pruning happens here, because this is the only place that knows which Spaces still
-    /// exist. An ID is what makes the numbers safe to shift; it is also what would let a
-    /// removed desktop's picture sit in memory for the life of the process.
+    /// One display's previews, in Space order and numbered as the client numbers them.
     func previews(ids: [Int32], activeID: Int32) -> [SpacePreview] {
-        let current = lock.withLock { () -> [Int32: SpaceShot] in
-            shots = shots.filter { ids.contains($0.key) }
-            return shots
+        orderedSpacePreviews(ids: ids, activeID: activeID, shots: lock.withLock { shots })
+    }
+
+    /// Drops every picture whose desktop no longer exists on any display.
+    ///
+    /// Called once per catalogue build with the union of every display's Space IDs, rather than
+    /// from ``previews(ids:activeID:)``: a display only knows its own Spaces, so pruning there
+    /// would throw away the other screens' pictures. An ID is what makes the numbers safe to
+    /// shift; it is also what would let a removed desktop's picture sit in memory for the life of
+    /// the process.
+    func keep(only liveIDs: Set<Int32>) {
+        let removed = lock.withLock { () -> [Int32] in
+            let gone = shots.keys.filter { !liveIDs.contains($0) }
+            shots = shots.filter { liveIDs.contains($0.key) }
+            return gone
         }
-        return orderedSpacePreviews(ids: ids, activeID: activeID, shots: current)
+        PreviewStore.remove(removed)
+    }
+
+    /// Loads what previous launches photographed.
+    ///
+    /// **Kept on disk because a desktop can only be photographed while it is on screen.** These
+    /// pictures are the only record of the desktops the user is not currently looking at, so
+    /// losing them on every relaunch means tiles that stay blank until every one of those
+    /// desktops has been walked through again — for two screens and five desktops, a long and
+    /// entirely avoidable tour. Keyed by Space ID, which the window server keeps stable across
+    /// launches, so a picture comes back to the desktop it belongs to.
+    init() {
+        shots = PreviewStore.load()
     }
 
     func store(_ shot: SpaceShot, for spaceID: Int32) {
         lock.withLock { shots[spaceID] = shot }
+        // Written outside the lock. This is the only call here that touches the disk, and holding
+        // the lock across file I/O would block the catalogue read that is waiting on it.
+        PreviewStore.write(shot, for: spaceID)
     }
 
     /// Whether a Space has a picture, which is how a capture that produced one is told apart
@@ -149,5 +179,79 @@ final class SpacePreviewCache: @unchecked Sendable {
             return nil
         }
         return SpaceShot(width: image.width, height: image.height, jpegData: data)
+    }
+}
+
+/// The previews on disk, so a relaunch does not mean starting over.
+///
+/// Under the caches directory rather than Application Support: these are decoration that can be
+/// rebuilt by looking at a desktop, the system is free to evict them under disk pressure, and
+/// losing one costs a thumbnail rather than a fact.
+private enum PreviewStore {
+    /// How old a picture may be and still be worth showing.
+    ///
+    /// A Space ID is stable but it is not reserved: delete a desktop and a later one can be given
+    /// the number. A picture from months ago would then be drawn under the name of a desktop it
+    /// was never a picture of — the failure the ID-keyed cache exists to avoid, arriving by
+    /// another route.
+    private static let maximumAge: TimeInterval = 7 * 24 * 60 * 60
+
+    private static let directory: URL? = {
+        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        else { return nil }
+        let directory = caches.appendingPathComponent("SpacePreviews", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }()
+
+    private static func file(for spaceID: Int32) -> URL? {
+        directory?.appendingPathComponent("\(spaceID).jpg")
+    }
+
+    static func load() -> [Int32: SpaceShot] {
+        guard let directory,
+              let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path)
+        else { return [:] }
+
+        let oldest = Date().addingTimeInterval(-maximumAge)
+        var shots: [Int32: SpaceShot] = [:]
+        for name in names where name.hasSuffix(".jpg") {
+            let url = directory.appendingPathComponent(name)
+            guard let id = Int32(name.dropLast(4)),
+                  let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+                      .contentModificationDate,
+                  modified > oldest,
+                  let data = try? Data(contentsOf: url),
+                  let size = pixelSize(of: data)
+            else { continue }
+            shots[id] = SpaceShot(width: size.width, height: size.height, jpegData: data)
+        }
+        return shots
+    }
+
+    static func write(_ shot: SpaceShot, for spaceID: Int32) {
+        guard let file = file(for: spaceID) else { return }
+        try? shot.jpegData.write(to: file, options: .atomic)
+    }
+
+    static func remove(_ spaceIDs: [Int32]) {
+        for id in spaceIDs {
+            guard let file = file(for: id) else { continue }
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
+    /// The pixel dimensions of a JPEG, read from its header rather than by decoding the image.
+    ///
+    /// The size is needed to number a preview and is not carried in the file name. Decoding a
+    /// whole desktop screenshot on every launch would be the expensive way to learn something the
+    /// header already says.
+    private static func pixelSize(of data: Data) -> (width: Int, height: Int)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return nil }
+        return (width, height)
     }
 }

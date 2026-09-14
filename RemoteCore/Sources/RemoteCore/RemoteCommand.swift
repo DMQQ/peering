@@ -77,9 +77,14 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// so emoji and CJK work, but shortcuts that listen for physical keycodes will not fire.
     case textInput(String)
     case switchSpace(direction: SpaceDirection)
-    /// Jump directly to a 1-based Space index. The host resolves it to a CGS workspace ID,
-    /// so this works even if the user's Mission Control keyboard shortcuts are disabled.
-    case switchToSpace(index: Int)
+    /// Jump directly to a 1-based Space index on one display. The host resolves it to a CGS
+    /// workspace ID, so this works even if the user's Mission Control keyboard shortcuts are
+    /// disabled.
+    ///
+    /// `display` is a `CGDirectDisplayID`'s raw value. Spaces are per-display, so an index on
+    /// its own does not name a desktop: the same 1 is valid on every screen, and switching the
+    /// wrong screen's first desktop is a wrong answer that looks like a right one.
+    case switchToSpace(display: UInt32, index: Int)
     case joystickMove(dx: Double, dy: Double)
     /// Client-driven source switch. Applied with `SCStream.updateContentFilter(_:)`,
     /// so the stream is never torn down.

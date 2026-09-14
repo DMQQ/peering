@@ -59,6 +59,40 @@ final class MacCastTests: XCTestCase {
         XCTAssertFalse(mode.tapsReachTheMac)
     }
 
+    // MARK: - Putting a panel away
+
+    // A panel is modal in intent but not in shape: it covers a corner of the picture and the rest
+    // of the screen is still the Mac. These pin which taps put it away, for the same reason the
+    // routing above is pinned rather than driven through a recogniser.
+
+    private var panelRegion: CGRect { CGRect(x: 0, y: 700, width: 520, height: 120) }
+
+    func testTapOnThePictureDismissesAnOpenPanel() {
+        XCTAssertTrue(CanvasGeometry.dismissesPanel(
+            at: CGPoint(x: 200, y: 300),
+            regions: [panelRegion],
+            isPanelOpen: true
+        ))
+    }
+
+    func testTapOnThePanelItselfDoesNotDismissIt() {
+        // The panel's own tiles and buttons are inside this rect, and a tap on one belongs to the
+        // control under it. Dismissing here would close the panel out from under the user's aim.
+        XCTAssertFalse(CanvasGeometry.dismissesPanel(
+            at: CGPoint(x: 200, y: 750),
+            regions: [panelRegion],
+            isPanelOpen: true
+        ))
+    }
+
+    func testTapOnThePictureIsAnOrdinaryClickWhileNoPanelIsOpen() {
+        XCTAssertFalse(CanvasGeometry.dismissesPanel(
+            at: CGPoint(x: 200, y: 300),
+            regions: [],
+            isPanelOpen: false
+        ))
+    }
+
     /// A finger either drives the Mac or moves the picture, never both. Stated as an invariant
     /// over every case so a third mode added later cannot quietly be both at once.
     func testNoModeBothPansAndClicks() {

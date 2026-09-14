@@ -59,6 +59,27 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// ``orderedSpacePreviews(ids:activeID:shots:)``.
     private let spacePreviews = SpacePreviewCache()
 
+    /// Which Space each display was last seen showing.
+    ///
+    /// `NSWorkspace.activeSpaceDidChangeNotification` says only that *a* Space changed, so
+    /// without this there is no way to tell a switch on the second screen from one on the first,
+    /// and the only safe answer would be to photograph every display on every switch.
+    /// Under ``lock`` with the rest of the mutable state.
+    private var lastActiveSpace: [UInt32: Int32] = [:]
+
+    /// Looks for a Space change that no notification announced. See ``spacePollInterval``.
+    private var spacePoll: Task<Void, Never>?
+
+    /// How often to look for a Space change that nothing told us about.
+    ///
+    /// The notification is the fast path and this is the one that is always right: a switch on a
+    /// second display can pass with no notification posted at all, and did — the host log showed
+    /// two previews after launch and one more for the rest of the session, with whole desktops
+    /// never photographed while their neighbours were. Reading the Space lists is a couple of
+    /// window-server calls and a comparison, and a screenshot only happens when something really
+    /// did change, so the steady-state cost of this is the timer and nothing else.
+    private static let spacePollInterval: Duration = .seconds(2)
+
     /// Fired when the catalogue is known to be out of date — after an app launches or quits,
     /// or a display is added, removed or reconfigured. The host re-reads ``catalog()`` and
     /// pushes the result; pushing from inside the notification would mean pushing from a
@@ -76,9 +97,19 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         // is built on the client's schedule rather than the user's, and the whole point of the
         // cache is that a desktop visited before the client connected still has a picture.
         Task { [weak self] in await self?.captureActiveSpacePreview() }
+
+        let poll = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.spacePollInterval)
+                guard !Task.isCancelled, let self else { return }
+                await self.captureActiveSpacePreview()
+            }
+        }
+        spacePoll = poll
     }
 
     deinit {
+        spacePoll?.cancel()
         let center = NSWorkspace.shared.notificationCenter
         for observer in observers {
             center.removeObserver(observer)
@@ -97,14 +128,24 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         lock.withLock { installedApplicationsCache = installed }
 
         // Space info must be read on the main thread (CGS connection is thread-local).
-        let spaces: SpaceList? = await MainActor.run { readSpaceList() }
-        let spaceInfo = spaces.map { list in
-            SpaceInfo(
-                count: list.ids.count,
-                current: list.current,
-                previews: spacePreviews.previews(ids: list.ids, activeID: list.activeID)
-            )
+        let spaceDisplays: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
+        // One display knows only its own Spaces, so the union of all of them is what decides
+        // which pictures are still worth keeping. Skipped when the read came back empty: an empty
+        // union is indistinguishable from "the window server did not answer this time", and
+        // acting on it would throw away every picture on the machine over one failed read.
+        if !spaceDisplays.isEmpty {
+            spacePreviews.keep(only: Set(spaceDisplays.flatMap(\.ids)))
         }
+        let spaceInfo = spaceDisplays.isEmpty ? nil : SpaceInfo(
+            displays: spaceDisplays.map { display in
+                SpaceDisplay(
+                    displayID: display.displayID,
+                    count: display.ids.count,
+                    current: display.current,
+                    previews: spacePreviews.previews(ids: display.ids, activeID: display.activeID)
+                )
+            }
+        )
 
         return CaptureCatalog(
             displays: descriptors.filter { $0.kind == .display },
@@ -196,23 +237,51 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// display. A shot taken during the slide is half of one desktop and half of the other,
     /// which the client would draw as a tile for the arriving Space — a wrong picture, where
     /// waiting a moment only makes it a later one.
-    private static let spaceSwitchSettle: Duration = .milliseconds(600)
+    private static let spaceSwitchSettle: Duration = .milliseconds(900)
 
-    /// Photographs the desktop the user is on, so the client's Space picker has a tile for it.
+    /// Photographs the desktops that have just come to the front, so the client's picker has a
+    /// tile for each.
     ///
-    /// Driven by the Space changing rather than by anything a client asks for, because the
-    /// desktop in front is the only one ScreenCaptureKit can photograph — the rest are, by
-    /// definition, not on the display.
+    /// Driven by a Space changing rather than by anything a client asks for, because a desktop in
+    /// front is the only one ScreenCaptureKit can photograph — the rest are, by definition, not
+    /// on any display.
+    ///
+    /// The notification does not say *which* display changed, so this compares against the Space
+    /// each display was last seen showing and photographs only the ones that differ. At startup
+    /// that is every display, which is what puts a picture on the current desktop of each screen
+    /// before the user has switched anything; afterwards it is one display, so one screenshot per
+    /// switch however many screens the Mac has.
     ///
     /// **It is not called from ``catalog()``.** A screenshot is a round trip through the window
     /// server, and the catalogue is on the critical path of a client connecting: a preview is
     /// worth a task of its own and a push of its own, and never a millisecond of the
     /// catalogue's. Everything here is best-effort, and a failure only costs a tile.
     func captureActiveSpacePreview() async {
-        guard let list = await MainActor.run(body: { readSpaceList() }) else { return }
-        let spaceID = list.activeID
+        // Which displays want a new picture is decided *before* the settle, so a second
+        // notification arriving during it does not get this call acting on a display it was never
+        // about. Recorded here rather than after the captures, so a notification arriving
+        // mid-flight does not queue the same display up twice.
+        let before: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
+        let changed = lock.withLock { () -> [UInt32] in
+            let arrived = before.filter { lastActiveSpace[$0.displayID] != $0.activeID }
+            for display in before { lastActiveSpace[display.displayID] = display.activeID }
+            return arrived.map(\.displayID)
+        }
+        guard !changed.isEmpty else { return }
 
         try? await Task.sleep(for: Self.spaceSwitchSettle)
+
+        // Read *again* after the settle, because a picture taken now is of whatever is on screen
+        // now — and the read above can name a desktop the user has already left. Filing under
+        // that one would put one desktop's picture under another desktop's name, which is the
+        // mistake the ID-keyed cache exists to prevent.
+        //
+        // This used to be handled by discarding the shot whenever the user had moved on, which
+        // threw away most of the pictures from anyone switching quickly. Re-reading makes the
+        // question go away instead of answering it.
+        let settled: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
+        let targets = settled.filter { changed.contains($0.displayID) }
+        guard !targets.isEmpty else { return }
 
         // Built from the cached enumeration rather than a fresh one: the display a screenshot
         // is taken of is not something a Space switch changes.
@@ -224,29 +293,28 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // without Screen Recording permission fails, and a log line blaming the hardware
             // sends the next person to read it looking at the wrong thing entirely.
             resolverLog.notice("""
-                space preview \(spaceID, privacy: .public) not captured: \
-                \(error.localizedDescription, privacy: .public)
+                space previews not captured: \(error.localizedDescription, privacy: .public)
                 """)
             return
         }
 
-        guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) else {
-            resolverLog.notice("no main display to photograph for space \(spaceID, privacy: .public)")
-            return
+        var landed = false
+        for display in targets {
+            guard let screen = content.displays.first(where: { $0.displayID == display.displayID }) else {
+                resolverLog.notice("""
+                    display \(display.displayID, privacy: .public) is not shareable, \
+                    so no preview of space \(display.activeID, privacy: .public)
+                    """)
+                continue
+            }
+            await spacePreviews.capture(
+                spaceID: display.activeID,
+                filter: SCContentFilter(display: screen, excludingWindows: []),
+                configuration: Self.previewConfiguration(for: screen)
+            )
+            landed = spacePreviews.hasShot(for: display.activeID) || landed
         }
-
-        await spacePreviews.capture(
-            spaceID: spaceID,
-            filter: SCContentFilter(display: display, excludingWindows: []),
-            configuration: Self.previewConfiguration(for: display)
-        )
-
-        // The capture is asynchronous and the user can leave the Space again while it is in
-        // flight, in which case the picture is of whatever is on screen now and filing it
-        // under `spaceID` would be exactly the mistake the ID-keyed cache exists to prevent.
-        guard await MainActor.run(body: { readSpaceList()?.activeID }) == spaceID,
-              spacePreviews.hasShot(for: spaceID)
-        else { return }
+        guard landed else { return }
 
         previewLanded()
     }

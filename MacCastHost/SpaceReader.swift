@@ -79,15 +79,23 @@ private let cgsSetManagedDisplayCurrentSpace: SetCurrentSpaceFunc? = resolveFirs
     "CGSManagedDisplaySetCurrentSpace",
 ]).map { unsafeBitCast($0, to: SetCurrentSpaceFunc.self) }
 
-/// The Spaces as the window server holds them: every desktop's ID in display order, and which
-/// of them is active.
+/// One display's entry in the window server's per-display Space lists.
 ///
-/// The IDs are the point of this type existing at all. A Space's *number* is only its current
-/// position in the list — adding or removing a desktop renumbers every desktop after it — so
-/// anything that remembers a desktop has to remember its ID. A preview cache keyed by number
-/// would hand the client one desktop's picture under another desktop's number, which is a
-/// wrong answer that looks like a right one.
-struct SpaceList: Sendable, Equatable {
+/// Not private: the capture side builds a ``SpaceDisplay`` out of one, and the wire carries
+/// ``displayID`` rather than the UUID, which stays an implementation detail of this file.
+struct ManagedDisplay {
+    /// The `CGDirectDisplayID` this entry describes.
+    let displayID: UInt32
+    /// The display's UUID, as a string. This is the key `SLSManagedDisplaySetCurrentSpace` wants,
+    /// and A-string-is-A-string: it is compared by value, not by instance.
+    let identifier: String
+    /// Every desktop on this display, in order, by ID.
+    ///
+    /// The IDs are the point of this type existing at all. A Space's *number* is only its
+    /// current position in the list — adding or removing a desktop renumbers every desktop
+    /// after it — so anything that remembers a desktop has to remember its ID. A preview cache
+    /// keyed by number would hand the client one desktop's picture under another desktop's
+    /// number, which is a wrong answer that looks like a right one.
     let ids: [Int32]
     let activeID: Int32
 
@@ -100,108 +108,125 @@ struct SpaceList: Sendable, Equatable {
     }
 }
 
-/// One display's entry in the window server's per-display Space lists.
-private struct ManagedDisplay {
-    /// The display's UUID, as a string. This is the key `SLSManagedDisplaySetCurrentSpace` wants,
-    /// and A-string-is-A-string: it is compared by value, not by instance.
-    let identifier: String
-    let ids: [Int32]
-    let activeID: Int32
+/// Every display's UUID, by the `CGDirectDisplayID` it belongs to.
+///
+/// Built by hand because the mapping only exists in one direction: `CGDisplayCreateUUIDFromDisplayID`
+/// goes id → UUID, and the window server names displays the other way round. Only displays that
+/// are actually drawing are asked about — a sleeping display has no Spaces to name.
+private func displayIDsByIdentifier() -> [String: UInt32] {
+    var count: UInt32 = 0
+    var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+    guard CGGetActiveDisplayList(16, &ids, &count) == .success, count > 0 else { return [:] }
+
+    var byIdentifier: [String: UInt32] = [:]
+    for id in ids.prefix(Int(count)) {
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue() else { continue }
+        byIdentifier[CFUUIDCreateString(nil, uuid) as String] = id
+    }
+    return byIdentifier
 }
 
-/// The main display's Spaces.
+/// The display ID behind a window server display UUID, or `nil` if no drawing display claims it.
+private func displayID(forIdentifier identifier: String, in byIdentifier: [String: UInt32]) -> UInt32? {
+    if let id = byIdentifier[identifier] { return id }
+    // A mirror set or a virtual display can carry a UUID that no `CGDirectDisplayID` reports.
+    // The main display is the one worth rescuing by hand, because that fallback is exactly what
+    // this reader did when it knew about only one display.
+    guard let uuid = CGDisplayCreateUUIDFromDisplayID(CGMainDisplayID())?.takeRetainedValue(),
+          CFUUIDCreateString(nil, uuid) as String == identifier
+    else { return nil }
+    return CGMainDisplayID()
+}
+
+/// Every display's Spaces, **main display first**.
 ///
-/// **The main display, not every display.** Spaces are per-display, and the window server reports
-/// one ordered list for each. Preview capture photographs `CGMainDisplayID()` — see
-/// ``ScreenCaptureSourceResolver.captureActiveSpacePreview()`` — so a list drawn from any other
-/// display would number desktops that can never hold a picture, and would file a photograph of the
-/// main display's desktop under a different display's Space ID. The two have to agree, and the
-/// capture side is the one that cannot move.
+/// **Every display, and in this order.** Spaces are per-display and the window server reports one
+/// ordered list for each, so a reader that returned only one of them could describe at most one
+/// screen's desktops — which is what this used to do, always the main display, leaving a second
+/// screen's desktops invisible to the client even though the window server had them all along.
+/// Main first because callers that predate multiple displays read the first entry as "the"
+/// display, and that keeps meaning what it always did.
 ///
-/// The active Space is read from the display's own `Current Space` entry rather than from
-/// `SLSGetActiveSpace`, which reports whichever display the user is focused on. Reading it here
-/// keeps `activeID` inside `ids` by construction, which is what ``orderedSpacePreviews(ids:activeID:shots:)``
-/// checks before it will emit a single preview.
-private func readMainDisplay() -> ManagedDisplay? {
+/// The active Space is read from each display's own `Current Space` entry rather than from
+/// `SLSGetActiveSpace`, which reports only whichever display the user is focused on. Reading it
+/// here keeps `activeID` inside `ids` by construction, which is what
+/// ``orderedSpacePreviews(ids:activeID:shots:)`` checks before it will emit a single preview.
+private func readDisplays() -> [ManagedDisplay] {
     guard let connection = cgsConnection, let copySpaces = cgsCopyManagedDisplaySpaces else {
-        return nil
+        return []
     }
     let cid = connection()
-    guard cid > 0 else { return nil }
+    guard cid > 0 else { return [] }
 
     // `Copy` rule: the array is ours and ARC would not know to release it.
-    guard let displays = copySpaces(cid)?.takeRetainedValue() as? [[String: Any]] else {
-        return nil
+    guard let entries = copySpaces(cid)?.takeRetainedValue() as? [[String: Any]] else {
+        return []
     }
 
-    let mainUUID = CGDisplayCreateUUIDFromDisplayID(CGMainDisplayID()).takeRetainedValue()
-    let mainIdentifier = CFUUIDCreateString(nil, mainUUID) as String
+    let byIdentifier = displayIDsByIdentifier()
+    let parsed = entries.compactMap { entry -> ManagedDisplay? in
+        guard let identifier = entry["Display Identifier"] as? String,
+              let spaces = entry["Spaces"] as? [[String: Any]],
+              let displayID = displayID(forIdentifier: identifier, in: byIdentifier)
+        else { return nil }
 
-    guard let display = displays.first(where: { $0["Display Identifier"] as? String == mainIdentifier }),
-          let spaces = display["Spaces"] as? [[String: Any]]
-    else {
-        return nil
+        // Every Space the display reports, with no filter on `type`.
+        //
+        // Tempting to keep only the user Spaces (`type` 0) and drop the fullscreen ones
+        // (`type` 4), and wrong: a fullscreen Space is the active one whenever a window is
+        // fullscreen, so filtering would drop the ID this list reports as current, and an
+        // `activeID` outside `ids` costs the client *every* preview on that display — not one
+        // tile — because the whole preview set is discarded when the list and the active Space
+        // disagree.
+        let ids = spaces.compactMap { ($0["id64"] as? NSNumber)?.int32Value }
+        guard !ids.isEmpty else { return nil }
+
+        let current = entry["Current Space"] as? [String: Any]
+        let reported = (current?["id64"] as? NSNumber)?.int32Value
+        let activeID = reported.flatMap { ids.contains($0) ? $0 : nil } ?? ids[0]
+
+        return ManagedDisplay(displayID: displayID, identifier: identifier, ids: ids, activeID: activeID)
     }
 
-    // Every Space the display reports, with no filter on `type`.
-    //
-    // Tempting to keep only the user Spaces (`type` 0) and drop the fullscreen ones (`type` 4),
-    // and wrong: a fullscreen Space is the active one whenever a window is fullscreen, so
-    // filtering would drop the ID this list reports as current, and an `activeID` outside `ids`
-    // costs the client *every* preview — not one tile — because the whole preview set is
-    // discarded when the list and the active Space disagree.
-    let ids = spaces.compactMap { ($0["id64"] as? NSNumber)?.int32Value }
-    guard !ids.isEmpty else { return nil }
-
-    let current = display["Current Space"] as? [String: Any]
-    let reported = (current?["id64"] as? NSNumber)?.int32Value
-    let activeID = reported.flatMap { ids.contains($0) ? $0 : nil } ?? ids[0]
-
-    return ManagedDisplay(identifier: mainIdentifier, ids: ids, activeID: activeID)
+    // Main first, then whatever order the window server listed the rest in.
+    let main = CGMainDisplayID()
+    return parsed.filter { $0.displayID == main } + parsed.filter { $0.displayID != main }
 }
 
-/// Reads the Space IDs and the active one from the window server.
+/// Reads every display's Spaces from the window server.
 ///
-/// Returns `nil` if the private API is unavailable — callers should treat `nil` as "unknown"
-/// and hide the Space picker rather than show stale data.
+/// Returns an empty array if the private API is unavailable — callers should treat that as
+/// "unknown" and hide the Space picker rather than show stale data.
 ///
 /// **Must be called on the main thread.** Both connection getters above are thread-sensitive:
 /// the one this reader prefers is stable, but the fallbacks are not, and which one gets used is
 /// not something a caller can see. Pinning every entry point to the main queue makes the
 /// connection a given rather than a race.
-func readSpaceList() -> SpaceList? {
+func readDisplaySpaces() -> [ManagedDisplay] {
     dispatchPrecondition(condition: .onQueue(.main))
-    guard let display = readMainDisplay() else { return nil }
-    return SpaceList(ids: display.ids, activeID: display.activeID)
-}
-
-/// Reads the current Space count and active Space index from the window server.
-///
-/// The same read as ``readSpaceList()`` with the IDs dropped. Callers that only need what the
-/// picker shows want this one; anything that has to remember a desktop across a renumbering
-/// wants the list.
-///
-/// Previews are not read here and cannot be: they belong to ``SpacePreviewCache``, which needs
-/// a screenshot to have been taken off this thread first.
-///
-/// Inherits the main-thread requirement from ``readSpaceList()``.
-func readSpaceInfo() -> SpaceInfo? {
-    guard let list = readSpaceList() else { return nil }
-    return SpaceInfo(count: list.ids.count, current: list.current)
+    return readDisplays()
 }
 
 /// Switches to the adjacent Space in `direction`, wrapping at either end.
+///
+/// Acts on **the display the pointer is on**, not the main one: macOS' own ⌃←/⌃→ reorder the
+/// screen the user is looking at, and a relative switch that always moved the built-in display's
+/// desktops would be wrong every time attention was on a second screen.
 ///
 /// Goes through the window server rather than posting ⌃←/⌃→, which is the difference between a
 /// switch that happens and one that is swallowed: Mission Control's shortcuts are matched by the
 /// window server, and synthetic key events posted at the HID tap do not reach that match.
 ///
-/// Relative to the Space the list reports as current, so a switch that raced a user-driven one
+/// Relative to the Space the display reports as current, so a switch that raced a user-driven one
 /// moves from where the user actually is rather than from where this process last looked.
 @discardableResult
 func switchSpaceRelative(direction: SpaceDirection) -> Bool {
     dispatchPrecondition(condition: .onQueue(.main))
-    guard let display = resolveSwitchTarget() else { return false }
+    let displays = readDisplays()
+    // `readDisplays` puts the main display first, so the fallback here is the main display.
+    guard let display = displays.first(where: { $0.displayID == DisplayGeometry.pointerDisplayID() })
+        ?? displays.first
+    else { return false }
     guard display.ids.count > 1 else { return false }
     guard let current = display.ids.firstIndex(of: display.activeID) else { return false }
 
@@ -213,29 +238,27 @@ func switchSpaceRelative(direction: SpaceDirection) -> Bool {
     return performSwitch(display: display, spaceID: display.ids[next])
 }
 
-/// Switches directly to the 1-based Space at `index`.
+/// Switches directly to the 1-based Space at `index` **on `display`**.
+///
+/// The display is part of the request because Spaces are per-display: the same index 1 names a
+/// different desktop on each screen, so an index alone cannot say which one to reveal.
 ///
 /// Returns whether the window server accepted the switch. Fails silently if the private API is
-/// unavailable or the index is out of range — callers should not surface an error for a missing
-/// Space because the user might have removed it since the catalog was sent.
+/// unavailable, the display is gone, or the index is out of range — callers should not surface an
+/// error for a missing Space because the user might have removed it since the catalogue was sent.
 @discardableResult
-func switchToSpace(index: Int) -> Bool {
+func switchToSpace(display: UInt32, index: Int) -> Bool {
     dispatchPrecondition(condition: .onQueue(.main))
-    guard let display = resolveSwitchTarget() else { return false }
-    let zeroIndex = index - 1
-    guard zeroIndex >= 0, zeroIndex < display.ids.count else { return false }
-    return performSwitch(display: display, spaceID: display.ids[zeroIndex])
-}
+    guard cgsSetManagedDisplayCurrentSpace != nil else { return false }
+    // A fresh read on every switch, for the same reason the reader is a read rather than a
+    // cached value: between the catalogue being sent and the user tapping a tile, a desktop can
+    // be added, removed or reordered, and an index resolved against the list the client was
+    // shown would then name a different desktop.
+    guard let target = readDisplays().first(where: { $0.displayID == display }) else { return false }
 
-/// The display a switch will act on.
-///
-/// A fresh read on every switch, for the same reason the reader is a read rather than a cached
-/// value: between the catalogue being sent and the user tapping a tile, a desktop can be added,
-/// removed or reordered, and an index resolved against the list the client was shown would then
-/// name a different desktop.
-private func resolveSwitchTarget() -> ManagedDisplay? {
-    guard cgsSetManagedDisplayCurrentSpace != nil else { return nil }
-    return readMainDisplay()
+    let zeroIndex = index - 1
+    guard zeroIndex >= 0, zeroIndex < target.ids.count else { return false }
+    return performSwitch(display: target, spaceID: target.ids[zeroIndex])
 }
 
 private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {

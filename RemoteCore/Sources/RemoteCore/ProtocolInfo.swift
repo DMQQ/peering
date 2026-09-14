@@ -4,7 +4,12 @@ import Foundation
 public enum ProtocolInfo {
     /// Bumped whenever the wire format changes incompatibly. Exchanged in the hello
     /// messages and bound into the pairing transcript.
-    public static let version: UInt16 = 1
+    ///
+    /// 2: `SpaceInfo` describes every display rather than one, and `switchToSpace` names the
+    /// display it acts on. An older host cannot decode either, so this is an incompatible change
+    /// and is declared as one — the handshake turns it into "update whichever is older" rather
+    /// than a decode failure in the middle of a session.
+    public static let version: UInt16 = 2
 
     /// Bonjour service type. Must also appear in the client's `NSBonjourServices`
     /// Info.plist key, or browsing fails silently with no prompt and no error.
