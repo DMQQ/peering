@@ -92,6 +92,10 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Launches a locally installed GUI app. The host resolves the bundle identifier from
     /// its own application catalogue; clients never send executable paths.
     case launchApplication(bundleIdentifier: String)
+    /// Requests a live change to the stream's quality. The host applies `bitrateKbps` to the
+    /// running encoder and `fps` to the capture pipeline's frame interval. A value of 0 for
+    /// either field means "keep current". Takes effect on the next keyframe.
+    case setStreamQuality(fps: Int, bitrateKbps: Int)
 
     public var coalescing: Coalescing {
         switch self {
@@ -100,7 +104,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .joystickMove, .scroll:
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
-             .switchToSpace, .setCaptureSource, .launchApplication:
+             .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality:
             return .none
         }
     }

@@ -53,16 +53,24 @@ struct Macro: Identifiable, Hashable {
     static let defaults: [Macro] = [
         // Keycodes are macOS virtual keycodes — the values `CGEvent` takes — not USB HID
         // usages and not characters. C is 8, V is 9, W is 13, Tab is 48, Space is 49.
-        Macro(id: "copy", title: "⌘C", keyCode: 8, modifiers: .command),
-        Macro(id: "paste", title: "⌘V", keyCode: 9, modifiers: .command),
-        Macro(id: "cut", title: "⌘X", keyCode: 7, modifiers: .command),
-        Macro(id: "undo", title: "⌘Z", keyCode: 6, modifiers: .command),
-        Macro(id: "save", title: "⌘S", keyCode: 1, modifiers: .command),
-        Macro(id: "close", title: "⌘W", keyCode: 13, modifiers: .command),
-        Macro(id: "appswitch", title: "⌘⇥", keyCode: 48, modifiers: .command),
+        Macro(id: "copy",      title: "⌘C",     keyCode: 8,  modifiers: .command),
+        Macro(id: "paste",     title: "⌘V",     keyCode: 9,  modifiers: .command),
+        Macro(id: "cut",       title: "⌘X",     keyCode: 7,  modifiers: .command),
+        Macro(id: "undo",      title: "⌘Z",     keyCode: 6,  modifiers: .command),
+        Macro(id: "save",      title: "⌘S",     keyCode: 1,  modifiers: .command),
+        Macro(id: "close",     title: "⌘W",     keyCode: 13, modifiers: .command),
+        Macro(id: "appswitch", title: "⌘⇥",     keyCode: 48, modifiers: .command),
         Macro(id: "spotlight", title: "⌘Space", keyCode: 49, modifiers: .command),
-        Macro(id: "escape", title: "esc", keyCode: 53, modifiers: []),
-        Macro(id: "return", title: "⏎", keyCode: 36, modifiers: []),
+        Macro(id: "escape",    title: "esc",    keyCode: 53, modifiers: []),
+        Macro(id: "return",    title: "⏎",      keyCode: 36, modifiers: []),
+        // Terminal / shell control sequences
+        Macro(id: "ctrl-c",    title: "⌃C",     keyCode: 8,  modifiers: .control),
+        Macro(id: "ctrl-z",    title: "⌃Z",     keyCode: 6,  modifiers: .control),
+        Macro(id: "ctrl-d",    title: "⌃D",     keyCode: 2,  modifiers: .control),
+        Macro(id: "ctrl-l",    title: "⌃L",     keyCode: 37, modifiers: .control),
+        Macro(id: "ctrl-a",    title: "⌃A",     keyCode: 0,  modifiers: .control),
+        Macro(id: "ctrl-e",    title: "⌃E",     keyCode: 14, modifiers: .control),
+        Macro(id: "ctrl-r",    title: "⌃R",     keyCode: 15, modifiers: .control),
     ]
 }
 
@@ -80,6 +88,20 @@ final class SessionModel {
         case direct = "DIRECT"
     }
 
+    enum StreamQuality: String, CaseIterable, Sendable {
+        case low    = "Low"
+        case medium = "Med"
+        case high   = "High"
+
+        var bitrateKbps: Int {
+            switch self {
+            case .low:    return 2_000
+            case .medium: return 8_000
+            case .high:   return 20_000
+            }
+        }
+    }
+
     // MARK: - Connection state
 
     private(set) var phase: ClientSession.Phase = .idle
@@ -93,6 +115,7 @@ final class SessionModel {
     private(set) var videoStatus = "No video stream"
     private(set) var connectionPath: ConnectionPath?
     private(set) var pairedHostIDs: [String] = []
+    private(set) var streamQuality: StreamQuality = .high
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
@@ -835,6 +858,11 @@ final class SessionModel {
                 send(.keyUp(keyCode: code, modifiers: modifiers))
             }
         }
+    }
+
+    func setStreamQuality(_ quality: StreamQuality) {
+        streamQuality = quality
+        send(.setStreamQuality(fps: 0, bitrateKbps: quality.bitrateKbps))
     }
 
     func handleBackspace() {

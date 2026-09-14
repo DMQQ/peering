@@ -35,6 +35,10 @@ struct JoystickView: View {
     @State private var touchStart: Date?
     @State private var isLongPress = false
     @State private var holdTask: Task<Void, Never>?
+    // Accumulated delta and last-send timestamp, used to cap the send rate.
+    @State private var pendingDx: Double = 0
+    @State private var pendingDy: Double = 0
+    @State private var lastEmit: Date?
 
     var body: some View {
         ZStack {
@@ -123,21 +127,34 @@ struct JoystickView: View {
         .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click")
     }
 
+    // At most 30 send calls per second; everything between goes into `pendingDx/pendingDy`
+    // and is flushed as one accumulated delta when the gate opens. The CommandCoalescer in
+    // the transport also accumulates, but throttling earlier reduces message construction
+    // and serialisation overhead on 120 Hz ProMotion displays.
+    private static let sendHz: TimeInterval = 1.0 / 30
+
     private func emit(_ offset: CGSize) {
         let now = Date()
-        // The very first sample has no interval to measure, so it contributes nothing: it has
-        // not been held for any length of time yet.
         let interval = lastSample.map { min(now.timeIntervalSince($0), Self.maximumSampleGap) } ?? 0
         lastSample = now
         guard interval > 0 else { return }
 
-        // Deflection, 0…1 on each axis, scaled by how far the surface should be crossed in a
-        // second. A short sample interval produces a proportionally small nudge, which is what
-        // keeps the cursor's speed the same whether the screen samples at 60 or 120 Hz.
         let dx = Double(offset.width / radius) * Self.travelPerSecond * pointSize.width * interval
         let dy = Double(offset.height / radius) * Self.travelPerSecond * pointSize.height * interval
-        guard dx.isFinite, dy.isFinite, dx != 0 || dy != 0 else { return }
-        onMove(CGSize(width: dx, height: dy))
+        guard dx.isFinite, dy.isFinite else { return }
+
+        pendingDx += dx
+        pendingDy += dy
+
+        let elapsed = lastEmit.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude
+        guard elapsed >= Self.sendHz else { return }
+        lastEmit = now
+
+        let toSend = CGSize(width: pendingDx, height: pendingDy)
+        pendingDx = 0
+        pendingDy = 0
+        guard toSend.width != 0 || toSend.height != 0 else { return }
+        onMove(toSend)
     }
 }
 

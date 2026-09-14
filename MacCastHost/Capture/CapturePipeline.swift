@@ -299,6 +299,14 @@ final class CapturePipeline: @unchecked Sendable {
         encoder?.requestKeyframe()
     }
 
+    /// Changes the bitrate on the running encoder. Also arms a keyframe request so the new
+    /// rate takes effect quickly rather than waiting for the two-second interval.
+    func setBitrate(_ bitsPerSecond: Int) {
+        let encoder = lock.withLock { self.encoder }
+        encoder?.setBitrate(bitsPerSecond)
+        encoder?.requestKeyframe()
+    }
+
     // MARK: - Frame flow
 
     /// A captured frame, on the capture queue.

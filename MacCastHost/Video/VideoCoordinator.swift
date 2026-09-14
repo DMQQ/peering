@@ -441,6 +441,13 @@ final class VideoCoordinator: @unchecked Sendable {
         ))
     }
 
+    /// Applies a stream-quality change requested by the client.
+    func setStreamQuality(fps: Int, bitrateKbps: Int) {
+        if bitrateKbps > 0 {
+            pipeline.setBitrate(bitrateKbps * 1000)
+        }
+    }
+
     func stop() {
         // Before anything else: a teardown must not be reported as a failure to capture.
         cancelWatchdog()

@@ -317,6 +317,7 @@ struct RemoteScreen: View {
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(ColorPalette.reading(latency))
                     }
+                    qualityPicker
                     fillChip
                     if zoom > 1.01 {
                         Button {
@@ -332,12 +333,19 @@ struct RemoteScreen: View {
                     // pill is the one piece of chrome that is always on screen, expanded or not,
                     // so ending a session is never something the user has to go looking for.
                     Button { model.disconnect() } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(ColorPalette.ink)
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("QUIT")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.red.opacity(0.85), in: Capsule())
                     }
-                    .buttonStyle(RailButtonStyle(scale: 0.88))
-                    .accessibilityLabel("Disconnect")
+                    .buttonStyle(RailButtonStyle(scale: 0.9))
+                    .accessibilityLabel("Quit session")
                 }
                 .padding(.horizontal, 14)
                 .frame(height: 44)
@@ -361,6 +369,7 @@ struct RemoteScreen: View {
                 .padding(.horizontal, 12)
                 .frame(height: 28)
                 .onTapGesture { expandStatusBar() }
+                .contentShape(Capsule())
             }
         }
         .glassEffect(.regular, in: Capsule())
@@ -368,13 +377,16 @@ struct RemoteScreen: View {
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
         .reportChromeFrame(.statusBar, into: $chromeFrames)
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: statusBarExpanded)
         .task(id: model.phase) {
-            // Collapse to compact pill a few seconds after the session is live.
+            // Expand a moment when the session comes up, then collapse.
             guard model.phase == .ready else { return }
-            statusBarExpanded = true
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                statusBarExpanded = true
+            }
             try? await Task.sleep(for: .seconds(4))
-            withAnimation { statusBarExpanded = false }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                statusBarExpanded = false
+            }
         }
     }
 
@@ -387,6 +399,31 @@ struct RemoteScreen: View {
             .padding(.vertical, 3)
             .background(.primary.opacity(0.08), in: Capsule())
             .accessibilityLabel("Connection path")
+    }
+
+    private var qualityPicker: some View {
+        HStack(spacing: 2) {
+            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { preset in
+                let selected = model.streamQuality == preset
+                Button {
+                    model.setStreamQuality(preset)
+                } label: {
+                    Text(preset.rawValue)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(selected ? ColorPalette.ink : .secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            selected ? .primary.opacity(0.15) : .clear,
+                            in: Capsule()
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(.primary.opacity(0.06), in: Capsule())
+        .accessibilityLabel("Stream quality")
     }
 
     /// How long the session has been up.
@@ -430,10 +467,14 @@ struct RemoteScreen: View {
     }
 
     private func expandStatusBar() {
-        statusBarExpanded = true
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+            statusBarExpanded = true
+        }
         Task {
             try? await Task.sleep(for: .seconds(4))
-            withAnimation { statusBarExpanded = false }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                statusBarExpanded = false
+            }
         }
     }
 
@@ -868,6 +909,9 @@ struct RemoteScreen: View {
                     Text(model.typedPreview)
                         .font(.system(.footnote, design: .monospaced))
                         .lineLimit(1)
+                        // Head-truncate so the most-recently-typed characters stay visible
+                        // when the preview is wider than the available space.
+                        .truncationMode(.head)
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -1055,6 +1099,7 @@ struct RemoteScreen: View {
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(model.typedPreview.isEmpty ? Color.secondary : Color.primary)
                 .lineLimit(1)
+                .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button {

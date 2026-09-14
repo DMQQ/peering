@@ -327,6 +327,17 @@ final class VideoEncoder: @unchecked Sendable {
         lock.withLock { forceKeyframePending = true }
     }
 
+    /// Changes the encoder's average bitrate on the running session.
+    ///
+    /// `VTCompressionPropertyKey_AverageBitRate` can be updated mid-session on the
+    /// low-latency rate controller. The change takes effect on the next keyframe, so the
+    /// caller should also call `requestKeyframe()` to make the switch visible quickly.
+    func setBitrate(_ bitsPerSecond: Int) {
+        guard let session = lock.withLock({ self.session }) else { return }
+        Self.set(session, kVTCompressionPropertyKey_AverageBitRate, NSNumber(value: bitsPerSecond))
+        encoderLog.notice("bitrate updated to \(bitsPerSecond / 1000, privacy: .public) kbps")
+    }
+
     /// Flushes and tears the session down. The encoder cannot be used afterwards.
     func shutdown() {
         let session = lock.withLock { () -> VTCompressionSession? in
