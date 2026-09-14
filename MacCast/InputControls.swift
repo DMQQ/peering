@@ -23,7 +23,7 @@ struct JoystickView: View {
     var radius: CGFloat = 54
 
     /// Fraction of the captured surface travelled per second at full deflection.
-    private static let travelPerSecond = 0.9
+    private static let travelPerSecond = 1.5
     /// A gap longer than this is a new gesture, not a slow one — otherwise the first sample
     /// of a new drag carries all the time since the last one and the cursor jumps.
     private static let maximumSampleGap: TimeInterval = 0.05

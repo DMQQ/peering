@@ -590,11 +590,26 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             guard let application = content.applications.first(where: { $0.processID == pid }) else {
                 throw CaptureError.sourceUnavailable("That application is no longer running.")
             }
-            // An application filter is defined relative to a display, so one has to be
-            // named even though the filter is by process. The display the application's
-            // windows are actually on is the only sensible choice: picking the main display
-            // would composite nothing for an app whose windows are all on a second screen.
-            let owned = content.windows.filter { $0.owningApplication?.processID == pid }
+            let owned = content.windows.filter {
+                $0.owningApplication?.processID == pid
+                && $0.frame.width >= 1
+                && $0.frame.height >= 1
+            }
+            guard !owned.isEmpty else {
+                throw CaptureError.sourceUnavailable("That application has no windows on any display.")
+            }
+
+            // A single window can be captured independently of the display it sits on, which
+            // produces a frame that is exactly the window size with no surrounding black space.
+            // When the app has multiple windows a display-relative filter is the only SCK
+            // option, and the configuration's sourceRect is set to crop the output to the
+            // bounding box of those windows — otherwise the entire display is streamed with
+            // non-app content blacked out, giving the iPhone a large black canvas with a
+            // small app somewhere inside it.
+            if owned.count == 1 {
+                return SCContentFilter(desktopIndependentWindow: owned[0])
+            }
+
             guard let display = Self.hostingDisplay(for: Self.unionFrame(of: owned), in: content) else {
                 throw CaptureError.sourceUnavailable("That application has no windows on any display.")
             }

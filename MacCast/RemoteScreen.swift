@@ -112,6 +112,31 @@ struct RemoteScreen: View {
             .scaleEffect(effectiveZoom, anchor: .center)
             .offset(pan)
             .ignoresSafeArea()
+            .overlay {
+                // When the capture stream has stopped (source closed, app quit) the last
+                // decoded frame stays visible on screen. Without a visual warning the user
+                // touches what looks live but is actually stale — clicks land on whatever the
+                // Mac currently shows at that position, not what the iPhone is displaying.
+                if !model.isVideoStreaming && model.phase == .ready {
+                    ZStack {
+                        Color.black.opacity(0.55).ignoresSafeArea()
+                        VStack(spacing: 8) {
+                            Image(systemName: "pause.circle.fill")
+                                .font(.system(size: 44))
+                                .foregroundStyle(.white.opacity(0.85))
+                            Text("Stream paused")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                            Text(model.videoStatus)
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding()
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
     }
 
     /// How much the picture has to grow to reach the screen's edges.

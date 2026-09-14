@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import IOKit.pwr_mgt
 import Observation
 import RemoteCore
 import os
@@ -45,6 +46,11 @@ final class HostModel {
 
     private(set) var connectedClients: [ConnectedClient] = []
     private(set) var pairedClientIDs: [String] = []
+
+    // Held while at least one client is connected. Released when the last client disconnects.
+    // `kIOPMAssertionTypePreventUserIdleSystemSleep` keeps the Mac awake; the display may
+    // still dim, but the CPU and network stay live so the session survives a dark screen.
+    private var sleepAssertionID: IOPMAssertionID = 0
 
     /// Whether a given trusted device is attached right now.
     ///
@@ -401,6 +407,7 @@ final class HostModel {
             // here is logged and otherwise ignored, and the video path reports it properly
             // if the client then asks for a source.
             coordinator?.refreshCatalog()
+            acquireSleepAssertion()
 
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
@@ -414,6 +421,7 @@ final class HostModel {
             // modifier that client is holding for real.
             if connectedClients.isEmpty {
                 input.releaseAll()
+                releaseSleepAssertion()
             }
 
         case .pairingCode(let code, let clientName):
@@ -445,6 +453,30 @@ final class HostModel {
             events.removeFirst(events.count - Self.maxEvents)
         }
     }
+
+    // MARK: - Sleep prevention
+
+    private func acquireSleepAssertion() {
+        guard sleepAssertionID == 0 else { return }
+        let reason = "MacCast session active" as CFString
+        let result = IOPMAssertionCreateWithName(
+            kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            reason,
+            &sleepAssertionID
+        )
+        if result != kIOReturnSuccess {
+            hostLog.notice("could not acquire sleep assertion (IOReturn \(result, privacy: .public))")
+        }
+    }
+
+    private func releaseSleepAssertion() {
+        guard sleepAssertionID != 0 else { return }
+        IOPMAssertionRelease(sleepAssertionID)
+        sleepAssertionID = 0
+    }
+
+    // MARK: - Device name
 
     /// The name shown to a client in its device list.
     ///

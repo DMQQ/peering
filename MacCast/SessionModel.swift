@@ -113,6 +113,8 @@ final class SessionModel {
     private(set) var catalog: CaptureCatalog?
     private(set) var notes: [String] = []
     private(set) var videoStatus = "No video stream"
+    /// True while the video channel is delivering frames (not ended/absent).
+    private(set) var isVideoStreaming = false
     private(set) var connectionPath: ConnectionPath?
     private(set) var pairedHostIDs: [String] = []
     private(set) var streamQuality: StreamQuality = .high
@@ -309,6 +311,7 @@ final class SessionModel {
         catalog = nil
         notes.removeAll()
         videoStatus = "No video stream"
+        isVideoStreaming = false
 
         let session = ClientSession(
             identity: identity,
@@ -465,6 +468,7 @@ final class SessionModel {
         switch event {
         case .connecting:
             videoStatus = "Opening the video channel…"
+            isVideoStreaming = false
         case .config(let config):
             // The decoder half of this is done on the network queue, in the same place the
             // frames are handled, so that it is ordered against them — see the event handler
@@ -472,11 +476,13 @@ final class SessionModel {
             // *after* a keyframe that arrived in the same read, and throw that keyframe away.
             // Only the labels belong on the main actor.
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
+            isVideoStreaming = true
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.
         case .ended(let reason):
             videoStatus = "Video ended: \(reason)"
+            isVideoStreaming = false
         }
     }
 
