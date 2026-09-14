@@ -428,7 +428,7 @@ struct RemoteScreen: View {
 
     private var qualityPicker: some View {
         HStack(spacing: 2) {
-            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { preset in
+            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { (preset: SessionModel.StreamQuality) in
                 let selected = model.streamQuality == preset
                 Button {
                     model.setStreamQuality(preset)
@@ -439,7 +439,7 @@ struct RemoteScreen: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
                         .background(
-                            selected ? .primary.opacity(0.15) : .clear,
+                            selected ? AnyShapeStyle(.primary.opacity(0.15)) : AnyShapeStyle(Color.clear),
                             in: Capsule()
                         )
                 }

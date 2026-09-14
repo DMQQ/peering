@@ -88,7 +88,7 @@ final class SessionModel {
         case direct = "DIRECT"
     }
 
-    enum StreamQuality: String, CaseIterable, Sendable {
+    enum StreamQuality: String, CaseIterable, Hashable, Sendable {
         case low    = "Low"
         case medium = "Med"
         case high   = "High"
@@ -696,6 +696,7 @@ final class SessionModel {
 
     /// Called when the app is backgrounded with a session up.
     func enteringBackground() {
+        SessionActivity.shared.enteringBackground()
         guard phase.holdsSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
@@ -703,6 +704,7 @@ final class SessionModel {
     }
 
     func enteringForeground() {
+        SessionActivity.shared.returningToForeground()
         endBackgroundAssertion()
         // A browse that died while the app was in the background has been sitting behind its own
         // backoff in a suspended process. Starting one now is the difference between a list that

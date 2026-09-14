@@ -68,6 +68,26 @@ final class SessionActivity {
         }
     }
 
+    /// Called when the app enters the background with an active session.
+    ///
+    /// Stamps a stale date on the running card so that if the process is killed before the
+    /// background-task window expires — a force-quit from the app switcher, for instance —
+    /// the Lock Screen card grays out automatically rather than sitting there indefinitely
+    /// claiming an active connection that has been gone since the user swiped away.
+    func enteringBackground() {
+        guard let activity, activity.activityState == .active else { return }
+        let state = activity.content.state
+        Task { await activity.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(30))) }
+    }
+
+    /// Called when the app returns to the foreground. Lifts the stale-date imposed by
+    /// ``enteringBackground()`` so the card looks live again while the session continues.
+    func returningToForeground() {
+        guard let activity, activity.activityState == .active else { return }
+        let state = activity.content.state
+        Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
+    }
+
     /// Takes down an activity left behind by a previous run of the app.
     ///
     /// Without this, an activity started before the process was killed keeps a running clock on
