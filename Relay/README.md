@@ -138,6 +138,57 @@ Environment=PEERINGD_PUBLIC_HOST=peering.dmqq.dev
 The relay's signalling listener stays on loopback; nginx is the only thing that reaches it. Control
 and video are opened directly in the firewall and are **not** proxied.
 
+#### Behind Cloudflare
+
+**Cloudflare's proxy carries HTTP and HTTPS and nothing else.** It proxies a fixed list of ports —
+443, 8443 and a handful of others — and it does not proxy UDP at all outside Spectrum, which is
+priced for enterprises rather than for this. So of the relay's three listeners, Cloudflare can
+carry exactly one: signalling.
+
+That has a consequence that is easy to miss and unpleasant to debug: **the name in
+`PEERINGD_PUBLIC_HOST` must not be proxied.** Clients open control and video against that name, and
+if it has the orange cloud they will be sent to Cloudflare, which will drop the connection because
+9443 is not a port it proxies and UDP is not traffic it carries. What that looks like from the app
+is signalling working perfectly and the session never opening — which reads as a relay bug rather
+than a DNS setting.
+
+So use two names:
+
+| Name | Cloudflare | Carries |
+|---|---|---|
+| `peering.dmqq.dev` | Proxied (orange) | Signalling only. Cloudflare → nginx → the relay's loopback listener |
+| something like `relay.dmqq.dev` | **DNS only (grey)** | Control and video. Clients reach the server directly |
+
+```
+PEERINGD_PUBLIC_HOST=relay.dmqq.dev
+```
+
+Signalling still benefits from the orange cloud: the WebSocket rides HTTPS on 443, which is the one
+port nothing blocks.
+
+#### IPv6
+
+Worth being deliberate about, because a proxied name hides the problem and the direct ports cannot.
+
+**Bind dual-stack if the server is IPv6.** The defaults are `0.0.0.0`, which is IPv4 only. On a
+server whose clients arrive over IPv6, set:
+
+```
+PEERINGD_SIGNAL_ADDR=127.0.0.1:8443
+PEERINGD_CONTROL_ADDR=[::]:9443
+PEERINGD_VIDEO_BIND=[::]:0
+```
+
+`[::]` accepts IPv4 as well on Linux, where `net.ipv6.bindv6only` is 0 by default, so this covers
+both.
+
+**A grey-cloud name pointing only at IPv6 will not work for IPv4-only clients.** Cloudflare's proxy
+hides that for HTTP — it terminates the connection and reaches your origin however it can — but
+control and video go straight to the origin, so a client on an IPv4-only network simply cannot reach
+them. Polish fixed-line and much of mobile is IPv6-reachable, so this may be fine in practice, but
+it is the thing to know before wondering why one particular network never connects. An `A` record
+alongside the `AAAA` removes the question entirely.
+
 #### Firewall
 
 Open exactly the ports in use and nothing else:
