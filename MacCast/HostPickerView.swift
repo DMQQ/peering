@@ -271,7 +271,9 @@ struct HostPickerView: View {
                     ZStack(alignment: .bottomTrailing) {
                         iconTile("macbook")
                         Circle()
-                            .fill(isOnline ? Color.green : Color.red)
+                            // Green = visible on LAN right now. Gray = not detected nearby
+                            // (may still be reachable via relay).
+                            .fill(isOnline ? Color.green : Color.white.opacity(0.25))
                             .frame(width: 9, height: 9)
                             .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 1.5))
                             .offset(x: 2, y: 2)
@@ -320,11 +322,11 @@ struct HostPickerView: View {
             $0 != hostID && (model.displayName(forHostID: $0) ?? "A Mac") == name
         }
         if sharesItsName { return String(hostID.prefix(8)) }
-        if isOnline { return "Online — tap to connect" }
+        if isOnline { return "Nearby · tap to connect" }
         if let last = model.lastConnectedAt[hostID] {
-            return "Last seen " + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
+            return "Last used " + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
         }
-        return "Paired — tap to connect"
+        return "Tap to connect"
     }
 
     // MARK: - Rows

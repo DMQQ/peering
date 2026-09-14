@@ -1,8 +1,26 @@
 import RemoteCore
 import SwiftUI
+import UIKit
+
+// Singleton so the AppDelegate and any view can agree on the current allowed orientations.
+final class OrientationLock {
+    static let shared = OrientationLock()
+    private init() {}
+    var allowed: UIInterfaceOrientationMask = .portrait
+}
+
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        OrientationLock.shared.allowed
+    }
+}
 
 @main
 struct MacCastApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// One session for the app's life.
     ///
     /// Owned here rather than by a view, because the thing it represents — a connection to a
