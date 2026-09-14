@@ -379,6 +379,7 @@ struct RemoteScreen: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             } else {
                 HStack(spacing: 8) {
                     Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)
@@ -400,8 +401,10 @@ struct RemoteScreen: View {
                 .frame(height: 28)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(Capsule())
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
+        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: statusBarExpanded)
         .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 10)
         // The same inset as the rails, so the pill and the panels hang from one line.
@@ -604,7 +607,7 @@ struct RemoteScreen: View {
                 // Above the controls, for the same reason as in landscape: below them it would
                 // push the wheel and the pointer up into the dock.
                 floatingPanel(available, isLandscape: false)
-                // Wheel on the left, pointer on the right, where each thumb already is.
+                // Wheel on the left; joystick floats centered above the dock via overlay.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
                     ScrollWheelView(
                         onScroll: wheelScroll(dy:),
@@ -613,14 +616,16 @@ struct RemoteScreen: View {
                     )
                     .reportChromeFrame(.wheel, into: $chromeFrames)
                     Spacer(minLength: 0)
-                    pointerColumn
-                        .reportChromeFrame(.pointer, into: $chromeFrames)
-                        .offset(x: joystickColumnOffset)
                 }
                 .padding(.horizontal, ChromeMetrics.edgeInset)
                 .padding(.bottom, ChromeMetrics.edgeInset)
                 portraitDock
                     .reportChromeFrame(.dock, into: $chromeFrames)
+            }
+            .overlay(alignment: .bottom) {
+                pointerColumn
+                    .reportChromeFrame(.pointer, into: $chromeFrames)
+                    .padding(.bottom, ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2 + ChromeMetrics.edgeInset * 2)
             }
             .animation(Motion.settle, value: interactionMode)
         }

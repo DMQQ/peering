@@ -17,6 +17,7 @@ struct HostPickerView: View {
     /// The phase stays `.failed` until the next attempt, so without remembering the dismissal the
     /// dialog would reopen the instant it was closed.
     @State private var acknowledgedFailure: String?
+    @State private var forgetTarget: String?
 
     private var failureAlert: Binding<Bool> {
         Binding(
@@ -83,6 +84,18 @@ struct HostPickerView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(model.failureMessage ?? "")
+            }
+            .alert("Forget this Mac?", isPresented: Binding(
+                get: { forgetTarget != nil },
+                set: { if !$0 { forgetTarget = nil } }
+            )) {
+                Button("Forget", role: .destructive) {
+                    if let id = forgetTarget { model.forget(hostID: id) }
+                    forgetTarget = nil
+                }
+                Button("Cancel", role: .cancel) { forgetTarget = nil }
+            } message: {
+                Text("This Mac will be removed from Trusted Macs. You can re-pair it at any time.")
             }
         }
     }
@@ -304,9 +317,9 @@ struct HostPickerView: View {
             .buttonStyle(.plain)
             .disabled(model.isBusy)
 
-            Button("Forget", role: .destructive) { model.forget(hostID: hostID) }
+            Button("Forget") { forgetTarget = hostID }
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.red.opacity(0.85))
                 .buttonStyle(RailButtonStyle())
         }
         .padding(.horizontal, 10)
@@ -431,6 +444,8 @@ struct HostPickerView: View {
 /// that gap — the dots are the connection, and they are drawn at the same opacity the app uses
 /// everywhere else for "this is on".
 private struct DeviceLinkArtwork: View {
+    @State private var animating = false
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -473,11 +488,19 @@ private struct DeviceLinkArtwork: View {
                         .frame(width: 142, height: 6)
                         .offset(y: 6)
                 }
+                .offset(y: animating ? -5 : 0)
+                .animation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: animating)
 
                 HStack(spacing: 5) {
-                    Circle().fill(ColorPalette.ink.opacity(0.3)).frame(width: 4, height: 4)
-                    Circle().fill(ColorPalette.ink.opacity(0.6)).frame(width: 5, height: 5)
+                    Circle().fill(ColorPalette.ink).frame(width: 4, height: 4)
+                        .opacity(animating ? 0.9 : 0.2)
+                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0), value: animating)
+                    Circle().fill(ColorPalette.ink).frame(width: 5, height: 5)
+                        .opacity(animating ? 0.9 : 0.2)
+                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0.25), value: animating)
                     Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)
+                        .opacity(animating ? 0.9 : 0.2)
+                        .animation(.easeInOut(duration: 0.75).repeatForever(autoreverses: true).delay(0.5), value: animating)
                 }
 
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
@@ -488,9 +511,12 @@ private struct DeviceLinkArtwork: View {
                             .strokeBorder(ColorPalette.ink.opacity(0.55), lineWidth: 1.5)
                             .padding(4)
                     }
+                    .offset(y: animating ? 5 : 0)
+                    .animation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true), value: animating)
             }
             .offset(x: -3, y: -2)
         }
+        .onAppear { animating = true }
         .accessibilityHidden(true)
     }
 }
