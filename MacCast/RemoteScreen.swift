@@ -166,7 +166,12 @@ struct RemoteScreen: View {
                 // drags between scrolling the Mac and moving the picture, so the same gesture
                 // did different things depending on what the user had done minutes earlier.
                 // Only the mode switch moves that, and only the user moves the mode switch.
-                if zoom <= 1.01 { pan = .zero }
+                //
+                // The pan is re-clamped rather than dropped past some threshold. Zooming out
+                // shrinks what there is to pan over, and letting the offset stand until the
+                // picture no longer overflows and then zeroing it snapped the view sideways in
+                // one frame. Clamped every step, the picture slides back as the room for it goes.
+                pan = clampedPan(pan)
             },
             onPanCanvas: { translation in
                 pan = clampedPan(
@@ -178,7 +183,9 @@ struct RemoteScreen: View {
             interactionMode: interactionMode,
             blockedRegions: blockedRegions,
             isPanelOpen: openPanel != nil,
-            onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } }
+            onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
+            isKeyboardOpen: model.showKeyboard,
+            onDismissKeyboard: { model.showKeyboard = false }
         )
         .ignoresSafeArea()
     }
@@ -210,28 +217,55 @@ struct RemoteScreen: View {
     /// underneath the rail, and in landscape underneath the notch as well. The corner the user is
     /// dragging towards to *look at* is the one thing they cannot see.
     ///
-    /// The margin is the rail's own width *plus* the inset it sits at, which is exactly where the
-    /// corner of a desktop comes to rest when it can only be panned as far as the screen's edge.
-    /// Measured from the chrome rather than guessed at, because guessing it too small is the whole
-    /// reason this exists: the first attempt used the rail's width alone, and the corner still
-    /// ended up underneath the buttons by the width of their margin.
+    /// How far past the edge the picture may be dragged: the thickness of the chrome, measured
+    /// from where it actually is.
     ///
-    /// It is only ever added to an axis that already overflows: with the picture fitted there is
-    /// nothing to reveal, and a margin there would let a drag pull the picture away from its own
-    /// edges and show the backdrop.
-    private static let panMargin: CGFloat = ChromeMetrics.panelWidth + ChromeMetrics.edgeInset * 2
+    /// Measured rather than calculated, and that is the whole point. Both earlier attempts worked
+    /// the number out from the rail's nominal width — once as the width itself, once as the width
+    /// plus its edge inset — and both were short by the same thing neither knew about: the rails
+    /// sit *inside the safe area*, which in landscape is a wide inset on the side the sensor
+    /// housing is on. On this phone the rail's inner edge is 121 points from the screen's edge,
+    /// not the 62 the metrics describe, so a corner dragged towards it came to rest underneath it
+    /// either way. Reading the frames the chrome reports cannot be wrong about this.
+    ///
+    /// The larger of the two sides on each axis, because the clamp is symmetric. Taking the
+    /// larger rather than averaging costs a little slack on the narrower side and buys a picture
+    /// that behaves the same whichever way it is pushed.
+    ///
+    /// Only ever added to an axis that already overflows: with the picture fitted there is nothing
+    /// to reveal, and a margin there would let a drag pull the picture away from its own edges and
+    /// show the backdrop.
+    private var panMargin: CGSize {
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return .zero }
+        var leading: CGFloat = 0, trailing: CGFloat = 0, top: CGFloat = 0, bottom: CGFloat = 0
+        for (region, rect) in chromeFrames where region != .panel {
+            leading = max(leading, rect.minX)
+            trailing = max(trailing, canvasSize.width - rect.maxX)
+            top = max(top, rect.minY)
+            bottom = max(bottom, canvasSize.height - rect.maxY)
+        }
+        // Plus a gap, so the picture's edge comes to rest beside the chrome rather than touching
+        // it — the point is to see the edge, and an edge flush against a button is still an edge
+        // that is hard to make out.
+        let gap = ChromeMetrics.edgeInset * 2
+        return CGSize(
+            width: max(leading, trailing) + gap,
+            height: max(top, bottom) + gap
+        )
+    }
 
     private var panLimit: CGSize {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return .zero }
         let rect = CanvasGeometry.videoRect(bounds: canvasSize, pixelSize: model.capturePixelSize)
 
-        func limit(_ extent: CGFloat, _ canvas: CGFloat) -> CGFloat {
+        let margin = panMargin
+        func limit(_ extent: CGFloat, _ canvas: CGFloat, _ margin: CGFloat) -> CGFloat {
             let slack = (extent * effectiveZoom - canvas) / 2
-            return slack > 0 ? slack + Self.panMargin : 0
+            return slack > 0 ? slack + margin : 0
         }
         return CGSize(
-            width: limit(rect.width, canvasSize.width),
-            height: limit(rect.height, canvasSize.height)
+            width: limit(rect.width, canvasSize.width, margin.width),
+            height: limit(rect.height, canvasSize.height, margin.height)
         )
     }
 
@@ -445,7 +479,11 @@ struct RemoteScreen: View {
                 // to hold both, nothing is actually hidden.
                 ZStack(alignment: .bottom) {
                     HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
-                        ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
+                        ScrollWheelView(
+                            onScroll: wheelScroll(dy:),
+                            label: wheelLabel,
+                            position: interactionMode == .navigate ? zoomPosition : nil
+                        )
                             .reportChromeFrame(.wheel, into: $chromeFrames)
                         Spacer(minLength: 0)
                         // Return above the pointer and Back beside it, so the thumb resting on
@@ -477,8 +515,12 @@ struct RemoteScreen: View {
                 floatingPanel(available)
                 // Wheel on the left, pointer on the right, where each thumb already is.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
-                    ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
-                        .reportChromeFrame(.wheel, into: $chromeFrames)
+                    ScrollWheelView(
+                        onScroll: wheelScroll(dy:),
+                        label: wheelLabel,
+                        position: interactionMode == .navigate ? zoomPosition : nil
+                    )
+                    .reportChromeFrame(.wheel, into: $chromeFrames)
                     Spacer(minLength: 0)
                     pointerColumn
                         .reportChromeFrame(.pointer, into: $chromeFrames)
@@ -648,21 +690,26 @@ struct RemoteScreen: View {
     /// step, and the difference between them is what they contain rather than how they are framed.
     @ViewBuilder
     private func floatingPanel(_ available: CGSize) -> some View {
+        // `alignment: .bottom` on every one of these, and it is load-bearing rather than tidy.
+        // `maxHeight` makes a view *flexible* up to that height, so a panel whose contents are
+        // shorter than the ceiling — the shortcuts panel nearly always — grows to the ceiling and
+        // centres its contents inside it. Bottom-aligned, the frame is still the ceiling but the
+        // panel sits at the bottom of it, which is where a panel belongs.
         switch openPanel {
         case .shortcuts:
             shortcutsPanel
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .desktops:
             DesktopsPanel(chromeFrames: $chromeFrames)
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .sources:
             SourcesPanel(chromeFrames: $chromeFrames)
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .settings:
             SettingsPanel(chromeFrames: $chromeFrames) {
                 withAnimation(Motion.settle) { openPanel = .sources }
             }
-            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case nil:
             EmptyView()
         }
@@ -676,7 +723,7 @@ struct RemoteScreen: View {
     /// for why it earns a permanent place. The arrow strip in the panel keeps its own copy: that
     /// one is for when the user is already in there moving around a window.
     private var returnKey: some View {
-        QuickKeyButton(icon: "return", label: "Return") { model.pressReturn() }
+        QuickKeyButton(icon: "return", label: "Return", caption: "Return") { model.pressReturn() }
     }
 
     /// Back, to the left of the pointer.
@@ -695,7 +742,7 @@ struct RemoteScreen: View {
     /// Smaller than Return and off its axis, because it is not the key that commits: it is the
     /// one reached for in passing, so it sits beside the stick rather than above it.
     private var backKey: some View {
-        QuickKeyButton(icon: "chevron.backward", label: "Back", size: 46) {
+        QuickKeyButton(icon: "chevron.backward", label: "Back", size: 46, caption: "Back") {
             sendKey(keyCode: 123, modifiers: [.command])
         }
     }
@@ -860,6 +907,19 @@ struct RemoteScreen: View {
         interactionMode == .control ? "Scroll the Mac" : "Zoom the picture"
     }
 
+    /// How far up its track the wheel's gauge should be filled, 0 to 1.
+    ///
+    /// Logarithmic, because zoom is: the difference between 1× and 2× is the same *step* as
+    /// between 4× and 8×, and a linear gauge would spend the whole top half of its length on the
+    /// last few factors while the bottom half covered everything below 2×. Measured, it makes each
+    /// equal length of track an equal doubling.
+    private var zoomPosition: CGFloat {
+        let low = log(minimumZoom)
+        let high = log(maximumZoom)
+        guard high > low, zoom > 0 else { return 0 }
+        return min(max((log(zoom) - low) / (high - low), 0), 1)
+    }
+
     /// How far one pixel of wheel travel moves the zoom.
     ///
     /// Multiplicative, because zoom is: a fixed step is an enormous change at 1× and invisible at
@@ -876,7 +936,9 @@ struct RemoteScreen: View {
     /// would leave the picture pinned off-centre for no reason the user can see.
     private func zoomByWheel(_ pixels: CGFloat) {
         zoom = min(max(zoom * exp(-pixels * Self.zoomPerPixel), minimumZoom), maximumZoom)
-        if zoom <= 1.01 { pan = .zero }
+        // Re-clamped, not reset — see `onZoom`. The wheel is a finer control than a pinch and
+        // makes the snap at the end of a zoom-out easier to produce, not harder.
+        pan = clampedPan(pan)
     }
 
     private func sendJoystick(_ travel: CGSize) {

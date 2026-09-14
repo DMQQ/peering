@@ -68,28 +68,28 @@ final class MacCastTests: XCTestCase {
     private var panelRegion: CGRect { CGRect(x: 0, y: 700, width: 520, height: 120) }
 
     func testTapOnThePictureDismissesAnOpenPanel() {
-        XCTAssertTrue(CanvasGeometry.dismissesPanel(
+        XCTAssertTrue(CanvasGeometry.dismissesOverlay(
             at: CGPoint(x: 200, y: 300),
             regions: [panelRegion],
-            isPanelOpen: true
+            isOpen: true
         ))
     }
 
     func testTapOnThePanelItselfDoesNotDismissIt() {
         // The panel's own tiles and buttons are inside this rect, and a tap on one belongs to the
         // control under it. Dismissing here would close the panel out from under the user's aim.
-        XCTAssertFalse(CanvasGeometry.dismissesPanel(
+        XCTAssertFalse(CanvasGeometry.dismissesOverlay(
             at: CGPoint(x: 200, y: 750),
             regions: [panelRegion],
-            isPanelOpen: true
+            isOpen: true
         ))
     }
 
     func testTapOnThePictureIsAnOrdinaryClickWhileNoPanelIsOpen() {
-        XCTAssertFalse(CanvasGeometry.dismissesPanel(
+        XCTAssertFalse(CanvasGeometry.dismissesOverlay(
             at: CGPoint(x: 200, y: 300),
             regions: [],
-            isPanelOpen: false
+            isOpen: false
         ))
     }
 

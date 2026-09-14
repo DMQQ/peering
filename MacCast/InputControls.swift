@@ -207,16 +207,31 @@ struct QuickKeyButton: View {
     let icon: String
     let label: String
     var size: CGFloat = ChromeMetrics.quickKeySize
+    /// A word under the glyph, for a key whose symbol is not the whole of what it does.
+    ///
+    /// The return arrow and the back chevron are both small, both in the same corner, and both
+    /// glass discs with nothing else on them — close enough that they are told apart by position
+    /// and memory rather than by looking. `label` stays as the spoken name; this is the same word
+    /// made visible.
+    var caption: String?
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                // Proportional to the button, so a smaller one is a smaller button rather than a
-                // small button with a full-size glyph in it. At the default size this is the 20
-                // it has always been.
-                .font(.system(size: size / 3, weight: .medium))
-                .frame(width: size, height: size)
+            VStack(spacing: 1) {
+                Image(systemName: icon)
+                    // Proportional to the button, so a smaller one is a smaller button rather
+                    // than a small button with a full-size glyph in it. At the default size this
+                    // is the 20 it has always been.
+                    .font(.system(size: size / 3, weight: .medium))
+                if let caption {
+                    Text(caption)
+                        .font(.system(size: 9, weight: .semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+            }
+            .frame(width: size, height: size)
                 // Round, like every other standalone control here. A key beside the pointer is the
                 // same kind of object as the joystick next to it, not the same kind as a rail
                 // button that happens to be alone.
@@ -333,6 +348,13 @@ struct ScrollWheelView: View {
     /// to whoever is listening rather than looking.
     var label: String = "Scroll the Mac"
 
+    /// Where this control's value sits, 0 at the bottom of the track and 1 at the top.
+    ///
+    /// Nil when the wheel has no value to show — scrolling the Mac has no position to report, so
+    /// the knob tracks the drag and springs back. Set, it becomes a gauge and the knob is replaced
+    /// by a fill up to this point.
+    var position: CGFloat?
+
     /// A point of finger travel is several pixels of scroll. The track is short and has to cover
     /// a whole page, so one-to-one would feel stuck.
     private static let pixelsPerPoint: CGFloat = 6
@@ -348,19 +370,39 @@ struct ScrollWheelView: View {
             chevron("chevron.up", step: -90)
 
             ZStack {
-                Capsule()
-                    .fill(.white.opacity(0.12))
-                    .frame(width: 10)
+                GeometryReader { proxy in
+                    ZStack(alignment: .bottom) {
+                        Capsule()
+                            .fill(.white.opacity(0.12))
+                            .frame(width: 10)
 
-                // The knob tracks the *drag*, not a scroll position. This control has no idea
-                // where the Mac's document is, and a knob that claimed to would start lying the
-                // moment anything else — a trackpad, an app, a page load — moved it.
-                Capsule()
-                    .fill(.white.opacity(isDragging ? 0.95 : 0.55))
-                    .frame(width: 10, height: 34)
-                    .offset(y: knob)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: knob)
+                        if let position {
+                            // A gauge, not a knob. In drag & zoom this control has a *value* to
+                            // report — how much of the zoom range lies below and how much above —
+                            // and a handle that springs back to the middle reports nothing at
+                            // all, which is exactly what made it confusing. A fill rising from
+                            // the bottom is the one shape that reads as "this much, out of that
+                            // much" without having to be learned.
+                            Capsule()
+                                .fill(ColorPalette.accent)
+                                .frame(width: 10, height: max(10, proxy.size.height * position))
+                                .animation(Motion.tap, value: position)
+                        } else {
+                            // The knob tracks the *drag*, not a scroll position. This control has
+                            // no idea where the Mac's document is, and a knob that claimed to
+                            // would start lying the moment anything else — a trackpad, an app, a
+                            // page load — moved it.
+                            Capsule()
+                                .fill(.white.opacity(isDragging ? 0.95 : 0.55))
+                                .frame(width: 10, height: 34)
+                                .offset(y: knob)
+                                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: knob)
+                        }
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             // The whole panel is the drag target, not just the track. A 10pt-wide strip is not
             // something a thumb can reliably find while holding a phone one-handed.
             .frame(maxWidth: .infinity, maxHeight: .infinity)

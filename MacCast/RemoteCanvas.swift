@@ -91,6 +91,12 @@ struct CanvasGestureView: UIViewRepresentable {
     var isPanelOpen: Bool = false
     /// Called when such a tap lands.
     var onDismissPanel: () -> Void = {}
+    /// Whether the software keyboard is up, and what to do when a tap lands on the picture.
+    ///
+    /// The same rule as a panel, for the same reason: the keyboard is a second thing of ours open
+    /// over the picture, and a tap that misses it belongs to closing it.
+    var isKeyboardOpen: Bool = false
+    var onDismissKeyboard: () -> Void = {}
 
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
@@ -98,6 +104,8 @@ struct CanvasGestureView: UIViewRepresentable {
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
+        view.isKeyboardOpen = isKeyboardOpen
+        view.onDismissKeyboard = onDismissKeyboard
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -118,6 +126,8 @@ struct CanvasGestureView: UIViewRepresentable {
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
+        view.isKeyboardOpen = isKeyboardOpen
+        view.onDismissKeyboard = onDismissKeyboard
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -160,6 +170,9 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// button that opened it — which is a second target for a gesture the user has already made.
     var isPanelOpen = false
     var onDismissPanel: (() -> Void)?
+    /// The same, for the software keyboard.
+    var isKeyboardOpen = false
+    var onDismissKeyboard: (() -> Void)?
 
     /// Set when a gesture began over the chrome, and cleared when it ends.
     ///
@@ -302,8 +315,14 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // Blocked points are excluded so the panel's own buttons still work: a tap inside one
         // belongs to that button, and dismissing on it would close the panel out from under the
         // tile the user was aiming at.
-        if CanvasGeometry.dismissesPanel(at: point, regions: blockedRegions, isPanelOpen: isPanelOpen) {
+        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isPanelOpen) {
             onDismissPanel?()
+            return
+        }
+        // After the panel, so a tap that closes a panel does not also put the keyboard away: one
+        // tap, one thing closed, and the panel is the one on top.
+        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isKeyboardOpen) {
+            onDismissKeyboard?()
             return
         }
         // Nothing at all in drag & zoom, which is the point of that mode: the picture can be
@@ -401,15 +420,20 @@ enum CanvasGeometry {
         regions.contains { $0.contains(point) }
     }
 
-    /// Whether a tap should put an open panel away rather than reach the Mac.
+    /// Whether a tap should put something of ours away rather than reach the Mac.
+    ///
+    /// A panel and the software keyboard are the same thing from the picture's point of view:
+    /// something of ours is open over it, and a tap on the picture belongs to closing that rather
+    /// than to the Mac underneath. One decision asked twice with different answers for "is it
+    /// open", rather than two functions that would drift apart at the first change.
     ///
     /// A pure decision for the same reason ``InteractionMode``'s routing is: a
     /// `UITapGestureRecognizer` cannot be driven from a unit test, and the whole of the behaviour
     /// is this one question. The chrome check is what keeps a tap *on* the panel from counting —
     /// a tap inside one belongs to the button under it, and dismissing on that would close the
     /// panel out from under the tile the user was aiming at.
-    static func dismissesPanel(at point: CGPoint, regions: [CGRect], isPanelOpen: Bool) -> Bool {
-        isPanelOpen && !isBlocked(point, regions: regions)
+    static func dismissesOverlay(at point: CGPoint, regions: [CGRect], isOpen: Bool) -> Bool {
+        isOpen && !isBlocked(point, regions: regions)
     }
 
     /// Turns a touch into a normalized position, undoing the canvas's zoom and pan first.
