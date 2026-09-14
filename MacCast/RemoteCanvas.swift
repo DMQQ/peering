@@ -147,25 +147,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     var handlers: Handlers?
 
     /// Whether the fingers drive the Mac or the picture. Read by every handler below.
-    var interactionMode: InteractionMode = .control {
-        didSet { applyTouchLimit() }
-    }
-
-    /// How many touches a one-finger drag is allowed to survive.
-    ///
-    /// Raised to two in drag & zoom, and that is not a relaxation of the rule below so much as
-    /// the point of the mode. A pinch and the drag that follows it are one continuous motion, and
-    /// a recogniser that has already *failed* cannot pick the remaining finger back up until
-    /// every touch has lifted — which is why moving a zoomed picture felt like it needed two
-    /// fingers when one is plainly enough.
-    ///
-    /// The strict limit stays in view & scroll. There a second finger has to *end* the drag: the
-    /// gesture is holding the Mac's mouse button down, and carrying on with whichever touch
-    /// happened to survive would leave the button pressed while the user thinks they are
-    /// scrolling.
-    private func applyTouchLimit() {
-        oneFingerPan.maximumNumberOfTouches = interactionMode == .navigate ? 2 : 1
-    }
+    var interactionMode: InteractionMode = .control
 
     /// Where the window's own chrome is, in this view's coordinates. A touch that starts inside
     /// one of these belongs to a button and is never sent to the Mac.
@@ -246,10 +228,6 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // which makes the view jump as soon as the user shifts the pinch centroid.
         pinch.delegate = self
         twoFingerPan.delegate = self
-
-        // The recogniser is lazy, so its touch limit is set here rather than in its own
-        // definition — the mode it depends on is not known until the view exists.
-        applyTouchLimit()
     }
 
     func gestureRecognizer(
@@ -292,15 +270,9 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         if interactionMode.oneFingerDragPansCanvas {
             // Incremental, and the accumulator is reset each time, for the same reason the
             // two-finger handler does it: a cumulative translation would make the view
-            // accelerate away from the finger. Reset before the guard below as well, so the
-            // travel of a two-finger stretch is thrown away rather than landing in one jump when
-            // the second finger lifts.
+            // accelerate away from the finger.
             let moved = gesture.translation(in: self)
             gesture.setTranslation(.zero, in: self)
-            // Two fingers are the pinch's. Ignored rather than failed, both so the picture does
-            // not jump to follow a centroid the user meant as a zoom, and so the finger left
-            // behind when the pinch ends goes on panning.
-            guard gesture.numberOfTouches <= 1 else { return }
             guard moved != .zero else { return }
             handlers?.onPanCanvas(CGSize(width: moved.x, height: moved.y))
             return

@@ -26,8 +26,6 @@ struct RemoteScreen: View {
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
     @State private var canvasSize: CGSize = .zero
-    @State private var showSheet = false
-    @State private var showSources = false
     @State private var openPanel: Panel?
     @State private var statusBarExpanded = true
 
@@ -49,6 +47,8 @@ struct RemoteScreen: View {
     private enum Panel {
         case shortcuts
         case desktops
+        case sources
+        case settings
     }
 
     var body: some View {
@@ -88,8 +88,9 @@ struct RemoteScreen: View {
             KeyboardCapture(model: model, isFocused: $model.showKeyboard)
                 .frame(width: 0, height: 0)
         }
-        .sheet(isPresented: $showSheet) { SessionSheet() }
-        .sheet(isPresented: $showSources) { SourceBrowserSheet() }
+        // Nothing here is a sheet any more. Both of these are panels now, so the whole session —
+        // what to share, what the connection is doing, the keys — lives in one visual language on
+        // one layer, rather than three of them arriving from the bottom of the screen.
         // A hidden panel reports nothing, so its last frame would go on blocking touches in a
         // region that no longer has anything in it.
         .onChange(of: openPanel) { _, panel in
@@ -202,12 +203,35 @@ struct RemoteScreen: View {
     /// altogether, and the only thing that brings it back is the zoom reset, which is hidden
     /// while the zoom is at 100%. Losing the Mac with no visible way back is not a mode anyone
     /// would keep using.
+    /// How far past the edge the picture may be dragged.
+    ///
+    /// The clamp used to stop exactly where the picture's edge met the screen's, which sounds
+    /// right and is not: at that limit a corner of the desktop sits in the screen's own corner —
+    /// underneath the rail, and in landscape underneath the notch as well. The corner the user is
+    /// dragging towards to *look at* is the one thing they cannot see.
+    ///
+    /// The margin is the rail's own width *plus* the inset it sits at, which is exactly where the
+    /// corner of a desktop comes to rest when it can only be panned as far as the screen's edge.
+    /// Measured from the chrome rather than guessed at, because guessing it too small is the whole
+    /// reason this exists: the first attempt used the rail's width alone, and the corner still
+    /// ended up underneath the buttons by the width of their margin.
+    ///
+    /// It is only ever added to an axis that already overflows: with the picture fitted there is
+    /// nothing to reveal, and a margin there would let a drag pull the picture away from its own
+    /// edges and show the backdrop.
+    private static let panMargin: CGFloat = ChromeMetrics.panelWidth + ChromeMetrics.edgeInset * 2
+
     private var panLimit: CGSize {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return .zero }
         let rect = CanvasGeometry.videoRect(bounds: canvasSize, pixelSize: model.capturePixelSize)
+
+        func limit(_ extent: CGFloat, _ canvas: CGFloat) -> CGFloat {
+            let slack = (extent * effectiveZoom - canvas) / 2
+            return slack > 0 ? slack + Self.panMargin : 0
+        }
         return CGSize(
-            width: max(0, (rect.width * effectiveZoom - canvasSize.width) / 2),
-            height: max(0, (rect.height * effectiveZoom - canvasSize.height) / 2)
+            width: limit(rect.width, canvasSize.width),
+            height: limit(rect.height, canvasSize.height)
         )
     }
 
@@ -406,24 +430,20 @@ struct RemoteScreen: View {
                 // row up the screen — and the row is the pointer and the keys around it, which
                 // then landed under the buttons in the rail. Adding it above means the panel
                 // grows up over the picture and the controls it belongs to stay where they are.
-                VStack(spacing: ChromeMetrics.panelGap) {
-                    // No spacer. The bottom edge is held by the frame's alignment below, and a
-                    // spacer in front of the same content is a second thing trying to do the same
-                    // job — the one that gets it wrong the moment the content outgrows the screen,
-                    // because a spacer can only push while there is slack to push into.
-
-                    // The panel gets a row of its own, centred on the screen. It used to open in
-                    // the gap between the wheel and the pointer, which sounds like the middle and
-                    // is not: those two are different widths, so the middle of what is left
-                    // between them sits off to the left of the middle of the screen.
-                    if openPanel == .shortcuts {
-                        shortcutsPanel.frame(maxWidth: 520)
-                    }
-                    if openPanel == .desktops {
-                        DesktopsPanel(chromeFrames: $chromeFrames)
-                            .frame(maxWidth: 520, maxHeight: panelHeightLimit(available))
-                    }
-
+                // The panel lies *over* the bottom controls rather than stacked above them.
+                //
+                // Stacked, it had to share the height with the wheel and the pointer column, and
+                // what was left over on a landscape phone was not enough for two screens of
+                // desktops — so it scrolled inside a box smaller than it needed and sat high up
+                // the screen with its bottom edge nowhere near the bottom. Laid over them it can
+                // be as tall as its contents and still end at the bottom edge, and the controls
+                // it covers are one tap away from coming back, because a tap outside the panel
+                // closes it.
+                //
+                // They share the width rather than fighting for it: the panel is centred and the
+                // wheel and pointer column live at the two edges, so on any screen wide enough
+                // to hold both, nothing is actually hidden.
+                ZStack(alignment: .bottom) {
                     HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
                         ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
                             .reportChromeFrame(.wheel, into: $chromeFrames)
@@ -436,6 +456,9 @@ struct RemoteScreen: View {
                     }
                     .padding(.horizontal, ChromeMetrics.edgeInset)
                     .padding(.bottom, ChromeMetrics.bottomInset)
+
+                    floatingPanel(available)
+                        .padding(.bottom, ChromeMetrics.bottomInset)
                 }
                 // Anchored to the bottom by the frame, not by the spacer above. A spacer only
                 // holds a column down while there is room to spare: the moment a panel made the
@@ -451,13 +474,7 @@ struct RemoteScreen: View {
                 Spacer(minLength: 0)
                 // Above the controls, for the same reason as in landscape: below them it would
                 // push the wheel and the pointer up into the dock.
-                if openPanel == .shortcuts {
-                    shortcutsPanel.frame(maxHeight: panelHeightLimit(available))
-                }
-                if openPanel == .desktops {
-                    DesktopsPanel(chromeFrames: $chromeFrames)
-                        .frame(maxHeight: panelHeightLimit(available))
-                }
+                floatingPanel(available)
                 // Wheel on the left, pointer on the right, where each thumb already is.
                 HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
                     ScrollWheelView(onScroll: wheelScroll(dy:), label: wheelLabel)
@@ -501,8 +518,12 @@ struct RemoteScreen: View {
     }
 
     private var sourcesButton: some View {
-        RailButton(icon: "rectangle.on.rectangle", label: "Share") {
-            showSources = true
+        RailButton(
+            icon: "rectangle.on.rectangle",
+            label: "Share",
+            selected: openPanel == .sources
+        ) {
+            withAnimation(Motion.settle) { openPanel = openPanel == .sources ? nil : .sources }
         }
     }
 
@@ -601,31 +622,61 @@ struct RemoteScreen: View {
     /// does not.
     private func panelHeightLimit(_ available: CGSize) -> CGFloat {
         guard available.height > 0 else { return .infinity }
-        let controls = ChromeMetrics.quickKeySize
-            + ChromeMetrics.panelGap
-            + joystickRadius * 2
+        // A ceiling, not a target. The panel is as tall as its contents and no taller; this only
+        // stops a pathological number of screens from pushing the panel's own first row off the
+        // top of the display, where it would be both invisible and unreachable.
+        //
+        // It used to reserve the full height of the controls as well, and cap the result at a
+        // share of the screen. Both were attempts to stop the panel reaching the top — which the
+        // bottom alignment below already does. What they actually did was make a two-screen strip
+        // scroll inside a box half the size it needed.
+        let reserved = ChromeMetrics.buttonHeight
             + ChromeMetrics.bottomInset
             + ChromeMetrics.edgeInset * 2
-        // The status line above and the portrait dock below. Whichever orientation is being laid
-        // out has one of them beside the panel, and reserving for both costs a little height here
-        // rather than leaving two numbers that quietly disagree about which edge they measure from.
-        let ends = ChromeMetrics.buttonHeight + ChromeMetrics.edgeInset * 2
-        // Capped at a share of the screen as well as at the room left over. A panel that grows to
-        // fill whatever gap it is given reaches the top of a short landscape display and reads as
-        // though it were anchored there — which is the opposite of where a panel belongs, and no
-        // amount of bottom-aligning the stack it sits in changes how that looks.
-        return max(120, min(available.height - controls - ends, available.height * 0.42))
+        return max(140, available.height - reserved)
     }
 
     private var settingsButton: some View {
-        RailButton(icon: "gearshape", label: "Settings") { showSheet = true }
+        RailButton(icon: "gearshape", label: "Settings", selected: openPanel == .settings) {
+            withAnimation(Motion.settle) { openPanel = openPanel == .settings ? nil : .settings }
+        }
     }
+
+    /// The one floating panel, whichever it is.
+    ///
+    /// One place, because four panels across two orientations is eight arrangements to keep in
+    /// step, and the difference between them is what they contain rather than how they are framed.
+    @ViewBuilder
+    private func floatingPanel(_ available: CGSize) -> some View {
+        switch openPanel {
+        case .shortcuts:
+            shortcutsPanel
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+        case .desktops:
+            DesktopsPanel(chromeFrames: $chromeFrames)
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+        case .sources:
+            SourcesPanel(chromeFrames: $chromeFrames)
+                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+        case .settings:
+            SettingsPanel(chromeFrames: $chromeFrames) {
+                withAnimation(Motion.settle) { openPanel = .sources }
+            }
+            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available))
+        case nil:
+            EmptyView()
+        }
+    }
+
+    /// The widest a floating panel may be. Wide enough for a source picker's names and icons to be
+    /// scanned, narrow enough that it stays clear of the rails on a phone held sideways.
+    private static let panelWidth: CGFloat = 520
 
     /// Return, beside the pointer rather than inside the shortcuts panel — see ``QuickKeyButton``
     /// for why it earns a permanent place. The arrow strip in the panel keeps its own copy: that
     /// one is for when the user is already in there moving around a window.
     private var returnKey: some View {
-        QuickKeyButton(icon: "return", label: "Return") { sendKey(keyCode: 36) }
+        QuickKeyButton(icon: "return", label: "Return") { model.pressReturn() }
     }
 
     /// Back, to the left of the pointer.
@@ -743,7 +794,7 @@ struct RemoteScreen: View {
             compactKeyButton(icon: "chevron.up", keyCode: 126)
             compactKeyButton(icon: "chevron.down", keyCode: 125)
             compactKeyButton(icon: "chevron.right", keyCode: 124)
-            compactKeyButton(icon: "return", keyCode: 36)
+            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
             compactKeyButton(icon: "delete.backward", keyCode: 51)
         }
     }
@@ -768,11 +819,15 @@ struct RemoteScreen: View {
             .environment(\.railButtonWidth, ChromeMetrics.panelWidth)
             .padding(.horizontal, 4)
         }
-        .frame(height: 56)
-        .glassEffect(
-            .regular,
-            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
-        )
+        // Sized from the buttons it holds rather than chosen. This was a fixed 56 while the
+        // buttons were 46, which left room to spare; raising them to 62 then hung the selected
+        // fill out of the top and bottom of the dock, and a bar that cannot drift away from the
+        // thing inside it is the cure.
+        .frame(height: ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2)
+        // The same stadium as the vertical rails, for the same reason and from the same two
+        // numbers, so the two orientations cannot disagree about what a rail looks like.
+        .glassEffect(.regular, in: Capsule())
+        .clipShape(Capsule())
         // Floating, not welded to the glass. Every other surface in this app is a panel with a
         // margin around it, and a bar running edge to edge would be the one piece of chrome that
         // was a different kind of object from all the rest.
@@ -843,8 +898,14 @@ struct RemoteScreen: View {
         model.send(.keyUp(keyCode: keyCode, modifiers: modifiers))
     }
 
-    private func compactKeyButton(icon: String, keyCode: UInt16) -> some View {
-        Button { sendKey(keyCode: keyCode) } label: {
+    /// - Parameter action: what the key does, when sending it is not the whole of it — Return also
+    ///   clears the typed preview. Defaults to the plain press this strip uses for everything else.
+    private func compactKeyButton(
+        icon: String,
+        keyCode: UInt16,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        Button { (action ?? { sendKey(keyCode: keyCode) })() } label: {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 40, height: 32)

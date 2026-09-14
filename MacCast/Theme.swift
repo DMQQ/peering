@@ -38,7 +38,12 @@ enum ChromeMetrics {
     /// Above the first and below the last item inside a panel.
     static let panelPadding: CGFloat = 5
     /// One rail button.
-    static let buttonHeight: CGFloat = 46
+    ///
+    /// Taller than it is wide, and that is a correction rather than a preference. At 46 the button
+    /// was exactly square, and a square button in a capsule rail is a circle — which left an icon
+    /// and its caption fighting for the same 46 points and the caption losing. The extra room goes
+    /// to the label.
+    static let buttonHeight: CGFloat = 62
     /// The whole scroll wheel, chevrons and padding included. It is a nudge control, not a
     /// scrollbar: the two-finger gesture is still the fast way to move a long way.
     static let wheelHeight: CGFloat = 120
@@ -108,5 +113,75 @@ enum ColorPalette {
         case ..<120: return ink.opacity(0.65)
         default: return ink.opacity(0.4)
         }
+    }
+}
+
+/// A section heading: small, tracked, uppercase.
+///
+/// One voice for every label in the app rather than each screen choosing its own size. A headline
+/// in one place and a caption in another is the kind of inconsistency nobody can name and everyone
+/// can see.
+struct SectionLabel: View {
+    let title: String
+
+    init(_ title: String) { self.title = title }
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .tracking(1.1)
+            .foregroundStyle(.secondary)
+    }
+}
+
+extension View {
+    /// A card, lit from above.
+    ///
+    /// The stroke is a gradient rather than one flat opacity: brighter along the top edge and
+    /// fading down the sides is how a raised surface catches light, and it is the whole
+    /// difference between a rectangle drawn on the background and a panel sitting in front of it.
+    /// It costs nothing but a gradient, and no colour is added to do it.
+    func cardSurface() -> some View {
+        self
+            .padding(16)
+            .background {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.thinMaterial)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.20), .white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            }
+    }
+
+    /// A row inside a card: the same trick one level down, and one step quieter, so a row reads
+    /// as sitting on the card rather than cut into it.
+    ///
+    /// Shared rather than duplicated per screen — the home screen's cards and the source picker's
+    /// rows are the same object seen twice, and two copies of a surface style drift apart at the
+    /// first tweak.
+    func rowSurface() -> some View {
+        self
+            .background {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.09), .white.opacity(0.045)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(.white.opacity(0.07))
+            }
     }
 }

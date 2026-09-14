@@ -484,53 +484,6 @@ private struct DeviceLinkArtwork: View {
     }
 }
 
-private extension View {
-    /// A card, lit from above.
-    ///
-    /// The stroke is a gradient rather than one flat opacity: brighter along the top edge and
-    /// fading down the sides is how a raised surface catches light, and it is the whole
-    /// difference between a rectangle drawn on the background and a panel sitting in front of it.
-    /// It costs nothing but a gradient, and no colour is added to do it.
-    func cardSurface() -> some View {
-        self
-            .padding(16)
-            .background {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.thinMaterial)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.20), .white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            }
-    }
-
-    /// A row inside a card: the same trick one level down, and one step quieter, so a row reads
-    /// as sitting on the card rather than cut into it.
-    func rowSurface() -> some View {
-        self
-            .background {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.09), .white.opacity(0.045)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(.white.opacity(0.07))
-            }
-    }
-}
 
 /// Everything that is useful when something has gone wrong and noise otherwise.
 struct DiagnosticsView: View {

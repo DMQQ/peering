@@ -768,10 +768,27 @@ final class SessionModel {
         send(.keyUp(keyCode: macro.keyCode, modifiers: macro.modifiers))
     }
 
+    /// Return, and the typed preview goes with it.
+    ///
+    /// The preview is the line the Mac has been sent since it was last emptied, and a Return is
+    /// the point at which that stops describing anything: the line is committed, the field it went
+    /// into has moved on, and a bar still showing the old text claims the Mac is holding something
+    /// it has already taken.
+    func pressReturn() {
+        typedPreview = ""
+        send(.keyDown(keyCode: 36, modifiers: latchedModifiers))
+        send(.keyUp(keyCode: 36, modifiers: latchedModifiers))
+    }
+
     /// Text from the software keyboard, routed by the current mode.
     func handleTypedText(_ text: String) {
         guard !text.isEmpty else { return }
-        typedPreview = String((typedPreview + text).suffix(40))
+        // A newline is a Return by another name — the software keyboard delivers it as text
+        // rather than as a key — so it commits the line for the same reason ``pressReturn()``
+        // does, and the preview restarts from empty.
+        typedPreview = text.contains(where: \.isNewline)
+            ? ""
+            : String((typedPreview + text).suffix(40))
 
         switch keyboardMode {
         case .unicode:
