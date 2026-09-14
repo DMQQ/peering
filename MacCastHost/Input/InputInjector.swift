@@ -25,9 +25,20 @@ final class InputInjector: @unchecked Sendable {
     /// When the last joystick nudge arrived. See the `.joystickMove` case: it is what separates
     /// the first nudge of a gesture from the rest of one.
     private var lastJoystickAt: DispatchTime?
+    /// When we last actually posted a mouse-moved event for a joystick nudge.
+    private var lastJoystickPostedAt: DispatchTime?
+    /// Accumulated delta not yet posted because the posting rate was capped.
+    private var pendingJoystickDx: Double = 0
+    private var pendingJoystickDy: Double = 0
 
     /// How long a quiet gap makes the next joystick nudge the start of a new gesture.
     private static let joystickResyncGap: UInt64 = 250_000_000
+    /// Minimum nanoseconds between posted mouseMoved events (≈ 60 Hz).
+    private static let joystickPostInterval: UInt64 = 16_000_000
+
+    // Reusing a single source avoids allocating a new CGEventSource on every event.
+    // hidSystemState reflects the current HID state so modifier keys are read correctly.
+    private let eventSource = CGEventSource(stateID: .hidSystemState)
     private var hasWarnedUntrusted = false
 
     /// Which modifiers the system currently believes are held. Necessary because a modifier
@@ -149,26 +160,43 @@ final class InputInjector: @unchecked Sendable {
             guard dx.isFinite, dy.isFinite else { return }
             let now = DispatchTime.now()
 
-            let origin = lock.withLock { () -> CGPoint in
-                // The first nudge of a gesture starts from the live cursor, which is the only way
-                // movement the user made with the physical mouse gets picked up.
-                //
-                // Every nudge after it starts from the position *this side last posted* instead.
-                // The live read is asynchronous: asking it again a few milliseconds after posting
-                // a move can still answer with the position from before that move. A relative
-                // nudge added to a stale position silently loses the step that just happened, and
-                // the window server catches up a moment later — which is precisely what a cursor
-                // that stutters under a held joystick is.
+            let postTarget: CGPoint? = lock.withLock {
                 let idle = lastJoystickAt.map { now.uptimeNanoseconds - $0.uptimeNanoseconds } ?? .max
                 lastJoystickAt = now
-                return idle > Self.joystickResyncGap
-                    ? (CGEvent(source: nil)?.location ?? cursor)
-                    : cursor
+
+                let origin: CGPoint
+                if idle > Self.joystickResyncGap {
+                    // Start of a new gesture: pick up wherever the physical mouse is.
+                    pendingJoystickDx = 0
+                    pendingJoystickDy = 0
+                    origin = CGEvent(source: eventSource)?.location ?? cursor
+                } else {
+                    origin = cursor
+                }
+
+                pendingJoystickDx += dx
+                pendingJoystickDy += dy
+
+                // Cap the posting rate at ≈ 60 Hz. Accumulated deltas are carried forward so
+                // no movement is lost, only batched. Posting at .cghidEventTap on every frame
+                // at 30 Hz floods the window server and causes progressive stuttering as its
+                // internal queue fills up and everything — including display redraws — slows.
+                let sincePost = lastJoystickPostedAt.map { now.uptimeNanoseconds - $0.uptimeNanoseconds } ?? .max
+                guard sincePost >= Self.joystickPostInterval else { return nil }
+
+                lastJoystickPostedAt = now
+                let pdx = pendingJoystickDx
+                let pdy = pendingJoystickDy
+                pendingJoystickDx = 0
+                pendingJoystickDy = 0
+                let target = CGPoint(x: origin.x + pdx, y: origin.y + pdy)
+                cursor = target
+                return target
             }
 
-            let target = CGPoint(x: origin.x + dx, y: origin.y + dy)
-            lock.withLock { cursor = target }
-            postMouse(.mouseMoved, at: target, button: .left)
+            if let target = postTarget {
+                postMouse(.mouseMoved, at: target, button: .left)
+            }
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality:
             // Handled upstream in HostModel.onCommand before this method is called.
@@ -249,7 +277,7 @@ final class InputInjector: @unchecked Sendable {
 
     private func postMouse(_ type: CGEventType, at location: CGPoint, button: CGMouseButton) {
         guard let event = CGEvent(
-            mouseEventSource: nil,
+            mouseEventSource: eventSource,
             mouseType: type,
             mouseCursorPosition: location,
             mouseButton: button

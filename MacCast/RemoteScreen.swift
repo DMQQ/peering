@@ -324,56 +324,61 @@ struct RemoteScreen: View {
     private var statusBar: some View {
         Group {
             if statusBarExpanded {
-                HStack(spacing: 10) {
-                    Circle().fill(ColorPalette.ink).frame(width: 7, height: 7)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(model.hostName ?? "Mac")
-                            .font(.subheadline.weight(.semibold))
-                        Text(model.videoStatus)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    connectionPathChip
-                    sessionClock
-                    if let latency = model.latencyMilliseconds {
-                        Text("\(Int(latency.rounded())) ms")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(ColorPalette.reading(latency))
-                    }
-                    qualityPicker
-                    fillChip
-                    if zoom > 1.01 {
-                        Button {
-                            zoom = 1; pan = .zero
-                        } label: {
-                            Text("\(Int((zoom * 100).rounded()))%")
-                                .font(.caption.monospacedDigit())
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(.ultraThinMaterial).clipShape(Capsule())
-                        }.buttonStyle(.plain)
-                    }
-                    // The session's only way out, and it lives here rather than on a rail: this
-                    // pill is the one piece of chrome that is always on screen, expanded or not,
-                    // so ending a session is never something the user has to go looking for.
-                    Button { model.disconnect() } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("QUIT")
-                                .font(.system(size: 11, weight: .bold))
+                VStack(alignment: .leading, spacing: 6) {
+                    // ── Row 1: identity + clock + quit ──────────────────────────────
+                    HStack(spacing: 10) {
+                        Circle().fill(ColorPalette.ink).frame(width: 7, height: 7)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(model.hostName ?? "Mac")
+                                .font(.subheadline.weight(.semibold))
+                            Text(model.videoStatus)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.red.opacity(0.85), in: Capsule())
+                        Spacer(minLength: 8)
+                        sessionClock
+                        if let latency = model.latencyMilliseconds {
+                            Text("\(Int(latency.rounded())) ms")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(ColorPalette.reading(latency))
+                        }
+                        // The session's only way out, always visible in the expanded pill.
+                        Button { model.disconnect() } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                Text("QUIT")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.red.opacity(0.85), in: Capsule())
+                        }
+                        .buttonStyle(RailButtonStyle(scale: 0.9))
+                        .accessibilityLabel("Quit session")
                     }
-                    .buttonStyle(RailButtonStyle(scale: 0.9))
-                    .accessibilityLabel("Quit session")
+
+                    // ── Row 2: quality + view options ────────────────────────────────
+                    HStack(spacing: 8) {
+                        connectionPathChip
+                        qualityPicker
+                        fillChip
+                        if zoom > 1.01 {
+                            Button {
+                                zoom = 1; pan = .zero
+                            } label: {
+                                Text("\(Int((zoom * 100).rounded()))%")
+                                    .font(.caption.monospacedDigit())
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(.ultraThinMaterial).clipShape(Capsule())
+                            }.buttonStyle(.plain)
+                        }
+                    }
                 }
                 .padding(.horizontal, 14)
-                .frame(height: 44)
+                .padding(.vertical, 10)
             } else {
                 HStack(spacing: 8) {
                     Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)

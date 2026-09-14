@@ -125,6 +125,17 @@ final class SessionModel {
     /// expects the name of their Mac. The handshake is the only moment the client is told both,
     /// so it is the only moment this can be recorded.
     private(set) var hostNames: [String: String] = [:]
+    /// The server ID of the currently (or most recently) connected Mac.
+    private(set) var currentHostID: String?
+
+    /// When each trusted Mac was last successfully connected to, keyed by host ID.
+    private(set) var lastConnectedAt: [String: Date] = {
+        guard let data = UserDefaults.standard.data(forKey: "hostLastConnectedAt"),
+              let decoded = try? JSONDecoder().decode([String: Date].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }()
 
     private static let hostNamesKey = "Peering.hostNames"
 
@@ -388,14 +399,16 @@ final class SessionModel {
                 // emits `.ready` again, and elapsed time that kept counting through it would
                 // be describing a session that no longer exists.
                 if previous != .ready {
-                    // A session that came up is the only thing that clears the backoff, so a
-                    // failure a retry cannot fix spends its five attempts and then stops
-                    // rather than announcing itself once a second forever.
                     reconnectAttempt = 0
                     sessionStartedAt = Date()
-                    // Armed once the session is actually up, not when the user reached for one:
-                    // a connect that failed halfway is not something to restore.
                     UserDefaults.standard.set(true, forKey: Self.resumeKey)
+                    // Record the last-connected timestamp for the Trusted Macs list.
+                    if let id = currentHostID {
+                        lastConnectedAt[id] = Date()
+                        if let data = try? JSONEncoder().encode(lastConnectedAt) {
+                            UserDefaults.standard.set(data, forKey: "hostLastConnectedAt")
+                        }
+                    }
                 }
             } else {
                 sessionStartedAt = nil
@@ -445,6 +458,7 @@ final class SessionModel {
             // The host's own name is authoritative. Bonjour is only a hint about where to
             // find it, and it can be stale by minutes.
             hostName = hello.hostName
+            currentHostID = hello.serverID
             UserDefaults.standard.set(hello.serverID, forKey: Self.lastHostIDKey)
             if hostNames[hello.serverID] != hello.hostName {
                 hostNames[hello.serverID] = hello.hostName

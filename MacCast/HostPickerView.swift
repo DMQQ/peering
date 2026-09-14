@@ -264,16 +264,24 @@ struct HostPickerView: View {
     /// the palette is brightness and nothing else — and a regular-weight button under the thumb
     /// is a poor thing to put next to an action with no undo.
     private func pairedRow(_ hostID: String) -> some View {
-        HStack(spacing: 10) {
+        let isOnline = model.hosts.contains { $0.id == hostID }
+        return HStack(spacing: 10) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
-                    iconTile("macbook")
+                    ZStack(alignment: .bottomTrailing) {
+                        iconTile("macbook")
+                        Circle()
+                            .fill(isOnline ? Color.green : Color.red)
+                            .frame(width: 9, height: 9)
+                            .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 1.5))
+                            .offset(x: 2, y: 2)
+                    }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(model.displayName(forHostID: hostID) ?? "A Mac")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                        Text(message(for: hostID))
+                        Text(pairedRowDetail(hostID: hostID, isOnline: isOnline))
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -304,18 +312,19 @@ struct HostPickerView: View {
         .rowSurface()
     }
 
-    /// The second line of a trusted row: an identifier only when one is actually needed.
-    ///
-    /// A Mac's ID is what "Forget" acts on, and the only thing that can tell two Macs apart — but
-    /// only when two of them are really called the same. Printed on every row it is eight hex
-    /// characters the user has no use for; printed here it is the answer to "which of these two
-    /// is which".
-    private func message(for hostID: String) -> String {
+    /// The second line of a trusted row: online/offline status, last-session time, or
+    /// the ID prefix when two Macs share the same name.
+    private func pairedRowDetail(hostID: String, isOnline: Bool) -> String {
         let name = model.displayName(forHostID: hostID) ?? "A Mac"
         let sharesItsName = model.pairedHostIDs.contains {
             $0 != hostID && (model.displayName(forHostID: $0) ?? "A Mac") == name
         }
-        return sharesItsName ? String(hostID.prefix(8)) : "Paired · tap to connect"
+        if sharesItsName { return String(hostID.prefix(8)) }
+        if isOnline { return "Online — tap to connect" }
+        if let last = model.lastConnectedAt[hostID] {
+            return "Last seen " + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
+        }
+        return "Paired — tap to connect"
     }
 
     // MARK: - Rows
