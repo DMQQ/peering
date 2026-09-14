@@ -37,6 +37,12 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    # Declared explicitly because GitHub defaults `GITHUB_TOKEN` to read-only for repositories
+    # created after February 2023, and creating a release is a write. Without this the build
+    # succeeds, the artefact uploads, and the release step fails with "Resource not accessible by
+    # integration" — the most confusing possible outcome, because everything looks like it worked.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.1
