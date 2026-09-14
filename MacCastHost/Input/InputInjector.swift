@@ -170,7 +170,7 @@ final class InputInjector: @unchecked Sendable {
             lock.withLock { cursor = target }
             postMouse(.mouseMoved, at: target, button: .left)
 
-        case .setCaptureSource, .launchApplication, .switchToSpace:
+        case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality:
             // Handled upstream in HostModel.onCommand before this method is called.
             break
         }

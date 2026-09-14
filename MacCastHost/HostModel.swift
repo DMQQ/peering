@@ -221,7 +221,7 @@ final class HostModel {
                 return
             }
             if case .setStreamQuality(let fps, let bitrateKbps) = command {
-                coordinator?.setStreamQuality(fps: fps, bitrateKbps: bitrateKbps)
+                coordinator.setStreamQuality(fps: fps, bitrateKbps: bitrateKbps)
                 return
             }
             input.perform(command)
