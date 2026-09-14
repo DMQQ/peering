@@ -12,6 +12,7 @@ use tracing_subscriber::EnvFilter;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
+use peeringd::udp_relay::PortPool;
 use peeringd::{signalling, tcp_relay};
 
 #[tokio::main]
@@ -58,6 +59,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let video_ports = Arc::new(PortPool::new(config.video_ports));
+
+    // The video range is logged at startup because it is the number that has to match the firewall,
+    // and a mismatch shows up as "control works, video never arrives" — which is far harder to
+    // diagnose from the symptom than from this line.
+    match video_ports.range() {
+        Some(range) => info!(
+            video_ports = %format!("{}-{} ({} ports)", range.first, range.last, range.len()),
+            "video will use a fixed port range — open exactly these"
+        ),
+        None => warn!(
+            "no PEERINGD_VIDEO_PORTS range set, so session video ports are chosen by the OS from \
+             the entire ephemeral range; a firewall must allow all of it"
+        ),
+    }
+
     info!(
         control = %config.control_addr,
         signal = %config.signal_addr,
@@ -70,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         host: None,
         control_port: config.control_addr.port(),
         video_bind: config.video_bind,
+        video_ports,
         session_ttl: config.session_ttl,
     };
 

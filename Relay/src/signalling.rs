@@ -35,6 +35,8 @@ pub struct Settings {
     pub host: Option<String>,
     pub control_port: u16,
     pub video_bind: SocketAddr,
+    /// Where session video ports come from — see [`udp_relay::PortPool`].
+    pub video_ports: Arc<udp_relay::PortPool>,
     pub session_ttl: Duration,
 }
 
@@ -283,6 +285,7 @@ async fn dispatch(
 
             let video_port = match udp_relay::serve_session(
                 settings.video_bind,
+                Arc::clone(&settings.video_ports),
                 Arc::clone(&allocated.video),
                 settings.session_ttl,
             )
@@ -384,6 +387,7 @@ mod tests {
             host: None,
             control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
+            video_ports: Arc::new(udp_relay::PortPool::new(None)),
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();
@@ -424,6 +428,7 @@ mod tests {
             host: None,
             control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
+            video_ports: Arc::new(udp_relay::PortPool::new(None)),
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();
@@ -459,6 +464,7 @@ mod tests {
             host: None,
             control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
+            video_ports: Arc::new(udp_relay::PortPool::new(None)),
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();

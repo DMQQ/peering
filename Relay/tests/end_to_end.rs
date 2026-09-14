@@ -19,7 +19,7 @@ use tokio_tungstenite::tungstenite::Message;
 use peeringd::protocol::{unhex, ClientMessage, ServerMessage};
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
-use peeringd::udp_relay::bind_packet;
+use peeringd::udp_relay::{bind_packet, PortPool};
 use peeringd::{signalling, tcp_relay};
 
 /// Generous enough to absorb a loaded CI machine, short enough that a hang fails the test rather
@@ -60,6 +60,7 @@ async fn start() -> TestRelay {
             host: Some("127.0.0.1".into()),
             control_port,
             video_bind: "127.0.0.1:0".parse().unwrap(),
+            video_ports: Arc::new(PortPool::new(None)),
             session_ttl: Duration::from_secs(60),
         },
         None,

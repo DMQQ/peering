@@ -40,16 +40,43 @@ right for a public address.
 |---|---|---|
 | `PEERINGD_SIGNAL_ADDR` | `0.0.0.0:8443` | Signalling listener |
 | `PEERINGD_CONTROL_ADDR` | `0.0.0.0:9443` | Control relay listener |
-| `PEERINGD_VIDEO_BIND` | `0.0.0.0:0` | Address per-session UDP sockets bind to; port 0 means the OS picks |
+| `PEERINGD_VIDEO_BIND` | `0.0.0.0:0` | Address per-session UDP sockets bind to |
+| `PEERINGD_VIDEO_PORTS` | — | Range session video ports come from, e.g. `40000-40100`. **Set this anywhere with a firewall** — see below |
 | `PEERINGD_TLS_CERT` | — | Certificate for signalling. Both this and the key, or neither |
 | `PEERINGD_TLS_KEY` | — | Private key for signalling |
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
+
+**`PEERINGD_VIDEO_PORTS` matters more than it looks.** Unset, the OS picks each session's video
+port from the whole ephemeral range — 32768 to 60999 on a default Linux — so allowing video through
+a firewall means opening twenty-eight thousand UDP ports. A range of a hundred turns that into one
+rule. What a closed range looks like is *control working and video never arriving*, which is a
+miserable thing to debug from the symptom; the startup log prints the range that will be used so it
+can be checked against the firewall directly.
 
 The relay reports the address a client reached it on as the address to connect back to, so a
 directly-addressed server needs no configuration for this. `RUST_LOG=debug` for per-connection
 detail; `info` shows registrations and session allocations.
 
 ### On a server
+
+Three ports, and only the first needs to be memorable:
+
+| Port | Protocol | What |
+|---|---|---|
+| 443 | TCP | Signalling. 443 rather than something free, because it is the one port guest and corporate networks never block |
+| 9443 | TCP | Control relay |
+| 40000–40100 | UDP | Video, one port per live session |
+
+**DNS** — an `A` record for the relay host pointing at the server. Add an `AAAA` too if it has IPv6,
+and check which the clients actually pick, because a broken IPv6 route shows up as a connection
+that hangs rather than one that fails.
+
+**Firewall** — open exactly the three above and nothing else. The video rule can only be written
+once `PEERINGD_VIDEO_PORTS` is set.
+
+```sh
+certbot certonly --standalone -d peering.dmqq.dev
+```
 
 ```ini
 [Unit]
@@ -58,18 +85,38 @@ After=network-online.target
 
 [Service]
 ExecStart=/usr/local/bin/peeringd
-Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/relay.example/fullchain.pem
-Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/relay.example/privkey.pem
+Environment=PEERINGD_SIGNAL_ADDR=0.0.0.0:443
+Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
+Environment=PEERINGD_VIDEO_PORTS=40000-40100
+Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem
+Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/peering.dmqq.dev/privkey.pem
 Environment=RUST_LOG=info
 Restart=always
+# Binding 443 as a non-root user needs this, and it is narrower than running the relay as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 User=peering
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Only signalling needs a certificate, and only so the token exchange is not readable in transit. The
-media does not depend on it. Bandwidth is the thing to watch: see the note on cost below.
+Only signalling needs a certificate, and only so the token exchange is not readable in transit —
+the media is encrypted end to end regardless and does not depend on it. Binding 443 as a normal user
+needs `CAP_NET_BIND_SERVICE`, which is preferable to running a network-facing service as root.
+
+**Updating.** The binary is static and has no runtime dependencies, so an update is a file
+replacement and a restart:
+
+```sh
+systemctl stop peeringd
+scp peeringd-linux-x86_64 server:/usr/local/bin/peeringd
+ssh server 'chmod +x /usr/local/bin/peeringd && systemctl start peeringd'
+```
+
+Restarting drops live sessions, and the two ends reconnect on their own — the Mac re-registers and
+the phone asks again. Worth doing when nobody is mid-session anyway.
+
+Bandwidth is the only real running cost: see the note below.
 
 ## The wire contract
 

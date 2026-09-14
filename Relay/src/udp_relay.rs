@@ -9,6 +9,7 @@
 //! session-key exchange in the plan — so a relay that wanted to look at the screen would find
 //! ciphertext, and one that wanted to tamper with it would be caught by the tag.
 
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
@@ -17,6 +18,7 @@ use tokio::net::UdpSocket;
 use tokio::time::timeout;
 use tracing::{debug, info};
 
+use crate::config::PortRange;
 use crate::session::{Token, VideoPairing};
 
 /// Marks a datagram as "this is where I live" rather than payload.
@@ -53,21 +55,110 @@ fn bind_token(packet: &[u8]) -> Option<Token> {
     Some(token)
 }
 
+/// Where a session's video port comes from.
+enum PortChoice {
+    /// No range configured, so let the OS pick. Fine on loopback, and fine anywhere the ports do
+    /// not have to be named in a firewall rule.
+    Any,
+    Fixed(u16),
+}
+
+/// Hands out session video ports from a configured range, and takes them back when a session ends.
+///
+/// **The bookkeeping is ours rather than the operating system's**, and that is not belt-and-braces.
+/// "Try to bind the next port and see whether it fails" is the obvious approach and it is wrong:
+/// where `SO_REUSEADDR` is in play a bind succeeds against a port that is already in use, which
+/// would put two sessions on one port and interleave two people's video. Tracking allocation here
+/// is deterministic regardless of how the platform treats that flag.
+pub struct PortPool {
+    range: Option<PortRange>,
+    used: Mutex<HashSet<u16>>,
+}
+
+impl PortPool {
+    pub fn new(range: Option<PortRange>) -> Self {
+        Self {
+            range,
+            used: Mutex::new(HashSet::new()),
+        }
+    }
+
+    /// Whether a fixed range is in force. Used for the startup log, so an operator can see at a
+    /// glance whether the ports they opened are the ports that will be used.
+    pub fn range(&self) -> Option<PortRange> {
+        self.range
+    }
+
+    fn take(&self) -> std::io::Result<PortChoice> {
+        let Some(range) = self.range else {
+            return Ok(PortChoice::Any);
+        };
+
+        let mut used = lock_ports(&self.used);
+        match range.iter().find(|port| used.insert(*port)) {
+            Some(port) => Ok(PortChoice::Fixed(port)),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::AddrNotAvailable,
+                format!(
+                    "every port in the configured video range {}-{} is in use",
+                    range.first, range.last
+                ),
+            )),
+        }
+    }
+
+    fn release(&self, port: u16) {
+        lock_ports(&self.used).remove(&port);
+    }
+}
+
+fn lock_ports(ports: &Mutex<HashSet<u16>>) -> MutexGuard<'_, HashSet<u16>> {
+    ports.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
 /// Binds a socket for one session and starts forwarding on it.
 ///
 /// Returns the port the two ends should send to. The socket is bound before this returns, so a
 /// client that is told the port can use it immediately.
 pub async fn serve_session(
     bind: SocketAddr,
+    pool: Arc<PortPool>,
     pairing: Arc<Mutex<VideoPairing>>,
     idle_ttl: Duration,
 ) -> std::io::Result<u16> {
-    let socket = UdpSocket::bind(bind).await?;
+    let mut addr = bind;
+    let chosen = pool.take()?;
+    let fixed = match chosen {
+        PortChoice::Any => None,
+        PortChoice::Fixed(port) => {
+            addr.set_port(port);
+            Some(port)
+        }
+    };
+
+    let socket = match UdpSocket::bind(addr).await {
+        Ok(socket) => socket,
+        Err(error) => {
+            // Hand the port straight back rather than leaving it marked as taken by a session that
+            // never started — otherwise a port that cannot be bound at all is lost for the life of
+            // the process, and a range full of them would exhaust itself.
+            if let Some(port) = fixed {
+                pool.release(port);
+            }
+            return Err(error);
+        }
+    };
+
+    // Read from the socket rather than trusting `fixed`: with no range configured this is the OS's
+    // choice, and it is the only place that value is known.
     let port = socket.local_addr()?.port();
 
     tokio::spawn(async move {
         forward(socket, pairing, idle_ttl).await;
-        debug!("video session closed");
+        if fixed.is_some() {
+            pool.release(port);
+        }
+        debug!(port, "video session closed");
     });
 
     Ok(port)
@@ -181,9 +272,14 @@ mod tests {
     /// Binds both ends and returns the relay address, a socket for each end, and the pairing.
     async fn connected_session() -> (SocketAddr, UdpSocket, UdpSocket) {
         let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
-        let port = serve_session(ephemeral(), Arc::clone(&pairing), Duration::from_secs(30))
-            .await
-            .expect("should bind");
+        let port = serve_session(
+            ephemeral(),
+            Arc::new(PortPool::new(None)),
+            Arc::clone(&pairing),
+            Duration::from_secs(30),
+        )
+        .await
+        .expect("should bind");
 
         let relay = local(port);
         let client = UdpSocket::bind(ephemeral()).await.unwrap();
@@ -224,9 +320,14 @@ mod tests {
     #[tokio::test]
     async fn traffic_from_an_unbound_address_is_dropped_without_a_reply() {
         let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
-        let port = serve_session(ephemeral(), Arc::clone(&pairing), Duration::from_secs(30))
-            .await
-            .expect("should bind");
+        let port = serve_session(
+            ephemeral(),
+            Arc::new(PortPool::new(None)),
+            Arc::clone(&pairing),
+            Duration::from_secs(30),
+        )
+        .await
+        .expect("should bind");
 
         let stranger = UdpSocket::bind(ephemeral()).await.unwrap();
         stranger.send_to(b"hello?", local(port)).await.unwrap();
@@ -237,6 +338,70 @@ mod tests {
                 .await
                 .is_err(),
             "an unbound source should be ignored, not answered"
+        );
+    }
+
+    #[test]
+    fn a_pool_without_a_range_lets_the_os_choose() {
+        let pool = PortPool::new(None);
+        assert!(matches!(pool.take(), Ok(PortChoice::Any)));
+        assert!(pool.range().is_none());
+    }
+
+    #[test]
+    fn a_pool_hands_out_each_port_once_and_then_refuses() {
+        // Handing the same port to two sessions is the failure this bookkeeping exists to prevent,
+        // and it is one the operating system would not necessarily catch — see the comment on
+        // PortPool.
+        let pool = PortPool::new(PortRange::parse("40000-40002"));
+
+        let mut taken = Vec::new();
+        for _ in 0..3 {
+            match pool.take().expect("should still have a port") {
+                PortChoice::Fixed(port) => taken.push(port),
+                PortChoice::Any => panic!("a configured range should fix the port"),
+            }
+        }
+        taken.sort();
+        assert_eq!(taken, vec![40000, 40001, 40002], "each handed out exactly once");
+
+        assert!(pool.take().is_err(), "an exhausted range must refuse");
+    }
+
+    #[test]
+    fn a_released_port_becomes_available_again() {
+        let pool = PortPool::new(PortRange::parse("40000-40000"));
+
+        let Ok(PortChoice::Fixed(port)) = pool.take() else {
+            panic!("the only port should be handed out");
+        };
+        assert!(pool.take().is_err(), "and then there are none left");
+
+        pool.release(port);
+        assert!(
+            matches!(pool.take(), Ok(PortChoice::Fixed(again)) if again == port),
+            "a session ending must give its port back, or a range exhausts itself over time"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_session_binds_inside_the_configured_range() {
+        // The property the firewall rule depends on: if it says these ports, these are the ports.
+        let pool = Arc::new(PortPool::new(PortRange::parse("47800-47805")));
+        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+
+        let port = serve_session(
+            "127.0.0.1:0".parse().unwrap(),
+            Arc::clone(&pool),
+            pairing,
+            Duration::from_secs(30),
+        )
+        .await
+        .expect("should bind inside the range");
+
+        assert!(
+            (47800..=47805).contains(&port),
+            "bound {port}, which is outside the range the firewall would open"
         );
     }
 }
