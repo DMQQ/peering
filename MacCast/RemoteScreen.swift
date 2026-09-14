@@ -707,8 +707,12 @@ struct RemoteScreen: View {
             shortcutsPanel
                 .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .desktops:
-            DesktopsPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
-                .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
+            DesktopsPanel(
+                chromeFrames: $chromeFrames,
+                onSelect: closePanelAfterSelection,
+                maximumHeight: panelHeightLimit(available)
+            )
+            .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)
         case .sources:
             SourcesPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
                 .frame(maxWidth: Self.panelWidth, maxHeight: panelHeightLimit(available), alignment: .bottom)

@@ -23,6 +23,32 @@ struct DesktopsPanel: View {
     /// "away" means is the caller's business — see the setting it consults.
     var onSelect: () -> Void = {}
 
+    /// How tall the panel may grow. Passed in rather than assumed, because the tiles are sized
+    /// against it — see ``tileSize(count:rows:showsChips:)``.
+    var maximumHeight: CGFloat = .infinity
+
+    /// The width one row of tiles has to work with, measured rather than worked out. The panel is
+    /// 520 points at most in landscape and nearly the whole screen in portrait, and the two are
+    /// not close enough for one number to serve both.
+    @State private var rowWidth: CGFloat = 0
+
+    /// The smallest a tile may be. Below this the thumbnail stops being a picture of anything and
+    /// the caption under it stops fitting.
+    private static let minimumTile = CGSize(width: 104, height: 65)
+    /// The largest, so two desktops do not become two enormous pictures.
+    private static let maximumTileWidth: CGFloat = 240
+    /// Width over height, held constant so a tile keeps the shape of a screen rather than the
+    /// shape of whatever room it was given.
+    private static let tileAspect = 65.0 / 104.0
+
+    private static let tileGap: CGFloat = 8
+    private static let rowGap: CGFloat = 12
+    private static let rowInnerGap: CGFloat = 5
+    private static let captionHeight: CGFloat = 13
+    private static let chipHeight: CGFloat = 21
+    private static let headingHeight: CGFloat = 22
+    private static let panelInset: CGFloat = 10
+
     /// Whether the panel is worth offering at all.
     ///
     /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
@@ -43,21 +69,27 @@ struct DesktopsPanel: View {
                 // Scrolls when it has to, which is what keeps a third screen or a fourth from
                 // pushing the first row off the top of the panel and out of reach.
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: Self.rowGap) {
                         ForEach(info.displays) { display in
+                            let size = tileSize(
+                                count: display.count,
+                                rows: info.displays.count,
+                                showsChips: info.displays.count > 1
+                            )
                             VStack(alignment: .leading, spacing: 6) {
                                 if info.displays.count > 1 {
                                     chip(for: display)
                                 }
                                 ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
+                                    HStack(spacing: Self.tileGap) {
                                         // Offsets rather than `1...count`, which is an empty range
                                         // when a display reports nothing and traps on the way.
                                         ForEach(0..<display.count, id: \.self) { offset in
                                             tile(
                                                 display: display,
                                                 index: offset + 1,
-                                                showsScreenName: info.displays.count > 1
+                                                showsScreenName: info.displays.count > 1,
+                                                size: size
                                             )
                                         }
                                     }
@@ -65,6 +97,11 @@ struct DesktopsPanel: View {
                                 }
                             }
                         }
+                    }
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.width
+                    } action: { width in
+                        rowWidth = width
                     }
                 }
             }
@@ -105,7 +142,40 @@ struct DesktopsPanel: View {
         model.catalog?.descriptor(for: .display(display.displayID))?.title ?? "Display"
     }
 
-    private func tile(display: SpaceDisplay, index: Int, showsScreenName: Bool) -> some View {
+    /// The size of one tile, for a row holding `count` of them.
+    ///
+    /// Grown to fill the width when a screen has only two or three desktops — a pair of thumbnails
+    /// pinned at 104 points leaves most of the panel empty, which is the whole of "make them fill
+    /// the window" — and held back by the height the panel actually has, so filling the width
+    /// cannot cost the row below it its place. One fixed size cannot do both: it is too big for a
+    /// short landscape panel and too small for a tall portrait one.
+    private func tileSize(count: Int, rows: Int, showsChips: Bool) -> CGSize {
+        guard count > 0 else { return Self.minimumTile }
+
+        let gaps = CGFloat(count - 1) * Self.tileGap
+        var width = rowWidth > 0 ? (rowWidth - gaps) / CGFloat(count) : Self.minimumTile.width
+
+        if maximumHeight.isFinite, rows > 0 {
+            let rowOverhead = Self.captionHeight + Self.rowInnerGap
+                + (showsChips ? Self.chipHeight + 6 : 0)
+            let overhead = Self.headingHeight
+                + Self.panelInset * 2
+                + CGFloat(rows - 1) * Self.rowGap
+                + CGFloat(rows) * rowOverhead
+            let roomPerRow = max(maximumHeight - overhead, 0) / CGFloat(rows)
+            width = min(width, roomPerRow / Self.tileAspect)
+        }
+
+        let clamped = min(max(width, Self.minimumTile.width), Self.maximumTileWidth)
+        return CGSize(width: clamped.rounded(), height: (clamped * Self.tileAspect).rounded())
+    }
+
+    private func tile(
+        display: SpaceDisplay,
+        index: Int,
+        showsScreenName: Bool,
+        size: CGSize
+    ) -> some View {
         let isCurrent = index == display.current
         let label = "Desktop \(index)\(isCurrent ? ", current" : "")"
         return Button {
@@ -130,7 +200,7 @@ struct DesktopsPanel: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
-                .frame(width: 104, height: 65)
+                .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
