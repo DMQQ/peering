@@ -24,14 +24,18 @@ struct ContentView: View {
         }
         .animation(.default, value: model.phase)
         .onChange(of: isRemoteScreen, initial: true) { _, remote in
-            OrientationLock.shared.allowed = remote ? .allButUpsideDown : .portrait
-            // Request the orientation change from the window scene so the UI rotates
-            // immediately rather than waiting for the next device movement.
-            guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-            let target: UIWindowScene.GeometryPreferences.iOS = remote
-                ? .init(interfaceOrientations: .allButUpsideDown)
-                : .init(interfaceOrientations: .portrait)
-            scene.requestGeometryUpdate(target)
+            if remote {
+                // Unlock — just update the mask; no geometry request needed. iOS will use
+                // the device's current orientation on the next layout pass. Sending an active
+                // requestGeometryUpdate(.allButUpsideDown) while in portrait would tell iOS
+                // "portrait is fine" and it would stay locked there.
+                OrientationLock.shared.allowed = .allButUpsideDown
+            } else {
+                // Landing screen: actively snap back to portrait.
+                OrientationLock.shared.allowed = .portrait
+                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+                scene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: .portrait))
+            }
         }
     }
 }
