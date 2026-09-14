@@ -180,7 +180,7 @@ struct CaptureProbe {
 
     static func listSources() async throws {
         let resolver = ScreenCaptureSourceResolver()
-        let descriptors = try await resolver.catalog()
+        let descriptors = try await resolver.catalog().all
 
         guard !descriptors.isEmpty else {
             throw ProbeError(message: """
@@ -201,7 +201,7 @@ struct CaptureProbe {
 
     static func runCapture(_ options: Options) async throws {
         let resolver = ScreenCaptureSourceResolver()
-        let descriptors = try await resolver.catalog()
+        let descriptors = try await resolver.catalog().all
         guard let descriptor = pick(options.source, from: descriptors) else {
             let available = descriptors.map(\.id).joined(separator: ", ")
             throw ProbeError(message: "no source matches “\(options.source ?? "")”. Available: \(available)")

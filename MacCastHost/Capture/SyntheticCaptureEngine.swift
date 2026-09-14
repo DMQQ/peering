@@ -3,7 +3,7 @@ import CoreVideo
 import Foundation
 import os
 
-private let syntheticLog = Logger(subsystem: "pl.dmq.maccast.host", category: "capture")
+private let syntheticLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
 /// Frames generated in memory, in the exact pixel format a real stream produces.
 ///
@@ -129,7 +129,7 @@ final class SyntheticCaptureEngine: CaptureFrameSource, @unchecked Sendable {
     /// The queue frames are generated and delivered on — the same shape as the real
     /// engine's, and serial for the same reason: VideoToolbox requires presentation
     /// timestamps to increase, so two frames must never be submitted concurrently.
-    private let queue = DispatchQueue(label: "pl.dmq.maccast.capture.synthetic", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "pl.dmq.peering.capture.synthetic", qos: .userInitiated)
 
     /// Lets ``stop()`` tell whether it is already running on the queue, where waiting for
     /// that queue would deadlock instead of draining it.

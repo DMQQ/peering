@@ -6,7 +6,7 @@ import RemoteCore
 import ScreenCaptureKit
 import os
 
-private let engineLog = Logger(subsystem: "pl.dmq.maccast.host", category: "capture")
+private let engineLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
 /// One frame off the stream, still in the `420v` pixel format the stream was configured for.
 ///
@@ -63,7 +63,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     /// The queue frames are delivered on, and the only thread that touches the encoder.
     /// Serial, so frames cannot be reordered — VideoToolbox requires presentation timestamps
     /// to increase, and submitting two frames concurrently would break that.
-    private let queue = DispatchQueue(label: "pl.dmq.maccast.capture", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "pl.dmq.peering.capture", qos: .userInitiated)
 
     private var stream: SCStream?
     private var deliveredCount = 0

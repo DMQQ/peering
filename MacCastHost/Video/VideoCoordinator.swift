@@ -3,7 +3,7 @@ import Foundation
 import RemoteCore
 import os
 
-private let coordinatorLog = Logger(subsystem: "pl.dmq.maccast.host", category: "video")
+private let coordinatorLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
 
 /// Owns the capture → encode → send chain, start to finish.
 ///
@@ -31,15 +31,27 @@ final class VideoCoordinator: @unchecked Sendable {
     /// the connection that is actually waiting, not to whichever one connected most
     /// recently.
     private var waiting: PeerConnection?
+    /// The peer the streamer is currently serving. Kept here as well as in `VideoStreamer`
+    /// so connection lifetime and capture lifetime can be changed under one lock.
+    private var attached: PeerConnection?
     private var currentSource: CaptureSource?
+
+    /// Every accepted replacement or relevant close advances this value. Capture operations
+    /// carry the value they were scheduled under, so work for an old peer can be discarded
+    /// without confusing it with the peer that replaced it.
+    private var audienceGeneration: UInt64 = 0
+
+    /// Capture start/stop calls are asynchronous, but their ordering is user-visible. The
+    /// task chain makes them land in the same order as the connection changes recorded under
+    /// `lock`: in particular, an idle stop always finishes before a replacement peer's start.
+    private var lifecycleTail: Task<Void, Never>?
 
     /// Whether ``currentSource`` is a decision a client made, as opposed to the default the
     /// host fell back to.
     ///
     /// The two are not interchangeable even when they name the same source, because they have
     /// different lifetimes: a default belongs to the host and outlives everyone, while a
-    /// choice belongs to the client that made it and goes away with it. See
-    /// ``forgetChosenSourceIfIdle()`` for what goes wrong when the distinction is missing.
+    /// choice belongs to the client that made it and goes away with it.
     private var sourceWasChosen = false
 
     /// Fires if capture starts and then produces nothing at all.
@@ -128,63 +140,110 @@ final class VideoCoordinator: @unchecked Sendable {
             self?.videoPeerClosed(peer)
         }
 
-        if let config = adapter.config {
+        let config = adapter.config
+        lock.withLock {
+            audienceGeneration &+= 1
+            if config == nil {
+                waiting = peer
+            } else {
+                // A described stream can attach immediately. It supersedes any peer that
+                // was still waiting for that description when this connection arrived.
+                waiting = nil
+                attached = peer
+            }
+            scheduleEnsureCapturingLocked(generation: audienceGeneration)
+        }
+
+        if let config {
             // The description is already known from a previous client or an earlier frame,
             // so there is nothing to wait for. The attach itself asks for a keyframe, which
             // is what gives this client a picture it can decode without waiting out the
             // encoder's interval.
             streamer.attach(peer, config: config)
-        } else {
-            lock.withLock { waiting = peer }
-        }
-
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await ensureCapturing()
-                // If capture had to be started for this connection, the attach above asked
-                // for a keyframe before there was an encoder to hear it.
-                pipeline.requestKeyframe()
-            } catch {
-                onFailure?(error as? CaptureError ?? .encodingFailed("\(error)"))
-            }
         }
     }
 
     private func videoPeerClosed(_ peer: PeerConnection) {
-        lock.withLock {
-            if waiting === peer { waiting = nil }
+        let wasAttached = lock.withLock { () -> Bool? in
+            let wasWaiting = waiting === peer
+            let wasAttached = attached === peer
+            guard wasWaiting || wasAttached else { return nil }
+
+            if wasWaiting { waiting = nil }
+            if wasAttached { attached = nil }
+            audienceGeneration &+= 1
+
+            // A source choice belongs to the departed audience. Clear it synchronously so a
+            // replacement queued behind the stop selects the host's default source.
+            sourceWasChosen = false
+            scheduleStopIfIdleLocked(generation: audienceGeneration)
+            return wasAttached
         }
-        // Only if this connection is the one being served. See `detach(ifAttachedTo:)`.
-        if streamer.detach(ifAttachedTo: peer) {
+
+        guard let wasAttached else { return }
+        if wasAttached {
+            // Only if this connection is the one being served. See `detach(ifAttachedTo:)`.
+            _ = streamer.detach(ifAttachedTo: peer)
+        }
+        if wasAttached {
             coordinatorLog.notice("video client disconnected")
-            forgetChosenSourceIfIdle()
+        } else {
+            coordinatorLog.notice("waiting video client disconnected")
         }
     }
 
-    /// Releases the departed client's hold on the capture source, once nothing is left that
-    /// could still be watching it.
-    ///
-    /// **Without this the next client inherits a decision it did not make.** `currentSource`
-    /// is cleared only by ``stop()``, so a client that chose an application window and then
-    /// disconnected left the host capturing that window — and the client after it, which
-    /// asked for nothing, was shown the departed client's application while its own picker
-    /// (which defaults to the display) showed the display selected. Neither side had an error
-    /// to report, so the only clue was the picture not matching the picker.
-    ///
-    /// Deliberately does *not* stop the capture stream. Stopping is asynchronous, and a client
-    /// can connect while it is in flight, leaving a start and a stop racing over one pipeline
-    /// — where the stop landing second blacks out a client that is already watching. Clearing
-    /// the *choice* is synchronous, needs no ordering, and is the part that decides what the
-    /// next client sees; ``ensureCapturing()`` then restarts on the default if the two differ.
-    private func forgetChosenSourceIfIdle() {
-        // Read before taking the lock, not inside it: `isAttached` takes the streamer's own
-        // lock, and acquiring a second lock while holding the first is how two locks become a
-        // deadlock. A client that attaches in the gap below is one that arrived while this
-        // connection was still being reaped, which is the same situation as two clients
-        // connected at once — it inherits the running source, and that is fine.
-        guard !streamer.isAttached else { return }
-        lock.withLock { sourceWasChosen = false }
+    /// Appends work while `lock` is held. The operation itself never runs under the lock.
+    private func scheduleLifecycleLocked(_ operation: @escaping @Sendable () async -> Void) {
+        let previous = lifecycleTail
+        lifecycleTail = Task {
+            if let previous { await previous.value }
+            await operation()
+        }
+    }
+
+    private func scheduleEnsureCapturingLocked(generation: UInt64) {
+        scheduleLifecycleLocked { [weak self] in
+            guard let self, self.hasAudience(generation: generation) else { return }
+            do {
+                try await self.ensureCapturing()
+                guard self.hasAudience(generation: generation) else { return }
+                // If capture had to be started for this connection, the attach above asked
+                // for a keyframe before there was an encoder to hear it.
+                self.pipeline.requestKeyframe()
+            } catch {
+                self.onFailure?(error as? CaptureError ?? .encodingFailed("\(error)"))
+            }
+        }
+    }
+
+    private func scheduleStopIfIdleLocked(generation: UInt64) {
+        scheduleLifecycleLocked { [weak self] in
+            guard let self, self.isIdle(generation: generation) else { return }
+            self.cancelWatchdog()
+            await self.pipeline.stop()
+            let remainsIdle = self.lock.withLock { () -> Bool in
+                self.currentSource = nil
+                return self.audienceGeneration == generation
+                    && self.waiting == nil && self.attached == nil
+            }
+            self.onInputTransform?(nil)
+            if remainsIdle {
+                self.onStatus?("Capture stopped · no video clients")
+                coordinatorLog.notice("capture stopped · no video clients")
+            }
+        }
+    }
+
+    private func hasAudience(generation: UInt64) -> Bool {
+        lock.withLock {
+            audienceGeneration == generation && (waiting != nil || attached != nil)
+        }
+    }
+
+    private func isIdle(generation: UInt64) -> Bool {
+        lock.withLock {
+            audienceGeneration == generation && waiting == nil && attached == nil
+        }
     }
 
     // MARK: - Catalogue
@@ -202,12 +261,7 @@ final class VideoCoordinator: @unchecked Sendable {
 
     private func pushCatalog() async {
         do {
-            let descriptors = try await pipeline.catalog()
-            let catalog = CaptureCatalog(
-                displays: descriptors.filter { $0.kind == .display },
-                applications: descriptors.filter { $0.kind == .application },
-                windows: descriptors.filter { $0.kind == .window }
-            )
+            let catalog = try await pipeline.catalog()
 
             // Offered every time, with no "unchanged, skip it" check here. That check used
             // to live at this level and it was a bug: the resolver invalidates on every
@@ -222,10 +276,16 @@ final class VideoCoordinator: @unchecked Sendable {
             // an unchanged list never rebuilds a picker that is already on screen, while a
             // client that has been told nothing is always told.
             onCatalog?(catalog)
+            // The Space count and preview count are the only way to tell a host that has never
+            // seen a desktop from one that has: both send the same picker, and the difference
+            // is a screenshot that either happened or was refused.
             coordinatorLog.notice("""
                 capture catalogue · \(catalog.displays.count, privacy: .public) display(s), \
                 \(catalog.applications.count, privacy: .public) application(s), \
-                \(catalog.windows.count, privacy: .public) window(s)
+                \(catalog.windows.count, privacy: .public) window(s), \
+                \(catalog.installedApplications.count, privacy: .public) installed application(s), \
+                \(catalog.spaceInfo?.count ?? 0, privacy: .public) space(s) \
+                with \(catalog.spaceInfo?.previews.count ?? 0, privacy: .public) preview(s)
                 """)
         } catch {
             coordinatorLog.notice("""
@@ -281,11 +341,21 @@ final class VideoCoordinator: @unchecked Sendable {
     /// the adapter reports that as a description change, the streamer re-sends the config and
     /// forces a keyframe, and the client rebuilds its decoder against the new picture.
     func switchSource(_ source: CaptureSource) async throws {
-        // Recorded before the switch, not after. If the capture fails, the *intent* is still
-        // the client's, and leaving the previous source marked as unchosen would hand the
-        // next client whatever this one started from rather than the default.
-        lock.withLock { sourceWasChosen = true }
-        try await startCapture(source)
+        let operation = lock.withLock { () -> Task<Void, Error> in
+            // Recorded before the switch, not after. If the capture fails, the *intent* is
+            // still the client's. Scheduling under the same lock also orders a disconnect
+            // after this switch, rather than letting its stop race the pipeline start.
+            sourceWasChosen = true
+            let previous = lifecycleTail
+            let operation = Task { [weak self] in
+                if let previous { await previous.value }
+                guard let self else { return }
+                try await self.startCapture(source)
+            }
+            lifecycleTail = Task { _ = await operation.result }
+            return operation
+        }
+        try await operation.value
     }
 
     private func startCapture(_ source: CaptureSource) async throws {
@@ -376,10 +446,17 @@ final class VideoCoordinator: @unchecked Sendable {
         lock.withLock {
             currentSource = nil
             waiting = nil
+            attached = nil
             sourceWasChosen = false
+            audienceGeneration &+= 1
+            scheduleLifecycleLocked { [weak self, pipeline] in
+                await pipeline.stop()
+                guard let self else { return }
+                self.lock.withLock { self.currentSource = nil }
+            }
         }
         streamer.detach()
-        Task { [pipeline] in await pipeline.stop() }
+        onInputTransform?(nil)
     }
 
     /// Diagnostics for the host window.
@@ -401,9 +478,13 @@ final class VideoCoordinator: @unchecked Sendable {
             // the call: a first description is what a waiting client was waiting for, while a
             // later one means an attached client's decoder is now holding parameter sets for
             // a picture that no longer exists.
-            let pending = lock.withLock { waiting }
+            let pending = lock.withLock { () -> PeerConnection? in
+                guard let pending = waiting else { return nil }
+                waiting = nil
+                attached = pending
+                return pending
+            }
             if let pending {
-                lock.withLock { waiting = nil }
                 streamer.attach(pending, config: config)
             } else if streamer.isAttached {
                 streamer.updateConfig(config)

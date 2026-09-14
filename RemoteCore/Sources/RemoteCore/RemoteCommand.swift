@@ -77,10 +77,16 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// so emoji and CJK work, but shortcuts that listen for physical keycodes will not fire.
     case textInput(String)
     case switchSpace(direction: SpaceDirection)
+    /// Jump directly to a 1-based Space index. The host resolves it to a CGS workspace ID,
+    /// so this works even if the user's Mission Control keyboard shortcuts are disabled.
+    case switchToSpace(index: Int)
     case joystickMove(dx: Double, dy: Double)
     /// Client-driven source switch. Applied with `SCStream.updateContentFilter(_:)`,
     /// so the stream is never torn down.
     case setCaptureSource(CaptureSource)
+    /// Launches a locally installed GUI app. The host resolves the bundle identifier from
+    /// its own application catalogue; clients never send executable paths.
+    case launchApplication(bundleIdentifier: String)
 
     public var coalescing: Coalescing {
         switch self {
@@ -88,7 +94,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .replaceLatest
         case .joystickMove, .scroll:
             return .accumulate
-        case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace, .setCaptureSource:
+        case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
+             .switchToSpace, .setCaptureSource, .launchApplication:
             return .none
         }
     }
@@ -97,7 +104,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Anything whose loss would leave the host in a stuck state takes priority.
     public var isCritical: Bool {
         switch self {
-        case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource:
+        case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication:
             return true
         default:
             return false

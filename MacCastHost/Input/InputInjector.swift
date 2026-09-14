@@ -4,7 +4,7 @@ import Foundation
 import RemoteCore
 import os
 
-private let inputLog = Logger(subsystem: "pl.dmq.maccast.host", category: "input")
+private let inputLog = Logger(subsystem: "pl.dmq.peering.host", category: "input")
 
 /// Posts synthetic input into the session.
 ///
@@ -96,14 +96,19 @@ final class InputInjector: @unchecked Sendable {
             postMouse(mouseType(for: button, pressed: false), at: location, button: cgButton(button))
 
         case .scroll(let dx, let dy):
-            // Vertical is wheel1 and horizontal is wheel2. Positive wheel1 scrolls toward
-            // the start of the document, which is what a downward swipe should do.
+            // Vertical is wheel1 and horizontal is wheel2.
+            //
+            // The sign is flipped here rather than at the client, because the client's delta is
+            // only a statement of which way the fingers moved, and this is the sole place that
+            // knows what a `CGEvent` wheel delta means. Passed through unchanged, a downward
+            // two-finger drag scrolled the Mac the opposite way from the fingers — the delta
+            // reads positive-downward and the wheel reads positive-toward-the-end-of-the-document.
             guard let event = CGEvent(
                 scrollWheelEvent2Source: nil,
                 units: .pixel,
                 wheelCount: 2,
-                wheel1: InputEncoding.wheelValue(dy),
-                wheel2: InputEncoding.wheelValue(dx),
+                wheel1: InputEncoding.wheelValue(-dy),
+                wheel2: InputEncoding.wheelValue(-dx),
                 wheel3: 0
             ) else {
                 return
@@ -119,12 +124,19 @@ final class InputInjector: @unchecked Sendable {
         case .textInput(let text):
             postText(text)
 
-        case .switchSpace(let direction):
-            // Ctrl+← / Ctrl+→. These are the real Spaces shortcuts and they are handled by
-            // the window server, so no target application needs to cooperate.
-            let code: UInt16 = direction == .left ? 123 : 124
-            postKey(code: code, down: true, modifiers: .control)
-            postKey(code: code, down: false, modifiers: .control)
+        case .switchSpace:
+            // Never reached, and deliberately so. `HostModel` matches this command before it
+            // gets here and routes it to `switchSpaceRelative`, which moves the desktop through
+            // the window server directly.
+            //
+            // This used to post Ctrl+←/Ctrl+→, on the theory that the real Spaces shortcut is
+            // handled by the window server and needs no target application's cooperation. That
+            // part is true; the events simply were not honoured — the window server consumes
+            // symbolic hot keys before an injected chord reaches it, which is why the route was
+            // abandoned for the direct call. Left as an explicit no-op rather than deleted,
+            // because the command still exists on the wire and a future reader deserves to know
+            // which side handles it.
+            break
 
         case .joystickMove(let dx, let dy):
             // The one case that reads the live cursor. A joystick is a *relative* nudge, so
@@ -137,9 +149,8 @@ final class InputInjector: @unchecked Sendable {
             lock.withLock { cursor = target }
             postMouse(.mouseMoved, at: target, button: .left)
 
-        case .setCaptureSource:
-            // Owned by the video pipeline, not by input. Handled in `CommandRouter` so this
-            // type never has to know that capture exists.
+        case .setCaptureSource, .launchApplication, .switchToSpace:
+            // Handled upstream in HostModel.onCommand before this method is called.
             break
         }
     }

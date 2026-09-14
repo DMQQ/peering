@@ -1,5 +1,6 @@
 import RemoteCore
 import SwiftUI
+import UIKit
 
 /// A relative pointer control.
 ///
@@ -14,41 +15,75 @@ import SwiftUI
 struct JoystickView: View {
     /// Called with the travel for this sample, in the Mac's display points.
     var onMove: (CGSize) -> Void
+    /// Fired on a short tap — sends a left click at the current cursor position.
+    var onTap: (() -> Void)?
+    /// Fired when a long-press (≥ 450 ms with little movement) is released — sends a right click.
+    var onRightClick: (() -> Void)?
     var pointSize: CGSize
+    var radius: CGFloat = 54
 
     /// Fraction of the captured surface travelled per second at full deflection.
     private static let travelPerSecond = 0.9
     /// A gap longer than this is a new gesture, not a slow one — otherwise the first sample
     /// of a new drag carries all the time since the last one and the cursor jumps.
     private static let maximumSampleGap: TimeInterval = 0.05
+    private static let longPressDuration: TimeInterval = 0.45
+    private static let tapMaxDisplacement: CGFloat = 8
 
     @State private var knob: CGSize = .zero
     @State private var lastSample: Date?
-
-    private let radius: CGFloat = 44
+    @State private var touchStart: Date?
+    @State private var isLongPress = false
+    @State private var holdTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1))
+                .fill(.clear)
+                .glassEffect(.regular.interactive(), in: Circle())
                 .frame(width: radius * 2, height: radius * 2)
 
             Circle()
-                .fill(.white.opacity(0.85))
-                .frame(width: 34, height: 34)
+                .fill(ColorPalette.ink.opacity(0.85))
+                .frame(width: 40, height: 40)
+                // The right-click state is a ring that blooms out of the knob rather than a
+                // change of colour: it reads on any background the Mac happens to be showing,
+                // and it says "held" in a way a hue never did.
+                .overlay {
+                    Circle()
+                        .strokeBorder(ColorPalette.ink, lineWidth: 2)
+                        .scaleEffect(isLongPress ? 1.4 : 1)
+                        .opacity(isLongPress ? 1 : 0)
+                }
                 .offset(knob)
-                .shadow(radius: 2)
+                .shadow(radius: 3)
+                .animation(Motion.settle, value: knob)
+                .animation(Motion.tap, value: isLongPress)
         }
         .frame(width: radius * 2, height: radius * 2)
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
+                    if touchStart == nil {
+                        touchStart = Date()
+                        let task = Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(Self.longPressDuration))
+                            if !Task.isCancelled { isLongPress = true }
+                        }
+                        holdTask = task
+                    }
                     let raw = CGSize(
                         width: value.location.x - radius,
                         height: value.location.y - radius
                     )
+                    // Cancel the long-press timer the moment the finger has moved enough to
+                    // be a drag — otherwise a slow short drag triggers right-click on release.
+                    if hypot(raw.width, raw.height) > Self.tapMaxDisplacement {
+                        holdTask?.cancel()
+                        holdTask = nil
+                        isLongPress = false
+                    }
                     // Clamped to the ring, so a finger that wanders off the pad keeps pushing
                     // at full deflection instead of reporting a magnitude the Mac would scale
                     // into an implausibly large jump.
@@ -57,15 +92,29 @@ struct JoystickView: View {
                         ? CGSize(width: raw.width * radius / distance, height: raw.height * radius / distance)
                         : raw
                     knob = limited
-                    emit(limited)
+                    if !isLongPress { emit(limited) }
                 }
-                .onEnded { _ in
+                .onEnded { value in
+                    holdTask?.cancel()
+                    holdTask = nil
+                    let wasLong = isLongPress
                     knob = .zero
                     lastSample = nil
+                    touchStart = nil
+                    isLongPress = false
+
+                    let displacement = hypot(value.translation.width, value.translation.height)
+                    if displacement < Self.tapMaxDisplacement {
+                        if wasLong {
+                            onRightClick?()
+                        } else {
+                            onTap?()
+                        }
+                    }
                 }
         )
         .accessibilityLabel("Relative pointer")
-        .accessibilityHint("Drag to nudge the cursor on the Mac")
+        .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click")
     }
 
     private func emit(_ offset: CGSize) {
@@ -83,6 +132,241 @@ struct JoystickView: View {
         let dy = Double(offset.height / radius) * Self.travelPerSecond * pointSize.height * interval
         guard dx.isFinite, dy.isFinite, dx != 0 || dy != 0 else { return }
         onMove(CGSize(width: dx, height: dy))
+    }
+}
+
+/// The visual half of a rail button.
+///
+/// Split out because the `Menu`s that sit in a rail take a label rather than a button as their
+/// content, and a menu that did not match the buttons beside it would read as a different kind
+/// of control. Built from one view, the two cannot disagree.
+struct RailButtonLabel: View {
+    let icon: String
+    let label: String
+    var selected: Bool = false
+    var enabled: Bool = true
+
+    /// Narrow enough that the rail does not eat into the picture, wide enough that the caption
+    /// stays legible — the label shrinks before the rail grows.
+    private static let minimumWidth: CGFloat = ChromeMetrics.panelWidth - 8
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(selected ? ColorPalette.ink : (enabled ? Color.primary : Color.secondary))
+            Text(label)
+                .font(.system(size: 9, weight: selected ? .semibold : .regular))
+                .foregroundStyle(selected ? ColorPalette.ink : Color.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(minWidth: Self.minimumWidth, maxWidth: .infinity)
+        .frame(height: ChromeMetrics.buttonHeight)
+        .background(selected ? ColorPalette.selectedFill : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // On the label, so the icon, the caption and the fill all move as one thing.
+        .animation(Motion.tap, value: selected)
+        .animation(Motion.tap, value: enabled)
+    }
+}
+
+/// A single key, sized for a thumb rather than for a rail.
+///
+/// Return is the key that gets pressed more than any other on a remote desktop — it is how a
+/// dialogue is dismissed, a search is run and a field is committed — and it was living in the
+/// shortcuts panel behind a toggle. A key that common belongs under the hand that is already
+/// holding the phone.
+struct QuickKeyButton: View {
+    let icon: String
+    let label: String
+    var size: CGFloat = ChromeMetrics.quickKeySize
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .frame(width: size, height: size)
+                .glassEffect(
+                    .regular.interactive(),
+                    in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
+                )
+        }
+        .buttonStyle(RailButtonStyle())
+        .accessibilityLabel(label)
+    }
+}
+
+/// The press feedback every control in a rail shares.
+///
+/// A `.plain` button on iOS gives no sign it was hit at all, which on a translucent panel over
+/// live video makes a tap feel like it did nothing — the worst possible outcome for a control
+/// whose whole job is sending an event to another machine, where the result is not on this
+/// screen to be seen.
+struct RailButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.9
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// One button in a control rail or the portrait bar.
+///
+/// Icon over a short caption, which is the shape the portrait dock already used: the landscape
+/// rail is the same control stacked rather than scrolled, so there is one button to change
+/// instead of two that drift apart. The caption is not decoration — it is the only thing on
+/// screen that says what an icon does.
+struct RailButton: View {
+    let icon: String
+    let label: String
+    var selected: Bool = false
+    var enabled: Bool = true
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            RailButtonLabel(icon: icon, label: label, selected: selected, enabled: enabled)
+        }
+        .buttonStyle(RailButtonStyle())
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.45)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+/// A group of buttons in one container.
+///
+/// The container is the point. Nine separate buttons in four shapes read as clutter wherever
+/// they are put; what makes a rail legible is that the panel behind them says these belong
+/// together and nothing else does.
+struct ControlRail<Content: View>: View {
+    private let content: Content
+    /// The tallest the rail may grow before its buttons scroll instead of overflowing.
+    private let maxHeight: CGFloat
+
+    init(maxHeight: CGFloat = .infinity, @ViewBuilder content: () -> Content) {
+        self.maxHeight = maxHeight
+        self.content = content()
+    }
+
+    var body: some View {
+        // Scrollable because a rail is the one place on this screen with room to grow: the
+        // buttons run down the edge in the order they are reached for, and the ones below the
+        // fold cost nothing until they are wanted. Ordered most-used first, for that reason —
+        // anything the user has to scroll to find is by definition not what they reach for most.
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: ChromeMetrics.buttonGap) {
+                content
+            }
+            .padding(.vertical, ChromeMetrics.panelPadding)
+        }
+        // No rubber-banding when the buttons already fit, which is most of the time: a rail that
+        // jiggles under a finger when there is nothing to scroll reads as a loose control.
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(width: ChromeMetrics.panelWidth)
+        .frame(maxHeight: maxHeight)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
+        )
+    }
+}
+
+/// A track you drag to scroll the Mac.
+///
+/// The two-finger gesture is the shortcut, but it takes the second hand off the phone and cannot
+/// be done one-handed at all — which is how a phone is usually held. This is the same action as
+/// something the thumb already holding the device can reach.
+struct ScrollWheelView: View {
+    /// Pixels to scroll, signed the way a two-finger drag is: positive is downward.
+    var onScroll: (CGFloat) -> Void
+
+    /// A point of finger travel is several pixels of scroll. The track is short and has to cover
+    /// a whole page, so one-to-one would feel stuck.
+    private static let pixelsPerPoint: CGFloat = 6
+    /// How far the knob may travel from the centre while being dragged.
+    private static let knobTravel: CGFloat = 18
+
+    @State private var isDragging = false
+    @State private var lastOffset: CGFloat?
+    @State private var knob: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: ChromeMetrics.buttonGap) {
+            chevron("chevron.up", step: -90)
+
+            ZStack {
+                Capsule()
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 10)
+
+                // The knob tracks the *drag*, not a scroll position. This control has no idea
+                // where the Mac's document is, and a knob that claimed to would start lying the
+                // moment anything else — a trackpad, an app, a page load — moved it.
+                Capsule()
+                    .fill(.white.opacity(isDragging ? 0.95 : 0.55))
+                    .frame(width: 10, height: 34)
+                    .offset(y: knob)
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: knob)
+            }
+            // The whole panel is the drag target, not just the track. A 10pt-wide strip is not
+            // something a thumb can reliably find while holding a phone one-handed.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let y = value.location.y
+                        defer { lastOffset = y }
+                        guard let previous = lastOffset else {
+                            isDragging = true
+                            return
+                        }
+                        let delta = y - previous
+                        guard delta != 0 else { return }
+                        isDragging = true
+                        knob = min(max(knob + delta, -Self.knobTravel), Self.knobTravel)
+                        onScroll(delta * Self.pixelsPerPoint)
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                        lastOffset = nil
+                        knob = 0
+                    }
+            )
+            .accessibilityLabel("Scroll the Mac")
+            .accessibilityHint("Drag up or down")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: onScroll(-120)
+                case .decrement: onScroll(120)
+                @unknown default: break
+                }
+            }
+
+            chevron("chevron.down", step: 90)
+        }
+        .padding(.vertical, ChromeMetrics.panelPadding)
+        .frame(width: ChromeMetrics.panelWidth, height: ChromeMetrics.wheelHeight)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
+        )
+    }
+
+    private func chevron(_ symbol: String, step: CGFloat) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(.secondary)
+            .frame(width: 32, height: 22)
+            .contentShape(Rectangle())
+            .onTapGesture { onScroll(step) }
     }
 }
 
@@ -114,11 +398,11 @@ struct ModifierBar: View {
                     Text(key.title)
                         .font(.system(size: 17, weight: .medium))
                         .frame(width: 38, height: 34)
-                        .background(isOn ? Color.accentColor : Color.white.opacity(0.14))
-                        .foregroundStyle(isOn ? Color.white : Color.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .foregroundStyle(isOn ? Color.black : Color.primary)
+                        .background(isOn ? ColorPalette.ink : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(RailButtonStyle(scale: 0.86))
                 .accessibilityLabel(key.title)
                 .accessibilityAddTraits(isOn ? [.isSelected] : [])
             }
@@ -140,12 +424,11 @@ struct MacroBar: View {
                     } label: {
                         Text(macro.title)
                             .font(.system(size: 14, weight: .medium))
-                            .padding(.horizontal, 10)
+                            .padding(.horizontal, 12)
                             .frame(height: 34)
-                            .background(Color.white.opacity(0.14))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
             }
             .padding(.horizontal, 2)
@@ -153,23 +436,30 @@ struct MacroBar: View {
     }
 }
 
-/// The capture-source picker, driven entirely by the host's `catalog` message.
+/// The one list of things the Mac can stream, driven entirely by the host's `catalog` message.
 ///
-/// Nothing here is hardcoded: the host enumerates the displays it has, the applications that
-/// are running and the windows that are open, and this renders whatever it is given. A client
-/// that guessed at sources would offer entries the Mac cannot capture, and would go stale the
-/// moment a display was unplugged.
-struct SourcePicker: View {
+/// Displays, running applications, open windows, and installed-but-not-running applications are
+/// one question — "what should the Mac show?" — so they are one list. They used to be answered in
+/// three places at three levels of detail, which meant the row you wanted depended on which door
+/// you had happened to walk through.
+///
+/// Nothing here is hardcoded: the host enumerates what it has and this renders whatever it is
+/// given. A client that guessed at sources would offer entries the Mac cannot capture, and would
+/// go stale the moment a display was unplugged.
+struct SourceList: View {
     @Environment(SessionModel.self) private var model
+    @State private var query = ""
 
     var body: some View {
         Group {
             if let catalog = model.catalog, !catalog.all.isEmpty {
                 List {
-                    section("Displays", catalog.displays)
-                    section("Applications", catalog.applications)
-                    section("Windows", catalog.windows)
+                    sourceSection("Displays", catalog.displays, fallbackIcon: "display")
+                    sourceSection("Applications", catalog.applications, fallbackIcon: "app")
+                    sourceSection("Windows", catalog.windows, fallbackIcon: "macwindow")
+                    installedSection
                 }
+                .searchable(text: $query, prompt: "Find a display, application or window")
             } else {
                 ContentUnavailableView(
                     "No capture sources",
@@ -181,31 +471,19 @@ struct SourcePicker: View {
     }
 
     @ViewBuilder
-    private func section(_ title: String, _ descriptors: [CaptureSourceDescriptor]) -> some View {
-        if !descriptors.isEmpty {
+    private func sourceSection(
+        _ title: String,
+        _ descriptors: [CaptureSourceDescriptor],
+        fallbackIcon: String
+    ) -> some View {
+        let matches = filtered(descriptors)
+        if !matches.isEmpty {
             Section(title) {
-                ForEach(descriptors) { descriptor in
+                ForEach(matches) { descriptor in
                     Button {
                         model.selectSource(descriptor)
                     } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: symbol(for: descriptor.kind))
-                                .frame(width: 22)
-                                .foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(descriptor.title)
-                                if let subtitle = descriptor.subtitle {
-                                    Text(subtitle)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            if descriptor.id == model.activeSourceID {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.accentColor)
-                            }
-                        }
+                        sourceRow(descriptor, fallbackIcon: fallbackIcon)
                     }
                     .buttonStyle(.plain)
                 }
@@ -213,11 +491,114 @@ struct SourcePicker: View {
         }
     }
 
-    private func symbol(for kind: CaptureSourceDescriptor.Kind) -> String {
-        switch kind {
-        case .display: return "display"
-        case .application: return "app"
-        case .window: return "macwindow"
+    @ViewBuilder
+    private var installedSection: some View {
+        let installed = filteredInstalled
+        if !installed.isEmpty {
+            Section {
+                ForEach(installed) { application in
+                    Button {
+                        model.launchApplication(application)
+                    } label: {
+                        HStack(spacing: 12) {
+                            ApplicationIcon(data: application.iconPNGData, fallback: "app.dashed")
+                            Text(application.title)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text("Open")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(ColorPalette.ink)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text("Installed on your Mac")
+            } footer: {
+                Text("Not running yet. Choosing one opens it on the Mac.")
+            }
         }
+    }
+
+    private var filteredInstalled: [InstalledApplicationDescriptor] {
+        let applications = model.catalog?.installedApplicationsNotRunning ?? []
+        guard !query.isEmpty else { return applications }
+        return applications.filter { $0.title.localizedStandardContains(query) }
+    }
+
+    private func filtered(_ sources: [CaptureSourceDescriptor]) -> [CaptureSourceDescriptor] {
+        guard !query.isEmpty else { return sources }
+        return sources.filter {
+            $0.title.localizedStandardContains(query)
+                || ($0.subtitle?.localizedStandardContains(query) ?? false)
+        }
+    }
+
+    private func sourceRow(_ source: CaptureSourceDescriptor, fallbackIcon: String) -> some View {
+        HStack(spacing: 12) {
+            ApplicationIcon(data: source.iconPNGData, fallback: fallbackIcon)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(source.title).foregroundStyle(.primary)
+                if let subtitle = source.subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if source.id == model.activeSourceID {
+                // A checkmark and nothing else: tapping a row switches to it immediately, so a
+                // chevron promising another screen would be a lie.
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(ColorPalette.ink)
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// The source list as a sheet, for the rail's Share button.
+///
+/// A sheet rather than a menu: application names and icons need enough room to scan, search and
+/// tell apart, which a menu cannot give them.
+struct SourceBrowserSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            SourceList()
+                .scrollContentBackground(.hidden)
+                .background(ColorPalette.backdrop)
+                .navigationTitle("What to share")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+private struct ApplicationIcon: View {
+    let data: Data?
+    let fallback: String
+
+    var body: some View {
+        Group {
+            if let data, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(systemName: fallback)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+            }
+        }
+        .frame(width: 42, height: 42)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 }

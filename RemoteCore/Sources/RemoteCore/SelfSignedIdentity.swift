@@ -32,8 +32,8 @@ public final class SelfSignedIdentity: @unchecked Sendable {
 
         var keyTag: Data {
             switch self {
-            case .server: Data("pl.dmq.maccast.host.identity".utf8)
-            case .client: Data("pl.dmq.maccast.client.identity".utf8)
+            case .server: Data("pl.dmq.peering.host.identity".utf8)
+            case .client: Data("pl.dmq.peering.client.identity".utf8)
             }
         }
 
@@ -227,7 +227,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
     ) throws -> Certificate {
         let subject = try DistinguishedName {
             CommonName(commonName)
-            OrganizationName("MacCast")
+            OrganizationName("Peering")
         }
 
         return try Certificate(

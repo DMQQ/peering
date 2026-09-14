@@ -55,6 +55,72 @@ struct CaptureSourceTests {
         #expect(catalog.descriptor(for: .display(2)) == nil)
         #expect(try! roundTrip(catalog) == catalog)
     }
+
+    @Test("application metadata and bounded icon round-trip")
+    func applicationMetadata() throws {
+        let icon = Data([0x89, 0x50, 0x4e, 0x47])
+        let app = CaptureSourceDescriptor(
+            kind: .application,
+            title: "Xcode",
+            bundleIdentifier: "com.apple.dt.Xcode",
+            iconPNGData: icon,
+            source: .application(42),
+            pixelSize: CGSize(width: 1200, height: 800)
+        )
+
+        let decoded = try roundTrip(app)
+        #expect(decoded.bundleIdentifier == "com.apple.dt.Xcode")
+        #expect(decoded.iconPNGData == icon)
+
+        let tooLarge = Data(repeating: 1, count: CaptureSourceDescriptor.maximumIconByteCount + 1)
+        let bounded = CaptureSourceDescriptor(
+            kind: .application,
+            title: "Large icon",
+            iconPNGData: tooLarge,
+            source: .application(43),
+            pixelSize: CGSize(width: 1, height: 1)
+        )
+        #expect(bounded.iconPNGData == nil)
+    }
+
+    @Test("catalog separates installed apps and filters running duplicates")
+    func installedApplications() throws {
+        let running = CaptureSourceDescriptor(
+            kind: .application,
+            title: "Notes",
+            bundleIdentifier: "com.apple.Notes",
+            source: .application(9),
+            pixelSize: CGSize(width: 800, height: 600)
+        )
+        let notes = InstalledApplicationDescriptor(
+            bundleIdentifier: "com.apple.Notes",
+            title: "Notes"
+        )
+        let editor = InstalledApplicationDescriptor(
+            bundleIdentifier: "com.example.Editor",
+            title: "Editor"
+        )
+        let catalog = CaptureCatalog(applications: [running], installedApplications: [notes, editor])
+
+        #expect(catalog.installedApplicationsNotRunning == [editor])
+        #expect(try roundTrip(catalog) == catalog)
+    }
+
+    @Test("new decoder accepts a catalog sent before application metadata existed")
+    func legacyCatalogDecode() throws {
+        let json = #"{"displays":[],"applications":[],"windows":[]}"#.data(using: .utf8)!
+        let catalog = try JSONDecoder().decode(CaptureCatalog.self, from: json)
+        #expect(catalog.installedApplications.isEmpty)
+    }
+
+    @Test("installed application count is capped")
+    func installedApplicationCountLimit() {
+        let applications = (0..<(CaptureCatalog.maximumInstalledApplicationCount + 10)).map {
+            InstalledApplicationDescriptor(bundleIdentifier: "com.example.app\($0)", title: "App \($0)")
+        }
+        let catalog = CaptureCatalog(installedApplications: applications)
+        #expect(catalog.installedApplications.count == CaptureCatalog.maximumInstalledApplicationCount)
+    }
 }
 
 @Suite("RemoteCommand")
@@ -76,6 +142,7 @@ struct RemoteCommandTests {
             .switchSpace(direction: .left),
             .joystickMove(dx: -0.5, dy: 0.5),
             .setCaptureSource(.application(4242)),
+            .launchApplication(bundleIdentifier: "com.example.Editor"),
         ]
 
         for command in commands {

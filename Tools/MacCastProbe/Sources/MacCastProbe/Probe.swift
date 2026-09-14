@@ -1,5 +1,6 @@
 import CoreGraphics
 import CryptoKit
+import Darwin
 import Foundation
 import Network
 import RemoteCore
@@ -303,7 +304,43 @@ struct Probe {
         case type(String)
         case key(UInt16, Modifiers)
         case space(SpaceDirection)
+        case verifySpaces
         case flags(String)
+    }
+
+    /// Returns the active macOS Space ID. There is no public API for observing Spaces, so
+    /// this verification-only probe resolves the same read-only WindowServer function used
+    /// by diagnostic tools at runtime. Production code does not depend on it.
+    static func activeSpaceID() throws -> UInt64 {
+        let path = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+        guard let handle = dlopen(path, RTLD_LAZY),
+              let mainSymbol = dlsym(handle, "CGSMainConnectionID"),
+              let activeSymbol = dlsym(handle, "CGSGetActiveSpace") else {
+            throw ProbeError(message: "could not inspect the active macOS Space")
+        }
+        typealias MainConnection = @convention(c) () -> UInt32
+        typealias GetActiveSpace = @convention(c) (UInt32) -> UInt64
+        let mainConnection = unsafeBitCast(mainSymbol, to: MainConnection.self)
+        let getActiveSpace = unsafeBitCast(activeSymbol, to: GetActiveSpace.self)
+        return getActiveSpace(mainConnection())
+    }
+
+    static func verifySpaceSwitching(on channel: FrameChannel) async throws {
+        let original = try activeSpaceID()
+        for direction: SpaceDirection in [.right, .left] {
+            try send(.switchSpace(direction: direction), on: channel)
+            try await settle(channel)
+            let deadline = ContinuousClock.now + .seconds(2)
+            while ContinuousClock.now < deadline {
+                let current = try activeSpaceID()
+                if current != original {
+                    log("SPACE SWITCH OK · \(direction.rawValue) moved \(original) → \(current)")
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+        throw ProbeError(message: "switchSpace left/right left the active Space unchanged (\(original))")
     }
 
     /// Reports what the window server currently believes is held.
@@ -979,6 +1016,8 @@ struct Probe {
                 try send(.switchSpace(direction: direction), on: channel)
                 try await settle(channel)
                 log("sent switchSpace(\(direction.rawValue))")
+            case .verifySpaces:
+                try await verifySpaceSwitching(on: channel)
             case .flags(let label):
                 reportFlags(label)
             }
@@ -1547,6 +1586,8 @@ struct Probe {
                         throw ProbeError(message: "--space must be left or right, not \(value)")
                     }
                     actions.append(.space(parsed))
+                case "--verify-spaces":
+                    actions.append(.verifySpaces)
                 case "--flags":
                     guard let value = iterator.next() else {
                         throw ProbeError(message: "--flags needs a label, e.g. --flags BEFORE")
@@ -1611,6 +1652,7 @@ struct Probe {
           --key    send a keycode press/release (repeatable, runs in argument order)
           --combo  send a keycode with modifiers, MODS:CODE, e.g. cmd:0 (repeatable)
           --space  send switchSpace(left|right) (repeatable, runs in argument order)
+          --verify-spaces  assert that at least one adjacent desktop can be activated
           --flags  print the session's held modifiers under a label, e.g. --flags BEFORE
           --video  after pairing, check the host accepts a video connection from this client
           --video-only  open only a video connection, with no control session, and expect refusal

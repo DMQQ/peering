@@ -3,7 +3,7 @@ import Network
 import Security
 import os
 
-private let transportLog = Logger(subsystem: "pl.dmq.maccast", category: "client")
+private let transportLog = Logger(subsystem: "pl.dmq.peering", category: "client")
 
 /// Where a client keeps the hosts it has paired with.
 ///
@@ -24,7 +24,7 @@ public final class ClientPinStore: @unchecked Sendable {
 
     /// The store the app uses. A separate instance is made for tests and tooling, so a
     /// probe run cannot disturb what the real client believes.
-    public static let standard = ClientPinStore(service: "pl.dmq.maccast.client.pins")
+    public static let standard = ClientPinStore(service: "pl.dmq.peering.client.pins")
 
     public init(service: String, account: String = "paired-hosts") {
         self.service = service
@@ -261,7 +261,13 @@ public final class ClientConnection: @unchecked Sendable {
             observed: observed,
             queue: queue
         )
-        let parameters = NWParameters(tls: tls, tcp: NWProtocolTCP.Options())
+        let tcp = NWProtocolTCP.Options()
+        // Nagle's algorithm buffers small packets for up to 40 ms looking for more data to
+        // coalesce. On a LAN where RTT is under 1 ms this is pure latency added to every
+        // mouse move and keystroke. Disable it so each command goes out the moment it is
+        // produced rather than waiting for the coalescing window to expire.
+        tcp.noDelay = true
+        let parameters = NWParameters(tls: tls, tcp: tcp)
         try await start(NWConnection(to: endpoint, using: parameters), timeout: timeout)
     }
 
@@ -286,7 +292,9 @@ public final class ClientConnection: @unchecked Sendable {
             observed: observed,
             queue: queue
         )
-        let parameters = NWParameters(tls: tls, tcp: NWProtocolTCP.Options())
+        let tcp = NWProtocolTCP.Options()
+        tcp.noDelay = true
+        let parameters = NWParameters(tls: tls, tcp: tcp)
         try await start(
             NWConnection(to: .hostPort(host: NWEndpoint.Host(host), port: nwPort), using: parameters),
             timeout: timeout
@@ -530,7 +538,7 @@ public final class CommandCoalescer: @unchecked Sendable {
 
     public init(
         interval: TimeInterval = 1.0 / 60.0,
-        queue: DispatchQueue = DispatchQueue(label: "pl.dmq.maccast.commands"),
+        queue: DispatchQueue = DispatchQueue(label: "pl.dmq.peering.commands"),
         sink: @escaping @Sendable (RemoteCommand) -> Void
     ) {
         self.interval = interval

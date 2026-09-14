@@ -2,7 +2,7 @@ import Foundation
 import RemoteCore
 import os
 
-private let videoLog = Logger(subsystem: "pl.dmq.maccast.host", category: "video")
+private let videoLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
 
 /// Delivers encoded frames to whichever client is attached to the video channel.
 ///

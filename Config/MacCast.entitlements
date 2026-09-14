@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  The app writes the Mac it last connected to here, and the home-screen widget reads it.
+
+	  Nothing else can bridge them: a widget extension runs in its own container, so
+	  `UserDefaults.standard` inside it is the extension's own store and not the app's. There is no
+	  shared preference domain without an App Group, and a URL cannot carry it — a widget's tap is
+	  the only communication there is, and it goes one way, into the app.
+	-->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.pl.dmq.peering</string>
+	</array>
+</dict>
+</plist>

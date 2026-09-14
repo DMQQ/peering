@@ -13,8 +13,8 @@ public struct DeviceIdentity: Sendable, Equatable {
     public let id: String
     public let name: String
 
-    private static let idKey = "MacCast.deviceID"
-    private static let nameKey = "MacCast.deviceName"
+    private static let idKey = "Peering.deviceID"
+    private static let nameKey = "Peering.deviceName"
 
     public init(id: String, name: String) {
         self.id = id

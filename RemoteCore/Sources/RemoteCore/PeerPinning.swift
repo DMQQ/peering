@@ -2,7 +2,7 @@ import Foundation
 import Security
 import os
 
-private let pinLog = Logger(subsystem: "pl.dmq.maccast", category: "pins")
+private let pinLog = Logger(subsystem: "pl.dmq.peering", category: "pins")
 
 /// Helpers for pinning a peer by its public key.
 ///

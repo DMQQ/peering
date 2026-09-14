@@ -5,7 +5,7 @@ import RemoteCore
 import ScreenCaptureKit
 import os
 
-private let resolverLog = Logger(subsystem: "pl.dmq.maccast.host", category: "capture")
+private let resolverLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
 /// Answers the three questions the rest of the pipeline has about capture sources: what can
 /// be captured, how to configure a stream for one of them, and where that content sits on
@@ -17,7 +17,7 @@ private let resolverLog = Logger(subsystem: "pl.dmq.maccast.host", category: "ca
 /// catalogue rather than to be swapped for a second real implementation.
 protocol CaptureSourceResolver: Sendable {
     /// Everything capturable right now, freshly enumerated if anything has changed.
-    func catalog() async throws -> [CaptureSourceDescriptor]
+    func catalog() async throws -> CaptureCatalog
 
     /// A content filter for one source. Requires a prior ``catalog()`` call — see
     /// ``ScreenCaptureSourceResolver``.
@@ -50,8 +50,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// The last enumeration, kept because ``makeFilter(for:)`` has to be synchronous and
     /// needs the very same `SCWindow`/`SCDisplay` instances the catalogue was built from.
     private var snapshot: SCShareableContent?
+    private var installedApplicationsCache: [InstalledApplicationDescriptor]?
     private var isStale = true
     private var observers: [NSObjectProtocol] = []
+
+    /// What each desktop looked like the last time the host was on it. Keyed by Space ID, so a
+    /// desktop keeps its picture when the user reorders or removes the ones around it — see
+    /// ``orderedSpacePreviews(ids:activeID:shots:)``.
+    private let spacePreviews = SpacePreviewCache()
 
     /// Fired when the catalogue is known to be out of date — after an app launches or quits,
     /// or a display is added, removed or reconfigured. The host re-reads ``catalog()`` and
@@ -64,6 +70,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     init(onInvalidate: (@Sendable () -> Void)? = nil) {
         self.onInvalidate = onInvalidate
         registerObservers()
+
+        // The desktop the host is on is photographed once here rather than on the first
+        // catalogue. A desktop can only be captured while it is on the display, the catalogue
+        // is built on the client's schedule rather than the user's, and the whole point of the
+        // cache is that a desktop visited before the client connected still has a picture.
+        Task { [weak self] in await self?.captureActiveSpacePreview() }
     }
 
     deinit {
@@ -76,9 +88,31 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Catalogue
 
-    func catalog() async throws -> [CaptureSourceDescriptor] {
+    func catalog() async throws -> CaptureCatalog {
         let content = try await shareableContent()
-        return Self.descriptors(from: content)
+        let descriptors = Self.descriptors(from: content)
+        let runningBundleIDs = Set(descriptors.compactMap(\.bundleIdentifier))
+        let installed = lock.withLock { installedApplicationsCache }
+            ?? Self.installedApplications()
+        lock.withLock { installedApplicationsCache = installed }
+
+        // Space info must be read on the main thread (CGS connection is thread-local).
+        let spaces: SpaceList? = await MainActor.run { readSpaceList() }
+        let spaceInfo = spaces.map { list in
+            SpaceInfo(
+                count: list.ids.count,
+                current: list.current,
+                previews: spacePreviews.previews(ids: list.ids, activeID: list.activeID)
+            )
+        }
+
+        return CaptureCatalog(
+            displays: descriptors.filter { $0.kind == .display },
+            applications: descriptors.filter { $0.kind == .application },
+            windows: descriptors.filter { $0.kind == .window },
+            installedApplications: installed.filter { !runningBundleIDs.contains($0.bundleIdentifier) },
+            spaceInfo: spaceInfo
+        )
     }
 
     /// The snapshot, re-enumerated only when something has invalidated it.
@@ -139,7 +173,126 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
             observers.append(observer)
         }
+
+        // A Space change is deliberately *not* one of the names above. Nothing about what can
+        // be captured changed, so invalidating would cost a full re-enumeration of the
+        // shareable content on every switch and buy nothing; what changed is which desktop is
+        // on the display, and that is worth a photograph.
+        let spaceObserver = workspace.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            Task { await self?.captureActiveSpacePreview() }
+        }
+        observers.append(spaceObserver)
     }
+
+    // MARK: - Space previews
+
+    /// How long a Space switch is given to finish on screen before that desktop is photographed.
+    ///
+    /// The notification arrives as the switch begins and the desktops then slide across the
+    /// display. A shot taken during the slide is half of one desktop and half of the other,
+    /// which the client would draw as a tile for the arriving Space — a wrong picture, where
+    /// waiting a moment only makes it a later one.
+    private static let spaceSwitchSettle: Duration = .milliseconds(600)
+
+    /// Photographs the desktop the user is on, so the client's Space picker has a tile for it.
+    ///
+    /// Driven by the Space changing rather than by anything a client asks for, because the
+    /// desktop in front is the only one ScreenCaptureKit can photograph — the rest are, by
+    /// definition, not on the display.
+    ///
+    /// **It is not called from ``catalog()``.** A screenshot is a round trip through the window
+    /// server, and the catalogue is on the critical path of a client connecting: a preview is
+    /// worth a task of its own and a push of its own, and never a millisecond of the
+    /// catalogue's. Everything here is best-effort, and a failure only costs a tile.
+    func captureActiveSpacePreview() async {
+        guard let list = await MainActor.run(body: { readSpaceList() }) else { return }
+        let spaceID = list.activeID
+
+        try? await Task.sleep(for: Self.spaceSwitchSettle)
+
+        // Built from the cached enumeration rather than a fresh one: the display a screenshot
+        // is taken of is not something a Space switch changes.
+        let content: SCShareableContent
+        do {
+            content = try await shareableContent()
+        } catch {
+            // Reported as itself and not as a missing display. This enumeration is where a host
+            // without Screen Recording permission fails, and a log line blaming the hardware
+            // sends the next person to read it looking at the wrong thing entirely.
+            resolverLog.notice("""
+                space preview \(spaceID, privacy: .public) not captured: \
+                \(error.localizedDescription, privacy: .public)
+                """)
+            return
+        }
+
+        guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) else {
+            resolverLog.notice("no main display to photograph for space \(spaceID, privacy: .public)")
+            return
+        }
+
+        await spacePreviews.capture(
+            spaceID: spaceID,
+            filter: SCContentFilter(display: display, excludingWindows: []),
+            configuration: Self.previewConfiguration(for: display)
+        )
+
+        // The capture is asynchronous and the user can leave the Space again while it is in
+        // flight, in which case the picture is of whatever is on screen now and filing it
+        // under `spaceID` would be exactly the mistake the ID-keyed cache exists to prevent.
+        guard await MainActor.run(body: { readSpaceList()?.activeID }) == spaceID,
+              spacePreviews.hasShot(for: spaceID)
+        else { return }
+
+        previewLanded()
+    }
+
+    /// A preview has been captured, which is a change to the catalogue that no notification
+    /// about the source list covers.
+    ///
+    /// It goes through `onInvalidate` because that is the established "the catalogue is out of
+    /// date, read it again" signal, but not through ``invalidate()``: that one suppresses the
+    /// call when the resolver is already stale, and a preview landing behind an unrelated
+    /// application launch would then never be pushed — leaving the client with an empty tile
+    /// until something else happened to rebuild the catalogue.
+    private func previewLanded() {
+        onInvalidate?()
+    }
+
+    /// The configuration a Space preview is photographed with.
+    ///
+    /// The height follows the display's own ratio instead of being fixed. `SCStreamConfiguration`
+    /// preserves the aspect ratio by default, so a height that does not match leaves the
+    /// desktop letterboxed inside its own thumbnail — and a preview that misplaces the content
+    /// is worse than no preview, because the client offers it as a picture of where things are.
+    private static func previewConfiguration(for display: SCDisplay) -> SCStreamConfiguration {
+        let width = SpacePreviewCache.pixelWidth
+        // Points rather than pixels: the only thing needed here is the ratio of the sides, and
+        // both accessors agree on it. A display that reports nothing at all gets a plausible
+        // shape, because a zero height is not a small preview — it is a configuration
+        // ScreenCaptureKit rejects without saying which field was wrong.
+        let ratio = display.width > 0 && display.height > 0
+            ? Double(display.height) / Double(display.width)
+            : 10.0 / 16.0
+
+        let configuration = SCStreamConfiguration()
+        configuration.width = width
+        configuration.height = max(1, Int((Double(width) * ratio).rounded()))
+        // Nominal: the system composites at point resolution and scales to the size above. At
+        // .best it would composite a full 6K surface per desktop and throw nearly all of it
+        // away in the downscale, which is the entire cost of this call.
+        configuration.captureResolution = .nominal
+        // The live stream carries the cursor, because the client draws a pointer of its own
+        // against it. A desktop thumbnail is a picture of a desktop: a stray pointer in it is
+        // one moment frozen for as long as the user stays on that Space.
+        configuration.showsCursor = false
+        return configuration
+    }
+
 
     // MARK: - Descriptors
 
@@ -168,12 +321,36 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     }
 
     private static func applications(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
-        content.applications.compactMap { application in
+        var seenBundleIDs = Set<String>()
+        var seenNames = Set<String>()
+        var result: [CaptureSourceDescriptor] = []
+
+        for application in content.applications {
+            let running = NSRunningApplication(processIdentifier: application.processID)
+            // ScreenCaptureKit includes agents, menu extras, and system surfaces. Only a
+            // regular Dock application is meaningful in an app switcher.
+            guard running?.activationPolicy == .regular else { continue }
+            // System processes in /System/ sometimes slip through the activation-policy
+            // check on certain macOS versions (Wallpaper, Control Center, WindowManager…).
+            // A bundle that lives on the sealed system volume is never something the user
+            // would want to capture by name.
+            if let bundlePath = running?.bundleURL?.path, bundlePath.hasPrefix("/System/") {
+                continue
+            }
+
             let owned = content.windows.filter { $0.owningApplication?.processID == application.processID }
-            guard let bounds = unionFrame(of: owned) else { return nil }
+            guard let bounds = unionFrame(of: owned) else { continue }
+
+            let title = name(for: application, processID: application.processID)
+            let bundleIdentifier = running?.bundleIdentifier
+            if let bundleIdentifier {
+                guard seenBundleIDs.insert(bundleIdentifier).inserted else { continue }
+            } else {
+                guard seenNames.insert(title.localizedLowercase).inserted else { continue }
+            }
 
             let scale = backingScale(for: bounds)
-            return CaptureSourceDescriptor(
+            result.append(CaptureSourceDescriptor(
                 kind: .application,
                 // Not `application.applicationName` directly. It is empty for some
                 // processes — a background agent, or one that has not finished launching —
@@ -181,12 +358,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 // cannot identify or distinguish from any other blank cell. The window case
                 // below already refuses to emit an empty title for the same reason; this is
                 // the same rule, and it was simply missing here.
-                title: name(for: application, processID: application.processID),
+                title: title,
                 subtitle: owned.count == 1 ? "1 window" : "\(owned.count) windows",
+                bundleIdentifier: bundleIdentifier,
+                iconPNGData: running.flatMap { iconPNGData(for: $0) },
                 source: .application(application.processID),
                 pixelSize: CGSize(width: bounds.width * scale, height: bounds.height * scale)
-            )
+            ))
         }
+
+        return result.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 
     /// A name for an application that is never empty.
@@ -213,6 +394,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             guard let application = window.owningApplication, let bounds = unionFrame(of: [window]) else {
                 return nil
             }
+            let running = NSRunningApplication(processIdentifier: application.processID)
+            guard running?.activationPolicy == .regular else { return nil }
 
             // A window with no title is usually a panel or a splash sheet. Naming it after
             // its application is more use than an empty cell in the picker.
@@ -223,10 +406,87 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 kind: .window,
                 title: title,
                 subtitle: application.applicationName,
+                bundleIdentifier: running?.bundleIdentifier,
                 source: .window(window.windowID),
                 pixelSize: CGSize(width: bounds.width * scale, height: bounds.height * scale)
             )
         }
+    }
+
+    /// Enumerates top-level GUI application bundles, excluding Apple's sealed system apps.
+    /// Package descendants are skipped so helper tools inside an app never become rows.
+    private static func installedApplications() -> [InstalledApplicationDescriptor] {
+        let roots = FileManager.default.urls(
+            for: .applicationDirectory,
+            in: [.localDomainMask, .userDomainMask]
+        )
+        var byBundleIdentifier: [String: InstalledApplicationDescriptor] = [:]
+
+        for root in roots {
+            guard let enumerator = FileManager.default.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isApplicationKey, .isDirectoryKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            ) else { continue }
+
+            for case let url as URL in enumerator where url.pathExtension.localizedCaseInsensitiveCompare("app") == .orderedSame {
+                guard let bundle = Bundle(url: url),
+                      let bundleIdentifier = bundle.bundleIdentifier,
+                      !bundleIdentifier.isEmpty,
+                      bundle.object(forInfoDictionaryKey: "LSUIElement") as? Bool != true,
+                      bundle.object(forInfoDictionaryKey: "LSBackgroundOnly") as? Bool != true
+                else { continue }
+
+                let title = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+                    ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+                    ?? url.deletingPathExtension().lastPathComponent
+                guard !title.isEmpty else { continue }
+
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                byBundleIdentifier[bundleIdentifier] = InstalledApplicationDescriptor(
+                    bundleIdentifier: bundleIdentifier,
+                    title: title,
+                    iconPNGData: iconPNGData(for: icon)
+                )
+            }
+        }
+
+        return byBundleIdentifier.values.sorted {
+            $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private static func iconPNGData(for application: NSRunningApplication) -> Data? {
+        guard let icon = application.icon else { return nil }
+        return iconPNGData(for: icon)
+    }
+
+    /// Downsamples before PNG encoding. Sending an app bundle's original 1024-point icon
+    /// would make a small picker row need megabytes of control-channel data.
+    private static func iconPNGData(for icon: NSImage) -> Data? {
+        let dimension = 48
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: dimension,
+                height: dimension,
+                bitsPerComponent: 8,
+                bytesPerRow: dimension * 4,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              )
+        else { return nil }
+
+        var proposedRect = CGRect(x: 0, y: 0, width: dimension, height: dimension)
+        guard let source = icon.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else {
+            return nil
+        }
+        context.interpolationQuality = .high
+        context.draw(source, in: proposedRect)
+        guard let scaled = context.makeImage() else { return nil }
+        let data = NSBitmapImageRep(cgImage: scaled).representation(using: .png, properties: [:])
+        guard let data, data.count <= CaptureSourceDescriptor.maximumIconByteCount else { return nil }
+        return data
     }
 
     /// The bounding box of a set of windows, or `nil` if none has a usable frame.

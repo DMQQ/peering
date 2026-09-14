@@ -4,7 +4,7 @@ import Foundation
 import VideoToolbox
 import os
 
-private let encoderLog = Logger(subsystem: "pl.dmq.maccast.host", category: "encoder")
+private let encoderLog = Logger(subsystem: "pl.dmq.peering.host", category: "encoder")
 
 /// The codec the host encodes with.
 ///

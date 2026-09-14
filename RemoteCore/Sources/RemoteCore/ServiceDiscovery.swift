@@ -119,7 +119,7 @@ public final class HostBrowser: @unchecked Sendable {
         case failed(String)
     }
 
-    private let queue = DispatchQueue(label: "pl.dmq.maccast.browse")
+    private let queue = DispatchQueue(label: "pl.dmq.peering.browse")
     private let callbackLock = NSLock()
     private var _onEvent: (@Sendable (Event) -> Void)?
 
@@ -180,8 +180,15 @@ public final class HostBrowser: @unchecked Sendable {
     public func stop() {
         queue.async { [weak self] in
             guard let self else { return }
+            // Nil both handlers before cancelling. The NWBrowser fires .cancelled
+            // asynchronously on this queue *after* cancel() returns. If a new browser
+            // has already been started by then, the stateUpdateHandler would emit
+            // .updated([]) and wipe the new browser's live results.
+            self.browser?.stateUpdateHandler = nil
+            self.browser?.browseResultsChangedHandler = nil
             self.browser?.cancel()
             self.browser = nil
+            self.current = []
         }
     }
 

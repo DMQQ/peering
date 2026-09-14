@@ -11,16 +11,40 @@ struct MacCastApp: App {
     /// hierarchy, which is precisely when the connection starts being used.
     @State private var model = SessionModel()
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(model)
                 .task { model.start() }
-                // The screen may lock or the app may be backgrounded while the Mac is still
-                // connected. Nothing here tears the session down: iOS keeps the sockets alive
-                // briefly and `NWConnection` reconnects around a Wi-Fi hiccup, so dropping the
-                // connection on every backgrounding would turn a glance at another app into a
-                // full re-pair.
+                // The banners are for a user who is somewhere else. Coming back to the front
+                // is the moment they stop being the current news: the screen says the same
+                // thing, and the banner sitting behind it is a claim about the past — a
+                // pairing prompt from last night is the case this exists to prevent.
+                .onChange(of: scenePhase) { _, phase in
+                    switch phase {
+                    case .active:
+                        SessionNotifier.shared.retractAll()
+                        model.enteringForeground()
+                    case .background:
+                        // Asks for the few seconds iOS grants before it suspends an app. The
+                        // session still ends when that runs out — see
+                        // ``SessionModel/backgroundTimeExpired()`` — but it ends *tidy*, with
+                        // the Mac told and the Live Activity taken down, instead of a socket
+                        // dying unobserved and a Lock Screen card left claiming otherwise.
+                        model.enteringBackground()
+                    default:
+                        break
+                    }
+                }
+                // The home-screen widget cannot connect anything itself — the session, the
+                // identity and the sockets all live in this process — so it hands over with the
+                // one instruction it can give.
+                .onOpenURL { url in
+                    guard url.scheme == "peering", url.host == "connect" else { return }
+                    model.reconnectToLastHost()
+                }
                 .preferredColorScheme(.dark)
         }
     }

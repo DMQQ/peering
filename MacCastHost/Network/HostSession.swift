@@ -119,7 +119,7 @@ final class HostSession: @unchecked Sendable {
             // fails during TLS or before its hello produces "Unknown device disconnected",
             // naming a device the user never saw arrive.
             if announced {
-                emit(.clientDisconnected(clientName: clientName))
+                emit(.clientDisconnected(clientID: clientID, clientName: clientName))
             }
 
             onEnded?()
@@ -243,6 +243,7 @@ final class HostSession: @unchecked Sendable {
 
         announced = true
         emit(.clientConnected(
+            clientID: clientID,
             clientName: clientName,
             detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
         ))

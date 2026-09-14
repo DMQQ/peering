@@ -5,7 +5,7 @@ import RemoteCore
 import ScreenCaptureKit
 import os
 
-private let pipelineLog = Logger(subsystem: "pl.dmq.maccast.host", category: "capture")
+private let pipelineLog = Logger(subsystem: "pl.dmq.peering.host", category: "capture")
 
 /// Capture and encode, as one thing the session can drive.
 ///
@@ -170,10 +170,10 @@ final class CapturePipeline: @unchecked Sendable {
     /// refusing. The caller is populating a picker, and "nothing to pick" is a true answer
     /// where an error would be a spurious one — there is no such thing as a generated source
     /// a client could ask for by name.
-    func catalog() async throws -> [CaptureSourceDescriptor] {
+    func catalog() async throws -> CaptureCatalog {
         switch backend {
         case .capture(let resolver, _): return try await resolver.catalog()
-        case .synthetic: return []
+        case .synthetic: return CaptureCatalog()
         }
     }
 
@@ -197,8 +197,8 @@ final class CapturePipeline: @unchecked Sendable {
 
         switch backend {
         case .capture(let resolver, let engine):
-            let descriptors = try await resolver.catalog()
-            guard let descriptor = descriptors.first(where: { $0.source == source }) else {
+            let catalog = try await resolver.catalog()
+            guard let descriptor = catalog.all.first(where: { $0.source == source }) else {
                 throw CaptureError.sourceUnavailable("That capture source is no longer available.")
             }
 

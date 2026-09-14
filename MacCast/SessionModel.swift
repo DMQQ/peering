@@ -3,9 +3,10 @@ import Observation
 import RemoteCore
 import SwiftUI
 import UIKit
+import WidgetKit
 import os
 
-private let modelLog = Logger(subsystem: "pl.dmq.maccast", category: "app")
+private let modelLog = Logger(subsystem: "pl.dmq.peering", category: "app")
 
 /// Which keyboard the user is driving the Mac with.
 ///
@@ -84,6 +85,15 @@ final class SessionModel {
     private(set) var catalog: CaptureCatalog?
     private(set) var notes: [String] = []
     private(set) var videoStatus = "No video stream"
+    private(set) var pairedHostIDs: [String] = []
+
+    /// When the session that is up now came up, for the elapsed-time readout. `nil` whenever
+    /// there is no ready session.
+    ///
+    /// A `Date` and not a counter: the view formats it with `Text(_:style:.timer)`, which the
+    /// system advances on its own. A `Timer` here would wake the main actor once a second to
+    /// update a number that the screen can already count by itself.
+    private(set) var sessionStartedAt: Date?
 
     /// Set when the device's own identity could not be loaded. Everything else is moot in
     /// that case: without a client certificate there is nothing for the Mac to pin.
@@ -105,13 +115,23 @@ final class SessionModel {
 
     private let pins = ClientPinStore.standard
     private let browser = HostBrowser()
+    private let notifier = SessionNotifier.shared
     private var identity: SelfSignedIdentity?
     private var device = DeviceIdentity(id: "", name: "")
     private var session: ClientSession?
     private var videoPoll: Task<Void, Never>?
 
+    /// Set by the two ways the user ends a session themselves, read and cleared by the
+    /// transition that follows.
+    ///
+    /// A dropped link and a deliberate end reach the model as the same phase, so intent has
+    /// to be carried across rather than inferred — and it is carried no further than that
+    /// transition, or a leftover flag would silence the news that the next session dropped.
+    private var userEndedSession = false
+
     init() {
         device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
+        pairedHostIDs = pins.hostIDs
         do {
             identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
         } catch {
@@ -124,6 +144,9 @@ final class SessionModel {
 
     func start() {
         guard identityFailure == nil else { return }
+        // Anything on the Lock Screen from a previous run describes a session this process did
+        // not survive, and nothing else in this launch knows it is there.
+        SessionActivity.shared.adoptOrphan()
         browser.onEvent = { [weak self] event in
             // Bound once, outside the `Task`. A `weak self` reference is a mutable variable,
             // and reading it from a closure that outlives this one is a data race the compiler
@@ -148,8 +171,9 @@ final class SessionModel {
             browseStatus = "Looking for Macs on this network…"
         case .updated(let hosts):
             self.hosts = hosts
+            self.resumeIfNeeded()
             browseStatus = hosts.isEmpty
-                ? "No Macs found yet. Make sure MacCastHost is running and on the same network."
+                ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network."
                 : "\(hosts.count) Mac\(hosts.count == 1 ? "" : "s") found"
         case .failed(let message):
             // Bonjour failing is silent on iOS without the local-network permission and the
@@ -167,6 +191,26 @@ final class SessionModel {
 
     func connect(to target: ClientSession.Target) {
         guard let identity, identityFailure == nil else { return }
+
+        // Remembered for the home-screen widget, which can offer to connect but has no way of
+        // knowing to what — see ``reconnectToLastHost()``. Written twice on purpose: the app
+        // reads its own defaults, and the widget can only see the shared container.
+        UserDefaults.standard.set(target.displayName, forKey: Self.lastHostNameKey)
+        SharedStore.lastHostName = target.displayName
+        // A widget is not a live view and is not told anything. Without this it goes on showing
+        // the previous Mac until the system next feels like refreshing it, which on a widget
+        // that changes twice a year could be tomorrow.
+        WidgetCenter.shared.reloadAllTimelines()
+
+        // Intent does not survive into the next attempt: a flag left over from a session the
+        // user ended would otherwise suppress the news that its successor has dropped.
+        userEndedSession = false
+        // An attempt from the backoff timer would race this one and start a second session.
+        stopReconnecting()
+        // The user has just asked to reach a Mac, which is the first moment the question
+        // "tell you when it needs you?" means anything.
+        notifier.prepareForFirstConnect()
+
         hostName = target.displayName
         activeSourceID = nil
         catalog = nil
@@ -231,13 +275,61 @@ final class SessionModel {
     private func apply(_ event: ClientSession.Event) {
         switch event {
         case .phase(let phase):
+            // Read before the assignment. Everything said about a transition — the banner,
+            // the point the stopwatch starts from — is about where the session came from,
+            // not only about where it landed.
+            let previous = self.phase
             self.phase = phase
+            if phase == .ready { pairedHostIDs = pins.hostIDs }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
             }
             if phase == .disconnected {
                 videoStatus = "Disconnected"
             }
+            if phase == .ready {
+                // Restarted on every fresh arrival rather than only the first: a reconnect
+                // emits `.ready` again, and elapsed time that kept counting through it would
+                // be describing a session that no longer exists.
+                if previous != .ready {
+                    sessionStartedAt = Date()
+                    // Armed once the session is actually up, not when the user reached for one:
+                    // a connect that failed halfway is not something to restore.
+                    UserDefaults.standard.set(true, forKey: Self.resumeKey)
+                }
+            } else {
+                sessionStartedAt = nil
+            }
+
+            let userEnded = userEndedSession
+            userEndedSession = false
+            notifier.sessionMoved(
+                from: previous,
+                to: phase,
+                hostName: hostName ?? "the Mac",
+                deliberate: userEnded
+            )
+            // The same transition, said twice: once as something that can interrupt the user
+            // from another app, and once as something they will see without unlocking. Neither
+            // is a substitute for the other, and both read from this one place.
+            // A session that ended without the user asking is put back on its own. The flag
+            // inside `scheduleReconnect` is what decides whether this was theirs — the phase
+            // alone cannot tell a drop from a disconnect.
+            //
+            // Before the activity is told, not after: scheduling is what sets `isReconnecting`,
+            // and the card has to go up saying "reconnecting" rather than be taken down and
+            // brought back a moment later as though nothing had happened.
+            if !phase.holdsSession, !userEnded {
+                scheduleReconnect()
+            }
+            SessionActivity.shared.sessionMoved(
+                from: previous,
+                to: phase,
+                hostName: hostName ?? "the Mac",
+                startedAt: sessionStartedAt,
+                reconnecting: isReconnecting
+            )
+
             if !phase.holdsSession {
                 // The buttons stop claiming a modifier the moment the link that carried it is
                 // gone. Nothing else can: the release would have to travel back over the same
@@ -310,10 +402,31 @@ final class SessionModel {
     // MARK: - Pairing
 
     func confirmPairing(accepted: Bool) {
+        // Declining ends the session from the Mac's side too, and that arrives as a
+        // `.disconnected` like any other — with the model's phase still on `.confirming`.
+        // Without this the user's own "no" comes back to them as a lost connection.
+        if !accepted { userEndedSession = true }
         session?.confirmPairing(accepted: accepted)
     }
 
-    func disconnect() {
+    /// Ends the session now.
+    ///
+    /// `deliberate` answers "did the user mean to do this", which is not the same question as
+    /// "who called this function". A disconnect the user tapped is silent; one iOS forced
+    /// because it is about to suspend the app is not, because they are looking at something else
+    /// and a banner is the only way they will ever hear about it.
+    func disconnect(deliberate: Bool = true) {
+        // Recorded before anything moves. `ClientSession` announces the end itself, and by
+        // the time that event is applied the phase below has already been set — so this flag
+        // is the only evidence left that the user, and not the network, ended it.
+        userEndedSession = deliberate
+        // Only a deliberate one. A drop, and the end iOS forces on a backgrounded app, are the
+        // two cases where coming back to the app should find the session restored.
+        if deliberate {
+            UserDefaults.standard.set(false, forKey: Self.resumeKey)
+            stopReconnecting()
+        }
+        sessionStartedAt = nil
         session?.disconnect()
         session = nil
         videoPoll?.cancel()
@@ -323,15 +436,164 @@ final class SessionModel {
         phase = .disconnected
     }
 
+    // MARK: - Quick connect
+
+    /// Where the name of the last Mac this device connected to is kept.
+    ///
+    /// In `UserDefaults` rather than in the app group the widget would need to read it, because
+    /// the widget does not need to know *which* Mac — it offers to connect, and the app decides
+    /// to what. That keeps a shared container, its entitlement and its provisioning out of a
+    /// feature whose whole job is to save one tap.
+    private static let lastHostNameKey = "Peering.lastHostName"
+
+    /// Reconnects to the Mac this device used last, if it can still be found.
+    ///
+    /// Matched by **name** against the hosts currently being advertised rather than by a
+    /// remembered address: a Mac's address changes with the network and its name does not.
+    ///
+    /// Finding nothing does nothing, deliberately. The obvious fallback — the manual address
+    /// field — is the wrong guess on a phone: it is `127.0.0.1` until someone types into it, and
+    /// "connect to the phone you are holding" is a worse answer than leaving the picker up. A
+    /// tap that lands on the picker because discovery has not finished yet is a tap the user can
+    /// repeat; a tap that dials a loopback is one they have to diagnose.
+    func reconnectToLastHost() {
+        guard !phase.holdsSession else { return }
+        guard let name = UserDefaults.standard.string(forKey: Self.lastHostNameKey) else { return }
+        guard let host = hosts.first(where: { $0.name == name }) else { return }
+        connect(to: .discovered(host))
+    }
+
+    /// Whether the next sight of the last Mac should put the session back.
+    ///
+    /// Written down rather than remembered, because the case that matters most is the one where
+    /// iOS killed the app while it was backgrounded: nothing of the session survives that, and
+    /// "there was one" has to have been recorded before it happened.
+    private static let resumeKey = "Peering.resumeWhenReachable"
+
+    /// Set while a dropped session is being put back, so the Live Activity can say so rather
+    /// than keep claiming a connection that is not there.
+    private(set) var isReconnecting = false
+
+    /// How long to wait before each attempt at putting a dropped session back.
+    ///
+    /// Spread out, because the usual cause is the Mac being asleep or the network being briefly
+    /// gone, and retrying every second for a minute spends a radio and a battery on an answer
+    /// that has not changed. Five attempts over about forty seconds covers a Wi-Fi roam, a
+    /// display waking, and a Mac that was asleep and is not any more; past that the user is
+    /// better served by the picker than by a spinner.
+    private static let reconnectDelays: [Duration] = [
+        .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
+    ]
+
+    private var reconnectTask: Task<Void, Never>?
+    private var reconnectAttempt = 0
+
+    /// Puts the session back, if there was one and the user did not end it.
+    ///
+    /// Called from three places because they cover different arrivals. Coming back to the front
+    /// is the short trip — the app is still in memory and the Mac is already in the browser's
+    /// list. A host appearing is the cold launch, where the browser has only just started and
+    /// the Mac is not in a list that has not been filled in yet. And a timer is the drop that
+    /// happens while the user is looking at the screen, which is the case they notice.
+    ///
+    /// A deliberate disconnect clears the flag and nothing here fires; a dropped connection
+    /// leaves it set, which is exactly the case this exists for.
+    private func resumeIfNeeded() {
+        guard !phase.holdsSession else {
+            stopReconnecting()
+            return
+        }
+        guard UserDefaults.standard.bool(forKey: Self.resumeKey) else { return }
+
+        guard let name = UserDefaults.standard.string(forKey: Self.lastHostNameKey),
+              let host = hosts.first(where: { $0.name == name })
+        else {
+            // Not in the list yet, or the Mac has stopped advertising because it is asleep.
+            // Scheduled rather than given up on, for the same reason: both are temporary.
+            scheduleReconnect()
+            return
+        }
+
+        stopReconnecting()
+        connect(to: .discovered(host))
+    }
+
+    /// Arms the next attempt, if there is one left to make.
+    private func scheduleReconnect() {
+        guard reconnectTask == nil else { return }
+        guard reconnectAttempt < Self.reconnectDelays.count else {
+            isReconnecting = false
+            return
+        }
+        let delay = Self.reconnectDelays[reconnectAttempt]
+        reconnectAttempt += 1
+        isReconnecting = true
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            self.reconnectTask = nil
+            self.resumeIfNeeded()
+        }
+    }
+
+    private func stopReconnecting() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        reconnectAttempt = 0
+        isReconnecting = false
+    }
+
+    // MARK: - Backgrounding
+
+    /// The reprieve iOS grants a backgrounded app, and what happens when it runs out.
+    ///
+    /// There is no background mode a remote desktop can honestly claim — the app is not playing
+    /// audio, tracking a location or servicing a call — so this is the whole of it. It is not a
+    /// fix for the session ending when the app is backgrounded, and cannot be: it buys the few
+    /// seconds that make switching to another app for something and coming straight back
+    /// survivable, and nothing beyond that.
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+
+    /// Called when the app is backgrounded with a session up.
+    func enteringBackground() {
+        guard phase.holdsSession, backgroundTask == .invalid else { return }
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
+            Task { @MainActor in self?.backgroundTimeExpired() }
+        }
+    }
+
+    func enteringForeground() {
+        endBackgroundAssertion()
+        resumeIfNeeded()
+    }
+
+    /// Ends the session when the background window runs out, rather than letting the system
+    /// kill it.
+    ///
+    /// The difference is visible in two places. The Live Activity is taken down and the Mac is
+    /// told the session is over, instead of a Lock Screen card sitting there claiming a
+    /// connection that ended — which it cannot correct, because nothing of ours is running to
+    /// correct it with. And the user, who is not looking, gets a banner.
+    private func backgroundTimeExpired() {
+        endBackgroundAssertion()
+        guard phase.holdsSession else { return }
+        disconnect(deliberate: false)
+    }
+
+    private func endBackgroundAssertion() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
+    }
+
     /// Forgets the pin for a Mac. The Mac keeps its half, so the next connection is refused
     /// by it until it is unpaired on that side too — which is the honest behaviour for
     /// "forget", as opposed to a silent re-pair.
     func forget(hostID: String) {
         pins.remove(hostID: hostID)
+        pairedHostIDs = pins.hostIDs
         append(note: "Forgot \(hostID). Unpair this device on the Mac as well.")
     }
-
-    var pairedHostIDs: [String] { pins.hostIDs }
 
     /// Destroys this device's identity key and mints a fresh one under a new device ID.
     ///
@@ -342,6 +604,9 @@ final class SessionModel {
     func resetDeviceIdentity() {
         session?.disconnect()
         session = nil
+        // The phase moves off `.ready` here rather than through `apply(_:)`, so the elapsed
+        // time has to be cleared here too or the readout would outlive its session.
+        sessionStartedAt = nil
         phase = .disconnected
         do {
             try SelfSignedIdentity.destroy(role: .client)
@@ -351,7 +616,7 @@ final class SessionModel {
         }
         _ = pins.removeAll()
 
-        UserDefaults.standard.removeObject(forKey: "MacCast.deviceID")
+        UserDefaults.standard.removeObject(forKey: "Peering.deviceID")
         device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
 
         do {
@@ -376,6 +641,10 @@ final class SessionModel {
     func selectSource(_ descriptor: CaptureSourceDescriptor) {
         activeSourceID = descriptor.id
         session?.selectCaptureSource(descriptor.source)
+    }
+
+    func launchApplication(_ descriptor: InstalledApplicationDescriptor) {
+        send(.launchApplication(bundleIdentifier: descriptor.bundleIdentifier))
     }
 
     func setKeyboardMode(_ mode: KeyboardMode) {
@@ -496,12 +765,6 @@ private extension ClientSession.Phase {
     /// The three that are not are the ones where anything the session was holding has no way
     /// left to be released: a latched modifier, a pressed mouse button. Everything that cares
     /// about that asks here rather than listing the phases again.
-    var holdsSession: Bool {
-        switch self {
-        case .connecting, .handshaking, .confirming, .ready: return true
-        case .idle, .failed, .disconnected: return false
-        }
-    }
 }
 
 private extension Modifiers {

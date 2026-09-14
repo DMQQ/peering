@@ -11,7 +11,7 @@ import Network
 import Security
 import os
 
-private let sessionLog = Logger(subsystem: "pl.dmq.maccast", category: "session")
+private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session")
 
 /// The client half of the MacCast protocol: connect, authenticate, and stay usable.
 ///
@@ -35,6 +35,19 @@ public final class ClientSession: @unchecked Sendable {
         case ready
         case failed(String)
         case disconnected
+
+        /// Whether a session is up, or on its way up, at this phase.
+        ///
+        /// A property of the state machine rather than of any one caller, and it lives here
+        /// because three of them were asking it: the model, the notification policy, and the
+        /// Live Activity. Three copies of a list of phases is three chances to update two of
+        /// them when a state is added.
+        public var holdsSession: Bool {
+            switch self {
+            case .connecting, .handshaking, .confirming, .ready: return true
+            case .idle, .failed, .disconnected: return false
+            }
+        }
     }
 
     /// What the session tells its owner. Everything is a value, so the UI can apply these
@@ -226,7 +239,7 @@ public final class ClientSession: @unchecked Sendable {
             return nil
         }()
 
-        let connection = ClientConnection(label: "pl.dmq.maccast.client.control")
+        let connection = ClientConnection(label: "pl.dmq.peering.client.control")
         connection.onFrame = { [weak self] frame in self?.handle(frame) }
         connection.onClose = { [weak self] failure in self?.controlClosed(failure) }
         lock.withLock { control = connection }
@@ -616,7 +629,7 @@ public final class ClientSession: @unchecked Sendable {
             lock.unlock()
             return
         }
-        let connection = ClientConnection(label: "pl.dmq.maccast.client.video")
+        let connection = ClientConnection(label: "pl.dmq.peering.client.video")
         video = connection
         lock.unlock()
 

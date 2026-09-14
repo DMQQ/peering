@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Observation
+import ScreenCaptureKit
 
 /// The two macOS permissions this app cannot function without, and the difference between
 /// checking and requesting them.
@@ -35,7 +36,23 @@ final class Permissions {
 
     func refresh() {
         accessibilityGranted = AXIsProcessTrusted()
-        screenRecordingGranted = CGPreflightScreenCaptureAccess()
+        // CGPreflightScreenCaptureAccess reflects the old CG TCC entry, not the
+        // ScreenCaptureKit entry that macOS 15 tracks separately. Probe SCK directly.
+        Task { @MainActor in await self.probeScreenCaptureKit() }
+    }
+
+    /// Probes ScreenCaptureKit to get its real permission status and, on first run,
+    /// register the app in System Settings > Privacy & Security > Screen Recording.
+    @discardableResult
+    func probeScreenCaptureKit() async -> Bool {
+        do {
+            _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            screenRecordingGranted = true
+            return true
+        } catch {
+            screenRecordingGranted = false
+            return false
+        }
     }
 
     /// Asks for whatever is missing. Called once at launch.
@@ -49,6 +66,7 @@ final class Permissions {
     /// calls, so a user who has already declined sees nothing.
     func requestMissing() {
         if !accessibilityGranted { requestAccessibility() }
+        // SCK is already probed in refresh(); a CGRequest wouldn't add SCKit to Settings.
         if !screenRecordingGranted { requestScreenRecording() }
     }
 
@@ -62,12 +80,11 @@ final class Permissions {
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    /// Prompts for Screen Recording. Unlike preflight, this actually asks — and if the
-    /// user has already answered once, macOS silently does nothing, which is why the panel
-    /// also offers a direct link to System Settings.
+    /// Prompts for Screen Recording. Probing SCK is the mechanism that registers the app
+    /// in System Settings and shows the permission sheet on macOS 15+.
     func requestScreenRecording() {
         hasRequestedScreenRecording = true
-        _ = CGRequestScreenCaptureAccess()
+        Task { @MainActor in await probeScreenCaptureKit() }
     }
 
     func openScreenRecordingSettings() {

@@ -3,7 +3,7 @@ import Network
 import RemoteCore
 import os
 
-private let videoLog = Logger(subsystem: "pl.dmq.maccast.host", category: "video")
+private let videoLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
 
 /// Advertises the host over Bonjour and accepts both connection roles.
 ///
@@ -15,7 +15,7 @@ private let videoLog = Logger(subsystem: "pl.dmq.maccast.host", category: "video
 /// All mutable state is confined to ``queue``. Everything crossing out of it does so as a
 /// ``HostEvent``.
 final class HostServer: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "pl.dmq.maccast.host.server")
+    private let queue = DispatchQueue(label: "pl.dmq.peering.host.server")
 
     private let identity: SelfSignedIdentity
     private let device: DeviceIdentity
@@ -77,7 +77,9 @@ final class HostServer: @unchecked Sendable {
         guard listener == nil else { return }
 
         let tls = try TLSConfig.serverOptions(identity: identity, queue: queue)
-        let parameters = NWParameters(tls: tls, tcp: NWProtocolTCP.Options())
+        let tcp = NWProtocolTCP.Options()
+        tcp.noDelay = true
+        let parameters = NWParameters(tls: tls, tcp: tcp)
         // Without this a restart during development fails to bind for up to a minute.
         parameters.allowLocalEndpointReuse = true
 
@@ -130,8 +132,10 @@ final class HostServer: @unchecked Sendable {
     }
 
     func stop() {
-        queue.async { [weak self] in
-            guard let self else { return }
+        // Strong capture: HostModel sets server = nil immediately after calling stop(), which
+        // can deallocate the server before the async block runs. A weak capture would then
+        // skip listener?.cancel(), leaving the port held and the next start() unable to bind.
+        queue.async { [self] in
             listener?.cancel()
             listener = nil
             for session in controlSessions { session.cancel() }

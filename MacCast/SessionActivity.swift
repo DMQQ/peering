@@ -1,0 +1,119 @@
+import ActivityKit
+import Foundation
+import RemoteCore
+import os
+
+private let activityLog = Logger(subsystem: "pl.dmq.peering", category: "activity")
+
+/// Starts, updates and ends the Live Activity that mirrors the session.
+///
+/// A singleton for the same reason ``SessionNotifier`` is one: a Live Activity belongs to the
+/// app rather than to an object. A second instance would hold a second handle to the same
+/// activity and the two would take turns overwriting each other.
+@MainActor
+final class SessionActivity {
+    static let shared = SessionActivity()
+
+    private var activity: Activity<SessionActivityAttributes>?
+
+    private init() {}
+
+    /// The one entry point, called beside the notifier on every phase change.
+    func sessionMoved(
+        from previous: ClientSession.Phase,
+        to phase: ClientSession.Phase,
+        hostName: String,
+        startedAt: Date?,
+        reconnecting: Bool
+    ) {
+        guard previous != phase else { return }
+
+        // A dropped session is put back on its own, and the card should say so rather than
+        // disappear for the forty seconds the retries take — see ``showReconnecting(hostName:)``.
+        if reconnecting, !phase.holdsSession {
+            showReconnecting(hostName: hostName, startedAt: startedAt)
+            return
+        }
+
+        switch phase {
+        case .connecting, .handshaking, .confirming, .ready:
+            let state = SessionActivityAttributes.ContentState(
+                phase: phase == .ready ? .active : .pending,
+                startedAt: startedAt
+            )
+            if let activity {
+                Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
+            } else {
+                // Only ever reached from the foreground: every route into these phases starts
+                // with a tap, and `Activity.request` is dropped silently from the background.
+                start(attributes: SessionActivityAttributes(hostName: hostName), state: state)
+            }
+
+        case .idle, .failed, .disconnected:
+            end()
+        }
+    }
+
+    /// Puts a card up saying the session dropped and is being put back.
+    ///
+    /// `startedAt` is carried through so the clock does not restart: the session being recovered
+    /// is the same one, and a duration that began again at the drop would be describing a
+    /// reconnect as a new connection.
+    func showReconnecting(hostName: String, startedAt: Date?) {
+        let state = SessionActivityAttributes.ContentState(phase: .reconnecting, startedAt: startedAt)
+        if let activity {
+            Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
+        } else {
+            start(attributes: SessionActivityAttributes(hostName: hostName), state: state)
+        }
+    }
+
+    /// Takes down an activity left behind by a previous run of the app.
+    ///
+    /// Without this, an activity started before the process was killed keeps a running clock on
+    /// the Lock Screen for a session that ended hours ago, and this launch would have no idea it
+    /// was there to remove — the handle is nil after a relaunch, which is the only way back to it.
+    func adoptOrphan() {
+        guard activity == nil, let orphan = Activity<SessionActivityAttributes>.activities.first else { return }
+        activityLog.info("adopting a Live Activity left by a previous launch")
+        activity = orphan
+        end()
+    }
+
+    private func start(
+        attributes: SessionActivityAttributes,
+        state: SessionActivityAttributes.ContentState
+    ) {
+        do {
+            activity = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: state, staleDate: staleDate(for: state)),
+                // Local only. Every update here is produced in-process on a phase change, so a
+                // push token would be a standing promise to a server that does not exist.
+                pushType: nil
+            )
+        } catch {
+            activityLog.error("could not start the Live Activity: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func end() {
+        guard let activity else { return }
+        self.activity = nil
+        Task { await activity.end(nil, dismissalPolicy: .immediate) }
+    }
+
+    /// When the system should re-render this without being told to.
+    ///
+    /// A live session passes `nil`: marking a genuinely running session stale puts the dimmed
+    /// "not updating" treatment on the one state that is certainly still true. A pending one
+    /// gets a deadline instead, so a connect that hangs stops looking like progress.
+    private func staleDate(for state: SessionActivityAttributes.ContentState) -> Date? {
+        // Both of these are waiting on something that could hang, and neither should be able to
+        // sit there looking like progress forever.
+        switch state.phase {
+        case .pending, .reconnecting: return Date().addingTimeInterval(45)
+        case .active: return nil
+        }
+    }
+}

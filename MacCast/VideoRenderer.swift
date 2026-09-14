@@ -7,7 +7,7 @@ import os
 
 // `nonisolated`, because this file's whole point is to run off the main actor. Without it the
 // default isolation applies to file-scope globals too, and the renderer's queue cannot read it.
-private nonisolated let videoLog = Logger(subsystem: "pl.dmq.maccast", category: "video")
+private nonisolated let videoLog = Logger(subsystem: "pl.dmq.peering", category: "video")
 
 /// Decodes and displays the host's video stream.
 ///
@@ -41,7 +41,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         var lastError: String?
     }
 
-    private let queue = DispatchQueue(label: "pl.dmq.maccast.video", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "pl.dmq.peering.video", qos: .userInteractive)
     private let lock = NSLock()
 
     private var renderer: AVSampleBufferVideoRenderer?
