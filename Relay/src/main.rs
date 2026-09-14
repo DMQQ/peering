@@ -91,7 +91,14 @@ fn acceptor(files: &TlsFiles) -> Result<TlsAcceptor, Box<dyn std::error::Error>>
     let key = rustls_pemfile::private_key(&mut BufReader::new(File::open(&files.key)?))?
         .ok_or_else(|| format!("no private key found in {}", files.key.display()))?;
 
-    let config = ServerConfig::builder()
+    // The provider is named explicitly rather than left to `ServerConfig::builder()`, which picks
+    // whatever the feature flags happen to have installed. Naming it means this keeps working if
+    // the dependency graph ever grows a second provider, which would otherwise turn into a runtime
+    // panic on the first connection.
+    let provider = Arc::new(tokio_rustls::rustls::crypto::ring::default_provider());
+
+    let config = ServerConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()?
         .with_no_client_auth()
         .with_single_cert(certificates, key)?;
 
