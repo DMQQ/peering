@@ -29,6 +29,17 @@ pub struct Config {
     /// Video failing while control works is what a closed range looks like, and it is a miserable
     /// thing to debug, so it is better to say which ports will be used and let them be opened.
     pub video_ports: Option<PortRange>,
+    /// The control port **as clients must reach it**, when that differs from the port the relay
+    /// binds.
+    ///
+    /// This is the shared-IPv4 case: a host forwards one of its own ports on a shared address to a
+    /// port of yours, and the two numbers need not match. Clients can only reach the outside one,
+    /// so that is the one to hand them.
+    pub public_control_port: Option<u16>,
+    /// The video port as clients must reach it, for the same reason. Only meaningful with a
+    /// single-port [`Self::video_ports`] range — a range is a different port per session, and there
+    /// is no way to express a per-session mapping on a shared address.
+    pub public_video_port: Option<u16>,
     /// The address to tell clients to connect back to, when it differs from the address they
     /// reached us on.
     ///
@@ -90,6 +101,7 @@ pub enum ConfigError {
     /// A certificate without its key, or a key without its certificate.
     HalfATlsPair(&'static str),
     BadPortRange(String),
+    BadPort(&'static str, String),
 }
 
 impl fmt::Display for ConfigError {
@@ -104,6 +116,9 @@ impl fmt::Display for ConfigError {
             }
             Self::BadPortRange(value) => {
                 write!(f, "PEERINGD_VIDEO_PORTS is not a range like 40000-40100: {value:?}")
+            }
+            Self::BadPort(name, value) => {
+                write!(f, "{name} is not a port number between 1 and 65535: {value:?}")
             }
         }
     }
@@ -151,6 +166,8 @@ impl Config {
             control_addr: address(&get, "PEERINGD_CONTROL_ADDR", "0.0.0.0:9443")?,
             video_bind: address(&get, "PEERINGD_VIDEO_BIND", "0.0.0.0:0")?,
             video_ports,
+            public_control_port: optional_port(&get, "PEERINGD_PUBLIC_CONTROL_PORT")?,
+            public_video_port: optional_port(&get, "PEERINGD_PUBLIC_VIDEO_PORT")?,
             public_host: get("PEERINGD_PUBLIC_HOST"),
             tls,
             session_ttl: Duration::from_secs(seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
@@ -168,6 +185,19 @@ fn address(
     let raw = get(name).unwrap_or_else(|| default.to_string());
     raw.parse()
         .map_err(|_| ConfigError::BadAddress(name, raw.clone()))
+}
+
+/// A port that is unset by default, and rejected rather than defaulted when it is nonsense. Port 0
+/// is refused because it means "let the OS choose" on a bind and "nowhere" as something to tell a
+/// client to connect to.
+fn optional_port(get: Lookup<'_>, name: &'static str) -> Result<Option<u16>, ConfigError> {
+    match get(name) {
+        None => Ok(None),
+        Some(raw) => match raw.parse::<u16>() {
+            Ok(port) if port > 0 => Ok(Some(port)),
+            _ => Err(ConfigError::BadPort(name, raw)),
+        },
+    }
 }
 
 fn seconds(get: Lookup<'_>, name: &'static str, default: u64) -> Result<u64, ConfigError> {
@@ -267,6 +297,33 @@ mod tests {
 
         let config = configured(&[("PEERINGD_PUBLIC_HOST", "peering.dmqq.dev")]).unwrap();
         assert_eq!(config.public_host.as_deref(), Some("peering.dmqq.dev"));
+    }
+
+    #[test]
+    fn public_ports_are_optional_and_nonsense_is_refused() {
+        let config = configured(&[]).unwrap();
+        assert!(config.public_control_port.is_none());
+        assert!(config.public_video_port.is_none());
+
+        let config = configured(&[
+            ("PEERINGD_PUBLIC_CONTROL_PORT", "51234"),
+            ("PEERINGD_PUBLIC_VIDEO_PORT", "51235"),
+        ])
+        .unwrap();
+        assert_eq!(config.public_control_port, Some(51234));
+        assert_eq!(config.public_video_port, Some(51235));
+
+        // Port 0 is refused rather than accepted: it is meaningful on a bind, meaning "choose one",
+        // and meaningless as something to hand a client to connect to.
+        for bad in ["0", "70000", "abc", "-1"] {
+            assert!(
+                matches!(
+                    configured(&[("PEERINGD_PUBLIC_CONTROL_PORT", bad)]),
+                    Err(ConfigError::BadPort(_, _))
+                ),
+                "{bad:?} should be refused as a public port"
+            );
+        }
     }
 
     #[test]

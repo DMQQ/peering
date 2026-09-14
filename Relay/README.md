@@ -216,13 +216,35 @@ them**, because signalling rides Cloudflare and never touches IPv4 directly:
 
 | Forwarded port | To | Carries |
 |---|---|---|
-| one TCP | the relay's control port, e.g. 9443 | Control |
+| one TCP | the relay's control port | Control |
 | one UDP | the relay's video port | Video |
+
+**This shape needs two names**, and the reason is the one above: a hostname is either proxied or
+not, and control and video cannot be proxied.
+
+| Name | Cloudflare | Points at | Carries |
+|---|---|---|---|
+| `peering.dmqq.dev` | proxied | nginx | Signalling |
+| `relay.dmqq.dev` | **DNS only** | the shared IPv4 | Control and video |
 
 ```
 PEERINGD_VIDEO_PORTS=40000-40000
 PEERINGD_PUBLIC_HOST=relay.dmqq.dev
 ```
+
+**The forwarded port need not match the bound one**, and it usually does not on a shared address —
+the host picks both. Only the outside number is reachable, so tell the relay which it is:
+
+```
+PEERINGD_CONTROL_ADDR=[::]:9443
+PEERINGD_PUBLIC_CONTROL_PORT=51234    # what mikr.us forwards to 9443
+
+PEERINGD_PUBLIC_VIDEO_PORT=51235      # what mikr.us forwards to 40000
+```
+
+Both default to the bound port, so they are only needed when the two differ. Check the forwarding
+panel before assuming; getting it wrong produces clients that are told to connect to a port that
+nothing answers on, which looks exactly like the relay being down.
 
 **The video range must be as small as the number of ports you forward** — with one forwarded UDP
 port, a single-port range. The relay refuses a session when its range is exhausted rather than

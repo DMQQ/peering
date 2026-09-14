@@ -33,10 +33,17 @@ pub struct Settings {
     /// reached us on", which is right for a directly-addressed relay and needs no configuration
     /// for the loopback case.
     pub host: Option<String>,
-    pub control_port: u16,
+    /// The control port **as clients reach it**, which need not be the port the relay binds. A host
+    /// that forwards a port on a shared address picks both numbers, and only the outside one is
+    /// reachable.
+    pub public_control_port: u16,
     pub video_bind: SocketAddr,
     /// Where session video ports come from — see [`udp_relay::PortPool`].
     pub video_ports: Arc<udp_relay::PortPool>,
+    /// The video port as clients reach it, for the same reason as `public_control_port`. Only
+    /// meaningful with a single-port range: with several, each session gets its own port and there
+    /// is no per-session mapping to express.
+    pub public_video_port: Option<u16>,
     pub session_ttl: Duration,
 }
 
@@ -309,9 +316,11 @@ async fn dispatch(
             // The control token is shared because it is presented once by each side and used up.
             let ready = |video_token: Token| ServerMessage::SessionReady {
                 control_host: relay_host.to_string(),
-                control_port: settings.control_port,
+                control_port: settings.public_control_port,
                 video_host: relay_host.to_string(),
-                video_port,
+                // The bound port unless it has been said otherwise, which is the case on a shared
+                // address where the forwarded port is the host's to choose.
+                video_port: settings.public_video_port.unwrap_or(video_port),
                 control_token: hex(&allocated.control_token),
                 video_token: hex(&video_token),
             };
@@ -386,9 +395,10 @@ mod tests {
         let hosts = HostRegistry::new();
         let settings = Settings {
             host: None,
-            control_port: 9443,
+            public_control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
+            public_video_port: None,
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();
@@ -427,9 +437,10 @@ mod tests {
 
         let settings = Settings {
             host: None,
-            control_port: 9443,
+            public_control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
+            public_video_port: None,
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();
@@ -463,9 +474,10 @@ mod tests {
 
         let settings = Settings {
             host: None,
-            control_port: 9443,
+            public_control_port: 9443,
             video_bind: "127.0.0.1:0".parse().unwrap(),
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
+            public_video_port: None,
             session_ttl: Duration::from_secs(60),
         };
         let (tx, _rx) = channel();

@@ -85,9 +85,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let settings = Settings {
         host: config.public_host.clone(),
-        control_port: config.control_addr.port(),
+        // Falls back to the bound port, which is right whenever nothing is forwarded.
+        public_control_port: config
+            .public_control_port
+            .unwrap_or_else(|| config.control_addr.port()),
         video_bind: config.video_bind,
         video_ports,
+        public_video_port: config.public_video_port,
         session_ttl: config.session_ttl,
     };
 

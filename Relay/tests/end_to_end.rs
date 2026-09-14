@@ -58,9 +58,10 @@ async fn start() -> TestRelay {
         HostRegistry::new(),
         Settings {
             host: Some("127.0.0.1".into()),
-            control_port,
+            public_control_port: control_port,
             video_bind: "127.0.0.1:0".parse().unwrap(),
             video_ports: Arc::new(PortPool::new(None)),
+            public_video_port: None,
             session_ttl: Duration::from_secs(60),
         },
         None,
