@@ -15,6 +15,22 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
     }
 }
 
+/// TCP parameters for every socket on the relay path, with Nagle disabled.
+///
+/// `NWParameters.tcp` — the static factory — has no way to express `noDelay`, which is how the
+/// relay path came to buffer every small write while the direct path had already stopped doing so.
+/// It costs at least as much here as it did there: the same coalesced 60 Hz command stream crosses
+/// these sockets, and Nagle holds a partial segment until the previous one is acknowledged, so on a
+/// path whose RTT is tens of milliseconds each buffered write waits out a round trip before the next
+/// cursor position leaves. The direct path measured 40 ms for exactly this.
+///
+/// Every socket below goes through here rather than reaching for `.tcp`.
+private func relayTCPParameters() -> NWParameters {
+    let tcp = NWProtocolTCP.Options()
+    tcp.noDelay = true
+    return NWParameters(tls: nil, tcp: tcp)
+}
+
 /// Presents a loopback TCP endpoint backed by a routed socket to `peeringd`.
 ///
 /// The existing client TLS transport connects to the loopback endpoint and still owns the TLS
@@ -34,7 +50,7 @@ public final class RelayControlProxy: @unchecked Sendable {
         guard session.controlToken.count == 16 else { throw RelayProtocolError.invalidToken }
         let listener: NWListener
         do {
-            let parameters = NWParameters.tcp
+            let parameters = relayTCPParameters()
             parameters.allowLocalEndpointReuse = true
             listener = try NWListener(using: parameters, on: .any)
         } catch {
@@ -108,7 +124,7 @@ public final class RelayControlBridge: @unchecked Sendable {
         guard let port = NWEndpoint.Port(rawValue: localPort) else {
             throw RelayTunnelError.invalidPort(localPort)
         }
-        let local = NWConnection(to: .hostPort(host: "127.0.0.1", port: port), using: .tcp)
+        let local = NWConnection(to: .hostPort(host: "127.0.0.1", port: port), using: relayTCPParameters())
         splice = try RelayByteSplice(
             local: local,
             relayHost: session.controlHost,
@@ -171,7 +187,10 @@ private final class RelayByteSplice: @unchecked Sendable {
             throw RelayTunnelError.invalidPort(relayPort)
         }
         self.local = local
-        relay = NWConnection(to: .hostPort(host: NWEndpoint.Host(relayHost), port: port), using: .tcp)
+        relay = NWConnection(
+            to: .hostPort(host: NWEndpoint.Host(relayHost), port: port),
+            using: relayTCPParameters()
+        )
         self.token = token
         self.queue = queue
         self.onStop = onStop

@@ -30,6 +30,23 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
     loop {
         match listener.accept().await {
             Ok((stream, peer)) => {
+                // Nagle off, on both halves of every splice. This one listener accepts *both*
+                // ends of a session — the connection that waits and the one handed to it — so
+                // setting it here covers the pair, and `copy_bidirectional` below inherits it.
+                //
+                // This is not a tuning preference. What crosses here is a coalesced 60 Hz
+                // command stream in small writes, and Nagle holds a partial segment until the
+                // previous one is acknowledged. On a path whose RTT is tens of milliseconds
+                // that is a round trip added to every cursor position, which is the class of
+                // delay the user feels most directly. It cannot be fixed above us either: the
+                // buffering happens below the copy, in the kernel.
+                //
+                // A failure here costs latency, not correctness, so it is logged and carried
+                // on rather than closing a connection that would otherwise work.
+                if let Err(error) = stream.set_nodelay(true) {
+                    warn!(%error, %peer, "could not disable Nagle on a control connection");
+                }
+
                 let registry = Arc::clone(&registry);
                 tokio::spawn(async move {
                     if let Err(error) = handle(stream, registry).await {
