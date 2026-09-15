@@ -570,22 +570,24 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
 }
 
 extension SessionPiP: AVPictureInPictureSampleBufferPlaybackDelegate {
-    /// No timeline at all, and the header is explicit that this is how to say so.
+    /// Live content, with an infinite duration.
     ///
-    /// It names both signals: *"Clients should return a time range with a duration of
-    /// kCMTimeInfinity to indicate live content. When there is no content to play, they should
-    /// return kCMTimeRangeInvalid."*
+    /// The header names two signals and this is the one that works:
     ///
-    /// This was the infinite one, which is live content — and live content still has a timeline
-    /// to rewind along, so the transport controls stay and the skip buttons have something to
-    /// do. `invalid` says there is nothing here to play, which is exactly true: this is a
-    /// real-time picture of a Mac, and nothing about it can be paused, skipped or scrubbed.
-    /// It is what takes the controls out; `requiresLinearPlayback` was the wrong lever and
-    /// only ever disabled some of them.
+    /// - *"a duration of kCMTimeInfinity to indicate live content"* — what this returns.
+    /// - *"When there is no content to play, they should return kCMTimeRangeInvalid"* — tried,
+    ///   and it does not mean what it says. iOS renders `invalid` as a **loading spinner** over
+    ///   a frozen picture, reading it as "content is on its way" rather than "there is none".
+    ///   The documentation's own wording invites exactly that reading and the behaviour
+    ///   contradicts it.
+    ///
+    /// So the transport controls stay. What removes some of them is
+    /// `requiresLinearPlayback`, and what would remove all of them is a different content
+    /// source entirely — see ``SessionPiP``.
     func pictureInPictureControllerTimeRangeForPlayback(
         _ controller: AVPictureInPictureController
     ) -> CMTimeRange {
-        .invalid
+        CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
     }
 
     /// Never paused. The pause control would otherwise appear, and there is nothing here for it
