@@ -86,18 +86,20 @@ private struct LockScreenSession: View {
             // number rather than as the thing the card exists to show.
             Spacer(minLength: 12)
 
+            // Exactly what it needs and no more.
+            //
+            // A live timer cannot be measured the way text is measured: it renders "0:38" now
+            // and "12:34:56" an hour from now, so left alone it reserves far more room than it
+            // draws, and the surplus comes out of the Mac's name — the one thing on the card
+            // that is about something.
+            //
+            // Bounding it with a frame fixes that and creates the other fault: the digits then
+            // sit inside a box wider than they are, stopping short of the edge with a gap the
+            // width of the leftover. Sizing to content is the only one of the two that gives
+            // both, and the jitter it risks is confined to the moment a timer crosses from
+            // 9:59 to 10:00 — a monospaced digit timer is otherwise the same width throughout.
             elapsed(context)
-                // Bounded, because a live timer cannot be measured: it renders "0:38" now and
-                // "12:34:56" an hour from now, so the layout has no content to size against and
-                // reserves far more than either. That reserve came out of the name, which
-                // truncated a third of the way across the card with the room it had lost still
-                // sitting empty beside it — the name is what the card is about, and it was the
-                // one thing being shortened.
-                //
-                // Wide enough for the longest timer the format produces, and trailing-aligned
-                // so the digits do not shift as they change. The compact Dynamic Island slot
-                // below has always done this; the card was simply missed.
-                .frame(maxWidth: 92, alignment: .trailing)
+                .fixedSize()
         }
         // Stated rather than left to the stack. An `HStack` with a `Spacer` fills what it is
         // offered, which is not the same as asking for the card: without this the row sizes to
