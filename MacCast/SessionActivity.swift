@@ -25,6 +25,7 @@ final class SessionActivity {
         hostName: String,
         startedAt: Date?,
         reconnecting: Bool,
+        deliberate: Bool = false,
         path: SessionActivityAttributes.Path? = nil
     ) {
         guard previous != phase else { return }
@@ -32,7 +33,7 @@ final class SessionActivity {
         // A dropped session is put back on its own, and the card should say so rather than
         // disappear for the forty seconds the retries take — see ``showReconnecting(hostName:)``.
         if reconnecting, !phase.holdsSession {
-            showReconnecting(hostName: hostName, startedAt: startedAt, path: path)
+            show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
             return
         }
 
@@ -52,7 +53,18 @@ final class SessionActivity {
             }
 
         case .idle, .failed, .disconnected:
-            end()
+            // Only a deliberate end takes the card down. The user closed the session; a card
+            // offering to put back what they just shut is arguing with them.
+            //
+            // Everything else used to remove it too, and that was wrong in both directions: a
+            // card that vanishes says nothing about what happened, and the moment the card is
+            // most useful — the connection has gone, would you like it back — is the moment it
+            // was being taken away.
+            if deliberate {
+                end()
+            } else {
+                show(.dropped, hostName: hostName, startedAt: startedAt, path: path)
+            }
         }
     }
 
@@ -79,13 +91,27 @@ final class SessionActivity {
         startedAt: Date?,
         path: SessionActivityAttributes.Path? = nil
     ) {
+        show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
+    }
+
+    /// Shows a state that is about the session rather than being it.
+    ///
+    /// The two — dropped and reconnecting — differ only in which phase they set, and both are
+    /// reached at moments when the card must *stay up*, which is the whole reason they are not
+    /// a switch over `ClientSession.Phase`.
+    private func show(
+        _ phase: SessionActivityAttributes.Phase,
+        hostName: String,
+        startedAt: Date?,
+        path: SessionActivityAttributes.Path?
+    ) {
         let state = SessionActivityAttributes.ContentState(
-            phase: .reconnecting,
+            phase: phase,
             startedAt: startedAt,
             path: path
         )
         if let activity {
-            Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
+            Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
         } else {
             start(attributes: SessionActivityAttributes(hostName: hostName), state: state)
         }
@@ -157,6 +183,9 @@ final class SessionActivity {
         switch state.phase {
         case .pending, .reconnecting: return Date().addingTimeInterval(45)
         case .active: return nil
+        // No deadline: a dropped session does not become less true by waiting, and the card is
+        // the only route back to it. The system retires it on its own after a few hours.
+        case .dropped: return nil
         }
     }
 }

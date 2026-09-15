@@ -80,5 +80,14 @@ struct SessionActivityAttributes: ActivityAttributes {
         /// pending card says "a session is coming", and this one has to say that one *did* exist
         /// and was lost. Going back to the hourglass would make a drop look like a first attempt.
         case reconnecting
+
+        /// The session is over and is not coming back on its own.
+        ///
+        /// Its own case rather than taking the card down, which is what used to happen and is
+        /// the wrong answer twice over. A card that vanishes says nothing: the user was
+        /// watching a Mac a second ago and now there is no card at all, so the drop is
+        /// indistinguishable from having quit. And the one thing that helps — offering to put
+        /// it back — is exactly what a removed card cannot do.
+        case dropped
     }
 }

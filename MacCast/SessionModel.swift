@@ -466,6 +466,7 @@ final class SessionModel {
                 hostName: hostName ?? "the Mac",
                 startedAt: sessionStartedAt,
                 reconnecting: isReconnecting,
+                deliberate: userEnded,
                 path: Self.activityPath(connectionPath)
             )
 

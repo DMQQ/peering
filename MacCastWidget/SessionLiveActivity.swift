@@ -60,6 +60,10 @@ struct SessionLiveActivity: Widget {
 
 /// The Lock Screen presentation: who, what, and for how long.
 private struct LockScreenSession: View {
+    /// Where the Restore link goes. The app already handles this: `MacCastApp`'s `onOpenURL`
+    /// routes `peering://connect` to `reconnectToLastHost()`.
+    static let restoreURL = URL(string: "peering://connect")!
+
     let context: ActivityViewContext<SessionActivityAttributes>
 
     private var isActive: Bool { context.state.phase == .active }
@@ -102,27 +106,43 @@ private struct LockScreenSession: View {
             // number rather than as the thing the card exists to show.
             Spacer(minLength: 12)
 
-            // Bounded, because a live timer cannot be measured: it renders "0:38" now and
-            // "12:34:56" an hour from now, so there is no content for the layout to size
-            // against and left to itself it reserves far more than either — taken out of the
-            // Mac's name, which is the one thing on the card that is about something.
-            //
-            // Not `fixedSize()`, which looks like the answer and is worse: it does not remove
-            // the reservation, it insists on it. The row then measures wider than the card and
-            // clips at both ends — the icon against the leading edge and the timer gone.
-            elapsed(context)
-                .frame(maxWidth: 92, alignment: .trailing)
+            if context.state.phase == .dropped {
+                // The one thing a dropped session can offer. A `Link` rather than a button with
+                // an intent: the app already routes `peering://connect` to its own reconnect,
+                // and opening the app is what someone tapping this wants anyway — they are
+                // asking to be looking at their Mac again.
+                Link(destination: Self.restoreURL) {
+                    Label("Restore", systemImage: "arrow.clockwise")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.white.opacity(0.18), in: Capsule())
+                }
+            } else {
+                // Bounded, because a live timer cannot be measured: it renders "0:38" now and
+                // "12:34:56" an hour from now, so there is no content for the layout to size
+                // against and left to itself it reserves far more than either — taken out of
+                // the Mac's name, which is the one thing on the card that is about something.
+                //
+                // Not `fixedSize()`, which looks like the answer and is worse: it does not
+                // remove the reservation, it insists on it. The row then measures wider than
+                // the card and clips at both ends — the icon against the edge, the timer gone.
+                elapsed(context)
+                    .frame(maxWidth: 92, alignment: .trailing)
+            }
         }
         // Stated rather than left to the stack. An `HStack` with a `Spacer` fills what it is
         // offered, which is not the same as asking for the card: without this the row sizes to
         // its content and the timer sits wherever the name happens to end, well short of the
         // trailing edge, with the rest of the card empty beside it.
         .frame(maxWidth: .infinity, alignment: .leading)
-        // No horizontal padding of our own. The system insets a Live Activity's content
-        // already, and anything added on top of that is a second margin the card does not
-        // want — most visibly on the right, where the timer reads as having drifted rather
-        // than as being padded. Vertical stays, because the system's own is not enough there.
-        .padding(.horizontal, 0)
+        // Asymmetric. The leading side wants a real margin — the glyph was touching the card's
+        // edge without one — while the trailing side wants as little as possible, because the
+        // system insets this content already and a second margin there reads as the timer
+        // having drifted away from the edge rather than as padding.
+        .padding(.leading, 14)
+        .padding(.trailing, 0)
         .padding(.vertical, 14)
     }
 }
@@ -145,6 +165,7 @@ private func symbol(for phase: SessionActivityAttributes.Phase) -> String {
     case .pending: return "hourglass"
     case .active: return "display"
     case .reconnecting: return "arrow.clockwise"
+    case .dropped: return "wifi.slash"
     }
 }
 
@@ -153,5 +174,6 @@ private func statusText(for phase: SessionActivityAttributes.Phase) -> String {
     case .pending: return "Waiting for the Mac"
     case .active: return "Connected"
     case .reconnecting: return "Reconnecting…"
+    case .dropped: return "Connection dropped"
     }
 }
