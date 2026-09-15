@@ -67,7 +67,11 @@ final class HostModel {
     func isConnected(_ id: String) -> Bool {
         connectedClients.contains { $0.id == id }
     }
-    private(set) var events: [String] = []
+    /// Everything the host has said, newest last.
+    ///
+    /// Kept as entries rather than as formatted lines so the window can show when each thing
+    /// happened and which of them went wrong, and can hand the whole list over in one copy.
+    private(set) var log: [HostLogEntry] = []
 
     let permissions = Permissions()
 
@@ -125,6 +129,18 @@ final class HostModel {
         clientNames[clientID] ?? clientID
     }
 
+    /// A still of what is being streamed, for the window's preview.
+    ///
+    /// `nil` when nothing is being captured. That is the honest answer rather than the last
+    /// picture taken — a window still showing a frame from ten minutes ago would be claiming
+    /// the phone can see something it cannot.
+    ///
+    /// The caller decides how often to ask, because the caller is the view: a window that is
+    /// closed, or behind another one, has no business taking screenshots of this Mac.
+    func snapshot(maxWidth: Int = 640) async -> CGImage? {
+        await coordinator?.snapshot(maxWidth: maxWidth)
+    }
+
     /// Capture, encode and send. Deliberately not main-actor bound — see ``VideoCoordinator``.
     /// Nil until the first client opens a video connection, because building one touches the
     /// capture catalogue, which needs Screen Recording permission.
@@ -165,7 +181,7 @@ final class HostModel {
         } catch {
             let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             status = .failed(message)
-            record("Identity unavailable: \(message)")
+            record("Identity unavailable: \(message)", level: .failure)
             return
         }
         self.identity = identity
@@ -362,7 +378,7 @@ final class HostModel {
                 self?.raiseApplication(for: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                self?.record("Could not switch capture source: \(message)")
+                self?.record("Could not switch capture source: \(message)", level: .failure)
             }
         }
     }
@@ -404,7 +420,7 @@ final class HostModel {
               bundleIdentifier.unicodeScalars.allSatisfy({ allowed.contains($0) }),
               let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
         else {
-            record("Could not launch application: invalid or unavailable bundle identifier")
+            record("Could not launch application: invalid or unavailable bundle identifier", level: .failure)
             return
         }
 
@@ -421,11 +437,11 @@ final class HostModel {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let error {
-                    self.record("Could not launch application: \(error.localizedDescription)")
+                    self.record("Could not launch application: \(error.localizedDescription)", level: .failure)
                     return
                 }
                 guard let application else {
-                    self.record("Application launched but no running process was returned")
+                    self.record("Application launched but no running process was returned", level: .failure)
                     return
                 }
                 self.record("Opened \(application.localizedName ?? bundleIdentifier)")
@@ -437,7 +453,7 @@ final class HostModel {
 
     private func switchToLaunchedApplication(_ application: NSRunningApplication) {
         guard let coordinator else {
-            record("Application opened; capture is not connected")
+            record("Application opened; capture is not connected", level: .warning)
             return
         }
         let source = CaptureSource.application(application.processIdentifier)
@@ -463,7 +479,7 @@ final class HostModel {
             let message = (lastError as? LocalizedError)?.errorDescription
                 ?? lastError.map(String.init(describing:))
                 ?? "The application did not expose a capturable window."
-            await MainActor.run { self.record("Could not switch to application: \(message)") }
+            await MainActor.run { self.record("Could not switch to application: \(message)", level: .failure) }
         }
     }
 
@@ -477,7 +493,7 @@ final class HostModel {
             UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
             record("All paired clients removed")
         } else {
-            record("Could not clear paired clients")
+            record("Could not clear paired clients", level: .failure)
         }
     }
 
@@ -510,6 +526,7 @@ final class HostModel {
                 clientNames[clientID] = clientName
                 UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
             }
+            beginSession(id: clientID, name: clientName)
             record("\(clientName) connected · \(detail)")
             // A client that has just arrived has no source list, so it is sent one now
             // rather than waiting for an application to launch. It is also the first read of
@@ -521,6 +538,7 @@ final class HostModel {
 
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
+            endSession(id: clientID)
             record("\(clientName) disconnected")
             // The moment nothing is left that can release what this client was holding.
             // A client that dies mid-chord or mid-drag takes its key-up with it, and the
@@ -554,13 +572,59 @@ final class HostModel {
         }
     }
 
-    private func record(_ message: String) {
+    private func record(_ message: String, level: HostLogEntry.Level = .info) {
         // `.public` because these lines are the diagnostics, and the one genuinely sensitive
         // value — the pairing code — is already displayed on screen during pairing.
         hostLog.notice("\(message, privacy: .public)")
-        events.append(message)
-        if events.count > Self.maxEvents {
-            events.removeFirst(events.count - Self.maxEvents)
+        log.append(HostLogEntry(level: level, message: message))
+        if log.count > Self.maxEvents {
+            log.removeFirst(log.count - Self.maxEvents)
+        }
+    }
+
+    /// The whole log as text, for the window's copy button.
+    var logText: String { log.plainText }
+
+    /// Finished sessions, newest first.
+    ///
+    /// Persisted, and bounded: a host that has been running for months should not carry a
+    /// year of history around in `UserDefaults` to answer a question about this week.
+    private(set) var sessions: [HostSessionRecord] =
+        UserDefaults.standard.data(forKey: HostModel.sessionsKey)
+            .flatMap { try? JSONDecoder().decode([HostSessionRecord].self, from: $0) } ?? []
+
+    /// What each attached device's session started from.
+    ///
+    /// The streamer's byte count is cumulative and never reset — it counts what the encoder
+    /// has put on the wire for the life of the coordinator — so a session's cost is the
+    /// difference between now and when it began. Held per client ID because more than one
+    /// phone can be attached at once.
+    private var sessionStarts: [String: (name: String, at: Date, bytes: Int)] = [:]
+
+    private static let sessionsKey = "Peering.sessions"
+    private static let maxSessions = 20
+
+    private func beginSession(id: String, name: String) {
+        sessionStarts[id] = (name, Date(), coordinator?.streamStatistics.bytesSent ?? 0)
+    }
+
+    private func endSession(id: String) {
+        guard let start = sessionStarts.removeValue(forKey: id) else { return }
+        let now = coordinator?.streamStatistics.bytesSent ?? start.bytes
+        sessions.insert(
+            HostSessionRecord(
+                deviceName: start.name,
+                started: start.at,
+                ended: Date(),
+                bytes: max(0, now - start.bytes)
+            ),
+            at: 0
+        )
+        if sessions.count > Self.maxSessions {
+            sessions.removeLast(sessions.count - Self.maxSessions)
+        }
+        if let data = try? JSONEncoder().encode(sessions) {
+            UserDefaults.standard.set(data, forKey: Self.sessionsKey)
         }
     }
 

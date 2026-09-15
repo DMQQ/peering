@@ -6,102 +6,187 @@ import SwiftUI
 
 /// The host's window: whether it is reachable, whether it has permission to do its job,
 /// and the pairing code when a client is asking to be trusted.
+/// What the window is showing.
+///
+/// A sidebar rather than one long scroll, because the window has grown two kinds of content
+/// that want different things: what is happening *now* — the picture, who is attached — and
+/// what can be configured or looked up, which is reference material that gets in the way until
+/// it is wanted. `overview` is first and is the default, so the answer to "is someone on my
+/// Mac" costs nothing.
+enum HostSection: String, CaseIterable, Identifiable {
+    case overview
+    case sessions
+    case privacy
+    case settings
+    case about
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: return "Overview"
+        case .sessions: return "Sessions"
+        case .privacy: return "Privacy"
+        case .settings: return "Settings"
+        case .about: return "About"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .overview: return "rectangle.connected.to.line.below"
+        case .sessions: return "clock.arrow.circlepath"
+        case .privacy: return "lock.shield"
+        case .settings: return "gearshape"
+        case .about: return "info.circle"
+        }
+    }
+}
+
 struct HostStatusView: View {
     @Environment(HostModel.self) private var model
+    @State private var section: HostSection = .overview
+
+    /// The last still of what the connected device is seeing.
+    ///
+    /// Held by the view rather than the model because it is only wanted while this window is
+    /// on screen — the task below is cancelled with the view, which is what stops a closed or
+    /// hidden window taking a screenshot of this Mac every couple of seconds.
+    @State private var preview: CGImage?
 
     var body: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+        NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)
+        } detail: {
+            ZStack {
+                Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    statusHeader
-                    Divider().opacity(0.7)
-
+                ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        // Above the pane rather than inside one. A pairing request is the only
+                        // thing in this window that needs an answer, and burying it in a
+                        // section the user is not looking at is how a phone sits at "waiting
+                        // for you to compare the digits" with nobody comparing them.
                         if model.pairing != nil || model.lastOutcome != nil {
                             pairingSection
                         }
 
-                        // What is on screen and who is watching come first, and setup comes
-                        // after. Someone walking up to a Mac that is being driven from a phone
-                        // wants those two answers before anything else; the permissions rows
-                        // only matter when one of them is wrong, and when it is, they say so
-                        // on their own.
-                        HStack(alignment: .top, spacing: 32) {
-                            VStack(alignment: .leading, spacing: 24) {
-                                nowShowingSection
-                                devicesSection
-                                permissionsSection
-                                settingsSection
-                            }
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                            activitySection
-                                .frame(width: 280, alignment: .topLeading)
-                        }
+                        pane
                     }
-                    .padding(.horizontal, 28)
-                    .padding(.top, 26)
-                    .padding(.bottom, 30)
+                    .padding(.horizontal, 26)
+                    .padding(.top, 22)
+                    .padding(.bottom, 28)
                 }
             }
         }
         .tint(HostPalette.ink)
-        .frame(minWidth: 720, minHeight: 620, alignment: .topLeading)
+        .frame(minWidth: 760, minHeight: 560)
         .task { model.start() }
+        // Keyed on the source, so a client switching to another screen refreshes the picture at
+        // once instead of showing the old one until the next tick. Two seconds is chosen against
+        // what the picture is for: it is here to answer "what can they see", and a still that is
+        // a second old answers that as well as a live one, for a fraction of the work.
+        .task(id: model.capturingSource) {
+            while !Task.isCancelled {
+                let shot = await model.snapshot()
+                guard !Task.isCancelled else { return }
+                preview = shot
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 
     // MARK: - Status
 
-    /// The top of the window, and the only part of it that is always visible.
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            sidebarHeader
+            Divider().opacity(0.6)
+            List(HostSection.allCases, selection: $section) { item in
+                Label(item.title, systemImage: item.symbol)
+                    .tag(item)
+            }
+            .listStyle(.sidebar)
+        }
+    }
+
+    /// The one part of the window that is visible whatever pane is showing.
     ///
     /// The app's own icon rather than an SF Symbol: this is the thing in the Dock, and matching
-    /// it is what makes the window read as *this app* and not as a settings panel that happens
-    /// to have a status line. The state is carried by the sentence beside it, which is the part
-    /// that says something a symbol cannot.
-    private var statusHeader: some View {
-        HStack(spacing: 18) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .frame(width: 60, height: 60)
-                .accessibilityHidden(true)
+    /// it is what makes the window read as *this app* rather than as a settings panel that
+    /// happens to have a status line. The state is carried by the sentence below it, which is
+    /// the part a symbol cannot say.
+    private var sidebarHeader: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .frame(width: 38, height: 38)
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Peering")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .tracking(-0.5)
-
-                HStack(spacing: 7) {
-                    Circle().fill(statusColor).frame(width: 7, height: 7)
-                    Text(statusText).foregroundStyle(.secondary)
-                    if let client = connectedClient {
-                        Text("· \(client.elapsedDescription())")
-                            .foregroundStyle(.tertiary)
-                            .monospacedDigit()
-                    }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Peering")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    Text(model.deviceName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
-                .font(.callout)
+
+                Spacer(minLength: 0)
             }
 
-            Spacer(minLength: 24)
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(model.deviceName)
-                    .font(.subheadline.weight(.medium))
-                Text("Port \(ProtocolInfo.defaultPort) · protocol v\(ProtocolInfo.version)")
+            // The sentence can outrun the column — "Connected — Damian's iPhone" is most of it
+            // — so it truncates and carries the whole thing as a tooltip.
+            HStack(spacing: 6) {
+                Circle().fill(statusColor).frame(width: 7, height: 7)
+                Text(statusText)
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
+            .help(statusText)
 
             Button(model.status.isListening ? "Stop" : "Start") {
                 model.status.isListening ? model.stop() : model.start()
             }
-            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .frame(maxWidth: .infinity)
+
+            Text("Port \(ProtocolInfo.defaultPort) · protocol v\(ProtocolInfo.version)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 22)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    // MARK: - Detail
+
+    @ViewBuilder
+    private var pane: some View {
+        switch section {
+        case .overview:
+            VStack(alignment: .leading, spacing: 24) {
+                nowShowingSection
+                devicesSection
+                activitySection
+            }
+        case .sessions:
+            sessionsSection
+        case .privacy:
+            VStack(alignment: .leading, spacing: 24) {
+                permissionsSection
+                privacyNote
+            }
+        case .settings:
+            settingsSection
+        case .about:
+            aboutSection
+        }
     }
 
     // MARK: - Pairing
@@ -282,40 +367,75 @@ struct HostStatusView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionHeading("Now showing", detail: "What the connected device can see.")
 
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(capturingSource == nil ? HostPalette.raised : HostPalette.ink.opacity(0.12))
-                    Image(systemName: capturingIcon)
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(capturingSource == nil ? HostPalette.faint : HostPalette.ink)
-                }
-                .frame(width: 40, height: 40)
+            VStack(spacing: 0) {
+                previewPane
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(capturingTitle)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(1)
-                    Text(capturingDetail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                if capturingSource != nil {
-                    HStack(spacing: 5) {
-                        Circle().fill(HostPalette.ink).frame(width: 6, height: 6)
-                        Text("Live").font(.caption.weight(.medium))
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(capturingSource == nil ? HostPalette.raised : HostPalette.ink.opacity(0.12))
+                        Image(systemName: capturingIcon)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(capturingSource == nil ? HostPalette.faint : HostPalette.ink)
                     }
-                    .foregroundStyle(HostPalette.ink)
+                    .frame(width: 40, height: 40)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(capturingTitle)
+                            .font(.title3.weight(.semibold))
+                            .lineLimit(1)
+                        Text(capturingDetail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    if capturingSource != nil {
+                        HStack(spacing: 5) {
+                            Circle().fill(HostPalette.ink).frame(width: 6, height: 6)
+                            Text("Live").font(.caption.weight(.medium))
+                        }
+                        .foregroundStyle(HostPalette.ink)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(HostPalette.surface)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+    }
+
+    /// The picture itself, letterboxed inside a fixed band.
+    ///
+    /// A fixed height rather than one the aspect ratio decides: a source can be any shape — a
+    /// 16:10 display, a tall window, a phone-shaped one — and a card that resized itself as the
+    /// client switched would shuffle everything below it on every tap. The letterbox is black
+    /// because that is what the phone is being sent, so the two show the same frame.
+    private var previewPane: some View {
+        ZStack {
+            Color.black
+
+            if let preview {
+                Image(decorative: preview, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                VStack(spacing: 7) {
+                    Image(systemName: capturingSource == nil ? "rectangle.slash" : "ellipsis")
+                        .font(.system(size: 21, weight: .light))
+                    Text(capturingSource == nil ? "Not streaming" : "Starting…")
+                        .font(.caption)
+                }
+                .foregroundStyle(.white.opacity(0.32))
+            }
+        }
+        .frame(height: 210)
+        .frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.2), value: preview == nil)
+        .accessibilityHidden(true)
     }
 
     private var capturingSource: CaptureSource? { model.capturingSource }
@@ -435,37 +555,224 @@ struct HostStatusView: View {
         .help("Device ID \(id)")
     }
 
+    /// A tail of what the host has done.
+    ///
+    /// Full width and below rather than a column of its own. These are sentences, and a narrow
+    /// column wrapped every one of them into three lines to say what fitted on one.
+    ///
+    /// `Copy all` rather than leaving it to selection: the lines are separate text blocks, so
+    /// dragging across them gets one line at a time — which is no way to hand anyone a run of
+    /// events. The selection stays enabled for the single line someone wants to quote.
     private var activitySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeading("Activity", detail: "Recent host events")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                sectionHeading("Activity", detail: "Recent host events, newest last.")
+                Spacer()
+                if !model.log.isEmpty {
+                    Button("Copy all") {
+                        let board = NSPasteboard.general
+                        board.clearContents()
+                        board.setString(model.logText, forType: .string)
+                    }
+                    .controlSize(.small)
+                    .help("Copies every line, with its timestamp")
+                }
+            }
 
-            if model.events.isEmpty {
+            if model.log.isEmpty {
                 Text("Waiting for a connection…")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
                     .padding(14)
                     .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(Array(model.events.enumerated()), id: \.offset) { _, line in
-                            Text(line)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                                .textSelection(.enabled)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(model.log) { entry in
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Text(entry.time)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                                Text(entry.message)
+                                    .font(.system(size: 11.5))
+                                    .foregroundStyle(colour(for: entry.level))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
                     .padding(14)
                 }
-                .frame(minHeight: 190, maxHeight: 300)
+                .frame(minHeight: 150, maxHeight: 320)
                 .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-
-            // The version moved to the header, where it sits beside the port it belongs with.
         }
     }
+
+    /// Three tones and no more: routine, worth noticing, did not work.
+    ///
+    /// The rest of the window keeps to brightness, but a failure is the one thing here a reader
+    /// has to find by skimming, and losing it in grey is how a log stops being read at all.
+    private func colour(for level: HostLogEntry.Level) -> Color {
+        switch level {
+        case .info: return HostPalette.muted
+        case .warning: return HostPalette.ink
+        case .failure: return .red
+        }
+    }
+
+    // MARK: - Sessions
+
+    /// What has already happened, and what it cost.
+    ///
+    /// The live figures vanish the moment the phone disconnects — which is precisely when
+    /// someone wants to look at them — so each finished session is written down as it ends.
+    private var sessionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("Sessions", detail: "Finished connections, newest first.")
+
+            if model.sessions.isEmpty {
+                Text("No sessions yet.")
+                    .font(.callout)
+                    .foregroundStyle(.tertiary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(model.sessions.enumerated()), id: \.element.id) { index, session in
+                        if index > 0 { Divider().padding(.leading, 14) }
+                        sessionRow(session)
+                    }
+                }
+                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                Text("Bytes are what the host sent — the video stream. Control traffic is a rounding error beside it.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private func sessionRow(_ session: HostSessionRecord) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "iphone")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(HostPalette.faint)
+                .frame(width: 22, height: 22)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.deviceName)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+                Text(session.startedDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+
+            Text(session.durationDescription)
+                .font(.callout)
+                .monospacedDigit()
+            Text(session.bytesDescription)
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(width: 74, alignment: .trailing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Privacy
+
+    /// What pairing actually grants, said plainly.
+    ///
+    /// Worth the space: "trusted device" is a phrase that sounds broader than it is, and the
+    /// honest answer — it can see the screen you chose and send input — is both narrower and
+    /// easier to reason about than a phrase like "full access".
+    private var privacyNote: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("What a trusted phone can do", detail: "The whole of it.")
+
+            VStack(alignment: .leading, spacing: 10) {
+                privacyRow(
+                    "See the screen you share",
+                    "The captured display, window or application — and the list of things this Mac could capture, which includes window titles, application names and their icons."
+                )
+                Divider()
+                privacyRow(
+                    "Send clicks and keystrokes",
+                    "Injected through the same mechanism an assistive keyboard uses, which is why the Accessibility permission is required."
+                )
+                Divider()
+                privacyRow(
+                    "Nothing else",
+                    "Files, the clipboard, the microphone and the camera are not part of this protocol and are never sent."
+                )
+            }
+            .padding(14)
+            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    private func privacyRow(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).font(.subheadline.weight(.medium))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    // MARK: - About
+
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(spacing: 16) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .frame(width: 72, height: 72)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Peering")
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    Text("Your Mac, right here.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                LabeledContent("Protocol", value: "v\(ProtocolInfo.version)")
+                LabeledContent("Port", value: "\(ProtocolInfo.defaultPort)")
+                LabeledContent("Device ID", value: model.deviceID)
+            }
+            .font(.callout)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .textSelection(.enabled)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("This is a personal project, and it will not ask you for an account or a subscription.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Link(destination: Self.supportURL) {
+                    Label("Buy me a coffee", systemImage: "cup.and.saucer")
+                }
+                .controlSize(.large)
+            }
+        }
+    }
+
+    /// Where the About pane points. **Set this to your own page** — leaving it at the site root
+    /// means the button takes people somewhere that is not about you.
+    private static let supportURL = URL(string: "https://buymeacoffee.com/")!
 
     private func sectionHeading(_ title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
