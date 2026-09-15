@@ -63,6 +63,10 @@ public final class ClientSession: @unchecked Sendable {
         /// Diagnostics worth surfacing without failing: a pin that was accepted, a video
         /// channel that connected but has not produced a stream yet.
         case note(String)
+        /// A standing condition on the Mac that the user should see, or `nil` when there is
+        /// none. Unlike ``note(_:)`` this is not a diagnostic to log: it is a caption for the
+        /// picture, and it stays up until the Mac says otherwise.
+        case remoteNotice(NoticePayload?)
     }
 
     public enum VideoEvent: Sendable {
@@ -605,6 +609,13 @@ public final class ClientSession: @unchecked Sendable {
 
         case .pong:
             reportLatency()
+
+        case .notice:
+            // Decoded leniently on purpose. A notice is advisory — the session is healthy and
+            // this is only a caption for it — so a payload this build cannot read costs the
+            // caption and not the connection.
+            let payload = try? MessageCodec.decode(NoticePayload.self, from: frame.payload)
+            emit(.remoteNotice(payload))
 
         case .error:
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)

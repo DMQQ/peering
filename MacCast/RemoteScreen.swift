@@ -143,6 +143,30 @@ struct RemoteScreen: View {
                     }
                     .allowsHitTesting(false)
                 }
+
+                // The Mac's own caption for a picture that is technically fine. Preferred to
+                // the panel above, which never fires for this: a sleeping screen *is*
+                // streaming — on time, at full rate, and entirely black — so "stream paused"
+                // would be the wrong explanation and there would be no explanation at all.
+                if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready {
+                    ZStack {
+                        Color.black.opacity(0.72).ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            Image(systemName: notice.symbol ?? "display.slash")
+                                .font(.system(size: 44))
+                                .foregroundStyle(.white.opacity(0.9))
+                            Text(message)
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(32)
+                    }
+                    // Hits pass through to the Mac, deliberately: an injected event is real
+                    // user activity, and real user activity is what a sleeping display is
+                    // waiting for. The way out of this screen is a tap on it.
+                    .allowsHitTesting(false)
+                }
             }
     }
 

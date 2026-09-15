@@ -14,7 +14,12 @@ public enum ProtocolInfo {
     /// command is a decode failure in the middle of a session rather than a degraded
     /// experience, so this is declared incompatible for the usual reason: the handshake turns
     /// it into "update whichever is older".
-    public static let version: UInt16 = 4
+    /// 5: adds `notice`, the host's way of captioning a healthy picture — a sleeping screen,
+    /// most of all. An older client would ignore the frame, which is survivable, but a 4 host
+    /// would never send one and the phone would keep showing black with no explanation, which
+    /// is the failure this exists to remove. Bumped, like the others, so the two ends are
+    /// known to agree rather than assumed to.
+    public static let version: UInt16 = 5
 
     /// Public signalling endpoint. Control and video endpoints are supplied per session by the
     /// relay, so only this address belongs in the apps.

@@ -172,6 +172,14 @@ final class SessionModel {
     private(set) var keyboardMode: KeyboardMode = .unicode
     private(set) var latchedModifiers: Modifiers = []
     private(set) var activeSourceID: String?
+
+    /// Something the Mac wants said about the picture, or `nil`.
+    ///
+    /// Kept apart from `videoStatus`, which describes the *stream*. This describes the Mac
+    /// behind a perfectly healthy stream: the frames are arriving on time and every one of
+    /// them is black, because the screen they are of is asleep. From the phone those two look
+    /// identical, and only the Mac knows which it is.
+    private(set) var remoteNotice: NoticePayload?
     var showKeyboard = false
     private(set) var typedPreview = ""
 
@@ -321,6 +329,9 @@ final class SessionModel {
         activeSourceID = nil
         catalog = nil
         notes.removeAll()
+        // Cleared with the rest: a notice describes the Mac of *this* connection, and one
+        // left over would caption the next session with something nobody said about it.
+        remoteNotice = nil
         videoStatus = "No video stream"
         isVideoStreaming = false
 
@@ -475,6 +486,8 @@ final class SessionModel {
             latencyMilliseconds = milliseconds
         case .note(let message):
             append(note: message)
+        case .remoteNotice(let message):
+            remoteNotice = message
         }
     }
 

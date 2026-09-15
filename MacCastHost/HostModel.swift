@@ -146,6 +146,9 @@ final class HostModel {
     /// capture catalogue, which needs Screen Recording permission.
     private var coordinator: VideoCoordinator?
 
+    /// Runs while at least one client is attached. See ``startScreenWatch()``.
+    private var screenWatchTask: Task<Void, Never>?
+
     private var server: HostServer?
     private var relayRegistration: RelayHostRegistration?
     private var pins: PinStore?
@@ -527,6 +530,7 @@ final class HostModel {
                 UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
             }
             beginSession(id: clientID, name: clientName)
+            startScreenWatch()
             record("\(clientName) connected · \(detail)")
             // A client that has just arrived has no source list, so it is sent one now
             // rather than waiting for an application to launch. It is also the first read of
@@ -539,6 +543,8 @@ final class HostModel {
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
             endSession(id: clientID)
+            // The last one out stops the watch. Anybody still attached keeps being told.
+            if connectedClients.isEmpty { stopScreenWatch() }
             record("\(clientName) disconnected")
             // The moment nothing is left that can release what this client was holding.
             // A client that dies mid-chord or mid-drag takes its key-up with it, and the
@@ -606,6 +612,72 @@ final class HostModel {
 
     private func beginSession(id: String, name: String) {
         sessionStarts[id] = (name, Date(), coordinator?.streamStatistics.bytesSent ?? 0)
+    }
+
+    /// Watches whether the screen being streamed can be seen at all, and says so when it
+    /// cannot.
+    ///
+    /// The failure this removes is silent by construction. A sleeping display still produces a
+    /// perfectly healthy stream — frames on time, at full rate, every one of them black — so
+    /// from the phone it is indistinguishable from a broken camera, and there is nothing in
+    /// the protocol that said otherwise. `notice` is that missing sentence.
+    ///
+    /// Only ever about a display. An application or a window is drawn by the window server
+    /// whether or not a panel is lit, so a picture of one is real with every screen dark —
+    /// which is the case that makes this worth saying only for a display.
+    private func screenNotice() -> NoticePayload? {
+        guard case .display(let id)? = capturingSource else { return nil }
+
+        // Gone rather than dark. `online` is what separates the two: a sleeping display is
+        // still connected, and a lid shut with no external screen attached leaves nothing to
+        // have a picture of at all. Both arrive at the phone as black, and they are not the
+        // same problem — one is a tap away from fixed, the other needs a different source.
+        if CGDisplayIsOnline(id) == 0 {
+            return NoticePayload(
+                message: "That display is no longer connected. Choose another from Sources.",
+                symbol: "display.slash"
+            )
+        }
+        if CGDisplayIsAsleep(id) != 0 || CGDisplayIsActive(id) == 0 {
+            return NoticePayload(
+                message: "This Mac's screen is asleep.",
+                symbol: "moon.zzz.fill"
+            )
+        }
+        return nil
+    }
+
+    /// Runs ``screenNotice()`` while anyone is attached.
+    ///
+    /// Nobody attached means nobody to tell, and a host that checks its own screen every two
+    /// seconds to say nothing is a host talking to itself.
+    private func startScreenWatch() {
+        guard screenWatchTask == nil else { return }
+        screenWatchTask = Task { [weak self] in
+            var announced: NoticePayload?
+            while !Task.isCancelled {
+                guard let self else { return }
+                let notice = self.screenNotice()
+                if notice != announced {
+                    let wasSayingSomething = announced != nil
+                    announced = notice
+                    self.server?.broadcastNotice(notice ?? NoticePayload(message: nil))
+                    if let message = notice?.message {
+                        self.record("Screen not visible · \(message)", level: .warning)
+                    } else if wasSayingSomething {
+                        // Said so when it went dark, so it owes the all-clear. The warning
+                        // above is the one line in this window that resolves itself.
+                        self.record("Screen visible again")
+                    }
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    private func stopScreenWatch() {
+        screenWatchTask?.cancel()
+        screenWatchTask = nil
     }
 
     private func endSession(id: String) {

@@ -262,6 +262,19 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
+    /// Says the same thing to every attached client.
+    ///
+    /// Every client, for the same reason ``broadcastCatalog(_:)`` does: what this describes is
+    /// a fact about this Mac — its screen is dark — and not about one session.
+    func broadcastNotice(_ payload: NoticePayload) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            for session in self.controlSessions {
+                session.sendNotice(payload)
+            }
+        }
+    }
+
     private func closeVideoConnections(for clientKey: Data?) {
         guard let clientKey else { return }
         let closing = videoConnections.filter { $0.clientKey == clientKey }

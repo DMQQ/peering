@@ -33,6 +33,17 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     // Video channel
     case videoConfig = 0x09
     case videoFrame = 0x0A
+
+    /// A standing condition on the host that the client should say out loud.
+    ///
+    /// Distinct from ``error``, which ends the session. This is the middle case the protocol
+    /// did not have: nothing is broken — the control channel is fine, the video channel is
+    /// fine — but what the phone is looking at is not what it thinks. A sleeping display is
+    /// the case this exists for: the stream is healthy, the frames are arriving, and they are
+    /// all black, which from the phone is indistinguishable from a broken camera.
+    ///
+    /// Carries `nil` to clear.
+    case notice = 0x10
 }
 
 public enum FramingError: Error, Equatable, Sendable {

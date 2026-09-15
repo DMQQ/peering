@@ -398,6 +398,14 @@ final class HostSession: @unchecked Sendable {
         }
     }
 
+    /// Tells the client what stands between it and the picture, or clears what was said.
+    ///
+    /// Advisory, so it never fails the session: the control channel is healthy and so is the
+    /// video channel. This is a caption for the frames, not a complaint about them.
+    func sendNotice(_ payload: NoticePayload) {
+        send(MessageKind.notice, payload)
+    }
+
     private func send<T: Encodable>(_ kind: MessageKind, _ value: T) {
         guard let payload = try? MessageCodec.encode(value) else {
             fail(SessionError.malformedPayload(kind, SessionError.randomFailure))

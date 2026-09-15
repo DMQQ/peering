@@ -464,6 +464,11 @@ final class VideoCoordinator: @unchecked Sendable {
         pipeline.refreshSpacePreviews()
     }
 
+    /// A still of what is being streamed. See ``CapturePipeline/snapshot(maxWidth:)``.
+    func snapshot(maxWidth: Int) async -> CGImage? {
+        await pipeline.snapshot(maxWidth: maxWidth)
+    }
+
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
         if bitrateKbps > 0 {
             pipeline.setBitrate(bitrateKbps * 1000)

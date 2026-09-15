@@ -91,6 +91,28 @@ public struct PairResult: Codable, Sendable, Equatable {
 }
 
 /// A descriptive failure the host can report without tearing the connection down.
+/// A standing condition on the host, or `nil` when there is none.
+///
+/// `nil` rather than an empty string so "there is nothing to say" and "there is something to
+/// say and it is the empty string" cannot be confused — the second is not a message.
+public struct NoticePayload: Codable, Sendable, Equatable {
+    public let message: String?
+
+    /// An SF Symbol for the client to draw above the message.
+    ///
+    /// The host picks it because the host is the side that knows *which* thing is wrong — a
+    /// sleeping screen and a disconnected one produce the same black frames and want different
+    /// pictures. It is a name rather than an image for the same reason the catalogue carries
+    /// title strings: the client renders what it is given, and a symbol is the cheapest thing
+    /// it can be given that is still specific.
+    public let symbol: String?
+
+    public init(message: String?, symbol: String? = nil) {
+        self.message = message
+        self.symbol = symbol
+    }
+}
+
 public struct ErrorPayload: Codable, Sendable, Equatable {
     public var code: String
     public var message: String

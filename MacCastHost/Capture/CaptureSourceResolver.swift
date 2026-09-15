@@ -47,6 +47,15 @@ protocol CaptureSourceResolver: Sendable {
     /// in ``ScreenCaptureSourceResolver/captureActiveSpacePreview(force:)`` would otherwise keep
     /// to. Asked for by a client that is about to show the pictures.
     func refreshSpacePreviews() async
+
+    /// A still of one source, at most `maxWidth` pixels across.
+    ///
+    /// A screenshot rather than a copy of a frame from the stream. The stream's frames are the
+    /// real thing, but they arrive on the queue the whole capture depends on, and reaching into
+    /// it to make a thumbnail would put this window's refresh rate in front of the phone's.
+    /// `SCScreenshotManager` asks the window server for one picture instead, off that path
+    /// entirely.
+    func snapshot(of source: CaptureSource, maxWidth: Int) async -> CGImage?
 }
 
 /// The real resolver, backed by `SCShareableContent`.
@@ -300,6 +309,38 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// catalogue's. Everything here is best-effort, and a failure only costs a tile.
     func refreshSpacePreviews() async {
         await captureActiveSpacePreview(force: true)
+    }
+
+    func snapshot(of source: CaptureSource, maxWidth: Int) async -> CGImage? {
+        // The same transform input is mapped through, which is the one thing in this file that
+        // already knows how big a source is — a display's pixel dimensions, a window's frame
+        // times its backing scale, an application's union of windows.
+        let pixels = inputTransform(for: source).pixelSize
+        guard pixels.width > 0, pixels.height > 0, maxWidth > 0 else { return nil }
+
+        let scale = min(1, CGFloat(maxWidth) / pixels.width)
+        let plan: CaptureFilterPlan
+        do {
+            plan = try makeFilter(for: source)
+        } catch {
+            return nil
+        }
+
+        let configuration = SCStreamConfiguration()
+        configuration.width = Int((pixels.width * scale).rounded())
+        configuration.height = Int((pixels.height * scale).rounded())
+        configuration.backgroundColor = CGColor.black
+        configuration.showsCursor = true
+        // The same crop the stream uses, or a multi-window application would show its windows
+        // sitting in the middle of a black frame here and nowhere else.
+        if let sourceRect = plan.sourceRect {
+            configuration.sourceRect = sourceRect
+        }
+
+        return try? await SCScreenshotManager.captureImage(
+            contentFilter: plan.filter,
+            configuration: configuration
+        )
     }
 
     /// Photographs the Space showing on each display, where that is worth doing.

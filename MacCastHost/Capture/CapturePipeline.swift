@@ -177,6 +177,21 @@ final class CapturePipeline: @unchecked Sendable {
         Task { await resolver.refreshSpacePreviews() }
     }
 
+    /// A still of what is being streamed, or `nil` when nothing is.
+    ///
+    /// Asked for by the host window, which shows it. Deliberately not the frames the stream
+    /// itself is made of: those arrive on the queue the whole capture depends on, and reaching
+    /// into it to make a thumbnail would put this window's refresh rate in front of the phone's.
+    ///
+    /// A synthetic pipeline has no screen behind it and answers `nil`, the same way it answers
+    /// ``inputTransform()`` with a degenerate transform.
+    func snapshot(maxWidth: Int) async -> CGImage? {
+        guard case .capture(let resolver, _) = backend,
+              let source = lock.withLock({ source })
+        else { return nil }
+        return await resolver.snapshot(of: source, maxWidth: maxWidth)
+    }
+
     /// The capture sources the host is currently offering.
     ///
     /// A synthetic pipeline has no sources and answers with an empty list rather than

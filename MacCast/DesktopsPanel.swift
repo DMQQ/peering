@@ -201,7 +201,13 @@ struct DesktopsPanel: View {
         showsScreenName: Bool,
         size: CGSize
     ) -> some View {
-        let isCurrent = index == display.current
+        // The accent means "this is what the phone is looking at", and exactly one desktop can
+        // be that. Every display has its own current desktop and each is a true answer to a
+        // different question — so marking both left two tiles wearing the same badge, and the
+        // panel looking as though it had two answers to one question. The row that is not on
+        // screen is still selectable; it is just not *here*.
+        let isShowing = model.activeSourceID == CaptureSource.display(display.displayID).stableID
+        let isCurrent = isShowing && index == display.current
         let label = "Desktop \(index)\(isCurrent ? ", current" : "")"
         return Button {
             switchToDesktop(display: display, index: index)
