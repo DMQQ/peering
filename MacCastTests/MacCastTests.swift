@@ -87,16 +87,31 @@ final class MacCastTests: XCTestCase {
         let mode = InteractionMode.control
 
         XCTAssertFalse(mode.oneFingerDragPansCanvas)
-        XCTAssertFalse(mode.twoFingerDragPansCanvas)
-        XCTAssertFalse(mode.pinchZoomsCanvas)
         XCTAssertTrue(mode.tapsReachTheMac)
+    }
+
+    /// Looking closer is not a mode.
+    ///
+    /// The pinch used to be drag & zoom's alone, because a zoom silently rescaled the canvas and
+    /// every click after it was mapped through that scale. `CanvasGeometry.normalized` undoes
+    /// both the zoom and the pan now, so the pinch is free in both modes — and what the mode
+    /// decides is only whether a *drag* pans, which it does once the picture overflows its view
+    /// and there is somewhere to pan to.
+    func testViewAndScrollZoomsAlwaysButPansOnlyWhenOverflowing() {
+        let mode = InteractionMode.control
+
+        XCTAssertTrue(mode.pinchZoomsCanvas)
+        XCTAssertFalse(mode.twoFingerDragPansCanvas(isZoomed: false))
+        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: true))
     }
 
     func testDragAndZoomTouchesNeverReachTheMac() {
         let mode = InteractionMode.navigate
 
         XCTAssertTrue(mode.oneFingerDragPansCanvas)
-        XCTAssertTrue(mode.twoFingerDragPansCanvas)
+        // Unconditional here: drag & zoom has no other meaning for the gesture to fall back to.
+        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: false))
+        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: true))
         XCTAssertTrue(mode.pinchZoomsCanvas)
         XCTAssertFalse(mode.tapsReachTheMac)
     }

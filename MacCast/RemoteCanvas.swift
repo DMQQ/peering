@@ -39,22 +39,37 @@ extension InteractionMode {
 
     /// Whether a two-finger drag moves the picture rather than scrolling the Mac.
     ///
-    /// True only in drag & zoom. Zooming in no longer changes this: an explicit mode that
-    /// silently behaves like the other one is the thing this replaced.
-    var twoFingerDragPansCanvas: Bool { self == .navigate }
+    /// Always in drag & zoom. In view & scroll only while the picture is larger than the view
+    /// it is drawn in, which is the one case where there is somewhere to pan *to*. Fitted, with
+    /// bars down either side, the gesture keeps its other meaning and scrolls the Mac.
+    ///
+    /// **The rule is about the picture, not about history.** An earlier version keyed off the
+    /// zoom alone, and was argued against on the grounds that the same gesture would do
+    /// different things depending on what the user had done minutes earlier. That objection
+    /// holds when the cause is invisible; it does not hold here, because a picture that
+    /// overflows its view is the thing the user is looking at. The zoom is on screen in the
+    /// pill besides — see the percentage readout in ``RemoteScreen``.
+    func twoFingerDragPansCanvas(isZoomed: Bool) -> Bool {
+        self == .navigate || isZoomed
+    }
 
     /// Whether a tap is a click on the Mac. False in drag & zoom, where a tap is nothing at all
     /// — the mode exists so the picture can be moved and inspected without anything landing on
     /// the Mac by accident.
     var tapsReachTheMac: Bool { self == .control }
 
-    /// Whether a pinch resizes the picture. Drag & zoom only.
+    /// Whether a pinch resizes the picture. Both modes.
     ///
-    /// Scaling the view is a way of *looking* at the Mac, so it belongs with the mode that is
-    /// only about looking. Allowed in view & scroll, a pinch mid-session silently rescaled the
-    /// canvas — and every click after it is mapped through that scale, so the pointer landed
-    /// somewhere the user never aimed at.
-    var pinchZoomsCanvas: Bool { self == .navigate }
+    /// Looking closer is not a mode: a user who wants to read a menu bar has to be able to zoom
+    /// in on it without also handing over the pointer. This was drag & zoom only, because a zoom
+    /// used to break the click mapping and land the pointer somewhere the user never aimed at —
+    /// `CanvasGeometry.normalized` now undoes the zoom *and* the pan before mapping, so that
+    /// reason is gone.
+    ///
+    /// What it leaves behind is a gesture conflict rather than a correctness one: a pinch reports
+    /// a translation as well as a scale, so the two-finger scroll has to stand down while one is
+    /// in progress. See `isPinching` in ``GestureSurfaceView``.
+    var pinchZoomsCanvas: Bool { true }
 }
 
 /// The gesture surface over the video.
@@ -84,6 +99,10 @@ struct CanvasGestureView: UIViewRepresentable {
     var onSizeChange: (CGSize) -> Void
     /// Whether the fingers drive the Mac or the picture. See ``InteractionMode``.
     var interactionMode: InteractionMode
+    /// Whether the picture is drawn larger than the view it is in — `RemoteScreen`'s
+    /// `effectiveZoom > 1`. Read by the two-finger handler to decide whether a drag has
+    /// anywhere to pan to, or should keep scrolling the Mac.
+    var isZoomed: Bool = false
     /// The window's own chrome, in the canvas's coordinates. See ``CanvasGeometry/isBlocked``.
     var blockedRegions: [CGRect] = []
     /// Whether a floating panel is open. A tap on the picture then closes it instead of clicking
@@ -101,6 +120,7 @@ struct CanvasGestureView: UIViewRepresentable {
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
+        view.isZoomed = isZoomed
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
@@ -123,6 +143,7 @@ struct CanvasGestureView: UIViewRepresentable {
         // The closures capture the current view state (zoom, pan, canvas size), so they are
         // replaced on every update rather than captured once in `makeUIView`.
         view.interactionMode = interactionMode
+        view.isZoomed = isZoomed
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
@@ -159,6 +180,10 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// Whether the fingers drive the Mac or the picture. Read by every handler below.
     var interactionMode: InteractionMode = .control
 
+    /// Whether the picture is drawn larger than this view. Decides whether a two-finger drag
+    /// has anywhere to pan to, or should go on scrolling the Mac.
+    var isZoomed = false
+
     /// Where the window's own chrome is, in this view's coordinates. A touch that starts inside
     /// one of these belongs to a button and is never sent to the Mac.
     var blockedRegions: [CGRect] = []
@@ -183,6 +208,22 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
 
     /// The same latch for the two-finger family, which has its own began/ended cycle.
     private var ignoresTwoFingerGesture = false
+
+    /// Whether the two-finger drag in progress is moving the picture rather than the Mac.
+    ///
+    /// Latched at `.began` for the same reason as the chrome latch above, and a stronger one:
+    /// re-deciding per sample would let a drag that crosses the zoom threshold mid-gesture
+    /// change its meaning under the user's fingers, jumping the picture or the Mac's content
+    /// by however far the drag had got.
+    private var twoFingerDragPansCanvas = false
+
+    /// Whether a pinch is currently in progress.
+    ///
+    /// A pinch reports a translation as well as a scale — the fingers move apart *and* drift —
+    /// so without this the same two fingers would zoom the picture and scroll the Mac at once,
+    /// and the page would slide away under a user who was only trying to look closer at a
+    /// corner of it.
+    private var isPinching = false
 
     private lazy var oneFingerPan: UIPanGestureRecognizer = {
         let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleOneFingerPan))
@@ -341,11 +382,17 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         if gesture.state == .began {
             let start = gesture.location(in: self)
             ignoresTwoFingerGesture = CanvasGeometry.isBlocked(start, regions: blockedRegions)
+            // Decided once, here, rather than per sample — see `twoFingerDragPansCanvas`.
+            twoFingerDragPansCanvas = interactionMode.twoFingerDragPansCanvas(isZoomed: isZoomed)
         }
         if gesture.state == .ended || gesture.state == .cancelled || gesture.state == .failed {
             ignoresTwoFingerGesture = false
         }
         guard !ignoresTwoFingerGesture else { return }
+
+        // The pinch owns both fingers while it lasts. Its translation is the user repositioning
+        // the picture under the pinch, not a scroll wheel.
+        guard !isPinching else { return }
 
         let point = gesture.translation(in: self)
         // Incremental, and the recogniser's accumulator is reset each time so the next
@@ -357,7 +404,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // A translation is a displacement, not a position: both axes are signed and neither
         // has an origin, which is what `CGSize` means here and `CGPoint` would misdescribe.
         let translation = CGSize(width: point.x, height: point.y)
-        if interactionMode.twoFingerDragPansCanvas {
+        if twoFingerDragPansCanvas {
             handlers?.onPanCanvas(translation)
         } else {
             handlers?.onScroll(translation)
@@ -374,6 +421,15 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
 
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
         guard interactionMode.pinchZoomsCanvas else { return }
+
+        // Set before the chrome check below, so a pinch that begins over a panel still owns its
+        // two fingers and does not scroll the Mac behind the panel.
+        switch gesture.state {
+        case .began, .changed: isPinching = true
+        case .ended, .cancelled, .failed: isPinching = false
+        default: break
+        }
+
         let point = gesture.location(in: self)
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
         let scale = gesture.scale

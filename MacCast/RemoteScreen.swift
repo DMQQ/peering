@@ -213,6 +213,11 @@ struct RemoteScreen: View {
             },
             onSizeChange: { canvasSize = $0 },
             interactionMode: interactionMode,
+            // The drawn scale, not the user's zoom alone: `scalesToFill` enlarges the picture
+            // without `zoom` moving, and a cropped picture is exactly the one with somewhere to
+            // pan to. A hundredth of slack, so a floating-point return to 1.0 still counts as
+            // fitted and gives the two-finger drag back to the Mac.
+            isZoomed: effectiveZoom > 1.01,
             blockedRegions: blockedRegions,
             isPanelOpen: openPanel != nil,
             onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
