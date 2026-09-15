@@ -202,13 +202,19 @@ final class CapturePipeline: @unchecked Sendable {
                 throw CaptureError.sourceUnavailable("That capture source is no longer available.")
             }
 
-            let filter = try resolver.makeFilter(for: source)
+            let plan = try resolver.makeFilter(for: source)
             let configuration = try CaptureEngine.configuration(for: descriptor, frameRate: frameRate)
+            // Set after the configuration is built rather than inside it: the rectangle belongs
+            // to the filter — it is expressed in that filter's coordinate space — and
+            // `CaptureEngine` is handed only a descriptor. See ``CaptureFilterPlan``.
+            if let sourceRect = plan.sourceRect {
+                configuration.sourceRect = sourceRect
+            }
             let encoder = try VideoEncoder(codec: codec, pixelSize: descriptor.pixelSize, frameRate: frameRate)
 
             try await begin(
                 engine: engine,
-                request: .stream(filter: filter, configuration: configuration),
+                request: .stream(filter: plan.filter, configuration: configuration),
                 encoder: encoder,
                 source: source
             )

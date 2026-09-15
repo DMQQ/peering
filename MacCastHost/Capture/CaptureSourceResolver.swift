@@ -15,13 +15,30 @@ private let resolverLog = Logger(subsystem: "pl.dmq.peering.host", category: "ca
 /// the host can be tested on a machine without Screen Recording permission — which includes
 /// most CI — so the seam is there to let a future test drive the pipeline with a fake
 /// catalogue rather than to be swapped for a second real implementation.
+/// A filter for a capture source, and the region of it worth streaming.
+///
+/// The two travel together because they are only correct as a pair. The rectangle is expressed
+/// in the *filter's* coordinate space, so a caller that took one without the other would crop
+/// the wrong part of the wrong thing — and would do it silently.
+struct CaptureFilterPlan {
+    let filter: SCContentFilter
+
+    /// What to stream, or `nil` for all of it.
+    ///
+    /// In points in the display's logical coordinate system, which is the space
+    /// `SCStreamConfiguration.sourceRect` documents. `nil` is the right answer for every source
+    /// whose content is already exactly itself: a whole display, or a `desktopIndependentWindow`
+    /// filter that has already isolated one window with no surround to crop away.
+    let sourceRect: CGRect?
+}
+
 protocol CaptureSourceResolver: Sendable {
     /// Everything capturable right now, freshly enumerated if anything has changed.
     func catalog() async throws -> CaptureCatalog
 
-    /// A content filter for one source. Requires a prior ``catalog()`` call — see
-    /// ``ScreenCaptureSourceResolver``.
-    func makeFilter(for source: CaptureSource) throws -> SCContentFilter
+    /// A content filter for one source, and how much of it to stream. Requires a prior
+    /// ``catalog()`` call — see ``ScreenCaptureSourceResolver``.
+    func makeFilter(for source: CaptureSource) throws -> CaptureFilterPlan
 
     /// Where the source's content sits on screen, for mapping client input.
     func inputTransform(for source: CaptureSource) -> InputTransform
@@ -570,7 +587,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Filters
 
-    func makeFilter(for source: CaptureSource) throws -> SCContentFilter {
+    func makeFilter(for source: CaptureSource) throws -> CaptureFilterPlan {
         guard let content = lock.withLock({ isStale ? nil : snapshot }) else {
             throw CaptureError.catalogUnavailable
         }
@@ -584,7 +601,11 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // whole display *and* the desktop and menu bar behind it, which is what "share my
             // screen" means. An including filter would capture only the listed windows over
             // an empty backdrop.
-            return SCContentFilter(display: display, excludingWindows: [])
+            // The whole display, which is what this source means.
+            return CaptureFilterPlan(
+                filter: SCContentFilter(display: display, excludingWindows: []),
+                sourceRect: nil
+            )
 
         case .application(let pid):
             guard let application = content.applications.first(where: { $0.processID == pid }) else {
@@ -607,13 +628,26 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // non-app content blacked out, giving the iPhone a large black canvas with a
             // small app somewhere inside it.
             if owned.count == 1 {
-                return SCContentFilter(desktopIndependentWindow: owned[0])
+                // Already exactly the window, with no surround left to crop away.
+                return CaptureFilterPlan(
+                    filter: SCContentFilter(desktopIndependentWindow: owned[0]),
+                    sourceRect: nil
+                )
             }
 
-            guard let display = Self.hostingDisplay(for: Self.unionFrame(of: owned), in: content) else {
+            guard let union = Self.unionFrame(of: owned),
+                  let display = Self.hostingDisplay(for: union, in: content)
+            else {
                 throw CaptureError.sourceUnavailable("That application has no windows on any display.")
             }
-            return SCContentFilter(display: display, including: [application], exceptingWindows: [])
+            return CaptureFilterPlan(
+                filter: SCContentFilter(
+                    display: display,
+                    including: [application],
+                    exceptingWindows: []
+                ),
+                sourceRect: Self.sourceRect(for: union, on: display)
+            )
 
         case .window(let id):
             guard let window = content.windows.first(where: { $0.windowID == id }) else {
@@ -622,8 +656,34 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // Desktop-independent, so the window keeps being captured when it is covered by
             // another window or dragged to a different display. The alternative — a display
             // filter that includes this one window — captures whatever is drawn on top of it.
-            return SCContentFilter(desktopIndependentWindow: window)
+            return CaptureFilterPlan(
+                filter: SCContentFilter(desktopIndependentWindow: window),
+                sourceRect: nil
+            )
         }
+    }
+
+    /// A bounding box in global points, expressed in the display's own coordinate space.
+    ///
+    /// This conversion is the whole reason the crop rectangle is easy to get wrong. `SCWindow.frame`
+    /// is in *global* display points — the space `CGEvent` posts into, where a display left of the
+    /// primary has a negative origin — while `SCStreamConfiguration.sourceRect` is documented as
+    /// being in *the display's logical coordinate system*, which starts at that display's own
+    /// top-left. So the two differ by the display's origin, and passing one where the other is
+    /// wanted crops a plausible-looking rectangle off the wrong part of the screen.
+    ///
+    /// Clamped to the display afterwards, because an app whose windows hang off the edge asks for
+    /// a rectangle that is partly outside it, and a crop the stream cannot honour is a crop that
+    /// fails rather than one that is trimmed.
+    private static func sourceRect(for union: CGRect, on display: SCDisplay) -> CGRect? {
+        // `display.frame` is points; `display.width`/`height` are pixels. Both sides of this
+        // intersection have to be points, or a Retina display halves the crop.
+        let local = union.offsetBy(
+            dx: -display.frame.origin.x,
+            dy: -display.frame.origin.y
+        )
+        let within = local.intersection(CGRect(origin: .zero, size: display.frame.size))
+        return within.isNull || within.isEmpty ? nil : within
     }
 
     /// The display a rect sits on, falling back to the first one enumerated.
