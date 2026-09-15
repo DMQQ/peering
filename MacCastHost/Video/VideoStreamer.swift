@@ -24,6 +24,10 @@ final class VideoStreamer: @unchecked Sendable {
         var sent = 0
         var dropped = 0
         var keyframesSent = 0
+        /// Payload bytes handed to the network, counted on the successful send rather than
+        /// on submission — a frame that never left is not bandwidth. This is what a finished
+        /// session is measured by; frames say how the stream behaved, bytes say what it cost.
+        var bytesSent = 0
         /// Frames discarded because they arrived while a keyframe was owed. Counted apart
         /// from ``dropped`` because the two say different things: `dropped` means the link
         /// is behind, and this means the stream is waiting to restart. A number that is
@@ -224,6 +228,9 @@ final class VideoStreamer: @unchecked Sendable {
                 self.sending = false
                 if error == nil {
                     self._stats.sent += 1
+                    // The frame's own length plus the wire header it is framed with, so the
+                    // figure is what crossed the link rather than what the encoder produced.
+                    self._stats.bytesSent += outgoing.frame.data.count + EncodedVideoFrame.headerSize
                     if outgoing.frame.isKeyframe { self._stats.keyframesSent += 1 }
                 }
                 return true
