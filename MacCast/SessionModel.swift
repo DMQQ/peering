@@ -570,6 +570,10 @@ final class SessionModel {
         connectionPath = nil
         latchedModifiers = []
         phase = .disconnected
+        // Below the assignment rather than above it: this is the path that *is* the phase
+        // change, and the announcement that follows it sees no difference to act on. See
+        // ``SessionActivity/sessionEnded()``.
+        SessionActivity.shared.sessionEnded()
     }
 
     /// A trusted Mac the user asked for, waiting on discovery to produce it.

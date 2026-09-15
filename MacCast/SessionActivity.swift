@@ -54,6 +54,19 @@ final class SessionActivity {
         }
     }
 
+    /// Ends the card outright.
+    ///
+    /// Reached separately from ``sessionMoved(from:to:hostName:startedAt:reconnecting:)``
+    /// because a deliberate disconnect does not travel through it. `SessionModel.disconnect`
+    /// sets the phase itself — it has to, so the screen leaves the session the instant it is
+    /// tapped — and the announcement `ClientSession` then makes carries the phase the model has
+    /// *already* moved to. `sessionMoved` treats a phase that has not changed as nothing to do,
+    /// which is right in general and was wrong here: the card the user had just dismissed by
+    /// quitting was left running on the Lock Screen, claiming a session that was over.
+    func sessionEnded() {
+        end()
+    }
+
     /// Puts a card up saying the session dropped and is being put back.
     ///
     /// `startedAt` is carried through so the clock does not restart: the session being recovered

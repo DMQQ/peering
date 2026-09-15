@@ -292,8 +292,19 @@ final class HostModel {
                 return
             }
             if case .switchToSpace(let display, let index) = command {
-                Task { @MainActor in
-                    switchToSpace(display: display, index: index)
+                Task { @MainActor [weak self] in
+                    // The result used to be discarded. `performSwitch` returns whether the
+                    // window server *accepted* the move, and that is the whole difference
+                    // between a tile that works and one that silently does nothing — the two
+                    // are indistinguishable from the phone, and were indistinguishable from
+                    // here as well.
+                    let switched = switchToSpace(display: display, index: index)
+                    self?.record(
+                        switched
+                            ? "Desktop \(index) on display \(display) accepted"
+                            : "Desktop \(index) on display \(display) refused by the window server",
+                        level: switched ? .info : .warning
+                    )
                 }
                 return
             }
