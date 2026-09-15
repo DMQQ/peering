@@ -416,23 +416,6 @@ struct RemoteScreen: View {
                         .buttonStyle(.plain)
                         .disabled(!SessionPiP.isSupported)
                         .accessibilityLabel("Float the picture over other apps")
-                        // What the last attempt did, including the one made on the way out of
-                        // the app — which is otherwise unobservable from in here. Read after
-                        // swiping home and coming back.
-                        if let attempt = SessionPiP.shared.lastAttempt {
-                            Text(attempt)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        // The reason, not just the verdict. "failed" on its own is the same
-                        // fact as a silent failure, one step further along.
-                        if let why = SessionPiP.shared.lastRefusal {
-                            Text(why)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
@@ -443,6 +426,27 @@ struct RemoteScreen: View {
                                     .background(.ultraThinMaterial).clipShape(Capsule())
                             }.buttonStyle(.plain)
                         }
+                    }
+
+                    // Its own row, and unbounded in both directions. What this carries is an
+                    // error string from AVKit, and a *truncated* one is worth almost nothing —
+                    // "Could not start: Failed to start pictu…" names neither the fault nor the
+                    // reason. Set apart from the row above because it is a diagnostic, not a
+                    // control: it takes whatever width it needs and wraps to whatever height.
+                    if let attempt = SessionPiP.shared.lastAttempt {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Pic-in-pic: \(attempt)")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            if let why = SessionPiP.shared.lastRefusal {
+                                Text(why)
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.horizontal, 14)
