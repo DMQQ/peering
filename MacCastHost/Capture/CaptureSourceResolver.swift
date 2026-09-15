@@ -189,11 +189,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
         let spaceInfo = spaceDisplays.isEmpty ? nil : SpaceInfo(
             displays: spaceDisplays.map { display in
+                // The desktops only. A fullscreen application's Space is left out of both the
+                // count and the previews, so the client is offered only places it can actually
+                // be sent — see ``ManagedSpace``.
                 SpaceDisplay(
                     displayID: display.displayID,
-                    count: display.ids.count,
+                    count: display.desktopIDs.count,
                     current: display.current,
-                    previews: spacePreviews.previews(ids: display.ids, activeID: display.activeID)
+                    previews: spacePreviews.previews(ids: display.desktopIDs)
                 )
             }
         )

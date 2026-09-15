@@ -83,28 +83,57 @@ private let cgsSetManagedDisplayCurrentSpace: SetCurrentSpaceFunc? = resolveFirs
 ///
 /// Not private: the capture side builds a ``SpaceDisplay`` out of one, and the wire carries
 /// ``displayID`` rather than the UUID, which stays an implementation detail of this file.
+/// One Space, as the window server describes it.
+///
+/// The `type` field is the reason this type exists. `0` is a desktop the user made; `4` is a
+/// fullscreen application's own Space. Both are Spaces, both can be the one on screen, and they
+/// are **not** interchangeable: you switch to a desktop, whereas a fullscreen Space belongs to
+/// one application and is reachable by going back to that application. Handing the second to
+/// the client as though it were the first produced a tile that looked like a desktop, was
+/// sometimes marked current, and did something else entirely when tapped.
+struct ManagedSpace: Sendable, Equatable {
+    let id: Int32
+    let isFullscreen: Bool
+    /// The application owning a fullscreen Space, from the window server's `pid`.
+    ///
+    /// The only way to name one — a Space has a number and a UUID, and neither is a name.
+    let pid: Int32?
+}
+
 struct ManagedDisplay {
     /// The `CGDirectDisplayID` this entry describes.
     let displayID: UInt32
     /// The display's UUID, as a string. This is the key `SLSManagedDisplaySetCurrentSpace` wants,
     /// and A-string-is-A-string: it is compared by value, not by instance.
     let identifier: String
-    /// Every desktop on this display, in order, by ID.
+    /// Every Space on this display, in order — desktops and fullscreen applications alike.
     ///
     /// The IDs are the point of this type existing at all. A Space's *number* is only its
-    /// current position in the list — adding or removing a desktop renumbers every desktop
-    /// after it — so anything that remembers a desktop has to remember its ID. A preview cache
-    /// keyed by number would hand the client one desktop's picture under another desktop's
-    /// number, which is a wrong answer that looks like a right one.
-    let ids: [Int32]
+    /// current position in the list — adding or removing a desktop renumbers every Space after
+    /// it — so anything that remembers a Space has to remember its ID. A preview cache keyed by
+    /// number would hand the client one desktop's picture under another desktop's number, which
+    /// is a wrong answer that looks like a right one.
+    let spaces: [ManagedSpace]
     let activeID: Int32
 
-    /// The 1-based position of the active Space, in the numbering clients are sent.
+    var ids: [Int32] { spaces.map(\.id) }
+
+    /// The desktops, in order. What the client is offered and what it may switch to.
+    var desktopIDs: [Int32] { spaces.filter { !$0.isFullscreen }.map(\.id) }
+
+    /// The 1-based position of the active Space **among the desktops**, or `nil` when this
+    /// display is showing a fullscreen application.
     ///
-    /// Falls back to the first Space when the ID is not in the list, which is what a switch
-    /// landing between the two reads below looks like from here.
-    var current: Int {
-        ids.firstIndex(of: activeID).map { $0 + 1 } ?? 1
+    /// `nil` rather than a fallback, unlike before. Falling back to the first desktop while a
+    /// fullscreen app is on screen would mark a desktop current that is not the one being
+    /// looked at — the same lie in the other direction.
+    var current: Int? {
+        desktopIDs.firstIndex(of: activeID).map { $0 + 1 }
+    }
+
+    /// The fullscreen application being shown, when that is what is on this display.
+    var fullscreen: ManagedSpace? {
+        spaces.first { $0.isFullscreen && $0.id == activeID }
     }
 }
 
@@ -170,22 +199,30 @@ private func readDisplays() -> [ManagedDisplay] {
               let displayID = displayID(forIdentifier: identifier, in: byIdentifier)
         else { return nil }
 
-        // Every Space the display reports, with no filter on `type`.
+        // Every Space the display reports, with the `type` kept rather than filtered on.
         //
-        // Tempting to keep only the user Spaces (`type` 0) and drop the fullscreen ones
-        // (`type` 4), and wrong: a fullscreen Space is the active one whenever a window is
-        // fullscreen, so filtering would drop the ID this list reports as current, and an
-        // `activeID` outside `ids` costs the client *every* preview on that display — not one
-        // tile — because the whole preview set is discarded when the list and the active Space
-        // disagree.
-        let ids = spaces.compactMap { ($0["id64"] as? NSNumber)?.int32Value }
-        guard !ids.isEmpty else { return nil }
+        // The type is not discarded here for the reason it used to be dropped entirely: a
+        // fullscreen Space is the active one whenever a window is fullscreen, so a reader that
+        // only knew desktops would report an `activeID` it could not find — and an `activeID`
+        // outside the list costs the client *every* preview on that display, not one tile.
+        // Keeping it and *labelling* it means the list stays complete and the caller can still
+        // tell a place it may be sent from an application it may only return to.
+        let parsed = spaces.compactMap { space -> ManagedSpace? in
+            guard let id = (space["id64"] as? NSNumber)?.int32Value else { return nil }
+            return ManagedSpace(
+                id: id,
+                isFullscreen: (space["type"] as? NSNumber)?.intValue == 4,
+                pid: (space["pid"] as? NSNumber)?.int32Value
+            )
+        }
+        guard !parsed.isEmpty else { return nil }
 
         let current = entry["Current Space"] as? [String: Any]
         let reported = (current?["id64"] as? NSNumber)?.int32Value
+        let ids = parsed.map(\.id)
         let activeID = reported.flatMap { ids.contains($0) ? $0 : nil } ?? ids[0]
 
-        return ManagedDisplay(displayID: displayID, identifier: identifier, ids: ids, activeID: activeID)
+        return ManagedDisplay(displayID: displayID, identifier: identifier, spaces: parsed, activeID: activeID)
     }
 
     // Main first, then whatever order the window server listed the rest in.
@@ -227,15 +264,19 @@ func switchSpaceRelative(direction: SpaceDirection) -> Bool {
     guard let display = displays.first(where: { $0.displayID == DisplayGeometry.pointerDisplayID() })
         ?? displays.first
     else { return false }
-    guard display.ids.count > 1 else { return false }
-    guard let current = display.ids.firstIndex(of: display.activeID) else { return false }
+    // Desktops, not every Space: stepping "left" out of a desktop and into whatever fullscreen
+    // application happens to sit beside it in the list is not a move anyone asked for, and the
+    // list order is the window server's rather than the user's.
+    let desktops = display.desktopIDs
+    guard desktops.count > 1 else { return false }
+    guard let current = desktops.firstIndex(of: display.activeID) else { return false }
 
     let next: Int
     switch direction {
-    case .left:  next = current == 0 ? display.ids.count - 1 : current - 1
-    case .right: next = current == display.ids.count - 1 ? 0 : current + 1
+    case .left:  next = current == 0 ? desktops.count - 1 : current - 1
+    case .right: next = current == desktops.count - 1 ? 0 : current + 1
     }
-    return performSwitch(display: display, spaceID: display.ids[next])
+    return performSwitch(display: display, spaceID: desktops[next])
 }
 
 /// Switches directly to the 1-based Space at `index` **on `display`**.
@@ -257,8 +298,12 @@ func switchToSpace(display: UInt32, index: Int) -> Bool {
     guard let target = readDisplays().first(where: { $0.displayID == display }) else { return false }
 
     let zeroIndex = index - 1
-    guard zeroIndex >= 0, zeroIndex < target.ids.count else { return false }
-    return performSwitch(display: target, spaceID: target.ids[zeroIndex])
+    // Against the desktops the client was shown, so index N means the Nth tile — which is what
+    // it looks like it means. Counting every Space instead would put a fullscreen application
+    // at some index, and the client has no tile for it to have been aiming at.
+    let desktops = target.desktopIDs
+    guard zeroIndex >= 0, zeroIndex < desktops.count else { return false }
+    return performSwitch(display: target, spaceID: desktops[zeroIndex])
 }
 
 private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {

@@ -183,8 +183,14 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
     /// visited since the host started has no picture and still has to be offered.
     public let count: Int
 
-    /// 1-based index of this display's active Space, in **this display's own** numbering.
-    public let current: Int
+    /// 1-based index of this display's active **desktop**, in this display's own numbering, or
+    /// `nil` when the display is showing a fullscreen application.
+    ///
+    /// `nil` rather than a fallback, because there genuinely is no current desktop then. A
+    /// number picked to fill the gap would mark a desktop as current that nobody is looking at,
+    /// which is the same lie in the other direction — and this field drives the one highlight
+    /// in the panel.
+    public let current: Int?
 
     /// This display's desktops, as the host last saw them.
     ///
@@ -196,7 +202,7 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
 
     public var id: UInt32 { displayID }
 
-    public init(displayID: UInt32, count: Int, current: Int, previews: [SpacePreview] = []) {
+    public init(displayID: UInt32, count: Int, current: Int?, previews: [SpacePreview] = []) {
         self.displayID = displayID
         self.count = count
         self.current = current
@@ -218,7 +224,9 @@ public struct SpaceDisplay: Codable, Sendable, Equatable, Identifiable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         displayID = try container.decode(UInt32.self, forKey: .displayID)
         count = try container.decode(Int.self, forKey: .count)
-        current = try container.decode(Int.self, forKey: .current)
+        // Absent means a fullscreen application is on screen, which is a fact rather than a
+        // missing field — hence `IfPresent` and no fallback.
+        current = try container.decodeIfPresent(Int.self, forKey: .current)
         previews = try container.decodeIfPresent([SpacePreview].self, forKey: .previews) ?? []
     }
 }
@@ -242,7 +250,7 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
 
     /// Derived from the main display, for the readers that predate multiple displays.
     public var count: Int { displays.first?.count ?? 0 }
-    public var current: Int { displays.first?.current ?? 1 }
+    public var current: Int? { displays.first?.current }
     /// Every display's previews, flattened.
     public var previews: [SpacePreview] { displays.flatMap(\.previews) }
     /// Desktops across every display.
@@ -279,7 +287,9 @@ public struct SpaceInfo: Codable, Sendable, Equatable {
             SpaceDisplay(
                 displayID: 0,
                 count: try legacy.decode(Int.self, forKey: .count),
-                current: try legacy.decode(Int.self, forKey: .current),
+                // Decoded as present because the old shape predates fullscreen Spaces being
+                // distinguished at all, so it always carried one.
+                current: try legacy.decodeIfPresent(Int.self, forKey: .current),
                 previews: try legacy.decodeIfPresent([SpacePreview].self, forKey: .previews) ?? []
             )
         ]

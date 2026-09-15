@@ -36,14 +36,20 @@ struct SpaceShot: Sendable, Equatable {
 /// server mid-change — the list and the active Space are read one after the other, and the user
 /// can switch in between — produces no previews at all instead of tiles numbered against a list
 /// that no longer describes the screen.
+/// The pictures for `ids`, numbered by their position in it.
+///
+/// **No check that the active Space is among them**, which is a change: it used to return
+/// nothing at all unless the caller's list contained the active ID, as a guard against a
+/// transient read where the two disagreed. That guard cannot survive a fullscreen application —
+/// the active Space is then deliberately absent from the desktops the caller passes — and it
+/// is not needed, because the shots are keyed by Space ID and only their *number* comes from
+/// position. A list read a moment out of date yields one client refresh with the right
+/// pictures under shifted numbers, rather than a display with no pictures at all.
 func orderedSpacePreviews(
     ids: [Int32],
-    activeID: Int32,
     shots: [Int32: SpaceShot]
 ) -> [SpacePreview] {
-    guard ids.contains(activeID) else { return [] }
-
-    return ids.enumerated().compactMap { offset, id in
+    ids.enumerated().compactMap { offset, id in
         guard let shot = shots[id] else { return nil }
         return SpacePreview(
             index: offset + 1,
@@ -84,8 +90,8 @@ final class SpacePreviewCache: @unchecked Sendable {
     static let maximumByteCount = 64 * 1_024
 
     /// One display's previews, in Space order and numbered as the client numbers them.
-    func previews(ids: [Int32], activeID: Int32) -> [SpacePreview] {
-        orderedSpacePreviews(ids: ids, activeID: activeID, shots: lock.withLock { shots })
+    func previews(ids: [Int32]) -> [SpacePreview] {
+        orderedSpacePreviews(ids: ids, shots: lock.withLock { shots })
     }
 
     /// Drops every picture whose desktop no longer exists on any display.
