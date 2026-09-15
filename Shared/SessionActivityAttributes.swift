@@ -22,6 +22,32 @@ enum SharedStore {
         get { defaults?.string(forKey: "lastHostName") }
         set { defaults?.set(newValue, forKey: "lastHostName") }
     }
+
+    /// One Mac the phone knows about, as the widget needs it: enough to name it and enough to
+    /// ask for it back.
+    ///
+    /// A copy of the app's own list rather than a reference to it, because there is no shared
+    /// store between the two processes beyond this one — see the note above. Written by the app
+    /// whenever its pairings or their names change.
+    struct KnownMac: Codable, Identifiable, Hashable {
+        let id: String
+        let name: String
+    }
+
+    /// The Macs this phone has paired with, most recently used first.
+    ///
+    /// Order matters: the widget only has room for a few, and the ones to show are the ones most
+    /// likely to be wanted. The app writes it in its own order and the widget takes it as given.
+    static var knownMacs: [KnownMac] {
+        get {
+            guard let data = defaults?.data(forKey: "knownMacs") else { return [] }
+            return (try? JSONDecoder().decode([KnownMac].self, from: data)) ?? []
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults?.set(data, forKey: "knownMacs")
+        }
+    }
 }
 
 /// The Live Activity's shape, compiled into **both** the app and the widget extension.

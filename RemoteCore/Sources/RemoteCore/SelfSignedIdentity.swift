@@ -83,7 +83,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             case .certificateRejected:
                 return "Security framework rejected the generated certificate."
             case .identityCreationFailed:
-                return "SecIdentityCreate failed — the key may not be keychain-backed."
+                return "SecIdentityCreate failed. The key may not be keychain-backed."
             case .identityNotRemoved:
                 return "The identity key could not be removed from the keychain."
             }

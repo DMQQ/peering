@@ -203,7 +203,7 @@ public final class ClientConnection: @unchecked Sendable {
     private var timeoutTask: Task<Void, Never>?
     private var observed: TLSConfig.ObservedKey?
     private var _observedServerKey: Data?
-    private var _tlsVersion = "—"
+    private var _tlsVersion = "None"
 
     private var _onFrame: (@Sendable (Frame) -> Void)?
     private var _onClose: (@Sendable (Failure) -> Void)?
@@ -495,7 +495,7 @@ public final class ClientConnection: @unchecked Sendable {
     private static func tlsVersion(of connection: NWConnection) -> String {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
             as? NWProtocolTLS.Metadata
-        else { return "—" }
+        else { return "None" }
 
         switch sec_protocol_metadata_get_negotiated_tls_protocol_version(metadata.securityProtocolMetadata) {
         case .TLSv13: return "TLS 1.3"

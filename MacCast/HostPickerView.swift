@@ -19,6 +19,15 @@ struct HostPickerView: View {
     @State private var acknowledgedFailure: String?
     @State private var forgetTarget: String?
 
+    /// The Mac being renamed, and what the field currently holds.
+    @State private var renameTarget: String?
+    @State private var renameDraft = ""
+
+    /// Cleared by the footer's link, which is the only way back to the introduction once it has
+    /// been dismissed. Read here so the link can exist at all — the flow itself reads the same
+    /// key from `ContentView`, which is what actually shows it.
+    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = true
+
     private var failureAlert: Binding<Bool> {
         Binding(
             get: {
@@ -66,6 +75,10 @@ struct HostPickerView: View {
                     .padding(.horizontal, 18)
                     .padding(.bottom, 36)
                 }
+
+                if model.isBusy {
+                    connectingOverlay
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -96,6 +109,21 @@ struct HostPickerView: View {
                 Button("Cancel", role: .cancel) { forgetTarget = nil }
             } message: {
                 Text("This Mac will be removed from Trusted Macs. You can re-pair it at any time.")
+            }
+            .alert("Rename this Mac", isPresented: Binding(
+                get: { renameTarget != nil },
+                set: { if !$0 { renameTarget = nil } }
+            )) {
+                TextField("Name", text: $renameDraft)
+                Button("Save") {
+                    if let id = renameTarget { model.rename(hostID: id, to: renameDraft) }
+                    renameTarget = nil
+                }
+                Button("Cancel", role: .cancel) { renameTarget = nil }
+            } message: {
+                // Said plainly, because the alternative is a user renaming a Mac here and then
+                // looking for the new name on the Mac itself. This is a label for this phone.
+                Text("The new name is only used on this iPhone. The Mac keeps its own name.")
             }
         }
     }
@@ -142,15 +170,84 @@ struct HostPickerView: View {
         return model.hosts.count == 1 ? "1 MAC NEARBY" : "\(model.hosts.count) MACS NEARBY"
     }
 
+    /// What a connection looks like while it is being made.
+    ///
+    /// A tap on a Mac used to dim the list and change one word of eyebrow text, which is a very
+    /// quiet answer to the loudest thing the app does. Connecting is a second of a TLS handshake
+    /// and a certificate exchange with nothing to look at, and a second is long enough to wonder
+    /// whether the tap registered.
+    ///
+    /// So it says which Mac, says what is happening, and dims the list behind it — the dimming is
+    /// the part that matters, because it is what shows the row that was tapped is no longer the
+    /// thing being looked at. It fades rather than springs, unlike everything else here: this is
+    /// not a control answering a finger, it is a wait, and a wait that bounces reads as busywork.
+    private var connectingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.45).ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(ColorPalette.ink)
+
+                VStack(spacing: 3) {
+                    Text(model.hostName ?? "Your Mac")
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text("Connecting…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(28)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .transition(.opacity.animation(.easeOut(duration: 0.2)))
+        .allowsHitTesting(true)
+    }
+
     /// The small print, and the claim the app is built on.
+    ///
+    /// The claim used to read "No account, no server. Everything stays on your network." The
+    /// first half was true and the second was not: the Mac holds a connection open to the relay
+    /// by default so it can be reached from away from home, which is the feature and not a bug —
+    /// but it does mean a server is involved, and a footer that says otherwise is the kind of
+    /// small dishonest sentence that costs an app its credibility the moment a user finds out.
+    /// What is true is stated instead, and ``FAQView`` has the rest.
     private var footer: some View {
         VStack(spacing: 5) {
             Text(model.thisDeviceDescription)
                 .font(.caption2.monospaced())
-            Text("No account, no server. Everything stays on your network.")
+                // The one line here that is genuinely small print, and the only one that stays
+                // at tertiary. It is an identifier, not a sentence.
+                .foregroundStyle(.tertiary)
+
+            Text("No account, nothing stored. Direct on your own network, relayed only when your Mac is somewhere else.")
                 .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 2) {
+                NavigationLink {
+                    FAQView()
+                } label: {
+                    Text("How Peering works")
+                        .font(.caption2.weight(.medium))
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.98))
+
+                Button("Show the introduction again") {
+                    hasSeenWelcome = false
+                }
+                .font(.caption2.weight(.medium))
+                .buttonStyle(RailButtonStyle(scale: 0.98))
+            }
+            // Blue, the same blue the manual-connect row above uses for the one thing on it that
+            // is a control. Everything here was tertiary, which is a shade chosen for text that
+            // is not meant to be read closely — and then two buttons were put in it, at the
+            // bottom of a screen, where nothing is legible at arm's length.
+            .foregroundStyle(ColorPalette.accent)
+            .padding(.top, 5)
         }
-        .foregroundStyle(.tertiary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
@@ -325,6 +422,15 @@ struct HostPickerView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .rowSurface()
+        // Long press rather than a third button on the row. Connecting is what a tap means here
+        // and it has to keep meaning that; renaming is the rare case, and a row with three
+        // targets on it is a row nobody can hit the right part of in a hurry.
+        .contextMenu {
+            Button("Rename…") {
+                renameDraft = model.displayName(forHostID: hostID) ?? ""
+                renameTarget = hostID
+            }
+        }
     }
 
     /// The second line of a trusted row: online/offline status, last-session time, or
@@ -585,9 +691,9 @@ struct DiagnosticsView: View {
     var body: some View {
         List {
             Section("Connection") {
-                LabeledContent("Mac", value: model.hostName ?? "—")
+                LabeledContent("Mac", value: model.hostName ?? "None")
                 LabeledContent("State", value: state)
-                LabeledContent("Path", value: model.connectionPath?.rawValue ?? "—")
+                LabeledContent("Path", value: model.connectionPath?.rawValue ?? "None")
                 LabeledContent("Display", value: model.videoStatus)
                 if let tls = model.tlsDescription {
                     LabeledContent("Transport", value: tls)
@@ -595,7 +701,7 @@ struct DiagnosticsView: View {
                 if let latency = model.latencyMilliseconds {
                     LabeledContent("Control latency", value: "\(Int(latency.rounded())) ms")
                 }
-                LabeledContent("Source", value: model.activeSourceID ?? "—")
+                LabeledContent("Source", value: model.activeSourceID ?? "None")
             }
 
             Section("This device") {
@@ -623,7 +729,7 @@ struct DiagnosticsView: View {
         case .handshaking: return "Handshaking"
         case .confirming: return "Confirming the pairing code"
         case .ready: return "Connected"
-        case .failed(let message): return "Failed — \(message)"
+        case .failed(let message): return "Failed: \(message)"
         case .disconnected: return "Disconnected"
         }
     }

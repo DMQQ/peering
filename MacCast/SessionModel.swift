@@ -165,7 +165,55 @@ final class SessionModel {
 
     /// The name to show for a trusted Mac, or nil when this device has never seen that ID —
     /// a Mac paired from somewhere else, or paired before names were being kept.
-    func displayName(forHostID id: String) -> String? { hostNames[id] }
+    /// Names the user has chosen, which win over the name the Mac reports.
+    ///
+    /// Kept apart from ``hostNames`` rather than overwriting an entry in it, and that is not
+    /// tidiness: `hostNames` is rewritten from the Mac's own `ServerHello` on every connect, so a
+    /// rename stored there would survive exactly until the next handshake and then quietly
+    /// revert. Two maps, and the user's is asked first.
+    ///
+    /// Worth having for anyone whose Macs are all called the same thing — three MacBook Pros
+    /// arrive as "Damian's MacBook Pro" three times over, and the device ID is the only thing
+    /// telling them apart.
+    private(set) var customHostNames: [String: String] = [:]
+
+    private static let customHostNamesKey = "Peering.customHostNames"
+
+    func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
+
+    /// Whether this Mac is showing a name the user chose rather than the one it reports.
+    func isRenamed(hostID: String) -> Bool { customHostNames[hostID] != nil }
+
+    /// Names a Mac, or puts its own name back if the new one is empty.
+    func rename(hostID: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            customHostNames.removeValue(forKey: hostID)
+        } else {
+            customHostNames[hostID] = trimmed
+        }
+        UserDefaults.standard.set(customHostNames, forKey: Self.customHostNamesKey)
+        publishKnownMacs()
+    }
+
+    /// Hands the widget its copy of the paired list.
+    ///
+    /// Pushed rather than pulled, because the widget is a separate process with no way to ask:
+    /// the only moment this can be written is when the app changes something. Called from the
+    /// four places that can — a pairing being established, a Mac being forgotten, a Mac
+    /// reporting a new name, and a rename — which is the whole of the list.
+    ///
+    /// Most recently connected first, because the widget has room for a few and the Mac someone
+    /// wants is almost always the one they used last.
+    private func publishKnownMacs() {
+        let ordered = pairedHostIDs.sorted {
+            (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast)
+        }
+        SharedStore.knownMacs = ordered.map {
+            SharedStore.KnownMac(id: $0, name: displayName(forHostID: $0) ?? "A Mac")
+        }
+        WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
+    }
 
     /// When the session that is up now came up, for the elapsed-time readout. `nil` whenever
     /// there is no ready session.
@@ -181,8 +229,24 @@ final class SessionModel {
 
     // MARK: - User choices
 
-    var manualAddress = "127.0.0.1"
-    var manualPort = String(ProtocolInfo.defaultPort)
+    /// The address and port the manual-connect card is showing.
+    ///
+    /// Remembered across launches, and deliberately *not* used to reconnect to anything. This app
+    /// does not dial remembered addresses — the relay path exists precisely so that it does not
+    /// have to — and a stored IP is the thing that goes stale exactly when a network changes.
+    ///
+    /// What they are remembered for is typing. A Mac on a custom port reached by address would
+    /// otherwise need the same address and the same number entered again on every launch, and
+    /// that is the one case where a port other than the default costs the user anything at all.
+    var manualAddress: String {
+        didSet { UserDefaults.standard.set(manualAddress, forKey: Self.manualAddressKey) }
+    }
+    var manualPort: String {
+        didSet { UserDefaults.standard.set(manualPort, forKey: Self.manualPortKey) }
+    }
+
+    private static let manualAddressKey = "Peering.manualAddress"
+    private static let manualPortKey = "Peering.manualPort"
     private(set) var keyboardMode: KeyboardMode = .unicode
     private(set) var latchedModifiers: Modifiers = []
     private(set) var activeSourceID: String?
@@ -229,6 +293,10 @@ final class SessionModel {
         device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
         pairedHostIDs = pins.hostIDs
         hostNames = UserDefaults.standard.dictionary(forKey: Self.hostNamesKey) as? [String: String] ?? [:]
+        customHostNames = UserDefaults.standard.dictionary(forKey: Self.customHostNamesKey) as? [String: String] ?? [:]
+        let defaults = UserDefaults.standard
+        manualAddress = defaults.string(forKey: Self.manualAddressKey) ?? "127.0.0.1"
+        manualPort = defaults.string(forKey: Self.manualPortKey) ?? String(ProtocolInfo.defaultPort)
         do {
             identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
         } catch {
@@ -424,7 +492,12 @@ final class SessionModel {
             // not only about where it landed.
             let previous = self.phase
             self.phase = phase
-            if phase == .ready { pairedHostIDs = pins.hostIDs }
+            if phase == .ready {
+                pairedHostIDs = pins.hostIDs
+                // A handshake that reached `.ready` has just established or confirmed a pin, and
+                // that is one of the few moments the paired list can have changed.
+                publishKnownMacs()
+            }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
             }
@@ -511,6 +584,10 @@ final class SessionModel {
             if hostNames[hello.serverID] != hello.hostName {
                 hostNames[hello.serverID] = hello.hostName
                 UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
+                // The name the Mac reports can change under it — someone renames the Mac itself
+                // — so the widget's copy has to follow. A user's own name still wins: see
+                // ``customHostNames``.
+                publishKnownMacs()
             }
         case .catalog(let catalog):
             self.catalog = catalog
@@ -651,6 +728,26 @@ final class SessionModel {
     /// Whether a trusted Mac has been asked for and not yet found.
     var isWaitingForHost: Bool { pendingHostID != nil }
 
+    /// Whether a Mac may be reached through the relay, or only over the local network.
+    ///
+    /// A setting rather than a constant, and the only thing in the app that can turn a feature
+    /// off outright. The relay is what makes a Mac reachable from outside its own network, and
+    /// it is also the one part of this system that is not the user's own two devices — so
+    /// whether it is used is the user's to decide rather than a default to be discovered.
+    ///
+    /// Turning it off does not make anything *more* encrypted; the relay already cannot read
+    /// what it carries. It makes a different promise: that the Mac's device ID and the times it
+    /// is connected never reach a server at all. That is the promise the FAQ makes, and it is
+    /// only keepable if this actually gates every dial — see ``connectToTrusted(hostID:)``,
+    /// ``reconnectToLastHost()`` and ``resumeIfNeeded()``, which are all of them.
+    ///
+    /// Read through `object(forKey:)` rather than `bool(forKey:)` so that unset is
+    /// distinguishable from off. The default is on, which is the behaviour the app had before
+    /// the setting existed, and `bool(forKey:)` would report that default as `false`.
+    var allowsRelay: Bool {
+        UserDefaults.standard.object(forKey: PreferenceKey.allowRelay) as? Bool ?? true
+    }
+
     /// Connects to a Mac this device has paired with before, by ID.
     ///
     /// Bonjour wins when it has the Mac, preserving the existing direct LAN path. Otherwise the
@@ -659,6 +756,15 @@ final class SessionModel {
         if let host = hosts.first(where: { $0.id == hostID }) {
             pendingHostID = nil
             connect(to: .discovered(host))
+            return
+        }
+        guard allowsRelay else {
+            // Waited for rather than refused, and the waiting is not a spinner over nothing:
+            // the Mac is paired, and the only thing missing is that it is not on this network
+            // yet. That is a state that ends by itself — walking back into range, or the Mac
+            // waking — and the browser's next update connects with no further tap. The row
+            // already draws the progress indicator for it.
+            pendingHostID = hostID
             return
         }
         pendingHostID = nil
@@ -685,7 +791,7 @@ final class SessionModel {
         let name = defaults.string(forKey: Self.lastHostNameKey)
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             connect(to: .discovered(host))
-        } else if let hostID, pins.hostIDs.contains(hostID) {
+        } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
             connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
         }
     }
@@ -754,11 +860,15 @@ final class SessionModel {
             stopReconnecting()
             isResuming = true
             connect(to: .discovered(host))
-        } else if let hostID, pins.hostIDs.contains(hostID) {
+        } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
             stopReconnecting()
             isResuming = true
             connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
         } else {
+            // Includes the LAN-only case: the Mac is paired and simply not here yet. The ladder
+            // keeps asking until it appears, which is the whole of what "wait for it to come
+            // back" means — stopping at the first attempt that found nothing would end a resume
+            // that has not failed, only not succeeded yet.
             scheduleReconnect()
         }
     }
@@ -860,6 +970,7 @@ final class SessionModel {
     func forget(hostID: String) {
         pins.remove(hostID: hostID)
         pairedHostIDs = pins.hostIDs
+        publishKnownMacs()
         append(note: "Forgot \(hostID). Unpair this device on the Mac as well.")
     }
 
@@ -889,7 +1000,7 @@ final class SessionModel {
 
         do {
             self.identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
-            append(note: "New identity \(device.id.prefix(8))… — pair again on the Mac.")
+            append(note: "New identity \(device.id.prefix(8))…. Pair again on the Mac.")
         } catch {
             identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }

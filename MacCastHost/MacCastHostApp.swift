@@ -21,7 +21,7 @@ struct MacCastHostApp: App {
             HostMenuBarContent()
                 .environment(model)
         } label: {
-            HostMenuBarLabel(connected: !model.connectedClients.isEmpty)
+            HostMenuBarLabel(state: model.menuBarState)
         }
         .menuBarExtraStyle(.menu)
     }

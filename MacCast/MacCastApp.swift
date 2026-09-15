@@ -35,7 +35,13 @@ struct MacCastApp: App {
         WindowGroup {
             ContentView()
                 .environment(model)
-                .task { model.start() }
+                .task {
+                    model.start()
+                    // Handed over once, so Siri and Shortcuts have something to reach. The
+                    // intents cannot read a view hierarchy and the model is owned here, not by
+                    // a view — see ``IntentHost``.
+                    IntentHost.model = model
+                }
                 // The banners are for a user who is somewhere else. Coming back to the front
                 // is the moment they stop being the current news: the screen says the same
                 // thing, and the banner sitting behind it is a claim about the past — a
@@ -61,7 +67,20 @@ struct MacCastApp: App {
                 // one instruction it can give.
                 .onOpenURL { url in
                     guard url.scheme == "peering", url.host == "connect" else { return }
-                    model.reconnectToLastHost()
+
+                    // The widget's medium size names a Mac per row, so the URL carries which one
+                    // was asked for. Without an id — the small tile, which has only one thing it
+                    // could mean — this is the Mac used last, which is what it always was.
+                    let requested = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                        .queryItems?
+                        .first { $0.name == "id" }?
+                        .value
+
+                    if let requested, model.pairedHostIDs.contains(requested) {
+                        model.connectToTrusted(hostID: requested)
+                    } else {
+                        model.reconnectToLastHost()
+                    }
                 }
                 .preferredColorScheme(.dark)
         }

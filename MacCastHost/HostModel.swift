@@ -159,6 +159,59 @@ final class HostModel {
     /// log viewer, and an unbounded array in `@Observable` state re-renders forever.
     private static let maxEvents = 60
 
+    // MARK: - Port
+
+    private static let portKey = "hostPort"
+
+    /// The port this Mac listens on.
+    ///
+    /// Read once at launch and written when it changes, because a Mac that needs a different
+    /// port needs it every time rather than once. Out of range or unset falls back to the
+    /// default, so a bad value in the defaults store cannot leave the host unable to start.
+    private static func storedPort() -> UInt16 {
+        let stored = UserDefaults.standard.integer(forKey: portKey)
+        guard let port = UInt16(exactly: stored), port > 0 else { return ProtocolInfo.defaultPort }
+        return port
+    }
+
+    /// What the menu bar icon should be showing.
+    ///
+    /// Computed here rather than in the scene, for the reason the scene already gives: an
+    /// `@Observable` read inside `MenuBarExtra`'s label is what invalidates it.
+    var menuBarState: HostMenuBarState {
+        guard status.isListening else { return .stopped }
+        if !connectedClients.isEmpty { return .streaming }
+        return pairedClientIDs.isEmpty ? .waiting : .ready
+    }
+
+    /// What the host is configured to listen on, whether or not it currently is.
+    private(set) var port: UInt16 = HostModel.storedPort()
+
+    /// The port that is actually bound, once there is one.
+    ///
+    /// Preferred over ``port`` for anything shown to the user: the two are the same while the
+    /// listener is up, and while it is down the configured value is a claim about the future.
+    var boundPort: UInt16 {
+        if case .listening(let bound) = status { return bound }
+        return port
+    }
+
+    /// Changes the port, and restarts the listener if one is running.
+    ///
+    /// A restart rather than a rebind, because there is no rebinding: the port is fixed when the
+    /// listener is created. It is a heavy way to change one number — the capture stream and every
+    /// connected device go with it — but the alternative is a host that reports one port and
+    /// listens on another, which is worse in every way that matters.
+    func setPort(_ newPort: UInt16) {
+        guard newPort != port, newPort > 0 else { return }
+        port = newPort
+        UserDefaults.standard.set(Int(newPort), forKey: Self.portKey)
+
+        guard server != nil else { return }
+        stop()
+        start()
+    }
+
     // MARK: - Lifecycle
 
     func start() {
@@ -261,7 +314,7 @@ final class HostModel {
         }
         self.coordinator = coordinator
 
-        let server = HostServer(identity: identity, device: device, pins: pins)
+        let server = HostServer(identity: identity, device: device, pins: pins, port: port)
         server.onEvent = { [weak self] event in
             Task { @MainActor [weak self] in self?.apply(event) }
         }

@@ -473,7 +473,7 @@ final class InputInjector: @unchecked Sendable {
         inputLog.fault("""
             Input was requested but this app is not trusted for Accessibility, so every \
             synthetic event is being discarded silently. Grant it in System Settings → \
-            Privacy & Security → Accessibility, then relaunch — consent is read when the \
+            Privacy & Security → Accessibility, then relaunch. Consent is read when the \
             process starts.
             """)
     }

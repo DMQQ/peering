@@ -23,6 +23,9 @@ struct SettingsPanel: View {
     @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
     /// Read here as well as in ``SessionPiP``, under the same key — see ``PreferenceKey``.
     @AppStorage(PreferenceKey.pipAutoStart) private var pipAutoStart = true
+    /// Read here to say what it does in words, and in ``SessionModel`` to obey it. The default
+    /// matches the model's: on, which is how the app behaved before the switch existed.
+    @AppStorage(PreferenceKey.allowRelay) private var allowsRelay = true
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -31,6 +34,7 @@ struct SettingsPanel: View {
                 stream
                 picture
                 panels
+                privacy
                 keyboard
                 macros
                 pairedMacs
@@ -57,9 +61,9 @@ struct SettingsPanel: View {
     private var session: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Session")
-            info("Mac", model.hostName ?? "—")
+            info("Mac", model.hostName ?? "None")
             info("State", stateDescription)
-            info("Path", model.connectionPath?.rawValue ?? "—")
+            info("Path", model.connectionPath?.rawValue ?? "None")
             info("Video", model.videoStatus)
             if let latency = model.latencyMilliseconds {
                 info("Latency", "\(Int(latency.rounded())) ms")
@@ -102,7 +106,7 @@ struct SettingsPanel: View {
             .tint(ColorPalette.accent)
             Text("""
                 Desktops and sources put themselves away once you have picked one. Shortcuts \
-                stays open either way — its buttons are key presses rather than choices, and a \
+                stays open either way. Its buttons are key presses rather than choices, and a \
                 panel that shut after every one would have to be reopened for the next.
                 """)
                 .font(.caption2)
@@ -123,7 +127,36 @@ struct SettingsPanel: View {
             // Pushed straight through rather than read on the next attach: the setting has to
             // take effect on the controller that is already running.
             .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
-            Text("Leaving the app floats the picture over whatever is next. The button in the status bar starts it by hand either way, and iOS has its own switch for this under Settings → General → Picture in Picture — both have to allow it.")
+            Text("Leaving the app floats the picture over whatever is next. The button in the status bar starts it by hand either way, and iOS has its own switch for this under Settings, General, Picture in Picture. Both have to allow it.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The one switch here that is about what leaves the device rather than how the app looks.
+    ///
+    /// Written out in full rather than left as a bare label, because a privacy setting the user
+    /// cannot understand is a setting they cannot make. This is the switch; ``FAQView`` is the
+    /// why, at length. Both have to say the same thing, and neither may say more than is true:
+    /// the relay cannot read what it carries, and it does see who is connecting and when.
+    private var privacy: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel("Privacy")
+            Toggle(isOn: $allowsRelay) {
+                Text("Allow the relay")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+            Text("""
+                On: when your Mac is not on this network, Peering reaches it through a relay \
+                server. The connection is still end-to-end encrypted and the relay cannot read \
+                it, but the Mac's device ID and the times you connect do pass through that server.
+
+                Off: Peering only ever connects directly, over the network the two of you are \
+                both on. A Mac somewhere else is not reachable at all, and the app waits for it \
+                to come back rather than failing.
+                """)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -235,7 +268,7 @@ struct SettingsPanel: View {
         case .handshaking: return "Handshaking"
         case .confirming: return "Waiting for the code comparison"
         case .ready: return "Connected"
-        case .failed(let message): return "Failed — \(message)"
+        case .failed(let message): return "Failed: \(message)"
         case .disconnected: return "Disconnected"
         }
     }

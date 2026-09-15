@@ -4,6 +4,7 @@ import RemoteCore
 import os
 
 private let videoLog = Logger(subsystem: "pl.dmq.peering.host", category: "video")
+private let sessionLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
 
 /// Advertises the host over Bonjour and accepts both connection roles.
 ///
@@ -20,6 +21,15 @@ final class HostServer: @unchecked Sendable {
     private let identity: SelfSignedIdentity
     private let device: DeviceIdentity
     private let pins: PinStore
+
+    /// The TCP port to listen on.
+    ///
+    /// A parameter rather than the constant this used to read, because a Mac sharing its network
+    /// with something else already on 51515 has nowhere to go otherwise. Nothing else has to
+    /// know: Bonjour advertises whatever is bound here, so a phone on the same network follows
+    /// a custom port with no configuration of its own. Only the manual-address path needs the
+    /// number typed, and only the relay bridge needs telling — see ``connectThroughRelay(_:)``.
+    private let port: UInt16
 
     private var listener: NWListener?
     private var controlSessions: [HostSession] = []
@@ -64,10 +74,16 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
-    init(identity: SelfSignedIdentity, device: DeviceIdentity, pins: PinStore) {
+    init(
+        identity: SelfSignedIdentity,
+        device: DeviceIdentity,
+        pins: PinStore,
+        port: UInt16 = ProtocolInfo.defaultPort
+    ) {
         self.identity = identity
         self.device = device
         self.pins = pins
+        self.port = port
     }
 
     // The bound port is reported through `.listening(port:)` rather than stored here.
@@ -85,36 +101,24 @@ final class HostServer: @unchecked Sendable {
         // Without this a restart during development fails to bind for up to a minute.
         parameters.allowLocalEndpointReuse = true
 
-        guard let port = NWEndpoint.Port(rawValue: ProtocolInfo.defaultPort) else {
-            throw Failure.invalidPort(ProtocolInfo.defaultPort)
+        guard let endpoint = NWEndpoint.Port(rawValue: port) else {
+            throw Failure.invalidPort(port)
         }
 
         let listener: NWListener
         do {
-            listener = try NWListener(using: parameters, on: port)
+            listener = try NWListener(using: parameters, on: endpoint)
         } catch {
             throw Failure.listenerFailed(error.localizedDescription)
         }
 
-        // The TXT record carries the persistent device ID, which is what lets a client
-        // recognise this Mac across networks and DHCP leases. The ID is stable; the
-        // advertised address is not.
-        let txt = NWTXTRecord([
-            ProtocolInfo.TXTRecordKey.deviceID: device.id,
-            ProtocolInfo.TXTRecordKey.deviceName: device.name,
-            ProtocolInfo.TXTRecordKey.protocolVersion: String(ProtocolInfo.version),
-        ])
-        listener.service = NWListener.Service(
-            name: device.name,
-            type: ProtocolInfo.bonjourServiceType,
-            txtRecord: txt
-        )
+        listener.service = bonjourService
 
         listener.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             switch state {
             case .ready:
-                emit(.listening(port: listener.port?.rawValue ?? ProtocolInfo.defaultPort))
+                emit(.listening(port: listener.port?.rawValue ?? port))
             case .failed(let error):
                 emit(.failed(error.localizedDescription))
                 stop()
@@ -157,6 +161,53 @@ final class HostServer: @unchecked Sendable {
 
     var pairedClientIDs: [String] { pins.peerIDs }
 
+    // MARK: - Advertising
+
+    /// What this Mac announces on the network.
+    ///
+    /// The TXT record carries the persistent device ID, which is what lets a client recognise
+    /// this Mac across networks and DHCP leases. The ID is stable; the advertised address is not.
+    ///
+    /// Built rather than stored so it can be put back after being withdrawn, without a second
+    /// copy of the record that could disagree with this one.
+    private var bonjourService: NWListener.Service {
+        NWListener.Service(
+            name: device.name,
+            type: ProtocolInfo.bonjourServiceType,
+            txtRecord: NWTXTRecord([
+                ProtocolInfo.TXTRecordKey.deviceID: device.id,
+                ProtocolInfo.TXTRecordKey.deviceName: device.name,
+                ProtocolInfo.TXTRecordKey.protocolVersion: String(ProtocolInfo.version),
+            ])
+        )
+    }
+
+    /// Withdraws the Mac from the network while a device is using it, and puts it back when the
+    /// last one leaves.
+    ///
+    /// A Mac serves whichever device connects and nothing in the protocol arbitrates between two
+    /// of them, so a second phone that can see this Mac is a second phone that can drive it —
+    /// mid-sentence, while the first user watches their own cursor move, and with neither of them
+    /// told. Withdrawing the advertisement is the whole of the fix, and it costs almost nothing:
+    /// the listener stays up, so a device already connected is unaffected, a *paired* device still
+    /// reaches this Mac through the relay, and a phone on the same network finds it again the
+    /// moment the session ends.
+    ///
+    /// Withdrawn on *authorization* rather than on connection, which is the distinction that
+    /// keeps a failed handshake from hiding the Mac.
+    private func updateAdvertisement() {
+        guard let listener else { return }
+        let inUse = controlSessions.contains { $0.isAuthorized }
+        if inUse {
+            guard listener.service != nil else { return }
+            listener.service = nil
+            sessionLog.notice("A device is connected; withdrawn from Bonjour")
+        } else if listener.service == nil {
+            listener.service = bonjourService
+            sessionLog.notice("No devices connected; advertising again")
+        }
+    }
+
     // MARK: - Connections
 
     private func accept(_ connection: NWConnection) {
@@ -198,11 +249,16 @@ final class HostServer: @unchecked Sendable {
             videoConnections.append((peer: videoPeer, clientKey: key))
             onVideoConnection?(videoPeer)
         }
-        if relayBridge != nil {
-            // The remote transport currently multiplexes encoded video onto this TLS stream. The
-            // relay still cannot read it; this is the same authenticated connection as control.
-            session.onAuthorized = { [weak self] controlPeer in
-                self?.onVideoConnection?(controlPeer)
+        // Set for every session, not only the relayed ones, because it is now the moment the
+        // advertisement is withdrawn as well as the moment a relayed video connection is handed
+        // over — see ``updateAdvertisement()``.
+        session.onAuthorized = { [weak self] controlPeer in
+            guard let self else { return }
+            self.updateAdvertisement()
+            // The remote transport multiplexes encoded video onto this same TLS stream. The
+            // relay still cannot read it; it is the same authenticated connection as control.
+            if relayBridge != nil {
+                self.onVideoConnection?(controlPeer)
             }
         }
 
@@ -216,6 +272,8 @@ final class HostServer: @unchecked Sendable {
             // stop: a video connection that outlived its control session would keep
             // delivering the screen to a client the host believes is gone.
             closeVideoConnections(for: session.peerPublicKey)
+            // Last one out puts the Mac back on the network.
+            self.updateAdvertisement()
             if let relayBridge {
                 relayBridge.cancel()
                 activeRelayBridges.removeAll { $0 === relayBridge }
@@ -235,7 +293,7 @@ final class HostServer: @unchecked Sendable {
             do {
                 let bridge = try RelayControlBridge(
                     session: relaySession,
-                    localPort: ProtocolInfo.defaultPort
+                    localPort: self.port
                 )
                 self.pendingRelayBridges.append(bridge)
                 bridge.start()

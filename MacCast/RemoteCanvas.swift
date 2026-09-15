@@ -58,18 +58,19 @@ extension InteractionMode {
     /// the Mac by accident.
     var tapsReachTheMac: Bool { self == .control }
 
-    /// Whether a pinch resizes the picture. Both modes.
+    /// Whether a pinch resizes the picture. Drag & zoom only.
     ///
-    /// Looking closer is not a mode: a user who wants to read a menu bar has to be able to zoom
-    /// in on it without also handing over the pointer. This was drag & zoom only, because a zoom
-    /// used to break the click mapping and land the pointer somewhere the user never aimed at —
-    /// `CanvasGeometry.normalized` now undoes the zoom *and* the pan before mapping, so that
-    /// reason is gone.
+    /// This was both modes, on the argument that looking closer is not a mode — that a user who
+    /// wants to read a menu bar should not have to hand the pointer over to do it. The argument
+    /// holds in principle and lost to the gesture beside it: in view & scroll the two fingers of
+    /// a pinch *are* two fingers on the Mac, and a picture that grows under them is the one
+    /// thing in that mode not supposed to move without being asked.
     ///
-    /// What it leaves behind is a gesture conflict rather than a correctness one: a pinch reports
-    /// a translation as well as a scale, so the two-finger scroll has to stand down while one is
-    /// in progress. See `isPinching` in ``GestureSurfaceView``.
-    var pinchZoomsCanvas: Bool { true }
+    /// Gating it costs nothing structurally, which is why the gate was left here to close. The
+    /// guard below runs before `isPinching` is set, so a pinch in view & scroll never claims its
+    /// fingers — and what it falls through to is the two-finger scroll, which is what those
+    /// fingers were going to do anyway.
+    var pinchZoomsCanvas: Bool { self == .navigate }
 }
 
 /// The gesture surface over the video.

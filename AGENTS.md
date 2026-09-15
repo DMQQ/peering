@@ -54,17 +54,18 @@ cd RemoteCore && swift test
 xcrun devicectl device install app --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
   ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug-iphoneos/MacCast.app
 xcrun devicectl device process launch --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
-  pl.dmq.maccast.MacCast
+  pl.dmq.peering
 
 # Read the host log  (NOTE: /usr/bin/log explicitly — see trap #1)
 /usr/bin/log show --last 5m --style compact \
-  --predicate 'subsystem == "pl.dmq.maccast.host"'
+  --predicate 'subsystem == "pl.dmq.peering.host"'
 ```
 
 **Always build with `-scheme`, never `-target`.** With `-target` the build settings that make
 the targets work (notably `INFOPLIST_KEY_*`) are not applied.
 
-Log subsystem is `pl.dmq.maccast.host`, categories `session`, `video`, `capture`, `encoder`.
+Log subsystems are `pl.dmq.peering.host` (the Mac) and `pl.dmq.peering` (the phone), categories
+`session`, `video`, `capture`, `encoder`.
 
 ---
 
@@ -467,5 +468,7 @@ recent commits/notes for the outcome before re-investigating from scratch.
   (message framing missing entirely, three `CGEvent` calls that don't compile, a `CGSize`/`Data`
   mismatch, a leaked connection, etc.). Worth reading before assuming the spec is correct.
 - iOS device id (iPhone 15 Pro Max): `8A51FAD5-A897-57CD-9C09-395D9F2C258A`
-- Bundle ids: `pl.dmq.maccast.MacCast`, host keychain pin service `pl.dmq.maccast.pins`
+- Bundle ids: `pl.dmq.peering` (iOS), `pl.dmq.peering.host` (Mac). Keychain pin services are
+  `pl.dmq.peering.client.pins` (client) and `pl.dmq.peering.pins` (host). The repo, the targets
+  and the scheme are still named MacCast; only what ships is called Peering.
 - Port: **51515**

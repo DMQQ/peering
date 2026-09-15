@@ -404,8 +404,10 @@ struct VideoLayerView: UIViewRepresentable {
         let view = VideoDisplayView()
         if let layer = view.displayLayer {
             renderer.attach(layer)
-            // The same layer, so the floating window is the picture rather than a copy of it.
-            SessionPiP.shared.attach(layer)
+            // The view rather than its layer, so PiP can tell whether the layer it mirrors is
+            // still on screen — see ``SessionPiP/start()``. The layer is the same one either
+            // way: the floating window is the picture, not a copy of it.
+            SessionPiP.shared.attach(view)
         }
         return view
     }
@@ -461,13 +463,58 @@ final class SessionPiP: NSObject {
 
     private var controller: AVPictureInPictureController?
 
+    /// The view whose layer is being mirrored, held weakly.
+    ///
+    /// Weak because SwiftUI owns it and PiP does not: `RemoteScreen` is rebuilt for every
+    /// session, and the view goes with it. Holding it strongly would keep a torn-down view —
+    /// and its layer — alive behind a controller that can no longer do anything with it.
+    private weak var host: VideoDisplayView?
+
     private override init() { super.init() }
 
     static var isSupported: Bool { AVPictureInPictureController.isPictureInPictureSupported() }
 
-    /// Binds the layer PiP should mirror. Called once, from `makeUIView`.
-    func attach(_ layer: AVSampleBufferDisplayLayer) {
-        guard Self.isSupported, controller == nil else { return }
+    /// Where the app was when it asked, in a word.
+    ///
+    /// The single fact that separates "Picture in Picture is broken" from "Picture in Picture
+    /// was asked at a moment it does not answer". `applicationState` rather than the scene
+    /// phase because it is what UIKit itself reads to decide whether a foreground app is
+    /// asking, and it is the one that keeps answering once the app is on its way out.
+    private static var appState: String {
+        switch UIApplication.shared.applicationState {
+        case .active: return "foreground"
+        case .inactive: return "on its way out"
+        case .background: return "background"
+        @unknown default: return "in an unknown state"
+        }
+    }
+
+    /// AVKit's own domain, and its code for the one failure it explains itself — see the
+    /// delegate's `failedToStart…`, which is the only place either is read.
+    private static let pictureInPictureErrorDomain = "AVKitErrorDomain"
+    private static let sceneNotForegroundCode = -1001
+
+    /// Binds the view PiP should mirror. Called from `makeUIView`, for every session.
+    ///
+    /// Rebinding rather than binding once, which is what this used to do and what broke it. The
+    /// controller was built on the first session's layer and the `controller == nil` guard then
+    /// kept it for the life of the process — so every session after the first handed PiP a
+    /// layer that had already been torn down with the screen it belonged to, and every start
+    /// against it was refused. Which session it was made it look intermittent, and the refusal
+    /// names nothing, so it read as "PiP does not work".
+    func attach(_ view: VideoDisplayView) {
+        guard Self.isSupported, host !== view else { return }
+
+        // The screen being replaced may be the one PiP is floating. Stopped first, because a
+        // window left up showing a layer nobody owns is worse than no window: it is the last
+        // session's picture, frozen, in a frame the user has to dismiss by hand.
+        if controller?.isPictureInPictureActive == true {
+            controller?.stopPictureInPicture()
+        }
+        controller = nil
+        host = view
+
+        guard let layer = view.displayLayer else { return }
 
         let source = AVPictureInPictureController.ContentSource(
             sampleBufferDisplayLayer: layer,
@@ -516,9 +563,32 @@ final class SessionPiP: NSObject {
     /// anyone which one was not.
     func start() {
         guard let controller else {
-            lastRefusal = "No picture yet — PiP mirrors the video layer, so a session has to be running."
+            lastRefusal = "No picture yet. PiP mirrors the video layer, so a session has to be running."
             lastAttempt = "no layer"
             videoLog.error("Picture in Picture has no layer to mirror yet")
+            return
+        }
+        // Answered before anything is asked about the layer, because a *running* PiP is the one
+        // state in which leaving the screen is the whole point: iOS lifts the layer out of the
+        // view hierarchy to draw it in its own window, so the window checks below would read a
+        // window that is up and working as one that is not there.
+        if controller.isPictureInPictureActive {
+            lastRefusal = nil
+            lastAttempt = "already active"
+            return
+        }
+        // Checked before `isPictureInPicturePossible`, not instead of it, because this is the
+        // one prerequisite the controller does *not* re-evaluate: it went on reporting that a
+        // start was possible for a layer that had been torn down with the screen it belonged
+        // to. A layer not in a window is a start that cannot work, whatever the controller
+        // says, and saying so here names it.
+        guard let host, host.window != nil else {
+            lastRefusal = """
+                The video is not on screen any more. PiP lifts the layer out of the view it is \
+                drawn in, so it has to be in one when it is asked. Asked while \(Self.appState).
+                """
+            lastAttempt = "no screen to lift the layer out of"
+            videoLog.error("Picture in Picture has no window: \(self.lastRefusal ?? "", privacy: .public)")
             return
         }
         guard controller.isPictureInPicturePossible else {
@@ -529,14 +599,19 @@ final class SessionPiP: NSObject {
             let audio = AVAudioSession.sharedInstance()
             lastRefusal = """
                 Not supported here. Supported \(Self.isSupported ? "yes" : "no"), \
-                audio category \(audio.category.rawValue), running \(!audio.isOtherAudioPlaying)
+                audio category \(audio.category.rawValue), running \(!audio.isOtherAudioPlaying), \
+                asked while \(Self.appState)
                 """
             lastAttempt = "not possible"
             videoLog.error("Picture in Picture is not possible: \(self.lastRefusal ?? "", privacy: .public)")
             return
         }
         lastRefusal = nil
-        lastAttempt = controller.isPictureInPictureActive ? "already active" : "asked"
+        // Where it was asked is part of the record, not decoration. A start that comes back
+        // refused names nothing, and the only difference between a start that should have
+        // worked and one that never could is where the app was when it was made.
+        lastAttempt = "asked while \(Self.appState)"
+        videoLog.notice("Asking for Picture in Picture while \(Self.appState, privacy: .public)")
         controller.startPictureInPicture()
     }
 
@@ -561,10 +636,43 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
         _ controller: AVPictureInPictureController,
         failedToStartPictureInPictureWithError error: any Error
     ) {
-        lastRefusal = "Could not start: \(error.localizedDescription)"
+        let failure = error as NSError
+
+        // The one refusal AVKit spells out, and it says more than it appears to.
+        //
+        // `AVKitErrorDomain` `-1001` — "Failed to start picture in picture." — is built at
+        // exactly one place in AVKit, behind exactly one test: the content source's scene is not
+        // `UISceneActivationStateForegroundActive`. It is not a general "something went wrong";
+        // it is this, every time. So the sentence is worth replacing with its meaning rather
+        // than relaying, because relaying it is what makes it read as "Picture in Picture is
+        // broken" — and it is the expected answer to the one call this app makes on the way out,
+        // since `enteringBackground` runs after the app has already left the foreground.
+        //
+        // Worth knowing for the other direction too: nothing else reports through here. A layer
+        // with no window, a missing audio session, a controller pointed at a screen that has
+        // been torn down — all of those fail in silence or through a backend error with a
+        // different domain. A `-1001` is a timing fact and never a wiring one.
+        if failure.domain == Self.pictureInPictureErrorDomain,
+           failure.code == Self.sceneNotForegroundCode {
+            lastRefusal = """
+                iOS only starts Picture in Picture for an app that is on screen, and this ask \
+                was made while \(Self.appState). Asking on the way out cannot work. Arriving \
+                unasked is the automatic start's job, and that needs "Start PiP Automatically" \
+                on under Settings → General → Picture in Picture.
+                """
+        } else {
+            lastRefusal = """
+                Could not start: \(error.localizedDescription) \
+                (\(failure.domain) \(failure.code)), asked while \(Self.appState)
+                """
+        }
+
         lastAttempt = "failed"
         videoLog.error("""
-            Picture in Picture could not start: \(error.localizedDescription, privacy: .public)
+            Picture in Picture could not start: \(error.localizedDescription, privacy: .public) \
+            \(failure.domain, privacy: .public) \(failure.code, privacy: .public), \
+            asked while \(Self.appState, privacy: .public), \
+            reason \(failure.userInfo[NSLocalizedFailureReasonErrorKey] as? String ?? "none given", privacy: .public)
             """)
     }
 }

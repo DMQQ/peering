@@ -13,6 +13,19 @@ enum ChromeMetrics {
     static let panelWidth: CGFloat = 54
     /// Every panel corner, in every orientation.
     static let cornerRadius: CGFloat = 20
+    /// The status pill's corner, collapsed and expanded.
+    ///
+    /// Two numbers rather than one shape, and neither of them is "capsule" — which is what this
+    /// was, and what it could not stay. A capsule's corner is half its height, so a pill three
+    /// rows tall grew a curve big enough to cut into the controls along its own top and bottom
+    /// edges, and holding those clear would have meant padding the panel out to a shape it was
+    /// no longer using.
+    ///
+    /// The pair is what makes the two states read as one object changing size: the collapsed
+    /// pill is a stadium, because at 28 points tall a 14-point corner *is* half its height, and
+    /// the expanded one keeps the softened look at a size that leaves its contents alone.
+    static let pillCollapsedRadius: CGFloat = 14
+    static let pillExpandedRadius: CGFloat = 26
     /// Inside a rail, above the first button and below the last — and the same as the gap either
     /// side of one, so the first button sits in its panel the way the ones below it sit between
     /// each other. An end gap larger than the side gaps is the shape that reads as a mistake
@@ -50,6 +63,39 @@ enum ChromeMetrics {
     /// A standalone key — the return beside the pointer. Bigger than a rail button because it is
     /// hit with a thumb already resting on the joystick rather than aimed at.
     static let quickKeySize: CGFloat = 60
+
+    /// How the portrait dock is divided: five columns, three rows when it is open.
+    ///
+    /// Structural rather than cosmetic, the pair of them. Every row shares the one column grid,
+    /// which is what keeps row two's buttons under row one's and row three's under those — and
+    /// five, rather than four, because row three is the five navigation keys and they land one
+    /// per column with nothing left over. The chevron gets a column of its own rather than the
+    /// narrow slot it used to have, for the same reason: a grid with one odd cell in it is a
+    /// grid that only lines up in the rows that happen to have the odd cell.
+    static let dockColumns = 5
+    static let dockExpandedRows = 3
+
+    /// How tall the portrait dock stands, shut and open.
+    ///
+    /// Derived from the buttons rather than chosen, for the reason the rail heights already were:
+    /// the number and the thing it has to contain cannot drift apart if there is only one of
+    /// them. The open dock is the same buttons in more rows, so it is the shut one plus a row
+    /// and a gap for each row past the first.
+    static let dockCollapsedHeight = buttonHeight + railPadding * 2
+    static let dockExpandedHeight = buttonHeight * CGFloat(dockExpandedRows)
+        + buttonGap * CGFloat(dockExpandedRows - 1)
+        + railPadding * 2
+
+    /// The portrait dock's corner in each of its two states, on the same reasoning as the status
+    /// pill's — see ``pillCollapsedRadius``. One row is a stadium; two rows keep a softened edge
+    /// rather than growing a curve half the height of a panel four times as wide as it is tall.
+    static let dockCollapsedRadius: CGFloat = dockCollapsedHeight / 2
+    static let dockExpandedRadius: CGFloat = 28
+
+    /// The share of the screen the portrait dock spans. Short of the full width on purpose: a bar
+    /// running edge to edge would be the one piece of chrome here that was a different kind of
+    /// object from the panels, which all float with a margin around them.
+    static let dockWidthFraction: CGFloat = 0.9
 }
 
 /// How the chrome moves.
@@ -66,6 +112,21 @@ enum Motion {
     /// A control changing state. Shorter than `settle`, so the feedback lands with the tap
     /// rather than after it.
     static let tap = Animation.smooth(duration: 0.18)
+
+    /// The status pill opening into the status panel, and back.
+    ///
+    /// Its own speed, and slower than `settle`: nothing is arriving here — one shape is becoming
+    /// a different one — and the travel is the whole of what there is to watch. Less damping than
+    /// `settle` for the same reason, so the pill runs past its final size and comes back. That
+    /// overshoot is the effect; a shape that stops dead at its new size reads as a swap however
+    /// smooth the frames are.
+    ///
+    /// Damped where it is because the two sizes are far apart. At 0.78 the overshoot was there
+    /// and *just* there — a frame or two of a shape already within a few points of its final one,
+    /// which on a change this large is indistinguishable from having stopped. The give has to
+    /// scale with the distance travelled, and this is the one animation in the app that travels
+    /// a long way.
+    static let morph = Animation.spring(response: 0.4, dampingFraction: 0.68)
 }
 
 /// The whole palette: two colours and a set of opacities.
@@ -130,6 +191,17 @@ enum PreferenceKey {
     static let hidesPanelAfterSelect = "Peering.hidesPanelAfterSelect"
     /// Whether iOS floats the picture on its own when the app goes away.
     static let pipAutoStart = "Peering.pipAutoStart"
+    /// Whether the first-run introduction has been seen and dismissed.
+    ///
+    /// Set by both of its exits — finishing the tour and skipping it — because "I have seen it"
+    /// and "I do not want to see it" are the same instruction here, and a flow that only
+    /// remembered one of them would come back to someone who had already said no.
+    static let hasSeenWelcome = "Peering.hasSeenWelcome"
+    /// Whether a Mac may be reached through the relay, or only over the local network.
+    ///
+    /// Read in two places that have to agree — ``SessionModel``, which decides whether to dial
+    /// it, and ``SettingsPanel``/``FAQView``, which say so in words. One spelling.
+    static let allowRelay = "Peering.allowRelay"
 }
 
 /// A section heading: small, tracked, uppercase.

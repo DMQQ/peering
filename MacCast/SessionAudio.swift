@@ -32,7 +32,15 @@ final class SessionAudio {
         guard player == nil else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .moviePlayback)
+            // `.mixWithOthers`, and without it this silences whatever the user was listening to.
+            //
+            // A `.playback` session that does not mix *interrupts* every other app's audio the
+            // moment it activates: iOS tells them to stop, and they do. So opening a session
+            // here stopped a video in another app — for a keepalive that plays silence and has
+            // nothing to interrupt anything for. Mixing is exactly the option that says so. The
+            // session stays active and keeps playing, which is all the keepalive and the
+            // background stay-alive ever needed from it.
+            try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers])
             try session.setActive(true)
 
             let player = try AVAudioPlayer(data: Self.silence)

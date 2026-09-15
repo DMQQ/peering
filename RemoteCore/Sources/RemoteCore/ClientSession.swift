@@ -414,7 +414,7 @@ public final class ClientSession: @unchecked Sendable {
             // Re-pin now using the server key we already verified over TLS, so the Mac
             // reappears in Trusted Macs after a "Forget" on this side.
             if pins.record(hostID: hello.serverID, publicKey: serverKey) {
-                emit(.note("The Mac already knows this device. Pin restored — it will appear in Trusted Macs again."))
+                emit(.note("The Mac already knows this device. Pin restored. It will appear in Trusted Macs again."))
             } else {
                 emit(.note("The Mac already knows this device, but the pin could not be saved. Keychain may be unavailable."))
             }

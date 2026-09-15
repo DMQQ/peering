@@ -125,7 +125,7 @@ final class PeerConnection: @unchecked Sendable {
     var negotiatedTLSVersion: String {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
-        else { return "—" }
+        else { return "None" }
 
         let version = sec_protocol_metadata_get_negotiated_tls_protocol_version(
             metadata.securityProtocolMetadata

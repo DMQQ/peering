@@ -33,7 +33,7 @@ enum CaptureError: LocalizedError, Equatable {
         case .screenRecordingDenied:
             return """
                 macOS is not letting this app record the screen. Grant Screen Recording in \
-                System Settings → Privacy & Security, then relaunch — consent is read when \
+                System Settings → Privacy & Security, then relaunch. Consent is read when \
                 the process starts, so a grant made while it is running does nothing.
                 """
 
@@ -77,7 +77,7 @@ enum CaptureError: LocalizedError, Equatable {
             return .streamStopped(
                 code: nsError.code,
                 description: """
-                    the system stopped it — the display configuration changed, or the Mac \
+                    the system stopped it: the display configuration changed, or the Mac \
                     woke from sleep
                     """
             )

@@ -54,6 +54,16 @@ struct HostStatusView: View {
     /// hidden window taking a screenshot of this Mac every couple of seconds.
     @State private var preview: CGImage?
 
+    /// What is in the port field while it is being edited.
+    ///
+    /// A draft rather than a binding to the model, because the model's setter restarts the
+    /// listener: bound directly, every keystroke would tear down the server and start it again.
+    /// The value is committed on Return or when the field loses focus, and reverted if it is not
+    /// a usable port — a field that silently keeps a number the host is not listening on is worse
+    /// than one that puts the real number back.
+    @State private var portDraft = ""
+    @FocusState private var portFocused: Bool
+
     var body: some View {
         NavigationSplitView {
             sidebar
@@ -159,15 +169,29 @@ struct HostStatusView: View {
             // The frame goes on the label, not the button. A bordered button sizes itself to
             // its label, so widening the button only pads the space around it — the control
             // stays the size of the word and sits in the middle of the column.
+            //
+            // Big, and it is the only coloured control in the app. Both are deliberate. This is
+            // the one thing the whole window exists to offer, and it used to be a small grey
+            // word in the middle of a column — the least prominent thing on a screen whose only
+            // question is whether the Mac is being shared. The palette is monochrome everywhere
+            // else and stays that way; this is the exception that earns it.
+            //
+            // The accent rather than a colour of this app's own, so it is whatever the user has
+            // already told macOS means "this is the thing to press". Quiet when it stops: the
+            // two states are not equals, and one of them is how you put it down.
             Button {
                 model.status.isListening ? model.stop() : model.start()
             } label: {
                 Text(model.status.isListening ? "Stop" : "Start")
+                    .font(.headline)
                     .frame(maxWidth: .infinity)
+                    .frame(height: 34)
             }
-            .controlSize(.small)
+            .buttonStyle(.borderedProminent)
+            .tint(model.status.isListening ? Color.secondary : Color.accentColor)
+            .animation(nil, value: model.status.isListening)
 
-            Text("Port \(ProtocolInfo.defaultPort) · protocol v\(ProtocolInfo.version)")
+            Text("Port \(model.boundPort) · protocol v\(ProtocolInfo.version)")
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.tertiary)
         }
@@ -182,6 +206,7 @@ struct HostStatusView: View {
         switch section {
         case .overview:
             VStack(alignment: .leading, spacing: 24) {
+                connectSection
                 nowShowingSection
                 devicesSection
                 activitySection
@@ -198,6 +223,75 @@ struct HostStatusView: View {
         case .about:
             aboutSection
         }
+    }
+
+    // MARK: - Connect
+
+    /// How a phone gets here — shown only while nothing is attached.
+    ///
+    /// The rest of this pane answers questions about a device that is already connected: what it
+    /// is looking at, when it arrived, what it has been doing. Open the window on an idle Mac and
+    /// every one of those is an answer to a question nobody has asked yet, which is what made
+    /// this screen read as a single empty panel. This is the question that comes first, and the
+    /// only one with anything to say when the Mac is waiting.
+    ///
+    /// Withdrawn as soon as something connects, because then the answers below are the ones
+    /// being looked for.
+    @ViewBuilder
+    private var connectSection: some View {
+        if model.connectedClients.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeading(
+                    "Connect",
+                    detail: model.status.isListening
+                        ? "This Mac is available on your network."
+                        : "Press Start to make this Mac available."
+                )
+
+                VStack(spacing: 0) {
+                    connectRow(
+                        symbol: "wifi",
+                        title: "On the same network",
+                        detail: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time."
+                    )
+                    Divider().padding(.leading, 44)
+                    connectRow(
+                        symbol: "number",
+                        title: "By address",
+                        detail: "If discovery is blocked where you are, enter this Mac's address and port \(model.boundPort) by hand."
+                    )
+                    Divider().padding(.leading, 44)
+                    connectRow(
+                        symbol: "globe",
+                        title: "From anywhere",
+                        detail: "Once paired, this Mac stays reachable through the relay even on a different network."
+                    )
+                }
+                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+    }
+
+    private func connectRow(symbol: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Pairing
@@ -362,9 +456,68 @@ struct HostStatusView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+
+                Divider().padding(.leading, 52)
+
+                portRow
             }
             .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+    }
+
+    /// The port, as a field rather than the label it used to be.
+    ///
+    /// A Mac sharing its network with something already on 51515 had nowhere to go, and the
+    /// number was a constant compiled into both apps. Bonjour carries whatever is bound here, so
+    /// a phone on this network needs no change of its own; only the manual-address path has to be
+    /// told, which is what the detail line says.
+    private var portRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "number")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(model.status.isListening ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Port")
+                    .font(.subheadline.weight(.medium))
+                Text("Phones on this network follow it automatically. Changing it restarts the listener and disconnects anyone connected.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            TextField("", text: $portDraft)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 78)
+                .multilineTextAlignment(.trailing)
+                .focused($portFocused)
+                .onSubmit { commitPort() }
+                .onChange(of: portFocused) { _, focused in
+                    if !focused { commitPort() }
+                }
+                .onAppear { portDraft = String(model.boundPort) }
+                .onChange(of: model.boundPort) { _, bound in
+                    // Only while nobody is editing it: overwriting the field under a cursor
+                    // that is halfway through typing a new number would be the app arguing
+                    // with the user about what they meant.
+                    if !portFocused { portDraft = String(bound) }
+                }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// Applies the draft, or puts the real port back if it is not one.
+    private func commitPort() {
+        guard let port = UInt16(portDraft.trimmingCharacters(in: .whitespaces)), port > 0 else {
+            portDraft = String(model.boundPort)
+            return
+        }
+        model.setPort(port)
+        portDraft = String(model.boundPort)
     }
 
     // MARK: - Devices and activity
@@ -657,7 +810,7 @@ struct HostStatusView: View {
                 }
                 .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                Text("Bytes are what the host sent — the video stream. Control traffic is a rounding error beside it.")
+                Text("Bytes are what the host sent: the video stream. Control traffic is a rounding error beside it.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -709,7 +862,7 @@ struct HostStatusView: View {
             VStack(alignment: .leading, spacing: 10) {
                 privacyRow(
                     "See the screen you share",
-                    "The captured display, window or application — and the list of things this Mac could capture, which includes window titles, application names and their icons."
+                    "The captured display, window or application, and the list of things this Mac could capture, which includes window titles, application names and their icons."
                 )
                 Divider()
                 privacyRow(
@@ -758,7 +911,7 @@ struct HostStatusView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 LabeledContent("Protocol", value: "v\(ProtocolInfo.version)")
-                LabeledContent("Port", value: "\(ProtocolInfo.defaultPort)")
+                LabeledContent("Port", value: "\(model.boundPort)")
                 LabeledContent("Device ID", value: model.deviceID)
             }
             .font(.callout)
@@ -810,13 +963,13 @@ struct HostStatusView: View {
     private var statusText: String {
         if let client = model.connectedClients.first {
             let others = model.connectedClients.count - 1
-            return others > 0 ? "Connected — \(client.name) +\(others)" : "Connected — \(client.name)"
+            return others > 0 ? "Connected: \(client.name) +\(others)" : "Connected: \(client.name)"
         }
         switch model.status {
         case .idle: return "Not hosting"
         case .starting: return "Starting…"
         case .listening: return "Waiting for a device"
-        case .failed(let message): return "Error — \(message)"
+        case .failed(let message): return "Error: \(message)"
         }
     }
 

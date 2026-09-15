@@ -33,8 +33,23 @@ struct RemoteScreen: View {
     /// through several sources in a row wants it to stay put.
     @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
 
+    /// The turn-your-phone card, and the timer that takes it away again — see
+    /// ``presentLandscapeHint()``.
+    ///
+    /// No "has it been shown" flag is needed. `ContentView` swaps this whole view out whenever the
+    /// phase leaves the remote screens, so the state below is built fresh at the start of every
+    /// session and cannot survive into the next one.
+    @State private var showsLandscapeHint = false
+    @State private var landscapeHintTask: Task<Void, Never>?
+    /// Set when iOS refused a rotation, which means Rotation Lock is on. Lasts as long as the
+    /// session does, because the condition it describes does too.
+    @State private var rotationRefused = false
+
     @State private var openPanel: Panel?
     @State private var statusBarExpanded = true
+    /// Whether the portrait dock has opened onto the controls that did not earn a permanent
+    /// place in it. Portrait's alone — the landscape rails have the height to show them all.
+    @State private var dockExpanded = false
     /// The pending auto-collapse, so expanding by hand can cancel the one already in flight.
     @State private var statusBarCollapseTask: Task<Void, Never>?
 
@@ -60,14 +75,93 @@ struct RemoteScreen: View {
         case settings
     }
 
+    /// Shows the turn-your-phone card, once, to a session that came up in portrait.
+    ///
+    /// Portrait is not a failure — the dock and the joystick are built for it — but a Mac's
+    /// screen is wide, and side-on is where the picture gets the whole display. Most people work
+    /// that out on their own within a few seconds; the card spends three of them saying so and
+    /// then gets out of the way, which is why it is timed rather than something to dismiss.
+    private func presentLandscapeHint() {
+        guard !deviceIsLandscape, !showsLandscapeHint else { return }
+        withAnimation(Motion.settle) { showsLandscapeHint = true }
+
+        landscapeHintTask?.cancel()
+        landscapeHintTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            dismissLandscapeHint()
+        }
+    }
+
+    private func dismissLandscapeHint() {
+        landscapeHintTask?.cancel()
+        landscapeHintTask = nil
+        withAnimation(Motion.settle) { showsLandscapeHint = false }
+    }
+
+    /// Asks iOS to turn the phone, which is the only help available to a user whose Rotation Lock
+    /// is on.
+    ///
+    /// An app cannot read Rotation Lock. It can only ask, and the ask either happens or comes back
+    /// as an error — so the error handler is the only way to tell a locked phone from a working
+    /// one, and it is what turns this card into the instructions for unlocking it.
+    ///
+    /// The card stops fading while the request is out. A button that dismisses the thing it sits
+    /// on halfway through being pressed is worse than no button at all.
+    private func rotateToLandscape() {
+        landscapeHintTask?.cancel()
+        landscapeHintTask = nil
+
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in
+            // The handler is not guaranteed to be on the main actor and it writes view state, so
+            // it comes back to it first.
+            Task { @MainActor in
+                withAnimation(Motion.settle) { rotationRefused = true }
+            }
+        }
+    }
+
+    /// Whether the phone is held sideways.
+    ///
+    /// Asked of the window rather than of the geometry the chrome is laid out in, and a bug lives
+    /// in that difference. Two things inset that geometry from the bottom: the software keyboard,
+    /// and the input bar added above it. On a phone held upright with the keyboard up, what was
+    /// left was shorter than it was wide — so `width > height`, which is the test that decides
+    /// *which* set of controls to draw, answered *landscape*, and the rails came down the edges of
+    /// a portrait screen behind a keyboard and went away again when it was dismissed.
+    ///
+    /// The geometry cannot be asked instead: a `safeAreaInset` shrinks its content by design, and
+    /// it has to, because the bar belongs above the keyboard. Which is why this one question is
+    /// the one thing asked somewhere the keyboard cannot reach. The chrome is still *laid out* in
+    /// the geometry, because it does have to stay clear of the keyboard.
+    private var deviceIsLandscape: Bool {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .interfaceOrientation
+            .isLandscape ?? false
+    }
+
     var body: some View {
         // `Environment` gives the object but no projected value, so a local `@Bindable` is
         // what turns `model.showKeyboard` into something the keyboard view can bind to.
         @Bindable var model = model
         return GeometryReader { proxy in
-            let isLandscape = proxy.size.width > proxy.size.height
+            let isLandscape = deviceIsLandscape
             ZStack {
-                ColorPalette.backdrop.ignoresSafeArea()
+                // Black here, where every other screen in the app uses the near-black backdrop
+                // — and the difference is the picture. The video is letterboxed on any screen
+                // that is not the Mac's own shape, and those bars sit directly against whatever
+                // the Mac itself is showing in black: its desktop's letterbox, a dark editor, a
+                // terminal. At 0.04 the join is a visible edge around the picture, which reads
+                // as the picture being inset in a panel rather than as being the screen. At
+                // zero the bars and the video's own black are the same black and the only thing
+                // on screen is the Mac.
+                Color.black.ignoresSafeArea()
 
                 video
                 gestures
@@ -82,6 +176,17 @@ struct RemoteScreen: View {
                         title: model.phase == .connecting ? "Connecting…" : "Securing the connection…",
                         detail: model.hostName
                     )
+                }
+
+                // Hidden the moment the phone is actually turned, which is the whole of what it
+                // asks for. The timer is still running underneath and will find it already gone.
+                if showsLandscapeHint, !isLandscape {
+                    LandscapeHint(
+                        rotationRefused: rotationRefused,
+                        onRotate: rotateToLandscape,
+                        onDismiss: dismissLandscapeHint
+                    )
+                    .transition(.opacity)
                 }
             }
         }
@@ -102,6 +207,13 @@ struct RemoteScreen: View {
         // one layer, rather than three of them arriving from the bottom of the screen.
         // A hidden panel reports nothing, so its last frame would go on blocking touches in a
         // region that no longer has anything in it.
+        // Keyed to the phase rather than to appearing, because a session does not arrive ready:
+        // the screen is up during `.confirming` and the picture only starts at `.ready`, which is
+        // the moment worth interrupting.
+        .onChange(of: model.phase, initial: true) { _, phase in
+            guard phase == .ready else { return }
+            presentLandscapeHint()
+        }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
 
@@ -361,8 +473,57 @@ struct RemoteScreen: View {
 
     // MARK: - Status
 
+    /// The pill's outline, in whichever state it is in.
+    ///
+    /// A `RoundedRectangle` rather than the `Capsule` this was, and it is the corner radius that
+    /// carries the animation: both the shape and the clip read from this one property, so the
+    /// glass and the content it holds can never disagree about where the edge is — which is what
+    /// a capsule's half-the-height corner was doing to the third row of the expanded panel.
+    /// `continuous` because that is the curve iOS draws its own chrome with, and a circular
+    /// corner beside it looks like a rectangle with the corners rounded off.
+    private var pillShape: RoundedRectangle {
+        RoundedRectangle(
+            cornerRadius: statusBarExpanded
+                ? ChromeMetrics.pillExpandedRadius
+                : ChromeMetrics.pillCollapsedRadius,
+            style: .continuous
+        )
+    }
+
+    /// What the pill holds, arriving and leaving.
+    ///
+    /// Delayed on the way in, so the contents land into a shape that has already started to open
+    /// rather than travelling with its frame. That lag is the half of the effect the frame cannot
+    /// do by itself: content that arrives with the frame reads as a panel switched on inside a box
+    /// that happens to be resizing, and content that lands into a frame already in motion reads as
+    /// one object changing shape.
+    ///
+    /// Leaving is not animated at all, and that is not a shortcut. A view being removed stays in
+    /// its parent's layout for as long as its removal transition runs — so while the expanded
+    /// panel faded out, the stack it is in would still be measuring it, and the pill would sit at
+    /// its *open* size for the length of that fade before starting to close. Gone in one frame,
+    /// the stack is the collapsed size on the next, and the spring has the whole of the travel to
+    /// animate. What covers the disappearance is the clip: the shape closes over the content it
+    /// is letting go of.
+    private static let pillContents = AnyTransition.asymmetric(
+        insertion: .opacity.animation(.easeOut(duration: 0.22).delay(0.06)),
+        removal: .identity
+    )
+
     private var statusBar: some View {
-        Group {
+        // A `ZStack`, and this is the whole of why the pill grows rather than being replaced.
+        //
+        // It was a `Group`, and a `Group` is transparent: every modifier on one is applied to
+        // each of its children instead of to a container around them. So the glass, the clip and
+        // the corner were not one shape being asked to change size — they were a shape *per
+        // state*, and flipping the branch threw one away and built the other. There was nothing
+        // whose frame could be animated, so the old pill faded out and a larger one faded in,
+        // which is exactly what it looked like.
+        //
+        // A container has an identity that survives the change, and a frame is a thing with an
+        // identity that can be interpolated. Top-aligned because the two states are briefly both
+        // present, and the pill should only ever grow downwards.
+        ZStack(alignment: .top) {
             if statusBarExpanded {
                 VStack(alignment: .leading, spacing: 6) {
                     // ── Row 1: identity + clock + quit ──────────────────────────────
@@ -466,15 +627,25 @@ struct RemoteScreen: View {
                 // expanded one closes on the next, so it is one control with one meaning
                 // rather than a button that only ever goes one way.
                 .onTapGesture { collapseStatusBar() }
-                // Opacity only. The scale that was here made the two states cross-fade as
-                // though they were unrelated — one shrinking away while the other grew in.
-                // The pill's own frame changes between them and the spring animates *that*,
-                // so the shape grows and its contents simply appear inside it, which is what
-                // expanding looks like.
-                .transition(.opacity)
+                // Opacity only, and on its own clock — see ``pillContents``. The scale that was
+                // here made the two states cross-fade as though they were unrelated, one
+                // shrinking away while the other grew in; what they are is the two faces of one
+                // shape, so the shape carries the movement and the contents just appear in it.
+                .transition(Self.pillContents)
             } else {
                 HStack(spacing: 8) {
-                    Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)
+                    // Green when the Mac is connected and sending, red when it is connected and
+                    // has stopped. It was white, which said nothing: a dot that is always the
+                    // same colour is decoration, and this one sits in the pill that already
+                    // carries the Mac's name and the latency — the two facts whose whole purpose
+                    // is to be read at a glance.
+                    //
+                    // Green rather than the palette's white because the host picker already
+                    // spends green on "this Mac is reachable", and a second colour for the same
+                    // fact would be two vocabularies for one thing.
+                    Circle()
+                        .fill(model.isVideoStreaming ? Color.green : Color.red)
+                        .frame(width: 6, height: 6)
                     Text(model.hostName ?? "Mac")
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
@@ -492,20 +663,24 @@ struct RemoteScreen: View {
                 .padding(.horizontal, 12)
                 .frame(height: 28)
                 .onTapGesture { expandStatusBar() }
-                .contentShape(Capsule())
-                // Opacity only. The scale that was here made the two states cross-fade as
-                // though they were unrelated — one shrinking away while the other grew in.
-                // The pill's own frame changes between them and the spring animates *that*,
-                // so the shape grows and its contents simply appear inside it, which is what
-                // expanding looks like.
-                .transition(.opacity)
+                .contentShape(pillShape)
+                // Opacity only, and on its own clock — see ``pillContents``. The scale that was
+                // here made the two states cross-fade as though they were unrelated, one
+                // shrinking away while the other grew in; what they are is the two faces of one
+                // shape, so the shape carries the movement and the contents just appear in it.
+                .transition(Self.pillContents)
             }
         }
-        .animation(.spring(response: 0.38, dampingFraction: 0.8), value: statusBarExpanded)
-        // So the growing pill shows only what fits it at each moment of the spring, rather
-        // than the expanded content hanging below a background that has not caught up.
-        .clipped()
-        .glassEffect(.regular, in: Capsule())
+        // Clipped to the shape, not to the rectangle it is drawn in. `.clipped()` cut the
+        // contents off at the corners of the *bounds*, which left them showing outside the
+        // rounded edge and over the picture behind — and the fix is not a smaller corner, it is
+        // clipping to the same outline the glass is drawn in.
+        //
+        // It also carries the mid-flight case: the pill's content is laid out at its final size
+        // from the first frame of the spring, so without this the expanded panel hangs below a
+        // background that has not caught up to it yet.
+        .clipShape(pillShape)
+        .glassEffect(.regular, in: pillShape)
         .padding(.horizontal, 10)
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
@@ -519,7 +694,7 @@ struct RemoteScreen: View {
     }
 
     private var connectionPathChip: some View {
-        Text(model.connectionPath?.rawValue ?? "—")
+        Text(model.connectionPath?.rawValue ?? "None")
             .font(.caption2.weight(.bold))
             .tracking(0.5)
             .foregroundStyle(.secondary)
@@ -595,7 +770,7 @@ struct RemoteScreen: View {
     }
 
     private func expandStatusBar() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+        withAnimation(Motion.morph) {
             statusBarExpanded = true
         }
         // Held, so a manual collapse cancels the timer rather than racing it: without this the
@@ -612,7 +787,7 @@ struct RemoteScreen: View {
     private func collapseStatusBar() {
         statusBarCollapseTask?.cancel()
         statusBarCollapseTask = nil
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+        withAnimation(Motion.morph) {
             statusBarExpanded = false
         }
     }
@@ -707,31 +882,43 @@ struct RemoteScreen: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
         } else {
-            VStack(spacing: 0) {
-                statusBar
-                Spacer(minLength: 0)
-                // Above the controls, for the same reason as in landscape: below them it would
-                // push the wheel and the pointer up into the dock.
-                floatingPanel(available, isLandscape: false)
-                // Wheel on the left; joystick floats centered above the dock via overlay.
-                HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
-                    ScrollWheelView(
-                        onScroll: wheelScroll(dy:),
-                        label: wheelLabel,
-                        position: interactionMode == .navigate ? zoomPosition : nil
-                    )
-                    .reportChromeFrame(.wheel, into: $chromeFrames)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, ChromeMetrics.edgeInset)
-                .padding(.bottom, ChromeMetrics.edgeInset)
-                portraitDock
-                    .reportChromeFrame(.dock, into: $chromeFrames)
-            }
-            .overlay(alignment: .bottom) {
-                pointerColumn
+            // Two layers, and the order between them is the whole of the arrangement. The pointer
+            // is on the screen's own centre, which is the middle of the picture — so it is drawn
+            // *under* the panel rather than over it. An overlay, which is what put it above
+            // everything before, would have had a hundred-point disc swallowing the middle of any
+            // panel the user opened, with its own controls unreachable underneath.
+            ZStack(alignment: .bottom) {
+                portraitPointer
                     .reportChromeFrame(.pointer, into: $chromeFrames)
-                    .padding(.bottom, ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2 + ChromeMetrics.edgeInset * 2)
+                    // Centred across and sitting on the dock, rather than on the screen's own
+                    // centre. `maxHeight: .infinity` with no alignment centres its content, so
+                    // this filled the screen and put the joystick in the middle of both axes —
+                    // the one place on a phone that no thumb can reach comfortably, and half a
+                    // screen away from the bar it belongs to.
+                    //
+                    // The frame is still the whole screen. Only the content inside it has moved:
+                    // the reported rect is measured from the control itself, so everything that
+                    // reads it — the touches the canvas must not take — follows it here.
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+
+                VStack(spacing: 0) {
+                    statusBar
+                    Spacer(minLength: 0)
+                    // Above the dock, for the same reason as in landscape: below it there is
+                    // nothing left to push it into.
+                    floatingPanel(available, isLandscape: false)
+                        .padding(.bottom, ChromeMetrics.panelGap)
+                    portraitDock(width: available.width * ChromeMetrics.dockWidthFraction)
+                        .reportChromeFrame(.dock, into: $chromeFrames)
+                        .padding(.bottom, ChromeMetrics.edgeInset)
+                }
+            }
+            .onAppear {
+                // The wheel is landscape's, and its frame is in the canvas's coordinates rather
+                // than the portait layout's — so rotating back leaves a rectangle of the screen
+                // blocked for touches, over a control that is no longer there to receive them.
+                chromeFrames[.wheel] = nil
             }
             .animation(Motion.settle, value: interactionMode)
         }
@@ -753,8 +940,14 @@ struct RemoteScreen: View {
         RailButton(
             icon: interactionMode.symbol,
             label: interactionMode.label,
-            // Mint only in drag & zoom. That is the mode that surprises if it is forgotten —
+            // Filled only in drag & zoom. That is the mode that surprises if it is forgotten —
             // the picture behaving like a trackpad is what a glancing user already expects.
+            //
+            // Filling both was tried, on the grounds that a caption naming the current mode is
+            // reporting a state and a state deserves a mark. On the device it read the other
+            // way: a button that is never not lit stops being a mark, and it put the loudest
+            // thing in the row at the head of it, permanently, in the mode most sessions spend
+            // their whole time in.
             selected: interactionMode == .navigate
         ) {
             withAnimation(Motion.settle) { interactionMode = interactionMode.toggled }
@@ -789,6 +982,21 @@ struct RemoteScreen: View {
         }
     }
 
+    /// Desktops, or the room it would have taken.
+    ///
+    /// The dock's open rows divide their width equally, which is what keeps the second row's
+    /// buttons under the first row's. Desktops drops out when the Mac has one desktop and one
+    /// screen, and a row of three where the row above has four would then have divided the width
+    /// three ways and put its buttons half a button left of the ones they sit under. An empty
+    /// cell is the same size as a full one, which is the whole of the fix.
+    ///
+    /// Here and not in the landscape rail, which is a column: a hole in that one would be a gap
+    /// between two buttons rather than a column that stays in step.
+    private var desktopsSlot: some View {
+        ZStack { desktopsButton }
+            .frame(maxWidth: .infinity)
+    }
+
     /// Whether the desktops panel is worth offering at all.
     ///
     /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
@@ -797,7 +1005,11 @@ struct RemoteScreen: View {
     private var keysButton: some View {
         RailButton(
             icon: model.showKeyboard ? "keyboard.fill" : "keyboard",
-            label: "Keys",
+            // "Keyboard", not the "Keys" this began as. The caption is the only thing on screen
+            // that says what an icon does, and "Keys" reads as a row of individual keys — the
+            // arrows, the escape, the delete — which are all elsewhere on this very bar. What
+            // this opens is the software keyboard.
+            label: "Keyboard",
             selected: model.showKeyboard
         ) { model.showKeyboard.toggle() }
     }
@@ -883,12 +1095,18 @@ struct RemoteScreen: View {
         if isLandscape {
             reserved = ChromeMetrics.edgeInset * 2 + Self.statusBarHeight
         } else {
-            reserved = ChromeMetrics.quickKeySize
+            // The dock and the pill, and not the pointer. The pointer sits above the dock now
+            // rather than on the screen's own centre, so it is under the panel wherever the panel
+            // ends — but it is not reserved either way, and that is the same decision as before
+            // rather than a consequence of the move: the stick is drawn *under* the panel, so a
+            // panel that covers it is one tap from being dismissed, while a panel kept clear of
+            // it would be a panel too short to read.
+            //
+            // The *open* dock is reserved rather than the shut one, so that opening it while a
+            // panel is up does not push the panel's own first row off the top of the display.
+            reserved = ChromeMetrics.dockExpandedHeight
                 + ChromeMetrics.panelGap
-                + joystickRadius * 2
-                + ChromeMetrics.bottomInset
                 + ChromeMetrics.edgeInset * 2
-                + ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2
                 + Self.statusBarHeight
         }
         return max(140, available.height - reserved)
@@ -1098,40 +1316,144 @@ struct RemoteScreen: View {
         }
     }
 
-    /// The same six controls as the landscape rails, scrolled rather than stacked.
-    private var portraitDock: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                modeButton
-                sourcesButton
-                desktopsButton
-                keysButton
-                shortcutsButton
-                escapeButton
-                tabButton
-                settingsButton
+    /// How tall the dock stands at the moment.
+    ///
+    /// The one piece of portrait chrome whose height changes, and the pointer above it is placed
+    /// from it rather than from a second number that would have to be kept in step. Read from the
+    /// same two constants the dock is built from, so opening it lifts the pointer by exactly the
+    /// row that appeared.
+    private var dockHeight: CGFloat {
+        dockExpanded ? ChromeMetrics.dockExpandedHeight : ChromeMetrics.dockCollapsedHeight
+    }
+
+    /// The same controls as the landscape rails, in a bar that opens like the status pill does.
+    ///
+    /// Eight buttons across a phone held upright is a bar with no room left for the picture, and
+    /// four of those eight are reached for continuously while the other four are not. So the
+    /// shut rail is the four that are, and the chevron at the end of the row opens it onto the
+    /// rest — the same gesture, the same spring and the same morphing corner as the pill above
+    /// it, because they are the same kind of object: a bar of glass that grows when asked.
+    ///
+    /// The two rows share a column grid, the chevron's column included. Row two's four buttons
+    /// are inset by exactly the chevron's width so that they line up under row one's — a second
+    /// row whose buttons sat half a button to the left of the ones above it is the sort of thing
+    /// nobody can name and everybody can see.
+    private func portraitDock(width: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            if dockExpanded {
+                VStack(spacing: ChromeMetrics.buttonGap) {
+                    HStack(spacing: 0) {
+                        modeButton
+                        sourcesButton
+                        keysButton
+                        shortcutsButton
+                        dockToggle
+                    }
+                    HStack(spacing: 0) {
+                        desktopsSlot
+                        escapeButton
+                        tabButton
+                        settingsButton
+                        dockEmptyCell
+                    }
+                    // The keys the landscape rail keeps below its fold, which portrait had no
+                    // equivalent for at all. Five of them and five columns, so each lands in a
+                    // column of its own and the row needs no empty cell to stay in step — which
+                    // is the whole reason five is the number (see ``ChromeMetrics/dockColumns``).
+                    HStack(spacing: 0) {
+                        navigationButtons
+                    }
+                }
+            } else {
+                HStack(spacing: 0) {
+                    modeButton
+                    sourcesButton
+                    keysButton
+                    shortcutsButton
+                    dockToggle
+                }
             }
-            // One width for all of them, and the rail's own at that, so the bar reads as evenly
-            // divided. Left to size themselves they are as wide as their captions — "Esc" beside
-            // "Shortcuts" — and the gaps look random even though the spacing between them is
-            // identical, which is the tell that it is the widths and not the spacing.
-            .environment(\.railButtonWidth, ChromeMetrics.panelWidth)
-            .padding(.horizontal, 4)
         }
-        // Sized from the buttons it holds rather than chosen. This was a fixed 56 while the
-        // buttons were 46, which left room to spare; raising them to 62 then hung the selected
-        // fill out of the top and bottom of the dock, and a bar that cannot drift away from the
-        // thing inside it is the cure.
-        .frame(height: ChromeMetrics.buttonHeight + ChromeMetrics.railPadding * 2)
-        // The same stadium as the vertical rails, for the same reason and from the same two
-        // numbers, so the two orientations cannot disagree about what a rail looks like.
-        .glassEffect(.regular, in: Capsule())
-        .clipShape(Capsule())
-        // Floating, not welded to the glass. Every other surface in this app is a panel with a
-        // margin around it, and a bar running edge to edge would be the one piece of chrome that
-        // was a different kind of object from all the rest.
-        .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.bottom, ChromeMetrics.edgeInset)
+        .padding(.vertical, ChromeMetrics.railPadding)
+        .padding(.horizontal, ChromeMetrics.railSidePadding)
+        .frame(width: width)
+        .clipShape(dockShape)
+        .glassEffect(.regular, in: dockShape)
+    }
+
+    /// The dock's outline, in whichever state it is in — see ``pillShape``, which this is a
+    /// second reading of. The buttons divide whatever width they are given, so the two states
+    /// differ in height alone; the corner is what tells the eye the bar has opened rather than
+    /// been swapped for a taller one.
+    private var dockShape: RoundedRectangle {
+        RoundedRectangle(
+            cornerRadius: dockExpanded
+                ? ChromeMetrics.dockExpandedRadius
+                : ChromeMetrics.dockCollapsedRadius,
+            style: .continuous
+        )
+    }
+
+    /// The dock's own chevron: the one thing in the row that is not a control for the Mac.
+    ///
+    /// The buttons fill their rows between them, so there is no gap left to tap — an expanding
+    /// bar of solid controls has nowhere to put the gesture unless it is given a cell of its
+    /// own. It is wordless because it says nothing about the Mac; it only says there is more
+    /// bar.
+    ///
+    /// A whole column, not the narrow slot it began as. The grid it sits in is five even cells,
+    /// and a chevron on a column of its own is what lets the row below it be five keys rather
+    /// than four keys and a gap. The extra width costs nothing the row was using: it is the
+    /// tap target for the one control here that has no caption to aim at.
+    private var dockToggle: some View {
+        Button {
+            withAnimation(Motion.morph) { dockExpanded.toggle() }
+        } label: {
+            Image(systemName: dockExpanded ? "chevron.up" : "chevron.down")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: ChromeMetrics.buttonHeight)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.94))
+        .accessibilityLabel(dockExpanded ? "Hide the other controls" : "Show the other controls")
+    }
+
+    /// The chevron's column, empty, in the rows below the one the chevron is in.
+    ///
+    /// Flexible rather than a fixed width, so it is a column like every other cell in the grid
+    /// and the buttons either side of it land where they would if it held a button.
+    ///
+    /// Given a height, and that is load-bearing rather than tidy. `Color` is flexible in *both*
+    /// axes, and an unheighted one answers its row's height proposal with whatever it is handed
+    /// — so the row grows to fill the screen and the dock opens to the height of the display.
+    /// Only the open dock has such a cell, which is why a bar of the right height went wrong
+    /// exactly when it was opened.
+    private var dockEmptyCell: some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: ChromeMetrics.buttonHeight)
+    }
+
+    /// The pointer in portrait: the stick above the dock, with the two keys either side of it.
+    ///
+    /// Return moves off the stick's axis to its right, and Back keeps the left, so the row is
+    /// only ever one control tall — a key stacked above the stick would be a key over the middle
+    /// of the picture, which is the part of the Mac the user is trying to see.
+    ///
+    /// Both keys are given the same frame whatever size they are drawn at, so the row balances
+    /// around the stick and the stick lands on the centre exactly. Framed to their own widths,
+    /// the smaller Back would leave the stick seven points off the middle — which is the amount
+    /// that reads as the screen being slightly crooked rather than as a mistake.
+    private var portraitPointer: some View {
+        HStack(alignment: .center, spacing: ChromeMetrics.panelGap) {
+            backKey
+                .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
+            joystick()
+            returnKey
+                .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
+        }
     }
 
     /// Pixels straight through: the wheel has its own travel-to-pixels scale, unlike the
