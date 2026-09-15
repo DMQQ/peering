@@ -416,6 +416,15 @@ struct RemoteScreen: View {
                         .buttonStyle(.plain)
                         .disabled(!SessionPiP.isSupported)
                         .accessibilityLabel("Float the picture over other apps")
+                        // What the last attempt did, including the one made on the way out of
+                        // the app — which is otherwise unobservable from in here. Read after
+                        // swiping home and coming back.
+                        if let attempt = SessionPiP.shared.lastAttempt {
+                            Text(attempt)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero

@@ -430,6 +430,13 @@ struct VideoLayerView: UIViewRepresentable {
 final class SessionPiP: NSObject {
     static let shared = SessionPiP()
 
+    /// What the last attempt did, for the screen.
+    ///
+    /// Recorded on success as well as refusal, because the question here is as often "did
+    /// anything even try" as "why not" — `enteringBackground` may never reach `start`, and
+    /// silence is the same either way.
+    private(set) var lastAttempt: String?
+
     /// Why the last attempt refused, for the screen.
     ///
     /// PiP declines without telling anyone which of its prerequisites was missing, and the
@@ -473,6 +480,19 @@ final class SessionPiP: NSObject {
 
     var isActive: Bool { controller?.isPictureInPictureActive ?? false }
 
+    /// Called as the app leaves the screen.
+    ///
+    /// The one place the automatic case can be observed at all: whether it asked, and what
+    /// came back. Recorded either way, because "it never tried" and "it tried and was refused"
+    /// are the two halves this has to be told apart from, and both are silence on screen.
+    func backgrounding(sessionIsUp: Bool) {
+        guard sessionIsUp else {
+            lastAttempt = "app left screen with no session up"
+            return
+        }
+        start()
+    }
+
     /// Starts it now rather than on the way out of the app.
     ///
     /// The automatic start is the feature; this exists to be able to try it without leaving,
@@ -482,6 +502,7 @@ final class SessionPiP: NSObject {
     func start() {
         guard let controller else {
             lastRefusal = "No picture yet — PiP mirrors the video layer, so a session has to be running."
+            lastAttempt = "no layer"
             videoLog.error("Picture in Picture has no layer to mirror yet")
             return
         }
@@ -495,10 +516,12 @@ final class SessionPiP: NSObject {
                 Not supported here. Supported \(Self.isSupported ? "yes" : "no"), \
                 audio category \(audio.category.rawValue), running \(!audio.isOtherAudioPlaying)
                 """
+            lastAttempt = "not possible"
             videoLog.error("Picture in Picture is not possible: \(self.lastRefusal ?? "", privacy: .public)")
             return
         }
         lastRefusal = nil
+        lastAttempt = controller.isPictureInPictureActive ? "already active" : "asked"
         controller.startPictureInPicture()
     }
 
@@ -524,6 +547,7 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
         failedToStartPictureInPictureWithError error: any Error
     ) {
         lastRefusal = "Could not start: \(error.localizedDescription)"
+        lastAttempt = "failed"
         videoLog.error("""
             Picture in Picture could not start: \(error.localizedDescription, privacy: .public)
             """)

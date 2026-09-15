@@ -817,9 +817,7 @@ final class SessionModel {
         // Asking at the one moment it is wanted costs nothing and does not depend on that
         // judgement — and the moment matters: this runs as the app leaves the screen, which is
         // when `startPictureInPicture` still has a view hierarchy to lift the layer out of.
-        if phase.holdsSession {
-            SessionPiP.shared.start()
-        }
+        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
 
         guard phase.holdsSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
