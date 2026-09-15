@@ -127,17 +127,40 @@ struct DesktopsPanel: View {
     /// The name is read from the catalogue rather than sent alongside the desktops: it is the same
     /// `NSScreen.localizedName` the source picker shows, so the two can never describe one screen
     /// two ways.
+    /// The name of a display, marked when the video is showing that screen.
+    ///
+    /// A Mac with two screens shows two rows here and each row correctly has a current desktop
+    /// of its own, so two highlighted tiles is the honest answer and not a fault. What was
+    /// missing is the other fact: *which* of those two screens the picture on the phone is
+    /// actually of. Without it a capture source that had got stuck elsewhere read as a panel
+    /// that had stopped working, because both rows looked equally plausible.
+    ///
+    /// Filled rather than tinted, because that is what this app already means by "this one is
+    /// on" — see ``ColorPalette/selectedFill``, and the same mark on the sources list. A bare
+    /// checkmark rather than the circled one used there: that one sits on a dark row and needs
+    /// the disc to carry it, while this sits on the fill itself.
     private func chip(for display: SpaceDisplay) -> some View {
-        Text(name(of: display))
-            .font(.system(size: 10, weight: .semibold))
-            .lineLimit(1)
-            .foregroundStyle(ColorPalette.ink)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(ColorPalette.surface, in: Capsule())
-            .overlay {
-                Capsule().strokeBorder(ColorPalette.ink.opacity(0.15))
+        let isShowing = model.activeSourceID == CaptureSource.display(display.displayID).stableID
+
+        return HStack(spacing: 4) {
+            if isShowing {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
             }
+            Text(name(of: display))
+                .font(.system(size: 10, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(ColorPalette.ink)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(isShowing ? ColorPalette.selectedFill : ColorPalette.surface, in: Capsule())
+        .overlay {
+            // The hairline is what gives the resting chip a body. On the filled one it is the
+            // fill doing that, and a border would only dull the accent.
+            Capsule().strokeBorder(ColorPalette.ink.opacity(isShowing ? 0 : 0.15))
+        }
+        .animation(Motion.tap, value: isShowing)
     }
 
     private func name(of display: SpaceDisplay) -> String {
