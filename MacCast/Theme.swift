@@ -124,6 +124,8 @@ enum ColorPalette {
 enum PreferenceKey {
     /// Whether picking something from a floating panel puts the panel away.
     static let hidesPanelAfterSelect = "Peering.hidesPanelAfterSelect"
+    /// Whether iOS floats the picture on its own when the app goes away.
+    static let pipAutoStart = "Peering.pipAutoStart"
 }
 
 /// A section heading: small, tracked, uppercase.

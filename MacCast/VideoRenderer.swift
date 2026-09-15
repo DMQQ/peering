@@ -430,6 +430,21 @@ struct VideoLayerView: UIViewRepresentable {
 final class SessionPiP: NSObject {
     static let shared = SessionPiP()
 
+    /// Whether iOS should float the picture on its own when the app goes away.
+    ///
+    /// Our own switch, because the system's is buried. Settings → General → Picture in
+    /// Picture → "Start PiP Automatically" is two levels into Settings and reads as a setting
+    /// for watching video rather than for driving a Mac — which is why it went unfound for most
+    /// of a day's debugging.
+    ///
+    /// It is a preference *and* a hint. Turning it off does not stop the button, and turning it
+    /// on cannot make iOS start something the system-wide setting forbids: both have to allow
+    /// it, and this one only speaks for the app.
+    var autoStart =
+        UserDefaults.standard.object(forKey: PreferenceKey.pipAutoStart) as? Bool ?? true {
+        didSet { controller?.canStartPictureInPictureAutomaticallyFromInline = autoStart }
+    }
+
     /// What the last attempt did, for the screen.
     ///
     /// Recorded on success as well as refusal, because the question here is as often "did
@@ -462,7 +477,7 @@ final class SessionPiP: NSObject {
         // The whole point of it: going to another app floats the picture rather than ending
         // the session. Starting it by hand would mean the gesture that matters — leaving the
         // app — is the one that does not trigger it.
-        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        controller.canStartPictureInPictureAutomaticallyFromInline = autoStart
         // Takes the fast-forward, the forward-skip and the scrubber out of the window's
         // controls, which is what they should be: this is a live picture of a Mac, and there is
         // nothing ahead of it to skip to. "Certain user operations" is the header's own

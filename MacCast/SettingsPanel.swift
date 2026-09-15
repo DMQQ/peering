@@ -21,12 +21,15 @@ struct SettingsPanel: View {
     /// Read here as well as in the screen that obeys it. Same key, one name for it in
     /// ``PreferenceKey`` — two spellings would be a switch that does nothing for one of them.
     @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+    /// Read here as well as in ``SessionPiP``, under the same key — see ``PreferenceKey``.
+    @AppStorage(PreferenceKey.pipAutoStart) private var pipAutoStart = true
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 session
                 stream
+                picture
                 panels
                 keyboard
                 macros
@@ -102,6 +105,25 @@ struct SettingsPanel: View {
                 stays open either way — its buttons are key presses rather than choices, and a \
                 panel that shut after every one would have to be reopened for the next.
                 """)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The floating window, and whether it arrives on its own.
+    private var picture: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel("Picture")
+            Toggle(isOn: $pipAutoStart) {
+                Text("Float automatically")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+            // Pushed straight through rather than read on the next attach: the setting has to
+            // take effect on the controller that is already running.
+            .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
+            Text("Leaving the app floats the picture over whatever is next. The button in the status bar starts it by hand either way, and iOS has its own switch for this under Settings → General → Picture in Picture — both have to allow it.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
