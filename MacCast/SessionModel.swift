@@ -805,6 +805,14 @@ final class SessionModel {
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     /// Called when the app is backgrounded with a session up.
+    /// Called as the app begins to leave the screen, ahead of ``enteringBackground()``.
+    ///
+    /// Separate because the two are a phase apart and that phase is the whole difference for
+    /// Picture in Picture — see the call in `MacCastApp`.
+    func leavingScreen() {
+        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
+    }
+
     func enteringBackground() {
         SessionActivity.shared.enteringBackground()
 

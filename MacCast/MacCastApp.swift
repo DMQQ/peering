@@ -45,6 +45,16 @@ struct MacCastApp: App {
                     case .active:
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
+                    case .inactive:
+                        // The last moment the app's view hierarchy is still on screen, and so
+                        // the last moment `startPictureInPicture` can lift the video layer out
+                        // of it. Asking at `.background` — which is what this did — is a
+                        // refusal, because by then there is nothing to lift it from.
+                        //
+                        // It fires for things that are not leaving, too: Control Center, a
+                        // banner, the app switcher opening. Those cost a PiP window that has to
+                        // be dismissed, which is the price of the one case that matters.
+                        model.leavingScreen()
                     case .background:
                         // Asks for the few seconds iOS grants before it suspends an app. The
                         // session still ends when that runs out — see

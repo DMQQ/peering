@@ -425,6 +425,14 @@ struct RemoteScreen: View {
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
+                        // The reason, not just the verdict. "failed" on its own is the same
+                        // fact as a silent failure, one step further along.
+                        if let why = SessionPiP.shared.lastRefusal {
+                            Text(why)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
