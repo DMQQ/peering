@@ -183,6 +183,14 @@ final class HostModel {
             guard let transform else { return }
             self?.input.transform = transform
         }
+        // The same value, from the only observer that sees it change. For an application or a
+        // window this is the authoritative answer — the one above is built from geometry read
+        // when capture started, and a window dragged two seconds later has moved since. See
+        // ``CapturePipeline/inputTransform()``, which asks the callers to prefer this.
+        coordinator.onGeometry = { [weak self] geometry in
+            guard let transform = geometry.inputTransform else { return }
+            self?.input.transform = transform
+        }
         self.coordinator = coordinator
 
         let server = HostServer(identity: identity, device: device, pins: pins)
@@ -296,11 +304,42 @@ final class HostModel {
             do {
                 try await coordinator.switchSource(source)
                 self?.pendingCaptureSource = nil
+                // After the switch rather than before: raising an app whose capture then
+                // fails would bring the wrong thing forward and leave it there.
+                self?.raiseApplication(for: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 self?.record("Could not switch capture source: \(message)")
             }
         }
+    }
+
+    /// Brings a captured application to the front, so that what the client sees and where its
+    /// clicks land are the same thing.
+    ///
+    /// Capturing an application is not the same as controlling it, and the gap between the two
+    /// is invisible from the client. ScreenCaptureKit composites the app's *windows*; for a
+    /// single-window app, `desktopIndependentWindow` captures that window's content exactly, with
+    /// no backdrop and no regard for what is drawn over it. So the client sees the app whether it
+    /// is occluded, minimised, or on another Space. Input does not work that way: every event goes
+    /// to the HID tap, where the window server hit-tests the *real* screen and hands the click to
+    /// whatever is genuinely at those coordinates. The user therefore sees the app, clicks where
+    /// it appears to be, and hits whatever is actually on top of it — the app looks painted on
+    /// rather than present.
+    ///
+    /// `.activateAllWindows` rather than a plain activation, because ``InputTransform`` for an
+    /// application is the union of *every* window it owns: raising only the main one would leave
+    /// the transform describing a box that is still partly behind something else.
+    ///
+    /// The cost is real and worth stating: this moves the app in front of whatever the Mac's own
+    /// user was doing, and switches Spaces if its windows are elsewhere. That is what anyone
+    /// sitting at the Mac would have to do to use it as well.
+    private func raiseApplication(for source: CaptureSource) {
+        guard case .application(let pid) = source,
+              let running = NSRunningApplication(processIdentifier: pid)
+        else { return }
+
+        running.activate(options: [.activateAllWindows])
     }
 
     /// Opens a GUI application by the bundle identifier offered in the catalogue, then
