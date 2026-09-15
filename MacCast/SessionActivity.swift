@@ -94,6 +94,19 @@ final class SessionActivity {
         show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
     }
 
+    /// The session was lost rather than ended, and the card stays up to say so.
+    ///
+    /// Its own entry point because the caller is not a phase change: `SessionModel.disconnect`
+    /// is how both a tapped quit and an end forced by iOS arrive, and only the first of those
+    /// should take the card down.
+    func sessionDropped(
+        hostName: String,
+        startedAt: Date?,
+        path: SessionActivityAttributes.Path? = nil
+    ) {
+        show(.dropped, hostName: hostName, startedAt: startedAt, path: path)
+    }
+
     /// Shows a state that is about the session rather than being it.
     ///
     /// The two — dropped and reconnecting — differ only in which phase they set, and both are

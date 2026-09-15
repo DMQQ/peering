@@ -567,6 +567,12 @@ final class SessionModel {
     /// because it is about to suspend the app is not, because they are looking at something else
     /// and a banner is the only way they will ever hear about it.
     func disconnect(deliberate: Bool = true) {
+        // Taken before anything else is, because everything below is about taking this session
+        // apart — and the card that outlives a non-deliberate end needs both to say what was
+        // lost. After the lines beneath them they are simply nil.
+        let wasStartedAt = sessionStartedAt
+        let wasPath = Self.activityPath(connectionPath)
+
         // Recorded before anything moves. `ClientSession` announces the end itself, and by
         // the time that event is applied the phase below has already been set — so this flag
         // is the only evidence left that the user, and not the network, ended it.
@@ -586,10 +592,25 @@ final class SessionModel {
         connectionPath = nil
         latchedModifiers = []
         phase = .disconnected
+
         // Below the assignment rather than above it: this is the path that *is* the phase
-        // change, and the announcement that follows it sees no difference to act on. See
-        // ``SessionActivity/sessionEnded()``.
-        SessionActivity.shared.sessionEnded()
+        // change, and the announcement that follows it sees no difference to act on.
+        //
+        // Which of the two, though, turns on `deliberate` — and this method is how *both*
+        // arrive, because the end iOS forces when the background grace runs out comes through
+        // here too. `sessionEnded()` used to be called unconditionally, so backgrounding the
+        // app made the card vanish as though the user had quit: the one moment the card is
+        // most useful, and it was being taken away. That is the opposite of what `deliberate`
+        // is documented to mean two paragraphs up.
+        if deliberate {
+            SessionActivity.shared.sessionEnded()
+        } else {
+            SessionActivity.shared.sessionDropped(
+                hostName: hostName ?? "the Mac",
+                startedAt: wasStartedAt,
+                path: wasPath
+            )
+        }
     }
 
     /// A trusted Mac the user asked for, waiting on discovery to produce it.
