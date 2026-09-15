@@ -456,6 +456,16 @@ final class SessionPiP: NSObject {
         // the session. Starting it by hand would mean the gesture that matters — leaving the
         // app — is the one that does not trigger it.
         controller.canStartPictureInPictureAutomaticallyFromInline = true
+        // Takes the fast-forward, the forward-skip and the scrubber out of the window's
+        // controls, which is what they should be: this is a live picture of a Mac, and there is
+        // nothing ahead of it to skip to. "Certain user operations" is the header's own
+        // wording, and the three it names are the three listed here.
+        //
+        // The play/pause and the backward-skip are not among them and have no equivalent
+        // switch. The pause is answered by the delegate's `IsPlaybackPaused` — which reports
+        // false, because a frame held back here is a dropped frame rather than a pause — and
+        // the backward-skip completes immediately, so both are inert rather than absent.
+        controller.requiresLinearPlayback = true
         // Set for the failure callback: without a delegate, a refusal to start is silent.
         controller.delegate = self
         self.controller = controller
