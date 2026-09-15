@@ -36,13 +36,9 @@ private let overlayLog = Logger(subsystem: "pl.dmq.peering.host", category: "cap
 /// does produce is the `CGEvent` the pointer's position is read from, which is the only way
 /// the window server is asked where the cursor is.
 ///
-/// **A still screen still moves the pointer, and that movement is a frame.** An idle display
-/// produces no pictures at all — ScreenCaptureKit reports `.idle` on schedule, and with
-/// `showsCursor` off the pointer does not change a pixel the stream is watching for — so a
-/// pointer that can only move when something else on screen moves moves at whatever rate the
-/// screen happens to be changing at, which on a quiet Mac is a couple of frames a second.
-/// That is the whole of "the pointer is very choppy". ``redraw(_:)`` takes those idle samples
-/// and makes a frame out of the pointer alone.
+/// The system pointer deliberately remains enabled in ScreenCaptureKit underneath this one.
+/// Its movement makes the stream produce real consecutive frames even on a quiet desktop;
+/// this larger opaque shape covers it at the same tip in the frame sent to the phone.
 ///
 /// The synthetic pipeline cannot use this and does not try: generated frames describe no
 /// screen, so there is no coordinate space for a pointer to be placed in. See
@@ -311,13 +307,10 @@ final class CursorOverlay: @unchecked Sendable {
     /// is nothing to send.
     ///
     /// **Why a frame has to be made at all.** ScreenCaptureKit reports `.idle` when the
-    /// display's content has not changed, and with `showsCursor` off the pointer is not part
-    /// of that content. So on a quiet Mac every sample is idle, nothing reaches the encoder,
-    /// and the pointer on the phone can only move when a frame arrives for some other reason
-    /// — measured at about ten frames a second and reported as a pointer that is very choppy.
-    /// Nothing is wrong with the network or the encoder when that happens. There is simply
-    /// nothing to send, and a frame made out of the pointer's own movement is what makes
-    /// there be.
+    /// display's content has not changed. This was built for the former configuration that
+    /// hid the system pointer, where pointer movement could not make a real frame. Production
+    /// capture now keeps that pointer visible and this fallback remains disabled in
+    /// ``CapturePipeline`` because invented frames broke the decoder's reference chain.
     ///
     /// **The sample supplies no pixels, and that is deliberate.** An idle sample is not a
     /// frame and cannot be treated as one: it may carry no image buffer at all, and a host

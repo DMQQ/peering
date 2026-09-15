@@ -498,10 +498,9 @@ struct HostStatusView: View {
                     .font(.subheadline.weight(.medium))
                 // Says what *off* means, because it is not "draw nothing" and it is not
                 // "no pointer": the system's pointer goes back into the capture and the small
-                // one the phone had before returns. It also takes effect on the next
-                // connection rather than the next frame, which is worth saying here rather
-                // than leaving to be discovered.
-                Text("Draws a bigger pointer into the video so it is easier to see on a phone. The pointer on this Mac is not changed. With this off the Mac's own pointer is sent instead, which is smaller. Changing it applies to the next connection.")
+                // one the phone had before returns. The system pointer always remains in the
+                // capture because its movement is what keeps the video smooth on a quiet Mac.
+                Text("Draws a bigger pointer over the Mac's pointer in the video so it is easier to see on a phone. The pointer on this Mac is not changed. With this off only the Mac's smaller pointer is sent.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

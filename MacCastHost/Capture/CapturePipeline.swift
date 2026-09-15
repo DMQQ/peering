@@ -278,17 +278,17 @@ final class CapturePipeline: @unchecked Sendable {
             if let sourceRect = plan.sourceRect {
                 configuration.sourceRect = sourceRect
             }
-            // The system's pointer stays out of the capture while a larger one is being drawn
-            // into it, and comes back when it is not. Both halves matter, and the second is the
-            // one that was missing: with the overlay switched off and the cursor still hidden,
-            // a frame carried no pointer at all — so the setting's "off" removed the pointer
-            // rather than restoring the small one, which is a trap rather than a choice.
+            // Keep the system pointer in the capture even when the overlay draws the larger
+            // one over it. Cursor movement is then a real display change, so ScreenCaptureKit
+            // produces a real picture at the requested cadence instead of a run of `.idle`
+            // samples. The larger opaque pointer covers the smaller one at the same tip.
             //
-            // Set here rather than inside `configuration(for:)` for the reason the source
-            // rectangle above is: it describes how this stream is being run, not what is being
-            // captured. It also means the change lands on the next capture, which is the only
-            // moment it can — `showsCursor` is fixed when the stream is built.
-            configuration.showsCursor = overlay?.isEnabled != true
+            // Hiding it here made remote pointer movement arrive at only the rate some other
+            // part of the screen happened to change (measured at 1–21 fps). Manufacturing
+            // pictures from idle samples was not equivalent: those pictures could break the
+            // decoder's reference chain. Keeping the system cursor visible gives the encoder
+            // genuine consecutive frames and measured 56 fps over a 60 fps stream.
+            configuration.showsCursor = true
             let encoder = try VideoEncoder(codec: codec, pixelSize: pixelSize, frameRate: frameRate)
 
             try await begin(

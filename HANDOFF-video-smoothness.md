@@ -1,5 +1,22 @@
 # Handoff: the streamed picture is not smooth
 
+## Resolved 2026-09-16
+
+The decisive experiment in §7 confirmed the cause. With the system cursor hidden, continuous
+pointer movement produced 21.2 fps. With it captured, the same test produced 56.4 fps at a
+60 fps setting. The fix keeps `SCStreamConfiguration.showsCursor = true` even when
+`CursorOverlay` draws the larger opaque pointer over it. This makes cursor movement dirty real
+ScreenCaptureKit frames and avoids the decoder-breaking synthetic idle-frame path.
+
+Final measurements from the fixed build with the large pointer enabled:
+
+- 60 fps setting: 275 frames in 5.04 s = 54.5 fps; 0 encoder drops.
+- 120 fps setting: 516 frames in 5.03 s = 102.6 fps; 0 encoder drops and 0 keyframe-gate drops.
+
+The host preference is currently set to 120 fps. The displayed rate may fall to zero when the
+picture is completely still; that is expected because the counter measures newly delivered
+pictures, not the display refresh clock. During pointer movement it rises again.
+
 Written 2026-09-16. Everything below is either **measured** or marked as **reasoned**. Read the
 measurements first — several plausible theories were killed by them and re-deriving them wastes
 a day.

@@ -258,14 +258,9 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     ///   clear backdrop over anything that is not a full display (an application filter, or
     ///   a window smaller than its surface) composites to whatever the surface had in it:
     ///   uninitialised garbage.
-    /// - `showsCursor` — off, which is a product decision rather than an inherited one. The
-    ///   system's own pointer is about sixteen points tall, which is a few pixels of the
-    ///   picture once the client has scaled that picture down to a phone; ``CursorOverlay``
-    ///   draws a larger one into the luma plane of every frame instead, so that a frame
-    ///   carries one pointer rather than two. The trade is worth knowing about: a frame the
-    ///   overlay does not draw into — it is switched off, or the pointer is not over the
-    ///   captured content — carries no pointer at all, where the same frame used to carry a
-    ///   small one.
+    /// - `showsCursor` — on. Cursor movement must count as a real display change so a quiet
+    ///   desktop still produces smooth pointer frames. ``CursorOverlay`` may draw a larger,
+    ///   opaque pointer over the captured one, at the same tip.
     ///
     /// Two properties are deliberately left alone. `scalesToFit` is not set: it stretches
     /// content to the configured size, which is how a window capture ends up with the wrong
@@ -300,10 +295,8 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         configuration.width = width
         configuration.height = height
         configuration.backgroundColor = CGColor.black
-        // Whether the system pointer is hidden depends on whether something is about to draw a
-        // larger one in its place, which is a property of the session rather than of this source
-        // — so it is set by the caller. See ``CapturePipeline``. Left visible here, which is the
-        // safe default: a pointer that is too small beats no pointer.
+        // This stays visible even when ``CursorOverlay`` draws a larger pointer on top. Its
+        // movement is what makes ScreenCaptureKit produce real frames on a quiet desktop.
         configuration.showsCursor = true
 
         // Caps the capture rate rather than the encode rate, and it is the stream's half of
