@@ -127,11 +127,18 @@ struct JoystickView: View {
         .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click")
     }
 
-    // At most 30 send calls per second; everything between goes into `pendingDx/pendingDy`
+    // At most 60 send calls per second; everything between goes into `pendingDx/pendingDy`
     // and is flushed as one accumulated delta when the gate opens. The CommandCoalescer in
     // the transport also accumulates, but throttling earlier reduces message construction
     // and serialisation overhead on 120 Hz ProMotion displays.
-    private static let sendHz: TimeInterval = 1.0 / 30
+    //
+    // This was 30, and that was the whole of the cursor's smoothness: the host cannot post a
+    // step it has not been sent, so the pointer moved in thirty discrete jumps a second while
+    // the video running beside it resolved sixty. Nothing was lost — the deltas accumulate
+    // either way — but the motion was half as fine as the picture could show. The cost of
+    // doubling it is about thirty more messages a second at roughly forty bytes each, against
+    // a video stream measured in megabits.
+    private static let sendHz: TimeInterval = 1.0 / 60
 
     private func emit(_ offset: CGSize) {
         let now = Date()

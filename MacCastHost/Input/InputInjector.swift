@@ -33,8 +33,19 @@ final class InputInjector: @unchecked Sendable {
 
     /// How long a quiet gap makes the next joystick nudge the start of a new gesture.
     private static let joystickResyncGap: UInt64 = 250_000_000
-    /// Minimum nanoseconds between posted mouseMoved events (≈ 60 Hz).
-    private static let joystickPostInterval: UInt64 = 16_000_000
+    /// Minimum nanoseconds between posted mouseMoved events (≈ 83 Hz).
+    ///
+    /// This is a burst guard, not a rate limit, and the distinction is the whole of its value.
+    /// The client sends its accumulated joystick delta at 60 Hz — one sample every 16.7 ms — so
+    /// a threshold *at* 16.7 ms sits exactly on the interval it is meant to be judging: jitter
+    /// of a millisecond either way decides whether a sample goes now or waits and travels with
+    /// the next one, and the cursor advances in alternating small and double steps. Sitting
+    /// below the interval means every sample clears it and goes immediately, while a genuine
+    /// burst is still capped.
+    ///
+    /// The ceiling it enforces is unchanged in practice. Posting still happens at the client's
+    /// rate, sixty times a second, which is what the cap was always aiming for.
+    private static let joystickPostInterval: UInt64 = 12_000_000
 
     // Reusing a single source avoids allocating a new CGEventSource on every event.
     // hidSystemState reflects the current HID state so modifier keys are read correctly.
@@ -207,7 +218,8 @@ final class InputInjector: @unchecked Sendable {
                 postMouse(.mouseMoved, at: target, button: .left)
             }
 
-        case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality:
+        case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
+             .refreshSpacePreviews:
             // Handled upstream in HostModel.onCommand before this method is called.
             break
         }
