@@ -201,14 +201,21 @@ struct DesktopsPanel: View {
         showsScreenName: Bool,
         size: CGSize
     ) -> some View {
-        // The accent means "this is what the phone is looking at", and exactly one desktop can
-        // be that. Every display has its own current desktop and each is a true answer to a
-        // different question — so marking both left two tiles wearing the same badge, and the
-        // panel looking as though it had two answers to one question. The row that is not on
-        // screen is still selectable; it is just not *here*.
+        // Two facts, two weights, because they are different things and the panel is useless
+        // without both.
+        //
+        // `isCurrent` is where *that screen* is — every display has one and they are all true
+        // at once, which is what made marking them identically look like two answers to one
+        // question. `isLive` is where the phone is looking, and exactly one desktop can be it.
+        //
+        // Suppressing the first to fix the second was a worse trade: the row for the display
+        // you are not watching then showed nothing about where it was, so tapping "desktop 2"
+        // on a screen already showing desktop 2 became a coin toss. It is not a no-op a user
+        // can see — the panel closes, the picture does not move, and it reads as broken.
         let isShowing = model.activeSourceID == CaptureSource.display(display.displayID).stableID
-        let isCurrent = isShowing && index == display.current
-        let label = "Desktop \(index)\(isCurrent ? ", current" : "")"
+        let isCurrent = index == display.current
+        let isLive = isShowing && isCurrent
+        let label = "Desktop \(index)\(isLive ? ", showing" : isCurrent ? ", current" : "")"
         return Button {
             switchToDesktop(display: display, index: index)
         } label: {
@@ -236,14 +243,20 @@ struct DesktopsPanel: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(
-                            isCurrent ? ColorPalette.accent : ColorPalette.ink.opacity(0.18),
-                            lineWidth: isCurrent ? 2 : 1
+                            isLive
+                                ? ColorPalette.accent
+                                : (isCurrent ? ColorPalette.ink.opacity(0.5) : ColorPalette.ink.opacity(0.18)),
+                            lineWidth: isLive ? 2 : (isCurrent ? 1.5 : 1)
                         )
                 }
 
-                Text("Desktop \(index)")
-                    .font(.system(size: 10, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? ColorPalette.accent : Color.secondary)
+                Text(isLive ? "Desktop \(index) · here" : "Desktop \(index)")
+                    .font(.system(size: 10, weight: isLive ? .semibold : .regular))
+                    .foregroundStyle(
+                        isLive
+                            ? ColorPalette.accent
+                            : (isCurrent ? ColorPalette.ink : Color.secondary)
+                    )
             }
         }
         .buttonStyle(RailButtonStyle(scale: 0.94))
