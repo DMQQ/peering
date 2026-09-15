@@ -27,5 +27,27 @@
 	<string>Peering connects to your Mac on the local network to stream its screen and send input.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<!--
+	  What keeps a session alive once the app is not on screen. iOS suspends an app that has
+	  nothing to do, and a suspended app's sockets die — which is what ended every session the
+	  moment the phone was locked or another app was opened, and what made the Live Activity
+	  only ever live for the thirty seconds of grace.
+
+	  `audio` is the honest-ish one: the app plays silence for exactly as long as there is a
+	  session to keep. It is also what Picture in Picture needs in order to start on its own
+	  when the app goes to the background.
+
+	  This is a real cost. It keeps the radio and the CPU awake for the whole time the app is
+	  backgrounded with a session up, and it is the specific thing Apple rejects apps for.
+	  Both are fine for a personal, sideloaded tool and neither would be for anything shipped.
+
+	  Note this lives here and not in an INFOPLIST_KEY_ build setting: that mechanism silently
+	  ignores array-valued keys, `UIBackgroundModes` among them. It compiles, it builds, and
+	  nothing appears in the plist.
+	-->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

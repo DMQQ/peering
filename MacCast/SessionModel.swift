@@ -472,6 +472,15 @@ final class SessionModel {
             if !phase.holdsSession, !userEnded {
                 scheduleReconnect()
             }
+            // Held open for as long as there is a session, so the socket outlives the app being
+            // on screen. Start before the card rather than after: the card is worth nothing if
+            // the session it describes has already been suspended. See ``SessionAudio``.
+            if phase.holdsSession {
+                SessionAudio.shared.begin()
+            } else {
+                SessionAudio.shared.end()
+            }
+
             SessionActivity.shared.sessionMoved(
                 from: previous,
                 to: phase,
