@@ -239,6 +239,13 @@ final class HostModel {
                 coordinator.setStreamQuality(fps: fps, bitrateKbps: bitrateKbps)
                 return
             }
+            if case .refreshSpacePreviews = command {
+                // Not hopped to the main actor: the capture is the resolver's own work on its
+                // own queue, and the only main-actor thing in it is reading the Space lists,
+                // which it does itself. `setStreamQuality` above is the same shape.
+                coordinator.refreshSpacePreviews()
+                return
+            }
             input.perform(command)
         }
 

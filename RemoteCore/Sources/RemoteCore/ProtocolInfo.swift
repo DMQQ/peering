@@ -10,7 +10,11 @@ public enum ProtocolInfo {
     /// and is declared as one — the handshake turns it into "update whichever is older" rather
     /// than a decode failure in the middle of a session.
     /// 3: adds relay signalling and routed control/video transports.
-    public static let version: UInt16 = 3
+    /// 4: adds `refreshSpacePreviews`, which a host of version 3 cannot decode. An unknown
+    /// command is a decode failure in the middle of a session rather than a degraded
+    /// experience, so this is declared incompatible for the usual reason: the handshake turns
+    /// it into "update whichever is older".
+    public static let version: UInt16 = 4
 
     /// Public signalling endpoint. Control and video endpoints are supplied per session by the
     /// relay, so only this address belongs in the apps.

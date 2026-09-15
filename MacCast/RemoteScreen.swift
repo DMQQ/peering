@@ -102,6 +102,13 @@ struct RemoteScreen: View {
         // region that no longer has anything in it.
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
+
+            // The desktop pictures are the one thing here that is stale by design — they are
+            // photographs, not a stream, and the host re-takes them on a schedule of its own.
+            // Opening the panel is the moment they are about to be looked at, so it is the
+            // moment to ask. The answer does not come back through this call: the host pushes
+            // a catalogue when a picture lands, the same way it does for any other change.
+            if panel == .desktops { model.send(.refreshSpacePreviews) }
         }
     }
 

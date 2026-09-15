@@ -96,6 +96,14 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// running encoder and `fps` to the capture pipeline's frame interval. A value of 0 for
     /// either field means "keep current". Takes effect on the next keyframe.
     case setStreamQuality(fps: Int, bitrateKbps: Int)
+    /// Asks the host to re-photograph the desktop being shown, ahead of the schedule it would
+    /// otherwise keep to.
+    ///
+    /// A signal rather than a request for data: the picture arrives the way every other preview
+    /// does, on the catalogue the host pushes when one lands. What this buys is *timing*. The
+    /// desktops panel is the one moment a user can see how old the pictures are, and the host
+    /// has no way to know it has been opened — this is the client saying so.
+    case refreshSpacePreviews
 
     public var coalescing: Coalescing {
         switch self {
@@ -104,7 +112,11 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .joystickMove, .scroll:
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
-             .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality:
+             .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
+             .refreshSpacePreviews:
+            // Never dropped. A refresh is cheap to repeat and the whole point of it is that the
+            // user is looking at the panel now; superseding a queued one would be exactly the
+            // wrong economy.
             return .none
         }
     }

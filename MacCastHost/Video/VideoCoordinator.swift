@@ -448,6 +448,12 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
     /// Applies a stream-quality change requested by the client.
+    /// Re-photographs the desktop showing on each display. See
+    /// ``RemoteCommand/refreshSpacePreviews``.
+    func refreshSpacePreviews() {
+        pipeline.refreshSpacePreviews()
+    }
+
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
         if bitrateKbps > 0 {
             pipeline.setBitrate(bitrateKbps * 1000)

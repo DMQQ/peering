@@ -164,6 +164,19 @@ final class CapturePipeline: @unchecked Sendable {
         }
     }
 
+    /// Re-photographs the desktop showing on each display, ahead of the schedule.
+    ///
+    /// Detached rather than awaited: this is asked for by a client opening a panel, and what
+    /// it is asking for arrives later and by another route — on the catalogue the host pushes
+    /// when a picture lands. There is nothing here for the caller to wait for.
+    ///
+    /// A synthetic pipeline has no screen behind it and answers by doing nothing, the same way
+    /// it answers ``inputTransform()`` with a degenerate transform.
+    func refreshSpacePreviews() {
+        guard case .capture(let resolver, _) = backend else { return }
+        Task { await resolver.refreshSpacePreviews() }
+    }
+
     /// The capture sources the host is currently offering.
     ///
     /// A synthetic pipeline has no sources and answers with an empty list rather than

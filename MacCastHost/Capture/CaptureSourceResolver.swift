@@ -42,6 +42,11 @@ protocol CaptureSourceResolver: Sendable {
 
     /// Where the source's content sits on screen, for mapping client input.
     func inputTransform(for source: CaptureSource) -> InputTransform
+
+    /// Re-photographs the desktop showing on each display, ahead of the schedule the age check
+    /// in ``ScreenCaptureSourceResolver/captureActiveSpacePreview(force:)`` would otherwise keep
+    /// to. Asked for by a client that is about to show the pictures.
+    func refreshSpacePreviews() async
 }
 
 /// The real resolver, backed by `SCShareableContent`.
@@ -84,6 +89,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// Under ``lock`` with the rest of the mutable state.
     private var lastActiveSpace: [UInt32: Int32] = [:]
 
+    /// When each display's currently-active Space was last photographed.
+    ///
+    /// A Space *switch* is not the only thing that makes a preview wrong. Windows are opened,
+    /// moved and closed on the desktop being photographed constantly, and not one of those
+    /// announces itself — so a preview taken when the user arrived stays on screen describing
+    /// a desktop that has since changed underneath it. This is what lets
+    /// ``captureActiveSpacePreview()`` re-shoot a desktop nobody has left. Under ``lock`` with
+    /// the rest of the mutable state.
+    private var lastPreviewAt: [UInt32: DispatchTime] = [:]
+
     /// Looks for a Space change that no notification announced. See ``spacePollInterval``.
     private var spacePoll: Task<Void, Never>?
 
@@ -96,6 +111,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// window-server calls and a comparison, and a screenshot only happens when something really
     /// did change, so the steady-state cost of this is the timer and nothing else.
     private static let spacePollInterval: Duration = .seconds(2)
+
+    /// How long a preview of a desktop nobody has left stays good enough.
+    ///
+    /// The poll above runs every two seconds and exists to catch a Space change no notification
+    /// announced; this is the other half of the same question, and the one a user actually
+    /// notices. Twelve seconds is a compromise: long enough that a desktop being worked on is
+    /// not photographed every couple of seconds for no reason, short enough that the picture in
+    /// the desktops panel is recognisably of now. The cost is one screenshot per display per
+    /// interval — a round trip through the window server, but nothing near the video path's.
+    private static let spacePreviewMaxAgeNanoseconds: UInt64 = 12 * 1_000_000_000
 
     /// Fired when the catalogue is known to be out of date — after an app launches or quits,
     /// or a display is added, removed or reconfigured. The host re-reads ``catalog()`` and
@@ -273,16 +298,42 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// server, and the catalogue is on the critical path of a client connecting: a preview is
     /// worth a task of its own and a push of its own, and never a millisecond of the
     /// catalogue's. Everything here is best-effort, and a failure only costs a tile.
-    func captureActiveSpacePreview() async {
+    func refreshSpacePreviews() async {
+        await captureActiveSpacePreview(force: true)
+    }
+
+    /// Photographs the Space showing on each display, where that is worth doing.
+    ///
+    /// - Parameter force: ignore the age check and shoot anyway. For a client that has just
+    ///   asked, because it is about to put the pictures in front of someone.
+    func captureActiveSpacePreview(force: Bool = false) async {
         // Which displays want a new picture is decided *before* the settle, so a second
         // notification arriving during it does not get this call acting on a display it was never
         // about. Recorded here rather than after the captures, so a notification arriving
         // mid-flight does not queue the same display up twice.
         let before: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
         let changed = lock.withLock { () -> [UInt32] in
-            let arrived = before.filter { lastActiveSpace[$0.displayID] != $0.activeID }
-            for display in before { lastActiveSpace[display.displayID] = display.activeID }
-            return arrived.map(\.displayID)
+            let now = DispatchTime.now()
+            var due: [UInt32] = []
+            for display in before {
+                let arrived = lastActiveSpace[display.displayID] != display.activeID
+                lastActiveSpace[display.displayID] = display.activeID
+
+                // Aged out as well as arrived at. A desktop the user has been sitting on is
+                // exactly the one a client is most likely to be shown a picture of, and it is
+                // also the one that goes most stale — nothing announces a window opening on it.
+                let age = lastPreviewAt[display.displayID].map {
+                    now.uptimeNanoseconds - $0.uptimeNanoseconds
+                } ?? .max
+
+                if force || arrived || age >= Self.spacePreviewMaxAgeNanoseconds {
+                    // Recorded at the decision rather than after the capture, so a capture that
+                    // fails does not re-arm this to due on the next two-second tick.
+                    lastPreviewAt[display.displayID] = now
+                    due.append(display.displayID)
+                }
+            }
+            return due
         }
         guard !changed.isEmpty else { return }
 
