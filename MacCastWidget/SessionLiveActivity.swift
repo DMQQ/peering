@@ -99,7 +99,18 @@ private struct LockScreenSession: View {
                 // below has always done this; the card was simply missed.
                 .frame(maxWidth: 92, alignment: .trailing)
         }
-        .padding(14)
+        // Stated rather than left to the stack. An `HStack` with a `Spacer` fills what it is
+        // offered, which is not the same as asking for the card: without this the row sizes to
+        // its content and the timer sits wherever the name happens to end, well short of the
+        // trailing edge, with the rest of the card empty beside it.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Asymmetric, and deliberately. The system insets a Live Activity's content already;
+        // matching that inset on both sides left a margin on the right that reads as the timer
+        // having drifted rather than as padding, because the timer is the one thing here that
+        // is a column against the edge.
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .padding(.vertical, 14)
     }
 }
 
