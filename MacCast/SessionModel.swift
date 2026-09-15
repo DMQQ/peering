@@ -407,6 +407,18 @@ final class SessionModel {
     private func apply(_ event: ClientSession.Event) {
         switch event {
         case .phase(let phase):
+            // A failure during a resume is retried, not shown. See ``isResuming``: this is a
+            // race with the teardown of the session that just ended, it clears itself in under
+            // a second, and `.failed` is what puts an alert on screen — so the phase is
+            // deliberately not taken. Cleared here rather than in the ladder so the ladder's
+            // own terminal failure, if it comes to one, is allowed through.
+            if case .failed = phase, isResuming {
+                isResuming = false
+                scheduleReconnect()
+                return
+            }
+            if phase.holdsSession { isResuming = false }
+
             // Read before the assignment. Everything said about a transition — the banner,
             // the point the stopwatch starts from — is about where the session came from,
             // not only about where it landed.
@@ -686,6 +698,17 @@ final class SessionModel {
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempt = 0
 
+    /// Set while ``resumeIfNeeded()`` is connecting, so a failure it causes is retried by the
+    /// ladder rather than reported.
+    ///
+    /// Coming back to the foreground is the case this exists for, and it is a race with the
+    /// teardown of the session that just ended: that drop cancelled a socket moments ago and
+    /// the kernel has not finished with it, so the connect that follows is aborted before it
+    /// starts. It reaches the user as "Software caused connection abort" — the operating system
+    /// talking, about a condition that clears itself in well under a second. Nobody asked for
+    /// this attempt, so there is nobody to tell; a second one succeeds.
+    private var isResuming = false
+
     /// Puts the session back, if there was one and the user did not end it.
     ///
     /// Called from three places because they cover different arrivals. Coming back to the front
@@ -712,9 +735,11 @@ final class SessionModel {
         let name = defaults.string(forKey: Self.lastHostNameKey)
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             stopReconnecting()
+            isResuming = true
             connect(to: .discovered(host))
         } else if let hostID, pins.hostIDs.contains(hostID) {
             stopReconnecting()
+            isResuming = true
             connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
         } else {
             scheduleReconnect()
