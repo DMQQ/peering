@@ -84,7 +84,16 @@ final class InputInjector: @unchecked Sendable {
     /// makes every pointer command a no-op rather than sending the cursor to a stale place.
     var transform: InputTransform? {
         get { lock.withLock { _transform } }
-        set { lock.withLock { _transform = newValue } }
+        set {
+            lock.withLock {
+                // A frame reports its geometry sixty times a second and it is almost always the
+                // one already in force, so the comparison lives here rather than at each call
+                // site — the per-frame writer would otherwise take the lock and touch memory on
+                // every frame of a stream that is usually standing still.
+                guard _transform != newValue else { return }
+                _transform = newValue
+            }
+        }
     }
 
     func perform(_ command: RemoteCommand) {

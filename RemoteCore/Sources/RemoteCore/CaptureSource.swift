@@ -24,6 +24,20 @@ public enum CaptureSource: Codable, Sendable, Hashable {
         case .window(let id): return "window:\(id)"
         }
     }
+
+    /// Whether the captured content moves without anything announcing it.
+    ///
+    /// The distinction decides where the input mapping comes from. A display is fixed for the
+    /// life of the stream, so the geometry read once when capture starts stays true. An
+    /// application or a window is dragged and resized by the user continuously and silently,
+    /// so its answer goes stale the moment it is touched — and the only thing that observes the
+    /// change is the per-frame content rect.
+    public var contentMovesOnItsOwn: Bool {
+        switch self {
+        case .display: return false
+        case .application, .window: return true
+        }
+    }
 }
 
 /// One entry in the list of things the host can capture, as pushed to the client.

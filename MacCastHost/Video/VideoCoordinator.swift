@@ -111,7 +111,13 @@ final class VideoCoordinator: @unchecked Sendable {
             self?.deliver(encoded)
         }
         pipeline.onGeometry = { [weak self] geometry in
-            self?.onGeometry?(geometry)
+            guard let self else { return }
+            // Only the sources whose content moves on its own. A display's geometry is fixed for
+            // the life of the stream and the answer read when capture started is already exact,
+            // so passing it along would rewrite the same value sixty times a second. See
+            // ``CaptureSource/contentMovesOnItsOwn``.
+            guard self.source?.contentMovesOnItsOwn == true else { return }
+            self.onGeometry?(geometry)
         }
         pipeline.onFailure = { [weak self] error in
             self?.onFailure?(error)

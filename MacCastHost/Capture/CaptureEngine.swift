@@ -42,6 +42,33 @@ struct FrameGeometry: Sendable, Equatable {
     let screenRect: CGRect?
 }
 
+extension FrameGeometry {
+    /// The input transform this frame implies, or `nil` when the frame does not describe one.
+    ///
+    /// Built from `screenRect` rather than `contentRect` on purpose. `InputTransform` wants a
+    /// top-left in the *global* point space `CGEvent` posts into, and `contentRect` is in the
+    /// stream surface's own coordinates — a third space again, offset by wherever the surface
+    /// sits. `screenRect` is already the answer, which is why it travels with every frame.
+    ///
+    /// `screenRect` is points and `InputTransform.pixelSize` is pixels, so the same
+    /// `scaleFactor` that converts one to the other is also the `pointPixelScale` — exactly as
+    /// ``DisplayGeometry`` builds it for a display.
+    var inputTransform: InputTransform? {
+        guard let screenRect, screenRect.width > 0, screenRect.height > 0,
+              let scaleFactor, scaleFactor > 0
+        else { return nil }
+
+        return InputTransform(
+            origin: screenRect.origin,
+            pixelSize: CGSize(
+                width: screenRect.width * scaleFactor,
+                height: screenRect.height * scaleFactor
+            ),
+            pointPixelScale: scaleFactor
+        )
+    }
+}
+
 /// Wraps `SCStream` and hands out pixel buffers.
 ///
 /// **A lock-guarded `final class`, not an actor.** Two separate reasons, and either one is
