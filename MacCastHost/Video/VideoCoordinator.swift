@@ -128,6 +128,15 @@ final class VideoCoordinator: @unchecked Sendable {
     /// frame has reported it.
     var onGeometry: (@Sendable (FrameGeometry) -> Void)?
 
+    /// What is being streamed now, or `nil` when nothing is.
+    ///
+    /// Reported rather than pulled, because the answer changes for reasons the window never
+    /// sees — a client asking for a different screen, the last client leaving, a source going
+    /// away — and it is decided on the lifecycle queue while the window is read on the main
+    /// actor. ``source`` below answers the same question, but only to a caller who already
+    /// knows when to ask.
+    var onSourceChanged: (@Sendable (CaptureSource?) -> Void)?
+
     var isSending: Bool { streamer.isAttached }
 
     /// The capture source being captured, if any.
@@ -368,6 +377,7 @@ final class VideoCoordinator: @unchecked Sendable {
     private func startCapture(_ source: CaptureSource) async throws {
         try await pipeline.start(source: source)
         lock.withLock { currentSource = source }
+        onSourceChanged?(source)
         onInputTransform?(pipeline.inputTransform())
         armWatchdog(source: source)
         onStatus?("Capturing \(source.description)")
@@ -476,6 +486,7 @@ final class VideoCoordinator: @unchecked Sendable {
             }
         }
         streamer.detach()
+        onSourceChanged?(nil)
         onInputTransform?(nil)
     }
 

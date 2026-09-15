@@ -23,11 +23,17 @@ struct HostStatusView: View {
                             pairingSection
                         }
 
+                        // What is on screen and who is watching come first, and setup comes
+                        // after. Someone walking up to a Mac that is being driven from a phone
+                        // wants those two answers before anything else; the permissions rows
+                        // only matter when one of them is wrong, and when it is, they say so
+                        // on their own.
                         HStack(alignment: .top, spacing: 32) {
-                            VStack(alignment: .leading, spacing: 28) {
+                            VStack(alignment: .leading, spacing: 24) {
+                                nowShowingSection
+                                devicesSection
                                 permissionsSection
                                 settingsSection
-                                trustedDevicesSection
                             }
                             .frame(maxWidth: .infinity, alignment: .topLeading)
 
@@ -48,20 +54,22 @@ struct HostStatusView: View {
 
     // MARK: - Status
 
+    /// The top of the window, and the only part of it that is always visible.
+    ///
+    /// The app's own icon rather than an SF Symbol: this is the thing in the Dock, and matching
+    /// it is what makes the window read as *this app* and not as a settings panel that happens
+    /// to have a status line. The state is carried by the sentence beside it, which is the part
+    /// that says something a symbol cannot.
     private var statusHeader: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(statusColor.opacity(0.13))
-                Image(systemName: "rectangle.connected.to.line.below")
-                    .font(.system(size: 25, weight: .medium))
-                    .foregroundStyle(statusColor)
-            }
-            .frame(width: 52, height: 52)
+        HStack(spacing: 18) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 60, height: 60)
+                .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text("Peering")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .tracking(-0.5)
 
                 HStack(spacing: 7) {
@@ -81,9 +89,10 @@ struct HostStatusView: View {
             VStack(alignment: .trailing, spacing: 3) {
                 Text(model.deviceName)
                     .font(.subheadline.weight(.medium))
-                Text("Local network · port \(ProtocolInfo.defaultPort)")
+                Text("Port \(ProtocolInfo.defaultPort) · protocol v\(ProtocolInfo.version)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .monospacedDigit()
             }
 
             Button(model.status.isListening ? "Stop" : "Start") {
@@ -264,10 +273,94 @@ struct HostStatusView: View {
 
     // MARK: - Devices and activity
 
-    private var trustedDevicesSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    /// What the connected device is looking at.
+    ///
+    /// First in the window, because it is the question this app exists to answer for whoever is
+    /// sitting at the Mac. Everything else — who is attached, whether a permission is granted —
+    /// is context for this one fact.
+    private var nowShowingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeading("Now showing", detail: "What the connected device can see.")
+
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(capturingSource == nil ? HostPalette.raised : HostPalette.ink.opacity(0.12))
+                    Image(systemName: capturingIcon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(capturingSource == nil ? HostPalette.faint : HostPalette.ink)
+                }
+                .frame(width: 40, height: 40)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(capturingTitle)
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                    Text(capturingDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                if capturingSource != nil {
+                    HStack(spacing: 5) {
+                        Circle().fill(HostPalette.ink).frame(width: 6, height: 6)
+                        Text("Live").font(.caption.weight(.medium))
+                    }
+                    .foregroundStyle(HostPalette.ink)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    private var capturingSource: CaptureSource? { model.capturingSource }
+
+    private var capturingIcon: String {
+        switch capturingSource {
+        case .display: return "display"
+        case .application: return "macwindow.on.rectangle"
+        case .window: return "macwindow"
+        case nil: return "display.slash"
+        }
+    }
+
+    /// The catalogue's name for the source where there is one, and a description of the state
+    /// where there is not — a bare display ID would be a worse answer than an honest sentence.
+    private var capturingTitle: String {
+        if let title = model.capturingSourceTitle { return title }
+        return model.connectedClients.isEmpty ? "Nothing yet" : "Choosing a screen…"
+    }
+
+    private var capturingDetail: String {
+        guard let capturingSource else {
+            return model.connectedClients.isEmpty
+                ? "No device is connected."
+                : "A device is connected but has not chosen what to show."
+        }
+        switch capturingSource {
+        case .display: return "The whole screen, streaming live."
+        case .application: return "One application, streaming live."
+        case .window: return "One window, streaming live."
+        }
+    }
+
+    // MARK: - Devices
+
+    /// Who is trusted, and which of them is here.
+    ///
+    /// The absent rows matter as much as the present ones. "Is that phone still allowed in" is
+    /// a question asked when the phone is *not* on the desk, and a pin — which is all the host
+    /// stores for a trusted device — carries no name, so an unattached device is named from the
+    /// last time it connected.
+    private var devicesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                sectionHeading("Trusted devices", detail: "Reconnect without pairing again.")
+                sectionHeading("Devices", detail: "Phones trusted to reach this Mac.")
                 Spacer()
                 if !model.pairedClientIDs.isEmpty {
                     Button("Forget all", role: .destructive) { model.unpairAll() }
@@ -286,10 +379,27 @@ struct HostStatusView: View {
                 }
                 .padding(.vertical, 8)
             } else {
+                let connected = model.connectedClients
+                let offline = model.pairedClientIDs.filter { !model.isConnected($0) }
+
                 VStack(spacing: 0) {
-                    ForEach(Array(model.pairedClientIDs.enumerated()), id: \.element) { index, id in
-                        if index > 0 { Divider().padding(.leading, 42) }
-                        deviceRow(id)
+                    ForEach(Array(connected.enumerated()), id: \.element.id) { index, client in
+                        if index > 0 { Divider().padding(.leading, 44) }
+                        deviceRow(
+                            name: client.name,
+                            id: client.id,
+                            detail: "Connected · \(client.elapsedDescription())",
+                            connected: true
+                        )
+                    }
+                    ForEach(Array(offline.enumerated()), id: \.element) { index, id in
+                        if index > 0 || !connected.isEmpty { Divider().padding(.leading, 44) }
+                        deviceRow(
+                            name: model.displayName(for: id),
+                            id: id,
+                            detail: "Trusted · not connected",
+                            connected: false
+                        )
                     }
                 }
                 .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -297,29 +407,32 @@ struct HostStatusView: View {
         }
     }
 
-    private func deviceRow(_ id: String) -> some View {
-        let connected = model.isConnected(id)
-        return HStack(spacing: 12) {
+    private func deviceRow(name: String, id: String, detail: String, connected: Bool) -> some View {
+        HStack(spacing: 14) {
             Image(systemName: "iphone")
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(connected ? HostPalette.ink : HostPalette.muted)
-                .frame(width: 26, height: 26)
+                .foregroundStyle(connected ? HostPalette.ink : HostPalette.faint)
+                .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
-                Text(id)
+                Text(name)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                    .textSelection(.enabled)
-                Text(connected ? "Connected now" : "Trusted")
+                Text(detail)
                     .font(.caption)
                     .foregroundStyle(connected ? HostPalette.ink : HostPalette.muted)
+                    .monospacedDigit()
             }
-            Spacer()
+            Spacer(minLength: 12)
             Circle()
-                .fill(connected ? HostPalette.ink : HostPalette.faint.opacity(0.5))
+                .fill(connected ? HostPalette.ink : HostPalette.faint.opacity(0.4))
                 .frame(width: 7, height: 7)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 11)
+        // The ID is what a pairing question turns on, so it stays reachable — as a tooltip
+        // rather than as the thing printed on the row, where it was never what anyone
+        // recognised.
+        .help("Device ID \(id)")
     }
 
     private var activitySection: some View {
@@ -350,9 +463,7 @@ struct HostStatusView: View {
                 .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            Text("Protocol v\(ProtocolInfo.version)")
-                .font(.caption2.monospaced())
-                .foregroundStyle(.tertiary)
+            // The version moved to the header, where it sits beside the port it belongs with.
         }
     }
 

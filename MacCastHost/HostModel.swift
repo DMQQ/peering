@@ -86,6 +86,45 @@ final class HostModel {
     /// and the window is the only place that disagreement can be seen.
     private(set) var pendingCaptureSource: CaptureSource?
 
+    /// What is actually being streamed, once a switch has been applied.
+    ///
+    /// The answer to the question someone sitting at the Mac asks first: *what can they see?*
+    /// ``pendingCaptureSource`` above is the ask rather than the answer — it is cleared on
+    /// success and left set on failure, which makes it useful for spotting a disagreement and
+    /// useless for saying what is on screen.
+    private(set) var capturingSource: CaptureSource?
+
+    /// The last catalogue the resolver built, kept so a source can be named rather than shown
+    /// as a number. A ``CaptureSource`` is a display ID or a pid; "DELL P2212H" is the thing a
+    /// person recognizes.
+    private(set) var catalog: CaptureCatalog?
+
+    /// The display name of what is being captured, if the catalogue can name it.
+    var capturingSourceTitle: String? {
+        guard let capturingSource, let catalog else { return nil }
+        return catalog.all.first { $0.source == capturingSource }?.title
+    }
+
+    /// The last name each device gave when it connected.
+    ///
+    /// A trusted device is stored as a pin, and a pin is a public key — there is no name in it.
+    /// The name arrives with a connection and is gone when it ends, so without keeping it the
+    /// device list can only offer an ID for anything not attached right now, and an ID is not
+    /// something anyone recognises as their phone.
+    ///
+    /// Persisted, because the case this exists for is the device that is *not* here: a list
+    /// that only names devices while they are connected has forgotten the name by the time it
+    /// is needed.
+    private(set) var clientNames: [String: String] =
+        UserDefaults.standard.dictionary(forKey: HostModel.clientNamesKey) as? [String: String] ?? [:]
+
+    private static let clientNamesKey = "Peering.clientNames"
+
+    /// What to call a device: its own name if it has ever said one, otherwise its ID.
+    func displayName(for clientID: String) -> String {
+        clientNames[clientID] ?? clientID
+    }
+
     /// Capture, encode and send. Deliberately not main-actor bound — see ``VideoCoordinator``.
     /// Nil until the first client opens a video connection, because building one touches the
     /// capture catalogue, which needs Screen Recording permission.
@@ -169,7 +208,11 @@ final class HostModel {
         let pipeline = CapturePipeline(resolver: resolver)
         let coordinator = VideoCoordinator(pipeline: pipeline)
         coordinator.onCatalog = { [weak self] catalog in
-            Task { @MainActor [weak self] in self?.server?.broadcastCatalog(catalog) }
+            Task { @MainActor [weak self] in
+                // Kept as well as forwarded: the window names the capture source from it.
+                self?.catalog = catalog
+                self?.server?.broadcastCatalog(catalog)
+            }
         }
         coordinator.onStatus = { [weak self] message in
             Task { @MainActor [weak self] in self?.record(message) }
@@ -190,6 +233,9 @@ final class HostModel {
         coordinator.onGeometry = { [weak self] geometry in
             guard let transform = geometry.inputTransform else { return }
             self?.input.transform = transform
+        }
+        coordinator.onSourceChanged = { [weak self] source in
+            Task { @MainActor [weak self] in self?.capturingSource = source }
         }
         self.coordinator = coordinator
 
@@ -425,6 +471,10 @@ final class HostModel {
         guard let pins else { return }
         if pins.removeAll() {
             pairedClientIDs = []
+            // The names go with the pins. Keeping them would leave a device list that can name
+            // phones it will never let back in, which is a worse answer than not knowing.
+            clientNames = [:]
+            UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
             record("All paired clients removed")
         } else {
             record("Could not clear paired clients")
@@ -452,6 +502,13 @@ final class HostModel {
                 connectedClients.append(
                     ConnectedClient(id: clientID, name: clientName, since: Date())
                 )
+            }
+            // Recorded before anything is shown, so the name outlives the connection that
+            // carried it. A client may rename itself between sessions, which is why this is
+            // assigned rather than only inserted.
+            if clientNames[clientID] != clientName {
+                clientNames[clientID] = clientName
+                UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
             }
             record("\(clientName) connected · \(detail)")
             // A client that has just arrived has no source list, so it is sent one now
