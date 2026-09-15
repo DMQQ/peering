@@ -110,6 +110,10 @@ struct CanvasGestureView: UIViewRepresentable {
     var isPanelOpen: Bool = false
     /// Called when such a tap lands.
     var onDismissPanel: () -> Void = {}
+    /// Whether the status bar is expanded. Same rule as a panel: a tap on the picture closes it
+    /// rather than reaching the Mac. One tap does one thing.
+    var isStatusBarExpanded: Bool = false
+    var onCollapseStatusBar: () -> Void = {}
     /// Whether the software keyboard is up, and what to do when a tap lands on the picture.
     ///
     /// The same rule as a panel, for the same reason: the keyboard is a second thing of ours open
@@ -124,6 +128,8 @@ struct CanvasGestureView: UIViewRepresentable {
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
+        view.isStatusBarExpanded = isStatusBarExpanded
+        view.onCollapseStatusBar = onCollapseStatusBar
         view.isKeyboardOpen = isKeyboardOpen
         view.onDismissKeyboard = onDismissKeyboard
         view.handlers = .init(
@@ -147,6 +153,8 @@ struct CanvasGestureView: UIViewRepresentable {
         view.blockedRegions = blockedRegions
         view.isPanelOpen = isPanelOpen
         view.onDismissPanel = onDismissPanel
+        view.isStatusBarExpanded = isStatusBarExpanded
+        view.onCollapseStatusBar = onCollapseStatusBar
         view.isKeyboardOpen = isKeyboardOpen
         view.onDismissKeyboard = onDismissKeyboard
         view.handlers = .init(
@@ -195,6 +203,9 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// button that opened it — which is a second target for a gesture the user has already made.
     var isPanelOpen = false
     var onDismissPanel: (() -> Void)?
+    /// The status bar, by the same rule — see ``CanvasGestureView/isStatusBarExpanded``.
+    var isStatusBarExpanded = false
+    var onCollapseStatusBar: (() -> Void)?
     /// The same, for the software keyboard.
     var isKeyboardOpen = false
     var onDismissKeyboard: (() -> Void)?
@@ -364,6 +375,12 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // tap, one thing closed, and the panel is the one on top.
         if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isKeyboardOpen) {
             onDismissKeyboard?()
+            return
+        }
+        // The status bar, after the panels so that one tap closes one thing: if a panel is
+        // open it is the thing on top, and it is the one the tap was aimed at.
+        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isStatusBarExpanded) {
+            onCollapseStatusBar?()
             return
         }
         // Nothing at all in drag & zoom, which is the point of that mode: the picture can be

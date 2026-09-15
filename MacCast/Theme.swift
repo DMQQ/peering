@@ -108,10 +108,14 @@ enum ColorPalette {
     /// information, not an alarm, and "worth a look" is exactly what a dimmer number says —
     /// whereas a red one shouts about something the user can do nothing about.
     static func reading(_ milliseconds: Double) -> Color {
+        // Hue rather than brightness, and this is the one place in the app that breaks the
+        // palette's own rule. The rule exists because a picture is the only thing here
+        // entitled to a colour; a latency figure is a measurement, and the whole point of
+        // showing it is to be noticed — three shades of white at arm's length are one shade.
         switch milliseconds {
-        case ..<40: return ink.opacity(0.95)
-        case ..<120: return ink.opacity(0.65)
-        default: return ink.opacity(0.4)
+        case ..<40: return .green
+        case ..<120: return .yellow
+        default: return .orange
         }
     }
 }

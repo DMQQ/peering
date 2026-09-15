@@ -35,6 +35,8 @@ struct RemoteScreen: View {
 
     @State private var openPanel: Panel?
     @State private var statusBarExpanded = true
+    /// The pending auto-collapse, so expanding by hand can cancel the one already in flight.
+    @State private var statusBarCollapseTask: Task<Void, Never>?
 
     /// Where the window's own controls are, in the canvas's coordinates.
     ///
@@ -252,6 +254,8 @@ struct RemoteScreen: View {
             blockedRegions: blockedRegions,
             isPanelOpen: openPanel != nil,
             onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
+            isStatusBarExpanded: statusBarExpanded,
+            onCollapseStatusBar: { collapseStatusBar() },
             isKeyboardOpen: model.showKeyboard,
             onDismissKeyboard: { model.showKeyboard = false }
         )
@@ -363,7 +367,13 @@ struct RemoteScreen: View {
                 VStack(alignment: .leading, spacing: 6) {
                     // ── Row 1: identity + clock + quit ──────────────────────────────
                     HStack(spacing: 10) {
-                        Circle().fill(ColorPalette.ink).frame(width: 7, height: 7)
+                        // Green once the session is up rather than merely connected: a socket
+                        // that is open but still handshaking is not something to reassure
+                        // anyone about, and the phase is the only thing that knows the
+                        // difference.
+                        Circle()
+                            .fill(model.phase == .ready ? Color.green : ColorPalette.ink)
+                            .frame(width: 7, height: 7)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(model.hostName ?? "Mac")
                                 .font(.subheadline.weight(.semibold))
@@ -451,7 +461,17 @@ struct RemoteScreen: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                .contentShape(Rectangle())
+                // The other half of the toggle. The collapsed bar expands on a tap and the
+                // expanded one closes on the next, so it is one control with one meaning
+                // rather than a button that only ever goes one way.
+                .onTapGesture { collapseStatusBar() }
+                // Opacity only. The scale that was here made the two states cross-fade as
+                // though they were unrelated — one shrinking away while the other grew in.
+                // The pill's own frame changes between them and the spring animates *that*,
+                // so the shape grows and its contents simply appear inside it, which is what
+                // expanding looks like.
+                .transition(.opacity)
             } else {
                 HStack(spacing: 8) {
                     Circle().fill(ColorPalette.ink).frame(width: 6, height: 6)
@@ -473,25 +493,28 @@ struct RemoteScreen: View {
                 .frame(height: 28)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(Capsule())
-                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                // Opacity only. The scale that was here made the two states cross-fade as
+                // though they were unrelated — one shrinking away while the other grew in.
+                // The pill's own frame changes between them and the spring animates *that*,
+                // so the shape grows and its contents simply appear inside it, which is what
+                // expanding looks like.
+                .transition(.opacity)
             }
         }
         .animation(.spring(response: 0.38, dampingFraction: 0.8), value: statusBarExpanded)
+        // So the growing pill shows only what fits it at each moment of the spring, rather
+        // than the expanded content hanging below a background that has not caught up.
+        .clipped()
         .glassEffect(.regular, in: Capsule())
         .padding(.horizontal, 10)
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
         .reportChromeFrame(.statusBar, into: $chromeFrames)
         .task(id: model.phase) {
-            // Expand a moment when the session comes up, then collapse.
+            // Expand a moment when the session comes up, then collapse — through the same
+            // function a tap uses, so there is one place that knows about the pending timer.
             guard model.phase == .ready else { return }
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                statusBarExpanded = true
-            }
-            try? await Task.sleep(for: .seconds(4))
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                statusBarExpanded = false
-            }
+            expandStatusBar()
         }
     }
 
@@ -575,11 +598,22 @@ struct RemoteScreen: View {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
             statusBarExpanded = true
         }
-        Task {
+        // Held, so a manual collapse cancels the timer rather than racing it: without this the
+        // pending collapse fires anyway a moment later, and a deliberate expand that is closed
+        // by hand would spring shut again on its own.
+        statusBarCollapseTask?.cancel()
+        statusBarCollapseTask = Task {
             try? await Task.sleep(for: .seconds(4))
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                statusBarExpanded = false
-            }
+            guard !Task.isCancelled else { return }
+            collapseStatusBar()
+        }
+    }
+
+    private func collapseStatusBar() {
+        statusBarCollapseTask?.cancel()
+        statusBarCollapseTask = nil
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+            statusBarExpanded = false
         }
     }
 
