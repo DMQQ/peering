@@ -138,8 +138,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
-				C2C039FD30574AB600ABF943 /* X509 in Frameworks */,
-				C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -291,8 +289,6 @@
 			name = MacCastHost;
 			packageProductDependencies = (
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
-				C2C039FC30574AB600ABF943 /* X509 */,
-				C2C039FF30574AB600ABF943 /* SwiftASN1 */,
 			);
 			productName = MacCastHost;
 			productReference = C2C039F330574AB600ABF943 /* Peering.app */;
