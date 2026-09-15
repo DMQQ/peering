@@ -1,4 +1,5 @@
 import AVFoundation
+import AVKit
 import CoreMedia
 import Foundation
 import RemoteCore
@@ -402,9 +403,94 @@ struct VideoLayerView: UIViewRepresentable {
         let view = VideoDisplayView()
         if let layer = view.displayLayer {
             renderer.attach(layer)
+            // The same layer, so the floating window is the picture rather than a copy of it.
+            SessionPiP.shared.attach(layer)
         }
         return view
     }
 
     func updateUIView(_ view: VideoDisplayView, context: Context) {}
+}
+
+/// The picture in a floating window, over whatever else is on screen.
+///
+/// Picture in Picture rather than a view of our own: iOS draws it, it survives the app being
+/// backgrounded *because* it is what is keeping the app alive, and it is the only way to have
+/// something float over another app at all. The content source is the same
+/// `AVSampleBufferDisplayLayer` the in-app screen draws into, so there is no second decode and
+/// nothing to keep in step — the frames go to one layer and both surfaces show it.
+///
+/// **It is watch-only.** The floating window is not the app's view hierarchy, so touches in it
+/// go to iOS's own controls and never reach the Mac. What is worth watching through it is
+/// something left running — a build, a render, a long download — which is a real thing to want
+/// and not the same thing as driving the Mac from a floating window.
+@MainActor
+final class SessionPiP: NSObject {
+    static let shared = SessionPiP()
+
+    private var controller: AVPictureInPictureController?
+
+    private override init() { super.init() }
+
+    static var isSupported: Bool { AVPictureInPictureController.isPictureInPictureSupported() }
+
+    /// Binds the layer PiP should mirror. Called once, from `makeUIView`.
+    func attach(_ layer: AVSampleBufferDisplayLayer) {
+        guard Self.isSupported, controller == nil else { return }
+
+        let source = AVPictureInPictureController.ContentSource(
+            sampleBufferDisplayLayer: layer,
+            playbackDelegate: self
+        )
+        let controller = AVPictureInPictureController(contentSource: source)
+        // The whole point of it: going to another app floats the picture rather than ending
+        // the session. Starting it by hand would mean the gesture that matters — leaving the
+        // app — is the one that does not trigger it.
+        controller.canStartPictureInPictureAutomaticallyFromInline = true
+        self.controller = controller
+    }
+
+    var isActive: Bool { controller?.isPictureInPictureActive ?? false }
+
+    func stop() {
+        guard let controller, controller.isPictureInPictureActive else { return }
+        controller.stopPictureInPicture()
+    }
+}
+
+extension SessionPiP: AVPictureInPictureSampleBufferPlaybackDelegate {
+    /// A live stream has no timeline: it began before the window opened and ends when it ends.
+    /// Reporting a finite range instead would give the system's scrubber something to seek in.
+    func pictureInPictureControllerTimeRangeForPlayback(
+        _ controller: AVPictureInPictureController
+    ) -> CMTimeRange {
+        CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
+    }
+
+    /// Never paused. The pause control would otherwise appear, and there is nothing here for it
+    /// to mean — the frames arrive when the Mac sends them, and holding them back is a dropped
+    /// frame rather than a pause.
+    func pictureInPictureControllerIsPlaybackPaused(
+        _ controller: AVPictureInPictureController
+    ) -> Bool {
+        false
+    }
+
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        setPlaying playing: Bool
+    ) {}
+
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        didTransitionToRenderSize newRenderSize: CMVideoDimensions
+    ) {}
+
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        skipByInterval skipInterval: CMTime,
+        completion completionHandler: @escaping () -> Void
+    ) {
+        completionHandler()
+    }
 }

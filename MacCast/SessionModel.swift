@@ -623,6 +623,14 @@ final class SessionModel {
         // app made the card vanish as though the user had quit: the one moment the card is
         // most useful, and it was being taken away. That is the opposite of what `deliberate`
         // is documented to mean two paragraphs up.
+        // The keepalive and the floating window go with the session, and this method has to do
+        // it itself for the same reason the card does: it sets the phase rather than letting
+        // the event path announce it, so nothing that hangs off a phase *change* runs. Without
+        // this, quitting left silence playing and a floating window of a Mac nobody is
+        // connected to.
+        SessionAudio.shared.end()
+        SessionPiP.shared.stop()
+
         if deliberate {
             SessionActivity.shared.sessionEnded()
         } else {
