@@ -87,6 +87,17 @@ private struct LockScreenSession: View {
             Spacer(minLength: 12)
 
             elapsed(context)
+                // Bounded, because a live timer cannot be measured: it renders "0:38" now and
+                // "12:34:56" an hour from now, so the layout has no content to size against and
+                // reserves far more than either. That reserve came out of the name, which
+                // truncated a third of the way across the card with the room it had lost still
+                // sitting empty beside it — the name is what the card is about, and it was the
+                // one thing being shortened.
+                //
+                // Wide enough for the longest timer the format produces, and trailing-aligned
+                // so the digits do not shift as they change. The compact Dynamic Island slot
+                // below has always done this; the card was simply missed.
+                .frame(maxWidth: 92, alignment: .trailing)
         }
         .padding(14)
     }
