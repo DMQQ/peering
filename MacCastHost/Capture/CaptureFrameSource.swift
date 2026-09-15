@@ -1,5 +1,34 @@
+import CoreMedia
 import Foundation
 import ScreenCaptureKit
+
+/// A sample the stream delivered with no new picture in it.
+///
+/// **There is no picture in this, and there may be no buffer either.** `.idle` means the
+/// display has not changed since the last frame. ScreenCaptureKit delivers these on schedule
+/// whether or not anything happened, and nothing about one is a frame: it may carry no image
+/// buffer at all, and one that does carry a buffer is a buffer the stream will write into
+/// again the moment the callback returns. A frame drawn from those pixels would be drawn
+/// from something that was never promised, and the failure would look like a picture that is
+/// wrong rather than like a pointer that is missing.
+///
+/// What an idle sample is good for is the two things it does say — that the screen has not
+/// changed, and where the captured content sits on it. The picture an idle frame is built
+/// on is the overlay's own, kept from the last frame the stream actually delivered. This is
+/// only what the overlay is told. See ``CursorOverlay/redraw(_:)``.
+struct IdleSample: Sendable {
+    /// Where the captured content sits on screen, exactly as a frame reports it. May be
+    /// empty in the same way a frame's is: an idle sample says what it can.
+    let geometry: FrameGeometry
+    /// When the stream took this sample, on its own clock.
+    ///
+    /// **May be invalid, and that is not an error.** An idle sample is not a frame, and
+    /// nothing requires it to say when it is — so a caller that needs a timestamp has to
+    /// make one rather than assume this has one. See ``CursorOverlay/redraw(_:)``.
+    let presentationTime: CMTime
+    /// The stream's own duration for a frame at its rate, when it reports one.
+    let duration: CMTime
+}
 
 /// What the pipeline needs from whatever is producing frames for it.
 ///
@@ -22,6 +51,13 @@ protocol CaptureFrameSource: Sendable {
 
     /// Called for every frame that carries an image, on the source's own queue.
     var onFrame: (@Sendable (CapturedFrame) -> Void)? { get set }
+
+    /// Called for every sample that carries no new picture, on the source's own queue.
+    ///
+    /// Only ``CaptureEngine`` ever produces these: a real stream reports on a schedule
+    /// whether or not the screen changed, and a generated one always has something new to
+    /// send. See ``IdleSample``.
+    var onIdle: (@Sendable (IdleSample) -> Void)? { get set }
 
     /// Called when the source stops by itself — a stream that the system tore down, or a
     /// revoked permission. Never called for a stop the caller asked for.

@@ -151,6 +151,7 @@ final class SyntheticCaptureEngine: CaptureFrameSource, @unchecked Sendable {
     private var index = 0
     private var deliveredCount = 0
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
+    private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
 
     var statistics: CaptureEngine.Statistics {
@@ -162,6 +163,16 @@ final class SyntheticCaptureEngine: CaptureFrameSource, @unchecked Sendable {
     var onFrame: (@Sendable (CapturedFrame) -> Void)? {
         get { lock.withLock { _onFrame } }
         set { lock.withLock { _onFrame = newValue } }
+    }
+
+    /// Nothing here ever goes idle — the counter this source is built from moves every tick,
+    /// so no two frames are alike — and this is therefore never called. It exists because a
+    /// synthetic pipeline has to be the same shape as a real one from the outside, and
+    /// because "never goes idle" is a claim worth stating in the type rather than leaving to
+    /// a reader to infer from a missing callback.
+    var onIdle: (@Sendable (IdleSample) -> Void)? {
+        get { lock.withLock { _onIdle } }
+        set { lock.withLock { _onIdle = newValue } }
     }
 
     /// Nothing here can fail on its own, so this is never called. It exists because a

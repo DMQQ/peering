@@ -107,6 +107,38 @@ public final class ClientSession: @unchecked Sendable {
         case unexpected(MessageKind, expected: String)
         case identity(String)
 
+        /// What to say about an error that came from the network rather than from the protocol.
+        ///
+        /// `Network.framework` reports a POSIX failure as an `NWError`, and an `NWError` is not
+        /// a `LocalizedError` — so the fallback everywhere it was caught was string interpolation,
+        /// which put "Network.NWError error 54 connection reset by peer" in an alert in front of
+        /// a user who can do nothing with it. These are the handful of codes that actually occur
+        /// when a phone talks to a Mac on a local network, and each is translated into the one
+        /// thing there is to know about it.
+        ///
+        /// 54 is the common one and the one worth getting right: it means the *other end* went
+        /// away without closing politely. The host quit, the app was rebuilt, the Mac slept. It
+        /// usually says nothing at all about the phone, and the message should not imply it does.
+        static func describe(_ error: Error) -> String {
+            guard let nwError = error as? NWError, case .posix(let code) = nwError else {
+                return (error as? LocalizedError)?.errorDescription ?? "\(error)"
+            }
+            switch code {
+            case .ECONNRESET:
+                return "The Mac closed the connection. It may have quit, restarted, or gone to sleep."
+            case .ECONNREFUSED:
+                return "The Mac refused the connection. Check that Peering is running on it."
+            case .ETIMEDOUT:
+                return "The Mac did not answer. Check that both devices are on the same network."
+            case .EHOSTUNREACH, .ENETUNREACH:
+                return "The Mac could not be reached on this network."
+            case .EPIPE:
+                return "The connection to the Mac was lost."
+            default:
+                return "The connection to the Mac failed (\(code.rawValue))."
+            }
+        }
+
         public var errorDescription: String? {
             switch self {
             case .busy:
@@ -158,6 +190,8 @@ public final class ClientSession: @unchecked Sendable {
     private var state: HandshakeState = .idle
     private var pingTask: Task<Void, Never>?
     private var pingSentAt: DispatchTime?
+    /// The last few round trips, newest last. See ``reportLatency()``.
+    private var latencySamples: [Double] = []
 
     private var ephemeral: P256.KeyAgreement.PrivateKey?
     private var nonce: Data?
@@ -299,7 +333,7 @@ public final class ClientSession: @unchecked Sendable {
                 // A pin was in force and TLS refused, which is the one failure worth naming
                 // precisely: it is either an impostor or a Mac that was reset.
                 ? "The Mac at \(target.displayName) did not present the key this device has pinned for it. If it was reset, forget it here and pair again."
-                : (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                : Failure.describe(error)
             fail(message)
             return
         }
@@ -651,12 +685,24 @@ public final class ClientSession: @unchecked Sendable {
 
     // MARK: - Liveness
 
+    /// How often a control ping goes out.
+    ///
+    /// One second, where this was five. The figure is shown to someone who is watching it while
+    /// they drag something, and a reading taken every five seconds describes a moment that has
+    /// already passed by the time it appears — which is most of why it looked like it was
+    /// jumping. A ping is one small frame and the control channel is otherwise idle, so the
+    /// cost of asking five times as often is nothing.
+    private static let pingInterval: Duration = .seconds(1)
+
+    /// How many recent samples the reported figure is drawn from.
+    private static let latencyWindow = 5
+
     private func startPinging() {
         lock.lock()
         guard pingTask == nil else { lock.unlock(); return }
         let task = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: Self.pingInterval)
                 guard !Task.isCancelled, let self else { return }
                 self.lock.withLock { self.pingSentAt = DispatchTime.now() }
                 self.connection()?.send(Frame(kind: .ping))
@@ -666,10 +712,28 @@ public final class ClientSession: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// The middle of the last few round trips, rather than the one that just came back.
+    ///
+    /// A single ping is one instant on a link that is also carrying video in the other
+    /// direction, and it will occasionally catch a moment when something else has the radio.
+    /// Reporting it raw is what made the number flicker between readings taken seconds apart:
+    /// what a user wants from it is the latency they would see if they asked repeatedly, and
+    /// the median of a handful of requests is a better answer to that than any single one.
+    ///
+    /// A median rather than a mean, deliberately. The interesting samples here are the outliers
+    /// — a ping that caught a stall — and a mean would let one of them drag the figure up for
+    /// the next five seconds while the connection is fine.
     private func reportLatency() {
         guard let sent = lock.withLock({ pingSentAt }) else { return }
-        let nanoseconds = DispatchTime.now().uptimeNanoseconds - sent.uptimeNanoseconds
-        emit(.latency(milliseconds: Double(nanoseconds) / 1_000_000))
+        let sample = Double(DispatchTime.now().uptimeNanoseconds - sent.uptimeNanoseconds) / 1_000_000
+
+        let window = lock.withLock { () -> [Double] in
+            latencySamples.append(sample)
+            if latencySamples.count > Self.latencyWindow { latencySamples.removeFirst() }
+            return latencySamples
+        }
+        guard !window.isEmpty else { return }
+        emit(.latency(milliseconds: window.sorted()[window.count / 2]))
     }
 
     // MARK: - Video

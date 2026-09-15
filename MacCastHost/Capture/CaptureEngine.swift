@@ -10,11 +10,21 @@ private let engineLog = Logger(subsystem: "pl.dmq.peering.host", category: "capt
 
 /// One frame off the stream, still in the `420v` pixel format the stream was configured for.
 ///
+/// **This is a frame and not a sample.** Everything that is not a picture the display just
+/// changed to is an ``IdleSample`` and travels by its own route — including the idle samples
+/// that happen to carry an image buffer, because a receipt that sometimes arrives is worse
+/// to build on than one that never does.
+///
 /// `@unchecked Sendable` because it carries a `CVPixelBuffer`, which is a CoreVideo
 /// reference type the compiler cannot prove safe to move between threads. It is safe in
 /// practice for the one hop that matters here: the buffer is delivered once, handed to
 /// VideoToolbox, and never touched again — and VideoToolbox retains it for as long as it
 /// needs it, which is why the encoder may return before the frame has been read.
+///
+/// That last sentence is why ``CursorOverlay/redraw(_:)`` keeps a buffer of its own rather
+/// than drawing into the frame it sent last. "Never touched again" is a promise this struct
+/// makes on the receiving side, and nothing here can keep it — the buffer belongs to a pool
+/// ScreenCaptureKit reuses, and VideoToolbox is still reading it.
 struct CapturedFrame: @unchecked Sendable {
     let pixelBuffer: CVPixelBuffer
     let presentationTime: CMTime
@@ -53,6 +63,28 @@ extension FrameGeometry {
     /// `screenRect` is points and `InputTransform.pixelSize` is pixels, so the same
     /// `scaleFactor` that converts one to the other is also the `pointPixelScale` — exactly as
     /// ``DisplayGeometry`` builds it for a display.
+    ///
+    /// **A halved stream maps input exactly as a full one does, and this is where that is
+    /// either true or not.** See ``CaptureResolution``: the surface can be configured at half
+    /// the size it would otherwise have, which puts a quarter of the pixels in every frame.
+    /// Neither value this is built from moves when it is, and that is measured rather than
+    /// assumed. On this 2× panel, a stream configured at 756×491 reports `scaleFactor` 2.0 and
+    /// `screenRect` (0,0 1512×982) — the same two values a stream at 1512×982 reports — while
+    /// `contentRect` halves to 378×245.5 and `contentScale` quarters to 0.25. So the factor
+    /// belongs to the *display*, not to the surface that happens to be carrying it, which is
+    /// what the SDK's own words for the key say: "the display resolution associated with the
+    /// frame. Display resolution is the pixel to point scaling factor." `screenRect` is where
+    /// the content sits *on screen*, in the window server's global points, and a smaller
+    /// surface is still a view onto the same rectangle of screen. The two values that do move
+    /// with the surface are `contentRect` and `contentScale`, and nothing in this app reads
+    /// either of them.
+    ///
+    /// The halving could not slip past this even if a later macOS answered with the surface's
+    /// factor instead: `pixelSize` and `pointPixelScale` are both built from it, and
+    /// ``InputTransform/globalPoint(fromNormalized:)`` multiplies by one and divides by the
+    /// other, so both directions of the mapping collapse to the same function of `screenRect`
+    /// — `origin + normalized × screenRect.size` — whatever the factor is. The pointer lands
+    /// under the finger at half size for the same reason it does at full size.
     var inputTransform: InputTransform? {
         guard let screenRect, screenRect.width > 0, screenRect.height > 0,
               let scaleFactor, scaleFactor > 0
@@ -67,6 +99,65 @@ extension FrameGeometry {
             pointPixelScale: scaleFactor
         )
     }
+}
+
+/// How much of a source's own size the stream is configured to carry.
+///
+/// **Not to be confused with `SCStreamConfiguration.captureResolution`**, which is
+/// ScreenCaptureKit's choice of what the system composites at and stays `.nominal` either
+/// way. This is the size of the surface that comes out.
+///
+/// A setting rather than a constant because the size of the picture is the one lever that
+/// moves every cost in the pipeline at once — compositing, the colour conversion, the
+/// encode, and the bitrate that fits in the link — and the machine on the other end of that
+/// link is a phone. `half` is the lever's whole travel: a quarter of the pixels, which is
+/// the smallest change big enough to be worth a switch.
+enum CaptureResolution: String, CaseIterable, Sendable {
+    /// The size the source reports — what every stream before this setting existed was built
+    /// at, and still the default.
+    case full
+
+    /// Half the width and half the height, so a quarter of the pixels.
+    case half
+
+    /// The size a stream is built at for a source whose own size is `native`.
+    ///
+    /// **Half of the size the stream would otherwise be built at**, rather than half of the
+    /// panel's hardware pixels, and on this Mac those are not the same number. A descriptor's
+    /// `pixelSize` for a display comes from `CGDisplayPixelsWide`, which reports 1512×982 for
+    /// a panel whose real pixels are 3024×1964 — it answers with the display *mode's* width,
+    /// which is points. Halving whatever the stream would have been configured with is the
+    /// one rule that holds for all three kinds of source, in whatever units each of them
+    /// happens to be in, and the one that keeps this setting about *this stream*: `full` is
+    /// byte for byte the configuration every earlier version of this app built, and `half` is
+    /// exactly half of it.
+    ///
+    /// Odd dimensions are left odd rather than rounded here: the stream rounds to the nearest
+    /// point and ``VideoEncoder`` rounds down to even, and both of those have to happen in
+    /// that order for the encoder's size to match the surface's. See
+    /// ``CapturePipeline/encode(_:)``.
+    func pixelSize(for native: CGSize) -> CGSize {
+        switch self {
+        case .full: return native
+        case .half: return CGSize(width: native.width / 2, height: native.height / 2)
+        }
+    }
+}
+
+/// What the stream is asked to deliver per second.
+///
+/// Two values rather than a number, because the rate is not a free parameter: it is set on
+/// the stream as a minimum frame interval and on the encoder as its timeline, and the two
+/// have to be the same number or the encoder codes frames against a clock it was not told
+/// about. An enum is what makes them the same number — there is one of these values per
+/// capture and both halves are built from it.
+///
+/// `oneTwenty` only ever gets frames from a display that refreshes faster than 60 times a
+/// second: the interval is a ceiling, not a promise, and a panel that cannot go that fast
+/// delivers what it can and no more.
+enum CaptureFrameRate: Int, CaseIterable, Sendable {
+    case sixty = 60
+    case oneTwenty = 120
 }
 
 /// Wraps `SCStream` and hands out pixel buffers.
@@ -96,6 +187,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     private var deliveredCount = 0
     private var idleCount = 0
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
+    private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
 
     /// Counters for the two questions a silent capture failure raises: is the stream alive
@@ -105,6 +197,17 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     /// samples is a stream that was never really started — usually a denied Screen Recording
     /// permission, which produces no error anywhere. A stream that reports idle samples is
     /// working perfectly and the display simply is not changing.
+    ///
+    /// **What these two describe is the stream, not the client's screen.** `delivered` counts
+    /// samples that carried a picture and `idle` counts everything else, and neither says how
+    /// many frames were encoded or sent: an idle sample can now become a frame of its own —
+    /// see ``CursorOverlay/redraw(_:)`` — so a host whose pointer is moving over a still
+    /// screen reports a large `idle` and a healthy stream of frames at the same time, and
+    /// that is not a contradiction. What the pair is for is telling a stream that is
+    /// reporting from one that is not, and that is unaffected by anything downstream of here.
+    /// The count of frames that actually reached the client is
+    /// ``CapturePipeline/Statistics/framesEncoded``, which is a different question with a
+    /// different answer.
     struct Statistics: Sendable, Equatable {
         let delivered: Int
         let idle: Int
@@ -118,6 +221,12 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     var onFrame: (@Sendable (CapturedFrame) -> Void)? {
         get { lock.withLock { _onFrame } }
         set { lock.withLock { _onFrame = newValue } }
+    }
+
+    /// Called for every sample that carries no new picture, on the capture queue.
+    var onIdle: (@Sendable (IdleSample) -> Void)? {
+        get { lock.withLock { _onIdle } }
+        set { lock.withLock { _onIdle = newValue } }
     }
 
     /// Called when the stream stops by itself — sleep/wake, a display change, or the user
@@ -143,15 +252,20 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     ///   and short enough to feel live.
     /// - `captureResolution` — `.nominal`, meaning no scaling by the system. Scaling here
     ///   would be a second, unmanaged resample of content whose scale is already decided by
-    ///   ``CaptureSourceDescriptor/pixelSize``.
+    ///   the size the configuration is built with: the source's own, or half of it. See
+    ///   ``CaptureResolution``.
     /// - `backgroundColor` — set to opaque black explicitly. The default is *clear*, and a
     ///   clear backdrop over anything that is not a full display (an application filter, or
     ///   a window smaller than its surface) composites to whatever the surface had in it:
     ///   uninitialised garbage.
-    /// - `showsCursor` — visible, which is also the default. Worth stating because it is a
-    ///   product decision rather than an inherited one: the client draws a pointer from the
-    ///   host's cursor position reports, and without the cursor baked into the frames the
-    ///   two can disagree, or the pointer can be missing entirely over video and games.
+    /// - `showsCursor` — off, which is a product decision rather than an inherited one. The
+    ///   system's own pointer is about sixteen points tall, which is a few pixels of the
+    ///   picture once the client has scaled that picture down to a phone; ``CursorOverlay``
+    ///   draws a larger one into the luma plane of every frame instead, so that a frame
+    ///   carries one pointer rather than two. The trade is worth knowing about: a frame the
+    ///   overlay does not draw into — it is switched off, or the pointer is not over the
+    ///   captured content — carries no pointer at all, where the same frame used to carry a
+    ///   small one.
     ///
     /// Two properties are deliberately left alone. `scalesToFit` is not set: it stretches
     /// content to the configured size, which is how a window capture ends up with the wrong
@@ -160,12 +274,18 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     /// expect is a stream that decodes with a green or washed-out cast, and the default
     /// matches what the `420v` format already implies. (Note the property is
     /// `colorSpaceName`; there is no `colorSpace` on `SCStreamConfiguration`.)
+    ///
+    /// - Parameter pixelSize: The size of the surface to ask for, which is the source's own
+    ///   or half of it — passed in rather than read off the descriptor because at half
+    ///   resolution the stream is deliberately not the size the source is, and the caller is
+    ///   the one that decided that. See ``CaptureResolution/pixelSize(for:)``.
     static func configuration(
         for descriptor: CaptureSourceDescriptor,
+        pixelSize: CGSize,
         frameRate: Int
     ) throws -> SCStreamConfiguration {
-        let width = Int(descriptor.pixelSize.width.rounded())
-        let height = Int(descriptor.pixelSize.height.rounded())
+        let width = Int(pixelSize.width.rounded())
+        let height = Int(pixelSize.height.rounded())
 
         // A zero dimension is not a degenerate stream, it is a failed one: ScreenCaptureKit
         // rejects the configuration and the error it raises does not name the source.
@@ -180,11 +300,18 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         configuration.width = width
         configuration.height = height
         configuration.backgroundColor = CGColor.black
+        // Whether the system pointer is hidden depends on whether something is about to draw a
+        // larger one in its place, which is a property of the session rather than of this source
+        // — so it is set by the caller. See ``CapturePipeline``. Left visible here, which is the
+        // safe default: a pointer that is too small beats no pointer.
         configuration.showsCursor = true
 
-        // Caps the capture rate rather than the encode rate. A ProMotion panel or a 5K
-        // display reports changes at 120 Hz, which would double both the encode load and
-        // the bitrate for motion nobody can see through a remote session.
+        // Caps the capture rate rather than the encode rate, and it is the stream's half of
+        // ``CaptureFrameRate`` — the encoder is built with the same number, because the two
+        // have to agree. The encoder codes frames against a clock, and a stream whose
+        // interval says 120 while its encoder was told 60 is a timeline that stutters rather
+        // than one that fails, which is a bug with no error attached to it. A panel that
+        // cannot go this fast delivers what it can and no more.
         configuration.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(frameRate))
 
         return configuration
@@ -265,17 +392,52 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         // `.idle` means the display did not change, which is *not* frame loss: frames are
         // being delivered on schedule and there is simply nothing new in them. `.blank`
         // (display asleep), `.suspended` and `.stopped` carry no image either.
+        //
+        // An idle sample goes on to the pipeline rather than stopping here, and it is the
+        // whole of why the pointer is choppy without it: on a screen where nothing is
+        // happening the pointer is the only thing that moves, and with `showsCursor` off it
+        // does not change a single pixel the stream is watching for. An idle sample is all
+        // that arrives, so it is all a fresh pointer could be built from.
+        //
+        // **It is forwarded without its image buffer being looked at, and that is the
+        // point.** A frame cannot be made from these pixels — a sample may have no buffer at
+        // all, which is how this path used to be killed before it ran, and a sample that has
+        // one has a buffer the stream is going to reuse the moment this returns. What the
+        // pipeline is given is the fact that the screen did not change and where the content
+        // is; the picture comes from the overlay's own copy of the last frame. See
+        // ``IdleSample``.
         let info = Self.frameInfo(of: sampleBuffer)
-        guard info?.status == .complete || info?.status == .started else {
+        let status = info?.status
+
+        guard status == .complete || status == .started else {
+            // Counted before anything else, so every sample that is not a picture lands in
+            // exactly one of the two counters however it is handled below. A stream
+            // reporting idle samples is working perfectly and the display is simply not
+            // changing; a stream reporting neither is one that was never really started —
+            // usually a denied Screen Recording permission, which produces no error
+            // anywhere. Folding idle samples into `delivered` would erase the only evidence
+            // that tells those two apart, so it is not done even though an idle sample can
+            // now become a frame.
             lock.withLock { idleCount += 1 }
+
+            if status == .idle {
+                onIdle?(IdleSample(
+                    geometry: Self.geometry(from: info),
+                    presentationTime: sampleBuffer.presentationTimeStamp,
+                    duration: sampleBuffer.duration
+                ))
+            }
             return
         }
-        lock.withLock { deliveredCount += 1 }
 
         // The sample buffer's surface is only valid while the buffer is alive, and the
         // encoder retains it for as long as it needs; CoreVideo keeps the IOSurface
         // internally, so the reference can be handed straight on.
-        guard let pixelBuffer = sampleBuffer.imageBuffer else { return }
+        guard let pixelBuffer = sampleBuffer.imageBuffer else {
+            lock.withLock { idleCount += 1 }
+            return
+        }
+        lock.withLock { deliveredCount += 1 }
 
         let duration = sampleBuffer.duration
         let frame = CapturedFrame(

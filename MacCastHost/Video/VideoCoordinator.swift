@@ -54,6 +54,30 @@ final class VideoCoordinator: @unchecked Sendable {
     /// choice belongs to the client that made it and goes away with it.
     private var sourceWasChosen = false
 
+    /// How the next stream is built: the size of its surface, and the rate it is asked for.
+    ///
+    /// Read when a capture starts and not when they are set, because neither can be changed
+    /// on a stream that is already running — the surface's dimensions and its frame interval
+    /// are fixed when the `SCStream` is created, and the encoder is built around them. What
+    /// the window shows for them is therefore a promise about the next capture, and the rows
+    /// say so; a setting applied here would have to tear the stream down to mean anything.
+    /// Under ``lock`` with the rest of the state, since the window writes them on the main
+    /// actor while the lifecycle queue reads them.
+    private var captureResolution: CaptureResolution = .full
+    private var captureFrameRate: CaptureFrameRate = .sixty
+
+    /// Called when the user changes either one in the host window.
+    ///
+    /// Both at once rather than one at a time: the pair is what the next capture is built
+    /// from, and a setter that wrote only its own half would leave the other one holding
+    /// whatever it was last given.
+    func setCaptureFormat(resolution: CaptureResolution, frameRate: CaptureFrameRate) {
+        lock.withLock {
+            captureResolution = resolution
+            captureFrameRate = frameRate
+        }
+    }
+
     /// Fires if capture starts and then produces nothing at all.
     ///
     /// **This exists because the failure it catches is otherwise invisible.** Without Screen
@@ -375,13 +399,26 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
     private func startCapture(_ source: CaptureSource) async throws {
-        try await pipeline.start(source: source)
+        // Read here rather than when they were set: this is the one moment either of them can
+        // take effect, and a capture that is already running is not affected by them. Read
+        // under one lock, so a pair the user changed while this was queued cannot be split
+        // across two streams.
+        let (resolution, frameRate) = lock.withLock { (captureResolution, captureFrameRate) }
+        try await pipeline.start(
+            source: source,
+            frameRate: frameRate.rawValue,
+            resolution: resolution
+        )
         lock.withLock { currentSource = source }
         onSourceChanged?(source)
         onInputTransform?(pipeline.inputTransform())
         armWatchdog(source: source)
         onStatus?("Capturing \(source.description)")
-        coordinatorLog.notice("capture started · \(source.description, privacy: .public)")
+        coordinatorLog.notice("""
+            capture started · \(source.description, privacy: .public) at \
+            \(resolution.rawValue, privacy: .public) size \
+            @ \(frameRate.rawValue, privacy: .public) fps
+            """)
     }
 
     // MARK: - Watchdog

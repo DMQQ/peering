@@ -39,6 +39,13 @@ struct RemoteScreen: View {
     /// No "has it been shown" flag is needed. `ContentView` swaps this whole view out whenever the
     /// phase leaves the remote screens, so the state below is built fresh at the start of every
     /// session and cannot survive into the next one.
+    /// Set when the Move button armed the command key, so the end of the drag that wanted it
+    /// knows to let go again.
+    ///
+    /// Deliberately not the button's selected state, which reads the latched modifiers
+    /// themselves: command can be armed from the shortcuts panel too, and the button should
+    /// light up for that without this claiming a release it did not cause.
+    @State private var moveArmed = false
     @State private var showsLandscapeHint = false
     @State private var landscapeHintTask: Task<Void, Never>?
     /// Set when iOS refused a rotation, which means Rotation Lock is on. Lasts as long as the
@@ -324,6 +331,8 @@ struct RemoteScreen: View {
                 guard let normalized = normalized(point) else { return }
                 model.send(.mouseMove(to: normalized))
                 model.send(.mouseUp(button: .left))
+                // After the mouse-up, so the release travels behind the drag it belongs to.
+                releaseMoveIfArmed()
             },
             onSecondaryClick: { point in
                 guard let normalized = normalized(point) else { return }
@@ -811,6 +820,9 @@ struct RemoteScreen: View {
                     HStack(alignment: .top, spacing: ChromeMetrics.panelGap) {
                         ControlRail(maxHeight: railMaxHeight(in: available.height)) {
                             modeButton
+                            // Directly under the mode button, because it answers the same
+                            // question: what does a drag on the picture mean.
+                            moveButton
                             sourcesButton
                             desktopsButton
                             settingsButton
@@ -1027,6 +1039,38 @@ struct RemoteScreen: View {
     /// These are the two keys a remote desktop reaches for constantly and a software keyboard
     /// cannot send — dismissing a dialogue, moving between fields — and both were behind a
     /// toggle. The panel keeps its copies for the same reason the arrow strip keeps its return.
+    /// Pick up the window under the pointer and carry it.
+    ///
+    /// A command-drag underneath, which is a thing macOS already understands: it moves the
+    /// window under the pointer without bringing it to the front. What that buys is reach. A
+    /// title bar is twenty-eight points on a desktop three thousand wide, which lands at a
+    /// couple of pixels on a phone, and aiming at it through a scaled-down picture is the
+    /// reason dragging a window from here was not worth attempting. A command-drag can start
+    /// anywhere in the window.
+    ///
+    /// It arms the same command key the shortcuts panel's ⌘ button does, so the two show the
+    /// same state, and it lets go of it when the drag ends — see ``releaseMoveIfArmed()``. A
+    /// command key that outlived the drag it was armed for would turn the next thing typed
+    /// into a shortcut.
+    private var moveButton: some View {
+        RailButton(
+            icon: "arrow.up.and.down.and.arrow.left.and.right",
+            label: "Move",
+            selected: model.latchedModifiers.contains(.command)
+        ) {
+            let wasLatched = model.latchedModifiers.contains(.command)
+            moveArmed = !wasLatched
+            model.toggleModifier(.command, keyCode: 55)
+        }
+    }
+
+    /// Lets go of the command key, if this button was what armed it.
+    private func releaseMoveIfArmed() {
+        guard moveArmed else { return }
+        moveArmed = false
+        model.toggleModifier(.command, keyCode: 55)
+    }
+
     private var escapeButton: some View {
         RailButton(icon: "escape", label: "Esc") { sendKey(keyCode: 53) }
     }
@@ -1279,6 +1323,10 @@ struct RemoteScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
+            if let profile = activeApplicationProfile {
+                applicationActions(profile)
+            }
+
             MacroBar()
 
             HStack(spacing: 10) {
@@ -1298,6 +1346,58 @@ struct RemoteScreen: View {
         .padding(.horizontal, 10)
         .reportChromeFrame(.panel, into: $chromeFrames)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    /// What the Mac is showing, if we know anything about it.
+    ///
+    /// The bundle identifier arrives with the catalogue — every picker row already carries one —
+    /// so this needs nothing from the host beyond what is already on the wire. See
+    /// ``ApplicationActions`` for the table and for why an unknown application resolves to nil
+    /// rather than to a guess.
+    private var activeApplicationProfile: ApplicationProfile? {
+        guard let activeSourceID = model.activeSourceID else { return nil }
+        let bundleID = model.catalog?.all.first { $0.id == activeSourceID }?.bundleIdentifier
+        return ApplicationActions.profile(forBundleID: bundleID)
+    }
+
+    /// The keystrokes that only make sense for what is running, above the ones that make sense
+    /// for everything.
+    ///
+    /// The macro bar below is the same seventeen keys whatever is on screen, which is the right
+    /// answer for a list that has to work everywhere and the wrong one for a terminal: the keys
+    /// a shell wants are not the keys a browser wants, and the person driving a shell from a
+    /// phone knows exactly which ones they want and cannot reach them.
+    ///
+    /// Absent entirely for an application nobody has written a profile for, rather than shown
+    /// empty. A heading with nothing under it is worse than no heading.
+    private func applicationActions(_ profile: ApplicationProfile) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel(profile.name)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(profile.actions) { action in
+                        Button {
+                            sendKey(keyCode: action.keyCode, modifiers: action.modifiers)
+                        } label: {
+                            Text(action.title)
+                                .font(.system(size: 14, weight: .medium))
+                                .padding(.horizontal, 12)
+                                .frame(height: 34)
+                                .glassEffect(
+                                    .regular.interactive(),
+                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                )
+                        }
+                        .buttonStyle(RailButtonStyle(scale: 0.86))
+                        // The keystroke is the visible label and the reason is not, so the
+                        // reason is what gets spoken.
+                        .accessibilityLabel(action.detail)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+        }
     }
 
     /// The arrow keys, plus the two keys a software keyboard cannot send as navigation.
@@ -1354,7 +1454,12 @@ struct RemoteScreen: View {
                         escapeButton
                         tabButton
                         settingsButton
-                        dockEmptyCell
+                        // The chevron's column, which this row alone leaves free. A move
+                        // control is the one thing here that had nowhere else to go: row one
+                        // is full, row three is the five navigation keys, and the alternative
+                        // was giving up a control people use to make room for one they reach
+                        // for now and then.
+                        moveButton
                     }
                     // The keys the landscape rail keeps below its fold, which portrait had no
                     // equivalent for at all. Five of them and five columns, so each lands in a
@@ -1418,22 +1523,6 @@ struct RemoteScreen: View {
         }
         .buttonStyle(RailButtonStyle(scale: 0.94))
         .accessibilityLabel(dockExpanded ? "Hide the other controls" : "Show the other controls")
-    }
-
-    /// The chevron's column, empty, in the rows below the one the chevron is in.
-    ///
-    /// Flexible rather than a fixed width, so it is a column like every other cell in the grid
-    /// and the buttons either side of it land where they would if it held a button.
-    ///
-    /// Given a height, and that is load-bearing rather than tidy. `Color` is flexible in *both*
-    /// axes, and an unheighted one answers its row's height proposal with whatever it is handed
-    /// — so the row grows to fill the screen and the dock opens to the height of the display.
-    /// Only the open dock has such a cell, which is why a bar of the right height went wrong
-    /// exactly when it was opened.
-    private var dockEmptyCell: some View {
-        Color.clear
-            .frame(maxWidth: .infinity)
-            .frame(height: ChromeMetrics.buttonHeight)
     }
 
     /// The pointer in portrait: the stick above the dock, with the two keys either side of it.

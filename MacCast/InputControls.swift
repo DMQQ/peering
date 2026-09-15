@@ -35,10 +35,10 @@ struct JoystickView: View {
     @State private var touchStart: Date?
     @State private var isLongPress = false
     @State private var holdTask: Task<Void, Never>?
-    // Accumulated delta and last-send timestamp, used to cap the send rate.
+    /// Movement waiting to be sent, and the clock that sends it. See ``startDraining()``.
     @State private var pendingDx: Double = 0
     @State private var pendingDy: Double = 0
-    @State private var lastEmit: Date?
+    @State private var drainTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -75,6 +75,7 @@ struct JoystickView: View {
                 .onChanged { value in
                     if touchStart == nil {
                         touchStart = Date()
+                        startDraining()
                         let task = Task { @MainActor in
                             try? await Task.sleep(for: .seconds(Self.longPressDuration))
                             if !Task.isCancelled { isLongPress = true }
@@ -105,6 +106,7 @@ struct JoystickView: View {
                 .onEnded { value in
                     holdTask?.cancel()
                     holdTask = nil
+                    stopDraining()
                     let wasLong = isLongPress
                     // The one animation the knob gets: it springs back to the middle rather than
                     // snapping there, which is what says the stick is at rest.
@@ -127,19 +129,20 @@ struct JoystickView: View {
         .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click")
     }
 
-    // At most 60 send calls per second; everything between goes into `pendingDx/pendingDy`
-    // and is flushed as one accumulated delta when the gate opens. The CommandCoalescer in
-    // the transport also accumulates, but throttling earlier reduces message construction
-    // and serialisation overhead on 120 Hz ProMotion displays.
-    //
-    // This was 30, and that was the whole of the cursor's smoothness: the host cannot post a
-    // step it has not been sent, so the pointer moved in thirty discrete jumps a second while
-    // the video running beside it resolved sixty. Nothing was lost — the deltas accumulate
-    // either way — but the motion was half as fine as the picture could show. The cost of
-    // doubling it is about thirty more messages a second at roughly forty bytes each, against
-    // a video stream measured in megabits.
+    /// How often the accumulator is drained, and so how often the Mac is told the pointer moved.
+    ///
+    /// This was 30 once, and doubling it fixed half the cursor's smoothness: the host cannot
+    /// post a step it has not been sent, so the pointer moved in thirty discrete jumps a second
+    /// while the video beside it resolved sixty. The cost of the other half is about thirty more
+    /// messages a second at roughly forty bytes each, against a video stream measured in
+    /// megabits.
     private static let sendHz: TimeInterval = 1.0 / 60
 
+    /// Accumulates one sample of movement. Sending is somebody else's job — see ``startDraining()``.
+    ///
+    /// The delta is proportional to the time since the previous sample, so the pointer covers
+    /// the same ground per second whatever rate the touches happen to arrive at, and a dropped
+    /// sample costs a slightly longer step rather than a shorter one.
     private func emit(_ offset: CGSize) {
         let now = Date()
         let interval = lastSample.map { min(now.timeIntervalSince($0), Self.maximumSampleGap) } ?? 0
@@ -152,15 +155,48 @@ struct JoystickView: View {
 
         pendingDx += dx
         pendingDy += dy
+    }
 
-        let elapsed = lastEmit.map { now.timeIntervalSince($0) } ?? .greatestFiniteMagnitude
-        guard elapsed >= Self.sendHz else { return }
-        lastEmit = now
+    /// Drains the accumulator on a clock of its own, rather than on the touch samples.
+    ///
+    /// **This is the whole of why the pointer is smooth or not.** Sending used to happen inside
+    /// `emit`, behind a gate that asked "has it been a sixtieth of a second since the last
+    /// send?" — and it cannot be, because the samples arrive at about sixty a second
+    /// themselves. Jitter means one sample is refused and the next bursts through carrying
+    /// twice the movement, so the Mac was told about the pointer in thirty irregular jumps a
+    /// second instead of sixty even ones. Nothing was lost; the motion simply read as choppy.
+    ///
+    /// It also explains the thing that made this worth chasing: moving the Mac's own mouse
+    /// looks better than driving it from here. The hardware feeds the cursor at its own rate
+    /// and has nothing to alias with. A timer's jitter is a millisecond or two, against the
+    /// sixteen the samples were fighting over.
+    private func startDraining() {
+        guard drainTask == nil else { return }
+        drainTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.sendHz))
+                flush()
+            }
+        }
+    }
 
+    /// Stops the clock and sends whatever is left, so the last of a movement is not stranded.
+    ///
+    /// That stranding is the other half of the old bug: a delta accumulated after the gate
+    /// closed was only ever sent if another sample happened to arrive, so letting go of the
+    /// stick mid-flick dropped the final step and left the pointer a little short of where the
+    /// finger went.
+    private func stopDraining() {
+        drainTask?.cancel()
+        drainTask = nil
+        flush()
+    }
+
+    private func flush() {
+        guard pendingDx != 0 || pendingDy != 0 else { return }
         let toSend = CGSize(width: pendingDx, height: pendingDy)
         pendingDx = 0
         pendingDy = 0
-        guard toSend.width != 0 || toSend.height != 0 else { return }
         onMove(toSend)
     }
 }

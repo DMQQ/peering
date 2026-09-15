@@ -318,9 +318,11 @@ final class VideoEncoder: @unchecked Sendable {
     /// single frame until one arrives carrying parameter sets, and it must not wait for the
     /// two-second keyframe interval to elapse.
     ///
-    /// **One caveat the caller owns.** A keyframe can only be attached to a frame, and
-    /// ScreenCaptureKit produces no frames while the display is completely static. On an
-    /// idle screen this request is held until something moves. A host that must paint
+    /// **One caveat the caller owns.** A keyframe can only be attached to a frame, so the
+    /// request waits for one. ScreenCaptureKit produces no *picture* frames while the display
+    /// is completely static, and on an idle screen the only frame that arrives is one
+    /// ``CursorOverlay/redraw(_:)`` made out of the pointer's own movement — so the request
+    /// is held until either the screen or the pointer moves. A host that must paint
     /// immediately regardless can pair it with `SCScreenshotManager`, which captures a
     /// single frame on demand — that is the next phase's decision, not this type's.
     func requestKeyframe() {
@@ -507,7 +509,21 @@ final class VideoEncoder: @unchecked Sendable {
     /// shimmers, and above 30 Mbps the encoder stops being the bottleneck on any connection
     /// a client is likely to have.
     private static func defaultBitRate(pixelSize: CGSize, frameRate: Int) -> Int {
-        let raw = Double(pixelSize.width * pixelSize.height) * 0.06 * Double(frameRate)
+        // 0.12 bits per pixel per frame, where this was 0.06.
+        //
+        // The old constant is a per-frame budget, and it was half of what H.264 needs for a
+        // desktop: at 1512×982 and 60 fps it asked for 5.3 Mbps, which is 0.06 bits for every
+        // pixel of every frame. The encoder's answer to a budget it cannot meet is to stop
+        // encoding — it drops the frames rather than the quality — so a stream configured for
+        // 60 arrived at the phone at 10 to 15, and one configured for 120 arrived at 1. The
+        // host's own log said so: "encoder dropped a frame", over and over.
+        //
+        // Worth stating plainly because the arithmetic is not obvious: this scales with the
+        // frame rate, so raising the rate does *not* spread the same bits more thinly — it asks
+        // for twice the bits for twice the frames. The per-frame budget is the same at both
+        // rates, and it was the per-frame budget that was wrong. What made 120 look worse than
+        // 60 was only that there were twice as many frames to refuse.
+        let raw = Double(pixelSize.width * pixelSize.height) * 0.12 * Double(frameRate)
         return Int(min(max(raw, 4_000_000), 30_000_000))
     }
 }

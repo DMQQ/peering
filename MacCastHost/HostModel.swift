@@ -212,6 +212,116 @@ final class HostModel {
         start()
     }
 
+    // MARK: - Pointer
+
+    private static let enlargePointerKey = "enlargePointer"
+    private static let pointerSizeKey = "pointerSize"
+
+    /// Whether a larger pointer is drawn into the video, and how much larger.
+    ///
+    /// Stored the way ``preventLidCloseSleep`` is, with one difference that is easy to get
+    /// wrong: the default is *on*, and `bool(forKey:)` cannot say that — it answers `false`
+    /// for a key that was never written, and "never written" is not a decision anybody made.
+    /// So the key is read as an object and the absence itself is the default. It is read
+    /// twice, once for what the window shows and once for the overlay, because the overlay is
+    /// built before there is a window to read it from; the two cannot disagree, since neither
+    /// can change without the other being written.
+    private static func storedEnlargePointer() -> Bool {
+        UserDefaults.standard.object(forKey: enlargePointerKey) as? Bool ?? true
+    }
+
+    /// An unreadable size falls back to the default rather than to the smallest, so a value
+    /// written by some later version of this app cannot make the pointer too small to see.
+    private static func storedPointerSize() -> CursorOverlay.Size {
+        UserDefaults.standard.string(forKey: pointerSizeKey)
+            .flatMap { CursorOverlay.Size(rawValue: $0) } ?? .medium
+    }
+
+    private(set) var enlargePointer: Bool = HostModel.storedEnlargePointer()
+    private(set) var pointerSize: CursorOverlay.Size = HostModel.storedPointerSize()
+
+    /// Drawn into every frame, on the capture queue. Held here and shared by reference the way
+    /// ``input`` is, and for the same reason: it is read sixty times a second on a thread that
+    /// is not this one, so a preference written on the main actor has to reach it without an
+    /// actor hop. Keeping those two in step is what the overlay's lock is for.
+    private let cursorOverlay = CursorOverlay(
+        isEnabled: HostModel.storedEnlargePointer(),
+        size: HostModel.storedPointerSize()
+    )
+
+    /// Turns the enlarged pointer on or off for the frames already being captured, rather than
+    /// for the next session only: whatever is on screen is being watched while the switch is
+    /// flipped, and a setting that needed a reconnect to take effect reads as one that did
+    /// nothing at all.
+    func setEnlargePointer(_ on: Bool) {
+        enlargePointer = on
+        UserDefaults.standard.set(on, forKey: Self.enlargePointerKey)
+        cursorOverlay.isEnabled = on
+    }
+
+    func setPointerSize(_ size: CursorOverlay.Size) {
+        pointerSize = size
+        UserDefaults.standard.set(size.rawValue, forKey: Self.pointerSizeKey)
+        cursorOverlay.size = size
+    }
+
+    // MARK: - Capture
+
+    private static let captureResolutionKey = "captureResolution"
+    private static let captureFrameRateKey = "captureFrameRate"
+
+    /// What the picture is made of: how many pixels a frame carries, and how many frames a
+    /// second.
+    ///
+    /// Both are stored the way ``storedPointerSize()`` is, with a value this version cannot
+    /// read falling back to the default rather than to the other case — a key written by some
+    /// later build must not be able to leave the stream smaller or slower than anyone chose.
+    /// The frame rate needs no absence check the way ``storedEnlargePointer()`` does:
+    /// `integer(forKey:)` answers 0 for a key that was never written, and 0 is not a rate any
+    /// stream can be built at, so the two cases cannot be confused.
+    private static func storedCaptureResolution() -> CaptureResolution {
+        UserDefaults.standard.string(forKey: captureResolutionKey)
+            .flatMap { CaptureResolution(rawValue: $0) } ?? .full
+    }
+
+    private static func storedCaptureFrameRate() -> CaptureFrameRate {
+        let stored = UserDefaults.standard.integer(forKey: captureFrameRateKey)
+        return CaptureFrameRate(rawValue: stored) ?? .sixty
+    }
+
+    private(set) var captureResolution: CaptureResolution = HostModel.storedCaptureResolution()
+    private(set) var captureFrameRate: CaptureFrameRate = HostModel.storedCaptureFrameRate()
+
+    /// These take effect on the next stream, not on the one already running.
+    ///
+    /// Not a shortcut, and the rows in the window say as much: a surface's size and its frame
+    /// interval are fixed when the `SCStream` is built, so a capture already in flight cannot
+    /// be changed — it can only be replaced, which would drop the picture and cost a keyframe
+    /// for a setting the user is still deciding on. Unlike ``setEnlargePointer(_:)``, which
+    /// reaches into the frames already being captured, there is nothing here to reach into.
+    func setCaptureResolution(_ resolution: CaptureResolution) {
+        captureResolution = resolution
+        UserDefaults.standard.set(resolution.rawValue, forKey: Self.captureResolutionKey)
+        applyCaptureFormat()
+    }
+
+    func setCaptureFrameRate(_ frameRate: CaptureFrameRate) {
+        captureFrameRate = frameRate
+        UserDefaults.standard.set(frameRate.rawValue, forKey: Self.captureFrameRateKey)
+        applyCaptureFormat()
+    }
+
+    /// Hands the pair to the coordinator, which reads them when a capture starts.
+    ///
+    /// Silent while nothing is listening, which is the ordinary case rather than a failure:
+    /// the values live in the stored properties above, and ``start()`` gives a coordinator
+    /// built afterwards both of them. Written as one call for that reason — a coordinator
+    /// that had been told one half of the pair would build the next stream out of two
+    /// different moments.
+    private func applyCaptureFormat() {
+        coordinator?.setCaptureFormat(resolution: captureResolution, frameRate: captureFrameRate)
+    }
+
     // MARK: - Lifecycle
 
     func start() {
@@ -280,8 +390,17 @@ final class HostModel {
         let resolver = ScreenCaptureSourceResolver { [weak self] in
             Task { @MainActor [weak self] in self?.coordinator?.refreshCatalog() }
         }
-        let pipeline = CapturePipeline(resolver: resolver)
+        let pipeline = CapturePipeline(resolver: resolver, overlay: cursorOverlay)
         let coordinator = VideoCoordinator(pipeline: pipeline)
+        // Before any capture can start — the first video connection may arrive seconds from
+        // now, and a coordinator that had not been told would build the first stream of the
+        // session out of its own defaults and quietly disagree with the window. The setters
+        // cannot do this from here: they go through ``applyCaptureFormat()``, which writes to
+        // the property below, and this coordinator is not that property yet.
+        coordinator.setCaptureFormat(
+            resolution: captureResolution,
+            frameRate: captureFrameRate
+        )
         coordinator.onCatalog = { [weak self] catalog in
             Task { @MainActor [weak self] in
                 // Kept as well as forwarded: the window names the capture source from it.

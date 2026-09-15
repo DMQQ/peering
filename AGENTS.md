@@ -45,7 +45,7 @@ xcodebuild -project MacCast.xcodeproj -scheme MacCast \
 
 # Build/run the host
 xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug/MacCastHost.app
+open ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug/Peering.app
 
 # RemoteCore unit tests (100 tests, 14 suites, all green as of 2026-09-14)
 cd RemoteCore && swift test

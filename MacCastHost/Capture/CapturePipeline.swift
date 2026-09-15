@@ -38,6 +38,11 @@ final class CapturePipeline: @unchecked Sendable {
 
     private let backend: Backend
     private let codec: VideoCodec
+    /// The enlarged pointer, on the pipelines that were given one. Nil is a real state rather
+    /// than a missing argument: the synthetic path has no screen for a pointer to be placed
+    /// on, and a caller that is not the host window — the capture probe — has no preferences
+    /// store to take one from. See ``CursorOverlay``.
+    private let overlay: CursorOverlay?
     private let lock = NSLock()
 
     private var encoder: VideoEncoder?
@@ -80,9 +85,10 @@ final class CapturePipeline: @unchecked Sendable {
         }
     }
 
-    init(resolver: CaptureSourceResolver, codec: VideoCodec = .h264) {
+    init(resolver: CaptureSourceResolver, codec: VideoCodec = .h264, overlay: CursorOverlay? = nil) {
         self.backend = .capture(resolver: resolver, engine: CaptureEngine())
         self.codec = codec
+        self.overlay = overlay
     }
 
     /// A pipeline that generates its own frames instead of capturing the screen.
@@ -112,6 +118,9 @@ final class CapturePipeline: @unchecked Sendable {
             engine: SyntheticCaptureEngine(pixelSize: syntheticPixelSize, frameRate: frameRate)
         )
         self.codec = codec
+        // Generated frames describe no screen, so there is no coordinate space a pointer could
+        // be placed in and none is looked for.
+        self.overlay = nil
     }
 
     /// What is being captured, or `nil` while stopped.
@@ -126,9 +135,18 @@ final class CapturePipeline: @unchecked Sendable {
     /// and an encoder that is simply not being fed are all "the client sees nothing".
     struct Statistics: Sendable, Equatable {
         /// Frames the stream delivered that carried a picture.
+        ///
+        /// **Not the number of frames the client received, and no longer a close stand-in
+        /// for it.** The overlay can make a frame out of an idle sample — see
+        /// ``idle(_:)`` — so on a still screen with the pointer moving this stays at
+        /// whatever the display itself is doing while `framesEncoded` climbs at the frame
+        /// rate. The pair answers "is the stream reporting", which is what it is for; the
+        /// pair to read for "is the client getting frames" is this and `framesEncoded`
+        /// together, not either one alone.
         let framesDelivered: Int
         /// Sample buffers that carried no new picture — a static display, a blank one, or a
-        /// stopped stream. Not frame loss.
+        /// stopped stream. Not frame loss, and also not silence: every one of these is an
+        /// opportunity for a frame the pointer moved in.
         let idleSamples: Int
         /// Frames handed to the network.
         let framesEncoded: Int
@@ -216,11 +234,22 @@ final class CapturePipeline: @unchecked Sendable {
     /// picked is gone".
     ///
     /// A synthetic pipeline takes the source as given — there is no catalogue to check it
-    /// against and nothing to build a filter from — and uses the frame rate it was built
-    /// with. It cannot fail, which is deliberate: the caller that has to be able to run on
-    /// a machine without Screen Recording permission is the caller that cannot afford an
-    /// error here.
-    func start(source: CaptureSource, frameRate: Int = 60) async throws {
+    /// against and nothing to build a filter from — and uses the frame rate and the size it
+    /// was built with, so neither of the parameters below reaches it. It cannot fail, which
+    /// is deliberate: the caller that has to be able to run on a machine without Screen
+    /// Recording permission is the caller that cannot afford an error here.
+    ///
+    /// - Parameters:
+    ///   - frameRate: Frames per second to ask the stream for. It is passed to the encoder as
+    ///     well as to the stream, and it has to be — the two are one number. See
+    ///     ``CaptureFrameRate``.
+    ///   - resolution: The size the surface is built at, which is the source's own unless it
+    ///     is asked to be half. See ``CaptureResolution``.
+    func start(
+        source: CaptureSource,
+        frameRate: Int = 60,
+        resolution: CaptureResolution = .full
+    ) async throws {
         await stop()
 
         switch backend {
@@ -231,14 +260,36 @@ final class CapturePipeline: @unchecked Sendable {
             }
 
             let plan = try resolver.makeFilter(for: source)
-            let configuration = try CaptureEngine.configuration(for: descriptor, frameRate: frameRate)
+            // One size, used twice, and it has to be the same expression both times.
+            // ScreenCaptureKit delivers a surface of exactly the configured size, and the
+            // encoder can encode nothing but a frame of its own — so a halved stream with a
+            // full-sized encoder is not a slightly wrong picture, it is the resize check
+            // below finding a different size on every frame and rebuilding the session and
+            // its keyframe sixty times a second. See ``CapturePipeline/encode(_:)``.
+            let pixelSize = resolution.pixelSize(for: descriptor.pixelSize)
+            let configuration = try CaptureEngine.configuration(
+                for: descriptor,
+                pixelSize: pixelSize,
+                frameRate: frameRate
+            )
             // Set after the configuration is built rather than inside it: the rectangle belongs
             // to the filter — it is expressed in that filter's coordinate space — and
             // `CaptureEngine` is handed only a descriptor. See ``CaptureFilterPlan``.
             if let sourceRect = plan.sourceRect {
                 configuration.sourceRect = sourceRect
             }
-            let encoder = try VideoEncoder(codec: codec, pixelSize: descriptor.pixelSize, frameRate: frameRate)
+            // The system's pointer stays out of the capture while a larger one is being drawn
+            // into it, and comes back when it is not. Both halves matter, and the second is the
+            // one that was missing: with the overlay switched off and the cursor still hidden,
+            // a frame carried no pointer at all — so the setting's "off" removed the pointer
+            // rather than restoring the small one, which is a trap rather than a choice.
+            //
+            // Set here rather than inside `configuration(for:)` for the reason the source
+            // rectangle above is: it describes how this stream is being run, not what is being
+            // captured. It also means the change lands on the next capture, which is the only
+            // moment it can — `showsCursor` is fixed when the stream is built.
+            configuration.showsCursor = overlay?.isEnabled != true
+            let encoder = try VideoEncoder(codec: codec, pixelSize: pixelSize, frameRate: frameRate)
 
             try await begin(
                 engine: engine,
@@ -246,7 +297,16 @@ final class CapturePipeline: @unchecked Sendable {
                 encoder: encoder,
                 source: source
             )
-            pipelineLog.notice("capturing \(descriptor.title, privacy: .public)")
+            // The size is logged as well as the title, because the two ways a stream can be
+            // built here — the source's own size and half of it — are otherwise
+            // indistinguishable from the log, and "which one was that run" is the whole
+            // question when someone is comparing them.
+            pipelineLog.notice("""
+                capturing \(descriptor.title, privacy: .public) at \
+                \(Int(pixelSize.width), privacy: .public)×\
+                \(Int(pixelSize.height), privacy: .public) \
+                @ \(frameRate, privacy: .public) fps
+                """)
 
         case .synthetic(let engine):
             if frameRate != engine.frameRate {
@@ -297,6 +357,7 @@ final class CapturePipeline: @unchecked Sendable {
         encoder.onFailure = { [weak self] error in self?.report(error) }
 
         engine.onFrame = { [weak self] frame in self?.ingest(frame) }
+        engine.onIdle = { [weak self] sample in self?.idle(sample) }
         engine.onStop = { [weak self] error in self?.report(error) }
 
         do {
@@ -347,6 +408,67 @@ final class CapturePipeline: @unchecked Sendable {
     private func ingest(_ frame: CapturedFrame) {
         onGeometry?(frame.geometry)
 
+        // The last point at which the frame is still this app's to draw on. After the encoder
+        // the buffer belongs to VideoToolbox, and this is also the only place that holds both
+        // the frame and the geometry saying where its content sits on screen, which is what
+        // placing a pointer takes. Silent when there is no overlay, and when the overlay
+        // decides not to draw — see ``CursorOverlay/draw(into:geometry:)``.
+        overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
+
+        encode(frame)
+    }
+
+    /// A sample that carried no new picture, on the capture queue.
+    ///
+    /// **Where the pointer's smoothness comes from.** On a screen where nothing is
+    /// happening, the pointer is the only thing that moves, and with `showsCursor` off
+    /// nothing about it reaches the stream — so every sample is idle, nothing is encoded,
+    /// and the pointer can only move as often as the display changes for some other reason.
+    /// The overlay turns the pointer's own movement into a frame; this is where it is asked.
+    ///
+    /// An idle sample is otherwise worth nothing — it is the picture the client already has,
+    /// and sending one per sample would be a stream of identical frames — so when the
+    /// overlay cannot make anything of it (it is off, the pointer is over something else, it
+    /// has no picture of its own to draw on yet, or the encoder has not finished with the
+    /// buffer) the sample goes exactly where it went before this existed: nowhere.
+    ///
+    /// ``onGeometry`` is deliberately not told about these. An idle sample's idea of where
+    /// the content sits can be emptier than a frame's — nothing about one is promised except
+    /// that the screen has not changed — and the mapping the client's input goes through is
+    /// built from the last frame that actually reported one. Letting a sparser answer
+    /// overwrite a good one would move the pointer and the taps apart.
+    private func idle(_ sample: IdleSample) {
+        guard Self.idleFramesEnabled else { return }
+        guard let overlay, let frame = overlay.redraw(sample) else { return }
+        encode(frame)
+    }
+
+    /// Whether an idle sample is allowed to become a frame.
+    ///
+    /// **Off, and the switch is here rather than deleted so the reasoning survives.**
+    ///
+    /// The idea is sound and measurably works in isolation — modelled against a real
+    /// `VTCompressionSession` it turns a still screen into sixty frames a second for one
+    /// whole-picture copy. On the device it does the opposite. With it on, the rate sits around
+    /// thirty until the pointer is touched and then collapses to about one, which is the
+    /// signature of the *client* refusing what this path invents: the first synthetic frame
+    /// fails to decode, the renderer resets and latches onto awaiting-a-keyframe, and from then
+    /// on the only pictures that get through are the keyframes, one every two seconds.
+    ///
+    /// So whatever is wrong is in what these frames *are* rather than in the idea: a timestamp,
+    /// an attachment, or a reference to a picture the decoder never had. That is a diagnosis to
+    /// make against a running system, not by reading, and until it is made the honest place for
+    /// this is off — a choppy pointer is a disappointment, and one frame every two seconds with
+    /// the picture freezing under your finger is a broken app.
+    private static let idleFramesEnabled = false
+
+    /// Hands a frame of this pipeline's own making to the encoder.
+    ///
+    /// Sharing this with the idle path rather than letting that path reach the encoder
+    /// directly is what keeps the two from drifting: a frame the overlay drew a pointer into
+    /// and a frame the overlay built out of an idle sample are the same thing from here on,
+    /// and both go through the resize check and the keyframe bookkeeping.
+    private func encode(_ frame: CapturedFrame) {
         // The stream's surface changes size when a captured window is resized — the stream
         // keeps producing frames at the new size, but the session was created for the old
         // one and cannot encode a frame of a different size at all. Rebuilding is the only
@@ -380,6 +502,14 @@ final class CapturePipeline: @unchecked Sendable {
     }
 
     /// Must be called on the capture queue, where it is the only writer.
+    ///
+    /// Built for the size the *surface* is now, never for the size the stream was configured
+    /// with. At half resolution those two differ for a captured window: the stream is
+    /// configured at half the window's size, and a window grown past that produces a surface
+    /// of its own size again. The replacement keeps up with the frames rather than with the
+    /// setting — an encoder that insisted on half would be encoding a size the frames are
+    /// not — so the halving comes back with the next capture, which is the same moment it is
+    /// applied at in the first place.
     private func rebuildEncoder(for size: CGSize, replacing current: VideoEncoder?) throws -> VideoEncoder {
         let replacement = try VideoEncoder(
             codec: codec,

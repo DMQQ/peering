@@ -127,6 +127,11 @@ final class SessionModel {
     private(set) var catalog: CaptureCatalog?
     private(set) var notes: [String] = []
     private(set) var videoStatus = "No video stream"
+    /// The frames per second arriving, as measured by the last two polls — see
+    /// ``updateFrameRate(from:)``. Zero until there have been two samples to compare.
+    private(set) var videoFramesPerSecond: Double = 0
+    /// The frame count and the moment it was read, for the difference above.
+    private var lastFrameSample: (count: Int, at: Date)?
     /// True while the video channel is delivering frames (not ended/absent).
     private(set) var isVideoStreaming = false
     private(set) var connectionPath: ConnectionPath?
@@ -635,12 +640,47 @@ final class SessionModel {
                 guard let self else { return }
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
+                    self.updateFrameRate(from: snapshot)
+
                     let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
                     let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
-                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)"
+                    // The *rate* leads, and the running total follows it. "1234 frames" answers
+                    // how long the session has been up; the question a picture that looks choppy
+                    // actually raises is how many are arriving each second, and only a
+                    // difference between two samples can answer it.
+                    let rate = self.videoFramesPerSecond > 0
+                        ? " · \(Int(self.videoFramesPerSecond.rounded())) fps"
+                        : ""
+                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)"
                 }
             }
         }
+    }
+
+    /// Frames per second as they are actually arriving, smoothed.
+    ///
+    /// Derived from the difference between two polls rather than reported by anyone: neither end
+    /// knows the rate at which the other is running, and the only place the two meet is here.
+    /// Smoothed heavily because a half-second window is short enough that a single late batch
+    /// reads as a swing, and what this is for is telling thirty apart from sixty.
+    private func updateFrameRate(from snapshot: VideoRenderer.Snapshot) {
+        let now = Date()
+        defer { lastFrameSample = (snapshot.framesEnqueued, now) }
+
+        guard let last = lastFrameSample else { return }
+        // A count that has gone backwards is a reset, not a negative rate — the renderer drops
+        // its totals when the stream restarts.
+        guard snapshot.framesEnqueued >= last.count else {
+            videoFramesPerSecond = 0
+            return
+        }
+        let elapsed = now.timeIntervalSince(last.at)
+        guard elapsed > 0 else { return }
+
+        let rate = Double(snapshot.framesEnqueued - last.count) / elapsed
+        videoFramesPerSecond = videoFramesPerSecond == 0
+            ? rate
+            : videoFramesPerSecond * 0.6 + rate * 0.4
     }
 
     private func append(note: String) {

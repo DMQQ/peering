@@ -459,10 +459,188 @@ struct HostStatusView: View {
 
                 Divider().padding(.leading, 52)
 
+                pointerRow
+
+                Divider().padding(.leading, 52)
+
+                pointerSizeRow
+
+                Divider().padding(.leading, 52)
+
+                captureResolutionRow
+
+                Divider().padding(.leading, 52)
+
+                frameRateRow
+
+                Divider().padding(.leading, 52)
+
                 portRow
             }
             .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+    }
+
+    /// The enlarged pointer, which is a setting because of where it goes wrong.
+    ///
+    /// Everything else on this pane is about the Mac it runs on. This changes what the phone
+    /// sees and nothing else, so the only place a bad choice shows up is on the phone, and
+    /// the only place to undo it is here.
+    private var pointerRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "cursorarrow")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(model.enlargePointer ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Larger pointer")
+                    .font(.subheadline.weight(.medium))
+                // Says what *off* means, because it is not "draw nothing" and it is not
+                // "no pointer": the system's pointer goes back into the capture and the small
+                // one the phone had before returns. It also takes effect on the next
+                // connection rather than the next frame, which is worth saying here rather
+                // than leaving to be discovered.
+                Text("Draws a bigger pointer into the video so it is easier to see on a phone. The pointer on this Mac is not changed. With this off the Mac's own pointer is sent instead, which is smaller. Changing it applies to the next connection.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: Binding(
+                get: { model.enlargePointer },
+                set: { model.setEnlargePointer($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// How much larger, which is the half of the question the switch cannot ask.
+    ///
+    /// Dimmed rather than hidden while the pointer is off: a row that comes and goes moves the
+    /// ones under it, and the value is still the one the next frame will use.
+    private var pointerSizeRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(model.enlargePointer ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Pointer size")
+                    .font(.subheadline.weight(.medium))
+                Text("How much larger than the pointer this Mac is showing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Picker("", selection: Binding(
+                get: { model.pointerSize },
+                set: { model.setPointerSize($0) }
+            )) {
+                ForEach(CursorOverlay.Size.allCases, id: \.self) { size in
+                    Text(size.title).tag(size)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+            .disabled(!model.enlargePointer)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// The size of the picture, which is the setting that trades quality for everything else
+    /// at once.
+    ///
+    /// Worth a switch rather than a constant because of what it is measured against: a phone
+    /// draws the whole display a few hundred points wide, so a stream at the display's own
+    /// size is already being scaled down by a factor of four before anyone looks at it, and
+    /// the pixels given up here are ones the phone was going to throw away.
+    private var captureResolutionRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "rectangle.compress.vertical")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Capture resolution")
+                    .font(.subheadline.weight(.medium))
+                // Says when it lands, because the switch cannot show it: the setting is read
+                // when a stream is built, so a change made with a phone attached looks like
+                // one that did nothing until the next capture is started.
+                Text("Half captures at half the width and height, so a quarter of the pixels to send. Applies when the next stream starts, which is a change of source or the next connection.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Picker("", selection: Binding(
+                get: { model.captureResolution },
+                set: { model.setCaptureResolution($0) }
+            )) {
+                ForEach(CaptureResolution.allCases, id: \.self) { resolution in
+                    Text(resolution.title).tag(resolution)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// How many frames a second the stream is asked for.
+    ///
+    /// The setting for a Mac whose screen moves faster than the phone can be shown it. Only a
+    /// panel that refreshes faster than sixty times a second has anything to give here, and
+    /// doubling the rate doubles what has to be encoded and sent.
+    private var frameRateRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "speedometer")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Frame rate")
+                    .font(.subheadline.weight(.medium))
+                Text("How many frames a second to send. A screen that cannot run this fast sends what it can. Applies when the next stream starts, which is a change of source or the next connection.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Picker("", selection: Binding(
+                get: { model.captureFrameRate },
+                set: { model.setCaptureFrameRate($0) }
+            )) {
+                ForEach(CaptureFrameRate.allCases, id: \.self) { rate in
+                    Text(rate.title).tag(rate)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     /// The port, as a field rather than the label it used to be.
@@ -999,6 +1177,43 @@ struct HostStatusView: View {
         let image = NSImage(size: representation.size)
         image.addRepresentation(representation)
         return image
+    }
+}
+
+/// The sizes as words, which is the only form of them a user has an opinion about. The overlay
+/// itself deals in fractions of the frame's height, and those are not a question to put to
+/// anybody.
+private extension CursorOverlay.Size {
+    var title: String {
+        switch self {
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        }
+    }
+}
+
+/// The two sizes and the two rates as words.
+///
+/// Deliberately without the pixel dimensions: the size a stream is built at follows the
+/// source, and the source is the phone's to choose — a label carrying numbers would be
+/// wrong for every source but the one that happened to be selected when the window was
+/// drawn, and the row is on screen while the client switches between them.
+private extension CaptureResolution {
+    var title: String {
+        switch self {
+        case .full: return "Full"
+        case .half: return "Half"
+        }
+    }
+}
+
+private extension CaptureFrameRate {
+    var title: String {
+        switch self {
+        case .sixty: return "60 fps"
+        case .oneTwenty: return "120 fps"
+        }
     }
 }
 

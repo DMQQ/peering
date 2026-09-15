@@ -75,10 +75,6 @@ struct HostPickerView: View {
                     .padding(.horizontal, 18)
                     .padding(.bottom, 36)
                 }
-
-                if model.isBusy {
-                    connectingOverlay
-                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -168,42 +164,6 @@ struct HostPickerView: View {
         if model.isBusy { return "CONNECTING" }
         if model.hosts.isEmpty { return "LOOKING FOR MACS" }
         return model.hosts.count == 1 ? "1 MAC NEARBY" : "\(model.hosts.count) MACS NEARBY"
-    }
-
-    /// What a connection looks like while it is being made.
-    ///
-    /// A tap on a Mac used to dim the list and change one word of eyebrow text, which is a very
-    /// quiet answer to the loudest thing the app does. Connecting is a second of a TLS handshake
-    /// and a certificate exchange with nothing to look at, and a second is long enough to wonder
-    /// whether the tap registered.
-    ///
-    /// So it says which Mac, says what is happening, and dims the list behind it — the dimming is
-    /// the part that matters, because it is what shows the row that was tapped is no longer the
-    /// thing being looked at. It fades rather than springs, unlike everything else here: this is
-    /// not a control answering a finger, it is a wait, and a wait that bounces reads as busywork.
-    private var connectingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                ProgressView()
-                    .controlSize(.large)
-                    .tint(ColorPalette.ink)
-
-                VStack(spacing: 3) {
-                    Text(model.hostName ?? "Your Mac")
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text("Connecting…")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(28)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .transition(.opacity.animation(.easeOut(duration: 0.2)))
-        .allowsHitTesting(true)
     }
 
     /// The small print, and the claim the app is built on.
