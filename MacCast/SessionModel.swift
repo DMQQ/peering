@@ -803,6 +803,20 @@ final class SessionModel {
         session?.selectCaptureSource(descriptor.source)
     }
 
+    /// The same, for a caller holding a ``CaptureSource`` rather than the descriptor it was
+    /// listed under.
+    ///
+    /// **Recording the choice is the whole point of this existing.** `activeSourceID` is what
+    /// callers compare against before deciding whether a switch is needed, so a caller that
+    /// sends `setCaptureSource` itself leaves the record describing a screen the video is no
+    /// longer on — and the next comparison then reads as "already there" and sends nothing.
+    /// The visible result is a session that will follow the desktops panel onto the second
+    /// display and then refuse to come back.
+    func selectSource(_ source: CaptureSource) {
+        activeSourceID = source.stableID
+        session?.selectCaptureSource(source)
+    }
+
     func launchApplication(_ descriptor: InstalledApplicationDescriptor) {
         send(.launchApplication(bundleIdentifier: descriptor.bundleIdentifier))
     }

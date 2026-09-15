@@ -241,7 +241,11 @@ struct DesktopsPanel: View {
 
         let source = CaptureSource.display(display.displayID)
         if model.activeSourceID != source.stableID {
-            model.send(.setCaptureSource(source))
+            // Through the model rather than `send`, so the choice is recorded as well as made.
+            // This is what went wrong: the raw send moved the host without moving
+            // `activeSourceID`, so the next tap back to a display already named there looked
+            // like no move at all and sent nothing.
+            model.selectSource(source)
         }
         // Even when no source change was needed: the tap was still a choice, and the panel gets
         // out of the way for all of them or none.
