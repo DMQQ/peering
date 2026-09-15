@@ -570,12 +570,22 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
 }
 
 extension SessionPiP: AVPictureInPictureSampleBufferPlaybackDelegate {
-    /// A live stream has no timeline: it began before the window opened and ends when it ends.
-    /// Reporting a finite range instead would give the system's scrubber something to seek in.
+    /// No timeline at all, and the header is explicit that this is how to say so.
+    ///
+    /// It names both signals: *"Clients should return a time range with a duration of
+    /// kCMTimeInfinity to indicate live content. When there is no content to play, they should
+    /// return kCMTimeRangeInvalid."*
+    ///
+    /// This was the infinite one, which is live content — and live content still has a timeline
+    /// to rewind along, so the transport controls stay and the skip buttons have something to
+    /// do. `invalid` says there is nothing here to play, which is exactly true: this is a
+    /// real-time picture of a Mac, and nothing about it can be paused, skipped or scrubbed.
+    /// It is what takes the controls out; `requiresLinearPlayback` was the wrong lever and
+    /// only ever disabled some of them.
     func pictureInPictureControllerTimeRangeForPlayback(
         _ controller: AVPictureInPictureController
     ) -> CMTimeRange {
-        CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity)
+        .invalid
     }
 
     /// Never paused. The pause control would otherwise appear, and there is nothing here for it
