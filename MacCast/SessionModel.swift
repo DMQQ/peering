@@ -885,9 +885,17 @@ final class SessionModel {
         // A newline is a Return by another name — the software keyboard delivers it as text
         // rather than as a key — so it commits the line for the same reason ``pressReturn()``
         // does, and the preview restarts from empty.
+        // Bounded, but far beyond anything the bar can draw.
+        //
+        // This was 40, which is *less* than a landscape bar displays. So the preview filled
+        // about half the width and then stopped growing: every further character pushed the
+        // text left while empty space remained to its right, because the cap was doing the
+        // layout. The view already bounds what is drawn — one line, truncated at the head —
+        // so this only has to stop the string growing without limit, and any number above
+        // what the bar can show does that without being visible.
         typedPreview = text.contains(where: \.isNewline)
             ? ""
-            : String((typedPreview + text).suffix(40))
+            : String((typedPreview + text).suffix(400))
 
         switch keyboardMode {
         case .unicode:
