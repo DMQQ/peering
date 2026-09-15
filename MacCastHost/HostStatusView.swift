@@ -77,7 +77,13 @@ struct HostStatusView: View {
                     .padding(.horizontal, 26)
                     .padding(.top, 22)
                     .padding(.bottom, 28)
+                    // The pane is only as wide as its widest row, and a scroll view centres
+                    // what it is given. Overview looked right by accident — the preview pane
+                    // asks for the full width — while a pane holding one short line of text
+                    // floated in the middle of the window.
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .tint(HostPalette.ink)
@@ -150,11 +156,16 @@ struct HostStatusView: View {
             }
             .help(statusText)
 
-            Button(model.status.isListening ? "Stop" : "Start") {
+            // The frame goes on the label, not the button. A bordered button sizes itself to
+            // its label, so widening the button only pads the space around it — the control
+            // stays the size of the word and sits in the middle of the column.
+            Button {
                 model.status.isListening ? model.stop() : model.start()
+            } label: {
+                Text(model.status.isListening ? "Stop" : "Start")
+                    .frame(maxWidth: .infinity)
             }
             .controlSize(.small)
-            .frame(maxWidth: .infinity)
 
             Text("Port \(ProtocolInfo.defaultPort) · protocol v\(ProtocolInfo.version)")
                 .font(.caption2.monospacedDigit())
