@@ -4,6 +4,9 @@ import CoreGraphics
 import Darwin
 import Foundation
 import RemoteCore
+import os
+
+private let spaceLog = Logger(subsystem: "pl.dmq.peering.host", category: "spaces")
 
 // The window server's Space API lives in SkyLight.framework, a private framework with no public
 // SDK declarations, so every entry point here is resolved by name rather than linked.
@@ -303,7 +306,18 @@ func switchToSpace(display: UInt32, index: Int) -> Bool {
     // at some index, and the client has no tile for it to have been aiming at.
     let desktops = target.desktopIDs
     guard zeroIndex >= 0, zeroIndex < desktops.count else { return false }
-    return performSwitch(display: target, spaceID: desktops[zeroIndex])
+
+    // Logged because "accepted but nothing moved" and "the desktop I asked for is not the one
+    // the phone drew under that number" look identical from every other vantage point — the
+    // window server says yes either way, and the screen simply stays where it was.
+    let destination = desktops[zeroIndex]
+    spaceLog.notice("""
+        display \(display, privacy: .public): tile \(index, privacy: .public) \
+        of \(desktops.count, privacy: .public) over \(desktops, privacy: .public), \
+        on \(target.activeID, privacy: .public), going to \(destination, privacy: .public)
+        """)
+
+    return performSwitch(display: target, spaceID: destination)
 }
 
 private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
