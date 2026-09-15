@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import Observation
 import CoreMedia
 import Foundation
 import RemoteCore
@@ -425,8 +426,16 @@ struct VideoLayerView: UIViewRepresentable {
 /// something left running — a build, a render, a long download — which is a real thing to want
 /// and not the same thing as driving the Mac from a floating window.
 @MainActor
+@Observable
 final class SessionPiP: NSObject {
     static let shared = SessionPiP()
+
+    /// Why the last attempt refused, for the screen.
+    ///
+    /// PiP declines without telling anyone which of its prerequisites was missing, and the
+    /// device's log needs a USB connection to read — so the answer goes where the person
+    /// asking the question already is.
+    private(set) var lastRefusal: String?
 
     private var controller: AVPictureInPictureController?
 
@@ -447,14 +456,67 @@ final class SessionPiP: NSObject {
         // the session. Starting it by hand would mean the gesture that matters — leaving the
         // app — is the one that does not trigger it.
         controller.canStartPictureInPictureAutomaticallyFromInline = true
+        // Set for the failure callback: without a delegate, a refusal to start is silent.
+        controller.delegate = self
         self.controller = controller
     }
 
     var isActive: Bool { controller?.isPictureInPictureActive ?? false }
 
+    /// Starts it now rather than on the way out of the app.
+    ///
+    /// The automatic start is the feature; this exists to be able to try it without leaving,
+    /// and — more usefully — to be able to say *why* it will not start, which is otherwise
+    /// silence. PiP depends on several things being true at once and refuses without telling
+    /// anyone which one was not.
+    func start() {
+        guard let controller else {
+            lastRefusal = "No picture yet — PiP mirrors the video layer, so a session has to be running."
+            videoLog.error("Picture in Picture has no layer to mirror yet")
+            return
+        }
+        guard controller.isPictureInPicturePossible else {
+            // Every prerequisite in one line, because PiP refuses without saying which was
+            // missing and the three fail for entirely different reasons: the layer has to be
+            // in a visible view, the audio session has to be active, and the video has to be
+            // actually rendering rather than merely configured.
+            let audio = AVAudioSession.sharedInstance()
+            lastRefusal = """
+                Not supported here. Supported \(Self.isSupported ? "yes" : "no"), \
+                audio category \(audio.category.rawValue), running \(!audio.isOtherAudioPlaying)
+                """
+            videoLog.error("Picture in Picture is not possible: \(self.lastRefusal ?? "", privacy: .public)")
+            return
+        }
+        lastRefusal = nil
+        controller.startPictureInPicture()
+    }
+
     func stop() {
         guard let controller, controller.isPictureInPictureActive else { return }
         controller.stopPictureInPicture()
+    }
+}
+
+extension SessionPiP: AVPictureInPictureControllerDelegate {
+    func pictureInPictureControllerDidStartPictureInPicture(_ controller: AVPictureInPictureController) {
+        videoLog.notice("Picture in Picture started")
+    }
+
+    func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
+        videoLog.notice("Picture in Picture stopped")
+    }
+
+    /// The one that matters. PiP refuses for a long list of reasons and this is the only place
+    /// any of them is ever named.
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        failedToStartPictureInPictureWithError error: any Error
+    ) {
+        lastRefusal = "Could not start: \(error.localizedDescription)"
+        videoLog.error("""
+            Picture in Picture could not start: \(error.localizedDescription, privacy: .public)
+            """)
     }
 }
 

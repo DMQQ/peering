@@ -807,6 +807,20 @@ final class SessionModel {
     /// Called when the app is backgrounded with a session up.
     func enteringBackground() {
         SessionActivity.shared.enteringBackground()
+
+        // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
+        // That flag is set, and the picture does float when it is started by hand — but iOS
+        // never takes the hint. Automatic PiP is gated on the system considering the app to be
+        // *playing*, and an `AVAudioPlayer` running silence is not something it counts, however
+        // active the session is.
+        //
+        // Asking at the one moment it is wanted costs nothing and does not depend on that
+        // judgement — and the moment matters: this runs as the app leaves the screen, which is
+        // when `startPictureInPicture` still has a view hierarchy to lift the layer out of.
+        if phase.holdsSession {
+            SessionPiP.shared.start()
+        }
+
         guard phase.holdsSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }

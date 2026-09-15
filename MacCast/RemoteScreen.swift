@@ -401,6 +401,21 @@ struct RemoteScreen: View {
                         connectionPathChip
                         qualityPicker
                         fillChip
+                        // iOS floats the picture on its own when the app goes away. This is
+                        // for trying it *without* leaving, and for the log line that says why
+                        // it refused — a start by hand is the same call the automatic one
+                        // makes.
+                        Button { SessionPiP.shared.start() } label: {
+                            Image(systemName: "pip")
+                                .font(.system(size: 13))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!SessionPiP.isSupported)
+                        .accessibilityLabel("Float the picture over other apps")
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
