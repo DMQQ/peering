@@ -46,6 +46,21 @@ struct SessionActivityAttributes: ActivityAttributes {
         /// duration from it and the *system* advances that clock, which is the only reason the
         /// timer stays right on a Lock Screen where none of this app is running.
         var startedAt: Date?
+
+        /// How this session is being carried. Nil until the handshake has decided.
+        ///
+        /// The three are not equivalent and the difference is invisible in the picture: `lan`
+        /// crosses the local network, `relay` has gone out to a server and back, and `direct`
+        /// is an address typed by hand. When a session feels slow this is the first question
+        /// anyone asks, and the Lock Screen is where they are looking when they ask it.
+        var path: Path?
+    }
+
+    /// The transport behind a session, as a word short enough for a chip.
+    enum Path: String, Codable, Hashable, Sendable {
+        case lan = "LAN"
+        case relay = "Relay"
+        case direct = "Direct"
     }
 
     /// The Mac's name, which the session has from the handshake onwards.

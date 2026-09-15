@@ -24,14 +24,15 @@ final class SessionActivity {
         to phase: ClientSession.Phase,
         hostName: String,
         startedAt: Date?,
-        reconnecting: Bool
+        reconnecting: Bool,
+        path: SessionActivityAttributes.Path? = nil
     ) {
         guard previous != phase else { return }
 
         // A dropped session is put back on its own, and the card should say so rather than
         // disappear for the forty seconds the retries take — see ``showReconnecting(hostName:)``.
         if reconnecting, !phase.holdsSession {
-            showReconnecting(hostName: hostName, startedAt: startedAt)
+            showReconnecting(hostName: hostName, startedAt: startedAt, path: path)
             return
         }
 
@@ -39,7 +40,8 @@ final class SessionActivity {
         case .connecting, .handshaking, .confirming, .ready:
             let state = SessionActivityAttributes.ContentState(
                 phase: phase == .ready ? .active : .pending,
-                startedAt: startedAt
+                startedAt: startedAt,
+                path: path
             )
             if let activity {
                 Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
@@ -72,8 +74,16 @@ final class SessionActivity {
     /// `startedAt` is carried through so the clock does not restart: the session being recovered
     /// is the same one, and a duration that began again at the drop would be describing a
     /// reconnect as a new connection.
-    func showReconnecting(hostName: String, startedAt: Date?) {
-        let state = SessionActivityAttributes.ContentState(phase: .reconnecting, startedAt: startedAt)
+    func showReconnecting(
+        hostName: String,
+        startedAt: Date?,
+        path: SessionActivityAttributes.Path? = nil
+    ) {
+        let state = SessionActivityAttributes.ContentState(
+            phase: .reconnecting,
+            startedAt: startedAt,
+            path: path
+        )
         if let activity {
             Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
         } else {

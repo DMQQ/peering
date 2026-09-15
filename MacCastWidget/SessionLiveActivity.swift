@@ -75,10 +75,26 @@ private struct LockScreenSession: View {
                 Text(context.attributes.hostName)
                     .font(.headline)
                     .lineLimit(1)
-                Text(statusText(for: context.state.phase))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(statusText(for: context.state.phase))
+                        .lineLimit(1)
+
+                    // Which way the session is being carried. Beside the status rather than
+                    // beside the name: this qualifies *how* the connection is, and the two
+                    // belong in one glance. Absent before the handshake has decided, rather
+                    // than guessed at — an empty chip is worse than no chip.
+                    if let path = context.state.path {
+                        Text(path.rawValue)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(.white.opacity(0.14), in: Capsule())
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
 
             // The timer belongs against the trailing edge, where every other Live Activity puts

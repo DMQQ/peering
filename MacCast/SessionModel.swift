@@ -88,6 +88,20 @@ final class SessionModel {
         case direct = "DIRECT"
     }
 
+    /// The same three cases in the card's spelling.
+    ///
+    /// Mapped rather than shared because the raw values differ on purpose: this one is shouted
+    /// at a diagnostics panel, and the card's is set in a chip beside a sentence. A single enum
+    /// serving both would have to be named for one of them.
+    private static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
+        switch path {
+        case .lan: return .lan
+        case .relay: return .relay
+        case .direct: return .direct
+        case nil: return nil
+        }
+    }
+
     enum StreamQuality: String, CaseIterable, Hashable, Sendable {
         case low    = "Low"
         case medium = "Med"
@@ -451,7 +465,8 @@ final class SessionModel {
                 to: phase,
                 hostName: hostName ?? "the Mac",
                 startedAt: sessionStartedAt,
-                reconnecting: isReconnecting
+                reconnecting: isReconnecting,
+                path: Self.activityPath(connectionPath)
             )
 
             if !phase.holdsSession {
