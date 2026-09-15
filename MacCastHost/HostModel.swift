@@ -163,6 +163,9 @@ final class HostModel {
 
     func start() {
         guard server == nil else { return }
+        // Before anything opens a session of its own: whatever is in the store at this moment
+        // was left by the last process. See ``adoptAbandonedSessions()``.
+        adoptAbandonedSessions()
         status = .starting
         permissions.refresh()
         if preventLidCloseSleep { acquireLidSleepAssertion() }
@@ -599,19 +602,110 @@ final class HostModel {
         UserDefaults.standard.data(forKey: HostModel.sessionsKey)
             .flatMap { try? JSONDecoder().decode([HostSessionRecord].self, from: $0) } ?? []
 
-    /// What each attached device's session started from.
+    /// A session that has begun and has not been written down as finished.
     ///
-    /// The streamer's byte count is cumulative and never reset — it counts what the encoder
-    /// has put on the wire for the life of the coordinator — so a session's cost is the
-    /// difference between now and when it began. Held per client ID because more than one
-    /// phone can be attached at once.
-    private var sessionStarts: [String: (name: String, at: Date, bytes: Int)] = [:]
+    /// Persisted as it goes, which is the whole point: a record written only at the end is
+    /// lost whenever the end never arrives — the host is quit, crashes, or is rebuilt while a
+    /// phone is attached. Those are exactly the sessions someone would want to look up, and
+    /// they were the ones going missing.
+    private struct OpenSession: Codable {
+        var deviceName: String
+        var started: Date
+        /// The streamer's byte count when this session began. The count is cumulative and
+        /// never reset, so a session's cost is the difference between a later read and this.
+        var bytesAtStart: Int
+        /// The last moment this session was known to be alive. Becomes its end time if no
+        /// end ever arrives, which is the honest answer: it was alive then, and nothing since.
+        var lastSeen: Date
+        /// Bytes counted as of ``lastSeen``. Kept up to date as the session runs rather than
+        /// derived at the end, because for a session that never ends there is no end to derive
+        /// it from.
+        var bytes: Int
+    }
+
+    /// Sessions in flight, by client ID — more than one phone can be attached at once.
+    private var openSessions: [String: OpenSession] =
+        UserDefaults.standard.data(forKey: HostModel.openSessionsKey)
+            .flatMap { try? JSONDecoder().decode([String: OpenSession].self, from: $0) } ?? [:]
 
     private static let sessionsKey = "Peering.sessions"
+    private static let openSessionsKey = "Peering.openSessions"
     private static let maxSessions = 20
 
+    private func saveOpenSessions() {
+        guard let data = try? JSONEncoder().encode(openSessions) else { return }
+        UserDefaults.standard.set(data, forKey: Self.openSessionsKey)
+    }
+
+    /// Whatever was in flight when the host last stopped.
+    ///
+    /// Its presence at launch *is* the signal: nothing else clears this store, so if an entry
+    /// survives to a fresh process then a phone was attached when the last one ended, and no
+    /// disconnect was ever going to arrive for it.
+    /// Whether the store has been checked for what the last process abandoned. Once per
+    /// process: after that, anything in `openSessions` is one of *our* sessions, running.
+    private var hasAdoptedAbandonedSessions = false
+
+    private func adoptAbandonedSessions() {
+        guard !hasAdoptedAbandonedSessions else { return }
+        hasAdoptedAbandonedSessions = true
+        guard !openSessions.isEmpty else { return }
+        // Oldest first, so the list still reads newest-first after each is inserted at the top.
+        for open in openSessions.values.sorted(by: { $0.started < $1.started }) {
+            record(
+                "\(open.deviceName) was still connected when the host last stopped",
+                level: .warning
+            )
+            sessions.insert(
+                HostSessionRecord(
+                    deviceName: open.deviceName,
+                    started: open.started,
+                    ended: open.lastSeen,
+                    bytes: open.bytes
+                ),
+                at: 0
+            )
+        }
+        if sessions.count > Self.maxSessions {
+            sessions.removeLast(sessions.count - Self.maxSessions)
+        }
+        openSessions = [:]
+        saveOpenSessions()
+        saveSessions()
+    }
+
+    private func saveSessions() {
+        if let data = try? JSONEncoder().encode(sessions) {
+            UserDefaults.standard.set(data, forKey: Self.sessionsKey)
+        }
+    }
+
     private func beginSession(id: String, name: String) {
-        sessionStarts[id] = (name, Date(), coordinator?.streamStatistics.bytesSent ?? 0)
+        openSessions[id] = OpenSession(
+            deviceName: name,
+            started: Date(),
+            bytesAtStart: coordinator?.streamStatistics.bytesSent ?? 0,
+            lastSeen: Date(),
+            bytes: 0
+        )
+        saveOpenSessions()
+        hostLog.notice("session opened for \(id, privacy: .public)")
+    }
+
+    /// Keeps the in-flight sessions' figures current.
+    ///
+    /// Called from the screen watch, which already ticks every two seconds while anybody is
+    /// attached. Written every thirtieth tick rather than every one — this is `UserDefaults`,
+    /// and a figure that is half a minute stale is worth more than a write per tick.
+    private func touchOpenSessions() {
+        guard !openSessions.isEmpty, let sent = coordinator?.streamStatistics.bytesSent else { return }
+        let now = Date()
+        for (id, var open) in openSessions {
+            open.lastSeen = now
+            open.bytes = max(0, sent - open.bytesAtStart)
+            openSessions[id] = open
+        }
+        saveOpenSessions()
     }
 
     /// Watches whether the screen being streamed can be seen at all, and says so when it
@@ -655,8 +749,15 @@ final class HostModel {
         guard screenWatchTask == nil else { return }
         screenWatchTask = Task { [weak self] in
             var announced: NoticePayload?
+            var ticks = 0
             while !Task.isCancelled {
                 guard let self else { return }
+
+                // Every thirtieth tick of two seconds, so an abandoned session still has a
+                // believable end time and a size rather than a zero.
+                ticks += 1
+                if ticks % 30 == 0 { self.touchOpenSessions() }
+
                 let notice = self.screenNotice()
                 if notice != announced {
                     let wasSayingSomething = announced != nil
@@ -681,23 +782,26 @@ final class HostModel {
     }
 
     private func endSession(id: String) {
-        guard let start = sessionStarts.removeValue(forKey: id) else { return }
-        let now = coordinator?.streamStatistics.bytesSent ?? start.bytes
+        guard let open = openSessions.removeValue(forKey: id) else {
+            hostLog.notice("session closed for \(id, privacy: .public) with nothing open for it")
+            return
+        }
+        let sent = coordinator?.streamStatistics.bytesSent ?? open.bytesAtStart
         sessions.insert(
             HostSessionRecord(
-                deviceName: start.name,
-                started: start.at,
+                deviceName: open.deviceName,
+                started: open.started,
                 ended: Date(),
-                bytes: max(0, now - start.bytes)
+                bytes: max(0, sent - open.bytesAtStart)
             ),
             at: 0
         )
         if sessions.count > Self.maxSessions {
             sessions.removeLast(sessions.count - Self.maxSessions)
         }
-        if let data = try? JSONEncoder().encode(sessions) {
-            UserDefaults.standard.set(data, forKey: Self.sessionsKey)
-        }
+        saveOpenSessions()
+        saveSessions()
+        hostLog.notice("session recorded · \(self.sessions.count, privacy: .public) kept")
     }
 
     // MARK: - Sleep prevention
