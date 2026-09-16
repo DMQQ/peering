@@ -152,7 +152,6 @@ extension RemoteScreen {
                                 .foregroundStyle(ColorPalette.reading(latency))
                                 .fixedSize()
                         }
-                        sessionClock
                     }
 
                     // ── Row 3: quality + view options ────────────────────────────────
@@ -464,26 +463,6 @@ extension RemoteScreen {
     }
 
 
-    /// How long the session has been up.
-    ///
-    /// `Text(_:style:.timer)` is a clock the render server owns rather than a view that redraws:
-    /// it advances on its own, costs nothing per second, and stays correct while the app is
-    /// suspended. A `Timer` here would be a wake-up a second, for a label.
-    ///
-    /// Absent rather than zero before a session exists — "0:00" against a Mac that is not
-    /// connected would be measuring nothing at all.
-    @ViewBuilder
-    var sessionClock: some View {
-        if let started = model.sessionStartedAt {
-            Text(started, style: .timer)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                // One line, always. A timer counting up is all colons and digits, so a row short
-                // of width wraps it a character at a time — which is how it ended up reporting
-                // the session as a vertical column of numbers down the side of the pill.
-                .fixedSize()
-        }
-    }
 
     /// How the picture fits the screen — a menu, because "Fit" and "Fill" are not a sentence.
     ///
