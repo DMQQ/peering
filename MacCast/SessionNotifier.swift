@@ -92,6 +92,26 @@ final class SessionNotifier {
         retract(SessionAwareness.Kind.allCases)
     }
 
+    /// Terminal prompts are the case where the Mac explicitly needs the person back. The
+    /// in-app attention badge is always updated; this adds a banner only while Peering is not
+    /// frontmost and notification permission has already been granted.
+    func terminalNeedsAttention(_ message: String, sessionID: UUID) {
+        guard isAuthorized, UIApplication.shared.applicationState != .active else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Terminal needs you"
+        content.body = message
+        content.sound = .default
+        let request = UNNotificationRequest(
+            identifier: "peering-terminal-\(sessionID.uuidString)",
+            content: content,
+            trigger: nil
+        )
+        Task {
+            do { try await UNUserNotificationCenter.current().add(request) }
+            catch { notifierLog.error("could not post terminal attention: \(String(describing: error), privacy: .public)") }
+        }
+    }
+
     private func post(_ notification: SessionAwareness.Notification) {
         // A banner about the screen the user is looking at is noise rather than news, and on
         // a frontmost app iOS would not present it anyway — the check here is what keeps the

@@ -48,14 +48,14 @@ final class HostModel {
     private(set) var pairedClientIDs: [String] = []
 
     // Held while at least one client is connected. Released when the last client disconnects.
-    // `kIOPMAssertionTypePreventUserIdleSystemSleep` keeps the Mac awake; the display may
-    // still dim, but the CPU and network stay live so the session survives a dark screen.
+    // The display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
     private var sleepAssertionID: IOPMAssertionID = 0
 
     // Optional stronger assertion that also prevents lid-close sleep.
     // Uses the same "PreventSystemSleep" type that `caffeinate -s` uses — no admin prompt,
     // automatically released when this process exits (even on crash).
     private var lidSleepAssertionID: IOPMAssertionID = 0
+    private var preferenceDisplaySleepAssertionID: IOPMAssertionID = 0
     private(set) var preventLidCloseSleep: Bool = UserDefaults.standard.bool(forKey: "preventLidCloseSleep")
 
     /// Whether a given trusted device is attached right now.
@@ -217,59 +217,6 @@ final class HostModel {
         start()
     }
 
-    // MARK: - Pointer
-
-    private static let enlargePointerKey = "enlargePointer"
-    private static let pointerSizeKey = "pointerSize"
-
-    /// Whether a larger pointer is drawn into the video, and how much larger.
-    ///
-    /// Stored the way ``preventLidCloseSleep`` is, with one difference that is easy to get
-    /// wrong: the default is *on*, and `bool(forKey:)` cannot say that — it answers `false`
-    /// for a key that was never written, and "never written" is not a decision anybody made.
-    /// So the key is read as an object and the absence itself is the default. It is read
-    /// twice, once for what the window shows and once for the overlay, because the overlay is
-    /// built before there is a window to read it from; the two cannot disagree, since neither
-    /// can change without the other being written.
-    private static func storedEnlargePointer() -> Bool {
-        UserDefaults.standard.object(forKey: enlargePointerKey) as? Bool ?? true
-    }
-
-    /// An unreadable size falls back to the default rather than to the smallest, so a value
-    /// written by some later version of this app cannot make the pointer too small to see.
-    private static func storedPointerSize() -> CursorOverlay.Size {
-        UserDefaults.standard.string(forKey: pointerSizeKey)
-            .flatMap { CursorOverlay.Size(rawValue: $0) } ?? .medium
-    }
-
-    private(set) var enlargePointer: Bool = HostModel.storedEnlargePointer()
-    private(set) var pointerSize: CursorOverlay.Size = HostModel.storedPointerSize()
-
-    /// Drawn into every frame, on the capture queue. Held here and shared by reference the way
-    /// ``input`` is, and for the same reason: it is read sixty times a second on a thread that
-    /// is not this one, so a preference written on the main actor has to reach it without an
-    /// actor hop. Keeping those two in step is what the overlay's lock is for.
-    private let cursorOverlay = CursorOverlay(
-        isEnabled: HostModel.storedEnlargePointer(),
-        size: HostModel.storedPointerSize()
-    )
-
-    /// Turns the enlarged pointer on or off for the frames already being captured, rather than
-    /// for the next session only: whatever is on screen is being watched while the switch is
-    /// flipped, and a setting that needed a reconnect to take effect reads as one that did
-    /// nothing at all.
-    func setEnlargePointer(_ on: Bool) {
-        enlargePointer = on
-        UserDefaults.standard.set(on, forKey: Self.enlargePointerKey)
-        cursorOverlay.isEnabled = on
-    }
-
-    func setPointerSize(_ size: CursorOverlay.Size) {
-        pointerSize = size
-        UserDefaults.standard.set(size.rawValue, forKey: Self.pointerSizeKey)
-        cursorOverlay.size = size
-    }
-
     // MARK: - Capture
 
     private static let captureResolutionKey = "captureResolution"
@@ -308,8 +255,8 @@ final class HostModel {
     /// Not a shortcut, and the rows in the window say as much: a surface's size and its frame
     /// interval are fixed when the `SCStream` is built, so a capture already in flight cannot
     /// be changed — it can only be replaced, which would drop the picture and cost a keyframe
-    /// for a setting the user is still deciding on. Unlike ``setEnlargePointer(_:)``, which
-    /// reaches into the frames already being captured, there is nothing here to reach into.
+    /// for a setting the user is still deciding on. There is no safe in-place change for these
+    /// two properties: both define the capture and encoder timelines.
     func setCaptureResolution(_ resolution: CaptureResolution) {
         captureResolution = resolution
         UserDefaults.standard.set(resolution.rawValue, forKey: Self.captureResolutionKey)
@@ -348,7 +295,10 @@ final class HostModel {
         adoptAbandonedSessions()
         status = .starting
         permissions.refresh()
-        if preventLidCloseSleep { acquireLidSleepAssertion() }
+        if preventLidCloseSleep {
+            acquireLidSleepAssertion()
+            acquirePreferenceDisplaySleepAssertion()
+        }
         permissions.requestMissing()
 
         let device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
@@ -407,7 +357,7 @@ final class HostModel {
         let resolver = ScreenCaptureSourceResolver { [weak self] in
             Task { @MainActor [weak self] in self?.coordinator?.refreshCatalog() }
         }
-        let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec, overlay: cursorOverlay)
+        let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec)
         let coordinator = VideoCoordinator(pipeline: pipeline)
         // Before any capture can start — the first video connection may arrive seconds from
         // now, and a coordinator that had not been told would build the first stream of the
@@ -518,7 +468,27 @@ final class HostModel {
                 Task { @MainActor [weak self] in self?.setPrivacyMode(enabled) }
                 return
             }
+            if case .lockScreen = command {
+                Task { @MainActor in
+                    let src = CGEventSource(stateID: .hidSystemState)
+                    let down = CGEvent(keyboardEventSource: src, virtualKey: 0x19, keyDown: true)
+                    let up   = CGEvent(keyboardEventSource: src, virtualKey: 0x19, keyDown: false)
+                    down?.flags = [.maskCommand, .maskControl]
+                    up?.flags   = [.maskCommand, .maskControl]
+                    down?.post(tap: .cghidEventTap)
+                    up?.post(tap: .cghidEventTap)
+                }
+                return
+            }
             input.perform(command)
+        }
+
+        server.onRequestClipboard = {
+            DispatchQueue.main.sync { NSPasteboard.general.string(forType: .string) }
+        }
+        server.onReceiveClipboard = { text in
+            DispatchQueue.main.async { NSPasteboard.general.declareTypes([.string], owner: nil)
+                NSPasteboard.general.setString(text, forType: .string) }
         }
 
         self.server = server
@@ -1073,8 +1043,10 @@ final class HostModel {
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
         if on {
             acquireLidSleepAssertion()
+            acquirePreferenceDisplaySleepAssertion()
         } else {
             releaseLidSleepAssertion()
+            releasePreferenceDisplaySleepAssertion()
         }
     }
 
@@ -1088,6 +1060,9 @@ final class HostModel {
         )
         if result != kIOReturnSuccess {
             hostLog.notice("could not acquire lid sleep assertion (IOReturn \(result, privacy: .public))")
+            record("Could not keep the Mac awake (power assertion \(result))", level: .failure)
+        } else {
+            record("Keep-awake enabled; macOS does not require a permission prompt", level: .info)
         }
     }
 
@@ -1097,11 +1072,31 @@ final class HostModel {
         lidSleepAssertionID = 0
     }
 
+    private func acquirePreferenceDisplaySleepAssertion() {
+        guard preferenceDisplaySleepAssertionID == 0 else { return }
+        let result = IOPMAssertionCreateWithName(
+            kIOPMAssertionTypeNoDisplaySleep as CFString,
+            IOPMAssertionLevel(kIOPMAssertionLevelOn),
+            "Peering keep-awake preference" as CFString,
+            &preferenceDisplaySleepAssertionID
+        )
+        if result != kIOReturnSuccess {
+            hostLog.notice("could not acquire display sleep assertion (IOReturn \(result, privacy: .public))")
+            record("Could not keep the display awake (power assertion \(result))", level: .failure)
+        }
+    }
+
+    private func releasePreferenceDisplaySleepAssertion() {
+        guard preferenceDisplaySleepAssertionID != 0 else { return }
+        IOPMAssertionRelease(preferenceDisplaySleepAssertionID)
+        preferenceDisplaySleepAssertionID = 0
+    }
+
     private func acquireSleepAssertion() {
         guard sleepAssertionID == 0 else { return }
         let reason = "MacCast session active" as CFString
         let result = IOPMAssertionCreateWithName(
-            kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+            kIOPMAssertionTypeNoDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
             reason,
             &sleepAssertionID

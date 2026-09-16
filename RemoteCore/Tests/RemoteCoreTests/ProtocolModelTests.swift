@@ -211,6 +211,8 @@ struct RemoteCommandTests {
             .setPrivacyMode(enabled: true),
             .setPrivacyMode(enabled: false),
             .lockScreen,
+            .requestClipboard,
+            .pushClipboard(text: "héllo 👋 世界"),
         ]
 
         for command in commands {
@@ -252,6 +254,7 @@ struct RemoteCommandTests {
             .keyDown(keyCode: 0, modifiers: []), .keyUp(keyCode: 0, modifiers: []),
             .setPrivacyMode(enabled: true),
             .lockScreen,
+            .pushClipboard(text: "important"),
         ] {
             #expect(command.coalescing == Coalescing.none, "\(command) must not be coalesced")
             #expect(command.isCritical)
@@ -279,6 +282,8 @@ struct RemoteCommandTests {
             .refreshSpacePreviews,
             .setPrivacyMode(enabled: true),
             .lockScreen,
+            .requestClipboard,
+            .pushClipboard(text: "hello"),
         ]
         #expect(sessionControls.allSatisfy { !$0.isUserInput })
     }

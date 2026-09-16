@@ -1,4 +1,6 @@
+import AVFoundation
 import CoreGraphics
+import CoreMedia
 import Foundation
 import RemoteCore
 import os
@@ -35,6 +37,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// so connection lifetime and capture lifetime can be changed under one lock.
     private var attached: PeerConnection?
     private var currentSource: CaptureSource?
+    private var currentAudioConfig: AudioStreamConfig?
 
     /// Every accepted replacement or relevant close advances this value. Capture operations
     /// carry the value they were scheduled under, so work for an old peer can be discarded
@@ -136,16 +139,88 @@ final class VideoCoordinator: @unchecked Sendable {
         }
         pipeline.onGeometry = { [weak self] geometry in
             guard let self else { return }
-            // Only the sources whose content moves on its own. A display's geometry is fixed for
-            // the life of the stream and the answer read when capture started is already exact,
-            // so passing it along would rewrite the same value sixty times a second. See
-            // ``CaptureSource/contentMovesOnItsOwn``.
             guard self.source?.contentMovesOnItsOwn == true else { return }
             self.onGeometry?(geometry)
         }
         pipeline.onFailure = { [weak self] error in
             self?.onFailure?(error)
         }
+
+        // Audio is normalized to one wire format here. ScreenCaptureKit may supply either
+        // interleaved or planar PCM; the protocol always carries interleaved Float32.
+        pipeline.onAudio = { [weak self] sampleBuffer in
+            guard let self else { return }
+            guard let prepared = Self.prepareAudio(sampleBuffer) else { return }
+            let configChanged = self.lock.withLock { () -> Bool in
+                guard self.currentAudioConfig != prepared.config else { return false }
+                self.currentAudioConfig = prepared.config
+                return true
+            }
+            if configChanged {
+                self.streamer.sendAudioConfig(prepared.config)
+            }
+            self.streamer.sendAudioFrame(prepared.frame)
+        }
+    }
+
+    private static func prepareAudio(
+        _ sampleBuffer: CMSampleBuffer
+    ) -> (config: AudioStreamConfig, frame: EncodedAudioFrame)? {
+        let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        guard sampleCount > 0,
+              sampleCount <= Int(Int32.max),
+              let description = CMSampleBufferGetFormatDescription(sampleBuffer),
+              let asbdPointer = CMAudioFormatDescriptionGetStreamBasicDescription(description)
+        else { return nil }
+
+        let asbd = asbdPointer.pointee
+        let channelCount = Int(asbd.mChannelsPerFrame)
+        guard asbd.mFormatID == kAudioFormatLinearPCM,
+              asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              asbd.mBitsPerChannel == 32,
+              asbd.mSampleRate.isFinite,
+              (8_000...384_000).contains(asbd.mSampleRate),
+              (1...32).contains(channelCount),
+              let format = AVAudioFormat(streamDescription: asbdPointer),
+              let pcm = AVAudioPCMBuffer(
+                  pcmFormat: format,
+                  frameCapacity: AVAudioFrameCount(sampleCount)
+              )
+        else { return nil }
+
+        guard CMSampleBufferCopyPCMDataIntoAudioBufferList(
+            sampleBuffer,
+            at: 0,
+            frameCount: Int32(sampleCount),
+            into: pcm.mutableAudioBufferList
+        ) == noErr else { return nil }
+        pcm.frameLength = AVAudioFrameCount(sampleCount)
+
+        guard let channels = pcm.floatChannelData else { return nil }
+        let stride = pcm.stride
+        var samples = Data(capacity: sampleCount * channelCount * MemoryLayout<Float>.size)
+        for frameIndex in 0..<sampleCount {
+            for channelIndex in 0..<channelCount {
+                let sample = channels[channelIndex][frameIndex * stride]
+                var littleEndian = sample.bitPattern.littleEndian
+                withUnsafeBytes(of: &littleEndian) { samples.append(contentsOf: $0) }
+            }
+        }
+
+        let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        guard timestamp.isValid, timestamp.timescale > 0 else { return nil }
+        let config = AudioStreamConfig(
+            codec: .pcmFloat32,
+            sampleRate: asbd.mSampleRate,
+            channelCount: channelCount
+        )
+        let frame = EncodedAudioFrame(
+            sampleCount: sampleCount,
+            channelCount: channelCount,
+            presentationTime: VideoTimestamp(value: timestamp.value, timescale: timestamp.timescale),
+            samples: samples
+        )
+        return (config, frame)
     }
 
     /// Where the captured content currently sits, for mapping client input. Nil until a

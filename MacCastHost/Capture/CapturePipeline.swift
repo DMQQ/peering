@@ -56,11 +56,19 @@ final class CapturePipeline: @unchecked Sendable {
     private var _onFrame: (@Sendable (EncodedFrame) -> Void)?
     private var _onGeometry: (@Sendable (FrameGeometry) -> Void)?
     private var _onFailure: (@Sendable (CaptureError) -> Void)?
+    private var _onAudio: (@Sendable (CMSampleBuffer) -> Void)?
 
     /// Encoded frames, in order, on VideoToolbox's thread.
     var onFrame: (@Sendable (EncodedFrame) -> Void)? {
         get { lock.withLock { _onFrame } }
         set { lock.withLock { _onFrame = newValue } }
+    }
+
+    /// Raw audio sample buffers from the SCStream. Only fires when audio capture was enabled
+    /// on the engine before the stream started.
+    var onAudio: (@Sendable (CMSampleBuffer) -> Void)? {
+        get { lock.withLock { _onAudio } }
+        set { lock.withLock { _onAudio = newValue } }
     }
 
     /// Where the captured content currently sits, reported per frame. A window that is
@@ -278,17 +286,9 @@ final class CapturePipeline: @unchecked Sendable {
             if let sourceRect = plan.sourceRect {
                 configuration.sourceRect = sourceRect
             }
-            // Keep the system pointer in the capture even when the overlay draws the larger
-            // one over it. Cursor movement is then a real display change, so ScreenCaptureKit
-            // produces a real picture at the requested cadence instead of a run of `.idle`
-            // samples. The larger opaque pointer covers the smaller one at the same tip.
-            //
-            // Hiding it here made remote pointer movement arrive at only the rate some other
-            // part of the screen happened to change (measured at 1–21 fps). Manufacturing
-            // pictures from idle samples was not equivalent: those pictures could break the
-            // decoder's reference chain. Keeping the system cursor visible gives the encoder
-            // genuine consecutive frames and measured 56 fps over a 60 fps stream.
-            configuration.showsCursor = true
+            // Pointer motion is rendered locally by the client. It therefore stays smooth on a
+            // quiet desktop without forcing ScreenCaptureKit to manufacture cursor-only frames.
+            configuration.showsCursor = false
             let encoder = try VideoEncoder(codec: codec, pixelSize: pixelSize, frameRate: frameRate)
 
             try await begin(
@@ -359,6 +359,13 @@ final class CapturePipeline: @unchecked Sendable {
         engine.onFrame = { [weak self] frame in self?.ingest(frame) }
         engine.onIdle = { [weak self] sample in self?.idle(sample) }
         engine.onStop = { [weak self] error in self?.report(error) }
+        if let captureEngine = engine as? CaptureEngine {
+            captureEngine.enableAudio()
+            captureEngine.onAudio = { [weak self] buffer in
+                guard let self else { return }
+                self.lock.withLock { self._onAudio }?(buffer)
+            }
+        }
 
         do {
             try await engine.start(request)

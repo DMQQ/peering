@@ -26,6 +26,9 @@ struct RemoteScreen: View {
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
     @State private var canvasSize: CGSize = .zero
+    /// The position most recently commanded by this phone. Drawing it immediately keeps the
+    /// pointer responsive even while the next video frame is still crossing the network.
+    @State private var remoteCursor = NormalizedPoint(x: 0.5, y: 0.5)
     /// Whether picking something from a floating panel puts the panel away.
     ///
     /// Persisted, because it is a working style rather than a moment: someone moving between a
@@ -62,6 +65,7 @@ struct RemoteScreen: View {
     /// `⌘Q` sits in the always-available landscape actions. Unlike copy or paste it can discard
     /// unsaved work, so the permanent button asks once before sending the chord.
     @State private var confirmsQuitApplication = false
+    @State private var showsTerminals = false
 
     /// Where the window's own controls are, in the canvas's coordinates.
     ///
@@ -174,6 +178,7 @@ struct RemoteScreen: View {
                 Color.black.ignoresSafeArea()
 
                 video
+                clientCursor
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
@@ -211,6 +216,9 @@ struct RemoteScreen: View {
         .background {
             KeyboardCapture(model: model, isFocused: $model.showKeyboard)
                 .frame(width: 0, height: 0)
+        }
+        .sheet(isPresented: $showsTerminals) {
+            TerminalPanel()
         }
         // Nothing here is a sheet any more. Both of these are panels now, so the whole session —
         // what to share, what the connection is doing, the keys — lives in one visual language on
@@ -308,6 +316,29 @@ struct RemoteScreen: View {
             }
     }
 
+    private var clientCursor: some View {
+        Group {
+            if model.phase == .ready,
+               let point = CanvasGeometry.point(
+                   normalized: remoteCursor,
+                   bounds: canvasSize,
+                   pixelSize: model.capturePixelSize,
+                   zoom: effectiveZoom,
+                   pan: pan
+               ) {
+                Image(systemName: "cursorarrow")
+                    .font(.system(size: 25, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.9), radius: 0, x: 1.5, y: 1.5)
+                    .frame(width: 32, height: 32, alignment: .topLeading)
+                    .position(x: point.x + 16, y: point.y + 16)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+        .ignoresSafeArea()
+    }
+
     /// How much the picture has to grow to reach the screen's edges.
     ///
     /// A captured window is usually a different shape from a phone held sideways, so the fitted
@@ -333,26 +364,40 @@ struct RemoteScreen: View {
     private var gestures: some View {
         CanvasGestureView(
             onTouchDown: { point in
+                if interactionMode.isTrackpad {
+                    model.send(.mouseDown(button: .left))
+                    return
+                }
                 guard let normalized = normalized(point) else { return }
-                // Down *before* the move would be wrong: the host injects a press at the
-                // position of the last move it saw, so the order is move-then-press and the
-                // coalescer is what guarantees the move gets out first.
+                remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
                 model.send(.mouseDown(button: .left))
             },
             onTouchMove: { point in
                 guard let normalized = normalized(point) else { return }
+                remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
             },
             onTouchUp: { point in
+                if interactionMode.isTrackpad {
+                    model.send(.mouseUp(button: .left))
+                    releaseMoveIfArmed()
+                    return
+                }
                 guard let normalized = normalized(point) else { return }
+                remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
                 model.send(.mouseUp(button: .left))
-                // After the mouse-up, so the release travels behind the drag it belongs to.
                 releaseMoveIfArmed()
             },
             onSecondaryClick: { point in
+                if interactionMode.isTrackpad {
+                    model.send(.mouseDown(button: .right))
+                    model.send(.mouseUp(button: .right))
+                    return
+                }
                 guard let normalized = normalized(point) else { return }
+                remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
                 model.send(.mouseDown(button: .right))
                 model.send(.mouseUp(button: .right))
@@ -377,10 +422,23 @@ struct RemoteScreen: View {
                 pan = clampedPan(pan)
             },
             onPanCanvas: { translation in
-                pan = clampedPan(
-                    CGSize(width: pan.width + translation.width,
-                           height: pan.height + translation.height)
-                )
+                if interactionMode.isTrackpad {
+                    // Relative movement: delta normalised by canvas size, scaled 2× to feel like
+                    // a physical trackpad (finger travel ≈ pointer travel at arm's length).
+                    guard canvasSize.width > 0, canvasSize.height > 0 else { return }
+                    let sensitivity: CGFloat = 2.0
+                    let dx = (translation.width / canvasSize.width) * sensitivity
+                    let dy = (translation.height / canvasSize.height) * sensitivity
+                    let nx = min(max(Double(CGFloat(remoteCursor.x) + dx), 0), 1)
+                    let ny = min(max(Double(CGFloat(remoteCursor.y) + dy), 0), 1)
+                    remoteCursor = NormalizedPoint(x: nx, y: ny)
+                    model.send(.mouseMove(to: remoteCursor))
+                } else {
+                    pan = clampedPan(
+                        CGSize(width: pan.width + translation.width,
+                               height: pan.height + translation.height)
+                    )
+                }
             },
             onSizeChange: { canvasSize = $0 },
             interactionMode: interactionMode,
@@ -536,7 +594,30 @@ struct RemoteScreen: View {
         removal: .identity
     )
 
+    /// The session's status, and the two things hung off its edge.
+    ///
+    /// The dots sit outside the glass rather than in the row that is inside it — see
+    /// ``sessionDots`` — so the pill holds status and the dots hold the two occasional actions,
+    /// and the outer `HStack` is what keeps them one object: attached, not merely near each other.
     private var statusBar: some View {
+        HStack(alignment: .center, spacing: 7) {
+            pipDot
+            statusPill
+            terminalDot
+        }
+        .padding(.horizontal, 10)
+        // The same inset as the rails, so the pill and the panels hang from one line.
+        .padding(.top, ChromeMetrics.edgeInset)
+        .reportChromeFrame(.statusBar, into: $chromeFrames)
+        .task(id: model.phase) {
+            // Expand a moment when the session comes up, then collapse — through the same
+            // function a tap uses, so there is one place that knows about the pending timer.
+            guard model.phase == .ready else { return }
+            expandStatusBar()
+        }
+    }
+
+    private var statusPill: some View {
         // A `ZStack`, and this is the whole of why the pill grows rather than being replaced.
         //
         // It was a `Group`, and a `Group` is transparent: every modifier on one is applied to
@@ -598,21 +679,6 @@ struct RemoteScreen: View {
                         connectionPathChip
                         qualityPicker
                         fillChip
-                        // iOS floats the picture on its own when the app goes away. This is
-                        // for trying it *without* leaving, and for the log line that says why
-                        // it refused — a start by hand is the same call the automatic one
-                        // makes.
-                        Button { SessionPiP.shared.start() } label: {
-                            Image(systemName: "pip")
-                                .font(.system(size: 13))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!SessionPiP.isSupported)
-                        .accessibilityLabel("Float the picture over other apps")
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
@@ -679,29 +745,71 @@ struct RemoteScreen: View {
                     // Green rather than the palette's white because the host picker already
                     // spends green on "this Mac is reachable", and a second colour for the same
                     // fact would be two vocabularies for one thing.
-                    Circle()
-                        .fill(model.isVideoStreaming ? Color.green : Color.red)
-                        .frame(width: 6, height: 6)
-                    Text(model.hostName ?? "Mac")
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(1)
-                    connectionPathChip
-                    if model.isVideoStreaming {
-                        Text("·").font(.caption2).foregroundStyle(.tertiary)
-                        Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .accessibilityLabel("Video frame rate")
-                            .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
-                    }
-                    if let latency = model.latencyMilliseconds {
-                        Text("\(Int(latency.rounded())) ms")
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(ColorPalette.reading(latency))
+                    // Two lines, where this was one running line of everything at once.
+                    //
+                    // The source's name is a whole sentence — "Built-in Retina Display" is
+                    // seventeen characters of it — and it was being asked to share a single row
+                    // with the Mac's name, the path, the frame rate and the latency. What that
+                    // produced was four things competing for a line and the longest one losing:
+                    // the row either truncated the answer to "what am I looking at" or pushed the
+                    // latency off the end of it, depending on which Mac was connected.
+                    //
+                    // So the line is split by what it is about. Who and how fast it is going
+                    // answers "is this working" and belongs on the first line; what is being
+                    // shown and over which path answers "what am I looking at" and goes under it,
+                    // indented past the dot so the two read as one block rather than as two rows
+                    // that happen to be adjacent.
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            // Green when the Mac is connected and sending, red when it is connected
+                            // and has stopped. It was white, which said nothing: a dot that is
+                            // always the same colour is decoration, and this one sits in the pill
+                            // that already carries the Mac's name and the latency — the two facts
+                            // whose whole purpose is to be read at a glance.
+                            //
+                            // Green rather than the palette's white because the host picker
+                            // already spends green on "this Mac is reachable", and a second
+                            // colour for the same fact would be two vocabularies for one thing.
+                            Circle()
+                                .fill(model.isVideoStreaming ? Color.green : Color.red)
+                                .frame(width: 6, height: 6)
+                            Text(model.hostName ?? "Mac")
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            Spacer(minLength: 8)
+                            if let latency = model.latencyMilliseconds {
+                                Text("\(Int(latency.rounded())) ms")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(ColorPalette.reading(latency))
+                            }
+                        }
+
+                        HStack(spacing: 6) {
+                            if let sourceTitle = model.activeSourceTitle {
+                                Text(sourceTitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            connectionPathChip
+                            if model.isVideoStreaming {
+                                Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityLabel("Video frame rate")
+                                    .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
+                            }
+                        }
+                        // Aligned under the Mac's name rather than under the dot, which is what
+                        // makes the second line read as a continuation of the first.
+                        .padding(.leading, 14)
                     }
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 28)
+                // Two lines rather than one, and a fixed height for the same reason it was fixed
+                // before: a pill that resized itself as a source changed would move the picture
+                // under a finger that is aiming at it.
+                .frame(height: 46)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
                 // Opacity only, and on its own clock — see ``pillContents``. The scale that was
@@ -721,16 +829,92 @@ struct RemoteScreen: View {
         // background that has not caught up to it yet.
         .clipShape(pillShape)
         .glassEffect(.regular, in: pillShape)
-        .padding(.horizontal, 10)
-        // The same inset as the rails, so the pill and the panels hang from one line.
-        .padding(.top, ChromeMetrics.edgeInset)
-        .reportChromeFrame(.statusBar, into: $chromeFrames)
-        .task(id: model.phase) {
-            // Expand a moment when the session comes up, then collapse — through the same
-            // function a tap uses, so there is one place that knows about the pending timer.
-            guard model.phase == .ready else { return }
-            expandStatusBar()
+    }
+
+    /// What the two dots add to the pill's width: a dot and a gap on each side.
+    private static let sessionDotsWidth: CGFloat = (36 + 7) * 2
+
+    /// One dot, on the side of the pill that suits it.
+    ///
+    /// PiP and the terminal were two more capsules in a row that already held four, which is what
+    /// made the pill read as a toolbar with a status line at the top of it. Out here they are what
+    /// they actually are — two occasional things this session can also do — and the pill goes back
+    /// to saying what is happening.
+    ///
+    /// Split to the two edges rather than stacked on one: the pill spends most of its life
+    /// collapsed and is the widest thing on a landscape screen, so a pair hanging off one end
+    /// pulls it visibly off-centre. One either side balances it, and it also separates two actions
+    /// that have nothing to do with each other.
+    private var pipDot: some View {
+        // iOS floats the picture on its own when the app goes away. This is for trying it
+        // *without* leaving, and for the log line that says why it refused — a start by hand is
+        // the same call the automatic one makes.
+        sessionDot(
+            symbol: "pip",
+            label: "Float the picture over other apps",
+            enabled: SessionPiP.isSupported
+        ) {
+            SessionPiP.shared.start()
         }
+    }
+
+    /// The terminal, and the two things about it worth knowing from the session screen: that
+    /// shells are running, and that one of them is waiting for an answer.
+    ///
+    /// The count is the badge rather than the label because "how many" is the question you have
+    /// while looking at it from here, and a number at the corner answers it without a tap. A dot
+    /// with nothing running says none of this and looks the same as a dot that is about to open
+    /// an empty panel, which is what it used to be.
+    private var terminalDot: some View {
+        let running = model.terminals.filter(\.isRunning).count
+        let wantsAttention = model.terminals.contains { $0.attention != nil }
+        return sessionDot(
+            symbol: running > 0 ? "terminal.fill" : "terminal",
+            label: running > 0 ? "Mac terminals — \(running) running" : "Open Mac terminals",
+            enabled: true,
+            tint: wantsAttention ? .orange : (running > 0 ? ColorPalette.ink : nil),
+            badge: running > 0 ? running : nil,
+            badgeTint: wantsAttention ? .orange : ColorPalette.accent
+        ) {
+            showsTerminals = true
+        }
+    }
+
+    private func sessionDot(
+        symbol: String,
+        label: String,
+        enabled: Bool,
+        tint: Color? = nil,
+        badge: Int? = nil,
+        badgeTint: Color = ColorPalette.accent,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(tint ?? ColorPalette.ink)
+                .frame(width: 36, height: 36)
+                // `.interactive()` rather than a button style: the glass already knows how to
+                // answer a press, and a scale on top of it is two answers to one touch.
+                .glassEffect(.regular.interactive(), in: Circle())
+                .opacity(enabled ? 1 : 0.4)
+                .overlay(alignment: .topTrailing) {
+                    if let badge {
+                        Text("\(badge)")
+                            .font(.system(size: 10, weight: .bold).monospacedDigit())
+                            .foregroundStyle(ColorPalette.onInk)
+                            .padding(.horizontal, 4)
+                            .frame(minWidth: 15, minHeight: 15)
+                            .background(badgeTint, in: Capsule())
+                            // Off the glass rather than on it, so the count reads as a mark on
+                            // the button and not as part of what the button is drawing.
+                            .offset(x: 4, y: -4)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(label)
     }
 
     private var connectionPathChip: some View {
@@ -879,7 +1063,11 @@ struct RemoteScreen: View {
                     Spacer(minLength: 0)
                 }
 
-                statusBar.frame(maxWidth: 420)
+                // The pill's own width plus the dots, so the cap goes on doing what it was for —
+                // keeping the pill from crossing a landscape screen — to the pill. Left at 420
+                // it would have started constraining the status rows instead, since the dots
+                // moved inside it.
+                statusBar.frame(maxWidth: 420 + Self.sessionDotsWidth)
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
@@ -1630,6 +1818,7 @@ struct RemoteScreen: View {
     private func wheelScroll(dy: CGFloat) {
         switch interactionMode {
         case .control: sendScroll(dy: dy)
+        case .trackpad: sendScroll(dy: dy)
         case .navigate: zoomByWheel(dy)
         case .observe: zoomByWheel(dy)
         }
@@ -1676,6 +1865,29 @@ struct RemoteScreen: View {
 
     private func sendJoystick(_ travel: CGSize) {
         model.send(.joystickMove(dx: Double(travel.width), dy: Double(travel.height)))
+        // The joystick is the one control that moves the Mac's pointer without the client
+        // knowing where it went. Touch sends an absolute position, so the drawn cursor and the
+        // real one are the same fact; a joystick sends a delta and nothing comes back, because
+        // the protocol does not carry the pointer's position — `InputTransform` has the inverse
+        // for a host that reports it, and no host does. So the client advances its own copy by
+        // the same delta, in the same units, which is what the trackpad path already does.
+        //
+        // The units are the captured content's points, which is the space `joystickMove` is in —
+        // see `capturePointSize`. That is why this divides by it rather than by anything the
+        // canvas knows about: the pointer travels in the Mac's points whatever the phone draws.
+        //
+        // It is an estimate, and it drifts in exactly one case: the Mac's pointer stopping at a
+        // screen edge while the thumb keeps pushing. The next touch corrects it, because a touch
+        // is absolute.
+        advanceClientCursor(by: travel)
+    }
+
+    private func advanceClientCursor(by travel: CGSize) {
+        let points = model.capturePointSize
+        guard points.width > 0, points.height > 0 else { return }
+        let nx = min(max(Double(CGFloat(remoteCursor.x) + travel.width / points.width), 0), 1)
+        let ny = min(max(Double(CGFloat(remoteCursor.y) + travel.height / points.height), 0), 1)
+        remoteCursor = NormalizedPoint(x: nx, y: ny)
     }
 
     private func sendJoystickClick() {

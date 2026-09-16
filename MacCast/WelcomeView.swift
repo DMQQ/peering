@@ -148,7 +148,12 @@ private struct LandingView: View {
             Claim(
                 icon: "lock.shield",
                 title: "Encrypted, device to device",
-                detail: "TLS 1.3, pinned on first pairing. No account, nothing stored."
+                detail: "Pair once on the same network. No account, nothing stored."
+            )
+            Claim(
+                icon: "network",
+                title: "Come back from anywhere",
+                detail: "After pairing, an end-to-end encrypted relay reaches your Mac remotely."
             )
             Claim(
                 icon: "hand.point.up.left",

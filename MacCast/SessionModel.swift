@@ -44,7 +44,7 @@ enum KeyboardMode: String, CaseIterable, Identifiable {
 }
 
 /// One macro button: a keycode with modifiers, sent as a press and a release.
-struct Macro: Identifiable, Hashable {
+struct Macro: Identifiable, Hashable, Codable {
     let id: String
     let title: String
     let keyCode: UInt16
@@ -72,6 +72,18 @@ struct Macro: Identifiable, Hashable {
         Macro(id: "ctrl-e",    title: "⌃E",     keyCode: 14, modifiers: .control),
         Macro(id: "ctrl-r",    title: "⌃R",     keyCode: 15, modifiers: .control),
     ]
+}
+
+struct RemoteTerminal: Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    var isRunning: Bool
+    var output = Data()
+    var attention: TerminalAttentionKind?
+
+    var visibleOutput: String {
+        TerminalTextSanitizer.render(output)
+    }
 }
 
 /// Everything the UI binds to.
@@ -144,6 +156,29 @@ final class SessionModel {
     /// Optimistic state for the current session's physical-display privacy command. The host
     /// always restores brightness when the last client disconnects.
     private(set) var privacyModeEnabled = false
+
+    // MARK: - Clipboard
+    /// The most recently received host clipboard text. `nil` until the first pull.
+    private(set) var hostClipboard: String?
+    /// Whether a clipboard pull is in flight.
+    private(set) var clipboardPulling = false
+
+    // MARK: - Wake-on-LAN
+    /// Hardware MAC addresses reported by the host's ServerHello. Stored by host ID.
+    private(set) var hostMACAddresses: [String: [String]] = {
+        guard let data = UserDefaults.standard.data(forKey: "hostMACAddresses"),
+              let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else {
+            return [:]
+        }
+        return decoded
+    }()
+
+    // MARK: - Audio
+    private var audioPlayer: RemoteAudioPlayer?
+
+    // MARK: - Terminals
+    private(set) var terminals: [RemoteTerminal] = []
+    private(set) var selectedTerminalID: UUID?
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
@@ -258,6 +293,17 @@ final class SessionModel {
     }
 
     private static let manualAddressKey = "Peering.manualAddress"
+
+    private static var defaultDeviceName: String {
+        // UIDevice.current.name requires Apple approval for the custom name entitlement on iOS 16+.
+        // Use localizedModel ("iPhone") + model identifier as fallback to give each device a
+        // recognisable-enough label until the user sets one explicitly in Settings.
+        let name = UIDevice.current.name
+        if name.lowercased() == "iphone" || name.lowercased() == "ipad" {
+            return UIDevice.current.localizedModel + " (" + UIDevice.current.systemVersion + ")"
+        }
+        return name
+    }
     private static let manualPortKey = "Peering.manualPort"
     private(set) var keyboardMode: KeyboardMode = .unicode
     private(set) var isObserving = false
@@ -290,7 +336,7 @@ final class SessionModel {
     /// immediately rather than waiting that out.
     private var browseFailed = false
     private var identity: SelfSignedIdentity?
-    private var device = DeviceIdentity(id: "", name: "")
+    private(set) var device = DeviceIdentity(id: "", name: "")
     private var session: ClientSession?
     private var videoPoll: Task<Void, Never>?
 
@@ -303,7 +349,7 @@ final class SessionModel {
     private var userEndedSession = false
 
     init() {
-        device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
+        device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
         pairedHostIDs = pins.hostIDs
         hostNames = UserDefaults.standard.dictionary(forKey: Self.hostNamesKey) as? [String: String] ?? [:]
         customHostNames = UserDefaults.standard.dictionary(forKey: Self.customHostNamesKey) as? [String: String] ?? [:]
@@ -426,6 +472,8 @@ final class SessionModel {
         activeSourceID = nil
         catalog = nil
         notes.removeAll()
+        terminals.removeAll()
+        selectedTerminalID = nil
         // Cleared with the rest: a notice describes the Mac of *this* connection, and one
         // left over would caption the next session with something nobody said about it.
         remoteNotice = nil
@@ -478,6 +526,38 @@ final class SessionModel {
         Task { await session.connect(to: target) }
     }
 
+    // MARK: - Clipboard
+
+    /// Requests the Mac's clipboard. The result arrives as ``hostClipboard`` once the host responds.
+    func pullClipboard() {
+        guard phase == .ready else { return }
+        clipboardPulling = true
+        session?.send(.requestClipboard)
+    }
+
+    /// Pushes the iPhone's current clipboard text to the Mac's pasteboard.
+    func pushClipboard() {
+        guard phase == .ready, let text = UIPasteboard.general.string else { return }
+        session?.send(.pushClipboard(text: text))
+    }
+
+    /// Copies the most recently received host clipboard to the iPhone's pasteboard.
+    func copyHostClipboard() {
+        guard let text = hostClipboard else { return }
+        UIPasteboard.general.string = text
+    }
+
+    // MARK: - Wake-on-LAN
+
+    /// Sends a Wake-on-LAN magic packet for the given host ID, using the MAC addresses it last
+    /// reported. Does nothing if no MAC addresses are stored for this host.
+    func wakeHost(id: String) {
+        guard let macs = hostMACAddresses[id], !macs.isEmpty else { return }
+        for mac in macs {
+            WakeOnLAN.send(to: mac)
+        }
+    }
+
     func connectToManualAddress() {
         guard let port = UInt16(manualPort.trimmingCharacters(in: .whitespaces)) else {
             append(note: "“\(manualPort)” is not a port number.")
@@ -514,6 +594,7 @@ final class SessionModel {
                 // that is one of the few moments the paired list can have changed.
                 publishKnownMacs()
                 applyInitialAutoQualityIfNeeded()
+                session?.sendTerminal(.list)
             }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
@@ -602,10 +683,13 @@ final class SessionModel {
             if hostNames[hello.serverID] != hello.hostName {
                 hostNames[hello.serverID] = hello.hostName
                 UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
-                // The name the Mac reports can change under it — someone renames the Mac itself
-                // — so the widget's copy has to follow. A user's own name still wins: see
-                // ``customHostNames``.
                 publishKnownMacs()
+            }
+            if let macs = hello.macAddresses, !macs.isEmpty {
+                hostMACAddresses[hello.serverID] = macs
+                if let data = try? JSONEncoder().encode(hostMACAddresses) {
+                    UserDefaults.standard.set(data, forKey: "hostMACAddresses")
+                }
             }
         case .catalog(let catalog):
             self.catalog = catalog
@@ -620,7 +704,96 @@ final class SessionModel {
             append(note: message)
         case .remoteNotice(let message):
             remoteNotice = message
+        case .clipboard(let text):
+            hostClipboard = text
+            clipboardPulling = false
+        case .audio(let event):
+            switch event {
+            case .config(let config):
+                audioPlayer = RemoteAudioPlayer(config: config)
+            case .frame(let frame):
+                audioPlayer?.enqueue(frame)
+            }
+        case .terminal(let event):
+            apply(terminal: event)
         }
+    }
+
+    private func apply(terminal event: TerminalEvent) {
+        switch event {
+        case .snapshot(let infos):
+            terminals = infos.map {
+                RemoteTerminal(id: $0.id, name: $0.name, isRunning: $0.isRunning)
+            }
+            if selectedTerminalID == nil || !terminals.contains(where: { $0.id == selectedTerminalID }) {
+                selectedTerminalID = terminals.first?.id
+            }
+        case .created(let info):
+            terminals.removeAll { $0.id == info.id }
+            terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
+            selectedTerminalID = info.id
+            append(note: "Terminal “\(info.name)” opened")
+        case .output(let id, let data):
+            guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
+            terminals[index].output.append(data)
+            let limit = 512 * 1024
+            if terminals[index].output.count > limit {
+                terminals[index].output.removeFirst(terminals[index].output.count - limit)
+            }
+        case .attention(let id, let kind, let message):
+            if let index = terminals.firstIndex(where: { $0.id == id }) {
+                terminals[index].attention = kind
+            }
+            selectedTerminalID = id
+            append(note: message)
+            notifier.terminalNeedsAttention(message, sessionID: id)
+        case .exited(let id, let status):
+            if let index = terminals.firstIndex(where: { $0.id == id }) {
+                terminals[index].isRunning = false
+            }
+            append(note: "Terminal exited with status \(status)")
+        case .closed(let id):
+            let name = terminals.first(where: { $0.id == id })?.name ?? "Terminal"
+            terminals.removeAll { $0.id == id }
+            if selectedTerminalID == id { selectedTerminalID = terminals.first?.id }
+            append(note: "\(name) closed")
+        case .failed(_, let message):
+            append(note: "Terminal: \(message)")
+        }
+    }
+
+    func refreshTerminals() { session?.sendTerminal(.list) }
+
+    func createTerminal(name: String) {
+        session?.sendTerminal(.create(name: name))
+    }
+
+    func selectTerminal(_ id: UUID) {
+        selectedTerminalID = id
+        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
+    }
+
+    func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
+        let suffix = appendReturn ? "\r" : ""
+        guard let data = (text + suffix).data(using: .utf8) else { return }
+        session?.sendTerminal(.input(sessionID: id, data: data))
+        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
+    }
+
+    func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
+        session?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
+    }
+
+    func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
+        session?.sendTerminal(.resize(
+            sessionID: id,
+            columns: UInt16(clamping: columns),
+            rows: UInt16(clamping: rows)
+        ))
+    }
+
+    func closeTerminal(_ id: UUID) {
+        session?.sendTerminal(.close(sessionID: id))
     }
 
     private func apply(video event: ClientSession.VideoEvent) {
@@ -946,6 +1119,14 @@ final class SessionModel {
         guard reconnectTask == nil else { return }
         guard reconnectAttempt < Self.reconnectDelays.count else {
             isReconnecting = false
+            // The reconnect ladder gave up. `sessionMoved` is not called again because there is
+            // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
+            // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
+            SessionActivity.shared.sessionDropped(
+                hostName: hostName ?? "the Mac",
+                startedAt: nil,
+                path: Self.activityPath(connectionPath)
+            )
             return
         }
         let delay = Self.reconnectDelays[reconnectAttempt]
@@ -1064,7 +1245,7 @@ final class SessionModel {
         _ = pins.removeAll()
 
         UserDefaults.standard.removeObject(forKey: "Peering.deviceID")
-        device = DeviceIdentity.loadOrCreate(defaultName: UIDevice.current.name)
+        device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
 
         do {
             self.identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
@@ -1072,6 +1253,13 @@ final class SessionModel {
         } catch {
             identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
         }
+    }
+
+    func setDeviceName(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        device.saveName(trimmed)
+        device = DeviceIdentity.loadOrCreate(defaultName: trimmed)
     }
 
     var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
@@ -1168,6 +1356,43 @@ final class SessionModel {
         // dropped would leave the Mac holding a modifier with no way to clear it from here.
         send(.keyDown(keyCode: macro.keyCode, modifiers: macro.modifiers))
         send(.keyUp(keyCode: macro.keyCode, modifiers: macro.modifiers))
+    }
+
+    // MARK: - Custom macros
+
+    private static let customMacrosKey = "Peering.customMacros"
+
+    /// User-defined macros, persisted across launches. Shown after the built-in defaults.
+    private(set) var customMacros: [Macro] = {
+        guard let data = UserDefaults.standard.data(forKey: "Peering.customMacros"),
+              let decoded = try? JSONDecoder().decode([Macro].self, from: data) else {
+            return []
+        }
+        return decoded
+    }()
+
+    /// All macros — built-in first, then custom.
+    var allMacros: [Macro] { Macro.defaults + customMacros }
+
+    func addCustomMacro(_ macro: Macro) {
+        customMacros.append(macro)
+        saveMacros()
+    }
+
+    func removeCustomMacro(at offsets: IndexSet) {
+        customMacros.remove(atOffsets: offsets)
+        saveMacros()
+    }
+
+    func moveCustomMacro(from source: IndexSet, to destination: Int) {
+        customMacros.move(fromOffsets: source, toOffset: destination)
+        saveMacros()
+    }
+
+    private func saveMacros() {
+        if let data = try? JSONEncoder().encode(customMacros) {
+            UserDefaults.standard.set(data, forKey: Self.customMacrosKey)
+        }
     }
 
     /// Return, and the typed preview goes with it.
@@ -1289,6 +1514,14 @@ final class SessionModel {
     }
 
     // MARK: - Geometry
+
+    /// The title of the currently active capture source (display name or app name).
+    var activeSourceTitle: String? {
+        guard let activeSourceID,
+              let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })
+        else { return nil }
+        return descriptor.title
+    }
 
     /// The size of the captured content in pixels, if it is known.
     ///

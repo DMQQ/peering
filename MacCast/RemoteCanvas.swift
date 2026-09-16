@@ -15,6 +15,9 @@ enum InteractionMode: String, CaseIterable, Identifiable {
     case navigate
     /// The picture can be inspected, while every input command is blocked.
     case observe
+    /// Trackpad mode: the whole screen is treated as a trackpad surface. One finger moves
+    /// the pointer by relative delta (no absolute mapping), two fingers scroll, tap to click.
+    case trackpad
 
     var id: String { rawValue }
 
@@ -23,6 +26,7 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         case .control: return "View & scroll"
         case .navigate: return "Drag & zoom"
         case .observe: return "Observe"
+        case .trackpad: return "Trackpad"
         }
     }
 
@@ -31,21 +35,28 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         case .control: return "hand.point.up.left"
         case .navigate: return "arrow.up.left.and.arrow.down.right"
         case .observe: return "eye"
+        case .trackpad: return "rectangle.and.hand.point.up.left.fill"
         }
     }
 
     var toggled: InteractionMode {
         switch self {
         case .control: return .navigate
-        case .navigate: return .observe
+        case .navigate: return .trackpad
+        case .trackpad: return .observe
         case .observe: return .control
         }
     }
 }
 
 extension InteractionMode {
-    /// Whether a one-finger drag moves the picture rather than the Mac's pointer.
-    var oneFingerDragPansCanvas: Bool { self != .control }
+    /// Whether a one-finger drag moves the picture (or trackpad-style relative pointer) rather
+    /// than sending absolute positions to the Mac.
+    var oneFingerDragPansCanvas: Bool { self == .navigate || self == .observe || self == .trackpad }
+
+    /// Whether the screen acts as a relative-delta trackpad (pointer follows the finger's
+    /// movement, not its absolute position). `onPanCanvas` deltas are used instead of `onTouchMove`.
+    var isTrackpad: Bool { self == .trackpad }
 
     /// Whether a two-finger drag moves the picture rather than scrolling the Mac.
     ///
@@ -60,13 +71,15 @@ extension InteractionMode {
     /// overflows its view is the thing the user is looking at. The zoom is on screen in the
     /// pill besides — see the percentage readout in ``RemoteScreen``.
     func twoFingerDragPansCanvas(isZoomed: Bool) -> Bool {
-        self != .control || isZoomed
+        // Trackpad mode never pans the canvas — two fingers always scroll the Mac.
+        if self == .trackpad { return false }
+        return self != .control || isZoomed
     }
 
     /// Whether a tap is a click on the Mac. False in drag & zoom, where a tap is nothing at all
     /// — the mode exists so the picture can be moved and inspected without anything landing on
     /// the Mac by accident.
-    var tapsReachTheMac: Bool { self == .control }
+    var tapsReachTheMac: Bool { self == .control || self == .trackpad }
 
     /// Whether a pinch resizes the picture. Drag & zoom only.
     ///
@@ -80,7 +93,7 @@ extension InteractionMode {
     /// guard below runs before `isPinching` is set, so a pinch in view & scroll never claims its
     /// fingers — and what it falls through to is the two-finger scroll, which is what those
     /// fingers were going to do anyway.
-    var pinchZoomsCanvas: Bool { self != .control }
+    var pinchZoomsCanvas: Bool { self == .navigate || self == .observe }
 }
 
 /// The gesture surface over the video.
@@ -550,5 +563,29 @@ enum CanvasGeometry {
         // the sample would make the cursor stall at the boundary while the finger keeps
         // moving — which reads as a broken connection rather than as a limit.
         return NormalizedPoint(x: Double(min(max(x, 0), 1)), y: Double(min(max(y, 0), 1)))
+    }
+
+    /// Places a normalized remote pointer back into the exact canvas coordinate space used by
+    /// ``normalized(point:bounds:pixelSize:zoom:pan:)``.
+    static func point(
+        normalized: NormalizedPoint,
+        bounds: CGSize,
+        pixelSize: CGSize?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> CGPoint? {
+        guard bounds.width > 0, bounds.height > 0, zoom > 0 else { return nil }
+        let rect = videoRect(bounds: bounds, pixelSize: pixelSize)
+        guard rect.width > 0, rect.height > 0 else { return nil }
+
+        let content = CGPoint(
+            x: rect.minX + CGFloat(normalized.x) * rect.width,
+            y: rect.minY + CGFloat(normalized.y) * rect.height
+        )
+        let centre = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+        return CGPoint(
+            x: (content.x - centre.x) * zoom + centre.x + pan.width,
+            y: (content.y - centre.y) * zoom + centre.y + pan.height
+        )
     }
 }

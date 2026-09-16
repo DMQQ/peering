@@ -117,6 +117,9 @@ enum CaptureResolution: String, CaseIterable, Sendable {
     /// at, and still the default.
     case full
 
+    /// Three-quarters the width and height, so about 56% of the pixels.
+    case threeQuarters
+
     /// Half the width and half the height, so a quarter of the pixels.
     case half
 
@@ -139,6 +142,7 @@ enum CaptureResolution: String, CaseIterable, Sendable {
     func pixelSize(for native: CGSize) -> CGSize {
         switch self {
         case .full: return native
+        case .threeQuarters: return CGSize(width: native.width * 0.75, height: native.height * 0.75)
         case .half: return CGSize(width: native.width / 2, height: native.height / 2)
         }
     }
@@ -156,6 +160,7 @@ enum CaptureResolution: String, CaseIterable, Sendable {
 /// second: the interval is a ceiling, not a promise, and a panel that cannot go that fast
 /// delivers what it can and no more.
 enum CaptureFrameRate: Int, CaseIterable, Sendable {
+    case thirty = 30
     case sixty = 60
     case oneTwenty = 120
 }
@@ -189,6 +194,8 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
     private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
+    private var _onAudio: (@Sendable (CMSampleBuffer) -> Void)?
+    private var capturesAudio = false
 
     /// Counters for the two questions a silent capture failure raises: is the stream alive
     /// at all, and is it alive but with nothing to send?
@@ -236,6 +243,19 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         set { lock.withLock { _onStop = newValue } }
     }
 
+    /// Called for every audio sample buffer, on the capture queue.
+    /// Only fires when the engine was started with ``enableAudio()`` before the first
+    /// ``start(_:)``.
+    var onAudio: (@Sendable (CMSampleBuffer) -> Void)? {
+        get { lock.withLock { _onAudio } }
+        set { lock.withLock { _onAudio = newValue } }
+    }
+
+    /// Enables audio capture for the next stream start.
+    func enableAudio() {
+        lock.withLock { capturesAudio = true }
+    }
+
     // MARK: - Configuration
 
     /// The stream configuration for a source.
@@ -258,9 +278,8 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     ///   clear backdrop over anything that is not a full display (an application filter, or
     ///   a window smaller than its surface) composites to whatever the surface had in it:
     ///   uninitialised garbage.
-    /// - `showsCursor` — on. Cursor movement must count as a real display change so a quiet
-    ///   desktop still produces smooth pointer frames. ``CursorOverlay`` may draw a larger,
-    ///   opaque pointer over the captured one, at the same tip.
+    /// - `showsCursor` — off. The iPhone renders the commanded pointer immediately, removing
+    ///   one video round trip and avoiding a second cursor baked into the picture.
     ///
     /// Two properties are deliberately left alone. `scalesToFit` is not set: it stretches
     /// content to the configured size, which is how a window capture ends up with the wrong
@@ -295,9 +314,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         configuration.width = width
         configuration.height = height
         configuration.backgroundColor = CGColor.black
-        // This stays visible even when ``CursorOverlay`` draws a larger pointer on top. Its
-        // movement is what makes ScreenCaptureKit produce real frames on a quiet desktop.
-        configuration.showsCursor = true
+        configuration.showsCursor = false
 
         // Caps the capture rate rather than the encode rate, and it is the stream's half of
         // ``CaptureFrameRate`` — the encoder is built with the same number, because the two
@@ -310,15 +327,30 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         return configuration
     }
 
+    /// Enables audio in an already-built configuration. Called after ``configuration(for:pixelSize:frameRate:)``
+    /// when the engine is set to capture audio.
+    static func configureAudio(_ configuration: SCStreamConfiguration) {
+        configuration.capturesAudio = true
+        configuration.excludesCurrentProcessAudio = true
+        configuration.sampleRate = 48000
+        configuration.channelCount = 2
+    }
+
     // MARK: - Lifecycle
 
     /// Builds a stream for the filter and starts it. Returns once frames may begin arriving.
     func start(filter: SCContentFilter, configuration: SCStreamConfiguration) async throws {
         guard lock.withLock({ self.stream == nil }) else { return }
 
+        let audioEnabled = lock.withLock { capturesAudio }
+        if audioEnabled { Self.configureAudio(configuration) }
+
         let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
         do {
             try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
+            if audioEnabled {
+                try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
+            }
         } catch {
             throw CaptureError.from(error)
         }
@@ -369,11 +401,17 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
             engineLog.debug("stopCapture reported \(error.localizedDescription, privacy: .public)")
         }
         try? stream.removeStreamOutput(self, type: .screen)
+        try? stream.removeStreamOutput(self, type: .audio)
     }
 
     // MARK: - SCStreamOutput
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
+        if type == .audio {
+            guard sampleBuffer.isValid else { return }
+            lock.withLock { _onAudio }?(sampleBuffer)
+            return
+        }
         guard type == .screen, sampleBuffer.isValid else { return }
 
         // The status decides whether this sample buffer has a picture in it at all.

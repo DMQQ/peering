@@ -44,6 +44,26 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     ///
     /// Carries `nil` to clear.
     case notice = 0x10
+
+    /// The host's clipboard, sent in response to a ``RemoteCommand/requestClipboard`` command
+    /// or pushed proactively when it changes. Carries a ``ClipboardPayload``.
+    case clipboardContent = 0x11
+
+    /// Configuration for the audio stream that follows on the video connection.
+    ///
+    /// Sent once per stream start, ahead of the first ``audioFrame``. JSON-encoded
+    /// ``AudioStreamConfig``, matching the convention used for ``videoConfig``.
+    case audioConfig = 0x13
+
+    /// One chunk of raw PCM audio. Fixed binary header + interleaved Float32 samples.
+    /// Layout matches ``EncodedAudioFrame``.
+    case audioFrame = 0x14
+
+    /// An authenticated client's terminal lifecycle/input request.
+    case terminalRequest = 0x15
+
+    /// Terminal snapshots, output, attention signals, and lifecycle events from the host.
+    case terminalEvent = 0x16
 }
 
 public enum FramingError: Error, Equatable, Sendable {

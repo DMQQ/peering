@@ -357,7 +357,7 @@ final class InputInjector: @unchecked Sendable {
             }
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
-             .refreshSpacePreviews, .setPrivacyMode:
+             .refreshSpacePreviews, .setPrivacyMode, .requestClipboard, .pushClipboard:
             // Handled upstream in HostModel.onCommand before this method is called.
             break
         }

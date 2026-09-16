@@ -16,13 +16,14 @@ struct OnboardingView: View {
 
     private static let pages: [Page] = [
         Page(
-            icon: "qrcode.viewfinder",
-            title: "Pair once",
+            icon: "wifi",
+            title: "Start on the same network",
             body: """
-                Your Mac shows a six-digit code. Type it, or scan the square beside it.
+                For the first connection, your iPhone and Mac must be on the same local network. \
+                Open Peering on the Mac, then choose it from Nearby.
 
-                If the two match, the devices pin each other. Every connection after this one is \
-                silent.
+                Compare the six-digit code to pair them securely. After that, the relay can find \
+                your Mac from other networks without pairing again.
                 """
         ),
         Page(
@@ -52,7 +53,9 @@ struct OnboardingView: View {
                 Lock your phone and the session survives. Picture in Picture keeps the picture \
                 up, and a Live Activity shows it on the Lock Screen.
 
-                On a different network, Peering finds your Mac through the relay.
+                Once paired, Peering can find your Mac through the relay when you are on a \
+                different network. If the relay cannot be reached, the app says so separately \
+                from a problem with your Mac.
                 """
         )
     ]

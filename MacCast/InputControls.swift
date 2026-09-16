@@ -602,12 +602,37 @@ struct ModifierBar: View {
 /// One-tap shortcuts.
 struct MacroBar: View {
     @Environment(SessionModel.self) private var model
-    var macros: [Macro] = Macro.defaults
+    @State private var showingMacroEditor = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(macros) { macro in
+                // Clipboard: pull from Mac, copy locally, push to Mac
+                ClipboardButton(
+                    symbol: "arrow.down.doc",
+                    label: "Pull",
+                    action: { model.pullClipboard() }
+                )
+                if model.hostClipboard != nil {
+                    ClipboardButton(
+                        symbol: "doc.on.doc",
+                        label: "Copy",
+                        action: { model.copyHostClipboard() }
+                    )
+                }
+                ClipboardButton(
+                    symbol: "arrow.up.doc",
+                    label: "Push",
+                    action: { model.pushClipboard() }
+                )
+
+                // Divider
+                Rectangle()
+                    .frame(width: 1, height: 22)
+                    .foregroundStyle(.white.opacity(0.2))
+                    .padding(.horizontal, 2)
+
+                ForEach(model.allMacros) { macro in
                     Button {
                         model.run(macro)
                     } label: {
@@ -619,9 +644,46 @@ struct MacroBar: View {
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
+
+                // Macro editor
+                Rectangle()
+                    .frame(width: 1, height: 22)
+                    .foregroundStyle(.white.opacity(0.2))
+                    .padding(.horizontal, 2)
+
+                Button {
+                    showingMacroEditor = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 34, height: 34)
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.86))
+                .accessibilityLabel("Edit macros")
             }
             .padding(.horizontal, 2)
         }
+        .sheet(isPresented: $showingMacroEditor) {
+            MacroEditorView(model: model)
+        }
+    }
+}
+
+private struct ClipboardButton: View {
+    let symbol: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(label, systemImage: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10)
+                .frame(height: 34)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.86))
     }
 }
 

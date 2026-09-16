@@ -42,6 +42,12 @@ struct ContentView: View {
     /// the picker is *removed* the moment the session becomes ready, which is well inside the
     /// time the card needs to be legible — so a card drawn on it was built and destroyed with
     /// the screen it belonged to. This router outlives the swap, so the card can.
+    /// The failure the picker's alert has already seen.
+    ///
+    /// Owned here rather than in `HostPickerView` so that `dismissConnecting()` can mark a
+    /// failure shown on the ConnectingView as acknowledged before the picker becomes visible —
+    /// otherwise the picker's alert fires for the same failure the moment the card fades away.
+    @State private var acknowledgedFailure: String?
     @State private var showsConnecting = false
     @State private var connectingSince: Date?
     /// Why the attempt failed, once it has. Held here rather than left to the picker's alert:
@@ -113,7 +119,7 @@ struct ContentView: View {
                 WelcomeFlow { withAnimation(Motion.settle) { hasSeenWelcome = true } }
                     .transition(.opacity)
             } else {
-                HostPickerView()
+                HostPickerView(acknowledgedFailure: $acknowledgedFailure)
                     .transition(Self.screenHandover)
             }
 
@@ -225,6 +231,10 @@ struct ContentView: View {
 
     /// Closes the card after a failure has been read.
     private func dismissConnecting() {
+        // Mark the failure as seen before the card fades away. Without this the picker's own
+        // alert fires for the same message the instant the card is gone, because the phase stays
+        // `.failed` until the next attempt and the picker has never set its own acknowledged flag.
+        acknowledgedFailure = model.failureMessage
         connectingSince = nil
         slowTask?.cancel()
         slowTask = nil

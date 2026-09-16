@@ -70,6 +70,12 @@ final class HostSession: @unchecked Sendable {
     /// Used by relayed sessions that temporarily carry video on the control stream. Invoked only
     /// after the same pin/SAS authorization required by a normal video connection.
     var onAuthorized: (@Sendable (PeerConnection) -> Void)?
+    /// Called when the client requests the clipboard. Return `nil` to send nothing.
+    var onRequestClipboard: (@Sendable () -> String?)?
+    /// Called when the client pushes its clipboard to the host.
+    var onReceiveClipboard: (@Sendable (String) -> Void)?
+    /// Terminal requests are routed only after this session reaches the authenticated state.
+    var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
 
     private var state: State = .awaitingRole
     private(set) var clientID = ""
@@ -262,7 +268,11 @@ final class HostSession: @unchecked Sendable {
             serverID: device.id,
             hostName: device.name,
             protocolVersion: ProtocolInfo.version,
-            alreadyPaired: alreadyPaired
+            alreadyPaired: alreadyPaired,
+            // Hardware addresses are useful only to trusted clients for Wake-on-LAN. The
+            // server hello precedes first-pairing confirmation, so exposing them there would
+            // let any device on the LAN collect them without being accepted.
+            macAddresses: alreadyPaired ? NetworkInterfaceInfo.hardwareMACAddresses() : nil
         ))
 
         if alreadyPaired {
@@ -378,14 +388,43 @@ final class HostSession: @unchecked Sendable {
                 throw SessionError.malformedPayload(.command, SessionError.protocolMismatch(client: 0, host: 0))
             }
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
-            onCommand?(command)
+            switch command {
+            case .requestClipboard:
+                if let text = onRequestClipboard?() {
+                    send(MessageKind.clipboardContent, ClipboardPayload(text: text))
+                }
+            case .pushClipboard(let text):
+                onReceiveClipboard?(text)
+            default:
+                onCommand?(command)
+            }
 
         case .ping:
             connection.send(Frame(kind: .pong))
 
+        case .terminalRequest:
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.terminalRequest, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let request = try decode(TerminalRequest.self, from: frame, as: .terminalRequest)
+            onTerminalRequest?(request) { [weak self] event in
+                self?.sendTerminalEvent(event)
+            }
+
         default:
             throw SessionError.unexpectedMessage(frame.kind)
         }
+    }
+
+    /// Proactively pushes updated clipboard content to the client without a request.
+    func sendClipboard(_ text: String) {
+        guard isAuthorized else { return }
+        send(MessageKind.clipboardContent, ClipboardPayload(text: text))
+    }
+
+    func sendTerminalEvent(_ event: TerminalEvent) {
+        guard isAuthorized else { return }
+        send(.terminalEvent, event)
     }
 
     // MARK: - Helpers

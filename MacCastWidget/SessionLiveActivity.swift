@@ -142,7 +142,7 @@ private struct LockScreenSession: View {
         // system insets this content already and a second margin there reads as the timer
         // having drifted away from the edge rather than as padding.
         .padding(.leading, 14)
-        .padding(.trailing, 0)
+        .padding(.trailing, 6)
         .padding(.vertical, 14)
     }
 }

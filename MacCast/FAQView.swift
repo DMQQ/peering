@@ -165,6 +165,10 @@ struct FAQView: View {
             title: "How the two devices find each other",
             items: [
                 QA(
+                    question: "Can I pair with a Mac remotely the first time?",
+                    answer: "No. For the first connection, the iPhone and Mac must be on the same local network so you can compare the pairing code shown on both devices. Once they are paired, they recognise each other by their pinned keys and can reconnect through the relay from different networks."
+                ),
+                QA(
                     question: "On the same network.",
                     answer: "Your Mac announces itself with Bonjour, the same mechanism AirDrop and network printers use. Your phone finds it, and the connection is made directly between the two of them. It never leaves the network."
                 ),
@@ -175,6 +179,10 @@ struct FAQView: View {
                 QA(
                     question: "Can I turn the relay off?",
                     answer: "Yes. Settings, then Privacy, then Allow the relay, while a session is running. With it off the app only ever connects over the network you are both on, and a Mac somewhere else becomes unreachable rather than relayed."
+                ),
+                QA(
+                    question: "What if the relay is unavailable?",
+                    answer: "Peering labels a failed remote connection separately and does not blame the Mac. If the relay is reachable but your Mac is not connected to it, the app says the Mac is unavailable instead. A nearby Mac can still be reached directly from the same local network."
                 )
             ]
         ),

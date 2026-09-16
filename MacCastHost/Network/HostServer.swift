@@ -35,6 +35,7 @@ final class HostServer: @unchecked Sendable {
     private var controlSessions: [HostSession] = []
     private var pendingRelayBridges: [RelayControlBridge] = []
     private var activeRelayBridges: [RelayControlBridge] = []
+    private let terminalManager = TerminalSessionManager()
 
     /// Each video connection is tagged with the client key that authorized it, so it can be
     /// torn down when that client's control session ends.
@@ -44,6 +45,8 @@ final class HostServer: @unchecked Sendable {
     private var _onEvent: (@Sendable (HostEvent) -> Void)?
     private var _onCommand: (@Sendable (RemoteCommand) -> Void)?
     private var _onVideoConnection: (@Sendable (PeerConnection) -> Void)?
+    private var _onRequestClipboard: (@Sendable () -> String?)?
+    private var _onReceiveClipboard: (@Sendable (String) -> Void)?
 
     var onEvent: (@Sendable (HostEvent) -> Void)? {
         get { callbackLock.withLock { _onEvent } }
@@ -58,6 +61,18 @@ final class HostServer: @unchecked Sendable {
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)? {
         get { callbackLock.withLock { _onVideoConnection } }
         set { callbackLock.withLock { _onVideoConnection = newValue } }
+    }
+
+    /// Called when any client requests the host clipboard. Return `nil` to send nothing.
+    var onRequestClipboard: (@Sendable () -> String?)? {
+        get { callbackLock.withLock { _onRequestClipboard } }
+        set { callbackLock.withLock { _onRequestClipboard = newValue } }
+    }
+
+    /// Called when any client pushes its clipboard to the host.
+    var onReceiveClipboard: (@Sendable (String) -> Void)? {
+        get { callbackLock.withLock { _onReceiveClipboard } }
+        set { callbackLock.withLock { _onReceiveClipboard = newValue } }
     }
 
     enum Failure: LocalizedError {
@@ -242,6 +257,16 @@ final class HostServer: @unchecked Sendable {
         session.onCommand = { [weak self] command in
             self?.onCommand?(command)
         }
+        session.onRequestClipboard = { [weak self] in
+            self?.onRequestClipboard?()
+        }
+        session.onReceiveClipboard = { [weak self] text in
+            self?.onReceiveClipboard?(text)
+        }
+        session.onTerminalRequest = { [weak self, weak session] request, sink in
+            guard let self, let session else { return }
+            self.terminalManager.handle(clientID: session.clientID, request: request, sink: sink)
+        }
         session.onVideoConnection = { [weak self] videoPeer in
             guard let self else { return }
             guard let key = videoPeer.peerPublicKey,
@@ -281,6 +306,7 @@ final class HostServer: @unchecked Sendable {
 
         session.onEnded = { [weak self] in
             guard let self else { return }
+            self.terminalManager.disconnect(clientID: session.clientID)
             // Pruning matters for more than tidiness — a finished session left in the list
             // would go on authorizing video connections, since `isAuthorized` stays true on
             // an object whose connection is gone.

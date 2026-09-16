@@ -37,6 +37,24 @@ struct HostLogEntry: Identifiable, Sendable, Equatable {
         Self.formatter.string(from: at)
     }
 
+    /// Short language used by the visible activity feed. The copied log keeps the longer
+    /// fixed-width words below because those are easier to scan in plain text.
+    var levelName: String {
+        switch level {
+        case .info: return "Event"
+        case .warning: return "Notice"
+        case .failure: return "Failed"
+        }
+    }
+
+    var levelSymbol: String {
+        switch level {
+        case .info: return "circle.fill"
+        case .warning: return "exclamationmark.circle.fill"
+        case .failure: return "xmark.octagon.fill"
+        }
+    }
+
     private static let formatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"

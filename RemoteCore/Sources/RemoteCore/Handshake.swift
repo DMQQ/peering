@@ -35,12 +35,16 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// True when the host already holds a pin for this client, so no pairing is needed
     /// and the client can proceed straight to commands.
     public var alreadyPaired: Bool
+    /// Ethernet/Wi-Fi MAC addresses of the host's physical interfaces, for Wake-on-LAN.
+    /// Each entry is a colon-separated hex string ("aa:bb:cc:dd:ee:ff").
+    public var macAddresses: [String]?
 
-    public init(serverID: String, hostName: String, protocolVersion: UInt16, alreadyPaired: Bool) {
+    public init(serverID: String, hostName: String, protocolVersion: UInt16, alreadyPaired: Bool, macAddresses: [String]? = nil) {
         self.serverID = serverID
         self.hostName = hostName
         self.protocolVersion = protocolVersion
         self.alreadyPaired = alreadyPaired
+        self.macAddresses = macAddresses
     }
 }
 
@@ -110,6 +114,15 @@ public struct NoticePayload: Codable, Sendable, Equatable {
     public init(message: String?, symbol: String? = nil) {
         self.message = message
         self.symbol = symbol
+    }
+}
+
+/// Clipboard text sent from host → client (or carried inside a ``RemoteCommand/pushClipboard``).
+public struct ClipboardPayload: Codable, Sendable, Equatable {
+    public var text: String
+
+    public init(text: String) {
+        self.text = text
     }
 }
 

@@ -1,5 +1,6 @@
 import RemoteCore
 import SwiftUI
+import VideoToolbox
 
 /// Everything the session sheet used to hold, as a floating panel.
 ///
@@ -32,6 +33,7 @@ struct SettingsPanel: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
                 session
+                activity
                 stream
                 picture
                 panels
@@ -91,6 +93,51 @@ struct SettingsPanel: View {
         }
     }
 
+    private var hevcSupported: Bool {
+        VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
+    }
+
+    private var activity: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            SectionLabel("Recent activity")
+            if model.notes.isEmpty {
+                HStack(spacing: 9) {
+                    Image(systemName: "waveform.path")
+                        .foregroundStyle(.secondary)
+                    Text("Connection activity will appear here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .rowSurface()
+            } else {
+                ForEach(Array(model.notes.suffix(6).reversed().enumerated()), id: \.offset) { _, note in
+                    HStack(alignment: .top, spacing: 9) {
+                        Image(systemName: note.localizedCaseInsensitiveContains("fail")
+                              || note.localizedCaseInsensitiveContains("ended")
+                              ? "exclamationmark.triangle.fill"
+                              : "circle.fill")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(note.localizedCaseInsensitiveContains("fail")
+                                             || note.localizedCaseInsensitiveContains("ended")
+                                             ? Color.orange
+                                             : ColorPalette.accent)
+                            .frame(width: 14, height: 18)
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .rowSurface()
+                }
+            }
+        }
+    }
+
     private var stream: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Stream")
@@ -112,6 +159,25 @@ struct SettingsPanel: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(RailButtonStyle(scale: 0.98))
+
+            HStack(spacing: 10) {
+                Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(hevcSupported ? Color.green : Color.orange)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(hevcSupported ? "HEVC supported" : "HEVC not supported")
+                        .font(.subheadline.weight(.medium))
+                    Text(hevcSupported
+                         ? "This device can decode H.265. Enable HEVC on the Mac for better quality at lower bandwidth."
+                         : "This device cannot hardware-decode H.265. Use H.264 on the Mac for best performance.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .rowSurface()
         }
     }
 
@@ -263,6 +329,29 @@ struct SettingsPanel: View {
     private var reset: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("This device")
+            HStack(spacing: 10) {
+                Image(systemName: "iphone")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(ColorPalette.ink)
+                Text("Device name")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 8)
+                TextField("Name shown to Mac", text: Binding(
+                    get: { model.device.name },
+                    set: { model.setDeviceName($0) }
+                ))
+                .font(.subheadline)
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .rowSurface()
+            Text("The name Macs see for this device. iOS 16+ restricts apps from reading your custom device name without a special entitlement, so setting it here ensures Macs show the right name.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
             Button(role: .destructive) { confirmReset = true } label: {
                 Text("Reset identity")
                     .font(.subheadline.weight(.medium))

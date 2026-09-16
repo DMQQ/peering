@@ -135,6 +135,67 @@ struct VideoWireTests {
     }
 }
 
+@Suite("Audio wire format")
+struct AudioWireTests {
+    @Test("a PCM frame survives a round trip")
+    func roundTrip() throws {
+        let samples = Data([0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0xBF])
+        let original = EncodedAudioFrame(
+            sampleCount: 1,
+            channelCount: 2,
+            presentationTime: VideoTimestamp(value: 960, timescale: 48_000),
+            samples: samples
+        )
+
+        #expect(try EncodedAudioFrame(decoding: original.encoded()) == original)
+    }
+
+    @Test("a non-zero-based slice decodes correctly")
+    func sliceOffset() throws {
+        let original = EncodedAudioFrame(
+            sampleCount: 1,
+            channelCount: 1,
+            presentationTime: VideoTimestamp(value: 0, timescale: 48_000),
+            samples: Data([0x00, 0x00, 0x00, 0x00])
+        )
+        let padded = Data([0xAA, 0xBB]) + original.encoded()
+
+        #expect(try EncodedAudioFrame(decoding: padded.dropFirst(2)) == original)
+    }
+
+    @Test("a truncated audio header is rejected")
+    func truncatedHeader() {
+        #expect(throws: AudioWireError.truncatedHeader(have: 19, need: 20)) {
+            try EncodedAudioFrame(decoding: Data(repeating: 0, count: 19))
+        }
+    }
+
+    @Test("the sample body must match the declared shape")
+    func lengthMismatch() {
+        var payload = Data()
+        payload.append(contentsOf: [0, 0, 0, 2]) // two sample frames
+        payload.append(contentsOf: [0, 0, 0, 2]) // stereo
+        payload.append(Data(repeating: 0, count: 12)) // timestamp
+        payload.append(Data(repeating: 0, count: 12)) // needs 2 * 2 * 4 = 16 bytes
+
+        #expect(throws: AudioWireError.lengthMismatch(declared: 16, actual: 12)) {
+            try EncodedAudioFrame(decoding: payload)
+        }
+    }
+
+    @Test("zero channels are rejected")
+    func zeroChannels() {
+        var payload = Data()
+        payload.append(contentsOf: [0, 0, 0, 1])
+        payload.append(contentsOf: [0, 0, 0, 0])
+        payload.append(Data(repeating: 0, count: 12))
+
+        #expect(throws: AudioWireError.invalidChannelCount(0)) {
+            try EncodedAudioFrame(decoding: payload)
+        }
+    }
+}
+
 @Suite("Video drop policy")
 struct VideoDropPolicyTests {
     private func frame(_ keyframe: Bool, _ pts: Int64) -> EncodedVideoFrame {

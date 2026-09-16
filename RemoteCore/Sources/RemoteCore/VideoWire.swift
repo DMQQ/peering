@@ -221,6 +221,113 @@ extension Data {
     }
 }
 
+// MARK: - Audio wire types
+
+/// Audio codec negotiated at stream start. Sent in ``AudioStreamConfig``.
+public enum AudioCodec: String, Codable, Sendable, Equatable {
+    /// Raw 32-bit float PCM, interleaved channels. No compression; chosen because the
+    /// payload is tiny at audio-typical frame sizes and avoids a codec negotiation failure.
+    case pcmFloat32
+}
+
+/// Everything a renderer needs to make sense of the audio frames that follow.
+/// JSON-encoded, sent once at stream start as ``MessageKind/audioConfig``.
+public struct AudioStreamConfig: Codable, Sendable, Equatable {
+    public let codec: AudioCodec
+    public let sampleRate: Double
+    public let channelCount: Int
+
+    public init(codec: AudioCodec, sampleRate: Double, channelCount: Int) {
+        self.codec = codec
+        self.sampleRate = sampleRate
+        self.channelCount = channelCount
+    }
+}
+
+public enum AudioWireError: Error, Equatable, Sendable {
+    case truncatedHeader(have: Int, need: Int)
+    case invalidSampleCount(Int)
+    case invalidChannelCount(Int)
+    case lengthMismatch(declared: Int, actual: Int)
+}
+
+/// One chunk of PCM audio: a fixed header carrying its shape and presentation timestamp,
+/// followed by interleaved IEEE 754 Float32 samples, little-endian.
+///
+/// Binary format because audio arrives at ~100 frames/second on a 20ms chunk budget and JSON
+/// would spend more bytes on punctuation than on the samples.
+public struct EncodedAudioFrame: Sendable, Equatable {
+    public let sampleCount: Int
+    public let channelCount: Int
+    public let presentationTime: VideoTimestamp
+    /// Interleaved Float32 samples, in sample-frame order (L0 R0 L1 R1 …).
+    public let samples: Data
+
+    public init(
+        sampleCount: Int,
+        channelCount: Int,
+        presentationTime: VideoTimestamp,
+        samples: Data
+    ) {
+        self.sampleCount = sampleCount
+        self.channelCount = channelCount
+        self.presentationTime = presentationTime
+        self.samples = samples
+    }
+
+    /// sampleCount(4) + channelCount(4) + ptsValue(8) + ptsTimescale(4)
+    public static let headerSize = 20
+
+    public func encoded() -> Data {
+        var out = Data(capacity: Self.headerSize + samples.count)
+        out.appendBigEndian(UInt32(clamping: sampleCount))
+        out.appendBigEndian(UInt32(clamping: channelCount))
+        out.appendBigEndian(UInt64(bitPattern: presentationTime.value))
+        out.appendBigEndian(UInt32(bitPattern: presentationTime.timescale))
+        out.append(samples)
+        return out
+    }
+
+    public init(decoding payload: Data) throws {
+        guard payload.count >= Self.headerSize else {
+            throw AudioWireError.truncatedHeader(have: payload.count, need: Self.headerSize)
+        }
+        let base = payload.startIndex
+        let sampleCount = Int(payload.readBigEndianUInt32(at: base))
+        let channelCount = Int(payload.readBigEndianUInt32(at: base + 4))
+        let ptsValue = payload.readBigEndianUInt64(at: base + 8)
+        let ptsTimescale = payload.readBigEndianUInt32(at: base + 16)
+        let body = Data(payload[(base + Self.headerSize)...])
+
+        guard sampleCount > 0 else {
+            throw AudioWireError.invalidSampleCount(sampleCount)
+        }
+        // Core Audio channel counts are small. Besides rejecting nonsense, this bound keeps
+        // malformed frames from driving an unbounded channel loop in the renderer.
+        guard (1...32).contains(channelCount) else {
+            throw AudioWireError.invalidChannelCount(channelCount)
+        }
+        let (sampleValues, sampleOverflow) = sampleCount.multipliedReportingOverflow(by: channelCount)
+        let (declaredByteCount, byteOverflow) = sampleValues.multipliedReportingOverflow(by: MemoryLayout<Float>.size)
+        guard !sampleOverflow, !byteOverflow, declaredByteCount == body.count else {
+            throw AudioWireError.lengthMismatch(
+                declared: sampleOverflow || byteOverflow ? .max : declaredByteCount,
+                actual: body.count
+            )
+        }
+
+        self.init(
+            sampleCount: sampleCount,
+            channelCount: channelCount,
+            presentationTime: VideoTimestamp(
+                value: Int64(bitPattern: ptsValue),
+                timescale: Int32(bitPattern: ptsTimescale)
+            ),
+            samples: body
+        )
+    }
+}
+
 /// Which frame to keep when only one can be buffered for a channel that has fallen behind.
 ///
 /// Video frames are **droppable** where commands are not: the client cannot use a stale

@@ -64,6 +64,22 @@ struct HostStatusView: View {
     @State private var portDraft = ""
     @FocusState private var portFocused: Bool
     @State private var forgetDevice: (id: String, name: String)?
+    @State private var hoveredDeviceID: String?
+    @State private var hoveredSection: HostSection?
+    @State private var heroHovered = false
+
+    /// How much room the pane has, measured rather than assumed.
+    ///
+    /// The picture's height is derived from it — see `previewHeight` — so the frame it is drawn
+    /// in is always the shape of what is being sent rather than a strip with letterbox bars
+    /// above and below it.
+    @State private var paneWidth: CGFloat = 0
+
+    /// The pane's own inset from the window edge.
+    ///
+    /// Named because the picture's height is computed from the width this leaves: a number in two
+    /// places is a picture that stops fitting the frame it is drawn in.
+    private static let paneInset: CGFloat = 26
 
     var body: some View {
         NavigationSplitView {
@@ -71,7 +87,8 @@ struct HostStatusView: View {
                 .navigationSplitViewColumnWidth(min: 190, ideal: 210, max: 250)
         } detail: {
             ZStack {
-                Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
+                HostPalette.backdrop.ignoresSafeArea()
+                HostPalette.stageLight.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -85,7 +102,7 @@ struct HostStatusView: View {
 
                         pane
                     }
-                    .padding(.horizontal, 26)
+                    .padding(.horizontal, Self.paneInset)
                     .padding(.top, 22)
                     .padding(.bottom, 28)
                     // The pane is only as wide as its widest row, and a scroll view centres
@@ -93,12 +110,42 @@ struct HostStatusView: View {
                     // asks for the full width — while a pane holding one short line of text
                     // floated in the middle of the window.
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    // Measured rather than assumed, and only the width is kept: the picture's
+                    // height follows from it, so feeding the height back in would be asking the
+                    // layout to solve itself. The width does not depend on the height, so this
+                    // settles on the first pass and only moves when the window does.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                        if abs(width - paneWidth) > 1 { paneWidth = width }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .tint(HostPalette.ink)
-        .frame(minWidth: 760, minHeight: 560)
+        // The sidebar column and the titlebar are two more surfaces the system paints for us, and
+        // both default to a material over the window's own background — which on this window is
+        // the grey the palette exists to get away from. Filling the window with the stage behind
+        // the split view and pinning the toolbar to it leaves nothing drawing its own grey.
+        .background(HostPalette.backdrop)
+        .toolbarBackground(HostPalette.backdrop, for: .windowToolbar)
+        // Ink, not the accent, and the difference is the whole reason this window reads as one
+        // object rather than as a settings panel: a window-wide accent tint paints every button
+        // the system draws for us, so `Forget all` and `Copy all` and two segmented pickers all
+        // arrive blue, and the one blue that is supposed to mean something is somewhere in that
+        // crowd. Left monochrome, the accent is spent on exactly two things — the row you are on
+        // and the button that starts sharing — and both are things you look for.
+        //
+        // It is also what fixes a destructive button drawing in the colour that means "press me".
+        .tint(HostPalette.controlTint)
+        // The floor a Mac window for this job should never go under, and the size it wants to be.
+        // The pane is only ever as wide as its widest row, so a window narrowed past the floor
+        // starts clipping sentences rather than reflowing them.
+        //
+        // The ideal is load-bearing rather than decorative: `windowResizability(.contentSize)`
+        // sizes the window to what its content asks for, and a content that only states a minimum
+        // gets the minimum — which is how this opened at 900 wide with `defaultSize` set to 1200.
+        // `defaultSize` is the first frame a window is ever given; the ideal is what it keeps
+        // coming back to.
+        .frame(minWidth: 900, idealWidth: 1200, minHeight: 620, idealHeight: 870)
         .task { model.start() }
         // Keyed on the source, so a client switching to another screen refreshes the picture at
         // once instead of showing the old one until the next tick. Two seconds is chosen against
@@ -135,16 +182,65 @@ struct HostStatusView: View {
 
     // MARK: - Sidebar
 
+    /// The rail of sections, drawn here rather than handed to a sidebar `List`.
+    ///
+    /// A source-list `List` looks like the natural thing for five rows and was the first thing
+    /// this window used, and it has one behaviour that cannot be argued with: it paints every row's
+    /// symbol with the accent colour, and setting a `foregroundStyle` on the `Label` does not stop
+    /// it. Five blue glyphs under one blue selection is the whole window's worth of accent spent
+    /// before anything has happened, and the colour stops meaning "you are here" when it is also
+    /// what the row below it means, and the row below that.
+    ///
+    /// So the rows are buttons. What that gives up is the arrow-key walking a source list does for
+    /// free; what it buys is the ink staying ink, a selection that is a shape we chose, and
+    /// ⌘1–⌘5 — which is a shorter path to any of these panes than arrowing to it ever was.
     private var sidebar: some View {
         VStack(spacing: 0) {
             sidebarHeader
-            Divider().opacity(0.6)
-            List(HostSection.allCases, selection: $section) { item in
-                Label(item.title, systemImage: item.symbol)
-                    .tag(item)
+            Divider().opacity(0.45)
+            VStack(spacing: 2) {
+                ForEach(Array(HostSection.allCases.enumerated()), id: \.element) { index, item in
+                    sidebarRow(item)
+                        .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+                }
             }
-            .listStyle(.sidebar)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            Spacer(minLength: 0)
         }
+        .background(HostPalette.backdrop)
+    }
+
+    /// One section. Selection is a fill rather than a tint, which is what the phone's rail does
+    /// and the reason it does it: at arm's length a coloured glyph is hard to find, and a coloured
+    /// shape is not.
+    private func sidebarRow(_ item: HostSection) -> some View {
+        let isSelected = section == item
+        return Button {
+            withAnimation(HostMotion.state) { section = item }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: item.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 18)
+                Text(item.title)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(isSelected ? HostPalette.ink : HostPalette.muted)
+            .padding(.horizontal, 9)
+            .frame(height: 32)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(HostPalette.accent)
+                    : AnyShapeStyle(hoveredSection == item ? HostPalette.raised : .clear),
+                in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in hoveredSection = hovering ? item : nil }
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
     /// The one part of the window that is visible whatever pane is showing.
@@ -159,6 +255,7 @@ struct HostStatusView: View {
                 Image(nsImage: NSApplication.shared.applicationIconImage)
                     .resizable()
                     .frame(width: 38, height: 38)
+                    .shadow(color: Color.black.opacity(0.16), radius: 7, y: 3)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -166,7 +263,7 @@ struct HostStatusView: View {
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
                     Text(model.deviceName)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                         .lineLimit(1)
                 }
 
@@ -175,43 +272,54 @@ struct HostStatusView: View {
 
             // The sentence can outrun the column — "Connected — Damian's iPhone" is most of it
             // — so it truncates and carries the whole thing as a tooltip.
-            HStack(spacing: 6) {
-                Circle().fill(statusColor).frame(width: 7, height: 7)
+            //
+            // One fact, said once. This was a coloured dot, coloured text, a tinted fill and a
+            // tinted border, which is four marks for a state that has one value; at that point
+            // the colour stops meaning anything and the pill just looks loud. The dot carries the
+            // state, the sentence stays legible ink, and the pill itself is only a shape.
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 7, height: 7)
+                    .shadow(color: statusColor.opacity(0.6), radius: 4)
                 Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(model.connectedClients.isEmpty ? HostPalette.muted : HostPalette.ink)
                     .lineLimit(1)
             }
+            .padding(.horizontal, 9)
+            .frame(height: 24)
+            .background(HostPalette.raised, in: Capsule())
+            .overlay { Capsule().strokeBorder(HostPalette.hairline, lineWidth: 1) }
             .help(statusText)
 
             // The frame goes on the label, not the button. A bordered button sizes itself to
             // its label, so widening the button only pads the space around it — the control
             // stays the size of the word and sits in the middle of the column.
             //
-            // Big, and it is the only coloured control in the app. Both are deliberate. This is
+            // Big, and it is the only filled control in the app. Both are deliberate. This is
             // the one thing the whole window exists to offer, and it used to be a small grey
             // word in the middle of a column — the least prominent thing on a screen whose only
-            // question is whether the Mac is being shared. The palette is monochrome everywhere
-            // else and stays that way; this is the exception that earns it.
+            // question is whether the Mac is being shared. Everything else here is ink on a
+            // surface and stays that way; this is the exception that earns its fill.
             //
-            // The accent rather than a colour of this app's own, so it is whatever the user has
-            // already told macOS means "this is the thing to press". Quiet when it stops: the
-            // two states are not equals, and one of them is how you put it down.
+            // The same blue the phone uses for the one control it marks, rather than the Mac's
+            // own highlight colour, so the two apps agree about what "press this" looks like.
+            // Quiet when it stops: the two states are not equals, and one of them is how you
+            // put it down — see `HostHostingButtonStyle`.
             Button {
                 model.status.isListening ? model.stop() : model.start()
             } label: {
                 Text(model.status.isListening ? "Stop" : "Start")
-                    .font(.headline)
                     .frame(maxWidth: .infinity)
                     .frame(height: 34)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(model.status.isListening ? Color.secondary : Color.accentColor)
-            .animation(nil, value: model.status.isListening)
+            .buttonStyle(HostHostingButtonStyle(isHosting: model.status.isListening))
+            .animation(HostMotion.state, value: model.status.isListening)
 
             Text("Port \(model.boundPort) · protocol v\(ProtocolInfo.version)")
                 .font(.caption2.monospacedDigit())
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(HostPalette.faint)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
@@ -223,11 +331,16 @@ struct HostStatusView: View {
     private var pane: some View {
         switch section {
         case .overview:
+            // The picture first, then how to get here, then the record. The picture is what the
+            // window is for and it is also the thing that is *happening* — a Mac with a phone on
+            // it should open onto the session, not onto instructions for starting one. The hints
+            // sit directly under it, which is where someone who is looking for them will look
+            // once they have seen the top of the window, and they withdraw on their own the
+            // moment a device attaches — see `connectSection`.
             VStack(alignment: .leading, spacing: 24) {
-                connectSection
                 nowShowingSection
-                devicesSection
-                activitySection
+                connectSection
+                overviewLowerDeck
             }
         case .sessions:
             sessionsSection
@@ -250,8 +363,12 @@ struct HostStatusView: View {
     /// The rest of this pane answers questions about a device that is already connected: what it
     /// is looking at, when it arrived, what it has been doing. Open the window on an idle Mac and
     /// every one of those is an answer to a question nobody has asked yet, which is what made
-    /// this screen read as a single empty panel. This is the question that comes first, and the
-    /// only one with anything to say when the Mac is waiting.
+    /// this screen read as a single empty panel. This is the question to answer for a Mac that
+    /// nobody has reached yet, and the only part of this pane that has anything to say then.
+    ///
+    /// It sits under the picture rather than above it. Instructions at the top of a window push
+    /// the actual subject down out of sight, and this is a window whose subject arrives on its
+    /// own — but the panel still reads second, which is where someone who is stuck will look.
     ///
     /// Withdrawn as soon as something connects, because then the answers below are the ones
     /// being looked for.
@@ -285,7 +402,7 @@ struct HostStatusView: View {
                         detail: "Once paired, this Mac stays reachable through the relay even on a different network."
                     )
                 }
-                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hostPanel()
             }
         }
     }
@@ -302,7 +419,7 @@ struct HostStatusView: View {
                     .font(.subheadline.weight(.medium))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -324,7 +441,7 @@ struct HostStatusView: View {
 
                     Text("Scan this code with Peering, or enter the six digits on \(pairing.clientName).")
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(formatted(pairing.code))
@@ -334,7 +451,7 @@ struct HostStatusView: View {
 
                     Label("Only pair a device you recognize.", systemImage: "lock.fill")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                 }
 
                 Spacer(minLength: 20)
@@ -362,7 +479,7 @@ struct HostStatusView: View {
                          ? "\(outcome.clientName) can now reconnect automatically."
                          : "\(outcome.clientName) was not added to trusted devices.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                 }
             }
             .padding(.vertical, 2)
@@ -394,14 +511,14 @@ struct HostStatusView: View {
                     openSettings: model.permissions.openScreenRecordingSettings
                 )
             }
-            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .hostPanel()
 
             HStack(spacing: 8) {
                 Button("Check again") { model.refreshPermissions() }
                     .controlSize(.small)
                 Text("Restart Peering after changing a permission.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(HostPalette.faint)
             }
         }
     }
@@ -422,7 +539,7 @@ struct HostStatusView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.medium))
-                Text(detail).font(.caption).foregroundStyle(.secondary)
+                Text(detail).font(.caption).foregroundStyle(HostPalette.muted)
             }
 
             Spacer(minLength: 12)
@@ -454,11 +571,11 @@ struct HostStatusView: View {
                         .frame(width: 26, height: 26)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Prevent lid-close sleep")
+                        Text("Keep Mac awake")
                             .font(.subheadline.weight(.medium))
-                        Text("Keeps the Mac awake when the lid is closed. Lifted automatically when Peering quits.")
+                        Text("Prevents idle system and display sleep immediately; macOS shows no permission prompt. Closing the lid still follows macOS clamshell and power rules. Lifted automatically when Peering quits.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(HostPalette.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
@@ -477,11 +594,7 @@ struct HostStatusView: View {
 
                 Divider().padding(.leading, 52)
 
-                pointerRow
-
-                Divider().padding(.leading, 52)
-
-                pointerSizeRow
+                clientPointerRow
 
                 Divider().padding(.leading, 52)
 
@@ -499,83 +612,29 @@ struct HostStatusView: View {
 
                 portRow
             }
-            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .hostPanel()
         }
     }
 
-    /// The enlarged pointer, which is a setting because of where it goes wrong.
-    ///
-    /// Everything else on this pane is about the Mac it runs on. This changes what the phone
-    /// sees and nothing else, so the only place a bad choice shows up is on the phone, and
-    /// the only place to undo it is here.
-    private var pointerRow: some View {
+    /// Pointer rendering belongs to the client. Keeping this visible explains why the cursor is
+    /// absent from screenshots while avoiding a setting that no longer affects the stream.
+    private var clientPointerRow: some View {
         HStack(spacing: 12) {
-            Image(systemName: "cursorarrow")
+            Image(systemName: "cursorarrow.motionlines")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(model.enlargePointer ? HostPalette.ink : HostPalette.muted)
+                .foregroundStyle(HostPalette.success)
                 .frame(width: 26, height: 26)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Larger pointer")
+                Text("Instant pointer")
                     .font(.subheadline.weight(.medium))
-                // Says what *off* means, because it is not "draw nothing" and it is not
-                // "no pointer": the system's pointer goes back into the capture and the small
-                // one the phone had before returns. The system pointer always remains in the
-                // capture because its movement is what keeps the video smooth on a quiet Mac.
-                Text("Draws a bigger pointer over the Mac's pointer in the video so it is easier to see on a phone. The pointer on this Mac is not changed. With this off only the Mac's smaller pointer is sent.")
+                Text("The Mac cursor is hidden from the video. Peering draws it on your iPhone immediately, so it follows your touch without waiting for a frame.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 12)
-
-            Toggle("", isOn: Binding(
-                get: { model.enlargePointer },
-                set: { model.setEnlargePointer($0) }
-            ))
-            .labelsHidden()
-            .toggleStyle(.switch)
-            .controlSize(.small)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-
-    /// How much larger, which is the half of the question the switch cannot ask.
-    ///
-    /// Dimmed rather than hidden while the pointer is off: a row that comes and goes moves the
-    /// ones under it, and the value is still the one the next frame will use.
-    private var pointerSizeRow: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "arrow.up.left.and.arrow.down.right")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(model.enlargePointer ? HostPalette.ink : HostPalette.muted)
-                .frame(width: 26, height: 26)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Pointer size")
-                    .font(.subheadline.weight(.medium))
-                Text("How much larger than the pointer this Mac is showing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 12)
-
-            Picker("", selection: Binding(
-                get: { model.pointerSize },
-                set: { model.setPointerSize($0) }
-            )) {
-                ForEach(CursorOverlay.Size.allCases, id: \.self) { size in
-                    Text(size.title).tag(size)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .disabled(!model.enlargePointer)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -601,9 +660,9 @@ struct HostStatusView: View {
                 // Says when it lands, because the switch cannot show it: the setting is read
                 // when a stream is built, so a change made with a phone attached looks like
                 // one that did nothing until the next capture is started.
-                Text("Half captures at half the width and height, so a quarter of the pixels to send. Applies when the next stream starts, which is a change of source or the next connection.")
+                Text("3/4 captures at 75% width and height (~56% of pixels). Half is a quarter of the pixels. Applies when the next stream starts, which is a change of source or the next connection.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -640,9 +699,9 @@ struct HostStatusView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Frame rate")
                     .font(.subheadline.weight(.medium))
-                Text("How many frames a second to send. A screen that cannot run this fast sends what it can. Applies when the next stream starts, which is a change of source or the next connection.")
+                Text("30 fps saves bandwidth and battery. 60 fps is the standard. 120 fps only gains anything on a ProMotion display and doubles what must be sent. Applies when the next stream starts.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -673,7 +732,7 @@ struct HostStatusView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Video codec").font(.subheadline.weight(.medium))
                 Text("HEVC saves bandwidth on supported devices. Applies when the next stream starts.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 12)
@@ -703,7 +762,7 @@ struct HostStatusView: View {
                     .font(.subheadline.weight(.medium))
                 Text("Phones on this network follow it automatically. Changing it restarts the listener and disconnects anyone connected.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -748,8 +807,44 @@ struct HostStatusView: View {
     /// sitting at the Mac. Everything else — who is attached, whether a permission is granted —
     /// is context for this one fact.
     private var nowShowingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            sectionHeading("Now showing", detail: "What the connected device can see.")
+        VStack(alignment: .leading, spacing: 0) {
+            // No eyebrow. "LIVE SESSION" sat above this title in tracked capitals and said what
+            // the green pill in the sidebar and the green pill in the footer below already said —
+            // but the cost was not the repetition, it was the shape: a small tracked caption over
+            // a larger line is the skeleton every generated dashboard wears, and it made a window
+            // with real information in it look like a mock-up. The title carries itself.
+            //
+            // The state it was announcing is on the right, where it is worth more: a dot beside
+            // the name of the device that is actually connected. A dot that is only there when
+            // something is live says more than a label that changes one word.
+            HStack(alignment: .center, spacing: 14) {
+                Text(capturingTitle)
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .tracking(-0.4)
+                    .lineLimit(1)
+
+                Spacer(minLength: 12)
+
+                if let client = connectedClient {
+                    VStack(alignment: .trailing, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(HostPalette.success)
+                                .frame(width: 6, height: 6)
+                                .shadow(color: HostPalette.success.opacity(0.6), radius: 4)
+                            Text(client.name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        Text(client.elapsedDescription())
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(HostPalette.muted)
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 16)
+            .padding(.bottom, 13)
 
             VStack(spacing: 0) {
                 previewPane
@@ -765,39 +860,83 @@ struct HostStatusView: View {
                     .frame(width: 40, height: 40)
 
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(capturingTitle)
-                            .font(.title3.weight(.semibold))
-                            .lineLimit(1)
                         Text(capturingDetail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(HostPalette.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Spacer(minLength: 12)
 
                     if capturingSource != nil {
-                        HStack(spacing: 5) {
-                            Circle().fill(HostPalette.ink).frame(width: 6, height: 6)
-                            Text("Live").font(.caption.weight(.medium))
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(HostPalette.success)
+                                .frame(width: 6, height: 6)
+                                .shadow(color: HostPalette.success.opacity(0.6), radius: 4)
+                            Text("Live")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(HostPalette.ink)
                         }
-                        .foregroundStyle(HostPalette.ink)
+                        .padding(.horizontal, 9)
+                        .frame(height: 25)
+                        .background(HostPalette.raised, in: Capsule())
+                        .overlay { Capsule().strokeBorder(HostPalette.hairline, lineWidth: 1) }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .background(HostPalette.surface)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            // Concentric with the bezel outside it — the panel's radius less the panel's own
+            // padding. Two radii that are close but not equal is the thing that reads as sloppy
+            // without anyone being able to say why.
+            .clipShape(RoundedRectangle(cornerRadius: HostPalette.panelRadius - 3, style: .continuous))
+        }
+        .hostPrimaryPanel()
+        .scaleEffect(heroHovered ? 1.002 : 1)
+        .onHover { hovering in
+            withAnimation(HostMotion.hover) { heroHovered = hovering }
         }
     }
 
-    /// The picture itself, letterboxed inside a fixed band.
+    /// The shape the frame should be.
     ///
-    /// A fixed height rather than one the aspect ratio decides: a source can be any shape — a
-    /// 16:10 display, a tall window, a phone-shaped one — and a card that resized itself as the
-    /// client switched would shuffle everything below it on every tap. The letterbox is black
-    /// because that is what the phone is being sent, so the two show the same frame.
+    /// Whatever is actually being sent, and the display when nothing is — which is also what a
+    /// connection captures until the client asks for something else, so the frame does not change
+    /// shape the moment a stream starts.
+    private var previewAspect: CGFloat {
+        if let preview, preview.height > 0 {
+            return CGFloat(preview.width) / CGFloat(preview.height)
+        }
+        if let screen = NSScreen.screens.first, screen.frame.height > 0 {
+            return screen.frame.width / screen.frame.height
+        }
+        return 16.0 / 10.0
+    }
+
+    /// How tall the picture's frame is: as tall as the pane is wide, in the picture's own shape.
+    ///
+    /// A band of fixed height was the first thing this was, and it was wrong for the reason any
+    /// fixed frame around a variable picture is wrong — a Mac display is wider than it is tall by
+    /// half again, so a wide short band left a stripe of black down each side of the picture and a
+    /// wide window made the stripe wider instead of the picture larger. The frame takes the
+    /// picture's shape, and the picture fills it.
+    ///
+    /// Capped at 4:3, which is the one place the shape does not win. A single tall window is a
+    /// legitimate thing to share, and its shape would otherwise ask for a frame taller than the
+    /// window it is in — so past that the picture letterboxes instead, and the layout is not held
+    /// hostage by the narrowest thing someone might have picked.
+    private var previewHeight: CGFloat {
+        let panel = max((paneWidth > 0 ? paneWidth : 1000) - Self.paneInset * 2, 320)
+        return min(max(panel / previewAspect, 220), panel * 0.75)
+    }
+
+    /// The picture itself, in a frame cut to its own shape.
+    ///
+    /// The letterbox is black because that is what the phone is being sent, so the two show the
+    /// same frame — and it should be visible only where the picture genuinely does not fill the
+    /// shape, which is the capped case above rather than every case.
     private var previewPane: some View {
         ZStack {
             Color.black
@@ -813,12 +952,12 @@ struct HostStatusView: View {
                     Text(capturingSource == nil ? "Not streaming" : "Starting…")
                         .font(.caption)
                 }
-                .foregroundStyle(.white.opacity(0.32))
+                .foregroundStyle(HostPalette.faint)
             }
         }
-        .frame(height: 210)
+        .frame(height: previewHeight)
         .frame(maxWidth: .infinity)
-        .animation(.easeInOut(duration: 0.2), value: preview == nil)
+        .animation(HostMotion.state, value: preview == nil)
         .accessibilityHidden(true)
     }
 
@@ -829,7 +968,10 @@ struct HostStatusView: View {
         case .display: return "display"
         case .application: return "macwindow.on.rectangle"
         case .window: return "macwindow"
-        case nil: return "display.slash"
+        // Not `display.slash`: that symbol does not exist in SF Symbols, and a name that resolves
+        // to nothing draws nothing — the chip came out as an empty rounded square, which reads as
+        // a rendering fault rather than as a state. `rectangle.slash` is the one that is there.
+        case nil: return "rectangle.slash"
         }
     }
 
@@ -855,6 +997,22 @@ struct HostStatusView: View {
 
     // MARK: - Devices
 
+    /// On a wide window the compact device list sits beside the longer activity feed, making
+    /// the overview an intentionally uneven dashboard. At the minimum window width it falls
+    /// back to the familiar vertical reading order.
+    private var overviewLowerDeck: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 18) {
+                devicesSection.frame(width: 260, alignment: .topLeading)
+                activitySection.frame(minWidth: 360, alignment: .topLeading)
+            }
+            VStack(alignment: .leading, spacing: 24) {
+                devicesSection
+                activitySection
+            }
+        }
+    }
+
     /// Who is trusted, and which of them is here.
     ///
     /// The absent rows matter as much as the present ones. "Is that phone still allowed in" is
@@ -876,10 +1034,10 @@ struct HostStatusView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "iphone.slash")
                         .font(.title3)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(HostPalette.faint)
                     Text("No iPhones paired yet")
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                 }
                 .padding(.vertical, 8)
             } else {
@@ -906,39 +1064,63 @@ struct HostStatusView: View {
                         )
                     }
                 }
-                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hostPanel()
             }
         }
     }
 
     private func deviceRow(name: String, id: String, detail: String, connected: Bool) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: "iphone")
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(connected ? HostPalette.ink : HostPalette.faint)
-                .frame(width: 30, height: 30)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(connected ? HostPalette.success.opacity(0.13) : HostPalette.raised)
+                Image(systemName: connected ? "iphone.radiowaves.left.and.right" : "iphone")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(connected ? HostPalette.success : HostPalette.faint)
+            }
+            .frame(width: 36, height: 36)
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(connected ? HostPalette.success.opacity(0.18) : HostPalette.hairline)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(connected ? HostPalette.ink : HostPalette.muted)
+                    .foregroundStyle(connected ? HostPalette.success : HostPalette.muted)
                     .monospacedDigit()
             }
             Spacer(minLength: 12)
             if connected {
-                Circle()
-                    .fill(HostPalette.ink)
-                    .frame(width: 7, height: 7)
+                Text("LIVE")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.7)
+                    .foregroundStyle(HostPalette.success)
             }
-            Button("Forget", role: .destructive) {
+            Button(role: .destructive) {
                 forgetDevice = (id, name)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 20, height: 20)
             }
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .foregroundStyle(hoveredDeviceID == id ? HostPalette.danger : HostPalette.faint)
+            .help("Forget (name)")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+        .background(
+            hoveredDeviceID == id ? HostPalette.raised : .clear,
+            in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+        )
+        .scaleEffect(hoveredDeviceID == id ? 1.004 : 1)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(HostMotion.hover) { hoveredDeviceID = hovering ? id : nil }
+        }
         // The ID is what a pairing question turns on, so it stays reachable — as a tooltip
         // rather than as the thing printed on the row, where it was never what anyone
         // recognised.
@@ -970,34 +1152,64 @@ struct HostStatusView: View {
             }
 
             if model.log.isEmpty {
-                Text("Waiting for a connection…")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, minHeight: 90, alignment: .topLeading)
-                    .padding(14)
-                    .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                HStack(spacing: 11) {
+                    Image(systemName: "waveform.path")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(HostPalette.faint)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Waiting for activity")
+                            .font(.subheadline.weight(.medium))
+                        Text("Connections, stream changes and problems will appear here.")
+                            .font(.caption)
+                            .foregroundStyle(HostPalette.faint)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+                .padding(16)
+                .hostPanel()
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(model.log) { entry in
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text(entry.time)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.tertiary)
-                                Text(entry.message)
-                                    .font(.system(size: 11.5))
-                                    .foregroundStyle(colour(for: entry.level))
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(model.log.enumerated()), id: \.element.id) { index, entry in
+                            activityRow(entry)
+                            if index < model.log.count - 1 {
+                                Divider().padding(.leading, 42)
                             }
                         }
                     }
-                    .padding(14)
                 }
                 .frame(minHeight: 150, maxHeight: 320)
-                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hostPanel()
             }
         }
+    }
+
+    private func activityRow(_ entry: HostLogEntry) -> some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: entry.levelSymbol)
+                .font(.system(size: entry.level == .info ? 7 : 13, weight: .semibold))
+                .foregroundStyle(colour(for: entry.level))
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(entry.message)
+                    .font(.system(size: 12.5, weight: entry.level == .info ? .regular : .medium))
+                    .foregroundStyle(entry.level == .info ? HostPalette.ink : colour(for: entry.level))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 6) {
+                    Text(entry.time)
+                        .monospacedDigit()
+                    Text(entry.levelName)
+                }
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(HostPalette.faint)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(entry.level == .failure ? HostPalette.danger.opacity(0.055) : .clear)
     }
 
     /// Three tones and no more: routine, worth noticing, did not work.
@@ -1006,9 +1218,9 @@ struct HostStatusView: View {
     /// has to find by skimming, and losing it in grey is how a log stops being read at all.
     private func colour(for level: HostLogEntry.Level) -> Color {
         switch level {
-        case .info: return HostPalette.muted
-        case .warning: return HostPalette.ink
-        case .failure: return .red
+        case .info: return HostPalette.faint
+        case .warning: return HostPalette.caution
+        case .failure: return HostPalette.danger
         }
     }
 
@@ -1025,7 +1237,7 @@ struct HostStatusView: View {
             if model.sessions.isEmpty {
                 Text("No sessions yet.")
                     .font(.callout)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(HostPalette.faint)
                     .padding(.vertical, 8)
             } else {
                 VStack(spacing: 0) {
@@ -1034,11 +1246,11 @@ struct HostStatusView: View {
                         sessionRow(session)
                     }
                 }
-                .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hostPanel()
 
                 Text("Bytes are what the host sent: the video stream. Control traffic is a rounding error beside it.")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(HostPalette.faint)
             }
         }
     }
@@ -1056,7 +1268,7 @@ struct HostStatusView: View {
                     .lineLimit(1)
                 Text(session.startedDescription)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
             }
 
             Spacer(minLength: 12)
@@ -1067,7 +1279,7 @@ struct HostStatusView: View {
             Text(session.bytesDescription)
                 .font(.caption)
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(HostPalette.muted)
                 .frame(width: 74, alignment: .trailing)
         }
         .padding(.horizontal, 14)
@@ -1097,12 +1309,12 @@ struct HostStatusView: View {
                 )
                 Divider()
                 privacyRow(
-                    "Nothing else",
-                    "Files, the clipboard, the microphone and the camera are not part of this protocol and are never sent."
+                    "Clipboard, when you ask",
+                    "Clipboard text moves only when you use Pull or Push on the iPhone. Files, the microphone and the camera are not sent."
                 )
             }
             .padding(14)
-            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .hostPanel()
         }
     }
 
@@ -1111,7 +1323,7 @@ struct HostStatusView: View {
             Text(title).font(.subheadline.weight(.medium))
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(HostPalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1131,7 +1343,7 @@ struct HostStatusView: View {
                         .font(.system(size: 24, weight: .semibold, design: .rounded))
                     Text("Your Mac, right here.")
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(HostPalette.muted)
                 }
             }
 
@@ -1143,13 +1355,13 @@ struct HostStatusView: View {
             .font(.callout)
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .hostPanel()
             .textSelection(.enabled)
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("This is a personal project, and it will not ask you for an account or a subscription.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Link(destination: Self.supportURL) {
@@ -1165,9 +1377,11 @@ struct HostStatusView: View {
     private static let supportURL = URL(string: "https://buymeacoffee.com/")!
 
     private func sectionHeading(_ title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.headline)
-            Text(detail).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .tracking(-0.2)
+            Text(detail).font(.caption).foregroundStyle(HostPalette.muted)
         }
     }
 
@@ -1177,12 +1391,12 @@ struct HostStatusView: View {
     /// and "Ready for iPhone" is true whether or not a client is attached — which is why it was
     /// the wrong thing to say while one was.
     private var statusColor: Color {
-        if !model.connectedClients.isEmpty { return HostPalette.ink }
+        if !model.connectedClients.isEmpty { return HostPalette.success }
         switch model.status {
-        case .listening: return HostPalette.muted
+        case .listening: return HostPalette.accent
         case .starting: return HostPalette.faint
         case .idle: return HostPalette.faint
-        case .failed: return HostPalette.ink
+        case .failed: return HostPalette.danger
         }
     }
 
@@ -1228,19 +1442,6 @@ struct HostStatusView: View {
     }
 }
 
-/// The sizes as words, which is the only form of them a user has an opinion about. The overlay
-/// itself deals in fractions of the frame's height, and those are not a question to put to
-/// anybody.
-private extension CursorOverlay.Size {
-    var title: String {
-        switch self {
-        case .small: return "Small"
-        case .medium: return "Medium"
-        case .large: return "Large"
-        }
-    }
-}
-
 /// The two sizes and the two rates as words.
 ///
 /// Deliberately without the pixel dimensions: the size a stream is built at follows the
@@ -1251,6 +1452,7 @@ private extension CaptureResolution {
     var title: String {
         switch self {
         case .full: return "Full"
+        case .threeQuarters: return "3/4"
         case .half: return "Half"
         }
     }
@@ -1259,6 +1461,7 @@ private extension CaptureResolution {
 private extension CaptureFrameRate {
     var title: String {
         switch self {
+        case .thirty: return "30 fps"
         case .sixty: return "60 fps"
         case .oneTwenty: return "120 fps"
         }
@@ -1266,14 +1469,20 @@ private extension CaptureFrameRate {
 }
 
 private extension View {
+    /// The pairing card, and the one place in the window that is allowed to raise its voice.
+    ///
+    /// A pairing request is the only thing here that needs an answer from the person at the Mac,
+    /// so it lifts off the stage further than a panel does and takes the accent into its edge —
+    /// the whole card, rather than a coloured bar down one side of it.
     func priorityPanel() -> some View {
         padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(HostPalette.raised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(HostPalette.raised, in: RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(0.22))
+                RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous)
+                    .strokeBorder(HostPalette.accent.opacity(0.35), lineWidth: 1)
             }
+            .shadow(color: .black.opacity(0.4), radius: 20, y: 9)
     }
 }
 

@@ -107,6 +107,29 @@ final class MacCastTests: XCTestCase {
         XCTAssertEqual(normalized.y, 0.5, accuracy: 0.001)
     }
 
+    func testClientCursorUsesTheInverseOfTouchMapping() throws {
+        let bounds = CGSize(width: 932, height: 430)
+        let pixels = CGSize(width: 1512, height: 982)
+        let original = CGPoint(x: 713, y: 118)
+        let normalized = try XCTUnwrap(CanvasGeometry.normalized(
+            point: original,
+            bounds: bounds,
+            pixelSize: pixels,
+            zoom: 1.7,
+            pan: CGSize(width: -41, height: 23)
+        ))
+        let reconstructed = try XCTUnwrap(CanvasGeometry.point(
+            normalized: normalized,
+            bounds: bounds,
+            pixelSize: pixels,
+            zoom: 1.7,
+            pan: CGSize(width: -41, height: 23)
+        ))
+
+        XCTAssertEqual(reconstructed.x, original.x, accuracy: 0.001)
+        XCTAssertEqual(reconstructed.y, original.y, accuracy: 0.001)
+    }
+
     // MARK: - Interaction mode
 
     // The mode is the whole safety story of the in-session screen: drag & zoom is only worth
@@ -154,6 +177,17 @@ final class MacCastTests: XCTestCase {
         XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: false))
         XCTAssertTrue(mode.pinchZoomsCanvas)
         XCTAssertFalse(mode.tapsReachTheMac)
+    }
+
+    func testTrackpadRoutesOneFingerMovementAndClicksToTheMac() {
+        let mode = InteractionMode.trackpad
+
+        XCTAssertTrue(mode.oneFingerDragPansCanvas)
+        XCTAssertTrue(mode.isTrackpad)
+        XCTAssertFalse(mode.twoFingerDragPansCanvas(isZoomed: false))
+        XCTAssertFalse(mode.twoFingerDragPansCanvas(isZoomed: true))
+        XCTAssertTrue(mode.tapsReachTheMac)
+        XCTAssertFalse(mode.pinchZoomsCanvas)
     }
 
     // MARK: - Putting a panel away

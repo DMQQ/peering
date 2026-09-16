@@ -109,6 +109,10 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     case setPrivacyMode(enabled: Bool)
     /// Locks the active macOS session. Unlocking remains a local action at the Mac.
     case lockScreen
+    /// Asks the host to read its pasteboard and reply with a ``MessageKind/clipboardContent`` frame.
+    case requestClipboard
+    /// Pushes text from the phone's clipboard to the host pasteboard.
+    case pushClipboard(text: String)
 
     public var coalescing: Coalescing {
         switch self {
@@ -118,10 +122,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .refreshSpacePreviews, .setPrivacyMode, .lockScreen:
-            // Never dropped. A refresh is cheap to repeat and the whole point of it is that the
-            // user is looking at the panel now; superseding a queued one would be exactly the
-            // wrong economy.
+             .refreshSpacePreviews, .setPrivacyMode, .lockScreen,
+             .requestClipboard, .pushClipboard:
             return .none
         }
     }
@@ -131,7 +133,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     public var isCritical: Bool {
         switch self {
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication,
-             .setPrivacyMode, .lockScreen:
+             .setPrivacyMode, .lockScreen, .pushClipboard:
             return true
         default:
             return false
@@ -146,7 +148,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchSpace, .switchToSpace, .joystickMove:
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .refreshSpacePreviews,
-             .setPrivacyMode, .lockScreen:
+             .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard:
             return false
         }
     }

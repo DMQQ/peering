@@ -26,7 +26,11 @@ public enum ProtocolInfo {
     /// 7: adds `setPrivacyMode`. An older host cannot decode the new command, so the handshake
     /// rejects a mixed pair with an update message instead of dropping an active session.
     /// 8: adds `lockScreen`, with the same compatibility requirement.
-    public static let version: UInt16 = 8
+    /// 9: adds `clipboardContent` (frame kind 0x11), `requestClipboard` / `pushClipboard`
+    /// (commands), `audioConfig` (0x13), `audioFrame` (0x14), and Wake-on-LAN MAC addresses
+    /// in `ServerHello`. An older host cannot decode the new commands; bump required.
+    /// 10: adds authenticated, reconnectable terminal sessions on the control channel.
+    public static let version: UInt16 = 10
 
     /// Public signalling endpoint. Control and video endpoints are supplied per session by the
     /// relay, so only this address belongs in the apps.

@@ -26,13 +26,22 @@ struct HandshakeTests {
             serverID: "server-1",
             hostName: "Damian's MacBook Pro",
             protocolVersion: 1,
-            alreadyPaired: true
+            alreadyPaired: true,
+            macAddresses: ["aa:bb:cc:dd:ee:ff", "01:23:45:67:89:ab"]
         )
         let decoded = try MessageCodec.decode(
             ServerHello.self,
             from: try MessageCodec.encode(hello)
         )
         #expect(decoded == hello)
+    }
+
+    @Test("an older serverHello without MAC addresses still decodes")
+    func oldServerHelloStillDecodes() throws {
+        let data = Data(#"{"serverID":"server-1","hostName":"Mac","protocolVersion":8,"alreadyPaired":true}"#.utf8)
+        let hello = try MessageCodec.decode(ServerHello.self, from: data)
+
+        #expect(hello.macAddresses == nil)
     }
 
     @Test("serverHello carries no public key")

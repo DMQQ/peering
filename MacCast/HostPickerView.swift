@@ -12,11 +12,9 @@ struct HostPickerView: View {
     @Environment(SessionModel.self) private var model
     @State private var showsManualConnection = false
 
-    /// The failure the user has already dismissed.
-    ///
-    /// The phase stays `.failed` until the next attempt, so without remembering the dismissal the
-    /// dialog would reopen the instant it was closed.
-    @State private var acknowledgedFailure: String?
+    /// The failure the user has already dismissed, owned by the parent so the connecting card
+    /// can mark it seen before this view becomes visible again.
+    @Binding var acknowledgedFailure: String?
     @State private var forgetTarget: String?
 
     /// The Mac being renamed, and what the field currently holds.
@@ -38,6 +36,38 @@ struct HostPickerView: View {
             set: { shown in
                 if !shown { acknowledgedFailure = model.failureMessage }
             }
+        )
+    }
+
+    /// Turns a transport error into the distinction a person can act on: the Mac is offline,
+    /// the relay path could not be reached, or the connection failed for another reason.
+    /// `SessionModel` already records which path was attempted, so this is presentation rather
+    /// than a second networking state machine.
+    private var failurePresentation: FailurePresentation {
+        let detail = model.failureMessage ?? "The connection could not be completed."
+        guard model.connectionPath == .relay else {
+            return FailurePresentation(title: "Could not connect", message: detail, isRelayFailure: false)
+        }
+
+        let normalized = detail.lowercased()
+        if normalized.contains("not currently registered with the relay") {
+            return FailurePresentation(
+                title: "Mac is not available",
+                message: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there.",
+                isRelayFailure: false
+            )
+        }
+
+        // A pinned-key failure is about the Mac's identity, not relay availability. Keep the
+        // precise security explanation intact instead of hiding it behind a network diagnosis.
+        if normalized.contains("pinned") || normalized.contains("did not present the key") {
+            return FailurePresentation(title: "Mac identity changed", message: detail, isRelayFailure: false)
+        }
+
+        return FailurePresentation(
+            title: "Remote connection unavailable",
+            message: "Peering could not complete the connection through the relay. Your Mac may be working normally. If both devices are nearby, put them on the same network and connect from Nearby.\n\nDetail: \(detail)",
+            isRelayFailure: true
         )
     }
 
@@ -68,6 +98,10 @@ struct HostPickerView: View {
                             identitySection(failure)
                         }
 
+                        if model.pairedHostIDs.isEmpty {
+                            firstPairingCard
+                        }
+
                         nearbyCard
                         pairedCard
                         manualCard(address: $model.manualAddress, port: $model.manualPort)
@@ -91,10 +125,13 @@ struct HostPickerView: View {
             // A connection that fails instantly and silently is indistinguishable from a button
             // that does not work — which is exactly how it was read. The failure text was always
             // there, in the phase and in the diagnostics; it just never reached the screen.
-            .alert("Could not connect", isPresented: failureAlert) {
+            .alert(failurePresentation.title, isPresented: failureAlert) {
+                if failurePresentation.isRelayFailure {
+                    Button("Search Nearby") { model.restartBrowsing() }
+                }
                 Button("OK", role: .cancel) { }
             } message: {
-                Text(model.failureMessage ?? "")
+                Text(failurePresentation.message)
             }
             .alert("Forget this Mac?", isPresented: Binding(
                 get: { forgetTarget != nil },
@@ -274,6 +311,26 @@ struct HostPickerView: View {
         .cardSurface()
     }
 
+    /// Shown until this phone has one trusted Mac. The relay deliberately cannot establish the
+    /// first trust relationship: the user must be able to compare the two devices locally.
+    private var firstPairingCard: some View {
+        HStack(alignment: .top, spacing: 12) {
+            iconTile("wifi")
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("First connection: stay nearby")
+                    .font(.subheadline.weight(.semibold))
+                Text("Put this iPhone and your Mac on the same local network, open Peering on the Mac, then choose it below. Remote connections work after you pair once.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .cardSurface()
+    }
+
     private var securityCard: some View {
         HStack(spacing: 12) {
             iconTile("faceid")
@@ -390,15 +447,16 @@ struct HostPickerView: View {
     /// is a poor thing to put next to an action with no undo.
     private func pairedRow(_ hostID: String) -> some View {
         let isOnline = model.hosts.contains { $0.id == hostID }
+        let isActive = model.currentHostID == hostID && model.phase == .ready
         return HStack(spacing: 10) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
                         iconTile("macbook")
                         Circle()
-                            // Green = visible on LAN right now. Gray = not detected nearby
-                            // (may still be reachable via relay).
-                            .fill(isOnline ? Color.green : Color.white.opacity(0.25))
+                            // Green = connected right now (LAN or relay) or visible on LAN.
+                            // Gray = not detected nearby and no active session.
+                            .fill(isOnline || isActive ? Color.green : Color.white.opacity(0.25))
                             .frame(width: 9, height: 9)
                             .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 1.5))
                             .offset(x: 2, y: 2)
@@ -408,7 +466,7 @@ struct HostPickerView: View {
                         Text(model.displayName(forHostID: hostID) ?? "A Mac")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                        Text(pairedRowDetail(hostID: hostID, isOnline: isOnline))
+                        Text(pairedRowDetail(hostID: hostID, isOnline: isOnline, isActive: isActive))
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -444,6 +502,15 @@ struct HostPickerView: View {
                         Label("Connect via Relay", systemImage: "network")
                     }
                     .disabled(!model.allowsRelay || model.isBusy)
+
+                    if !(model.hostMACAddresses[hostID]?.isEmpty ?? true) {
+                        Button {
+                            model.wakeHost(id: hostID)
+                        } label: {
+                            Label("Wake Mac", systemImage: "power")
+                        }
+                        .disabled(isOnline)
+                    }
                 }
 
                 Section {
@@ -472,17 +539,20 @@ struct HostPickerView: View {
 
     /// The second line of a trusted row: online/offline status, last-session time, or
     /// the ID prefix when two Macs share the same name.
-    private func pairedRowDetail(hostID: String, isOnline: Bool) -> String {
+    private func pairedRowDetail(hostID: String, isOnline: Bool, isActive: Bool) -> String {
         let name = model.displayName(forHostID: hostID) ?? "A Mac"
         let sharesItsName = model.pairedHostIDs.contains {
             $0 != hostID && (model.displayName(forHostID: $0) ?? "A Mac") == name
         }
         if sharesItsName { return String(hostID.prefix(8)) }
+        if isActive {
+            return isOnline ? "Connected via LAN" : "Connected via Relay"
+        }
         if isOnline { return "Nearby · tap to connect" }
         if let last = model.lastConnectedAt[hostID] {
             return "Last used " + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
         }
-        return "Tap to connect"
+        return model.allowsRelay ? "Not nearby · will try relay" : "Not nearby · LAN only"
     }
 
     // MARK: - Rows
@@ -579,6 +649,12 @@ struct HostPickerView: View {
         guard let version = host.protocolVersion else { return true }
         return version == ProtocolInfo.version
     }
+}
+
+private struct FailurePresentation {
+    let title: String
+    let message: String
+    let isRelayFailure: Bool
 }
 
 /// The picture at the top: a Mac, a phone, and the link between them.

@@ -28,6 +28,8 @@ final class VideoStreamer: @unchecked Sendable {
         /// on submission — a frame that never left is not bandwidth. This is what a finished
         /// session is measured by; frames say how the stream behaved, bytes say what it cost.
         var bytesSent = 0
+        var audioFramesSent = 0
+        var audioFramesDropped = 0
         /// Frames discarded because they arrived while a keyframe was owed. Counted apart
         /// from ``dropped`` because the two say different things: `dropped` means the link
         /// is behind, and this means the stream is waiting to restart. A number that is
@@ -38,6 +40,10 @@ final class VideoStreamer: @unchecked Sendable {
     private let lock = NSLock()
     private var peer: PeerConnection?
     private var pending: EncodedVideoFrame?
+    private var pendingAudio: EncodedAudioFrame?
+    private var audioConfig: AudioStreamConfig?
+    private var audioConfigOwed = false
+    private var sentAudioLast = true
     private var sending = false
     private var _stats = Stats()
 
@@ -85,6 +91,9 @@ final class VideoStreamer: @unchecked Sendable {
             generation += 1
             self.peer = peer
             pending = nil
+            pendingAudio = nil
+            audioConfigOwed = audioConfig != nil
+            sentAudioLast = true
             awaitingKeyframe = true
             // Held true until the config lands, so a frame submitted in the meantime queues
             // behind it rather than racing ahead of it. The ordering is the point: a decoder
@@ -102,6 +111,8 @@ final class VideoStreamer: @unchecked Sendable {
             let had = peer != nil
             peer = nil
             pending = nil
+            pendingAudio = nil
+            audioConfigOwed = false
             sending = false
             return had
         }
@@ -205,19 +216,56 @@ final class VideoStreamer: @unchecked Sendable {
         }
     }
 
+    private enum Outgoing {
+        case video(EncodedVideoFrame)
+        case audioConfig(AudioStreamConfig)
+        case audio(EncodedAudioFrame)
+    }
+
     private func pump() {
-        let outgoing: (frame: EncodedVideoFrame, peer: PeerConnection, generation: Int)? =
-            lock.withLock {
-                guard !sending, let peer, let frame = pending else { return nil }
+        let outgoing: (item: Outgoing, peer: PeerConnection, generation: Int)? = lock.withLock {
+            guard !sending, let peer else { return nil }
+
+            let item: Outgoing
+            if audioConfigOwed, let audioConfig {
+                audioConfigOwed = false
+                item = .audioConfig(audioConfig)
+            } else if let video = pending, pendingAudio != nil, sentAudioLast {
                 pending = nil
-                sending = true
-                return (frame, peer, generation)
+                sentAudioLast = false
+                item = .video(video)
+            } else if let audio = pendingAudio {
+                pendingAudio = nil
+                sentAudioLast = true
+                item = .audio(audio)
+            } else if let video = pending {
+                pending = nil
+                sentAudioLast = false
+                item = .video(video)
+            } else {
+                return nil
             }
+
+            sending = true
+            return (item, peer, generation)
+        }
         guard let outgoing else { return }
 
-        let payload = FrameEncoder.encode(
-            Frame(kind: .videoFrame, payload: outgoing.frame.encoded())
-        )
+        let payload: Data
+        switch outgoing.item {
+        case .video(let frame):
+            payload = FrameEncoder.encode(Frame(kind: .videoFrame, payload: frame.encoded()))
+        case .audioConfig(let config):
+            guard let json = try? JSONEncoder().encode(config) else {
+                lock.withLock { sending = false }
+                videoLog.error("could not encode the audio config; audio is disabled for this stream")
+                return
+            }
+            payload = FrameEncoder.encode(Frame(kind: .audioConfig, payload: json))
+        case .audio(let frame):
+            payload = FrameEncoder.encode(Frame(kind: .audioFrame, payload: frame.encoded()))
+        }
+
         outgoing.peer.send(payload) { [weak self] error in
             guard let self else { return }
 
@@ -227,11 +275,16 @@ final class VideoStreamer: @unchecked Sendable {
                 guard self.generation == outgoing.generation else { return false }
                 self.sending = false
                 if error == nil {
-                    self._stats.sent += 1
-                    // The frame's own length plus the wire header it is framed with, so the
-                    // figure is what crossed the link rather than what the encoder produced.
-                    self._stats.bytesSent += outgoing.frame.data.count + EncodedVideoFrame.headerSize
-                    if outgoing.frame.isKeyframe { self._stats.keyframesSent += 1 }
+                    switch outgoing.item {
+                    case .video(let frame):
+                        self._stats.sent += 1
+                        self._stats.bytesSent += frame.data.count + EncodedVideoFrame.headerSize
+                        if frame.isKeyframe { self._stats.keyframesSent += 1 }
+                    case .audio:
+                        self._stats.audioFramesSent += 1
+                    case .audioConfig:
+                        break
+                    }
                 }
                 return true
             }
@@ -241,5 +294,31 @@ final class VideoStreamer: @unchecked Sendable {
             }
             if stillCurrent { pump() }
         }
+    }
+
+    // MARK: - Audio
+
+    /// Retains the current audio format and orders it before every audio frame. Retaining the
+    /// format is essential for a replacement peer, which joins an already-running capture.
+    func sendAudioConfig(_ config: AudioStreamConfig) {
+        let shouldPump = lock.withLock { () -> Bool in
+            audioConfig = config
+            audioConfigOwed = peer != nil
+            pendingAudio = nil
+            return peer != nil && !sending
+        }
+        if shouldPump { pump() }
+    }
+
+    /// Offers one audio frame to the shared bounded pump. At most one waits; current sound
+    /// replaces stale sound when the network is behind instead of accumulating latency.
+    func sendAudioFrame(_ frame: EncodedAudioFrame) {
+        let shouldPump = lock.withLock { () -> Bool in
+            guard peer != nil, audioConfig != nil else { return false }
+            if pendingAudio != nil { _stats.audioFramesDropped += 1 }
+            pendingAudio = frame
+            return !sending
+        }
+        if shouldPump { pump() }
     }
 }

@@ -67,6 +67,13 @@ public final class ClientSession: @unchecked Sendable {
         /// none. Unlike ``note(_:)`` this is not a diagnostic to log: it is a caption for the
         /// picture, and it stays up until the Mac says otherwise.
         case remoteNotice(NoticePayload?)
+        /// The host's current clipboard text, delivered after a ``RemoteCommand/requestClipboard``
+        /// or pushed when the Mac's pasteboard changes.
+        case clipboard(String)
+        /// An audio stream event from the video channel.
+        case audio(AudioEvent)
+        /// A reconnectable shell session event from the authenticated control channel.
+        case terminal(TerminalEvent)
     }
 
     public enum VideoEvent: Sendable {
@@ -74,6 +81,11 @@ public final class ClientSession: @unchecked Sendable {
         case config(VideoStreamConfig)
         case frame(EncodedVideoFrame)
         case ended(String)
+    }
+
+    public enum AudioEvent: Sendable {
+        case config(AudioStreamConfig)
+        case frame(EncodedAudioFrame)
     }
 
     /// How to reach a Mac. Both paths end in the same TLS + pairing handshake; they differ
@@ -655,7 +667,17 @@ public final class ClientSession: @unchecked Sendable {
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)
             fail(payload?.message ?? "The Mac reported an error.")
 
-        case .videoConfig, .videoFrame:
+        case .clipboardContent:
+            if let payload = try? MessageCodec.decode(ClipboardPayload.self, from: frame.payload) {
+                emit(.clipboard(payload.text))
+            }
+
+        case .terminalEvent:
+            if let event = try? MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
+                emit(.terminal(event))
+            }
+
+        case .videoConfig, .videoFrame, .audioConfig, .audioFrame:
             handleVideoFrame(frame)
 
         default:
@@ -677,6 +699,13 @@ public final class ClientSession: @unchecked Sendable {
     /// ordered channel as input, and marked critical so it survives a saturated queue.
     public func selectCaptureSource(_ source: CaptureSource) {
         send(.setCaptureSource(source))
+    }
+
+    /// Sends a terminal request directly on the authenticated control stream. Unlike pointer
+    /// moves, terminal bytes must never be coalesced or reordered.
+    public func sendTerminal(_ request: TerminalRequest) {
+        guard isReady else { return }
+        connection()?.send(.terminalRequest, request)
     }
 
     private func sendNow(_ command: RemoteCommand) {
@@ -812,6 +841,16 @@ public final class ClientSession: @unchecked Sendable {
         case .error:
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)
             emit(.video(.ended(payload?.message ?? "the Mac reported an error")))
+
+        case .audioConfig:
+            if let config = try? MessageCodec.decode(AudioStreamConfig.self, from: frame.payload) {
+                emit(.audio(.config(config)))
+            }
+
+        case .audioFrame:
+            if let frame_decoded = try? EncodedAudioFrame(decoding: frame.payload) {
+                emit(.audio(.frame(frame_decoded)))
+            }
 
         default:
             break
