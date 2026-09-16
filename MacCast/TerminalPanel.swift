@@ -65,6 +65,13 @@ struct TerminalPanel: View {
                     }
                     .accessibilityLabel(isCreating ? "Cancel new terminal" : "New terminal")
                 }
+                // The keyboard's own bar, which is where iOS puts a dismiss key and therefore
+                // where the hand looks for one. It also puts it a keyboard's height away from
+                // send, which the row above could not.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { inputFocused = false }
+                }
             }
         }
         .preferredColorScheme(.dark)
@@ -128,69 +135,76 @@ struct TerminalPanel: View {
 
     /// The open terminals, as tabs.
     ///
-    /// They were capsules the height of a caption — small enough that switching between two
-    /// shells was a target you had to aim at, and with the close action hidden in a context menu
-    /// nothing on screen said a terminal could be closed at all. A browser's tabs are the shape
-    /// that already means "these are open, one of them is in front, and each can be closed":
-    /// wider than the name needs, as tall as a control rather than as tall as its text, the one
-    /// you are in drawn in the surface rather than beside it, and a cross on each.
+    /// A tab is not a chip. What makes one read as a tab is that it belongs to the thing below
+    /// it: the tab you are in is drawn in the *content's* colour, joined to it along the bottom
+    /// edge, so the page looks like it is coming up out of the tab — and the ones you are not in
+    /// sit behind it, shorter, on the other side of a hairline. Capsules with a name in them are
+    /// buttons, however they are labelled, and that is what this kept being.
     private var tabStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+            HStack(alignment: .bottom, spacing: 4) {
                 ForEach(model.terminals) { terminal in
                     tab(terminal)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.top, 10)
+            // The rule the tabs stand on. The selected tab is drawn over it and in the content's
+            // own black, which is the seam that makes the two one object.
+            .background(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 1)
+            }
         }
-        // No band behind the row. A faint fill across the full width was reading as a grey-green
-        // stripe hanging under the title bar — a surface that belongs to nothing, on a panel that
-        // is otherwise the terminal's own black from the header down.
     }
 
     private func tab(_ terminal: RemoteTerminal) -> some View {
         let isSelected = model.selectedTerminalID == terminal.id
-        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
-        return HStack(spacing: 8) {
-            // Green while the shell is alive, grey once it has exited. The same vocabulary the
-            // status pill uses for a streaming Mac, which is the point of putting it here.
-            Circle()
-                .fill(terminal.isRunning ? Color.green : Color.secondary)
-                .frame(width: 7, height: 7)
-
+        // Rounded at the top only, and flat along the bottom where it meets the content.
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: 10,
+            topTrailingRadius: 10,
+            style: .continuous
+        )
+        return HStack(spacing: 7) {
             Text(terminal.name)
-                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? ColorPalette.ink : .secondary)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? ColorPalette.ink : Color.secondary)
                 .lineLimit(1)
 
             if terminal.attention != nil {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(.orange)
             }
 
-            Button {
-                model.closeTerminal(terminal.id)
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    // A hit area rather than a glyph: an 11-point cross is not something a thumb
-                    // can be asked to hit, and this one closes a shell.
-                    .frame(width: 24, height: 24)
-                    .contentShape(Rectangle())
+            // On the tab you are in and nowhere else — the close action belongs to the page you
+            // are looking at, and a cross on every tab is a row of little forms to fill in.
+            if isSelected {
+                Button {
+                    model.closeTerminal(terminal.id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close \(terminal.name)")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close \(terminal.name)")
         }
         .padding(.leading, 13)
-        .padding(.trailing, 5)
-        // Tall enough to be a control, and wide enough that a one-word name is not a sliver.
-        .frame(minWidth: 108, minHeight: 44)
-        // The tab you are in is the lit one, and the others are quieter — the browser's own rule,
-        // and the reason it works is that it needs no legend: the surface says which is in front.
-        .background(isSelected ? AnyShapeStyle(Color.white.opacity(0.16)) : AnyShapeStyle(Color.white.opacity(0.045)), in: shape)
+        .padding(.trailing, isSelected ? 5 : 13)
+        // The tab in front is taller than the ones behind it, which is how a tab bar says where
+        // you are without a legend.
+        .frame(height: isSelected ? 38 : 32)
+        .frame(minWidth: isSelected ? 112 : 78, alignment: .leading)
+        .background(
+            isSelected ? AnyShapeStyle(Color.black) : AnyShapeStyle(Color.white.opacity(0.05)),
+            in: shape
+        )
         .overlay {
             shape.strokeBorder(
                 isSelected ? Color.white.opacity(0.16) : Color.white.opacity(0.07),
@@ -318,17 +332,9 @@ struct TerminalPanel: View {
                 Image(systemName: "arrow.up.circle.fill").font(.title2)
             }
             .disabled(!terminal.isRunning || command.isEmpty)
-            // The keyboard has no dismiss key, so the panel provides one. Without it the field
-            // takes focus on arrival and the keyboard stays for the life of the screen, over the
-            // output the screen exists to show.
-            Button {
-                inputFocused = false
-            } label: {
-                Image(systemName: "keyboard.chevron.compact.down")
-                    .font(.system(size: 17))
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityLabel("Hide the keyboard")
+            // The keyboard's dismiss key is in the keyboard's own toolbar — see `body`. It used
+            // to be a second button here, half an inch from send, and two buttons of different
+            // meaning that close together is a row you have to aim in.
         }
         // Away from the edge. At 10 the field's text started close enough to the screen's edge
         // that the caret sat against it, which reads as clipped rather than as inset.
@@ -346,20 +352,67 @@ struct TerminalPanel: View {
     private func keyStrip(_ id: UUID) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                terminalKey("esc", label: "Escape") { model.sendTerminalBytes([0x1B], to: id) }
-                terminalKey("tab", label: "Tab") { model.sendTerminalBytes([0x09], to: id) }
-                terminalKey("⌃C", label: "Interrupt") { model.sendTerminalBytes([0x03], to: id) }
-                terminalKey("⌃D", label: "End of input") { model.sendTerminalBytes([0x04], to: id) }
-                terminalKey("↑", label: "Up") { model.sendTerminalBytes(Array("\u{1B}[A".utf8), to: id) }
-                terminalKey("↓", label: "Down") { model.sendTerminalBytes(Array("\u{1B}[B".utf8), to: id) }
-                terminalKey("←", label: "Left") { model.sendTerminalBytes(Array("\u{1B}[D".utf8), to: id) }
-                terminalKey("→", label: "Right") { model.sendTerminalBytes(Array("\u{1B}[C".utf8), to: id) }
-                terminalKey("return", label: "Return") { model.sendTerminalBytes([0x0D], to: id) }
+                // Editing and the shell's own control keys first, then a group of navigation
+                // keys, then the two that end a line. The order is the order they are reached
+                // for: ⌃C is the one key a phone terminal cannot do without, and it should never
+                // be a scroll away.
+                terminalKey("esc", label: "Escape") { send("\u{1B}", to: id) }
+                terminalKey("tab", label: "Tab") { send("\t", to: id) }
+                terminalKey("⇧tab", label: "Back tab") { send("\u{1B}[Z", to: id) }
+                terminalKey("⌃C", label: "Interrupt") { send("\u{03}", to: id) }
+                terminalKey("⌃D", label: "End of input") { send("\u{04}", to: id) }
+                terminalKey("⌃Z", label: "Suspend") { send("\u{1A}", to: id) }
+                terminalKey("⌃L", label: "Clear screen") { send("\u{0C}", to: id) }
+                terminalKey("⌃R", label: "Search history") { send("\u{12}", to: id) }
+                terminalKey("⌃A", label: "Start of line") { send("\u{01}", to: id) }
+                terminalKey("⌃E", label: "End of line") { send("\u{05}", to: id) }
+                terminalKey("⌃K", label: "Delete to end of line") { send("\u{0B}", to: id) }
+                terminalKey("⌃U", label: "Delete to start of line") { send("\u{15}", to: id) }
+                terminalKey("⌃W", label: "Delete word before") { send("\u{17}", to: id) }
+
+                divider
+
+                terminalKey("↑", label: "Up") { send("\u{1B}[A", to: id) }
+                terminalKey("↓", label: "Down") { send("\u{1B}[B", to: id) }
+                terminalKey("←", label: "Left") { send("\u{1B}[D", to: id) }
+                terminalKey("→", label: "Right") { send("\u{1B}[C", to: id) }
+                // Word at a time. Option rather than Control because that is what macOS
+                // Terminal binds, and the escape sequences it produces are what bash and zsh
+                // read as "a word" — ⌃← would move by a word in some shells and by a character
+                // in others.
+                terminalKey("⌥←", label: "Word left") { send("\u{1B}b", to: id) }
+                terminalKey("⌥→", label: "Word right") { send("\u{1B}f", to: id) }
+                terminalKey("home", label: "Home") { send("\u{1B}[H", to: id) }
+                terminalKey("end", label: "End") { send("\u{1B}[F", to: id) }
+                terminalKey("pg↑", label: "Page up") { send("\u{1B}[5~", to: id) }
+                terminalKey("pg↓", label: "Page down") { send("\u{1B}[6~", to: id) }
+
+                divider
+
+                terminalKey("ins", label: "Insert") { send("\u{1B}[2~", to: id) }
+                terminalKey("del", label: "Delete forward") { send("\u{1B}[3~", to: id) }
+                terminalKey("⌫", label: "Backspace") { send("\u{7F}", to: id) }
+                terminalKey("return", label: "Return") { send("\r", to: id) }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
         .background(Color.white.opacity(0.05))
+    }
+
+    /// Between the groups in the key strip. The strip is long now, and a wall of thirty keys is
+    /// one a thumb has to read from the left every time; three groups of them, split by what they
+    /// are for, is a strip where you know roughly how far to travel.
+    private var divider: some View {
+        Rectangle()
+            .frame(width: 1, height: 22)
+            .foregroundStyle(.white.opacity(0.15))
+            .padding(.horizontal, 2)
+    }
+
+    /// Sends bytes, which is all any of these keys do.
+    private func send(_ text: String, to id: UUID) {
+        model.sendTerminalBytes(Array(text.utf8), to: id)
     }
 
     private func terminalKey(_ title: String, label: String, action: @escaping () -> Void) -> some View {

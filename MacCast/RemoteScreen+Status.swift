@@ -277,10 +277,13 @@ extension RemoteScreen {
                     }
                 }
                 .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 // Two lines rather than one, and a fixed height for the same reason it was fixed
                 // before: a pill that resized itself as a source changed would move the picture
-                // under a finger that is aiming at it.
-                .frame(height: 46)
+                // under a finger that is aiming at it. Tall enough that the two lines have room
+                // above and below them — at 46 the first line sat hard against the top edge and
+                // the Mac's name looked like it had been pushed up out of the pill.
+                .frame(height: 54)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
                 // Opacity only, and on its own clock — see ``pillContents``. The scale that was

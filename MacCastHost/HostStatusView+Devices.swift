@@ -115,6 +115,20 @@ extension HostStatusView {
                     .font(.system(size: 9, weight: .bold))
                     .tracking(0.7)
                     .foregroundStyle(HostPalette.success)
+
+                // Ends the session and keeps the trust. It is the smaller of the two hammers
+                // and the one that is wanted almost every time — the other costs a pairing code
+                // and a walk to the Mac.
+                Button {
+                    model.disconnect(clientID: id)
+                } label: {
+                    Image(systemName: "bolt.slash")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 20, height: 20)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(hoveredDeviceID == id ? HostPalette.ink : HostPalette.muted)
+                .help("Disconnect \(name) — it stays trusted and can reconnect")
             }
             Button(role: .destructive) {
                 forgetDevice = (id, name)
@@ -125,7 +139,7 @@ extension HostStatusView {
             }
             .buttonStyle(.plain)
             .foregroundStyle(hoveredDeviceID == id ? HostPalette.danger : HostPalette.faint)
-            .help("Forget (name)")
+            .help("Forget \(name) — it will have to pair again")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

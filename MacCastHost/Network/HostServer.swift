@@ -191,6 +191,21 @@ final class HostServer: @unchecked Sendable {
         return true
     }
 
+    /// Ends a client's session without revoking it.
+    ///
+    /// The difference from ``unpair(clientID:)`` is the pin, and it is the whole point: the phone
+    /// stays trusted and reconnects by itself. Until this existed, the only way to end a session
+    /// from the Mac was to forget the device — which costs a pairing code and a walk to the Mac,
+    /// on a host whose whole design is that nobody has to walk to it.
+    func disconnect(clientID: String) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            for session in controlSessions where session.clientID == clientID {
+                session.cancel()
+            }
+        }
+    }
+
     var pairedClientIDs: [String] { pins.peerIDs }
 
     // MARK: - Advertising

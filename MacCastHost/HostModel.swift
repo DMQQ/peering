@@ -683,6 +683,17 @@ final class HostModel {
     /// Go through the server while it is running so an already-connected phone is disconnected
     /// as well as removed from the Keychain. Before startup there cannot be an active session,
     /// so the store itself is sufficient.
+    /// Drops a phone's connection and leaves it trusted.
+    ///
+    /// Deliberately not forgetful: the pin stays, so the same phone reconnects on its own, and no
+    /// pairing code is needed. What it is for is the case where the session should stop *now* —
+    /// someone else wants the screen, or the wrong device is attached — and the answer until now
+    /// was "Forget", which is a much bigger hammer than the problem.
+    func disconnect(clientID: String) {
+        server?.disconnect(clientID: clientID)
+        record("Disconnected \(displayName(for: clientID))")
+    }
+
     func unpair(clientID: String) {
         guard let pins else { return }
         let removed = server?.unpair(clientID: clientID) ?? pins.remove(peerID: clientID)
