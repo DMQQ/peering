@@ -16,6 +16,7 @@ extension VideoCodec {
     var wireCodec: RemoteCore.VideoCodec {
         switch self {
         case .h264: return .h264
+        case .hevc: return .hevc
         }
     }
 }

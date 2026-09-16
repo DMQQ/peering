@@ -64,7 +64,7 @@ struct SettingsPanel: View {
         ) {
             Button("Lock Mac", role: .destructive) { model.lockMac() }
         } message: {
-            Text("You will need to unlock it locally with its password, Touch ID, or Apple Watch.")
+            Text("The Mac will lock immediately. macOS does not allow a remote app to bypass its secure login screen, so someone must unlock it locally. Peering will reconnect automatically after wake or unlock.")
         }
     }
 
@@ -80,7 +80,7 @@ struct SettingsPanel: View {
             }
             info("This device", model.thisDeviceDescription)
             Button(role: .destructive) { confirmLock = true } label: {
-                Label("Lock Mac", systemImage: "lock.fill")
+                Label("Lock Mac · unlock locally", systemImage: "lock.fill")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 9)
@@ -300,7 +300,7 @@ struct SettingsPanel: View {
         case .confirming: return "Waiting for the code comparison"
         case .ready: return "Connected"
         case .failed(let message): return "Failed: \(message)"
-        case .disconnected: return "Disconnected"
+        case .disconnected: return model.isReconnecting ? "Offline · reconnecting…" : "Disconnected"
         }
     }
 }

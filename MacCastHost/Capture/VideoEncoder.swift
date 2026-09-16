@@ -11,12 +11,16 @@ private let encoderLog = Logger(subsystem: "pl.dmq.peering.host", category: "enc
 /// An enum rather than a bare `CMVideoCodecType` so the choice lives in one place: adding
 /// HEVC means a case here and a branch in ``parameterSets(from:)``, not a search for every
 /// place `kCMVideoCodecType_H264` was written.
-enum VideoCodec: Sendable, Equatable {
+enum VideoCodec: String, CaseIterable, Sendable, Equatable {
     case h264
+    case hevc
+
+    var title: String { rawValue.uppercased() }
 
     var codecType: CMVideoCodecType {
         switch self {
         case .h264: return kCMVideoCodecType_H264
+        case .hevc: return kCMVideoCodecType_HEVC
         }
     }
 
@@ -29,6 +33,8 @@ enum VideoCodec: Sendable, Equatable {
             // pick the level from the frame size instead of failing when a 5K display
             // exceeds the level that was hardcoded.
             return kVTProfileLevel_H264_Main_AutoLevel
+        case .hevc:
+            return kVTProfileLevel_HEVC_Main_AutoLevel
         }
     }
 
@@ -60,6 +66,27 @@ enum VideoCodec: Sendable, Equatable {
                 index += 1
             }
 
+            guard !sets.isEmpty else { return nil }
+            return ParameterSets(sets: sets, nalUnitHeaderLength: Int(nalUnitHeaderLength))
+        case .hevc:
+            var sets: [Data] = []
+            var nalUnitHeaderLength: Int32 = 0
+            var index = 0
+            while true {
+                var pointer: UnsafePointer<UInt8>?
+                var size = 0
+                let status = CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(
+                    formatDescription,
+                    parameterSetIndex: index,
+                    parameterSetPointerOut: &pointer,
+                    parameterSetSizeOut: &size,
+                    parameterSetCountOut: nil,
+                    nalUnitHeaderLengthOut: &nalUnitHeaderLength
+                )
+                guard status == noErr, let pointer, size > 0 else { break }
+                sets.append(Data(bytes: pointer, count: size))
+                index += 1
+            }
             guard !sets.isEmpty else { return nil }
             return ParameterSets(sets: sets, nalUnitHeaderLength: Int(nalUnitHeaderLength))
         }

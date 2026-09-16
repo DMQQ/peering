@@ -33,7 +33,9 @@ struct MacCastApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SecuredRootView {
+                ContentView()
+            }
                 .environment(model)
                 .task {
                     model.start()

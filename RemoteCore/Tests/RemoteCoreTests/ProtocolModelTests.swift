@@ -259,4 +259,27 @@ struct RemoteCommandTests {
 
         #expect(!RemoteCommand.mouseMove(to: NormalizedPoint(x: 0, y: 0)).isCritical)
     }
+
+    @Test("observe mode can distinguish input from session controls")
+    func userInputClassification() {
+        let input: [RemoteCommand] = [
+            .mouseMove(to: NormalizedPoint(x: 0.5, y: 0.5)),
+            .mouseDown(button: .left), .mouseUp(button: .left),
+            .scroll(dx: 0, dy: 1), .textInput("hello"),
+            .keyDown(keyCode: 0, modifiers: []), .keyUp(keyCode: 0, modifiers: []),
+            .switchSpace(direction: .right), .switchToSpace(display: 1, index: 2),
+            .joystickMove(dx: 1, dy: 0),
+        ]
+        #expect(input.allSatisfy { $0.isUserInput })
+
+        let sessionControls: [RemoteCommand] = [
+            .setCaptureSource(.display(1)),
+            .launchApplication(bundleIdentifier: "com.example.Editor"),
+            .setStreamQuality(fps: 0, bitrateKbps: 8_000),
+            .refreshSpacePreviews,
+            .setPrivacyMode(enabled: true),
+            .lockScreen,
+        ]
+        #expect(sessionControls.allSatisfy { !$0.isUserInput })
+    }
 }

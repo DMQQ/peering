@@ -103,15 +103,17 @@ final class SessionModel {
     }
 
     enum StreamQuality: String, CaseIterable, Hashable, Sendable {
+        case auto   = "Auto"
         case low    = "Low"
         case medium = "Med"
         case high   = "High"
 
-        var bitrateKbps: Int {
+        var bitrateKbps: Int? {
             switch self {
-            case .low:    return 2_000
+            case .auto: return nil
+            case .low: return 2_000
             case .medium: return 8_000
-            case .high:   return 20_000
+            case .high: return 20_000
             }
         }
     }
@@ -136,7 +138,9 @@ final class SessionModel {
     private(set) var isVideoStreaming = false
     private(set) var connectionPath: ConnectionPath?
     private(set) var pairedHostIDs: [String] = []
-    private(set) var streamQuality: StreamQuality = .high
+    private(set) var streamQuality: StreamQuality = .auto
+    private var autoQualityPolicy = AutoQualityPolicy(path: .lan)
+    private var lastAutoDroppedFrames = 0
     /// Optimistic state for the current session's physical-display privacy command. The host
     /// always restores brightness when the last client disconnects.
     private(set) var privacyModeEnabled = false
@@ -256,6 +260,7 @@ final class SessionModel {
     private static let manualAddressKey = "Peering.manualAddress"
     private static let manualPortKey = "Peering.manualPort"
     private(set) var keyboardMode: KeyboardMode = .unicode
+    private(set) var isObserving = false
     private(set) var latchedModifiers: Modifiers = []
     private(set) var activeSourceID: String?
 
@@ -395,6 +400,8 @@ final class SessionModel {
             // the wrong machine.
             UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
         }
+        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
+        lastAutoDroppedFrames = 0
         // A widget is not a live view and is not told anything. Without this it goes on showing
         // the previous Mac until the system next feels like refreshing it, which on a widget
         // that changes twice a year could be tomorrow.
@@ -506,6 +513,7 @@ final class SessionModel {
                 // A handshake that reached `.ready` has just established or confirmed a pin, and
                 // that is one of the few moments the paired list can have changed.
                 publishKnownMacs()
+                applyInitialAutoQualityIfNeeded()
             }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
@@ -646,6 +654,7 @@ final class SessionModel {
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
                     self.updateFrameRate(from: snapshot)
+                    self.updateAutoQuality(from: snapshot)
 
                     let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
                     let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
@@ -1073,7 +1082,29 @@ final class SessionModel {
     /// rules about what may be merged and what must never be dropped live in one place
     /// instead of in each gesture recogniser.
     func send(_ command: RemoteCommand) {
+        guard !isObserving || !command.isUserInput else { return }
         session?.send(command)
+    }
+
+    func setObserveOnly(_ enabled: Bool) {
+        guard enabled != isObserving else { return }
+
+        // A modifier that was latched before Observe was selected must be released on the Mac.
+        // Clearing only the phone's visual state would leave Command/Shift held remotely with
+        // Observe mode deliberately blocking the button that could release it.
+        if enabled {
+            let held: [(Modifiers, UInt16)] = [
+                (.command, 55),
+                (.shift, 56),
+                (.option, 58),
+                (.control, 59),
+            ]
+            for (modifier, keyCode) in held where latchedModifiers.contains(modifier) {
+                session?.send(.keyUp(keyCode: keyCode, modifiers: []))
+            }
+            latchedModifiers = []
+        }
+        isObserving = enabled
     }
 
     func setPrivacyMode(_ enabled: Bool) {
@@ -1195,7 +1226,47 @@ final class SessionModel {
 
     func setStreamQuality(_ quality: StreamQuality) {
         streamQuality = quality
-        send(.setStreamQuality(fps: 0, bitrateKbps: quality.bitrateKbps))
+        if let bitrateKbps = quality.bitrateKbps {
+            send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
+        } else {
+            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
+            lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
+            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+        }
+    }
+
+    private var autoQualityPath: AutoQualityPolicy.Path {
+        switch connectionPath {
+        case .lan: return .lan
+        case .relay: return .relay
+        case .direct, nil: return .direct
+        }
+    }
+
+    private func applyInitialAutoQualityIfNeeded() {
+        guard streamQuality == .auto else { return }
+        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
+        lastAutoDroppedFrames = 0
+        send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+    }
+
+    private func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
+        guard streamQuality == .auto, let latencyMilliseconds else {
+            lastAutoDroppedFrames = snapshot.framesDropped
+            return
+        }
+
+        let newDrops = snapshot.framesDropped >= lastAutoDroppedFrames
+            ? snapshot.framesDropped - lastAutoDroppedFrames
+            : 0
+        lastAutoDroppedFrames = snapshot.framesDropped
+
+        guard let tier = autoQualityPolicy.observe(
+            latencyMilliseconds: latencyMilliseconds,
+            newDroppedFrames: newDrops
+        ) else { return }
+        send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
+        append(note: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps")
     }
 
     func handleBackspace() {

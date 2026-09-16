@@ -88,7 +88,7 @@ struct ConnectToMacIntent: AppIntent {
 
 struct DisconnectIntent: AppIntent {
     static var title: LocalizedStringResource = "Disconnect"
-    static var description = IntentDescription("Ends the Peering session with your Mac.")
+    static var description = IntentDescription("Ends the current Peering session.")
     /// No app needed to *stop*: if the app is not running there is no session to end, and
     /// bringing it to the front to say so would be the opposite of what was asked.
     static var openAppWhenRun: Bool = false

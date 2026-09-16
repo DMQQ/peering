@@ -12,6 +12,37 @@ import XCTest
 
 final class MacCastTests: XCTestCase {
 
+    func testAutoQualityStartsConservativelyForTheConnectionPath() {
+        XCTAssertEqual(AutoQualityPolicy(path: .lan).tier, .high)
+        XCTAssertEqual(AutoQualityPolicy(path: .direct).tier, .high)
+        XCTAssertEqual(AutoQualityPolicy(path: .relay).tier, .medium)
+    }
+
+    func testAutoQualityDropsImmediatelyWhenLatencyOrDropsRise() {
+        var policy = AutoQualityPolicy(path: .lan)
+
+        XCTAssertEqual(policy.observe(latencyMilliseconds: 190, newDroppedFrames: 0), .medium)
+        XCTAssertEqual(policy.observe(latencyMilliseconds: 40, newDroppedFrames: 1), .low)
+    }
+
+    func testAutoQualityNeedsSustainedHealthBeforeRaisingBitrate() {
+        var policy = AutoQualityPolicy(path: .relay)
+
+        for _ in 0..<(AutoQualityPolicy.healthySamplesForUpgrade - 1) {
+            XCTAssertNil(policy.observe(latencyMilliseconds: 55, newDroppedFrames: 0))
+        }
+        XCTAssertEqual(policy.observe(latencyMilliseconds: 55, newDroppedFrames: 0), .high)
+    }
+
+    func testAutoQualityDoesNotRaiseRelayQualityOnMediocreLatency() {
+        var policy = AutoQualityPolicy(path: .relay)
+
+        for _ in 0..<(AutoQualityPolicy.healthySamplesForUpgrade * 2) {
+            XCTAssertNil(policy.observe(latencyMilliseconds: 110, newDroppedFrames: 0))
+        }
+        XCTAssertEqual(policy.tier, .medium)
+    }
+
     func testDeltaVideoSampleIsMarkedAsDependentAndNotSync() throws {
         let sample = try makeVideoSample(isKeyframe: false)
 
@@ -116,6 +147,15 @@ final class MacCastTests: XCTestCase {
         XCTAssertFalse(mode.tapsReachTheMac)
     }
 
+    func testObserveModeCanInspectThePictureWithoutInput() {
+        let mode = InteractionMode.observe
+
+        XCTAssertTrue(mode.oneFingerDragPansCanvas)
+        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: false))
+        XCTAssertTrue(mode.pinchZoomsCanvas)
+        XCTAssertFalse(mode.tapsReachTheMac)
+    }
+
     // MARK: - Putting a panel away
 
     // A panel is modal in intent but not in shape: it covers a corner of the picture and the rest
@@ -158,10 +198,9 @@ final class MacCastTests: XCTestCase {
         }
     }
 
-    func testTogglingInteractionModeIsItsOwnInverse() {
+    func testInteractionModeButtonCyclesThroughEveryMode() {
         for mode in InteractionMode.allCases {
-            XCTAssertEqual(mode.toggled.toggled, mode)
-            XCTAssertNotEqual(mode.toggled, mode)
+            XCTAssertEqual(mode.toggled.toggled.toggled, mode)
         }
     }
 

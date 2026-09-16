@@ -63,6 +63,7 @@ struct HostStatusView: View {
     /// than one that puts the real number back.
     @State private var portDraft = ""
     @FocusState private var portFocused: Bool
+    @State private var forgetDevice: (id: String, name: String)?
 
     var body: some View {
         NavigationSplitView {
@@ -110,6 +111,23 @@ struct HostStatusView: View {
                 preview = shot
                 try? await Task.sleep(for: .seconds(2))
             }
+        }
+        .confirmationDialog(
+            "Forget \(forgetDevice?.name ?? "this iPhone")?",
+            isPresented: Binding(
+                get: { forgetDevice != nil },
+                set: { if !$0 { forgetDevice = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Forget", role: .destructive) {
+                guard let target = forgetDevice else { return }
+                model.unpair(clientID: target.id)
+                forgetDevice = nil
+            }
+            Button("Cancel", role: .cancel) { forgetDevice = nil }
+        } message: {
+            Text("This phone will be disconnected and must pair again before it can control this Mac.")
         }
     }
 
@@ -475,6 +493,10 @@ struct HostStatusView: View {
 
                 Divider().padding(.leading, 52)
 
+                codecRow
+
+                Divider().padding(.leading, 52)
+
                 portRow
             }
             .background(HostPalette.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -640,6 +662,27 @@ struct HostStatusView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    private var codecRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "film.stack")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 26, height: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Video codec").font(.subheadline.weight(.medium))
+                Text("HEVC saves bandwidth on supported devices. Applies when the next stream starts.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            Picker("", selection: Binding(get: { model.captureCodec }, set: { model.setCaptureCodec($0) })) {
+                ForEach(VideoCodec.allCases, id: \.self) { codec in Text(codec.title).tag(codec) }
+            }
+            .labelsHidden().pickerStyle(.segmented).controlSize(.small)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
     }
 
     /// The port, as a field rather than the label it used to be.
@@ -884,9 +927,15 @@ struct HostStatusView: View {
                     .monospacedDigit()
             }
             Spacer(minLength: 12)
-            Circle()
-                .fill(connected ? HostPalette.ink : HostPalette.faint.opacity(0.4))
-                .frame(width: 7, height: 7)
+            if connected {
+                Circle()
+                    .fill(HostPalette.ink)
+                    .frame(width: 7, height: 7)
+            }
+            Button("Forget", role: .destructive) {
+                forgetDevice = (id, name)
+            }
+            .controlSize(.small)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

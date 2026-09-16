@@ -13,6 +13,8 @@ enum InteractionMode: String, CaseIterable, Identifiable {
     case control
     /// Fingers drive the picture: drag pans, pinch zooms, and nothing reaches the Mac.
     case navigate
+    /// The picture can be inspected, while every input command is blocked.
+    case observe
 
     var id: String { rawValue }
 
@@ -20,6 +22,7 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         switch self {
         case .control: return "View & scroll"
         case .navigate: return "Drag & zoom"
+        case .observe: return "Observe"
         }
     }
 
@@ -27,15 +30,22 @@ enum InteractionMode: String, CaseIterable, Identifiable {
         switch self {
         case .control: return "hand.point.up.left"
         case .navigate: return "arrow.up.left.and.arrow.down.right"
+        case .observe: return "eye"
         }
     }
 
-    var toggled: InteractionMode { self == .control ? .navigate : .control }
+    var toggled: InteractionMode {
+        switch self {
+        case .control: return .navigate
+        case .navigate: return .observe
+        case .observe: return .control
+        }
+    }
 }
 
 extension InteractionMode {
     /// Whether a one-finger drag moves the picture rather than the Mac's pointer.
-    var oneFingerDragPansCanvas: Bool { self == .navigate }
+    var oneFingerDragPansCanvas: Bool { self != .control }
 
     /// Whether a two-finger drag moves the picture rather than scrolling the Mac.
     ///
@@ -50,7 +60,7 @@ extension InteractionMode {
     /// overflows its view is the thing the user is looking at. The zoom is on screen in the
     /// pill besides — see the percentage readout in ``RemoteScreen``.
     func twoFingerDragPansCanvas(isZoomed: Bool) -> Bool {
-        self == .navigate || isZoomed
+        self != .control || isZoomed
     }
 
     /// Whether a tap is a click on the Mac. False in drag & zoom, where a tap is nothing at all
@@ -70,7 +80,7 @@ extension InteractionMode {
     /// guard below runs before `isPinching` is set, so a pinch in view & scroll never claims its
     /// fingers — and what it falls through to is the two-finger scroll, which is what those
     /// fingers were going to do anyway.
-    var pinchZoomsCanvas: Bool { self == .navigate }
+    var pinchZoomsCanvas: Bool { self != .control }
 }
 
 /// The gesture surface over the video.

@@ -27,6 +27,7 @@ struct HostPickerView: View {
     /// been dismissed. Read here so the link can exist at all — the flow itself reads the same
     /// key from `ContentView`, which is what actually shows it.
     @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = true
+    @AppStorage(PreferenceKey.requireBiometricUnlock) private var requiresBiometricUnlock = false
 
     private var failureAlert: Binding<Bool> {
         Binding(
@@ -70,6 +71,7 @@ struct HostPickerView: View {
                         nearbyCard
                         pairedCard
                         manualCard(address: $model.manualAddress, port: $model.manualPort)
+                        securityCard
                         footer
                     }
                     .padding(.horizontal, 18)
@@ -175,42 +177,58 @@ struct HostPickerView: View {
     /// small dishonest sentence that costs an app its credibility the moment a user finds out.
     /// What is true is stated instead, and ``FAQView`` has the rest.
     private var footer: some View {
-        VStack(spacing: 5) {
-            Text(model.thisDeviceDescription)
-                .font(.caption2.monospaced())
-                // The one line here that is genuinely small print, and the only one that stays
-                // at tertiary. It is an identifier, not a sentence.
-                .foregroundStyle(.tertiary)
+        VStack(spacing: 16) {
+            VStack(spacing: 8) {
+                Text(model.thisDeviceDescription)
+                    .font(.caption2.monospaced())
+                    // The one line here that is genuinely small print, and the only one that stays
+                    // at tertiary. It is an identifier, not a sentence.
+                    .foregroundStyle(.tertiary)
 
-            Text("No account, nothing stored. Direct on your own network, relayed only when your Mac is somewhere else.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                Text("No account, nothing stored. Direct on your own network, relayed only when your Mac is somewhere else.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
-            VStack(spacing: 2) {
+            VStack(spacing: 10) {
                 NavigationLink {
                     FAQView()
                 } label: {
-                    Text("How Peering works")
-                        .font(.caption2.weight(.medium))
+                    footerActionLabel("How Peering works", systemImage: "questionmark.circle")
                 }
                 .buttonStyle(RailButtonStyle(scale: 0.98))
 
-                Button("Show the introduction again") {
+                Button {
                     hasSeenWelcome = false
+                } label: {
+                    footerActionLabel("Show the introduction again", systemImage: "rectangle.stack")
                 }
-                .font(.caption2.weight(.medium))
                 .buttonStyle(RailButtonStyle(scale: 0.98))
             }
-            // Blue, the same blue the manual-connect row above uses for the one thing on it that
-            // is a control. Everything here was tertiary, which is a shade chosen for text that
-            // is not meant to be read closely — and then two buttons were put in it, at the
-            // bottom of a screen, where nothing is legible at arm's length.
-            .foregroundStyle(ColorPalette.accent)
-            .padding(.top, 5)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
+    }
+
+    /// A footer action is a row, not a text link. Besides making the two choices visually
+    /// distinct, the fixed minimum height gives each one a comfortable thumb-sized tap target.
+    private func footerActionLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .frame(width: 20)
+            Text(title)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(ColorPalette.accent)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(ColorPalette.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .contentShape(Rectangle())
     }
 
     private var nearbyCard: some View {
@@ -252,6 +270,43 @@ struct HostPickerView: View {
                 }
                 Text(model.browseStatus).font(.caption).foregroundStyle(.secondary)
             }
+        }
+        .cardSurface()
+    }
+
+    private var securityCard: some View {
+        HStack(spacing: 12) {
+            iconTile("faceid")
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Protect paired Macs")
+                    .font(.subheadline.weight(.semibold))
+                Text("Require Face ID when Peering is opened again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+
+            Toggle("", isOn: Binding(
+                get: { requiresBiometricUnlock },
+                set: { requested in
+                    guard requested else {
+                        requiresBiometricUnlock = false
+                        return
+                    }
+                    Task {
+                        if await DeviceAuthentication.authenticate(
+                            reason: "Protect access to your paired Macs."
+                        ) {
+                            requiresBiometricUnlock = true
+                        }
+                    }
+                }
+            ))
+            .labelsHidden()
+            .disabled(!DeviceAuthentication.isAvailable)
         }
         .cardSurface()
     }

@@ -137,4 +137,17 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return false
         }
     }
+
+    /// Commands that can change what a person or application on the Mac is doing.
+    /// Stream/session controls stay available in observe mode; pointer and keyboard input do not.
+    public var isUserInput: Bool {
+        switch self {
+        case .mouseMove, .mouseDown, .mouseUp, .scroll, .keyDown, .keyUp, .textInput,
+             .switchSpace, .switchToSpace, .joystickMove:
+            return true
+        case .setCaptureSource, .launchApplication, .setStreamQuality, .refreshSpacePreviews,
+             .setPrivacyMode, .lockScreen:
+            return false
+        }
+    }
 }

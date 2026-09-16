@@ -202,6 +202,8 @@ enum PreferenceKey {
     /// Read in two places that have to agree — ``SessionModel``, which decides whether to dial
     /// it, and ``SettingsPanel``/``FAQView``, which say so in words. One spelling.
     static let allowRelay = "Peering.allowRelay"
+    /// Whether opening Peering requires the device owner's biometric authentication.
+    static let requireBiometricUnlock = "Peering.requireBiometricUnlock"
 }
 
 /// A section heading: small, tracked, uppercase.

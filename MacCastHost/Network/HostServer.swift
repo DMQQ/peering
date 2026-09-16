@@ -159,6 +159,23 @@ final class HostServer: @unchecked Sendable {
         pins.removeAll()
     }
 
+    /// Revokes one client and ends any session it already has open.
+    ///
+    /// Removing the pin only changes the next handshake. A phone that is already authorized
+    /// would otherwise keep its control and video sockets until it chose to disconnect, which
+    /// is not what "Forget" promises. The Keychain write is synchronous and lock-protected;
+    /// session ownership stays on the server queue.
+    func unpair(clientID: String) -> Bool {
+        guard pins.remove(peerID: clientID) else { return false }
+        queue.async { [weak self] in
+            guard let self else { return }
+            for session in controlSessions where session.clientID == clientID {
+                session.cancel()
+            }
+        }
+        return true
+    }
+
     var pairedClientIDs: [String] { pins.peerIDs }
 
     // MARK: - Advertising

@@ -274,6 +274,7 @@ final class HostModel {
 
     private static let captureResolutionKey = "captureResolution"
     private static let captureFrameRateKey = "captureFrameRate"
+    private static let captureCodecKey = "captureCodec"
 
     /// What the picture is made of: how many pixels a frame carries, and how many frames a
     /// second.
@@ -294,8 +295,13 @@ final class HostModel {
         return CaptureFrameRate(rawValue: stored) ?? .sixty
     }
 
+    private static func storedCaptureCodec() -> VideoCodec {
+        UserDefaults.standard.string(forKey: captureCodecKey).flatMap(VideoCodec.init(rawValue:)) ?? .h264
+    }
+
     private(set) var captureResolution: CaptureResolution = HostModel.storedCaptureResolution()
     private(set) var captureFrameRate: CaptureFrameRate = HostModel.storedCaptureFrameRate()
+    private(set) var captureCodec: VideoCodec = HostModel.storedCaptureCodec()
 
     /// These take effect on the next stream, not on the one already running.
     ///
@@ -314,6 +320,12 @@ final class HostModel {
         captureFrameRate = frameRate
         UserDefaults.standard.set(frameRate.rawValue, forKey: Self.captureFrameRateKey)
         applyCaptureFormat()
+    }
+
+    func setCaptureCodec(_ codec: VideoCodec) {
+        captureCodec = codec
+        UserDefaults.standard.set(codec.rawValue, forKey: Self.captureCodecKey)
+        record("Codec set to \(codec.title); it applies when the next stream starts")
     }
 
     /// Hands the pair to the coordinator, which reads them when a capture starts.
@@ -395,7 +407,7 @@ final class HostModel {
         let resolver = ScreenCaptureSourceResolver { [weak self] in
             Task { @MainActor [weak self] in self?.coordinator?.refreshCatalog() }
         }
-        let pipeline = CapturePipeline(resolver: resolver, overlay: cursorOverlay)
+        let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec, overlay: cursorOverlay)
         let coordinator = VideoCoordinator(pipeline: pipeline)
         // Before any capture can start — the first video connection may arrive seconds from
         // now, and a coordinator that had not been told would build the first stream of the
@@ -694,6 +706,27 @@ final class HostModel {
         } else {
             record("Could not clear paired clients", level: .failure)
         }
+    }
+
+    /// Revokes one phone without disturbing the others.
+    ///
+    /// Go through the server while it is running so an already-connected phone is disconnected
+    /// as well as removed from the Keychain. Before startup there cannot be an active session,
+    /// so the store itself is sufficient.
+    func unpair(clientID: String) {
+        guard let pins else { return }
+        let removed = server?.unpair(clientID: clientID) ?? pins.remove(peerID: clientID)
+        guard removed else {
+            record("Could not remove \(displayName(for: clientID))", level: .failure)
+            return
+        }
+
+        let name = displayName(for: clientID)
+        pairedClientIDs.removeAll { $0 == clientID }
+        connectedClients.removeAll { $0.id == clientID }
+        clientNames.removeValue(forKey: clientID)
+        UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
+        record("Forgot \(name)")
     }
 
     func refreshPermissions() {

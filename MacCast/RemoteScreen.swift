@@ -224,6 +224,9 @@ struct RemoteScreen: View {
             guard phase == .ready else { return }
             presentLandscapeHint()
         }
+        .onChange(of: interactionMode, initial: true) { _, mode in
+            model.setObserveOnly(mode == .observe)
+        }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
 
@@ -620,6 +623,16 @@ struct RemoteScreen: View {
                                     .background(.ultraThinMaterial).clipShape(Capsule())
                             }.buttonStyle(.plain)
                         }
+                        Button { ScreenshotShare.present() } label: {
+                            Image(systemName: "camera")
+                                .font(.system(size: 13))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Take screenshot")
                     }
 
                     // Its own row, and unbounded in both directions. What this carries is an
@@ -982,7 +995,7 @@ struct RemoteScreen: View {
             // way: a button that is never not lit stops being a mark, and it put the loudest
             // thing in the row at the head of it, permanently, in the mode most sessions spend
             // their whole time in.
-            selected: interactionMode == .navigate
+            selected: interactionMode != .control
         ) {
             withAnimation(Motion.settle) { interactionMode = interactionMode.toggled }
         }
@@ -1618,6 +1631,7 @@ struct RemoteScreen: View {
         switch interactionMode {
         case .control: sendScroll(dy: dy)
         case .navigate: zoomByWheel(dy)
+        case .observe: zoomByWheel(dy)
         }
     }
 
