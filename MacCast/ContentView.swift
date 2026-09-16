@@ -6,6 +6,7 @@ import UIKit
 /// there is no separate "am I connected" flag that could disagree with the phase.
 struct ContentView: View {
     @Environment(SessionModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Whether the first-run introduction has been seen.
     ///
@@ -49,6 +50,11 @@ struct ContentView: View {
     @State private var connectingFailure: String?
     /// Set when an attempt has run long enough that saying nothing would look like a hang.
     @State private var connectingIsSlow = false
+    /// The successful handshake gets one legible beat before the veil lifts. This is separate
+    /// from `showsConnecting`: removing the view and asking its transition to animate was easy
+    /// for SwiftUI to fold into the simultaneous screen handover underneath it.
+    @State private var connectingDidSucceed = false
+    @State private var connectingIsFading = false
     @State private var slowTask: Task<Void, Never>?
     /// A successful connection may keep the card up briefly so it can be read. Stored so a
     /// failure arriving during that grace period can cancel the pending dismissal.
@@ -71,10 +77,18 @@ struct ContentView: View {
     /// that were a description of something about to finish, and offers a way out instead.
     private static let connectingSlowAfter: TimeInterval = 12
 
+    /// Long enough for the spinner-to-checkmark change to register, short enough that a slow
+    /// connection does not make the user wait again after it has already finished.
+    private static let connectingSuccessShownFor: TimeInterval = 0.28
+
     /// Exiting is a system response, so it is quicker and quieter than the modal's arrival.
     /// Opacity only: scaling the whole screen away makes the live desktop behind it appear to
     /// lurch forward at exactly the moment it should simply become available.
-    private static let connectingFade = Animation.easeOut(duration: 0.2)
+    private static let connectingFadeDuration: TimeInterval = 0.24
+    private static let connectingFade = Animation.timingCurve(
+        0.23, 1, 0.32, 1,
+        duration: connectingFadeDuration
+    )
 
     var body: some View {
         // A `ZStack`, not the `Group` this was, and the difference is the whole of the transition.
@@ -112,13 +126,19 @@ struct ContentView: View {
                     hostName: model.hostName,
                     failure: connectingFailure,
                     isSlow: connectingIsSlow,
+                    isConnected: connectingDidSucceed,
                     onDismiss: dismissConnecting,
                     onCancel: cancelConnecting
                 )
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .scale(scale: 1.04)),
-                    removal: .opacity
-                ))
+                // The exit is explicit rather than delegated to a removal transition. Keeping
+                // the full-screen veil mounted until opacity reaches zero makes the handoff
+                // deterministic even while the picker underneath becomes the remote screen.
+                .opacity(connectingIsFading ? 0 : 1)
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .opacity.combined(with: .scale(scale: 1.04))
+                )
             }
         }
         // Keyed to the connecting phases, not to `model.isBusy` — and that was the bug that made
@@ -136,7 +156,11 @@ struct ContentView: View {
             guard case .failed(let message) = phase, showsConnecting else { return }
             connectingDismissTask?.cancel()
             connectingDismissTask = nil
-            withAnimation(Motion.settle) { connectingFailure = message }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle) {
+                connectingIsFading = false
+                connectingDidSucceed = false
+                connectingFailure = message
+            }
         }
         // Keyed to the arrival of a session rather than to `phase`, which changes several times
         // on the way in. Connecting and handshaking are the same screen still being looked at;
@@ -186,6 +210,8 @@ struct ContentView: View {
         connectingSince = Date()
         connectingFailure = nil
         connectingIsSlow = false
+        connectingDidSucceed = false
+        connectingIsFading = false
 
         slowTask?.cancel()
         slowTask = Task {
@@ -202,9 +228,7 @@ struct ContentView: View {
         connectingSince = nil
         slowTask?.cancel()
         slowTask = nil
-        connectingDismissTask?.cancel()
-        connectingDismissTask = nil
-        withAnimation(Self.connectingFade) { showsConnecting = false }
+        scheduleConnectingFade(after: 0, allowFailure: true)
     }
 
     /// Abandons an attempt that is going nowhere.
@@ -234,7 +258,11 @@ struct ContentView: View {
         if case .failed(let message) = model.phase {
             connectingDismissTask?.cancel()
             connectingDismissTask = nil
-            withAnimation(Motion.settle) { connectingFailure = message }
+            withAnimation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle) {
+                connectingIsFading = false
+                connectingDidSucceed = false
+                connectingFailure = message
+            }
             return
         }
 
@@ -244,24 +272,57 @@ struct ContentView: View {
         guard connectingFailure == nil else { return }
 
         guard let since = connectingSince else { return }
-        let remaining = Self.connectingShownFor - Date().timeIntervalSince(since)
-        guard remaining > 0 else {
-            connectingSince = nil
-            withAnimation(Self.connectingFade) { showsConnecting = false }
-            return
+        let remaining = max(0, Self.connectingShownFor - Date().timeIntervalSince(since))
+        let reachedReady = model.phase == .ready
+
+        if reachedReady {
+            connectingIsSlow = false
+            withAnimation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle) {
+                connectingDidSucceed = true
+            }
         }
+
+        scheduleConnectingFade(
+            after: reachedReady
+                ? max(remaining, Self.connectingSuccessShownFor)
+                : remaining
+        )
+    }
+
+    /// Runs the fade before removing the view. The old removal transition asked SwiftUI to
+    /// preserve a disappearing branch while another animated branch changed underneath it;
+    /// explicitly sequencing the opacity and removal means neither transaction can swallow the
+    /// other. Only opacity moves during the exit, so the live desktop never appears to zoom.
+    private func scheduleConnectingFade(after delay: TimeInterval, allowFailure: Bool = false) {
         connectingDismissTask?.cancel()
         connectingDismissTask = Task {
             do {
-                try await Task.sleep(for: .seconds(remaining))
+                if delay > 0 {
+                    try await Task.sleep(for: .seconds(delay))
+                }
             } catch {
                 return
             }
-            guard connectingFailure == nil else { return }
+            guard allowFailure || connectingFailure == nil else { return }
+
+            withAnimation(Self.connectingFade) { connectingIsFading = true }
+            do {
+                try await Task.sleep(for: .seconds(Self.connectingFadeDuration))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+
+            // Opacity is already zero. Removing without another transition prevents a second,
+            // invisible animation from holding this full-screen hit target over the desktop.
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { showsConnecting = false }
             connectingSince = nil
             connectingIsSlow = false
+            connectingDidSucceed = false
+            connectingIsFading = false
             connectingDismissTask = nil
-            withAnimation(Self.connectingFade) { showsConnecting = false }
         }
     }
 }
@@ -273,17 +334,22 @@ struct ContentView: View {
 /// it should look like the app has gone somewhere. The soft light is the same one every other
 /// screen in the app is lit by.
 ///
-/// **It has three states, and the last two exist because the first one lied.** A screen that
+/// **It has four states, and the middle two exist because the first one lied.** A screen that
 /// says "Connecting…" and nothing else is indistinguishable from a screen that has hung, and
 /// there was no way out of it: a Mac that never answers left it up forever with no message and
-/// no escape. So a slow attempt says so and offers a way out, and a failed one says what went
-/// wrong and stays until it is read.
+/// no escape. So a slow attempt says so and offers a way out, a failed one says what went wrong
+/// and stays until it is read, and success gets a brief checkmark before the desktop is revealed.
 private struct ConnectingView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let hostName: String?
     /// The reason the connection failed, once there is one.
     var failure: String?
     /// Whether the attempt has been running long enough to be worth commenting on.
     var isSlow: Bool
+    /// True only after an already-paired Mac reaches `.ready`. First-time pairing moves on to
+    /// its code instead, so it never claims success before the person has confirmed it.
+    var isConnected: Bool
     var onDismiss: () -> Void
     var onCancel: () -> Void
 
@@ -330,6 +396,16 @@ private struct ConnectingView: View {
                         .tint(ColorPalette.ink)
                         .foregroundStyle(.black)
                         .accessibilityHint(failure)
+                } else if isConnected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 30, weight: .medium))
+                        .foregroundStyle(ColorPalette.accent)
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .opacity.combined(with: .scale(scale: 0.92))
+                        )
+                        .accessibilityLabel("Connected")
                 } else if isSlow {
                     // The escape hatch. Nothing above this is wrong yet, but a Mac that is not
                     // answering will not start answering because the user waited longer, and a
@@ -343,14 +419,16 @@ private struct ConnectingView: View {
                 }
             }
             .padding(.horizontal, 40)
-            .animation(Motion.settle, value: failure != nil)
-            .animation(Motion.settle, value: isSlow)
+            .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: failure != nil)
+            .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: isSlow)
+            .animation(reduceMotion ? .easeOut(duration: 0.16) : Motion.settle, value: isConnected)
         }
         .allowsHitTesting(true)
     }
 
     private var detail: String {
         if let failure { return failure }
+        if isConnected { return "Connected" }
         return isSlow ? "Still trying. The Mac has not answered yet." : "Connecting…"
     }
 }
