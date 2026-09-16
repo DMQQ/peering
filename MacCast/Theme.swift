@@ -24,7 +24,10 @@ enum ChromeMetrics {
     /// The pair is what makes the two states read as one object changing size: the collapsed
     /// pill is a stadium, because at 28 points tall a 14-point corner *is* half its height, and
     /// the expanded one keeps the softened look at a size that leaves its contents alone.
-    static let pillCollapsedRadius: CGFloat = 14
+    /// Half the collapsed pill's height, which is what makes it a stadium rather than a rounded
+    /// rectangle. It was 14 while the pill was one 28-point line; the pill is two lines now, and
+    /// a 14-point corner on a 46-point shape reads as a card that was not quite squared off.
+    static let pillCollapsedRadius: CGFloat = 23
     static let pillExpandedRadius: CGFloat = 26
     /// Inside a rail, above the first button and below the last — and the same as the gap either
     /// side of one, so the first button sits in its panel the way the ones below it sit between

@@ -91,7 +91,15 @@ extension RemoteScreen {
         ZStack(alignment: .top) {
             if statusBarExpanded {
                 VStack(alignment: .leading, spacing: 6) {
-                    // ── Row 1: identity + clock + quit ──────────────────────────────
+                    // ── Row 1: who, and the way out ─────────────────────────────────
+                    //
+                    // The name has this row to itself, which it did not before. It used to share
+                    // with the clock, the latency and the quit button, and the arithmetic never
+                    // worked on a phone held upright: "Damian's MacBook Pro" is the longest
+                    // string in the pill by twice over, and the row could only fit it by
+                    // clipping it. The readouts moved down to the second row, where they belong
+                    // anyway — they describe the stream, and the stream's name is on the row
+                    // above.
                     HStack(spacing: 10) {
                         // Green once the session is up rather than merely connected: a socket
                         // that is open but still handshaking is not something to reassure
@@ -100,35 +108,10 @@ extension RemoteScreen {
                         Circle()
                             .fill(model.phase == .ready ? Color.green : ColorPalette.ink)
                             .frame(width: 7, height: 7)
-                        VStack(alignment: .leading, spacing: 1) {
-                            // The one thing in this row that gives way. It is the longest string
-                            // in it and the only one whose meaning survives being cut — "Damian's
-                            // Ma…" is still the Mac, where a clipped "156 m" is not a
-                            // measurement. Both the readouts beside it are fixed so that they
-                            // cannot be the ones squeezed, which is how the latency ended up
-                            // rendering one digit per line down the side of the pill.
-                            Text(model.hostName ?? "Mac")
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                            Text(model.videoStatus)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        // No `Spacer` here, and that is the whole of why the pill is the width it
-                        // is. A spacer takes up any slack in the row, so the row asked for as
-                        // much width as the layout would give it — which in landscape meant the
-                        // pill stretched most of the way across the screen to hold four short
-                        // readouts. Without one the row is exactly as wide as its contents and
-                        // the pill hugs them.
-                        sessionClock
-                        if let latency = model.latencyMilliseconds {
-                            Text("\(Int(latency.rounded())) ms")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(ColorPalette.reading(latency))
-                                .fixedSize()
-                        }
+                        Text(model.hostName ?? "Mac")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                         // The session's only way out, always visible in the expanded pill.
                         Button { model.disconnect() } label: {
                             HStack(spacing: 4) {
@@ -151,7 +134,23 @@ extension RemoteScreen {
                         .accessibilityLabel("Quit session")
                     }
 
-                    // ── Row 2: quality + view options ────────────────────────────────
+                    // ── Row 2: what the stream is doing ──────────────────────────────
+                    HStack(spacing: 6) {
+                        Text(model.videoStatus)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        if let latency = model.latencyMilliseconds {
+                            Text("·").font(.caption2).foregroundStyle(.tertiary)
+                            Text("\(Int(latency.rounded())) ms")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(ColorPalette.reading(latency))
+                                .fixedSize()
+                        }
+                        sessionClock
+                    }
+
+                    // ── Row 3: quality + view options ────────────────────────────────
                     HStack(spacing: 8) {
                         connectionPathChip
                         qualityChip
@@ -240,51 +239,56 @@ extension RemoteScreen {
                     // shown and over which path answers "what am I looking at" and goes under it,
                     // indented past the dot so the two read as one block rather than as two rows
                     // that happen to be adjacent.
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 8) {
-                            // Green when the Mac is connected and sending, red when it is connected
-                            // and has stopped. It was white, which said nothing: a dot that is
-                            // always the same colour is decoration, and this one sits in the pill
-                            // that already carries the Mac's name and the latency — the two facts
-                            // whose whole purpose is to be read at a glance.
-                            //
-                            // Green rather than the palette's white because the host picker
-                            // already spends green on "this Mac is reachable", and a second
-                            // colour for the same fact would be two vocabularies for one thing.
-                            Circle()
-                                .fill(model.isVideoStreaming ? Color.green : Color.red)
-                                .frame(width: 6, height: 6)
-                            Text(model.hostName ?? "Mac")
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
-                                // No spacer, for the reason Row 1 has none: the collapsed pill should be
-                            // the width of what it says.
-                            if let latency = model.latencyMilliseconds {
-                                Text("\(Int(latency.rounded())) ms")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(ColorPalette.reading(latency))
-                            }
-                        }
+                    // The dot is outside the stack rather than inside its first line, so it sits
+                    // in the middle of the pill's height — against both lines at once. Inside the
+                    // first line it lined up with the Mac's name and hung a little above centre,
+                    // which on a two-line pill reads as a mark that slipped.
+                    HStack(spacing: 8) {
+                        // Green when the Mac is connected and sending, red when it is connected
+                        // and has stopped. It was white, which said nothing: a dot that is
+                        // always the same colour is decoration, and this one sits in the pill
+                        // that already carries the Mac's name and the latency — the two facts
+                        // whose whole purpose is to be read at a glance.
+                        //
+                        // Green rather than the palette's white because the host picker
+                        // already spends green on "this Mac is reachable", and a second
+                        // colour for the same fact would be two vocabularies for one thing.
+                        Circle()
+                            .fill(model.isVideoStreaming ? Color.green : Color.red)
+                            .frame(width: 6, height: 6)
 
-                        HStack(spacing: 6) {
-                            if let sourceTitle = model.activeSourceTitle {
-                                Text(sourceTitle)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 8) {
+                                Text(model.hostName ?? "Mac")
+                                    .font(.caption.weight(.semibold))
                                     .lineLimit(1)
+                                // No spacer, for the reason Row 1 has none: the collapsed pill
+                                // should be the width of what it says.
+                                if let latency = model.latencyMilliseconds {
+                                    Text("\(Int(latency.rounded())) ms")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(ColorPalette.reading(latency))
+                                        .fixedSize()
+                                }
                             }
-                            connectionPathChip
-                            if model.isVideoStreaming {
-                                Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                                    .accessibilityLabel("Video frame rate")
-                                    .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
+
+                            HStack(spacing: 6) {
+                                if let sourceTitle = model.activeSourceTitle {
+                                    Text(sourceTitle)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                connectionPathChip
+                                if model.isVideoStreaming {
+                                    Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                        .accessibilityLabel("Video frame rate")
+                                        .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
+                                }
                             }
                         }
-                        // Aligned under the Mac's name rather than under the dot, which is what
-                        // makes the second line read as a continuation of the first.
-                        .padding(.leading, 14)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -436,35 +440,45 @@ extension RemoteScreen {
             .accessibilityLabel("Connection path")
     }
 
-    /// The stream quality, as one chip that moves on when tapped.
+    /// The stream quality, as a chip that opens the presets.
     ///
     /// It was four segments side by side — about a hundred and forty points of a row that also
-    /// has to hold the path, the fit, the speaker, the camera and the quality. On a portrait
-    /// phone that is more than the pill has room for, and the row paid for it by pushing the
-    /// terminal dot off the screen entirely. A chip showing the preset that is on, and moving to
-    /// the next one when tapped, says the same thing in a fifth of the width — and it is the
-    /// shape the mode button already uses, so the gesture is one this screen has taught.
+    /// has to hold the path, the fit, the camera and the quality. On a portrait phone that is
+    /// more than the pill has room for, and the row paid for it by pushing the terminal dot off
+    /// the screen entirely. Then it was a chip that cycled through them on tap, which fit but
+    /// said nothing: one word that changes when touched, with no way to see what else there was
+    /// or that there was anything else at all.
     ///
-    /// What it gives up is seeing all four at once. That is the trade: four options that fit are
-    /// worth more than four options that push the controls off the edge.
+    /// A menu is the shape that keeps both. The chip is as small as the cycling one, and tapping
+    /// it shows all four with the bitrate beside each — which is the part that was missing. "Low"
+    /// and "Med" mean nothing without knowing what is being given up to get them.
     var qualityChip: some View {
-        Button {
-            let presets = SessionModel.StreamQuality.allCases
-            let index = presets.firstIndex(of: model.streamQuality) ?? 0
-            withAnimation(Motion.settle) {
-                model.setStreamQuality(presets[(index + 1) % presets.count])
+        Menu {
+            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { preset in
+                Button {
+                    withAnimation(Motion.settle) { model.setStreamQuality(preset) }
+                } label: {
+                    if preset == model.streamQuality {
+                        Label(preset.menuTitle, systemImage: "checkmark")
+                    } else {
+                        Text(preset.menuTitle)
+                    }
+                }
             }
         } label: {
-            Text(model.streamQuality.rawValue)
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+            HStack(spacing: 4) {
+                Image(systemName: "speedometer")
+                    .font(.system(size: 10))
+                Text(model.streamQuality.rawValue)
+                    .font(.caption.monospacedDigit())
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("Stream quality")
         .accessibilityValue(model.streamQuality.rawValue)
-        .accessibilityHint("Moves to the next preset")
     }
 
 
@@ -489,28 +503,51 @@ extension RemoteScreen {
         }
     }
 
-    /// Fitted or filled, named for the state it is in — like the mode button, and for the same
-    /// reason: a control that advertises where it would go, while sitting in a state the user
-    /// cannot read, is one whose meaning has to be remembered rather than seen.
+    /// How the picture fits the screen — a menu, because "Fit" and "Fill" are not a sentence.
+    ///
+    /// The chip was a toggle between two words, and two words are all it had room for: a Mac's
+    /// screen is wider than a phone's, so one choice shows all of it with bars at the sides and
+    /// the other shows a full screen with the edges cut off. Neither word says which is which,
+    /// and nothing on screen did either. The menu says both in full, and marks the one that is on.
     var fillChip: some View {
-        Button {
-            withAnimation(Motion.settle) {
-                scalesToFill.toggle()
-                // The pan belongs to the old scale: a picture that was panned to the edge of a
-                // fitted frame is off-screen the moment it grows to fill.
-                pan = .zero
+        Menu {
+            Button { setFill(false) } label: {
+                if !scalesToFill { Label("Fit the whole screen", systemImage: "checkmark") }
+                else { Text("Fit the whole screen") }
+            }
+            Button { setFill(true) } label: {
+                if scalesToFill { Label("Fill the phone screen", systemImage: "checkmark") }
+                else { Text("Fill the phone screen") }
             }
         } label: {
-            Text(scalesToFill ? "Fill" : "Fit")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(scalesToFill ? ColorPalette.ink : Color.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(scalesToFill ? ColorPalette.selectedFill : .clear, in: Capsule())
+            HStack(spacing: 4) {
+                Image(systemName: scalesToFill
+                      ? "arrow.up.left.and.arrow.down.right"
+                      : "arrow.down.right.and.arrow.up.left")
+                    .font(.system(size: 10))
+                Text(scalesToFill ? "Fill" : "Fit")
+                    .font(.caption.monospacedDigit())
+            }
+            .foregroundStyle(scalesToFill ? ColorPalette.ink : Color.secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(scalesToFill ? ColorPalette.selectedFill : .clear, in: Capsule())
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
-        .accessibilityLabel(scalesToFill ? "Filling the screen" : "Fitted to the screen")
+        .accessibilityLabel("How the picture fits the screen")
+        .accessibilityValue(scalesToFill ? "Filling the phone screen" : "Fitting the whole screen")
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// One place that knows what changing this costs, because the menu gives it two ways to
+    /// happen and there is only one right way to do it.
+    func setFill(_ filled: Bool) {
+        withAnimation(Motion.settle) {
+            scalesToFill = filled
+            // The pan belongs to the old scale: a picture that was panned to the edge of a
+            // fitted frame is off-screen the moment it grows to fill.
+            pan = .zero
+        }
     }
 
     func expandStatusBar() {
@@ -536,4 +573,20 @@ extension RemoteScreen {
         }
     }
 
+}
+
+private extension SessionModel.StreamQuality {
+    /// What the quality menu says for each preset.
+    ///
+    /// The bitrate is in the line because that is the choice being made. A word like "Low" names
+    /// a rung on a ladder nobody has been shown — the thing the user is actually deciding is how
+    /// much of the connection to spend on the picture, and a number is the only way to say it.
+    var menuTitle: String {
+        switch self {
+        case .auto: return "Auto — follows the network"
+        case .low: return "Low — 2 Mbps"
+        case .medium: return "Medium — 8 Mbps"
+        case .high: return "High — 20 Mbps"
+        }
+    }
 }

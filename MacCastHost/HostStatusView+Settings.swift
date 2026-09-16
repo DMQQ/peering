@@ -37,6 +37,8 @@ extension HostStatusView {
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .controlSize(.small)
+                    // The accent, for the reason ``previewRow`` gives.
+                    .tint(HostPalette.accent)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -100,6 +102,12 @@ extension HostStatusView {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                // The accent, unlike everything else in this window. The window's controls are
+                // tinted with the ink so that buttons do not come back as white pills — but a
+                // switch is not a button, and with no colour an on one and an off one differ
+                // only by which end the knob is at. Blue for "on" is both what macOS means by it
+                // and what this app's own accent already means everywhere else.
+                .tint(HostPalette.accent)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

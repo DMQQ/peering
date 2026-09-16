@@ -35,11 +35,12 @@ struct TerminalPanel: View {
                     ContentUnavailableView(
                         "No terminals",
                         systemImage: "terminal",
-                        // Says where the shell actually is. "Create a login shell" is the
-                        // honest name for what the host starts, and it explains nothing to
-                        // anyone who has not already used one — the question it left was
-                        // whether this was a shell on the phone.
-                        description: Text("A terminal runs on your Mac, not here — the same shell Terminal gives you, starting in your home folder. It keeps running when this phone disconnects.")
+                        // Two short sentences, because the question this answers is one line
+                        // long. "Create a login shell" is the honest name for what the host
+                        // starts and it explains nothing to anyone who has not already used
+                        // one; the earlier attempt at explaining it took three lines to say
+                        // what fits in one.
+                        description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
                     )
                 }
             }
@@ -96,7 +97,10 @@ struct TerminalPanel: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Color.white.opacity(0.06))
-        .transition(.move(edge: .top).combined(with: .opacity))
+        // No transition, and deliberately. It slides in and the keyboard slides up over the same
+        // half second, which is two things animating one layout — the row jitters as the keyboard
+        // takes the space it was moving into. In one frame, and the keyboard's own animation is
+        // the only movement there is.
     }
 
     private func beginCreating() {
@@ -106,9 +110,9 @@ struct TerminalPanel: View {
             createFocused = false
             return
         }
-        withAnimation(Motion.settle) { isCreating = true }
-        // A turn later, because the field that wants focus is inserted by that animation — set
-        // in the same pass there is nothing to focus yet and the keyboard never comes up.
+        isCreating = true
+        // A turn later, because the field has to exist before it can take focus — set in the same
+        // pass, there is nothing to focus and the keyboard never comes up.
         Task { @MainActor in createFocused = true }
     }
 
@@ -118,60 +122,107 @@ struct TerminalPanel: View {
         // refusing to start a shell over a label.
         model.createTerminal(name: name)
         newName = ""
-        withAnimation(Motion.settle) { isCreating = false }
+        isCreating = false
         createFocused = false
     }
 
+    /// The open terminals, as tabs.
+    ///
+    /// They were capsules the height of a caption — small enough that switching between two
+    /// shells was a target you had to aim at, and with the close action hidden in a context menu
+    /// nothing on screen said a terminal could be closed at all. A browser's tabs are the shape
+    /// that already means "these are open, one of them is in front, and each can be closed":
+    /// wider than the name needs, as tall as a control rather than as tall as its text, the one
+    /// you are in drawn in the surface rather than beside it, and a cross on each.
     private var tabStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(model.terminals) { terminal in
-                    Button {
-                        model.selectTerminal(terminal.id)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(terminal.isRunning ? Color.green : Color.secondary)
-                                .frame(width: 6, height: 6)
-                            Text(terminal.name).lineLimit(1)
-                            if terminal.attention != nil {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .foregroundStyle(.orange)
-                            }
-                        }
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 8)
-                        .background(
-                            model.selectedTerminalID == terminal.id
-                                ? Color.white.opacity(0.16) : Color.white.opacity(0.06),
-                            in: Capsule()
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("Close terminal", systemImage: "xmark", role: .destructive) {
-                            model.closeTerminal(terminal.id)
-                        }
-                    }
+                    tab(terminal)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 9)
+            .padding(.vertical, 8)
         }
         .background(Color.white.opacity(0.04))
     }
 
+    private func tab(_ terminal: RemoteTerminal) -> some View {
+        let isSelected = model.selectedTerminalID == terminal.id
+        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
+        return HStack(spacing: 8) {
+            // Green while the shell is alive, grey once it has exited. The same vocabulary the
+            // status pill uses for a streaming Mac, which is the point of putting it here.
+            Circle()
+                .fill(terminal.isRunning ? Color.green : Color.secondary)
+                .frame(width: 7, height: 7)
+
+            Text(terminal.name)
+                .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? ColorPalette.ink : .secondary)
+                .lineLimit(1)
+
+            if terminal.attention != nil {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.orange)
+            }
+
+            Button {
+                model.closeTerminal(terminal.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    // A hit area rather than a glyph: an 11-point cross is not something a thumb
+                    // can be asked to hit, and this one closes a shell.
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close \(terminal.name)")
+        }
+        .padding(.leading, 13)
+        .padding(.trailing, 6)
+        // Tall enough to be a control, and wide enough that a one-word name is not a sliver.
+        .frame(minWidth: 104, minHeight: 42)
+        .background(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05), in: shape)
+        .overlay {
+            if isSelected {
+                shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+            }
+        }
+        .contentShape(shape)
+        .onTapGesture { model.selectTerminal(terminal.id) }
+    }
+
     private func output(_ terminal: RemoteTerminal) -> some View {
         ScrollViewReader { reader in
-            ScrollView([.vertical, .horizontal]) {
-                Text(terminal.visibleOutput.isEmpty ? "Starting login shell…" : terminal.visibleOutput)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(terminal.visibleOutput.isEmpty ? .secondary : .primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(12)
-                    .id("terminal-end")
+            // Two scroll views rather than one with two axes, and that is the whole of why the
+            // output stops dragging itself sideways.
+            //
+            // `scrollTo(id, anchor: .bottom)` pins the target's *bottom* to the viewport's
+            // bottom — and on a two-axis scroll view it does the same thing horizontally, so
+            // every new line of output walked the view to the right. Nested, the outer one owns
+            // the vertical and can follow the tail of the log on its own, while the inner one
+            // holds whatever the finger left it at and starts where reading starts: the left.
+            ScrollView(.vertical) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(terminal.visibleOutput.isEmpty ? "Starting login shell…" : terminal.visibleOutput)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(terminal.visibleOutput.isEmpty ? .secondary : .primary)
+                        .textSelection(.enabled)
+                        // The lines are as wide as they are. Wrapping them would be the other way
+                        // to keep the view still, and it ruins the one thing a terminal is good
+                        // at — output that lines up in columns.
+                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .padding(12)
+                }
+                // The thing the vertical scroll follows. A one-point view at the end of the text
+                // rather than an anchor on the text itself: the text is as wide as the widest
+                // line, and anchoring to it is what dragged the view sideways.
+                Color.clear.frame(height: 1).id("terminal-end")
             }
             .defaultScrollAnchor(.bottom)
             // Dragging the history puts the keyboard away. The alternative is a keyboard with no
@@ -254,30 +305,45 @@ struct TerminalPanel: View {
         .background(.ultraThinMaterial)
     }
 
+    /// The keys a terminal needs and a phone keyboard has not got.
+    ///
+    /// Drawn like the session's own rail buttons — glass, the same corner, the same press — rather
+    /// than as bordered system buttons. It is the same kind of control in the same place on the
+    /// screen as the rail, and two visual languages for one idea, an app apart, is what makes the
+    /// second screen feel like somebody else's.
     private func keyStrip(_ id: UUID) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                terminalKey("esc") { model.sendTerminalBytes([0x1B], to: id) }
-                terminalKey("tab") { model.sendTerminalBytes([0x09], to: id) }
-                terminalKey("⌃C") { model.sendTerminalBytes([0x03], to: id) }
-                terminalKey("⌃D") { model.sendTerminalBytes([0x04], to: id) }
-                terminalKey("↑") { model.sendTerminalBytes(Array("\u{1B}[A".utf8), to: id) }
-                terminalKey("↓") { model.sendTerminalBytes(Array("\u{1B}[B".utf8), to: id) }
-                terminalKey("←") { model.sendTerminalBytes(Array("\u{1B}[D".utf8), to: id) }
-                terminalKey("→") { model.sendTerminalBytes(Array("\u{1B}[C".utf8), to: id) }
-                terminalKey("return") { model.sendTerminalBytes([0x0D], to: id) }
+            HStack(spacing: 6) {
+                terminalKey("esc", label: "Escape") { model.sendTerminalBytes([0x1B], to: id) }
+                terminalKey("tab", label: "Tab") { model.sendTerminalBytes([0x09], to: id) }
+                terminalKey("⌃C", label: "Interrupt") { model.sendTerminalBytes([0x03], to: id) }
+                terminalKey("⌃D", label: "End of input") { model.sendTerminalBytes([0x04], to: id) }
+                terminalKey("↑", label: "Up") { model.sendTerminalBytes(Array("\u{1B}[A".utf8), to: id) }
+                terminalKey("↓", label: "Down") { model.sendTerminalBytes(Array("\u{1B}[B".utf8), to: id) }
+                terminalKey("←", label: "Left") { model.sendTerminalBytes(Array("\u{1B}[D".utf8), to: id) }
+                terminalKey("→", label: "Right") { model.sendTerminalBytes(Array("\u{1B}[C".utf8), to: id) }
+                terminalKey("return", label: "Return") { model.sendTerminalBytes([0x0D], to: id) }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
         .background(Color.white.opacity(0.05))
     }
 
-    private func terminalKey(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .font(.caption.monospaced().weight(.semibold))
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+    private func terminalKey(_ title: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                // Monospaced, because these are the characters the shell prints rather than
+                // words: "esc" and "tab" line up with the arrows beside them, and "⌃C" is the
+                // same glyph the control bar's caption uses for the same key.
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(ColorPalette.ink)
+                .frame(minWidth: 46)
+                .frame(height: 40)
+                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.88))
+        .accessibilityLabel(label)
     }
 
     private func submit(to id: UUID) {

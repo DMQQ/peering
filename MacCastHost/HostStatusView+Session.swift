@@ -179,8 +179,6 @@ extension HostStatusView {
                         .font(.system(size: 21, weight: .light))
                     Text("Preview off")
                         .font(.caption)
-                    Text("Turn it back on in Settings.")
-                        .font(.caption2)
                 }
                 .foregroundStyle(HostPalette.faint)
             } else if let preview {
@@ -200,6 +198,26 @@ extension HostStatusView {
         .frame(height: previewHeight)
         .frame(maxWidth: .infinity)
         .animation(HostMotion.state, value: preview == nil)
+        // The switch is on the thing it switches. It was only in Settings, which is the right
+        // place for a setting and the wrong place for a control somebody reaches for while
+        // looking at the preview — the picture is where the question "is this still updating"
+        // comes up, so it is where the answer goes.
+        .overlay(alignment: .topTrailing) {
+            Button {
+                withAnimation(HostMotion.state) { showsPreview.toggle() }
+            } label: {
+                Image(systemName: showsPreview ? "eye.slash" : "eye")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(HostPalette.ink)
+                    .frame(width: 26, height: 26)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay { Circle().strokeBorder(HostPalette.hairline, lineWidth: 1) }
+            }
+            .buttonStyle(.plain)
+            .padding(10)
+            .help(showsPreview ? "Stop refreshing this preview" : "Show the live preview again")
+            .accessibilityLabel(showsPreview ? "Stop the live preview" : "Show the live preview")
+        }
         .accessibilityHidden(true)
     }
 
