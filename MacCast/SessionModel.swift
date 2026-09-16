@@ -105,7 +105,7 @@ final class SessionModel {
     /// Mapped rather than shared because the raw values differ on purpose: this one is shouted
     /// at a diagnostics panel, and the card's is set in a chip beside a sentence. A single enum
     /// serving both would have to be named for one of them.
-    private static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
+    static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
         switch path {
         case .lan: return .lan
         case .relay: return .relay
@@ -132,40 +132,40 @@ final class SessionModel {
 
     // MARK: - Connection state
 
-    private(set) var phase: ClientSession.Phase = .idle
-    private(set) var hosts: [DiscoveredHost] = []
-    private(set) var browseStatus = "Looking for Macs on this network…"
-    private(set) var hostName: String?
-    private(set) var tlsDescription: String?
-    private(set) var latencyMilliseconds: Double?
-    private(set) var catalog: CaptureCatalog?
-    private(set) var notes: [String] = []
-    private(set) var videoStatus = "No video stream"
+    var phase: ClientSession.Phase = .idle
+    var hosts: [DiscoveredHost] = []
+    var browseStatus = "Looking for Macs on this network…"
+    var hostName: String?
+    var tlsDescription: String?
+    var latencyMilliseconds: Double?
+    var catalog: CaptureCatalog?
+    var notes: [String] = []
+    var videoStatus = "No video stream"
     /// The frames per second arriving, as measured by the last two polls — see
     /// ``updateFrameRate(from:)``. Zero until there have been two samples to compare.
-    private(set) var videoFramesPerSecond: Double = 0
+    var videoFramesPerSecond: Double = 0
     /// The frame count and the moment it was read, for the difference above.
-    private var lastFrameSample: (count: Int, at: Date)?
+    var lastFrameSample: (count: Int, at: Date)?
     /// True while the video channel is delivering frames (not ended/absent).
-    private(set) var isVideoStreaming = false
-    private(set) var connectionPath: ConnectionPath?
-    private(set) var pairedHostIDs: [String] = []
-    private(set) var streamQuality: StreamQuality = .auto
-    private var autoQualityPolicy = AutoQualityPolicy(path: .lan)
-    private var lastAutoDroppedFrames = 0
+    var isVideoStreaming = false
+    var connectionPath: ConnectionPath?
+    var pairedHostIDs: [String] = []
+    var streamQuality: StreamQuality = .auto
+    var autoQualityPolicy = AutoQualityPolicy(path: .lan)
+    var lastAutoDroppedFrames = 0
     /// Optimistic state for the current session's physical-display privacy command. The host
     /// always restores brightness when the last client disconnects.
-    private(set) var privacyModeEnabled = false
+    var privacyModeEnabled = false
 
     // MARK: - Clipboard
     /// The most recently received host clipboard text. `nil` until the first pull.
-    private(set) var hostClipboard: String?
+    var hostClipboard: String?
     /// Whether a clipboard pull is in flight.
-    private(set) var clipboardPulling = false
+    var clipboardPulling = false
 
     // MARK: - Wake-on-LAN
     /// Hardware MAC addresses reported by the host's ServerHello. Stored by host ID.
-    private(set) var hostMACAddresses: [String: [String]] = {
+    var hostMACAddresses: [String: [String]] = {
         guard let data = UserDefaults.standard.data(forKey: "hostMACAddresses"),
               let decoded = try? JSONDecoder().decode([String: [String]].self, from: data) else {
             return [:]
@@ -174,23 +174,23 @@ final class SessionModel {
     }()
 
     // MARK: - Audio
-    private var audioPlayer: RemoteAudioPlayer?
+    var audioPlayer: RemoteAudioPlayer?
 
     // MARK: - Terminals
-    private(set) var terminals: [RemoteTerminal] = []
-    private(set) var selectedTerminalID: UUID?
+    var terminals: [RemoteTerminal] = []
+    var selectedTerminalID: UUID?
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
     /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user
     /// expects the name of their Mac. The handshake is the only moment the client is told both,
     /// so it is the only moment this can be recorded.
-    private(set) var hostNames: [String: String] = [:]
+    var hostNames: [String: String] = [:]
     /// The server ID of the currently (or most recently) connected Mac.
-    private(set) var currentHostID: String?
+    var currentHostID: String?
 
     /// When each trusted Mac was last successfully connected to, keyed by host ID.
-    private(set) var lastConnectedAt: [String: Date] = {
+    var lastConnectedAt: [String: Date] = {
         guard let data = UserDefaults.standard.data(forKey: "hostLastConnectedAt"),
               let decoded = try? JSONDecoder().decode([String: Date].self, from: data) else {
             return [:]
@@ -198,7 +198,7 @@ final class SessionModel {
         return decoded
     }()
 
-    private static let hostNamesKey = "Peering.hostNames"
+    static let hostNamesKey = "Peering.hostNames"
 
     /// The failure to show the user, if the session is in one.
     ///
@@ -222,9 +222,9 @@ final class SessionModel {
     /// Worth having for anyone whose Macs are all called the same thing — three MacBook Pros
     /// arrive as "Damian's MacBook Pro" three times over, and the device ID is the only thing
     /// telling them apart.
-    private(set) var customHostNames: [String: String] = [:]
+    var customHostNames: [String: String] = [:]
 
-    private static let customHostNamesKey = "Peering.customHostNames"
+    static let customHostNamesKey = "Peering.customHostNames"
 
     func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
 
@@ -252,7 +252,7 @@ final class SessionModel {
     ///
     /// Most recently connected first, because the widget has room for a few and the Mac someone
     /// wants is almost always the one they used last.
-    private func publishKnownMacs() {
+    func publishKnownMacs() {
         let ordered = pairedHostIDs.sorted {
             (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast)
         }
@@ -268,11 +268,11 @@ final class SessionModel {
     /// A `Date` and not a counter: the view formats it with `Text(_:style:.timer)`, which the
     /// system advances on its own. A `Timer` here would wake the main actor once a second to
     /// update a number that the screen can already count by itself.
-    private(set) var sessionStartedAt: Date?
+    var sessionStartedAt: Date?
 
     /// Set when the device's own identity could not be loaded. Everything else is moot in
     /// that case: without a client certificate there is nothing for the Mac to pin.
-    private(set) var identityFailure: String?
+    var identityFailure: String?
 
     // MARK: - User choices
 
@@ -292,9 +292,9 @@ final class SessionModel {
         didSet { UserDefaults.standard.set(manualPort, forKey: Self.manualPortKey) }
     }
 
-    private static let manualAddressKey = "Peering.manualAddress"
+    static let manualAddressKey = "Peering.manualAddress"
 
-    private static var defaultDeviceName: String {
+    static var defaultDeviceName: String {
         // UIDevice.current.name requires Apple approval for the custom name entitlement on iOS 16+.
         // Use localizedModel ("iPhone") + model identifier as fallback to give each device a
         // recognisable-enough label until the user sets one explicitly in Settings.
@@ -304,11 +304,11 @@ final class SessionModel {
         }
         return name
     }
-    private static let manualPortKey = "Peering.manualPort"
-    private(set) var keyboardMode: KeyboardMode = .unicode
-    private(set) var isObserving = false
-    private(set) var latchedModifiers: Modifiers = []
-    private(set) var activeSourceID: String?
+    static let manualPortKey = "Peering.manualPort"
+    var keyboardMode: KeyboardMode = .unicode
+    var isObserving = false
+    var latchedModifiers: Modifiers = []
+    var activeSourceID: String?
 
     /// Something the Mac wants said about the picture, or `nil`.
     ///
@@ -316,17 +316,17 @@ final class SessionModel {
     /// behind a perfectly healthy stream: the frames are arriving on time and every one of
     /// them is black, because the screen they are of is asleep. From the phone those two look
     /// identical, and only the Mac knows which it is.
-    private(set) var remoteNotice: NoticePayload?
+    var remoteNotice: NoticePayload?
     var showKeyboard = false
-    private(set) var typedPreview = ""
+    var typedPreview = ""
 
     // MARK: - Collaborators
 
     let renderer = VideoRenderer()
 
-    private let pins = ClientPinStore.standard
-    private let browser = HostBrowser()
-    private let notifier = SessionNotifier.shared
+    let pins = ClientPinStore.standard
+    let browser = HostBrowser()
+    let notifier = SessionNotifier.shared
 
     /// Whether the last thing Bonjour said was a failure.
     ///
@@ -334,11 +334,11 @@ final class SessionModel {
     /// the retry it had scheduled sits behind the app's suspension and only fires once the app
     /// is running again. Coming back to the foreground is the one moment worth restarting
     /// immediately rather than waiting that out.
-    private var browseFailed = false
-    private var identity: SelfSignedIdentity?
-    private(set) var device = DeviceIdentity(id: "", name: "")
-    private var session: ClientSession?
-    private var videoPoll: Task<Void, Never>?
+    var browseFailed = false
+    var identity: SelfSignedIdentity?
+    var device = DeviceIdentity(id: "", name: "")
+    var session: ClientSession?
+    var videoPoll: Task<Void, Never>?
 
     /// Set by the two ways the user ends a session themselves, read and cleared by the
     /// transition that follows.
@@ -346,7 +346,7 @@ final class SessionModel {
     /// A dropped link and a deliberate end reach the model as the same phase, so intent has
     /// to be carried across rather than inferred — and it is carried no further than that
     /// transition, or a leftover flag would silence the news that the next session dropped.
-    private var userEndedSession = false
+    var userEndedSession = false
 
     init() {
         device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
@@ -389,39 +389,6 @@ final class SessionModel {
         browser.start()
     }
 
-    private func apply(_ event: HostBrowser.Event) {
-        switch event {
-        case .started:
-            browseFailed = false
-            browseStatus = "Looking for Macs on this network…"
-        case .updated(let hosts):
-            browseFailed = false
-            self.hosts = hosts
-            if let pending = pendingHostID, let host = hosts.first(where: { $0.id == pending }) {
-                pendingHostID = nil
-                connect(to: .discovered(host))
-            }
-            self.resumeIfNeeded()
-            browseStatus = hosts.isEmpty
-                ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network."
-                : "\(hosts.count) Mac\(hosts.count == 1 ? "" : "s") found"
-        case .failed(let message):
-            // Bonjour failing is silent on iOS without the local-network permission and the
-            // NSBonjourServices entry, so the message is surfaced verbatim rather than
-            // smoothed over — the manual address path below is the way past it.
-            //
-            // Shown even though the browser is already replacing itself: the retry can take half
-            // a minute, and a status line that said nothing would leave the user looking at a
-            // list that has quietly stopped updating.
-            browseFailed = true
-            browseStatus = "Browsing failed: \(message)"
-        }
-    }
-
-    // MARK: - Connecting
-
-    /// Whether a session is up or on its way up. The same question as ``Phase/holdsSession`` —
-    /// asked once, answered in one place.
     var isBusy: Bool { phase.holdsSession }
 
     func connect(to target: ClientSession.Target) {
@@ -558,399 +525,7 @@ final class SessionModel {
         }
     }
 
-    func connectToManualAddress() {
-        guard let port = UInt16(manualPort.trimmingCharacters(in: .whitespaces)) else {
-            append(note: "“\(manualPort)” is not a port number.")
-            return
-        }
-        let host = manualAddress.trimmingCharacters(in: .whitespaces)
-        guard !host.isEmpty else { return }
-        connect(to: .address(host: host, port: port))
-    }
-
-    private func apply(_ event: ClientSession.Event) {
-        switch event {
-        case .phase(let phase):
-            // A failure during a resume is retried, not shown. See ``isResuming``: this is a
-            // race with the teardown of the session that just ended, it clears itself in under
-            // a second, and `.failed` is what puts an alert on screen — so the phase is
-            // deliberately not taken. Cleared here rather than in the ladder so the ladder's
-            // own terminal failure, if it comes to one, is allowed through.
-            if case .failed = phase, isResuming {
-                isResuming = false
-                scheduleReconnect()
-                return
-            }
-            if phase.holdsSession { isResuming = false }
-
-            // Read before the assignment. Everything said about a transition — the banner,
-            // the point the stopwatch starts from — is about where the session came from,
-            // not only about where it landed.
-            let previous = self.phase
-            self.phase = phase
-            if phase == .ready {
-                pairedHostIDs = pins.hostIDs
-                // A handshake that reached `.ready` has just established or confirmed a pin, and
-                // that is one of the few moments the paired list can have changed.
-                publishKnownMacs()
-                applyInitialAutoQualityIfNeeded()
-                session?.sendTerminal(.list)
-            }
-            if case .failed(let message) = phase {
-                videoStatus = "Stopped: \(message)"
-            }
-            if phase == .disconnected {
-                videoStatus = "Disconnected"
-            }
-            if phase == .ready {
-                // Restarted on every fresh arrival rather than only the first: a reconnect
-                // emits `.ready` again, and elapsed time that kept counting through it would
-                // be describing a session that no longer exists.
-                if previous != .ready {
-                    reconnectAttempt = 0
-                    sessionStartedAt = Date()
-                    UserDefaults.standard.set(true, forKey: Self.resumeKey)
-                    // Record the last-connected timestamp for the Trusted Macs list.
-                    if let id = currentHostID {
-                        lastConnectedAt[id] = Date()
-                        if let data = try? JSONEncoder().encode(lastConnectedAt) {
-                            UserDefaults.standard.set(data, forKey: "hostLastConnectedAt")
-                        }
-                    }
-                }
-            } else {
-                sessionStartedAt = nil
-            }
-
-            let userEnded = userEndedSession
-            userEndedSession = false
-            notifier.sessionMoved(
-                from: previous,
-                to: phase,
-                hostName: hostName ?? "the Mac",
-                deliberate: userEnded
-            )
-            // The same transition, said twice: once as something that can interrupt the user
-            // from another app, and once as something they will see without unlocking. Neither
-            // is a substitute for the other, and both read from this one place.
-            // A session that ended without the user asking is put back on its own. The flag
-            // inside `scheduleReconnect` is what decides whether this was theirs — the phase
-            // alone cannot tell a drop from a disconnect.
-            //
-            // Before the activity is told, not after: scheduling is what sets `isReconnecting`,
-            // and the card has to go up saying "reconnecting" rather than be taken down and
-            // brought back a moment later as though nothing had happened.
-            if !phase.holdsSession, !userEnded {
-                scheduleReconnect()
-            }
-            // Held open for as long as there is a session, so the socket outlives the app being
-            // on screen. Start before the card rather than after: the card is worth nothing if
-            // the session it describes has already been suspended. See ``SessionAudio``.
-            if phase.holdsSession {
-                SessionAudio.shared.begin()
-            } else {
-                SessionAudio.shared.end()
-            }
-
-            SessionActivity.shared.sessionMoved(
-                from: previous,
-                to: phase,
-                hostName: hostName ?? "the Mac",
-                startedAt: sessionStartedAt,
-                reconnecting: isReconnecting,
-                deliberate: userEnded,
-                path: Self.activityPath(connectionPath)
-            )
-
-            if !phase.holdsSession {
-                // The buttons stop claiming a modifier the moment the link that carried it is
-                // gone. Nothing else can: the release would have to travel back over the same
-                // connection. Observed on this Mac, the window server keeps the flag until a
-                // real key-up arrives, so the Mac may still be holding it — which is why this
-                // says so rather than quietly showing the buttons as released.
-                if !latchedModifiers.isEmpty {
-                    append(note: "The connection ended while \(latchedModifiers.label) was held on the Mac. It may still be held there.")
-                }
-                latchedModifiers = []
-                privacyModeEnabled = false
-            }
-        case .host(let hello):
-            // The host's own name is authoritative. Bonjour is only a hint about where to
-            // find it, and it can be stale by minutes.
-            hostName = hello.hostName
-            currentHostID = hello.serverID
-            UserDefaults.standard.set(hello.serverID, forKey: Self.lastHostIDKey)
-            if hostNames[hello.serverID] != hello.hostName {
-                hostNames[hello.serverID] = hello.hostName
-                UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
-                publishKnownMacs()
-            }
-            if let macs = hello.macAddresses, !macs.isEmpty {
-                hostMACAddresses[hello.serverID] = macs
-                if let data = try? JSONEncoder().encode(hostMACAddresses) {
-                    UserDefaults.standard.set(data, forKey: "hostMACAddresses")
-                }
-            }
-        case .catalog(let catalog):
-            self.catalog = catalog
-            if activeSourceID == nil, let first = catalog.displays.first ?? catalog.all.first {
-                activeSourceID = first.id
-            }
-        case .video(let event):
-            apply(video: event)
-        case .latency(let milliseconds):
-            latencyMilliseconds = milliseconds
-        case .note(let message):
-            append(note: message)
-        case .remoteNotice(let message):
-            remoteNotice = message
-        case .clipboard(let text):
-            hostClipboard = text
-            clipboardPulling = false
-        case .audio(let event):
-            switch event {
-            case .config(let config):
-                audioPlayer = RemoteAudioPlayer(config: config)
-            case .frame(let frame):
-                audioPlayer?.enqueue(frame)
-            }
-        case .terminal(let event):
-            apply(terminal: event)
-        }
-    }
-
-    private func apply(terminal event: TerminalEvent) {
-        switch event {
-        case .snapshot(let infos):
-            terminals = infos.map {
-                RemoteTerminal(id: $0.id, name: $0.name, isRunning: $0.isRunning)
-            }
-            if selectedTerminalID == nil || !terminals.contains(where: { $0.id == selectedTerminalID }) {
-                selectedTerminalID = terminals.first?.id
-            }
-        case .created(let info):
-            terminals.removeAll { $0.id == info.id }
-            terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
-            selectedTerminalID = info.id
-            append(note: "Terminal “\(info.name)” opened")
-        case .output(let id, let data):
-            guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
-            terminals[index].output.append(data)
-            let limit = 512 * 1024
-            if terminals[index].output.count > limit {
-                terminals[index].output.removeFirst(terminals[index].output.count - limit)
-            }
-        case .attention(let id, let kind, let message):
-            if let index = terminals.firstIndex(where: { $0.id == id }) {
-                terminals[index].attention = kind
-            }
-            selectedTerminalID = id
-            append(note: message)
-            notifier.terminalNeedsAttention(message, sessionID: id)
-        case .exited(let id, let status):
-            if let index = terminals.firstIndex(where: { $0.id == id }) {
-                terminals[index].isRunning = false
-            }
-            append(note: "Terminal exited with status \(status)")
-        case .closed(let id):
-            let name = terminals.first(where: { $0.id == id })?.name ?? "Terminal"
-            terminals.removeAll { $0.id == id }
-            if selectedTerminalID == id { selectedTerminalID = terminals.first?.id }
-            append(note: "\(name) closed")
-        case .failed(_, let message):
-            append(note: "Terminal: \(message)")
-        }
-    }
-
-    func refreshTerminals() { session?.sendTerminal(.list) }
-
-    func createTerminal(name: String) {
-        session?.sendTerminal(.create(name: name))
-    }
-
-    func selectTerminal(_ id: UUID) {
-        selectedTerminalID = id
-        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
-    }
-
-    func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
-        let suffix = appendReturn ? "\r" : ""
-        guard let data = (text + suffix).data(using: .utf8) else { return }
-        session?.sendTerminal(.input(sessionID: id, data: data))
-        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
-    }
-
-    func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
-        session?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
-    }
-
-    func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
-        session?.sendTerminal(.resize(
-            sessionID: id,
-            columns: UInt16(clamping: columns),
-            rows: UInt16(clamping: rows)
-        ))
-    }
-
-    func closeTerminal(_ id: UUID) {
-        session?.sendTerminal(.close(sessionID: id))
-    }
-
-    private func apply(video event: ClientSession.VideoEvent) {
-        switch event {
-        case .connecting:
-            videoStatus = "Opening the video channel…"
-            isVideoStreaming = false
-        case .config(let config):
-            // The decoder half of this is done on the network queue, in the same place the
-            // frames are handled, so that it is ordered against them — see the event handler
-            // in `connect(to:)`. Flushing and reconfiguring here instead would put the reset
-            // *after* a keyframe that arrived in the same read, and throw that keyframe away.
-            // Only the labels belong on the main actor.
-            videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
-            isVideoStreaming = true
-            append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
-        case .frame:
-            break // Handled on the network queue; see `connect(to:)`.
-        case .ended(let reason):
-            videoStatus = "Video ended: \(reason)"
-            isVideoStreaming = false
-        }
-    }
-
-    private func startVideoPolling() {
-        videoPoll?.cancel()
-        videoPoll = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(500))
-                guard let self else { return }
-                let snapshot = self.renderer.currentSnapshot
-                if snapshot.hasConfig {
-                    self.updateFrameRate(from: snapshot)
-                    self.updateAutoQuality(from: snapshot)
-
-                    let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
-                    let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
-                    // The *rate* leads, and the running total follows it. "1234 frames" answers
-                    // how long the session has been up; the question a picture that looks choppy
-                    // actually raises is how many are arriving each second, and only a
-                    // difference between two samples can answer it.
-                    let rate = self.videoFramesPerSecond > 0
-                        ? " · \(Int(self.videoFramesPerSecond.rounded())) fps"
-                        : ""
-                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)"
-                }
-            }
-        }
-    }
-
-    /// Frames per second as they are actually arriving, smoothed.
-    ///
-    /// Derived from the difference between two polls rather than reported by anyone: neither end
-    /// knows the rate at which the other is running, and the only place the two meet is here.
-    /// Smoothed heavily because a half-second window is short enough that a single late batch
-    /// reads as a swing, and what this is for is telling thirty apart from sixty.
-    private func updateFrameRate(from snapshot: VideoRenderer.Snapshot) {
-        let now = Date()
-        defer { lastFrameSample = (snapshot.framesEnqueued, now) }
-
-        guard let last = lastFrameSample else { return }
-        // A count that has gone backwards is a reset, not a negative rate — the renderer drops
-        // its totals when the stream restarts.
-        guard snapshot.framesEnqueued >= last.count else {
-            videoFramesPerSecond = 0
-            return
-        }
-        let elapsed = now.timeIntervalSince(last.at)
-        guard elapsed > 0 else { return }
-
-        let rate = Double(snapshot.framesEnqueued - last.count) / elapsed
-        videoFramesPerSecond = videoFramesPerSecond == 0
-            ? rate
-            : videoFramesPerSecond * 0.6 + rate * 0.4
-    }
-
-    private func append(note: String) {
-        notes.append(note)
-        if notes.count > 12 { notes.removeFirst(notes.count - 12) }
-    }
-
-    // MARK: - Pairing
-
-    func confirmPairing(accepted: Bool) {
-        // Declining ends the session from the Mac's side too, and that arrives as a
-        // `.disconnected` like any other — with the model's phase still on `.confirming`.
-        // Without this the user's own "no" comes back to them as a lost connection.
-        if !accepted { userEndedSession = true }
-        session?.confirmPairing(accepted: accepted)
-    }
-
-    /// Ends the session now.
-    ///
-    /// `deliberate` answers "did the user mean to do this", which is not the same question as
-    /// "who called this function". A disconnect the user tapped is silent; one iOS forced
-    /// because it is about to suspend the app is not, because they are looking at something else
-    /// and a banner is the only way they will ever hear about it.
-    func disconnect(deliberate: Bool = true) {
-        // Taken before anything else is, because everything below is about taking this session
-        // apart — and the card that outlives a non-deliberate end needs both to say what was
-        // lost. After the lines beneath them they are simply nil.
-        let wasStartedAt = sessionStartedAt
-        let wasPath = Self.activityPath(connectionPath)
-
-        // Recorded before anything moves. `ClientSession` announces the end itself, and by
-        // the time that event is applied the phase below has already been set — so this flag
-        // is the only evidence left that the user, and not the network, ended it.
-        userEndedSession = deliberate
-        // Only a deliberate one. A drop, and the end iOS forces on a backgrounded app, are the
-        // two cases where coming back to the app should find the session restored.
-        if deliberate {
-            UserDefaults.standard.set(false, forKey: Self.resumeKey)
-            stopReconnecting()
-        }
-        sessionStartedAt = nil
-        session?.disconnect()
-        session = nil
-        videoPoll?.cancel()
-        videoPoll = nil
-        renderer.reset()
-        connectionPath = nil
-        latchedModifiers = []
-        phase = .disconnected
-
-        // Below the assignment rather than above it: this is the path that *is* the phase
-        // change, and the announcement that follows it sees no difference to act on.
-        //
-        // Which of the two, though, turns on `deliberate` — and this method is how *both*
-        // arrive, because the end iOS forces when the background grace runs out comes through
-        // here too. `sessionEnded()` used to be called unconditionally, so backgrounding the
-        // app made the card vanish as though the user had quit: the one moment the card is
-        // most useful, and it was being taken away. That is the opposite of what `deliberate`
-        // is documented to mean two paragraphs up.
-        // The keepalive and the floating window go with the session, and this method has to do
-        // it itself for the same reason the card does: it sets the phase rather than letting
-        // the event path announce it, so nothing that hangs off a phase *change* runs. Without
-        // this, quitting left silence playing and a floating window of a Mac nobody is
-        // connected to.
-        SessionAudio.shared.end()
-        SessionPiP.shared.stop()
-
-        if deliberate {
-            SessionActivity.shared.sessionEnded()
-        } else {
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
-                startedAt: wasStartedAt,
-                path: wasPath
-            )
-        }
-    }
-
-    /// A trusted Mac the user asked for, waiting on discovery to produce it.
-    ///
-    /// Kept for an in-flight Bonjour update from an older request. New requests no longer need
-    /// to wait: they use the relay immediately when the Mac is not visible on the LAN.
-    private var pendingHostID: String?
+    var pendingHostID: String?
 
     /// Whether a trusted Mac has been asked for and not yet found.
     var isWaitingForHost: Bool { pendingHostID != nil }
@@ -975,78 +550,14 @@ final class SessionModel {
         UserDefaults.standard.object(forKey: PreferenceKey.allowRelay) as? Bool ?? true
     }
 
-    /// Connects to a Mac this device has paired with before, by ID.
-    ///
-    /// Bonjour wins when it has the Mac, preserving the existing direct LAN path. Otherwise the
-    /// same stable host ID is sent to the relay; no remembered IP address is involved.
-    func connectToTrusted(hostID: String) {
-        if let host = hosts.first(where: { $0.id == hostID }) {
-            pendingHostID = nil
-            connect(to: .discovered(host))
-            return
-        }
-        guard allowsRelay else {
-            // Waited for rather than refused, and the waiting is not a spinner over nothing:
-            // the Mac is paired, and the only thing missing is that it is not on this network
-            // yet. That is a state that ends by itself — walking back into range, or the Mac
-            // waking — and the browser's next update connects with no further tap. The row
-            // already draws the progress indicator for it.
-            pendingHostID = hostID
-            return
-        }
-        pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
-    }
+    static let lastHostNameKey = "Peering.lastHostName"
+    static let lastHostIDKey = "Peering.lastHostID"
 
-    /// Explicit route choices from the trusted-Mac row. The regular row tap stays automatic;
-    /// these two methods deliberately do not fall back to the other transport.
-    func connectToTrustedOverLAN(hostID: String) {
-        guard let host = hosts.first(where: { $0.id == hostID }) else { return }
-        pendingHostID = nil
-        connect(to: .discovered(host))
-    }
-
-    func connectToTrustedOverRelay(hostID: String) {
-        guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
-        pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
-    }
-
-    // MARK: - Quick connect
-
-    /// Where the name of the last Mac this device connected to is kept.
-    ///
-    /// In `UserDefaults` rather than in the app group the widget would need to read it, because
-    /// the widget does not need to know *which* Mac — it offers to connect, and the app decides
-    /// to what. That keeps a shared container, its entitlement and its provisioning out of a
-    /// feature whose whole job is to save one tap.
-    private static let lastHostNameKey = "Peering.lastHostName"
-    private static let lastHostIDKey = "Peering.lastHostID"
-
-    /// Reconnects to the Mac this device used last. A matching Bonjour result uses the direct
-    /// LAN path; a trusted ID that is not currently visible uses the relay.
-    func reconnectToLastHost() {
-        guard !phase.holdsSession else { return }
-        let defaults = UserDefaults.standard
-        let hostID = defaults.string(forKey: Self.lastHostIDKey)
-        let name = defaults.string(forKey: Self.lastHostNameKey)
-        if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
-            connect(to: .discovered(host))
-        } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
-        }
-    }
-
-    /// Whether the next sight of the last Mac should put the session back.
-    ///
-    /// Written down rather than remembered, because the case that matters most is the one where
-    /// iOS killed the app while it was backgrounded: nothing of the session survives that, and
-    /// "there was one" has to have been recorded before it happened.
-    private static let resumeKey = "Peering.resumeWhenReachable"
+    static let resumeKey = "Peering.resumeWhenReachable"
 
     /// Set while a dropped session is being put back, so the Live Activity can say so rather
     /// than keep claiming a connection that is not there.
-    private(set) var isReconnecting = false
+    var isReconnecting = false
 
     /// How long to wait before each attempt at putting a dropped session back.
     ///
@@ -1055,12 +566,12 @@ final class SessionModel {
     /// that has not changed. Five attempts over about forty seconds covers a Wi-Fi roam, a
     /// display waking, and a Mac that was asleep and is not any more; past that the user is
     /// better served by the picker than by a spinner.
-    private static let reconnectDelays: [Duration] = [
+    static let reconnectDelays: [Duration] = [
         .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
     ]
 
-    private var reconnectTask: Task<Void, Never>?
-    private var reconnectAttempt = 0
+    var reconnectTask: Task<Void, Never>?
+    var reconnectAttempt = 0
 
     /// Set while ``resumeIfNeeded()`` is connecting, so a failure it causes is retried by the
     /// ladder rather than reported.
@@ -1071,299 +582,18 @@ final class SessionModel {
     /// starts. It reaches the user as "Software caused connection abort" — the operating system
     /// talking, about a condition that clears itself in well under a second. Nobody asked for
     /// this attempt, so there is nobody to tell; a second one succeeds.
-    private var isResuming = false
+    var isResuming = false
 
-    /// Puts the session back, if there was one and the user did not end it.
-    ///
-    /// Called from three places because they cover different arrivals. Coming back to the front
-    /// is the short trip — the app is still in memory and the Mac is already in the browser's
-    /// list. A host appearing is the cold launch, where the browser has only just started and
-    /// the Mac is not in a list that has not been filled in yet. And a timer is the drop that
-    /// happens while the user is looking at the screen, which is the case they notice.
-    ///
-    /// A deliberate disconnect clears the flag and nothing here fires; a dropped connection
-    /// leaves it set, which is exactly the case this exists for.
-    private func resumeIfNeeded() {
-        // `session` is assigned synchronously in ``connect(to:)``, before the phase has heard
-        // anything, while the browser fires `updated` on its own schedule — so the session is
-        // the only reliable evidence that an attempt is already in flight. Without it the retry
-        // and the browser can both start one, and each silently closes the other's connection.
-        guard session == nil, !phase.holdsSession else {
-            stopReconnecting()
-            return
-        }
-        guard UserDefaults.standard.bool(forKey: Self.resumeKey) else { return }
-
-        let defaults = UserDefaults.standard
-        let hostID = defaults.string(forKey: Self.lastHostIDKey)
-        let name = defaults.string(forKey: Self.lastHostNameKey)
-        if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
-            stopReconnecting()
-            isResuming = true
-            connect(to: .discovered(host))
-        } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            stopReconnecting()
-            isResuming = true
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
-        } else {
-            // Includes the LAN-only case: the Mac is paired and simply not here yet. The ladder
-            // keeps asking until it appears, which is the whole of what "wait for it to come
-            // back" means — stopping at the first attempt that found nothing would end a resume
-            // that has not failed, only not succeeded yet.
-            scheduleReconnect()
-        }
-    }
-
-    /// Arms the next attempt, if there is one left to make.
-    private func scheduleReconnect() {
-        guard reconnectTask == nil else { return }
-        guard reconnectAttempt < Self.reconnectDelays.count else {
-            isReconnecting = false
-            // The reconnect ladder gave up. `sessionMoved` is not called again because there is
-            // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
-            // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
-                startedAt: nil,
-                path: Self.activityPath(connectionPath)
-            )
-            return
-        }
-        let delay = Self.reconnectDelays[reconnectAttempt]
-        reconnectAttempt += 1
-        isReconnecting = true
-        reconnectTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard let self, !Task.isCancelled else { return }
-            self.reconnectTask = nil
-            self.resumeIfNeeded()
-        }
-    }
-
-    /// Stops the retry, *without* resetting the backoff.
-    ///
-    /// The counter belongs to a run of attempts, and resetting it here is what turned a failing
-    /// reconnect into a permanent loop: every cycle called this, so the attempt count returned to
-    /// zero and the delays never advanced past the first second. Only a session that actually
-    /// came up clears it — see the `.ready` branch in ``apply(_:)``.
-    private func stopReconnecting() {
-        reconnectTask?.cancel()
-        reconnectTask = nil
-        isReconnecting = false
-    }
-
-    // MARK: - Backgrounding
-
-    /// The reprieve iOS grants a backgrounded app, and what happens when it runs out.
-    ///
-    /// There is no background mode a remote desktop can honestly claim — the app is not playing
-    /// audio, tracking a location or servicing a call — so this is the whole of it. It is not a
-    /// fix for the session ending when the app is backgrounded, and cannot be: it buys the few
-    /// seconds that make switching to another app for something and coming straight back
-    /// survivable, and nothing beyond that.
-    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
-
-    /// Called when the app is backgrounded with a session up.
-    func enteringBackground() {
-        SessionActivity.shared.enteringBackground()
-
-        // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
-        // That flag is set, and the picture does float when it is started by hand — but iOS
-        // never takes the hint. Automatic PiP is gated on the system considering the app to be
-        // *playing*, and an `AVAudioPlayer` running silence is not something it counts, however
-        // active the session is.
-        //
-        // Asking at the one moment it is wanted costs nothing and does not depend on that
-        // judgement — and the moment matters: this runs as the app leaves the screen, which is
-        // when `startPictureInPicture` still has a view hierarchy to lift the layer out of.
-        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
-
-        guard phase.holdsSession, backgroundTask == .invalid else { return }
-        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
-            Task { @MainActor in self?.backgroundTimeExpired() }
-        }
-    }
-
-    func enteringForeground() {
-        SessionActivity.shared.returningToForeground()
-        endBackgroundAssertion()
-        // A browse that died while the app was in the background has been sitting behind its own
-        // backoff in a suspended process. Starting one now is the difference between a list that
-        // is there when the user looks and one that fills in several seconds later.
-        if browseFailed { restartBrowsing() }
-        resumeIfNeeded()
-    }
-
-    /// Ends the session when the background window runs out, rather than letting the system
-    /// kill it.
-    ///
-    /// The difference is visible in two places. The Live Activity is taken down and the Mac is
-    /// told the session is over, instead of a Lock Screen card sitting there claiming a
-    /// connection that ended — which it cannot correct, because nothing of ours is running to
-    /// correct it with. And the user, who is not looking, gets a banner.
-    private func backgroundTimeExpired() {
-        endBackgroundAssertion()
-        guard phase.holdsSession else { return }
-        disconnect(deliberate: false)
-    }
-
-    private func endBackgroundAssertion() {
-        guard backgroundTask != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(backgroundTask)
-        backgroundTask = .invalid
-    }
-
-    /// Forgets the pin for a Mac. The Mac keeps its half, so the next connection is refused
-    /// by it until it is unpaired on that side too — which is the honest behaviour for
-    /// "forget", as opposed to a silent re-pair.
-    func forget(hostID: String) {
-        pins.remove(hostID: hostID)
-        pairedHostIDs = pins.hostIDs
-        publishKnownMacs()
-        append(note: "Forgot \(hostID). Unpair this device on the Mac as well.")
-    }
-
-    /// Destroys this device's identity key and mints a fresh one under a new device ID.
-    ///
-    /// Both, not just the key. A Mac that already holds a pin for this client ID will only
-    /// ever accept the key it pinned, so rotating the key alone locks the device out of every
-    /// Mac it has paired with. Changing the ID as well makes this device a stranger again,
-    /// which is what "start over" has to mean.
-    func resetDeviceIdentity() {
-        session?.disconnect()
-        session = nil
-        // The phase moves off `.ready` here rather than through `apply(_:)`, so the elapsed
-        // time has to be cleared here too or the readout would outlive its session.
-        sessionStartedAt = nil
-        phase = .disconnected
-        do {
-            try SelfSignedIdentity.destroy(role: .client)
-        } catch {
-            append(note: "Could not destroy the old key: \((error as? LocalizedError)?.errorDescription ?? "\(error)")")
-            return
-        }
-        _ = pins.removeAll()
-
-        UserDefaults.standard.removeObject(forKey: "Peering.deviceID")
-        device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
-
-        do {
-            self.identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
-            append(note: "New identity \(device.id.prefix(8))…. Pair again on the Mac.")
-        } catch {
-            identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-        }
-    }
-
-    func setDeviceName(_ name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        device.saveName(trimmed)
-        device = DeviceIdentity.loadOrCreate(defaultName: trimmed)
-    }
+    var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     var thisDeviceDescription: String { "\(device.name) · \(device.id)" }
 
     // MARK: - Input
 
-    /// The only path input takes. Everything goes through the session's coalescer, so the
-    /// rules about what may be merged and what must never be dropped live in one place
-    /// instead of in each gesture recogniser.
-    func send(_ command: RemoteCommand) {
-        guard !isObserving || !command.isUserInput else { return }
-        session?.send(command)
-    }
-
-    func setObserveOnly(_ enabled: Bool) {
-        guard enabled != isObserving else { return }
-
-        // A modifier that was latched before Observe was selected must be released on the Mac.
-        // Clearing only the phone's visual state would leave Command/Shift held remotely with
-        // Observe mode deliberately blocking the button that could release it.
-        if enabled {
-            let held: [(Modifiers, UInt16)] = [
-                (.command, 55),
-                (.shift, 56),
-                (.option, 58),
-                (.control, 59),
-            ]
-            for (modifier, keyCode) in held where latchedModifiers.contains(modifier) {
-                session?.send(.keyUp(keyCode: keyCode, modifiers: []))
-            }
-            latchedModifiers = []
-        }
-        isObserving = enabled
-    }
-
-    func setPrivacyMode(_ enabled: Bool) {
-        guard phase == .ready else { return }
-        privacyModeEnabled = enabled
-        send(.setPrivacyMode(enabled: enabled))
-    }
-
-    func lockMac() {
-        guard phase == .ready else { return }
-        send(.lockScreen)
-    }
-
-    func selectSource(_ descriptor: CaptureSourceDescriptor) {
-        activeSourceID = descriptor.id
-        session?.selectCaptureSource(descriptor.source)
-    }
-
-    /// The same, for a caller holding a ``CaptureSource`` rather than the descriptor it was
-    /// listed under.
-    ///
-    /// **Recording the choice is the whole point of this existing.** `activeSourceID` is what
-    /// callers compare against before deciding whether a switch is needed, so a caller that
-    /// sends `setCaptureSource` itself leaves the record describing a screen the video is no
-    /// longer on — and the next comparison then reads as "already there" and sends nothing.
-    /// The visible result is a session that will follow the desktops panel onto the second
-    /// display and then refuse to come back.
-    func selectSource(_ source: CaptureSource) {
-        activeSourceID = source.stableID
-        session?.selectCaptureSource(source)
-    }
-
-    func launchApplication(_ descriptor: InstalledApplicationDescriptor) {
-        send(.launchApplication(bundleIdentifier: descriptor.bundleIdentifier))
-    }
-
-    func setKeyboardMode(_ mode: KeyboardMode) {
-        keyboardMode = mode
-    }
-
-    /// Latches a modifier on or off.
-    ///
-    /// Sent as a real modifier key press rather than as flag bits on the next keystroke,
-    /// because that is what the host tracks: setting `flags` describes one event and does not
-    /// release the modifier, so the window server would go on believing it is held. A latched
-    /// modifier is also what makes a two-finger shortcut possible from a touch screen at all —
-    /// there is no way to hold ⌘ with one hand and type with the other on a phone.
-    func toggleModifier(_ bit: Modifiers, keyCode: UInt16) {
-        let isOn = latchedModifiers.contains(bit)
-        if isOn {
-            latchedModifiers.remove(bit)
-            send(.keyUp(keyCode: keyCode, modifiers: []))
-        } else {
-            latchedModifiers.insert(bit)
-            send(.keyDown(keyCode: keyCode, modifiers: []))
-        }
-    }
-
-    func run(_ macro: Macro) {
-        // Down then up, in that order, and never coalesced — a macro whose release was
-        // dropped would leave the Mac holding a modifier with no way to clear it from here.
-        send(.keyDown(keyCode: macro.keyCode, modifiers: macro.modifiers))
-        send(.keyUp(keyCode: macro.keyCode, modifiers: macro.modifiers))
-    }
-
-    // MARK: - Custom macros
-
-    private static let customMacrosKey = "Peering.customMacros"
+    static let customMacrosKey = "Peering.customMacros"
 
     /// User-defined macros, persisted across launches. Shown after the built-in defaults.
-    private(set) var customMacros: [Macro] = {
+    var customMacros: [Macro] = {
         guard let data = UserDefaults.standard.data(forKey: "Peering.customMacros"),
               let decoded = try? JSONDecoder().decode([Macro].self, from: data) else {
             return []
@@ -1374,93 +604,7 @@ final class SessionModel {
     /// All macros — built-in first, then custom.
     var allMacros: [Macro] { Macro.defaults + customMacros }
 
-    func addCustomMacro(_ macro: Macro) {
-        customMacros.append(macro)
-        saveMacros()
-    }
-
-    func removeCustomMacro(at offsets: IndexSet) {
-        customMacros.remove(atOffsets: offsets)
-        saveMacros()
-    }
-
-    func moveCustomMacro(from source: IndexSet, to destination: Int) {
-        customMacros.move(fromOffsets: source, toOffset: destination)
-        saveMacros()
-    }
-
-    private func saveMacros() {
-        if let data = try? JSONEncoder().encode(customMacros) {
-            UserDefaults.standard.set(data, forKey: Self.customMacrosKey)
-        }
-    }
-
-    /// Return, and the typed preview goes with it.
-    ///
-    /// The preview is the line the Mac has been sent since it was last emptied, and a Return is
-    /// the point at which that stops describing anything: the line is committed, the field it went
-    /// into has moved on, and a bar still showing the old text claims the Mac is holding something
-    /// it has already taken.
-    func pressReturn() {
-        typedPreview = ""
-        send(.keyDown(keyCode: 36, modifiers: latchedModifiers))
-        send(.keyUp(keyCode: 36, modifiers: latchedModifiers))
-    }
-
-    /// Text from the software keyboard, routed by the current mode.
-    func handleTypedText(_ text: String) {
-        guard !text.isEmpty else { return }
-        // A newline is a Return by another name — the software keyboard delivers it as text
-        // rather than as a key — so it commits the line for the same reason ``pressReturn()``
-        // does, and the preview restarts from empty.
-        // Bounded, but far beyond anything the bar can draw.
-        //
-        // This was 40, which is *less* than a landscape bar displays. So the preview filled
-        // about half the width and then stopped growing: every further character pushed the
-        // text left while empty space remained to its right, because the cap was doing the
-        // layout. The view already bounds what is drawn — one line, truncated at the head —
-        // so this only has to stop the string growing without limit, and any number above
-        // what the bar can show does that without being visible.
-        typedPreview = text.contains(where: \.isNewline)
-            ? ""
-            : String((typedPreview + text).suffix(400))
-
-        switch keyboardMode {
-        case .unicode:
-            send(.textInput(text))
-
-        case .keycode:
-            // Per character, with the latched modifiers attached, so ⌘-latched typing works.
-            // A character with no Mac keycode — an emoji, a CJK glyph — falls back to a text
-            // injection rather than being silently swallowed: losing it would be worse than
-            // sending it by the other mode.
-            for character in text {
-                guard let code = KeycodeMap.macOSKeycode(forCharacter: character) else {
-                    send(.textInput(String(character)))
-                    continue
-                }
-                // Uppercase and the shifted symbols are the same key as their unshifted
-                // forms, so shift has to ride along or "Hello" arrives as "hello".
-                var modifiers = latchedModifiers
-                if KeycodeMap.characterNeedsShift(character) { modifiers.insert(.shift) }
-                send(.keyDown(keyCode: code, modifiers: modifiers))
-                send(.keyUp(keyCode: code, modifiers: modifiers))
-            }
-        }
-    }
-
-    func setStreamQuality(_ quality: StreamQuality) {
-        streamQuality = quality
-        if let bitrateKbps = quality.bitrateKbps {
-            send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
-        } else {
-            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
-            lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-        }
-    }
-
-    private var autoQualityPath: AutoQualityPolicy.Path {
+    var autoQualityPath: AutoQualityPolicy.Path {
         switch connectionPath {
         case .lan: return .lan
         case .relay: return .relay
@@ -1468,54 +612,6 @@ final class SessionModel {
         }
     }
 
-    private func applyInitialAutoQualityIfNeeded() {
-        guard streamQuality == .auto else { return }
-        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
-        lastAutoDroppedFrames = 0
-        send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-    }
-
-    private func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
-        guard streamQuality == .auto, let latencyMilliseconds else {
-            lastAutoDroppedFrames = snapshot.framesDropped
-            return
-        }
-
-        let newDrops = snapshot.framesDropped >= lastAutoDroppedFrames
-            ? snapshot.framesDropped - lastAutoDroppedFrames
-            : 0
-        lastAutoDroppedFrames = snapshot.framesDropped
-
-        guard let tier = autoQualityPolicy.observe(
-            latencyMilliseconds: latencyMilliseconds,
-            newDroppedFrames: newDrops
-        ) else { return }
-        send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
-        append(note: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps")
-    }
-
-    func handleBackspace() {
-        typedPreview = String(typedPreview.dropLast())
-        // 51 is Delete (backspace) on every Mac layout. Sent in both modes: in keycode mode it
-        // is a real key press, and in Unicode mode there is no text to delete backwards over,
-        // so a keycode is the only thing that can express it.
-        send(.keyDown(keyCode: 51, modifiers: latchedModifiers))
-        send(.keyUp(keyCode: 51, modifiers: latchedModifiers))
-    }
-
-    /// A key from a hardware keyboard, in keycode mode.
-    func handleHardwareKey(_ usage: UIKeyboardHIDUsage, down: Bool, flags: UIKeyModifierFlags) {
-        guard keyboardMode == .keycode,
-              let code = KeycodeMap.macOSKeycode(for: usage)
-        else { return }
-        let modifiers = KeycodeMap.modifiers(from: flags)
-        send(down ? .keyDown(keyCode: code, modifiers: modifiers)
-                  : .keyUp(keyCode: code, modifiers: modifiers))
-    }
-
-    // MARK: - Geometry
-
-    /// The title of the currently active capture source (display name or app name).
     var activeSourceTitle: String? {
         guard let activeSourceID,
               let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })
@@ -1556,7 +652,7 @@ final class SessionModel {
     }
 }
 
-private extension ClientSession.Phase {
+extension ClientSession.Phase {
     /// Whether a live connection is still behind this phase.
     ///
     /// The three that are not are the ones where anything the session was holding has no way
@@ -1564,7 +660,7 @@ private extension ClientSession.Phase {
     /// about that asks here rather than listing the phases again.
 }
 
-private extension Modifiers {
+extension Modifiers {
     /// Names the latched modifiers for the notes list. Symbols, not words: this is read next
     /// to the same glyphs the buttons are drawn with.
     var label: String {
