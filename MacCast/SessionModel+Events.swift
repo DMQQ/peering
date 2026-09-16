@@ -145,6 +145,9 @@ extension SessionModel {
         case .clipboard(let text):
             hostClipboard = text
             clipboardPulling = false
+            // Every pull is filed, so the next one does not overwrite the last one anywhere but
+            // on the phone's own pasteboard.
+            rememberClipboard(text)
         case .audio(let event):
             switch event {
             case .config(let config):

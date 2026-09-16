@@ -661,6 +661,7 @@ struct ModifierBar: View {
 struct MacroBar: View {
     @Environment(SessionModel.self) private var model
     @State private var showingMacroEditor = false
+    @State private var showingClipboardHistory = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -683,6 +684,16 @@ struct MacroBar: View {
                     label: "Push",
                     action: { model.pushClipboard() }
                 )
+                // Only once there is something in it, and this is the same rule the Copy button
+                // beside it follows: a button that opens an empty list is a button that teaches
+                // nothing the first time it is pressed.
+                if !model.clipboardHistory.isEmpty {
+                    ClipboardButton(
+                        symbol: "clock.arrow.circlepath",
+                        label: "History",
+                        action: { showingClipboardHistory = true }
+                    )
+                }
 
                 // Divider
                 Rectangle()
@@ -724,6 +735,9 @@ struct MacroBar: View {
         }
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)
+        }
+        .sheet(isPresented: $showingClipboardHistory) {
+            ClipboardHistoryPanel()
         }
     }
 }

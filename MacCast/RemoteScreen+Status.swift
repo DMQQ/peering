@@ -392,11 +392,13 @@ extension RemoteScreen {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(tint ?? ColorPalette.ink)
                 .frame(width: 46, height: 46)
-                // `.regular`, and not `.interactive()`. The interactive variant installs its own
-                // gesture so the glass can answer a press by itself, and inside a `Button` that
-                // gesture is competing with the button's own — the dots were swallowing taps.
-                // The press feedback comes from the button style instead, which is where a
-                // control's feedback belongs anyway.
+                // Plain glass, with the press answered by the button style instead.
+                //
+                // This is not the fix for the taps these dots were swallowing — that was the
+                // badge, drawn outside the button's bounds and therefore its own hit region,
+                // which is why it is now `allowsHitTesting(false)`. The interactive glass is
+                // fine in a button; the clipboard row uses it in buttons that work. Plain is
+                // chosen here only so that one press gets one answer rather than two.
                 .glassEffect(.regular, in: Circle())
                 .opacity(enabled ? 1 : 0.4)
                 .overlay(alignment: .topTrailing) {

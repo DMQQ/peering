@@ -543,6 +543,86 @@ final class SessionModel {
         UIPasteboard.general.string = text
     }
 
+    // MARK: - Clipboard history
+
+    /// Everything pulled from the Mac this device has kept, newest first.
+    ///
+    /// The Mac's pasteboard holds one thing, so a second Pull replaces the first — this is the
+    /// only place the earlier ones exist. Held here rather than in the panel because the panel is
+    /// rebuilt every time it opens.
+    /// Loaded through a named function rather than inline: a stored property's initialiser
+    /// cannot reference `Self`, and the alternative is spelling the key twice.
+    var clipboardHistory: [ClipboardEntry] = SessionModel.loadClipboardHistory()
+
+    static func loadClipboardHistory() -> [ClipboardEntry] {
+        guard let data = UserDefaults.standard.data(forKey: clipboardHistoryKey) else { return [] }
+        return (try? JSONDecoder().decode([ClipboardEntry].self, from: data)) ?? []
+    }
+
+    /// How many pulls have been recorded, so a view can tell the list changed.
+    ///
+    /// The entries carry no identity to diff on and the text is arbitrary — including text that
+    /// repeats, which would make two identical pulls indistinguishable.
+    var clipboardHistoryCount = 0
+
+    struct ClipboardEntry: Codable, Equatable, Identifiable {
+        let id: UUID
+        let text: String
+        let at: Date
+    }
+
+    static let clipboardHistoryKey = "Peering.clipboardHistory"
+    /// Enough to find the thing you copied a few steps ago, short of being a log of everything
+    /// that has crossed this device. Each entry is a whole clipboard, and clipboards can be
+    /// large — a spreadsheet range, a file's worth of text.
+    static let clipboardHistoryLimit = 12
+
+    /// Files what the Mac sent us.
+    ///
+    /// Written down rather than kept in memory, which is a decision worth naming: this is the
+    /// user's own clipboard on their own phone, and a history that empties every time the app is
+    /// relaunched is one nobody would use twice. Cleared in one tap from the list.
+    func rememberClipboard(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = clipboardHistory.filter { $0.text != text }
+        history.insert(ClipboardEntry(id: UUID(), text: text, at: Date()), at: 0)
+        if history.count > Self.clipboardHistoryLimit {
+            history.removeLast(history.count - Self.clipboardHistoryLimit)
+        }
+        clipboardHistory = history
+        persistClipboardHistory()
+    }
+
+    func removeClipboardEntry(_ id: UUID) {
+        clipboardHistory.removeAll { $0.id == id }
+        persistClipboardHistory()
+    }
+
+    func clearClipboardHistory() {
+        clipboardHistory = []
+        persistClipboardHistory()
+    }
+
+    /// Puts a history entry on the iPhone's pasteboard, which is what tapping one does.
+    func copyToPhone(_ entry: ClipboardEntry) {
+        UIPasteboard.general.string = entry.text
+        clipboardHistoryCount += 1
+    }
+
+    /// Sends a history entry to the Mac's clipboard, which is the other half of what a tap could
+    /// sensibly do with one.
+    func pushToMac(_ entry: ClipboardEntry) {
+        guard phase == .ready else { return }
+        session?.send(.pushClipboard(text: entry.text))
+    }
+
+    private func persistClipboardHistory() {
+        clipboardHistoryCount += 1
+        guard let data = try? JSONEncoder().encode(clipboardHistory) else { return }
+        UserDefaults.standard.set(data, forKey: Self.clipboardHistoryKey)
+    }
+
     // MARK: - Wake-on-LAN
 
     /// Sends a Wake-on-LAN magic packet for the given host ID, using the MAC addresses it last
