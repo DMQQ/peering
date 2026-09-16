@@ -48,6 +48,22 @@ final class RemoteAudioPlayer: @unchecked Sendable {
         engine.stop()
     }
 
+    /// Whether the Mac's audio comes out of this phone.
+    ///
+    /// A volume rather than a teardown. The frames arrive whether or not anyone is listening, so
+    /// stopping the engine would only mean rebuilding it on the next one — and the reason to
+    /// reach for this switch is usually a single sound rather than a decision to stop hearing
+    /// the Mac.
+    ///
+    /// The sound that prompted it: macOS plays its alert — the "woop" — when a chord it was
+    /// given leads nowhere, such as going back through a history that has nothing in it. An
+    /// injected ⌘[ is a real key press and gets the real alert, and then the phone plays it back
+    /// at the person who pressed it. There is no way to ask macOS not to, so the way out is to
+    /// stop playing what it says.
+    var isMuted = false {
+        didSet { engine.mainMixerNode.outputVolume = isMuted ? 0 : 1 }
+    }
+
     /// Converts interleaved Float32 samples to a non-interleaved AVAudioPCMBuffer and schedules
     /// them for playback.
     func enqueue(_ frame: EncodedAudioFrame) {

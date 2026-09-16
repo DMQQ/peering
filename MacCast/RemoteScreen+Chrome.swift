@@ -60,7 +60,7 @@ extension RemoteScreen {
                 // keeping the pill from crossing a landscape screen — to the pill. Left at 420
                 // it would have started constraining the status rows instead, since the dots
                 // moved inside it.
-                statusBar.frame(maxWidth: 420 + Self.sessionDotsWidth)
+                statusBar.frame(maxWidth: Self.pillMaxWidth + Self.sessionDotsWidth)
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the

@@ -99,11 +99,20 @@ extension RemoteScreen {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(model.hostName ?? "Mac")
                                 .font(.subheadline.weight(.semibold))
+                                // One line, and first claim on the width. A Mac called
+                                // "Damian's MacBook Pro" is wider than a caption and it was
+                                // wrapping onto a second line, which made the whole row taller
+                                // and left the quit button to be squeezed into what was left.
+                                .lineLimit(1)
                             Text(model.videoStatus)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
+                        // Resolved before the clock and the latency are, so the name gets the
+                        // room it needs and the readouts give way rather than the other way
+                        // round — they are short, fixed, and unreadable if truncated.
+                        .layoutPriority(1)
                         Spacer(minLength: 8)
                         sessionClock
                         if let latency = model.latencyMilliseconds {
@@ -123,6 +132,11 @@ extension RemoteScreen {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
                             .background(Color.red.opacity(0.85), in: Capsule())
+                            // The label takes the width it needs and nothing offers to give it
+                            // any back. A quit button reading "QUI / T" is one that has been
+                            // compressed by the row, and there is no state in which that is the
+                            // right way to spend the width.
+                            .fixedSize()
                         }
                         .buttonStyle(RailButtonStyle(scale: 0.9))
                         .accessibilityLabel("Quit session")
@@ -133,6 +147,20 @@ extension RemoteScreen {
                         connectionPathChip
                         qualityPicker
                         fillChip
+                        // The Mac's audio, off unless asked for — see `hostAudioMuted`. The icon
+                        // is the state rather than a label: a struck-through speaker in a row
+                        // that is already six chips wide is one glyph, and the alternative is a
+                        // word that pushes the row onto a second line on a narrow phone.
+                        Button { model.hostAudioMuted.toggle() } label: {
+                            Image(systemName: model.hostAudioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                .font(.system(size: 13))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac")
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
@@ -286,7 +314,16 @@ extension RemoteScreen {
     }
 
     /// What the two dots add to the pill's width: a dot and a gap on each side.
-    static let sessionDotsWidth: CGFloat = (36 + 7) * 2
+    static let sessionDotsWidth: CGFloat = (46 + 7) * 2
+
+    /// How wide the pill itself is allowed to get.
+    ///
+    /// Wide enough that its two rows fit without wrapping: the Mac's name, the clock, the latency
+    /// and the quit button on one line, and the path, the quality picker, the fill and the two
+    /// tools on the next. At 420 the name wrapped onto two lines and pushed QUIT off its own —
+    /// which is what "QUI / T" was. The cap is still a cap: on a wide landscape screen the pill
+    /// stops growing rather than turning into a bar across the top of the picture.
+    static let pillMaxWidth: CGFloat = 520
 
     /// One dot, on the side of the pill that suits it.
     ///
@@ -345,12 +382,15 @@ extension RemoteScreen {
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(tint ?? ColorPalette.ink)
-                .frame(width: 36, height: 36)
-                // `.interactive()` rather than a button style: the glass already knows how to
-                // answer a press, and a scale on top of it is two answers to one touch.
-                .glassEffect(.regular.interactive(), in: Circle())
+                .frame(width: 46, height: 46)
+                // `.regular`, and not `.interactive()`. The interactive variant installs its own
+                // gesture so the glass can answer a press by itself, and inside a `Button` that
+                // gesture is competing with the button's own — the dots were swallowing taps.
+                // The press feedback comes from the button style instead, which is where a
+                // control's feedback belongs anyway.
+                .glassEffect(.regular, in: Circle())
                 .opacity(enabled ? 1 : 0.4)
                 .overlay(alignment: .topTrailing) {
                     if let badge {
@@ -366,7 +406,7 @@ extension RemoteScreen {
                     }
                 }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RailButtonStyle(scale: 0.92))
         .disabled(!enabled)
         .accessibilityLabel(label)
     }
@@ -404,6 +444,9 @@ extension RemoteScreen {
         }
         .padding(2)
         .background(.primary.opacity(0.06), in: Capsule())
+        // The segments keep their width. Left compressible the row squeezed "Auto" into
+        // "Aut / o" — a four-segment control is not something that can shrink and stay readable.
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel("Stream quality")
     }
 
@@ -445,6 +488,7 @@ extension RemoteScreen {
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel(scalesToFill ? "Filling the screen" : "Fitted to the screen")
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     func expandStatusBar() {

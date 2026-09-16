@@ -149,6 +149,8 @@ extension SessionModel {
             switch event {
             case .config(let config):
                 audioPlayer = RemoteAudioPlayer(config: config)
+                // A fresh player per stream, so the preference has to be handed to each one.
+                audioPlayer?.isMuted = hostAudioMuted
             case .frame(let frame):
                 audioPlayer?.enqueue(frame)
             }

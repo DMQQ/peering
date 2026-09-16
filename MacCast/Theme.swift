@@ -204,6 +204,12 @@ enum PreferenceKey {
     static let allowRelay = "Peering.allowRelay"
     /// Whether opening Peering requires the device owner's biometric authentication.
     static let requireBiometricUnlock = "Peering.requireBiometricUnlock"
+    /// Whether the Mac's own audio is played on the phone, or dropped silently.
+    ///
+    /// Persisted because it is a decision about the Mac being controlled rather than about this
+    /// session: someone who does not want to hear what the Mac is playing does not want to hear
+    /// it next time either.
+    static let hostAudioMuted = "Peering.hostAudioMuted"
 }
 
 /// A section heading: small, tracked, uppercase.

@@ -176,6 +176,21 @@ final class SessionModel {
     // MARK: - Audio
     var audioPlayer: RemoteAudioPlayer?
 
+    /// Whether the Mac's own audio is played here, or dropped.
+    ///
+    /// Off by default, which is a decision rather than a default. What arrives on this channel is
+    /// everything the Mac plays — music, a call, a video — and also every system sound it makes
+    /// in response to what this phone sends it: the alert for a chord that leads nowhere, the
+    /// trudge of a failed drop. Those are the Mac talking back to a command the user just gave,
+    /// played into their ear a round trip later, and they are the reason this switch exists
+    /// rather than a volume to turn up.
+    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKey.hostAudioMuted) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKey.hostAudioMuted)
+            audioPlayer?.isMuted = hostAudioMuted
+        }
+    }
+
     // MARK: - Terminals
     var terminals: [RemoteTerminal] = []
     var selectedTerminalID: UUID?
