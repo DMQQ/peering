@@ -317,6 +317,34 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         // which makes the view jump as soon as the user shifts the pinch centroid.
         pinch.delegate = self
         twoFingerPan.delegate = self
+        // The one-finger pair as well, now that there is something to ask them. The whole point
+        // of a delegate here is ``gestureRecognizerShouldBegin`` below.
+        oneFingerPan.delegate = self
+        oneFingerTap.delegate = self
+    }
+
+    /// Whether a gesture may start here at all.
+    ///
+    /// This is what stops the canvas eating taps aimed at the chrome. This view covers the whole
+    /// screen and sits under every control the app draws, and a recogniser that begins on the way
+    /// to a button takes the touch with it — `cancelsTouchesInView` is on by default — so the
+    /// button never sees the press. The result is a control that works on the second or third
+    /// attempt, depending on whether the recogniser happened to be mid-something on the first.
+    ///
+    /// It was the dock that made it obvious — press it twice and it goes — but the same theft was
+    /// happening to every button in the chrome, including the dots beside the status pill, which
+    /// is the "sometimes the terminal button does nothing" that never had an explanation.
+    ///
+    /// Refusing to begin costs nothing: a touch over the chrome was never going to move the Mac's
+    /// pointer anyway. `handleOneFingerPan` checks the same regions at `.began` and that check
+    /// stays, because it is the one that holds if a gesture starts just outside a panel and drags
+    /// across it.
+    // `override` because `UIView` already declares this — it is one of the delegate methods a
+    // view answers by default, which is why the scope has to be widened rather than a new one
+    // added.
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        let point = gestureRecognizer.location(in: self)
+        return !CanvasGeometry.isBlocked(point, regions: blockedRegions)
     }
 
     func gestureRecognizer(

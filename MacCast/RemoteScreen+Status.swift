@@ -54,7 +54,7 @@ extension RemoteScreen {
     /// ``sessionDots`` — so the pill holds status and the dots hold the two occasional actions,
     /// and the outer `HStack` is what keeps them one object: attached, not merely near each other.
     var statusBar: some View {
-        HStack(alignment: .center, spacing: 7) {
+        HStack(alignment: .center, spacing: 5) {
             // The dots are served first and the pill takes what is left. The pill was taking
             // the width it wanted, which on a portrait phone pushed the terminal dot off the
             // edge of the screen — and of the three, the dots are the ones with nowhere to
@@ -63,7 +63,10 @@ extension RemoteScreen {
             statusPill
             terminalDot.layoutPriority(1)
         }
-        .padding(.horizontal, 10)
+        // Narrower than the rails' own inset, on purpose: every point taken off the sides is a
+        // point the pill's rows get, and the pill is the one piece of chrome that has to hold
+        // three rows of other things.
+        .padding(.horizontal, 6)
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
         .reportChromeFrame(.statusBar, into: $chromeFrames)
@@ -139,24 +142,24 @@ extension RemoteScreen {
                         .accessibilityLabel("Quit session")
                     }
 
-                    // ── Row 2: what the stream is doing ──────────────────────────────
-                    HStack(spacing: 6) {
-                        Text(model.videoStatus)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    // ── Row 2: the one number worth a line ──────────────────────────
+                    //
+                    // The codec and the pixel size used to share this row. They are the Mac
+                    // describing itself — "HEVC 1512×982" — and they answer a question nobody
+                    // has while looking at the picture: either it moves or it does not. The
+                    // latency is the one measurement here that changes what anybody does.
+                    HStack(spacing: 8) {
                         if let latency = model.latencyMilliseconds {
-                            Text("·").font(.caption2).foregroundStyle(.tertiary)
                             Text("\(Int(latency.rounded())) ms")
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(ColorPalette.reading(latency))
                                 .fixedSize()
                         }
+                        connectionPathChip
                     }
 
                     // ── Row 3: quality + view options ────────────────────────────────
                     HStack(spacing: 8) {
-                        connectionPathChip
                         qualityChip
                         fillChip
                         // The audio switch moved out to the dot beside the pill — see
