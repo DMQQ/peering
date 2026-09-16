@@ -62,10 +62,23 @@ struct TerminalPanel: View {
                     Button { model.refreshTerminals() } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    Button { beginCreating() } label: {
+                    // A menu rather than a button, because there are two ways to open a shell
+                    // and only one of them wants a name: the common case is a terminal to type
+                    // in, which the Mac will call Terminal 1, 2, 3 on its own. The other case is
+                    // a terminal you want to find again later among five others, and that one is
+                    // worth a word — often the last command, which is what the field starts with.
+                    Menu {
+                        Button("New terminal", systemImage: "plus") {
+                            model.createTerminal(name: "")
+                        }
+                        Button("New named terminal…", systemImage: "textformat") {
+                            beginCreating()
+                        }
+                    } label: {
                         Image(systemName: isCreating ? "xmark" : "plus")
                     }
-                    .accessibilityLabel(isCreating ? "Cancel new terminal" : "New terminal")
+                    .disabled(isCreating)
+                    .accessibilityLabel("New terminal")
                 }
                 // The keyboard's own bar, which is where iOS puts a dismiss key and therefore
                 // where the hand looks for one. It also puts it a keyboard's height away from
@@ -101,7 +114,7 @@ struct TerminalPanel: View {
             Image(systemName: "terminal")
                 .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(ColorPalette.accent)
-            TextField("Name, for example Build", text: $newName)
+            TextField("Terminal \(model.terminals.count + 1)", text: $newName)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.system(.body, design: .monospaced))
@@ -134,6 +147,9 @@ struct TerminalPanel: View {
             createFocused = false
             return
         }
+        // Started on the last command, because that is the name most people would have chosen:
+        // a shell opened to run something is remembered by what it ran.
+        newName = model.terminalHistory.first ?? ""
         isCreating = true
         // A turn later, because the field has to exist before it can take focus — set in the same
         // pass, there is nothing to focus and the keyboard never comes up.
@@ -264,6 +280,11 @@ struct TerminalPanel: View {
             // dismiss key that covers the bottom half of a panel whose whole point is the text
             // above it, and the only way out is leaving the screen.
             .scrollDismissesKeyboard(.interactively)
+            // Pressing the output is pressing the prompt. A terminal on a phone is read by
+            // looking at the bottom of it, and what the thumb does next is type a command — so
+            // the tap goes where the typing goes rather than doing nothing. The text stays
+            // selectable by long press, which is the gesture that asked for it.
+            .onTapGesture { inputFocused = true }
             .onChange(of: terminal.output.count) { _, _ in
                 reader.scrollTo("terminal-end", anchor: .bottom)
             }
@@ -357,7 +378,12 @@ struct TerminalPanel: View {
         // that the caret sat against it, which reads as clipped rather than as inset.
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        // The terminal's own black, with a rule above it. It was a material, which put a grey
+        // band across the bottom of a black panel and read as chrome from a different app.
+        .background(Color.black)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+        }
     }
 
     /// The keys a terminal needs and a phone keyboard has not got.
