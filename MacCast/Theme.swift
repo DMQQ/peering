@@ -30,7 +30,7 @@ enum ChromeMetrics {
     /// when the pill was one 28-point line; when it grew to two lines the 14 stayed and read as a
     /// card that had not quite been squared off, and then the height grew again to give the two
     /// lines room. It follows the height now.
-    static let pillCollapsedRadius: CGFloat = 27
+    static let pillCollapsedRadius: CGFloat = 30
     static let pillExpandedRadius: CGFloat = 26
     /// Inside a rail, above the first button and below the last — and the same as the gap either
     /// side of one, so the first button sits in its panel the way the ones below it sit between

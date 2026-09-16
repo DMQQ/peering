@@ -261,29 +261,24 @@ extension RemoteScreen {
                                 }
                                 connectionPathChip
                                 if model.isVideoStreaming {
-                                    Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                        // A fixed width, because the number in it is not: 60 is
-                                        // a digit narrower than 120, and a pill that changes
-                                        // width when the frame rate does is a pill that twitches
-                                        // on a screen whose whole subject is moving.
-                                        .frame(width: 52, alignment: .trailing)
-                                        .accessibilityLabel("Video frame rate")
-                                        .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
                                 }
                             }
                         }
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 // Two lines rather than one, and a fixed height for the same reason it was fixed
                 // before: a pill that resized itself as a source changed would move the picture
-                // under a finger that is aiming at it. Tall enough that the two lines have room
-                // above and below them — at 46 the first line sat hard against the top edge and
-                // the Mac's name looked like it had been pushed up out of the pill.
-                .frame(height: 54)
+                // under a finger that is aiming at it.
+                //
+                // The height and the padding have to be read together, which is what went wrong
+                // the first time. Padding applied *before* a fixed frame lives inside it, so
+                // 8 + 8 plus two lines of text came to more than the 54 the frame allowed, and
+                // the padding was squeezed to nothing — which is exactly "too close to the top
+                // edge". At 60 there is slack for the padding to sit in, and that slack is the
+                // spacing.
+                .frame(height: 60)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
                 // Opacity only, and on its own clock — see ``pillContents``. The scale that was

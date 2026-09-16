@@ -22,10 +22,6 @@ struct TerminalPanel: View {
             VStack(spacing: 0) {
                 tabStrip
                 Divider().opacity(0.35)
-                if isCreating {
-                    createRow
-                    Divider().opacity(0.35)
-                }
                 if let terminal = selected {
                     output(terminal)
                     if !model.terminalHistory.isEmpty { historyStrip(terminal.id) }
@@ -42,6 +38,12 @@ struct TerminalPanel: View {
                         // what fits in one.
                         description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
                     )
+                }
+                // At the bottom, over the input it belongs to. It was at the top, under the tab
+                // strip, which put the thing being named as far from the keyboard naming it as
+                // the screen allows.
+                if isCreating {
+                    createRow
                 }
             }
             .background(Color.black)
@@ -101,9 +103,14 @@ struct TerminalPanel: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.06))
+        // The same material the input row below it wears, so the two read as one block that
+        // appeared under the terminal rather than as a banner across it.
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+        }
         // No transition, and deliberately. It slides in and the keyboard slides up over the same
         // half second, which is two things animating one layout — the row jitters as the keyboard
         // takes the space it was moving into. In one frame, and the keyboard's own animation is
