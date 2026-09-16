@@ -56,6 +56,34 @@ struct TerminalTextSanitizerTests {
         #expect(render("helo\u{08}lo\r\n") == "hello\n")
     }
 
+    @Test("a line the shell refused is marked as an error")
+    func unknownCommandIsAnError() {
+        let lines = TerminalTextSanitizer.renderLines(Data("ls\r\nzsh: command not found: lss\r\n".utf8))
+        #expect(lines.map(\.kind) == [.plain, .error, .plain])
+    }
+
+    @Test("a warning is marked as a warning, not as a failure")
+    func warningLine() {
+        let lines = TerminalTextSanitizer.renderLines(Data("warning: unused variable 'x'\r\n".utf8))
+        #expect(lines.first?.kind == .warning)
+    }
+
+    @Test("a file that merely has error in its name is not coloured")
+    func errorInAFilename() {
+        // The reason the signals are phrases rather than words: a listing is full of names like
+        // this one, and a rule that matched "error" would colour half of a directory listing.
+        let lines = TerminalTextSanitizer.renderLines(Data("error.log  notes.txt\r\n".utf8))
+        #expect(lines.first?.kind == .plain)
+    }
+
+    @Test("only the shell's own refusal counts as an unknown command")
+    func unknownCommandDetection() {
+        #expect(TerminalTextSanitizer.reportsUnknownCommand(Data("zsh: command not found: foo\r\n".utf8)))
+        // A command that ran and failed is a command, and is kept.
+        #expect(!TerminalTextSanitizer.reportsUnknownCommand(Data("make: *** [all] Error 2\r\n".utf8)))
+        #expect(!TerminalTextSanitizer.reportsUnknownCommand(Data("everything is fine\r\n".utf8)))
+    }
+
     @Test("output that spans several reads still renders")
     func splitReads() {
         // The history is re-rendered from the whole buffer on every read, so a line split across

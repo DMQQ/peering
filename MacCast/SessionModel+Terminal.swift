@@ -23,6 +23,32 @@ extension SessionModel {
         session?.sendTerminal(.input(sessionID: id, data: data))
         if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
         rememberTerminalCommand(text)
+        lastSentCommand = text
+        lastSentAt = Date()
+    }
+
+    /// Takes a command back out of the history when the shell says it did not exist.
+    ///
+    /// The history is a list of things worth running again, and a typo is the one entry certain
+    /// not to work the second time — it is exactly the entry that makes a history list useless,
+    /// because it is the one you keep scrolling past.
+    ///
+    /// Only "command not found", and only for the command just sent: that phrase is the shell
+    /// saying it never ran. A command that ran and failed is a command, and dropping those would
+    /// leave a history of the parts that happened to work.
+    func forgetUnknownCommand(_ data: Data) {
+        guard TerminalTextSanitizer.reportsUnknownCommand(data),
+              let command = lastSentCommand,
+              let sentAt = lastSentAt,
+              // A shell's answer arrives in the next read or two. Past that the message belongs
+              // to something else — a build log, a script printing its own failures.
+              Date().timeIntervalSince(sentAt) < 5
+        else { return }
+
+        terminalHistory.removeAll { $0 == command }
+        UserDefaults.standard.set(terminalHistory, forKey: Self.terminalHistoryKey)
+        lastSentCommand = nil
+        lastSentAt = nil
     }
 
     /// Adds a command to the list the panel offers, and writes it down.
@@ -79,6 +105,7 @@ extension SessionModel {
             append(note: "Terminal “\(info.name)” opened")
         case .output(let id, let data):
             guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
+            forgetUnknownCommand(data)
             terminals[index].output.append(data)
             let limit = 512 * 1024
             if terminals[index].output.count > limit {

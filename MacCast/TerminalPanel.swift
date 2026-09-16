@@ -208,9 +208,8 @@ struct TerminalPanel: View {
             // holds whatever the finger left it at and starts where reading starts: the left.
             ScrollView(.vertical) {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Text(terminal.visibleOutput.isEmpty ? "Starting login shell…" : terminal.visibleOutput)
+                    Text(coloured(terminal))
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(terminal.visibleOutput.isEmpty ? .secondary : .primary)
                         .textSelection(.enabled)
                         // The lines are as wide as they are. Wrapping them would be the other way
                         // to keep the view still, and it ruins the one thing a terminal is good
@@ -233,6 +232,34 @@ struct TerminalPanel: View {
                 reader.scrollTo("terminal-end", anchor: .bottom)
             }
         }
+    }
+
+    /// The history, with the lines that look like failures coloured.
+    ///
+    /// A terminal on a phone is read by scrolling past things, and what you are scrolling past
+    /// for is the line that says why nothing worked. Two colours, both dimmer than the text
+    /// around them so they mark a line rather than shout about it — and a `Text` that is one
+    /// attributed string rather than a stack of coloured rows, because the selection and the
+    /// copy behaviour are what a terminal is for.
+    private func coloured(_ terminal: RemoteTerminal) -> AttributedString {
+        guard !terminal.output.isEmpty else {
+            return AttributedString("Starting login shell…")
+        }
+        var output = AttributedString()
+        for line in TerminalTextSanitizer.renderLines(terminal.output) {
+            var piece = AttributedString(line.text)
+            switch line.kind {
+            case .error:
+                piece.foregroundColor = Color(red: 0.98, green: 0.45, blue: 0.40)
+            case .warning:
+                piece.foregroundColor = Color(red: 0.97, green: 0.75, blue: 0.35)
+            case .plain:
+                break
+            }
+            piece.append(AttributedString("\n"))
+            output.append(piece)
+        }
+        return output
     }
 
     /// What has been run here before, newest first, one tap from the field.

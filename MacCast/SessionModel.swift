@@ -202,6 +202,13 @@ final class SessionModel {
     var terminalHistory: [String] =
         UserDefaults.standard.stringArray(forKey: "Peering.terminalHistory") ?? []
 
+    /// The command last sent, and when — so the shell's answer can be read against it.
+    ///
+    /// A PTY gives a byte stream with no marker for where one command's output starts, so the
+    /// only thing that ties a message to a command is that it arrived right after one.
+    var lastSentCommand: String?
+    var lastSentAt: Date?
+
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
     /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user

@@ -112,6 +112,11 @@ extension RemoteScreen {
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                             .truncationMode(.tail)
+                        // The quit button is pinned to the far edge rather than sitting after the
+                        // name. It is the one control here you reach for without reading, and it
+                        // should be in the same place every time — which it was not, because the
+                        // pill hugs its contents and the name is a different length on every Mac.
+                        Spacer(minLength: 12)
                         // The session's only way out, always visible in the expanded pill.
                         Button { model.disconnect() } label: {
                             HStack(spacing: 4) {
@@ -284,6 +289,11 @@ extension RemoteScreen {
                                     Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
                                         .font(.caption2.monospacedDigit())
                                         .foregroundStyle(.secondary)
+                                        // A fixed width, because the number in it is not: 60 is
+                                        // a digit narrower than 120, and a pill that changes
+                                        // width when the frame rate does is a pill that twitches
+                                        // on a screen whose whole subject is moving.
+                                        .frame(width: 52, alignment: .trailing)
                                         .accessibilityLabel("Video frame rate")
                                         .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
                                 }
@@ -327,7 +337,7 @@ extension RemoteScreen {
     /// tools on the next. At 420 the name wrapped onto two lines and pushed QUIT off its own —
     /// which is what "QUI / T" was. The cap is still a cap: on a wide landscape screen the pill
     /// stops growing rather than turning into a bar across the top of the picture.
-    static let pillMaxWidth: CGFloat = 520
+    static let pillMaxWidth: CGFloat = 440
 
     /// One dot, on the side of the pill that suits it.
     ///
@@ -475,6 +485,10 @@ extension RemoteScreen {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
+            // The same fill as the connection-path chip beside it. These are both buttons, and a
+            // button with no surface reads as a label that happens to be tappable — which is
+            // what "not so obvious" was about.
+            .background(.primary.opacity(0.08), in: Capsule())
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("Stream quality")
@@ -531,7 +545,7 @@ extension RemoteScreen {
             .foregroundStyle(scalesToFill ? ColorPalette.ink : Color.secondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(scalesToFill ? ColorPalette.selectedFill : .clear, in: Capsule())
+            .background(scalesToFill ? ColorPalette.selectedFill : .primary.opacity(0.08), in: Capsule())
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("How the picture fits the screen")
