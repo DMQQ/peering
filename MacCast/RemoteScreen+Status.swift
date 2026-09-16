@@ -55,9 +55,13 @@ extension RemoteScreen {
     /// and the outer `HStack` is what keeps them one object: attached, not merely near each other.
     var statusBar: some View {
         HStack(alignment: .center, spacing: 7) {
-            pipDot
+            // The dots are served first and the pill takes what is left. The pill was taking
+            // the width it wanted, which on a portrait phone pushed the terminal dot off the
+            // edge of the screen — and of the three, the dots are the ones with nowhere to
+            // compress to, being circles with one glyph in them.
+            pipDot.layoutPriority(1)
             statusPill
-            terminalDot
+            terminalDot.layoutPriority(1)
         }
         .padding(.horizontal, 10)
         // The same inset as the rails, so the pill and the panels hang from one line.
@@ -145,7 +149,7 @@ extension RemoteScreen {
                     // ── Row 2: quality + view options ────────────────────────────────
                     HStack(spacing: 8) {
                         connectionPathChip
-                        qualityPicker
+                        qualityChip
                         fillChip
                         // The Mac's audio, off unless asked for — see `hostAudioMuted`. The icon
                         // is the state rather than a label: a struck-through speaker in a row
@@ -422,33 +426,37 @@ extension RemoteScreen {
             .accessibilityLabel("Connection path")
     }
 
-    var qualityPicker: some View {
-        HStack(spacing: 2) {
-            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { (preset: SessionModel.StreamQuality) in
-                let selected = model.streamQuality == preset
-                Button {
-                    model.setStreamQuality(preset)
-                } label: {
-                    Text(preset.rawValue)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(selected ? ColorPalette.ink : .secondary)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(
-                            selected ? AnyShapeStyle(.primary.opacity(0.15)) : AnyShapeStyle(Color.clear),
-                            in: Capsule()
-                        )
-                }
-                .buttonStyle(.plain)
+    /// The stream quality, as one chip that moves on when tapped.
+    ///
+    /// It was four segments side by side — about a hundred and forty points of a row that also
+    /// has to hold the path, the fit, the speaker, the camera and the quality. On a portrait
+    /// phone that is more than the pill has room for, and the row paid for it by pushing the
+    /// terminal dot off the screen entirely. A chip showing the preset that is on, and moving to
+    /// the next one when tapped, says the same thing in a fifth of the width — and it is the
+    /// shape the mode button already uses, so the gesture is one this screen has taught.
+    ///
+    /// What it gives up is seeing all four at once. That is the trade: four options that fit are
+    /// worth more than four options that push the controls off the edge.
+    var qualityChip: some View {
+        Button {
+            let presets = SessionModel.StreamQuality.allCases
+            let index = presets.firstIndex(of: model.streamQuality) ?? 0
+            withAnimation(Motion.settle) {
+                model.setStreamQuality(presets[(index + 1) % presets.count])
             }
+        } label: {
+            Text(model.streamQuality.rawValue)
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
         }
-        .padding(2)
-        .background(.primary.opacity(0.06), in: Capsule())
-        // The segments keep their width. Left compressible the row squeezed "Auto" into
-        // "Aut / o" — a four-segment control is not something that can shrink and stay readable.
-        .fixedSize(horizontal: true, vertical: false)
+        .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("Stream quality")
+        .accessibilityValue(model.streamQuality.rawValue)
+        .accessibilityHint("Moves to the next preset")
     }
+
 
     /// How long the session has been up.
     ///
@@ -464,6 +472,10 @@ extension RemoteScreen {
             Text(started, style: .timer)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+                // One line, always. A timer counting up is all colons and digits, so a row short
+                // of width wraps it a character at a time — which is how it ended up reporting
+                // the session as a vertical column of numbers down the side of the pill.
+                .fixedSize()
         }
     }
 

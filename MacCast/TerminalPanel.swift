@@ -8,8 +8,9 @@ struct TerminalPanel: View {
     @Environment(\.dismiss) private var dismiss
     @State private var command = ""
     @State private var newName = ""
-    @State private var showsCreate = false
+    @State private var isCreating = false
     @FocusState private var inputFocused: Bool
+    @FocusState private var createFocused: Bool
 
     private var selected: RemoteTerminal? {
         guard let id = model.selectedTerminalID else { return nil }
@@ -21,6 +22,10 @@ struct TerminalPanel: View {
             VStack(spacing: 0) {
                 tabStrip
                 Divider().opacity(0.35)
+                if isCreating {
+                    createRow
+                    Divider().opacity(0.35)
+                }
                 if let terminal = selected {
                     output(terminal)
                     keyStrip(terminal.id)
@@ -29,13 +34,22 @@ struct TerminalPanel: View {
                     ContentUnavailableView(
                         "No terminals",
                         systemImage: "terminal",
-                        description: Text("Create a login shell on your Mac. It keeps running if this phone disconnects.")
+                        // Says where the shell actually is. "Create a login shell" is the
+                        // honest name for what the host starts, and it explains nothing to
+                        // anyone who has not already used one — the question it left was
+                        // whether this was a shell on the phone.
+                        description: Text("A terminal runs on your Mac, not here — the same shell Terminal gives you, starting in your home folder. It keeps running when this phone disconnects.")
                     )
                 }
             }
             .background(Color.black)
             .navigationTitle("Mac terminals")
             .navigationBarTitleDisplayMode(.inline)
+            // The header is part of the terminal, so it is the terminal's colour. Left alone it
+            // is a system bar material, which over a black panel reads as a different app's
+            // chrome sitting on top of this one.
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
@@ -44,25 +58,67 @@ struct TerminalPanel: View {
                     Button { model.refreshTerminals() } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    Button { showsCreate = true } label: {
-                        Image(systemName: "plus")
+                    Button { beginCreating() } label: {
+                        Image(systemName: isCreating ? "xmark" : "plus")
                     }
-                    .accessibilityLabel("New terminal")
+                    .accessibilityLabel(isCreating ? "Cancel new terminal" : "New terminal")
                 }
             }
         }
         .preferredColorScheme(.dark)
         .onAppear { model.refreshTerminals() }
-        .alert("New terminal", isPresented: $showsCreate) {
+    }
+
+    /// Naming a terminal, in the panel rather than in a dialog over it.
+    ///
+    /// It was an alert with a text field in it, which is a lot of ceremony for one short name —
+    /// and it arrives on top of the panel, hiding the thing being created, to ask a question
+    /// about it. In the panel it is a line that appears where the terminal will be, with the
+    /// keyboard already up.
+    private var createRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "terminal")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(ColorPalette.accent)
             TextField("Name, for example Build", text: $newName)
-            Button("Cancel", role: .cancel) {}
-            Button("Create") {
-                model.createTerminal(name: newName)
-                newName = ""
-            }
-        } message: {
-            Text("Starts your Mac login shell in your home folder.")
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(.body, design: .monospaced))
+                .focused($createFocused)
+                .submitLabel(.go)
+                .onSubmit { create() }
+            Button("Create") { create() }
+                .font(.system(size: 13, weight: .semibold))
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.06))
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func beginCreating() {
+        if isCreating {
+            isCreating = false
+            newName = ""
+            createFocused = false
+            return
+        }
+        withAnimation(Motion.settle) { isCreating = true }
+        // A turn later, because the field that wants focus is inserted by that animation — set
+        // in the same pass there is nothing to focus yet and the keyboard never comes up.
+        Task { @MainActor in createFocused = true }
+    }
+
+    private func create() {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        // No name is a name: the host falls back to "Terminal N", which is a better answer than
+        // refusing to start a shell over a label.
+        model.createTerminal(name: name)
+        newName = ""
+        withAnimation(Motion.settle) { isCreating = false }
+        createFocused = false
     }
 
     private var tabStrip: some View {
