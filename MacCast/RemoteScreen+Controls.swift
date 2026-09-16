@@ -40,9 +40,13 @@ extension RemoteScreen {
     }
 
     var sourcesButton: some View {
+        // "Apps", which is what the panel holds: the running applications, the installed ones, the
+        // windows and the displays, all of them things this Mac can *show*. It said "Share", which
+        // is what a screensharing app calls the screen it hands over — and read as the system share
+        // sheet, which is a completely different button in everybody's head.
         RailButton(
             icon: "rectangle.on.rectangle",
-            label: "Share",
+            label: "Apps",
             selected: openPanel == .sources
         ) {
             withAnimation(Motion.settle) { openPanel = openPanel == .sources ? nil : .sources }

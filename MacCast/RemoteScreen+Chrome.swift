@@ -89,11 +89,13 @@ extension RemoteScreen {
                         )
                             .reportChromeFrame(.wheel, into: $chromeFrames)
                         Spacer(minLength: 0)
-                        // Return above the pointer and Back beside it, so the thumb resting on
-                        // the stick reaches both without crossing the screen.
-                        pointerColumn
-                            .reportChromeFrame(.pointer, into: $chromeFrames)
-                            .offset(x: joystickColumnOffset)
+                        if !model.showKeyboard {
+                            // Return above the pointer and Back beside it, so the thumb resting on
+                            // the stick reaches both without crossing the screen.
+                            pointerColumn
+                                .reportChromeFrame(.pointer, into: $chromeFrames)
+                                .offset(x: joystickColumnOffset)
+                        }
                     }
                     .padding(.horizontal, ChromeMetrics.edgeInset)
                     .padding(.bottom, ChromeMetrics.bottomInset)
@@ -116,8 +118,9 @@ extension RemoteScreen {
             // everything before, would have had a hundred-point disc swallowing the middle of any
             // panel the user opened, with its own controls unreachable underneath.
             ZStack(alignment: .bottom) {
-                portraitPointer
-                    .reportChromeFrame(.pointer, into: $chromeFrames)
+                if !model.showKeyboard {
+                    portraitPointer
+                        .reportChromeFrame(.pointer, into: $chromeFrames)
                     // Centred across and sitting on the dock, rather than on the screen's own
                     // centre. `maxHeight: .infinity` with no alignment centres its content, so
                     // this filled the screen and put the joystick in the middle of both axes —
@@ -127,8 +130,9 @@ extension RemoteScreen {
                     // The frame is still the whole screen. Only the content inside it has moved:
                     // the reported rect is measured from the control itself, so everything that
                     // reads it — the touches the canvas must not take — follows it here.
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+                }
 
                 VStack(spacing: 0) {
                     statusBar
@@ -137,9 +141,15 @@ extension RemoteScreen {
                     // nothing left to push it into.
                     floatingPanel(available, isLandscape: false)
                         .padding(.bottom, ChromeMetrics.panelGap)
-                    portraitDock(width: available.width * ChromeMetrics.dockWidthFraction)
-                        .reportChromeFrame(.dock, into: $chromeFrames)
-                        .padding(.bottom, ChromeMetrics.edgeInset)
+                    // Standing down while the keyboard is up. Typing is the activity then, and
+                    // the dock is a row of pointer controls the keyboard covers or crowds — and
+                    // the joystick goes with it, for the same reason in both orientations: the
+                    // hands are on the keys.
+                    if !model.showKeyboard {
+                        portraitDock(width: available.width * ChromeMetrics.dockWidthFraction)
+                            .reportChromeFrame(.dock, into: $chromeFrames)
+                            .padding(.bottom, ChromeMetrics.edgeInset)
+                    }
                 }
             }
             .onAppear {
