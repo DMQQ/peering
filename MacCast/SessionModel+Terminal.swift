@@ -22,7 +22,30 @@ extension SessionModel {
         guard let data = (text + suffix).data(using: .utf8) else { return }
         session?.sendTerminal(.input(sessionID: id, data: data))
         if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
+        rememberTerminalCommand(text)
     }
+
+    /// Adds a command to the list the panel offers, and writes it down.
+    ///
+    /// Newest first and de-duplicated, so a command run twice moves to the top rather than
+    /// appearing twice — the list is for finding the one you want, and a log of repeats makes
+    /// that harder. Capped, because this is a convenience and not a history file: the Mac's own
+    /// shell keeps the real one.
+    func rememberTerminalCommand(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = terminalHistory
+        history.removeAll { $0 == trimmed }
+        history.insert(trimmed, at: 0)
+        if history.count > Self.terminalHistoryLimit {
+            history.removeLast(history.count - Self.terminalHistoryLimit)
+        }
+        terminalHistory = history
+        UserDefaults.standard.set(history, forKey: Self.terminalHistoryKey)
+    }
+
+    static let terminalHistoryKey = "Peering.terminalHistory"
+    static let terminalHistoryLimit = 30
 
     func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
         session?.sendTerminal(.input(sessionID: id, data: Data(bytes)))

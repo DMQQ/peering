@@ -170,7 +170,20 @@ extension HostStatusView {
         ZStack {
             Color.black
 
-            if let preview {
+            if !showsPreview {
+                // Says which of the two reasons this frame is empty, because they mean opposite
+                // things: off is a setting, and "not streaming" is a state the user would want
+                // to know about.
+                VStack(spacing: 7) {
+                    Image(systemName: "rectangle.on.rectangle.slash")
+                        .font(.system(size: 21, weight: .light))
+                    Text("Preview off")
+                        .font(.caption)
+                    Text("Turn it back on in Settings.")
+                        .font(.caption2)
+                }
+                .foregroundStyle(HostPalette.faint)
+            } else if let preview {
                 Image(decorative: preview, scale: 1)
                     .resizable()
                     .aspectRatio(contentMode: .fit)

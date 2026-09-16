@@ -43,6 +43,10 @@ extension HostStatusView {
 
                 Divider().padding(.leading, 52)
 
+                previewRow
+
+                Divider().padding(.leading, 52)
+
                 clientPointerRow
 
                 Divider().padding(.leading, 52)
@@ -69,6 +73,38 @@ extension HostStatusView {
     /// absent from screenshots while avoiding a setting that no longer affects the stream.
     /// Pointer rendering belongs to the client. Keeping this visible explains why the cursor is
     /// absent from screenshots while avoiding a setting that no longer affects the stream.
+    /// Whether the window shows a live still of the Mac.
+    ///
+    /// The only setting here that is about what this Mac does when nobody is connected to it:
+    /// the snapshot behind the overview is taken every couple of seconds for as long as the
+    /// window is open, whether or not anyone is looking at it. Off, that loop does not run.
+    var previewRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "rectangle.on.rectangle.slash")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(showsPreview ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Live preview")
+                    .font(.subheadline.weight(.medium))
+                Text("Refreshes this window every couple of seconds with what the Mac is showing. Turning it off stops the snapshots altogether — an iPhone that is streaming still sees the screen.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: $showsPreview)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
     var clientPointerRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "cursorarrow.motionlines")

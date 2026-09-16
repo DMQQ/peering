@@ -68,6 +68,23 @@ struct HostStatusView: View {
     @State var hoveredSection: HostSection?
     @State var heroHovered = false
 
+    /// Whether this window keeps a still of the Mac on screen behind it.
+    ///
+    /// Persisted, because it is a decision about the Mac rather than about the moment. Off, the
+    /// snapshot loop does not run at all — see the `.task` in `body` — which is the point: the
+    /// preview is the only thing this app does that touches the screen when nobody asked it to.
+    /// It is not a privacy control and does not pretend to be one — a connected iPhone sees the
+    /// same screen either way. It is for a window left open on a second display, a screen being
+    /// shared, or simply not wanting the Mac photographed every two seconds for a picture nobody
+    /// is looking at.
+    @AppStorage("hostShowsPreview") var showsPreview = true
+
+    /// What the snapshot loop is keyed on: which source, and whether a preview is wanted at all.
+    private struct PreviewKey: Equatable {
+        let source: CaptureSource?
+        let enabled: Bool
+    }
+
     /// How much room the pane has, measured rather than assumed.
     ///
     /// The picture's height is derived from it — see `previewHeight` — so the frame it is drawn
@@ -151,7 +168,15 @@ struct HostStatusView: View {
         // once instead of showing the old one until the next tick. Two seconds is chosen against
         // what the picture is for: it is here to answer "what can they see", and a still that is
         // a second old answers that as well as a live one, for a fraction of the work.
-        .task(id: model.capturingSource) {
+        //
+        // The switch is part of the key as well as a guard, because turning the preview off has
+        // to *stop* this loop rather than let it run on drawing pictures nobody asked for. A
+        // cancelled task is the only way to stop taking screenshots of someone's Mac.
+        .task(id: PreviewKey(source: model.capturingSource, enabled: showsPreview)) {
+            guard showsPreview else {
+                preview = nil
+                return
+            }
             while !Task.isCancelled {
                 let shot = await model.snapshot()
                 guard !Task.isCancelled else { return }

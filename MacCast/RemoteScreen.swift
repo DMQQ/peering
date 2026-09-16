@@ -67,6 +67,10 @@ struct RemoteScreen: View {
     @State var confirmsQuitApplication = false
     @State var showsTerminals = false
 
+    /// What the joystick is showing about its own speed, for the second or so after it changes.
+    @State var speedBadge: String?
+    @State var speedBadgeTask: Task<Void, Never>?
+
     /// Where the window's own controls are, in the canvas's coordinates.
     ///
     /// The gesture surface has to be told: it is a UIKit view under SwiftUI's drawing, so a

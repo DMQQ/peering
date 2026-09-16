@@ -68,7 +68,12 @@ extension RemoteScreen {
     }
 
     func sendJoystick(_ travel: CGSize) {
-        model.send(.joystickMove(dx: Double(travel.width), dy: Double(travel.height)))
+        // The speed multiplies the travel here rather than at the joystick, so the drawn cursor
+        // and the Mac's pointer are advanced by the same amount. Scaling one and not the other
+        // is exactly the drift where the arrow on screen stops agreeing with the thing clicking.
+        let speed = CGFloat(model.pointerSpeed)
+        let scaled = CGSize(width: travel.width * speed, height: travel.height * speed)
+        model.send(.joystickMove(dx: Double(scaled.width), dy: Double(scaled.height)))
         // The joystick is the one control that moves the Mac's pointer without the client
         // knowing where it went. Touch sends an absolute position, so the drawn cursor and the
         // real one are the same fact; a joystick sends a delta and nothing comes back, because
@@ -83,7 +88,7 @@ extension RemoteScreen {
         // It is an estimate, and it drifts in exactly one case: the Mac's pointer stopping at a
         // screen edge while the thumb keeps pushing. The next touch corrects it, because a touch
         // is absolute.
-        advanceClientCursor(by: travel)
+        advanceClientCursor(by: scaled)
     }
 
     func advanceClientCursor(by travel: CGSize) {

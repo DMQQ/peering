@@ -389,9 +389,28 @@ extension RemoteScreen {
             onMove: sendJoystick,
             onTap: sendJoystickClick,
             onRightClick: sendJoystickRightClick,
+            onDoubleTap: changePointerSpeed,
+            speedText: speedBadge,
             pointSize: model.capturePointSize,
             radius: radius
         )
+    }
+
+    /// Steps the pointer's speed and says so on the pad for a moment.
+    ///
+    /// The badge is the only feedback there is. A double tap that changes a number the user
+    /// cannot see is a gesture they would have to take on trust, and the joystick is the one
+    /// control with nowhere to print the current value — so it shows what it just became, and
+    /// then stops.
+    func changePointerSpeed() {
+        withAnimation(Motion.tap) { model.cyclePointerSpeed() }
+        speedBadge = model.pointerSpeedLabel
+        speedBadgeTask?.cancel()
+        speedBadgeTask = Task {
+            try? await Task.sleep(for: .seconds(1.1))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.tap) { speedBadge = nil }
+        }
     }
 
     /// How far the pointer column sits past the rail's edge inset.

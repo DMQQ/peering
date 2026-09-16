@@ -9,6 +9,30 @@ extension SessionModel {
     /// The only path input takes. Everything goes through the session's coalescer, so the
     /// rules about what may be merged and what must never be dropped live in one place
     /// instead of in each gesture recogniser.
+    /// The speeds the joystick's double tap steps through, and back to the start.
+    ///
+    /// Halves rather than whole numbers for the first step, because the useful range is narrow:
+    /// 1× is right for aiming at a button and too slow for crossing a 5K display, and the first
+    /// thing anyone wants is a little more, not double.
+    static let pointerSpeeds: [Double] = [1, 1.5, 2, 2.5, 3]
+
+    func cyclePointerSpeed() {
+        let speeds = Self.pointerSpeeds
+        // `firstIndex` on the value rather than a stored index, so a speed that is not in the
+        // list — an older build's setting, a hand-edited default — restarts the cycle instead of
+        // trapping on an out-of-range index.
+        let index = speeds.firstIndex(of: pointerSpeed) ?? 0
+        pointerSpeed = speeds[(index + 1) % speeds.count]
+        UserDefaults.standard.set(pointerSpeed, forKey: "Peering.pointerSpeed")
+    }
+
+    /// How the speed is written: "1×", "1.5×", "2×".
+    var pointerSpeedLabel: String {
+        pointerSpeed == pointerSpeed.rounded()
+            ? "\(Int(pointerSpeed))×"
+            : String(format: "%.1f×", pointerSpeed)
+    }
+
     func send(_ command: RemoteCommand) {
         guard !isObserving || !command.isUserInput else { return }
         session?.send(command)

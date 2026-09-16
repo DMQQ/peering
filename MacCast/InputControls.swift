@@ -19,6 +19,13 @@ struct JoystickView: View {
     var onTap: (() -> Void)?
     /// Fired when a long-press (≥ 450 ms with little movement) is released — sends a right click.
     var onRightClick: (() -> Void)?
+    /// Fired on a second tap inside the double-tap window — the host's own control, not a Mac
+    /// gesture: this is where the pointer's speed is stepped through.
+    var onDoubleTap: (() -> Void)?
+    /// Shown in the middle of the pad while it is worth saying, which is just after a speed
+    /// change. The joystick is under a thumb and has no room for a caption, so the feedback for
+    /// a gesture has to be on the thing the gesture was made on.
+    var speedText: String?
     var pointSize: CGSize
     var radius: CGFloat = 54
 
@@ -29,12 +36,19 @@ struct JoystickView: View {
     private static let maximumSampleGap: TimeInterval = 0.05
     private static let longPressDuration: TimeInterval = 0.45
     private static let tapMaxDisplacement: CGFloat = 8
+    /// How long a tap waits to find out whether it was the first of two. iOS uses the same
+    /// figure for its own double-tap gestures, so it is a delay the hand is already trained on.
+    private static let doubleTapWindow: TimeInterval = 0.3
 
     @State private var knob: CGSize = .zero
     @State private var lastSample: Date?
     @State private var touchStart: Date?
     @State private var isLongPress = false
     @State private var holdTask: Task<Void, Never>?
+    /// When the last tap finished, and the click that is waiting to see whether a second one
+    /// arrives — see ``tapped()``.
+    @State private var lastTapEndedAt: Date?
+    @State private var pendingClick: Task<Void, Never>?
     /// Movement waiting to be sent, and the clock that sends it. See ``startDraining()``.
     @State private var pendingDx: Double = 0
     @State private var pendingDy: Double = 0
@@ -67,6 +81,19 @@ struct JoystickView: View {
                 // following it exactly is a lag the user can feel. The return to centre is
                 // animated at the one moment it happens, in `onEnded`.
                 .animation(Motion.tap, value: isLongPress)
+
+            // On its own capsule so it reads over the knob, over the glass, and over a picture
+            // bright enough to make the glass disappear.
+            if let speedText {
+                Text(speedText)
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .foregroundStyle(ColorPalette.ink)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(ColorPalette.backdrop.opacity(0.92), in: Capsule())
+                    .transition(.opacity)
+                    .allowsHitTesting(false)
+            }
         }
         .frame(width: radius * 2, height: radius * 2)
         .contentShape(Circle())
@@ -118,15 +145,46 @@ struct JoystickView: View {
                     let displacement = hypot(value.translation.width, value.translation.height)
                     if displacement < Self.tapMaxDisplacement {
                         if wasLong {
+                            // A hold cannot be the first half of a double tap, so this one needs
+                            // no waiting.
                             onRightClick?()
                         } else {
-                            onTap?()
+                            tapped()
                         }
                     }
                 }
         )
         .accessibilityLabel("Relative pointer")
-        .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click")
+        .accessibilityHint("Drag to nudge the cursor, tap for left click, hold for right click, tap twice to change speed")
+    }
+
+    /// Resolves a tap into either a click or half of a double tap.
+    ///
+    /// The click waits for the double-tap window, and that delay is the whole cost of having
+    /// both gestures on one control. It is worth paying here: the alternative is the click going
+    /// out on the first tap regardless, so every attempt to change the speed would also click
+    /// whatever the Mac's pointer happened to be resting on — and a click you did not ask for is
+    /// not a small mistake on a desktop.
+    ///
+    /// A hold is not part of a double tap, so right-click fires immediately as it always did.
+    private func tapped() {
+        let now = Date()
+        if let last = lastTapEndedAt, now.timeIntervalSince(last) < Self.doubleTapWindow {
+            pendingClick?.cancel()
+            pendingClick = nil
+            lastTapEndedAt = nil
+            onDoubleTap?()
+            return
+        }
+
+        lastTapEndedAt = now
+        pendingClick?.cancel()
+        pendingClick = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(Self.doubleTapWindow))
+            guard !Task.isCancelled else { return }
+            onTap?()
+            lastTapEndedAt = nil
+        }
     }
 
     /// How often the accumulator is drained, and so how often the Mac is told the pointer moved.

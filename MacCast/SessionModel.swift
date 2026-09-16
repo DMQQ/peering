@@ -195,6 +195,13 @@ final class SessionModel {
     var terminals: [RemoteTerminal] = []
     var selectedTerminalID: UUID?
 
+    /// The commands sent from this phone, newest first.
+    ///
+    /// Stored rather than computed from the defaults, because the panel has to redraw when it
+    /// changes and a computed property reading `UserDefaults` is a change nothing observes.
+    var terminalHistory: [String] =
+        UserDefaults.standard.stringArray(forKey: "Peering.terminalHistory") ?? []
+
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
     /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user
@@ -332,6 +339,13 @@ final class SessionModel {
     /// them is black, because the screen they are of is asleep. From the phone those two look
     /// identical, and only the Mac knows which it is.
     var remoteNotice: NoticePayload?
+    /// What the joystick multiplies the pointer's travel by.
+    ///
+    /// Kept as a number rather than an index so the label and the arithmetic read the same, and
+    /// persisted because it is a property of the hand, not of the session — someone who has
+    /// found the speed they like wants it next time.
+    var pointerSpeed: Double = UserDefaults.standard.object(forKey: "Peering.pointerSpeed") as? Double ?? 1
+
     var showKeyboard = false
     var typedPreview = ""
 

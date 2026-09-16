@@ -28,6 +28,7 @@ struct TerminalPanel: View {
                 }
                 if let terminal = selected {
                     output(terminal)
+                    if !model.terminalHistory.isEmpty { historyStrip(terminal.id) }
                     keyStrip(terminal.id)
                     input(terminal)
                 } else {
@@ -173,10 +174,51 @@ struct TerminalPanel: View {
                     .id("terminal-end")
             }
             .defaultScrollAnchor(.bottom)
+            // Dragging the history puts the keyboard away. The alternative is a keyboard with no
+            // dismiss key that covers the bottom half of a panel whose whole point is the text
+            // above it, and the only way out is leaving the screen.
+            .scrollDismissesKeyboard(.interactively)
             .onChange(of: terminal.output.count) { _, _ in
                 reader.scrollTo("terminal-end", anchor: .bottom)
             }
         }
+    }
+
+    /// What has been run here before, newest first, one tap from the field.
+    ///
+    /// Only the commands, and only what was typed: the PTY hands back a byte stream with no
+    /// notion of where one command's output ended and the next prompt began, so "the result of
+    /// that command" is not something this side can know. Re-running is, and it is the part that
+    /// saves typing — results are already on screen above.
+    ///
+    /// A tap puts the command in the field rather than sending it. A list that runs things when
+    /// you touch it is a list you cannot browse on a phone.
+    private func historyStrip(_ id: UUID) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                ForEach(model.terminalHistory, id: \.self) { command in
+                    Button {
+                        self.command = command
+                        inputFocused = true
+                    } label: {
+                        Text(command)
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(1)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(Color.white.opacity(0.08), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!(selected?.isRunning ?? false))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+        }
+        .background(Color.white.opacity(0.02))
     }
 
     private func input(_ terminal: RemoteTerminal) -> some View {
@@ -193,8 +235,22 @@ struct TerminalPanel: View {
                 Image(systemName: "arrow.up.circle.fill").font(.title2)
             }
             .disabled(!terminal.isRunning || command.isEmpty)
+            // The keyboard has no dismiss key, so the panel provides one. Without it the field
+            // takes focus on arrival and the keyboard stays for the life of the screen, over the
+            // output the screen exists to show.
+            Button {
+                inputFocused = false
+            } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityLabel("Hide the keyboard")
         }
-        .padding(10)
+        // Away from the edge. At 10 the field's text started close enough to the screen's edge
+        // that the caret sat against it, which reads as clipped rather than as inset.
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(.ultraThinMaterial)
     }
 

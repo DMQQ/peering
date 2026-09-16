@@ -212,7 +212,23 @@ struct SettingsPanel: View {
             // Pushed straight through rather than read on the next attach: the setting has to
             // take effect on the controller that is already running.
             .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
-            Text("Leaving the app floats the picture over whatever is next. The button in the status bar starts it by hand either way, and iOS has its own switch for this under Settings, General, Picture in Picture. Both have to allow it.")
+
+            // The manual start, which used to be a dot in the status bar and did not earn one:
+            // iOS floats the picture by itself on the way out, so the button started something
+            // that had already happened. What it is actually for is trying it *without* leaving,
+            // and for getting a refusal in writing — which is a diagnostic, and this is where the
+            // switch it explains lives.
+            Button {
+                SessionPiP.shared.start()
+            } label: {
+                Label("Try it now", systemImage: "pip")
+                    .font(.subheadline.weight(.medium))
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(!SessionPiP.isSupported)
+
+            Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving, and says what iOS refused if it does.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

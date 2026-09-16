@@ -59,7 +59,7 @@ extension RemoteScreen {
             // the width it wanted, which on a portrait phone pushed the terminal dot off the
             // edge of the screen — and of the three, the dots are the ones with nowhere to
             // compress to, being circles with one glyph in them.
-            pipDot.layoutPriority(1)
+            audioDot.layoutPriority(1)
             statusPill
             terminalDot.layoutPriority(1)
         }
@@ -101,28 +101,33 @@ extension RemoteScreen {
                             .fill(model.phase == .ready ? Color.green : ColorPalette.ink)
                             .frame(width: 7, height: 7)
                         VStack(alignment: .leading, spacing: 1) {
+                            // The one thing in this row that gives way. It is the longest string
+                            // in it and the only one whose meaning survives being cut — "Damian's
+                            // Ma…" is still the Mac, where a clipped "156 m" is not a
+                            // measurement. Both the readouts beside it are fixed so that they
+                            // cannot be the ones squeezed, which is how the latency ended up
+                            // rendering one digit per line down the side of the pill.
                             Text(model.hostName ?? "Mac")
                                 .font(.subheadline.weight(.semibold))
-                                // One line, and first claim on the width. A Mac called
-                                // "Damian's MacBook Pro" is wider than a caption and it was
-                                // wrapping onto a second line, which made the whole row taller
-                                // and left the quit button to be squeezed into what was left.
                                 .lineLimit(1)
+                                .truncationMode(.tail)
                             Text(model.videoStatus)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
-                        // Resolved before the clock and the latency are, so the name gets the
-                        // room it needs and the readouts give way rather than the other way
-                        // round — they are short, fixed, and unreadable if truncated.
-                        .layoutPriority(1)
-                        Spacer(minLength: 8)
+                        // No `Spacer` here, and that is the whole of why the pill is the width it
+                        // is. A spacer takes up any slack in the row, so the row asked for as
+                        // much width as the layout would give it — which in landscape meant the
+                        // pill stretched most of the way across the screen to hold four short
+                        // readouts. Without one the row is exactly as wide as its contents and
+                        // the pill hugs them.
                         sessionClock
                         if let latency = model.latencyMilliseconds {
                             Text("\(Int(latency.rounded())) ms")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(ColorPalette.reading(latency))
+                                .fixedSize()
                         }
                         // The session's only way out, always visible in the expanded pill.
                         Button { model.disconnect() } label: {
@@ -151,20 +156,10 @@ extension RemoteScreen {
                         connectionPathChip
                         qualityChip
                         fillChip
-                        // The Mac's audio, off unless asked for — see `hostAudioMuted`. The icon
-                        // is the state rather than a label: a struck-through speaker in a row
-                        // that is already six chips wide is one glyph, and the alternative is a
-                        // word that pushes the row onto a second line on a narrow phone.
-                        Button { model.hostAudioMuted.toggle() } label: {
-                            Image(systemName: model.hostAudioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                .font(.system(size: 13))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac")
+                        // The audio switch moved out to the dot beside the pill — see
+                        // `audioDot`. It was a chip here and it is a state you reach for
+                        // mid-session, which is the same case the dots exist for; this row has
+                        // the camera and the zoom to spend its width on.
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
@@ -262,7 +257,8 @@ extension RemoteScreen {
                             Text(model.hostName ?? "Mac")
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
-                            Spacer(minLength: 8)
+                                // No spacer, for the reason Row 1 has none: the collapsed pill should be
+                            // the width of what it says.
                             if let latency = model.latencyMilliseconds {
                                 Text("\(Int(latency.rounded())) ms")
                                     .font(.caption2.monospacedDigit())
@@ -340,16 +336,23 @@ extension RemoteScreen {
     /// collapsed and is the widest thing on a landscape screen, so a pair hanging off one end
     /// pulls it visibly off-centre. One either side balances it, and it also separates two actions
     /// that have nothing to do with each other.
-    var pipDot: some View {
-        // iOS floats the picture on its own when the app goes away. This is for trying it
-        // *without* leaving, and for the log line that says why it refused — a start by hand is
-        // the same call the automatic one makes.
+    ///
+    /// This side was PiP's, and PiP does not belong here: iOS floats the picture by itself when
+    /// the app goes away, so the button started something that had already happened. What it was
+    /// actually good for was trying PiP *without* leaving and recording why it refused — a
+    /// diagnostic, and one that belongs beside the switch it explains, in Settings.
+    ///
+    /// The Mac's audio takes the slot, which is the same trade the pill's second row wanted: it
+    /// is reached for mid-session, it has a state worth seeing at a glance, and it was a chip in
+    /// a row that had run out of width.
+    var audioDot: some View {
         sessionDot(
-            symbol: "pip",
-            label: "Float the picture over other apps",
-            enabled: SessionPiP.isSupported
+            symbol: model.hostAudioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+            label: model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac",
+            enabled: true,
+            tint: model.hostAudioMuted ? Color.secondary : ColorPalette.ink
         ) {
-            SessionPiP.shared.start()
+            model.hostAudioMuted.toggle()
         }
     }
 
@@ -407,6 +410,11 @@ extension RemoteScreen {
                             // Off the glass rather than on it, so the count reads as a mark on
                             // the button and not as part of what the button is drawing.
                             .offset(x: 4, y: -4)
+                            // And out of the way of the press. Offset past the button's own
+                            // bounds, the badge is its own hit region — so a tap that landed on
+                            // the number was a tap on the badge, and the button underneath it
+                            // did nothing.
+                            .allowsHitTesting(false)
                     }
                 }
         }
