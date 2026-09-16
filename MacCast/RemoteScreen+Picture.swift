@@ -12,9 +12,10 @@ extension RemoteScreen {
     // MARK: - Picture
 
     var video: some View {
-        VideoLayerView(renderer: model.renderer)
-            .scaleEffect(effectiveZoom, anchor: .center)
-            .offset(pan)
+        // No `scaleEffect` or `offset` here: the picture's placement is applied inside the view,
+        // as a layer transform — see `VideoLayerView.updateUIView`, which is where a pan that
+        // trailed the finger was coming from.
+        VideoLayerView(renderer: model.renderer, zoom: effectiveZoom, pan: pan)
             .ignoresSafeArea()
             .overlay {
                 // When the capture stream has stopped (source closed, app quit) the last

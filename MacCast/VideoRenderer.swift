@@ -399,20 +399,59 @@ final class VideoDisplayView: UIView {
 /// Hosts ``VideoDisplayView`` in SwiftUI and hands its layer to the renderer.
 struct VideoLayerView: UIViewRepresentable {
     let renderer: VideoRenderer
+    /// The scale the picture is drawn at, applied about its centre.
+    var zoom: CGFloat = 1
+    /// How far the picture is moved from the centre of its frame, in points.
+    var pan: CGSize = .zero
 
-    func makeUIView(context: Context) -> VideoDisplayView {
-        let view = VideoDisplayView()
-        if let layer = view.displayLayer {
+    func makeUIView(context: Context) -> VideoHostView {
+        let view = VideoHostView()
+        if let layer = view.displayView.displayLayer {
             renderer.attach(layer)
-            // The view rather than its layer, so PiP can tell whether the layer it mirrors is
-            // still on screen — see ``SessionPiP/start()``. The layer is the same one either
-            // way: the floating window is the picture, not a copy of it.
-            SessionPiP.shared.attach(view)
+            // The display view rather than the container, so PiP mirrors the layer that is
+            // actually holding the picture — the container only ever carries a transform.
+            SessionPiP.shared.attach(view.displayView)
         }
         return view
     }
 
-    func updateUIView(_ view: VideoDisplayView, context: Context) {}
+    func updateUIView(_ view: VideoHostView, context: Context) {
+        // The picture's placement, applied as a layer transform with Core Animation's implicit
+        // animation switched off.
+        //
+        // Both halves of that are the fix for a pan that trailed the finger. The offset used to
+        // be applied by SwiftUI on this representable, which moves the hosted view through
+        // UIKit's layout — and a view whose position changes outside a disabled-actions
+        // transaction gets Core Animation's implicit quarter-second animation, which is exactly
+        // a picture that lags behind the thumb and catches up after it stops. A transform also
+        // moves what is already drawn instead of asking the view to lay out again at a new
+        // origin, so the video layer is never resized and never re-fits the frame it is holding.
+        //
+        // The container rather than the display view: the display view's layer is what PiP
+        // mirrors, and a transform on it would be a transform on the floating window too.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        view.transform = CGAffineTransform(translationX: pan.width, y: pan.height)
+            .scaledBy(x: zoom, y: zoom)
+        CATransaction.commit()
+    }
+}
+
+/// A plain container, so the picture can be moved without moving the layer PiP mirrors.
+final class VideoHostView: UIView {
+    let displayView = VideoDisplayView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
+        displayView.frame = bounds
+        // The picture fills whatever this is given, whatever shape that turns out to be.
+        displayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(displayView)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
 }
 
 /// The picture in a floating window, over whatever else is on screen.
