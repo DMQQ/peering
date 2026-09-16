@@ -228,10 +228,29 @@ struct SettingsPanel: View {
             .controlSize(.small)
             .disabled(!SessionPiP.isSupported)
 
-            Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving, and says what iOS refused if it does.")
+            Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            // What iOS said the last time it was asked. It used to sit in the session's status
+            // bar, where it was a line of AVKit's own words in the middle of the picture — read
+            // by nobody, and in the way of the controls. Here it is next to the button that asks
+            // the question, which is the only place it means anything.
+            if let attempt = SessionPiP.shared.lastAttempt {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Last attempt: \(attempt)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    if let why = SessionPiP.shared.lastRefusal {
+                        Text(why)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
         }
     }
 

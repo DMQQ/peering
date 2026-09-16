@@ -169,42 +169,17 @@ extension RemoteScreen {
                                 zoom = 1; pan = .zero
                             } label: {
                                 Text("\(Int((zoom * 100).rounded()))%")
-                                    .font(.caption.monospacedDigit())
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(.ultraThinMaterial).clipShape(Capsule())
-                            }.buttonStyle(.plain)
+                                    .monospacedDigit()
+                                    .pillChip()
+                            }
+                            .buttonStyle(RailButtonStyle(scale: 0.9))
                         }
                         Button { ScreenshotShare.present() } label: {
                             Image(systemName: "camera")
-                                .font(.system(size: 13))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
+                                .pillChip()
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Take screenshot")
-                    }
-
-                    // Its own row, and unbounded in both directions. What this carries is an
-                    // error string from AVKit, and a *truncated* one is worth almost nothing —
-                    // "Could not start: Failed to start pictu…" names neither the fault nor the
-                    // reason. Set apart from the row above because it is a diagnostic, not a
-                    // control: it takes whatever width it needs and wraps to whatever height.
-                    if let attempt = SessionPiP.shared.lastAttempt {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Pic-in-pic: \(attempt)")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            if let why = SessionPiP.shared.lastRefusal {
-                                Text(why)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -328,7 +303,7 @@ extension RemoteScreen {
     }
 
     /// What the two dots add to the pill's width: a dot and a gap on each side.
-    static let sessionDotsWidth: CGFloat = (46 + 7) * 2
+    static let sessionDotsWidth: CGFloat = (48 + 7) * 2
 
     /// How wide the pill itself is allowed to get.
     ///
@@ -405,7 +380,7 @@ extension RemoteScreen {
             Image(systemName: symbol)
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(tint ?? ColorPalette.ink)
-                .frame(width: 46, height: 46)
+                .frame(width: 48, height: 48)
                 // Plain glass, with the press answered by the button style instead.
                 //
                 // This is not the fix for the taps these dots were swallowing — that was the
@@ -423,17 +398,19 @@ extension RemoteScreen {
                             .padding(.horizontal, 4)
                             .frame(minWidth: 15, minHeight: 15)
                             .background(badgeTint, in: Capsule())
-                            // Off the glass rather than on it, so the count reads as a mark on
-                            // the button and not as part of what the button is drawing.
-                            .offset(x: 4, y: -4)
-                            // And out of the way of the press. Offset past the button's own
-                            // bounds, the badge is its own hit region — so a tap that landed on
-                            // the number was a tap on the badge, and the button underneath it
-                            // did nothing.
+                            // Tucked inside the circle rather than hung off its corner. It
+                            // used to sit four points outside the button's bounds, which made
+                            // the badge the nearest thing to a thumb coming from that side —
+                            // and a tap that landed on the number did nothing at all.
+                            .offset(x: -1, y: 1)
                             .allowsHitTesting(false)
                     }
                 }
         }
+        // A square hit area rather than the circle that is drawn. A circle's corners are the
+        // parts a thumb misses, and this is a one-glyph target beside the pill's edge — the one
+        // control on the screen with nothing around it to catch a near miss.
+        .contentShape(Rectangle())
         .buttonStyle(RailButtonStyle(scale: 0.92))
         .disabled(!enabled)
         .accessibilityLabel(label)
@@ -441,12 +418,12 @@ extension RemoteScreen {
 
     var connectionPathChip: some View {
         Text(model.connectionPath?.rawValue ?? "None")
+            // Its own voice, because it is the one thing in the row that is a readout rather than
+            // a control: small, tracked and bold reads as a label at a glance, and nothing about
+            // it invites a press.
             .font(.caption2.weight(.bold))
             .tracking(0.5)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(.primary.opacity(0.08), in: Capsule())
+            .pillChip()
             .accessibilityLabel("Connection path")
     }
 
@@ -476,19 +453,12 @@ extension RemoteScreen {
                 }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: "speedometer")
-                    .font(.system(size: 10))
                 Text(model.streamQuality.rawValue)
-                    .font(.caption.monospacedDigit())
+                    .monospacedDigit()
             }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            // The same fill as the connection-path chip beside it. These are both buttons, and a
-            // button with no surface reads as a label that happens to be tappable — which is
-            // what "not so obvious" was about.
-            .background(.primary.opacity(0.08), in: Capsule())
+            .pillChip()
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("Stream quality")
@@ -534,18 +504,14 @@ extension RemoteScreen {
                 else { Text("Fill the phone screen") }
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: scalesToFill
                       ? "arrow.up.left.and.arrow.down.right"
                       : "arrow.down.right.and.arrow.up.left")
-                    .font(.system(size: 10))
                 Text(scalesToFill ? "Fill" : "Fit")
-                    .font(.caption.monospacedDigit())
+                    .monospacedDigit()
             }
-            .foregroundStyle(scalesToFill ? ColorPalette.ink : Color.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(scalesToFill ? ColorPalette.selectedFill : .primary.opacity(0.08), in: Capsule())
+            .pillChip(selected: scalesToFill)
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("How the picture fits the screen")
@@ -602,5 +568,35 @@ private extension SessionModel.StreamQuality {
         case .medium: return "Medium — 8 Mbps"
         case .high: return "High — 20 Mbps"
         }
+    }
+}
+
+
+/// The one surface the pill's option row is built from.
+///
+/// Four controls stand in that row and they had four appearances between them: two materials, two
+/// paddings, two glyph sizes, and a camera button that looked like a different kind of object from
+/// the chips beside it. A row of things that are all buttons has to look like one kind of thing —
+/// left to differ, the difference reads as meaning, and the eye learns that the camera is
+/// pressable and the quality is a label, which is backwards.
+///
+/// A flat fill rather than a material: the row already sits inside the pill's glass, and a second
+/// frosted layer within it is two answers to "what is this sitting on".
+///
+/// `selected` is the app's one accent, and here it means what it means everywhere else — this one
+/// is on.
+extension View {
+    func pillChip(selected: Bool = false) -> some View {
+        self
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(selected ? ColorPalette.ink : Color.secondary)
+            .padding(.horizontal, 9)
+            .frame(height: 30)
+            .background(
+                selected
+                    ? AnyShapeStyle(ColorPalette.selectedFill)
+                    : AnyShapeStyle(.primary.opacity(0.08)),
+                in: Capsule()
+            )
     }
 }

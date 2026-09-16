@@ -144,7 +144,9 @@ struct TerminalPanel: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .background(Color.white.opacity(0.04))
+        // No band behind the row. A faint fill across the full width was reading as a grey-green
+        // stripe hanging under the title bar — a surface that belongs to nothing, on a panel that
+        // is otherwise the terminal's own black from the header down.
     }
 
     private func tab(_ terminal: RemoteTerminal) -> some View {
@@ -183,14 +185,17 @@ struct TerminalPanel: View {
             .accessibilityLabel("Close \(terminal.name)")
         }
         .padding(.leading, 13)
-        .padding(.trailing, 6)
+        .padding(.trailing, 5)
         // Tall enough to be a control, and wide enough that a one-word name is not a sliver.
-        .frame(minWidth: 104, minHeight: 42)
-        .background(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0.05), in: shape)
+        .frame(minWidth: 108, minHeight: 44)
+        // The tab you are in is the lit one, and the others are quieter — the browser's own rule,
+        // and the reason it works is that it needs no legend: the surface says which is in front.
+        .background(isSelected ? AnyShapeStyle(Color.white.opacity(0.16)) : AnyShapeStyle(Color.white.opacity(0.045)), in: shape)
         .overlay {
-            if isSelected {
-                shape.strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-            }
+            shape.strokeBorder(
+                isSelected ? Color.white.opacity(0.16) : Color.white.opacity(0.07),
+                lineWidth: 1
+            )
         }
         .contentShape(shape)
         .onTapGesture { model.selectTerminal(terminal.id) }
