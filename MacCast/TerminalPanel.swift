@@ -70,9 +70,19 @@ struct TerminalPanel: View {
                 // The keyboard's own bar, which is where iOS puts a dismiss key and therefore
                 // where the hand looks for one. It also puts it a keyboard's height away from
                 // send, which the row above could not.
+                //
+                // While a terminal is being named it offers Create instead, because this bar sits
+                // exactly where the create row's own button is — the row is at the bottom of the
+                // panel and the keyboard lands on top of it, so the button under the thumb was
+                // the one being covered. The only way to create was Return.
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Done") { inputFocused = false }
+                    if isCreating {
+                        Button("Create") { create() }
+                            .font(.system(size: 16, weight: .semibold))
+                    } else {
+                        Button("Done") { inputFocused = false }
+                    }
                 }
             }
         }
