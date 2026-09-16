@@ -17,6 +17,7 @@ struct SettingsPanel: View {
     var onShowSources: () -> Void
 
     @State private var confirmReset = false
+    @State private var confirmLock = false
 
     /// Read here as well as in the screen that obeys it. Same key, one name for it in
     /// ``PreferenceKey`` — two spellings would be a switch that does nothing for one of them.
@@ -56,6 +57,15 @@ struct SettingsPanel: View {
         } message: {
             Text("Every Mac you have paired with will treat this device as a new one.")
         }
+        .confirmationDialog(
+            "Lock this Mac?",
+            isPresented: $confirmLock,
+            titleVisibility: .visible
+        ) {
+            Button("Lock Mac", role: .destructive) { model.lockMac() }
+        } message: {
+            Text("You will need to unlock it locally with its password, Touch ID, or Apple Watch.")
+        }
     }
 
     private var session: some View {
@@ -69,6 +79,15 @@ struct SettingsPanel: View {
                 info("Latency", "\(Int(latency.rounded())) ms")
             }
             info("This device", model.thisDeviceDescription)
+            Button(role: .destructive) { confirmLock = true } label: {
+                Label("Lock Mac", systemImage: "lock.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .rowSurface()
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.98))
         }
     }
 
@@ -157,6 +176,18 @@ struct SettingsPanel: View {
                 both on. A Mac somewhere else is not reachable at all, and the app waits for it \
                 to come back rather than failing.
                 """)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: Binding(
+                get: { model.privacyModeEnabled },
+                set: { model.setPrivacyMode($0) }
+            )) {
+                Text("Darken the Mac's displays")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+            Text("Privacy Mode sets supported displays to 0% brightness without stopping the stream. Brightness is restored when you turn it off or disconnect. The Mac's physical brightness-up key always remains an escape hatch.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

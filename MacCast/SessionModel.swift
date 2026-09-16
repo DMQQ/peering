@@ -137,6 +137,9 @@ final class SessionModel {
     private(set) var connectionPath: ConnectionPath?
     private(set) var pairedHostIDs: [String] = []
     private(set) var streamQuality: StreamQuality = .high
+    /// Optimistic state for the current session's physical-display privacy command. The host
+    /// always restores brightness when the last client disconnects.
+    private(set) var privacyModeEnabled = false
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
@@ -421,6 +424,7 @@ final class SessionModel {
         remoteNotice = nil
         videoStatus = "No video stream"
         isVideoStreaming = false
+        privacyModeEnabled = false
 
         let session = ClientSession(
             identity: identity,
@@ -579,6 +583,7 @@ final class SessionModel {
                     append(note: "The connection ended while \(latchedModifiers.label) was held on the Mac. It may still be held there.")
                 }
                 latchedModifiers = []
+                privacyModeEnabled = false
             }
         case .host(let hello):
             // The host's own name is authoritative. Bonjour is only a hint about where to
@@ -807,6 +812,20 @@ final class SessionModel {
             pendingHostID = hostID
             return
         }
+        pendingHostID = nil
+        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+    }
+
+    /// Explicit route choices from the trusted-Mac row. The regular row tap stays automatic;
+    /// these two methods deliberately do not fall back to the other transport.
+    func connectToTrustedOverLAN(hostID: String) {
+        guard let host = hosts.first(where: { $0.id == hostID }) else { return }
+        pendingHostID = nil
+        connect(to: .discovered(host))
+    }
+
+    func connectToTrustedOverRelay(hostID: String) {
+        guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
         pendingHostID = nil
         connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
     }
@@ -1055,6 +1074,17 @@ final class SessionModel {
     /// instead of in each gesture recogniser.
     func send(_ command: RemoteCommand) {
         session?.send(command)
+    }
+
+    func setPrivacyMode(_ enabled: Bool) {
+        guard phase == .ready else { return }
+        privacyModeEnabled = enabled
+        send(.setPrivacyMode(enabled: enabled))
+    }
+
+    func lockMac() {
+        guard phase == .ready else { return }
+        send(.lockScreen)
     }
 
     func selectSource(_ descriptor: CaptureSourceDescriptor) {

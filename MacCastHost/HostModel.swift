@@ -83,6 +83,11 @@ final class HostModel {
     /// SwiftUI or the whole UI behind a command queue, so the isolation lives in the type.
     private let input = InputInjector()
 
+    /// Physical display brightness is separate from the captured pixels, which is what lets the
+    /// phone keep seeing a Mac whose local panels are dark.
+    private let displayPrivacy = DisplayPrivacyController()
+    private(set) var privacyModeEnabled = false
+
     /// The capture source the client last asked for.
     ///
     /// Cleared once the switch has been applied, and deliberately left set when it failed —
@@ -497,6 +502,10 @@ final class HostModel {
                 coordinator.refreshSpacePreviews()
                 return
             }
+            if case .setPrivacyMode(let enabled) = command {
+                Task { @MainActor [weak self] in self?.setPrivacyMode(enabled) }
+                return
+            }
             input.perform(command)
         }
 
@@ -528,6 +537,7 @@ final class HostModel {
         // The sessions cancelled below may or may not report a disconnect of their own
         // depending on how far their handshake had got, so this does not wait on them.
         input.releaseAll()
+        setPrivacyMode(false)
         server?.stop()
         server = nil
         relayRegistration?.stop()
@@ -742,6 +752,7 @@ final class HostModel {
             if connectedClients.isEmpty {
                 input.releaseAll()
                 releaseSleepAssertion()
+                setPrivacyMode(false)
             }
 
         case .pairingCode(let code, let clientName):
@@ -771,6 +782,35 @@ final class HostModel {
         log.append(HostLogEntry(level: level, message: message))
         if log.count > Self.maxEvents {
             log.removeFirst(log.count - Self.maxEvents)
+        }
+    }
+
+    /// Dims or restores every display for which macOS exposes brightness control.
+    private func setPrivacyMode(_ enabled: Bool) {
+        if enabled {
+            guard !privacyModeEnabled else { return }
+            do {
+                let count = try displayPrivacy.enable()
+                privacyModeEnabled = true
+                record("Privacy Mode enabled on \(count) display\(count == 1 ? "" : "s")")
+            } catch {
+                privacyModeEnabled = false
+                let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+                record("Could not enable Privacy Mode: \(message)", level: .failure)
+                server?.broadcastNotice(NoticePayload(
+                    message: "Privacy Mode could not dim this Mac's displays.",
+                    symbol: "display.trianglebadge.exclamationmark"
+                ))
+            }
+        } else {
+            guard privacyModeEnabled else {
+                // Also repairs a persisted level after an interrupted run.
+                displayPrivacy.restore()
+                return
+            }
+            displayPrivacy.restore()
+            privacyModeEnabled = false
+            record("Privacy Mode disabled; display brightness restored")
         }
     }
 

@@ -104,6 +104,11 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// desktops panel is the one moment a user can see how old the pictures are, and the host
     /// has no way to know it has been opened — this is the client saying so.
     case refreshSpacePreviews
+    /// Dims supported physical displays to zero brightness while leaving capture running.
+    /// `false` restores the levels saved when the mode was enabled.
+    case setPrivacyMode(enabled: Bool)
+    /// Locks the active macOS session. Unlocking remains a local action at the Mac.
+    case lockScreen
 
     public var coalescing: Coalescing {
         switch self {
@@ -113,7 +118,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .refreshSpacePreviews:
+             .refreshSpacePreviews, .setPrivacyMode, .lockScreen:
             // Never dropped. A refresh is cheap to repeat and the whole point of it is that the
             // user is looking at the panel now; superseding a queued one would be exactly the
             // wrong economy.
@@ -125,7 +130,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Anything whose loss would leave the host in a stuck state takes priority.
     public var isCritical: Bool {
         switch self {
-        case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication:
+        case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication,
+             .setPrivacyMode, .lockScreen:
             return true
         default:
             return false

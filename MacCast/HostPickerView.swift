@@ -374,23 +374,45 @@ struct HostPickerView: View {
             .buttonStyle(.plain)
             .disabled(model.isBusy)
 
-            Button("Forget") { forgetTarget = hostID }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.red.opacity(0.85))
-                .buttonStyle(RailButtonStyle())
+            Menu {
+                Section("Connection") {
+                    Button {
+                        model.connectToTrustedOverLAN(hostID: hostID)
+                    } label: {
+                        Label("Connect via LAN", systemImage: "wifi")
+                    }
+                    .disabled(!isOnline || model.isBusy)
+
+                    Button {
+                        model.connectToTrustedOverRelay(hostID: hostID)
+                    } label: {
+                        Label("Connect via Relay", systemImage: "network")
+                    }
+                    .disabled(!model.allowsRelay || model.isBusy)
+                }
+
+                Section {
+                    Button("Rename…", systemImage: "pencil") {
+                        renameDraft = model.displayName(forHostID: hostID) ?? ""
+                        renameTarget = hostID
+                    }
+                    Button("Forget", systemImage: "trash", role: .destructive) {
+                        forgetTarget = hostID
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle())
+            .accessibilityLabel("More connection options")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .rowSurface()
-        // Long press rather than a third button on the row. Connecting is what a tap means here
-        // and it has to keep meaning that; renaming is the rare case, and a row with three
-        // targets on it is a row nobody can hit the right part of in a hurry.
-        .contextMenu {
-            Button("Rename…") {
-                renameDraft = model.displayName(forHostID: hostID) ?? ""
-                renameTarget = hostID
-            }
-        }
     }
 
     /// The second line of a trusted row: online/offline status, last-session time, or

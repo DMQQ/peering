@@ -23,7 +23,10 @@ public enum ProtocolInfo {
     /// would never send one and the phone would keep showing black with no explanation, which
     /// is the failure this exists to remove. Bumped, like the others, so the two ends are
     /// known to agree rather than assumed to.
-    public static let version: UInt16 = 6
+    /// 7: adds `setPrivacyMode`. An older host cannot decode the new command, so the handshake
+    /// rejects a mixed pair with an update message instead of dropping an active session.
+    /// 8: adds `lockScreen`, with the same compatibility requirement.
+    public static let version: UInt16 = 8
 
     /// Public signalling endpoint. Control and video endpoints are supplied per session by the
     /// relay, so only this address belongs in the apps.

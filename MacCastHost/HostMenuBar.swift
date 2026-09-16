@@ -117,6 +117,7 @@ struct HostMenuBarContent: View {
         Divider()
 
         Button("Quit Peering") {
+            model.stop()
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")

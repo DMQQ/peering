@@ -287,6 +287,14 @@ final class InputInjector: @unchecked Sendable {
         case .textInput(let text):
             postText(text)
 
+        case .lockScreen:
+            // Control-Command-Q is macOS's documented Lock Screen shortcut. Sending it through
+            // the same Accessibility-gated path as every other key keeps this command inside
+            // the permission the user already granted, and never handles their Mac password.
+            postKey(code: 12, down: true, modifiers: [.control, .command])
+            postKey(code: 12, down: false, modifiers: [.control, .command])
+            inputLog.notice("lock screen shortcut posted")
+
         case .switchSpace:
             // Never reached, and deliberately so. `HostModel` matches this command before it
             // gets here and routes it to `switchSpaceRelative`, which moves the desktop through
@@ -349,7 +357,7 @@ final class InputInjector: @unchecked Sendable {
             }
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
-             .refreshSpacePreviews:
+             .refreshSpacePreviews, .setPrivacyMode:
             // Handled upstream in HostModel.onCommand before this method is called.
             break
         }

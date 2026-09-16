@@ -659,9 +659,13 @@ struct RemoteScreen: View {
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                     connectionPathChip
-                    if model.sessionStartedAt != nil {
+                    if model.isVideoStreaming {
                         Text("·").font(.caption2).foregroundStyle(.tertiary)
-                        sessionClock
+                        Text("\(Int(model.videoFramesPerSecond.rounded())) fps")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Video frame rate")
+                            .accessibilityValue("\(Int(model.videoFramesPerSecond.rounded())) frames per second")
                     }
                     if let latency = model.latencyMilliseconds {
                         Text("\(Int(latency.rounded())) ms")

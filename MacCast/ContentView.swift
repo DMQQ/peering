@@ -50,6 +50,9 @@ struct ContentView: View {
     /// Set when an attempt has run long enough that saying nothing would look like a hang.
     @State private var connectingIsSlow = false
     @State private var slowTask: Task<Void, Never>?
+    /// A successful connection may keep the card up briefly so it can be read. Stored so a
+    /// failure arriving during that grace period can cancel the pending dismissal.
+    @State private var connectingDismissTask: Task<Void, Never>?
 
     /// How long the connecting card stays up once a connection starts.
     ///
@@ -67,6 +70,11 @@ struct ContentView: View {
     /// cancelled at this mark. It is the moment the card stops saying "Connecting…" as though
     /// that were a description of something about to finish, and offers a way out instead.
     private static let connectingSlowAfter: TimeInterval = 12
+
+    /// Exiting is a system response, so it is quicker and quieter than the modal's arrival.
+    /// Opacity only: scaling the whole screen away makes the live desktop behind it appear to
+    /// lurch forward at exactly the moment it should simply become available.
+    private static let connectingFade = Animation.easeOut(duration: 0.2)
 
     var body: some View {
         // A `ZStack`, not the `Group` this was, and the difference is the whole of the transition.
@@ -107,12 +115,12 @@ struct ContentView: View {
                     onDismiss: dismissConnecting,
                     onCancel: cancelConnecting
                 )
-                .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                .transition(.asymmetric(
+                    insertion: .opacity.combined(with: .scale(scale: 1.04)),
+                    removal: .opacity
+                ))
             }
         }
-        // One spring for both halves of the handover: the screen changing underneath and the
-        // card arriving over it.
-        .animation(Motion.settle, value: showsConnecting)
         // Keyed to the connecting phases, not to `model.isBusy` — and that was the bug that made
         // this stick. `isBusy` answers "is a session live", which is true for `.ready` as well,
         // so a connection that *succeeded* never switched it off and the card stayed up over the
@@ -126,6 +134,8 @@ struct ContentView: View {
         // of this, having been written for a screen the user can no longer see.
         .onChange(of: model.phase) { _, phase in
             guard case .failed(let message) = phase, showsConnecting else { return }
+            connectingDismissTask?.cancel()
+            connectingDismissTask = nil
             withAnimation(Motion.settle) { connectingFailure = message }
         }
         // Keyed to the arrival of a session rather than to `phase`, which changes several times
@@ -171,6 +181,8 @@ struct ContentView: View {
     }
 
     private func beginConnecting() {
+        connectingDismissTask?.cancel()
+        connectingDismissTask = nil
         connectingSince = Date()
         connectingFailure = nil
         connectingIsSlow = false
@@ -188,10 +200,11 @@ struct ContentView: View {
     /// Closes the card after a failure has been read.
     private func dismissConnecting() {
         connectingSince = nil
-        connectingFailure = nil
         slowTask?.cancel()
         slowTask = nil
-        withAnimation(Motion.settle) { showsConnecting = false }
+        connectingDismissTask?.cancel()
+        connectingDismissTask = nil
+        withAnimation(Self.connectingFade) { showsConnecting = false }
     }
 
     /// Abandons an attempt that is going nowhere.
@@ -215,6 +228,16 @@ struct ContentView: View {
         slowTask?.cancel()
         slowTask = nil
 
+        // `isConnectingPhase` and `model.phase` are observed separately. SwiftUI does not
+        // promise which `onChange` runs first, so read the source of truth here instead of
+        // assuming the failure handler has already copied its message into local state.
+        if case .failed(let message) = model.phase {
+            connectingDismissTask?.cancel()
+            connectingDismissTask = nil
+            withAnimation(Motion.settle) { connectingFailure = message }
+            return
+        }
+
         // A failure keeps the card up until it has been read, because it is the only place the
         // reason is shown. Everything else comes down on schedule — there is nothing on it to
         // look at, and the session behind it is already up.
@@ -224,14 +247,21 @@ struct ContentView: View {
         let remaining = Self.connectingShownFor - Date().timeIntervalSince(since)
         guard remaining > 0 else {
             connectingSince = nil
-            withAnimation(Motion.settle) { showsConnecting = false }
+            withAnimation(Self.connectingFade) { showsConnecting = false }
             return
         }
-        Task {
-            try? await Task.sleep(for: .seconds(remaining))
+        connectingDismissTask?.cancel()
+        connectingDismissTask = Task {
+            do {
+                try await Task.sleep(for: .seconds(remaining))
+            } catch {
+                return
+            }
+            guard connectingFailure == nil else { return }
             connectingSince = nil
             connectingIsSlow = false
-            withAnimation(Motion.settle) { showsConnecting = false }
+            connectingDismissTask = nil
+            withAnimation(Self.connectingFade) { showsConnecting = false }
         }
     }
 }

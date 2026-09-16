@@ -208,6 +208,9 @@ struct RemoteCommandTests {
             .joystickMove(dx: -0.5, dy: 0.5),
             .setCaptureSource(.application(4242)),
             .launchApplication(bundleIdentifier: "com.example.Editor"),
+            .setPrivacyMode(enabled: true),
+            .setPrivacyMode(enabled: false),
+            .lockScreen,
         ]
 
         for command in commands {
@@ -247,6 +250,8 @@ struct RemoteCommandTests {
         for command: RemoteCommand in [
             .mouseDown(button: .left), .mouseUp(button: .left),
             .keyDown(keyCode: 0, modifiers: []), .keyUp(keyCode: 0, modifiers: []),
+            .setPrivacyMode(enabled: true),
+            .lockScreen,
         ] {
             #expect(command.coalescing == Coalescing.none, "\(command) must not be coalesced")
             #expect(command.isCritical)
