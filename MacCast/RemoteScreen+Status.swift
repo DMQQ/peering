@@ -142,13 +142,14 @@ extension RemoteScreen {
                         .accessibilityLabel("Quit session")
                     }
 
-                    // ── Row 2: the one number worth a line ──────────────────────────
+                    // ── Row 2: what the stream is doing, and the controls for it ────
                     //
-                    // The codec and the pixel size used to share this row. They are the Mac
-                    // describing itself — "HEVC 1512×982" — and they answer a question nobody
-                    // has while looking at the picture: either it moves or it does not. The
-                    // latency is the one measurement here that changes what anybody does.
-                    HStack(spacing: 8) {
+                    // One row, where there were two. The readouts and the controls are the same
+                    // kind of thing to look at — a line of small facts about the session, some
+                    // of which can be pressed — and splitting them cost the pill a whole row of
+                    // height for two short strings. They fit together on a portrait phone with
+                    // the chips a little tighter, and the pill is a line shorter for it.
+                    HStack(spacing: 7) {
                         if let latency = model.latencyMilliseconds {
                             Text("\(Int(latency.rounded())) ms")
                                 .font(.caption2.monospacedDigit())
@@ -156,10 +157,6 @@ extension RemoteScreen {
                                 .fixedSize()
                         }
                         connectionPathChip
-                    }
-
-                    // ── Row 3: quality + view options ────────────────────────────────
-                    HStack(spacing: 8) {
                         qualityChip
                         fillChip
                         // The audio switch moved out to the dot beside the pill — see
@@ -184,7 +181,10 @@ extension RemoteScreen {
                         .accessibilityLabel("Take screenshot")
                     }
                 }
-                .padding(.horizontal, 14)
+                // Sixteen rather than fourteen: the side insets outside the pill are narrower
+                // than the rails' so that it gets more of the screen, and the content inside it
+                // is what that space was for.
+                .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
                 // The other half of the toggle. The collapsed bar expands on a tap and the
@@ -268,7 +268,7 @@ extension RemoteScreen {
                         }
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 // Two lines rather than one, and a fixed height for the same reason it was fixed
                 // before: a pill that resized itself as a source changed would move the picture
@@ -570,7 +570,9 @@ extension View {
         self
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(selected ? ColorPalette.ink : Color.secondary)
-            .padding(.horizontal, 9)
+            // Seven rather than nine: the merged row carries six items on a portrait phone,
+            // and two points off each side of four chips is most of what it needed.
+            .padding(.horizontal, 7)
             .frame(height: 30)
             .background(
                 selected
