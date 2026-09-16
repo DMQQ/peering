@@ -350,6 +350,41 @@ struct RailButton: View {
     }
 }
 
+/// A keyboard chord in the landscape quick-actions rail.
+///
+/// The chord is the primary mark rather than an icon. Showing `⌘C` is faster to scan than a
+/// document glyph with a caption, and it teaches the same muscle memory the physical keyboard
+/// uses without inventing another symbol language for standard Mac shortcuts.
+struct ShortcutRailButton: View {
+    let chord: String
+    let label: String
+    let accessibilityLabel: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Text(chord)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text(label)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .frame(minWidth: ChromeMetrics.panelWidth - 8, maxWidth: .infinity)
+            .frame(height: ChromeMetrics.buttonHeight)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(RailButtonStyle())
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Sends \(chord) to the Mac")
+    }
+}
+
 /// A group of buttons in one container.
 ///
 /// The container is the point. Nine separate buttons in four shapes read as clutter wherever

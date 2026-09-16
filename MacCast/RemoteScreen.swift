@@ -59,6 +59,9 @@ struct RemoteScreen: View {
     @State private var dockExpanded = false
     /// The pending auto-collapse, so expanding by hand can cancel the one already in flight.
     @State private var statusBarCollapseTask: Task<Void, Never>?
+    /// `⌘Q` sits in the always-available landscape actions. Unlike copy or paste it can discard
+    /// unsaved work, so the permanent button asks once before sending the chord.
+    @State private var confirmsQuitApplication = false
 
     /// Where the window's own controls are, in the canvas's coordinates.
     ///
@@ -230,6 +233,17 @@ struct RemoteScreen: View {
             // moment to ask. The answer does not come back through this call: the host pushes
             // a catalogue when a picture lands, the same way it does for any other change.
             if panel == .desktops { model.send(.refreshSpacePreviews) }
+        }
+        .confirmationDialog(
+            "Quit the active Mac app?",
+            isPresented: $confirmsQuitApplication,
+            titleVisibility: .visible
+        ) {
+            Button("Send ⌘Q", role: .destructive) {
+                sendKey(keyCode: 12, modifiers: [.command])
+            }
+        } message: {
+            Text("The Mac may ask you to save open documents first.")
         }
     }
 
@@ -823,6 +837,11 @@ struct RemoteScreen: View {
                 VStack(spacing: 0) {
                     HStack(alignment: .top, spacing: ChromeMetrics.panelGap) {
                         ControlRail(maxHeight: railMaxHeight(in: available.height)) {
+                            // Input tools stay together on the left. They open UI rather than
+                            // acting on the Mac immediately, so they belong with the other mode
+                            // and source controls instead of among one-tap shortcuts.
+                            keysButton
+                            shortcutsButton
                             modeButton
                             // Directly under the mode button, because it answers the same
                             // question: what does a drag on the picture mean.
@@ -834,8 +853,7 @@ struct RemoteScreen: View {
                         .reportChromeFrame(.leadingRail, into: $chromeFrames)
                         Spacer(minLength: 0)
                         ControlRail(maxHeight: railMaxHeight(in: available.height)) {
-                            keysButton
-                            shortcutsButton
+                            landscapeQuickActions
                             escapeButton
                             tabButton
                             navigationButtons
@@ -1081,6 +1099,40 @@ struct RemoteScreen: View {
 
     private var tabButton: some View {
         RailButton(icon: "arrow.right.to.line", label: "Tab") { sendKey(keyCode: 48) }
+    }
+
+    /// The actions reached for while looking at the Mac rather than at Peering itself.
+    ///
+    /// Ordered by frequency because the rail is intentionally scrollable on shorter phones:
+    /// copy, paste and terminal interrupt remain visible first. Destructive quit is present as
+    /// requested, but below the everyday edits and behind a confirmation so an edge tap cannot
+    /// close an app with unsaved work.
+    @ViewBuilder
+    private var landscapeQuickActions: some View {
+        ShortcutRailButton(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
+            sendKey(keyCode: 8, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
+            sendKey(keyCode: 9, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌃C", label: "Stop", accessibilityLabel: "Control C") {
+            sendKey(keyCode: 8, modifiers: [.control])
+        }
+        ShortcutRailButton(chord: "⌘Z", label: "Undo", accessibilityLabel: "Undo") {
+            sendKey(keyCode: 6, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
+            sendKey(keyCode: 7, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌘S", label: "Save", accessibilityLabel: "Save") {
+            sendKey(keyCode: 1, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌘W", label: "Close", accessibilityLabel: "Close window") {
+            sendKey(keyCode: 13, modifiers: [.command])
+        }
+        ShortcutRailButton(chord: "⌘Q", label: "Quit", accessibilityLabel: "Quit active application") {
+            confirmsQuitApplication = true
+        }
     }
 
     /// The navigation keys, below the fold on the rail.
