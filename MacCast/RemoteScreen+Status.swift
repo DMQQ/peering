@@ -93,7 +93,7 @@ extension RemoteScreen {
         // present, and the pill should only ever grow downwards.
         ZStack(alignment: .top) {
             if statusBarExpanded {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     // ── Row 1: who, and the way out ─────────────────────────────────
                     //
                     // The name has this row to itself, which it did not before. It used to share
@@ -181,11 +181,12 @@ extension RemoteScreen {
                         .accessibilityLabel("Take screenshot")
                     }
                 }
-                // Sixteen rather than fourteen: the side insets outside the pill are narrower
-                // than the rails' so that it gets more of the screen, and the content inside it
-                // is what that space was for.
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                // Wider on the right than the left. What ends on that side is a control — the
+                // quit button, the camera — and a control flush against the glass reads as
+                // clipped; what ends on the left is a label, which is happy at the edge.
+                .padding(.leading, 16)
+                .padding(.trailing, 20)
+                .padding(.vertical, 8)
                 .contentShape(Rectangle())
                 // The other half of the toggle. The collapsed bar expands on a tap and the
                 // expanded one closes on the next, so it is one control with one meaning
@@ -221,54 +222,53 @@ extension RemoteScreen {
                     // shown and over which path answers "what am I looking at" and goes under it,
                     // indented past the dot so the two read as one block rather than as two rows
                     // that happen to be adjacent.
-                    // The dot is outside the stack rather than inside its first line, so it sits
-                    // in the middle of the pill's height — against both lines at once. Inside the
-                    // first line it lined up with the Mac's name and hung a little above centre,
-                    // which on a two-line pill reads as a mark that slipped.
-                    HStack(spacing: 8) {
-                        // Green when the Mac is connected and sending, red when it is connected
-                        // and has stopped. It was white, which said nothing: a dot that is
-                        // always the same colour is decoration, and this one sits in the pill
-                        // that already carries the Mac's name and the latency — the two facts
-                        // whose whole purpose is to be read at a glance.
-                        //
-                        // Green rather than the palette's white because the host picker
-                        // already spends green on "this Mac is reachable", and a second
-                        // colour for the same fact would be two vocabularies for one thing.
-                        Circle()
-                            .fill(model.isVideoStreaming ? Color.green : Color.red)
-                            .frame(width: 6, height: 6)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 8) {
-                                Text(model.hostName ?? "Mac")
-                                    .font(.caption.weight(.semibold))
-                                    .lineLimit(1)
-                                // No spacer, for the reason Row 1 has none: the collapsed pill
-                                // should be the width of what it says.
-                                if let latency = model.latencyMilliseconds {
-                                    Text("\(Int(latency.rounded())) ms")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(ColorPalette.reading(latency))
-                                        .fixedSize()
-                                }
-                            }
-
-                            HStack(spacing: 6) {
-                                if let sourceTitle = model.activeSourceTitle {
-                                    Text(sourceTitle)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                connectionPathChip
-                                if model.isVideoStreaming {
-                                }
+                    // The dot is part of the name's line rather than a mark floating beside the
+                    // block. Centred against both lines it sat between them with a gap either
+                    // side, which reads as a dot that lost its label — and the label is the Mac
+                    // it is reporting on.
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 7) {
+                            // Green when the Mac is connected and sending, red when it is
+                            // connected and has stopped. It was white, which said nothing: a dot
+                            // that is always the same colour is decoration, and this one sits in
+                            // the pill that already carries the Mac's name and the latency — the
+                            // two facts whose whole purpose is to be read at a glance.
+                            //
+                            // Green rather than the palette's white because the host picker
+                            // already spends green on "this Mac is reachable", and a second
+                            // colour for the same fact would be two vocabularies for one thing.
+                            Circle()
+                                .fill(model.isVideoStreaming ? Color.green : Color.red)
+                                .frame(width: 6, height: 6)
+                            Text(model.hostName ?? "Mac")
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                            // No spacer, for the reason Row 1 has none: the collapsed pill
+                            // should be the width of what it says.
+                            if let latency = model.latencyMilliseconds {
+                                Text("\(Int(latency.rounded())) ms")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(ColorPalette.reading(latency))
+                                    .fixedSize()
                             }
                         }
+
+                        HStack(spacing: 6) {
+                            if let sourceTitle = model.activeSourceTitle {
+                                Text(sourceTitle)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            connectionPathChip
+                        }
+                        // Under the Mac's name rather than under the dot, which is what makes the
+                        // second line read as a continuation of the first.
+                        .padding(.leading, 13)
                     }
                 }
-                .padding(.horizontal, 16)
+                .padding(.leading, 16)
+                .padding(.trailing, 20)
                 .padding(.vertical, 10)
                 // Two lines rather than one, and a fixed height for the same reason it was fixed
                 // before: a pill that resized itself as a source changed would move the picture
@@ -573,7 +573,7 @@ extension View {
             // Seven rather than nine: the merged row carries six items on a portrait phone,
             // and two points off each side of four chips is most of what it needed.
             .padding(.horizontal, 7)
-            .frame(height: 30)
+            .frame(height: 28)
             .background(
                 selected
                     ? AnyShapeStyle(ColorPalette.selectedFill)
