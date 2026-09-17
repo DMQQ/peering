@@ -32,10 +32,15 @@ pub enum ClientMessage {
     /// record and which is not a secret. The relay wants it for one reason: to recognise a
     /// reconnecting phone and supersede its previous session rather than accumulate one per
     /// attempt. Nothing here is authorization — see `session.rs`.
+    ///
+    /// `api_key` is optional. When present and valid it grants unlimited relay time; when absent
+    /// or unrecognised the client falls back to the free monthly allowance.
     ConnectToHost {
         host_id: String,
         client_id: String,
         protocol_version: u16,
+        #[serde(default)]
+        api_key: Option<String>,
     },
 
     /// Keeps the signalling connection alive through idle NAT timeouts.
@@ -135,6 +140,7 @@ mod tests {
                 host_id: "mac".into(),
                 client_id: "phone".into(),
                 protocol_version: 3,
+                api_key: None,
             }
         );
     }

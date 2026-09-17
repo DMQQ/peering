@@ -79,11 +79,40 @@ struct RemoteTerminal: Identifiable, Equatable {
     var name: String
     var isRunning: Bool
     var output = Data()
+    /// Set while the Mac is waiting on an answer — a password, or a yes or no.
     var attention: TerminalAttentionKind?
+    /// The last thing this terminal was asked to do that did not work, until it speaks again.
+    var failure: String?
+
+    /// What the tab is saying about it.
+    ///
+    /// One value rather than four flags read in four places, because the tab can only be one
+    /// colour and the order they are weighed in is most of the design: something waiting on the
+    /// user outranks something broken, which outranks a shell that has ended, which outranks one
+    /// that has not said anything yet.
+    var state: TerminalState {
+        if let attention { return .attention(attention) }
+        if let failure { return .failed(failure) }
+        if !isRunning { return .stopped }
+        return output.isEmpty ? .starting : .running
+    }
 
     var visibleOutput: String {
         TerminalTextSanitizer.render(output)
     }
+}
+
+/// What a terminal's tab is saying about it. See ``RemoteTerminal/state``.
+enum TerminalState: Equatable {
+    /// Opened, and the Mac has not answered yet — the login shell is still coming up.
+    case starting
+    case running
+    /// Waiting on the user: a password prompt or a confirmation.
+    case attention(TerminalAttentionKind)
+    /// Something asked of it did not work, or its shell ended with a status.
+    case failed(String)
+    /// The shell has ended. Not a failure — an exit is a thing shells do.
+    case stopped
 }
 
 /// Everything the UI binds to.

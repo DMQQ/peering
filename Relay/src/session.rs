@@ -287,6 +287,17 @@ impl Registry {
             .get(token)
             .map(|session| session.video_tokens[CLIENT_SLOT])
     }
+
+    /// The client ID for a control token. Used by the TCP relay to attribute session time to the
+    /// right client after the splice finishes.
+    pub async fn client_id_for_token(&self, token: &Token) -> Option<String> {
+        self.inner
+            .lock()
+            .await
+            .sessions
+            .get(token)
+            .map(|session| session.client_id.clone())
+    }
 }
 
 #[cfg(test)]

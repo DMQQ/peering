@@ -187,12 +187,13 @@ final class InputInjector: @unchecked Sendable {
             // client really has put the pointer there, and the click, drag or scroll that
             // comes next is posted at this position. Left behind at the grab, the first
             // click after a window drag would land where the window used to be.
-            let moveID = lock.withLock { () -> UInt64? in
+            let moveID = lock.withLock { () -> (UInt64?, MouseButton?) in
                 cursor = location
-                return windowMove?.id
+                return (windowMove?.id, heldButtons.last)
             }
-            guard let moveID else {
-                postMouse(.mouseMoved, at: location, button: .left)
+            let held = moveID.1
+            guard let moveID = moveID.0 else {
+                postMouse(moveType(holding: held), at: location, button: cgButton(held ?? .left))
                 return
             }
             // **Posted, and the window is carried as well.** The two do not fight: the window's
@@ -207,7 +208,7 @@ final class InputInjector: @unchecked Sendable {
             // cursor, so it went on drawing the pointer where the drag started. It reads as
             // the window having come loose from the finger, which is the one thing a drag must
             // never look like.
-            postMouse(.mouseMoved, at: location, button: .left)
+            postMouse(moveType(holding: held), at: location, button: cgButton(held ?? .left))
 
             windowMoveQueue.async { [weak self] in
                 self?.applyWindowMove(to: location, id: moveID)
@@ -572,6 +573,16 @@ final class InputInjector: @unchecked Sendable {
 
     /// The window under a point, or `nil` when there is not one.
     private func windowElement(at point: CGPoint) -> AXUIElement? {
+        // Asked of the window list *before* the hit test, and this is the whole of the fix for a
+        // crash rather than a tidiness. A hit test over one of this application's own windows is
+        // served **in-process**, on this queue, and answering it means running AppKit's and
+        // SwiftUI's accessibility machinery on a thread neither of them expects — which trips
+        // SwiftUI's main-thread assertion inside the attribute graph and takes the process down
+        // with it. The `pid` check below cannot cover that: by the time it runs, the hit test that
+        // crashes has already been served. A window list is Core Graphics, holds no UI state, and
+        // is safe to read from anywhere.
+        if ownsWindow(at: point) { return nil }
+
         var hit: AXUIElement?
         // `kAXErrorNoValue` — nothing there at all — is an answer, not a fault, and it is
         // handled the same way as the rest: no window, so nothing to move.
@@ -579,11 +590,10 @@ final class InputInjector: @unchecked Sendable {
             systemWide, Float(point.x), Float(point.y), &hit
         ) == .success, let hit else { return nil }
 
-        // Never this application's own windows, and this is not tidiness. The window a client
-        // is moving is one it is looking at, never the one showing it the picture — and the
-        // accessible route into our own process is a different one: the request is served
-        // in-process, on a thread AppKit's window machinery does not expect it on, and that
-        // was measured aborting the process rather than refused.
+        // The window a client is moving is one it is looking at, never the one showing it the
+        // picture. Kept as well as the check above rather than replaced by it: this one reads the
+        // element the *system* resolved, which is the only answer that covers an element whose
+        // owning process changed between the two calls.
         var pid: pid_t = 0
         if AXUIElementGetPid(hit, &pid) == .success, pid == getpid() { return nil }
 
@@ -604,6 +614,35 @@ final class InputInjector: @unchecked Sendable {
             depth += 1
         }
         return nil
+    }
+
+    /// Whether a point in the global space lands on one of this application's own windows.
+    ///
+    /// Read from the window server rather than from AppKit, and that is not a preference:
+    /// `NSWindow` is main-thread state and this is asked from the window-move queue, which is the
+    /// same reason the whole lookup lives here instead of on the main actor. A window list is
+    /// Core Graphics — a value, not a view hierarchy — and can be read from anywhere.
+    ///
+    /// The list comes back front to back, and the first window containing the point is the one
+    /// being pointed at, so one that is ours decides the question on its own. Asked only as far
+    /// as the point: a window of ours somewhere else on the screen is not in the way of a drag
+    /// that is nowhere near it.
+    private func ownsWindow(at point: CGPoint) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return false }
+
+        let me = getpid()
+        for window in windows {
+            guard let owner = window[kCGWindowOwnerPID as String] as? NSNumber,
+                  owner.int32Value == me,
+                  let bounds = window[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: bounds)
+            else { continue }
+            if rect.contains(point) { return true }
+        }
+        return false
     }
 
     /// The value of a point-valued attribute, or `nil` when the element does not answer with
@@ -894,6 +933,30 @@ final class InputInjector: @unchecked Sendable {
     }
 
     // MARK: - Helpers
+
+    /// The event a pointer movement goes out as: a drag while a button is held, a move otherwise.
+    ///
+    /// **A movement posted as `.mouseMoved` while a button is down is not a drag, and that
+    /// difference is the whole of whether dragging works.** The window server knows a button is
+    /// held — this app told it so — but the event *type* is what an application matches on, and a
+    /// `.mouseMoved` is delivered as `mouseMoved:` however many buttons are down. `mouseDragged:`
+    /// then never runs: no text is selected, no slider moves, no window follows its title bar.
+    /// What the user gets is a pointer that travels the whole gesture and drags nothing, which is
+    /// the report this was found by — "the cursor moves on screen but it is not dragged".
+    ///
+    /// The button comes from ``heldButtons`` rather than from the caller because the type and the
+    /// button have to agree: a `.leftMouseDragged` naming the button the press went out for is what
+    /// the window server matches against the press it is already tracking. A drag posted as
+    /// `.otherMouseDragged` while the left button is down is not a left drag with a stranger's
+    /// button on it — it is an event for a button no one pressed.
+    private func moveType(holding button: MouseButton?) -> CGEventType {
+        switch button {
+        case .left: return .leftMouseDragged
+        case .right: return .rightMouseDragged
+        case .middle: return .otherMouseDragged
+        case nil: return .mouseMoved
+        }
+    }
 
     private func mouseType(for button: MouseButton, pressed: Bool) -> CGEventType {
         switch (button, pressed) {

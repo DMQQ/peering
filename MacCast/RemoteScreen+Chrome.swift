@@ -33,9 +33,6 @@ extension RemoteScreen {
                             keysButton
                             shortcutsButton
                             modeButton
-                            // Directly under the mode button, because it answers the same
-                            // question: what does a drag on the picture mean.
-                            moveButton
                             sourcesButton
                             desktopsButton
                             settingsButton
@@ -85,7 +82,7 @@ extension RemoteScreen {
                         ScrollWheelView(
                             onScroll: wheelScroll(dy:),
                             label: wheelLabel,
-                            position: interactionMode == .navigate ? zoomPosition : nil
+                            position: interactionMode == .observe ? zoomPosition : nil
                         )
                             .reportChromeFrame(.wheel, into: $chromeFrames)
                         Spacer(minLength: 0)

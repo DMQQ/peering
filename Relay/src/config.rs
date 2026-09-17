@@ -1,5 +1,6 @@
 //! Where the relay listens, and how long it holds a session open.
 
+use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::net::SocketAddr;
@@ -55,6 +56,12 @@ pub struct Config {
     /// Mac and lives until both connections have been made and then dropped, or until this elapses
     /// and it is swept.
     pub session_ttl: Duration,
+    /// Free relay minutes per client per 30-day window. Set to 0 to disable relay for free clients
+    /// entirely.
+    pub free_minutes: u64,
+    /// API keys that grant unlimited relay access, loaded from `PEERINGD_PAID_KEYS` as a
+    /// comma-separated list. Each key is an opaque string the client presents in `ConnectToHost`.
+    pub paid_keys: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +168,10 @@ impl Config {
             },
         };
 
+        let paid_keys = get("PEERINGD_PAID_KEYS")
+            .map(|raw| raw.split(',').map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect())
+            .unwrap_or_default();
+
         Ok(Self {
             signal_addr: address(&get, "PEERINGD_SIGNAL_ADDR", "0.0.0.0:8443")?,
             control_addr: address(&get, "PEERINGD_CONTROL_ADDR", "0.0.0.0:9443")?,
@@ -171,6 +182,8 @@ impl Config {
             public_host: get("PEERINGD_PUBLIC_HOST"),
             tls,
             session_ttl: Duration::from_secs(seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
+            free_minutes: seconds(&get, "PEERINGD_FREE_MINUTES", 15)?,
+            paid_keys,
         })
     }
 }

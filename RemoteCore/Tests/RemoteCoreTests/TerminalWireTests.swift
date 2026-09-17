@@ -14,9 +14,11 @@ struct TerminalWireTests {
         let id = UUID(uuidString: "8B88D893-55BD-4F68-AF3F-E81D885A50A7")!
         let requests: [TerminalRequest] = [
             .list,
-            .create(name: "Build"),
+            .create,
             .input(sessionID: id, data: Data([0x1B, 0x5B, 0x41, 0x00])),
             .resize(sessionID: id, columns: 120, rows: 36),
+            .rename(sessionID: id, name: "Build"),
+            .retitle(sessionID: id, command: "npm run build"),
             .close(sessionID: id),
         ]
 
@@ -32,6 +34,7 @@ struct TerminalWireTests {
         let events: [TerminalEvent] = [
             .snapshot([info]),
             .created(info),
+            .renamed(info),
             .output(sessionID: id, data: Data("ready\r\n".utf8)),
             .attention(sessionID: id, kind: .confirmation, message: "Terminal “Deploy” needs a response."),
             .exited(sessionID: id, status: 0),

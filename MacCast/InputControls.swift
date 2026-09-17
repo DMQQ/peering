@@ -87,10 +87,7 @@ struct JoystickView: View {
             if let speedText {
                 Text(speedText)
                     .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .foregroundStyle(ColorPalette.ink)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(ColorPalette.backdrop.opacity(0.92), in: Capsule())
+                    .foregroundStyle(.black)
                     .transition(.opacity)
                     .allowsHitTesting(false)
             }
@@ -536,7 +533,7 @@ struct ScrollWheelView: View {
                             .frame(width: 10)
 
                         if let position {
-                            // A gauge, not a knob. In drag & zoom this control has a *value* to
+                            // A gauge, not a knob. In observe this control has a *value* to
                             // report — how much of the zoom range lies below and how much above —
                             // and a handle that springs back to the middle reports nothing at
                             // all, which is exactly what made it confusing. A fill rising from

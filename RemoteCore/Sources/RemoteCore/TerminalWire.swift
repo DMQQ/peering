@@ -17,9 +17,16 @@ public struct TerminalSessionInfo: Codable, Equatable, Sendable, Identifiable {
 /// Requests sent by an authenticated client over the control connection.
 public enum TerminalRequest: Codable, Equatable, Sendable {
     case list
-    case create(name: String)
+    /// A new login shell. It arrives unnamed: the host numbers it, and the terminal takes its
+    /// name from the first command run in it.
+    case create
     case input(sessionID: UUID, data: Data)
     case resize(sessionID: UUID, columns: UInt16, rows: UInt16)
+    /// A name the user typed. It sticks, and nothing replaces it afterwards.
+    case rename(sessionID: UUID, name: String)
+    /// A name the terminal earns by being used: the last command sent to it. The host ignores
+    /// this once the terminal has been named by hand.
+    case retitle(sessionID: UUID, command: String)
     case close(sessionID: UUID)
 }
 
@@ -33,6 +40,8 @@ public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {
 public enum TerminalEvent: Codable, Equatable, Sendable {
     case snapshot([TerminalSessionInfo])
     case created(TerminalSessionInfo)
+    /// The terminal's name changed — by a command run in it, or by the user typing one.
+    case renamed(TerminalSessionInfo)
     case output(sessionID: UUID, data: Data)
     case attention(sessionID: UUID, kind: TerminalAttentionKind, message: String)
     case exited(sessionID: UUID, status: Int32)

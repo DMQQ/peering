@@ -24,6 +24,7 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 use crate::protocol::{hex, ClientMessage, ServerMessage};
+use crate::quota::QuotaTracker;
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::udp_relay;
 
@@ -46,6 +47,7 @@ pub struct Settings {
     /// is no per-session mapping to express.
     pub public_video_port: Option<u16>,
     pub session_ttl: Duration,
+    pub quota: Arc<QuotaTracker>,
 }
 
 /// The Macs that are currently registered, by device ID.
@@ -284,10 +286,27 @@ async fn dispatch(
             host_id,
             client_id,
             protocol_version,
+            api_key,
         } => {
             if host_id.len() > MAX_FIELD || client_id.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
+            if let Some(api_key) = &api_key {
+                if api_key.len() > MAX_FIELD {
+                    return Some(ServerMessage::error("invalid", "field too long"));
+                }
+            }
+
+            // Check relay quota before allocating a session. Paid keys bypass the counter;
+            // free clients are blocked when their monthly allowance is exhausted.
+            let remaining = settings.quota.remaining(&client_id, api_key.as_deref());
+            if remaining == Some(0) {
+                return Some(ServerMessage::error(
+                    "quotaExceeded",
+                    "free relay allowance exhausted for this period",
+                ));
+            }
+
             let Some(host) = hosts.entry_for(&host_id).await else {
                 debug!(%host_id, "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
@@ -418,6 +437,7 @@ mod tests {
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
             public_video_port: None,
             session_ttl: Duration::from_secs(60),
+            quota: Arc::new(QuotaTracker::new(15, Default::default())),
         };
         let (tx, _rx) = channel();
         let mut registered = None;
@@ -427,6 +447,7 @@ mod tests {
                 host_id: "ghost".into(),
                 client_id: "phone".into(),
                 protocol_version: 3,
+                api_key: None,
             },
             &tx,
             &registry,
@@ -460,6 +481,7 @@ mod tests {
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
             public_video_port: None,
             session_ttl: Duration::from_secs(60),
+            quota: Arc::new(QuotaTracker::new(15, Default::default())),
         };
         let (tx, _rx) = channel();
         let mut registered = None;
@@ -469,6 +491,7 @@ mod tests {
                 host_id: "mac".into(),
                 client_id: "phone".into(),
                 protocol_version: 2,
+                api_key: None,
             },
             &tx,
             &registry,
@@ -497,6 +520,7 @@ mod tests {
             video_ports: Arc::new(udp_relay::PortPool::new(None)),
             public_video_port: None,
             session_ttl: Duration::from_secs(60),
+            quota: Arc::new(QuotaTracker::new(15, Default::default())),
         };
         let (tx, _rx) = channel();
         let mut registered = None;
@@ -506,6 +530,7 @@ mod tests {
                 host_id: "mac".into(),
                 client_id: "phone".into(),
                 protocol_version: 3,
+                api_key: None,
             },
             &tx,
             &registry,

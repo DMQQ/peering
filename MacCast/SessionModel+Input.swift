@@ -29,8 +29,8 @@ extension SessionModel {
     /// How the speed is written: "1×", "1.5×", "2×".
     var pointerSpeedLabel: String {
         pointerSpeed == pointerSpeed.rounded()
-            ? "\(Int(pointerSpeed))×"
-            : String(format: "%.1f×", pointerSpeed)
+            ? "\(Int(pointerSpeed))"
+            : String(format: "%.1f", pointerSpeed)
     }
 
     func send(_ command: RemoteCommand) {

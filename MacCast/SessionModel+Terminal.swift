@@ -8,20 +8,47 @@ import SwiftUI
 extension SessionModel {
     func refreshTerminals() { session?.sendTerminal(.list) }
 
-    func createTerminal(name: String) {
-        session?.sendTerminal(.create(name: name))
+    /// Opens a shell. It has no name to start with — the Mac numbers it, and the first command
+    /// typed into it is what it ends up being called.
+    func createTerminal() {
+        session?.sendTerminal(.create)
     }
 
+    /// Names a terminal by hand. This is the name it keeps, whatever runs in it next.
+    ///
+    /// Applied here as well as on the Mac, because the tab under the finger is the one thing
+    /// that cannot wait a round trip to show what was just typed into it. The Mac's own answer
+    /// arrives a moment later with the name it settled on, which is the same one, tidied.
+    func renameTerminal(_ id: UUID, to name: String) {
+        // Not for an empty name, which is a request rather than a name: the Mac answers it with
+        // the last command run there, and a tab left blank until that arrives would look like
+        // the rename had failed.
+        if !name.isEmpty, let index = terminals.firstIndex(where: { $0.id == id }) {
+            terminals[index].name = name
+        }
+        session?.sendTerminal(.rename(sessionID: id, name: name))
+    }
+
+    /// Which terminal the panel is showing.
+    ///
+    /// Looking at a terminal does not answer it, so this deliberately leaves its attention mark
+    /// alone — a tab that is waiting for a password is still waiting while you read it, and the
+    /// mark goes out when the shell says something, which is the only proof it got an answer.
     func selectTerminal(_ id: UUID) {
         selectedTerminalID = id
-        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
     }
 
     func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
         let suffix = appendReturn ? "\r" : ""
         guard let data = (text + suffix).data(using: .utf8) else { return }
         session?.sendTerminal(.input(sessionID: id, data: data))
-        if let index = terminals.firstIndex(where: { $0.id == id }) { terminals[index].attention = nil }
+        // The command names the terminal it ran in. Whether that name is taken is the Mac's
+        // call — a name typed by hand outranks one earned this way.
+        session?.sendTerminal(.retitle(sessionID: id, command: text))
+        if let index = terminals.firstIndex(where: { $0.id == id }) {
+            terminals[index].attention = nil
+            terminals[index].failure = nil
+        }
         rememberTerminalCommand(text)
         lastSentCommand = text
         lastSentAt = Date()
@@ -102,11 +129,18 @@ extension SessionModel {
             terminals.removeAll { $0.id == info.id }
             terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
             selectedTerminalID = info.id
-            append(note: "Terminal “\(info.name)” opened")
+            append(note: "\(info.name) opened")
+        case .renamed(let info):
+            guard let index = terminals.firstIndex(where: { $0.id == info.id }) else { return }
+            terminals[index].name = info.name
         case .output(let id, let data):
             guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
             forgetUnknownCommand(data)
             terminals[index].output.append(data)
+            // The shell said something, so whatever it was waiting on has been answered and
+            // whatever went wrong before is no longer what the terminal is doing.
+            terminals[index].attention = nil
+            terminals[index].failure = nil
             let limit = 512 * 1024
             if terminals[index].output.count > limit {
                 terminals[index].output.removeFirst(terminals[index].output.count - limit)
@@ -121,6 +155,9 @@ extension SessionModel {
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].isRunning = false
+                // A shell that ended by itself is a shell that ended. One that ended carrying a
+                // status ended badly, and the tab is where that gets noticed.
+                terminals[index].failure = status == 0 ? nil : "Exited with status \(status)"
             }
             append(note: "Terminal exited with status \(status)")
         case .closed(let id):
@@ -128,7 +165,12 @@ extension SessionModel {
             terminals.removeAll { $0.id == id }
             if selectedTerminalID == id { selectedTerminalID = terminals.first?.id }
             append(note: "\(name) closed")
-        case .failed(_, let message):
+        case .failed(let id, let message):
+            // A refusal that names a terminal is about that terminal, and it stays on its tab
+            // until the terminal works again.
+            if let id, let index = terminals.firstIndex(where: { $0.id == id }) {
+                terminals[index].failure = message
+            }
             append(note: "Terminal: \(message)")
         }
     }

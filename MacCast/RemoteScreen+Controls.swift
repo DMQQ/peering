@@ -25,8 +25,7 @@ extension RemoteScreen {
         RailButton(
             icon: interactionMode.symbol,
             label: interactionMode.label,
-            // Filled only in drag & zoom. That is the mode that surprises if it is forgotten —
-            // the picture behaving like a trackpad is what a glancing user already expects.
+            // Filled only in observe. That mode changes the safety contract by blocking input.
             //
             // Filling both was tried, on the grounds that a caption naming the current mode is
             // reporting a state and a state deserves a mark. On the device it read the other
@@ -84,6 +83,26 @@ extension RemoteScreen {
     var desktopsSlot: some View {
         ZStack { desktopsButton }
             .frame(maxWidth: .infinity)
+            .frame(height: ChromeMetrics.buttonHeight)
+    }
+
+    /// A column of the dock with nothing in it.
+    ///
+    /// The same reasoning as ``desktopsSlot``, reached from the other side: an empty cell is the
+    /// same size as a full one, and a row that dropped a column would divide its width between
+    /// what was left and put every button in it under the gap between the two above.
+    ///
+    /// Its height is pinned for the reason the rest of the cell is drawn: a cell is one button
+    /// tall, and a cell that can be *any* height is one the layout will happily make tall. A view
+    /// constrained in width alone is still flexible in height, and `Color.clear` is the most
+    /// flexible thing there is — so the second row of the open dock stretched to take whatever
+    /// the column had going spare, and the bar grew over the picture. The buttons beside it could
+    /// not do that: they carry a height of their own, which is what a cell's is supposed to be.
+    var emptyDockSlot: some View {
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: ChromeMetrics.buttonHeight)
+            .allowsHitTesting(false)
     }
 
     /// Whether the desktops panel is worth offering at all.
@@ -116,38 +135,6 @@ extension RemoteScreen {
     /// These are the two keys a remote desktop reaches for constantly and a software keyboard
     /// cannot send — dismissing a dialogue, moving between fields — and both were behind a
     /// toggle. The panel keeps its copies for the same reason the arrow strip keeps its return.
-    /// Pick up the window under the pointer and carry it.
-    ///
-    /// A command-drag underneath, which is a thing macOS already understands: it moves the
-    /// window under the pointer without bringing it to the front. What that buys is reach. A
-    /// title bar is twenty-eight points on a desktop three thousand wide, which lands at a
-    /// couple of pixels on a phone, and aiming at it through a scaled-down picture is the
-    /// reason dragging a window from here was not worth attempting. A command-drag can start
-    /// anywhere in the window.
-    ///
-    /// It arms the same command key the shortcuts panel's ⌘ button does, so the two show the
-    /// same state, and it lets go of it when the drag ends — see ``releaseMoveIfArmed()``. A
-    /// command key that outlived the drag it was armed for would turn the next thing typed
-    /// into a shortcut.
-    var moveButton: some View {
-        RailButton(
-            icon: "arrow.up.and.down.and.arrow.left.and.right",
-            label: "Move",
-            selected: model.latchedModifiers.contains(.command)
-        ) {
-            let wasLatched = model.latchedModifiers.contains(.command)
-            moveArmed = !wasLatched
-            model.toggleModifier(.command, keyCode: 55)
-        }
-    }
-
-    /// Lets go of the command key, if this button was what armed it.
-    func releaseMoveIfArmed() {
-        guard moveArmed else { return }
-        moveArmed = false
-        model.toggleModifier(.command, keyCode: 55)
-    }
-
     var escapeButton: some View {
         RailButton(icon: "escape", label: "Esc") { sendKey(keyCode: 53) }
     }

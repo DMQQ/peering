@@ -10,6 +10,7 @@ use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 use peeringd::config::{Config, TlsFiles};
+use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::udp_relay::PortPool;
@@ -38,10 +39,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The control relay is plain TCP on purpose, and it is worth being clear that this is not a gap
     // to be closed later: terminating TLS here would mean the relay could read the control channel,
     // and end-to-end confidentiality is the whole property being sold.
+    let quota = Arc::new(QuotaTracker::new(config.free_minutes, config.paid_keys.clone()));
+
+    if config.free_minutes == 0 {
+        info!("relay is gated — free clients cannot use relay (PEERINGD_FREE_MINUTES=0)");
+    } else {
+        info!(free_minutes = config.free_minutes, "relay quota active; set PEERINGD_PAID_KEYS to grant unlimited access");
+    }
+
     let control = TcpListener::bind(config.control_addr).await?;
     let signal = TcpListener::bind(config.signal_addr).await?;
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
     // forever rather than as a one-off. A session holds a bound UDP socket, so letting them
@@ -93,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         video_ports,
         public_video_port: config.public_video_port,
         session_ttl: config.session_ttl,
+        quota,
     };
 
     tokio::select! {

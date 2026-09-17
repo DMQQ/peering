@@ -59,7 +59,7 @@ extension RemoteScreen {
             // the width it wanted, which on a portrait phone pushed the terminal dot off the
             // edge of the screen — and of the three, the dots are the ones with nowhere to
             // compress to, being circles with one glyph in them.
-            audioDot.layoutPriority(1)
+            lockDot.layoutPriority(1)
             statusPill
             terminalDot.layoutPriority(1)
         }
@@ -159,10 +159,8 @@ extension RemoteScreen {
                         connectionPathChip
                         qualityChip
                         fillChip
-                        // The audio switch moved out to the dot beside the pill — see
-                        // `audioDot`. It was a chip here and it is a state you reach for
-                        // mid-session, which is the same case the dots exist for; this row has
-                        // the camera and the zoom to spend its width on.
+                        // Lock and display dimming live in the dot beside the pill, leaving this
+                        // row to describe and control the stream itself.
                         if zoom > 1.01 {
                             Button {
                                 zoom = 1; pan = .zero
@@ -331,18 +329,33 @@ extension RemoteScreen {
     /// actually good for was trying PiP *without* leaving and recording why it refused — a
     /// diagnostic, and one that belongs beside the switch it explains, in Settings.
     ///
-    /// The Mac's audio takes the slot, which is the same trade the pill's second row wanted: it
-    /// is reached for mid-session, it has a state worth seeing at a glance, and it was a chip in
-    /// a row that had run out of width.
-    var audioDot: some View {
-        sessionDot(
-            symbol: model.hostAudioMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
-            label: model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac",
-            enabled: true,
-            tint: model.hostAudioMuted ? Color.secondary : ColorPalette.ink
-        ) {
-            model.hostAudioMuted.toggle()
+    /// Tap locks immediately. A hold opens the two related ways to leave the physical Mac alone:
+    /// lock the session, or dim its displays while keeping the remote picture alive.
+    var lockDot: some View {
+        Button {
+            model.lockMac()
+        } label: {
+            Image(systemName: model.privacyModeEnabled ? "lock.shield.fill" : "lock.fill")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(model.privacyModeEnabled ? ColorPalette.accent : ColorPalette.ink)
+                .frame(width: 48, height: 48)
+                .glassEffect(.regular, in: Circle())
         }
+        .contentShape(Rectangle())
+        .buttonStyle(RailButtonStyle(scale: 0.92))
+        .contextMenu {
+            Button { model.lockMac() } label: {
+                Label("Lock screen", systemImage: "lock.fill")
+            }
+            Button { model.setPrivacyMode(!model.privacyModeEnabled) } label: {
+                Label(
+                    model.privacyModeEnabled ? "Restore display brightness" : "Dim displays",
+                    systemImage: model.privacyModeEnabled ? "sun.max.fill" : "sun.min.fill"
+                )
+            }
+        }
+        .accessibilityLabel("Lock the Mac")
+        .accessibilityHint("Touch and hold for Lock Screen or Dim Displays")
     }
 
     /// The terminal, and the two things about it worth knowing from the session screen: that

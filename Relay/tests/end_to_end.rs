@@ -17,6 +17,7 @@ use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::Message;
 
 use peeringd::protocol::{unhex, ClientMessage, ServerMessage};
+use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::udp_relay::{bind_packet, PortPool};
@@ -50,7 +51,8 @@ async fn start() -> TestRelay {
     let signal = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let signal_port = signal.local_addr().unwrap().port();
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
+    let quota = Arc::new(QuotaTracker::new(15, Default::default()));
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
 
     tokio::spawn(signalling::serve(
         signal,
@@ -63,6 +65,7 @@ async fn start() -> TestRelay {
             video_ports: Arc::new(PortPool::new(None)),
             public_video_port: None,
             session_ttl: Duration::from_secs(60),
+            quota,
         },
         None,
     ));
@@ -175,6 +178,7 @@ async fn a_mac_and_a_phone_are_introduced_and_their_control_sockets_talk() {
             host_id: "mac".into(),
             client_id: "phone".into(),
             protocol_version: 3,
+            api_key: None,
         },
     )
     .await;
@@ -221,6 +225,7 @@ async fn video_datagrams_flow_between_the_two_ends() {
             host_id: "mac".into(),
             client_id: "phone".into(),
             protocol_version: 3,
+            api_key: None,
         },
     )
     .await;
@@ -266,6 +271,7 @@ async fn a_phone_asking_for_a_mac_that_is_not_running_is_told_so() {
             host_id: "nobody".into(),
             client_id: "phone".into(),
             protocol_version: 3,
+            api_key: None,
         },
     )
     .await;
@@ -306,6 +312,7 @@ async fn a_mac_that_disconnects_stops_being_reachable() {
             host_id: "mac".into(),
             client_id: "phone".into(),
             protocol_version: 3,
+            api_key: None,
         },
     )
     .await;
@@ -342,6 +349,7 @@ async fn a_stolen_control_token_is_no_use_twice() {
             host_id: "mac".into(),
             client_id: "phone".into(),
             protocol_version: 3,
+            api_key: None,
         },
     )
     .await;

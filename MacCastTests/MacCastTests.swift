@@ -132,10 +132,8 @@ final class MacCastTests: XCTestCase {
 
     // MARK: - Interaction mode
 
-    // The mode is the whole safety story of the in-session screen: drag & zoom is only worth
-    // having if a finger in it cannot reach the Mac. These pin the routing rather than the
-    // recognisers, because a `UIPanGestureRecognizer` cannot be driven from a unit test — and
-    // "nothing was sent" is exactly the claim that has to keep holding.
+    // Control combines Mac input with picture navigation. Observe is the safety boundary: no
+    // input reaches the Mac.
 
     func testViewAndScrollTouchesReachTheMac() {
         let mode = InteractionMode.control
@@ -159,35 +157,14 @@ final class MacCastTests: XCTestCase {
         XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: true))
     }
 
-    func testDragAndZoomTouchesNeverReachTheMac() {
-        let mode = InteractionMode.navigate
-
-        XCTAssertTrue(mode.oneFingerDragPansCanvas)
-        // Unconditional here: drag & zoom has no other meaning for the gesture to fall back to.
-        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: false))
-        XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: true))
-        XCTAssertTrue(mode.pinchZoomsCanvas)
-        XCTAssertFalse(mode.tapsReachTheMac)
-    }
-
     func testObserveModeCanInspectThePictureWithoutInput() {
         let mode = InteractionMode.observe
 
         XCTAssertTrue(mode.oneFingerDragPansCanvas)
+        XCTAssertFalse(mode.oneFingerDragReachesTheMac)
         XCTAssertTrue(mode.twoFingerDragPansCanvas(isZoomed: false))
         XCTAssertTrue(mode.pinchZoomsCanvas)
         XCTAssertFalse(mode.tapsReachTheMac)
-    }
-
-    func testTrackpadRoutesOneFingerMovementAndClicksToTheMac() {
-        let mode = InteractionMode.trackpad
-
-        XCTAssertTrue(mode.oneFingerDragPansCanvas)
-        XCTAssertTrue(mode.isTrackpad)
-        XCTAssertFalse(mode.twoFingerDragPansCanvas(isZoomed: false))
-        XCTAssertFalse(mode.twoFingerDragPansCanvas(isZoomed: true))
-        XCTAssertTrue(mode.tapsReachTheMac)
-        XCTAssertFalse(mode.pinchZoomsCanvas)
     }
 
     // MARK: - Putting a panel away
@@ -224,18 +201,21 @@ final class MacCastTests: XCTestCase {
         ))
     }
 
-    /// A finger either drives the Mac or moves the picture, never both. Stated as an invariant
-    /// over every case so a third mode added later cannot quietly be both at once.
-    func testNoModeBothPansAndClicks() {
+    /// A drag either moves the picture or is sent to the Mac, never both. Stated as an invariant
+    /// over every case so a mode added later cannot quietly be both at once — and the failure
+    /// that would produce is not subtle: a picture sliding under the finger while a window moves
+    /// on the Mac, from one gesture.
+    func testNoModeBothMovesThePictureAndReachesTheMacOnOneDrag() {
         for mode in InteractionMode.allCases {
-            XCTAssertNotEqual(mode.oneFingerDragPansCanvas, mode.tapsReachTheMac)
+            XCTAssertFalse(mode.oneFingerDragPansCanvas && mode.oneFingerDragReachesTheMac)
         }
     }
 
     func testInteractionModeButtonCyclesThroughEveryMode() {
         for mode in InteractionMode.allCases {
-            XCTAssertEqual(mode.toggled.toggled.toggled, mode)
+            XCTAssertEqual(mode.toggled.toggled, mode)
         }
+        XCTAssertEqual(InteractionMode.allCases.count, 2)
     }
 
     /// The switch is stored as its raw value, so that string is a persistence format and not an
@@ -247,6 +227,7 @@ final class MacCastTests: XCTestCase {
         }
 
         XCTAssertEqual(InteractionMode(rawValue: "control"), .control)
+        XCTAssertEqual(InteractionMode(rawValue: "navigate"), .control)
         XCTAssertNil(InteractionMode(rawValue: "dragging"))
     }
 
@@ -255,6 +236,57 @@ final class MacCastTests: XCTestCase {
     func testEachModeIsDistinguishableOnItsButton() {
         XCTAssertEqual(Set(InteractionMode.allCases.map(\.label)).count, InteractionMode.allCases.count)
         XCTAssertEqual(Set(InteractionMode.allCases.map(\.symbol)).count, InteractionMode.allCases.count)
+    }
+
+    /// UIKit may end the pinch recognizer before its simultaneous pan recognizer. Translation
+    /// accumulated while the pinch owned both fingers must already be gone when that happens,
+    /// or the pan recognizer delivers the whole pinch movement as one jump on release.
+    func testTwoFingerPanDoesNotReplayPinchMovementWhenPinchEndsFirst() {
+        var recognizerTranslation = CGPoint(x: 74, y: -31)
+
+        let duringPinch = CanvasGestureRouting.twoFingerPan(
+            translation: recognizerTranslation,
+            whilePinching: true
+        )
+        if duringPinch.resetsRecognizerTranslation {
+            recognizerTranslation = .zero
+        }
+
+        let afterPinchEnded = CanvasGestureRouting.twoFingerPan(
+            translation: recognizerTranslation,
+            whilePinching: false
+        )
+
+        XCTAssertNil(afterPinchEnded.translation)
+    }
+
+    func testPinchReleaseDoesNotApplyAStaleFinalScale() {
+        XCTAssertNil(CanvasGestureRouting.pinchScale(for: .ended, scale: 1.24))
+        XCTAssertNil(CanvasGestureRouting.pinchScale(for: .cancelled, scale: 0.86))
+        XCTAssertEqual(CanvasGestureRouting.pinchScale(for: .changed, scale: 1.24), 1.24)
+    }
+
+    func testTwoFingerPanSuppressesLiftOffAfterPinch() {
+        XCTAssertFalse(CanvasGestureRouting.shouldDeliverTwoFingerPan(
+            whilePinching: false,
+            suppressingAfterPinch: true
+        ))
+        XCTAssertTrue(CanvasGestureRouting.shouldDeliverTwoFingerPan(
+            whilePinching: false,
+            suppressingAfterPinch: false
+        ))
+    }
+
+    func testPinchTranslationHasOneOwner() {
+        XCTAssertEqual(
+            CanvasGestureRouting.pinchPanTranslation(
+                translation: CGPoint(x: 18, y: -7), suppressingAfterPinch: false
+            ),
+            CGPoint(x: 18, y: -7)
+        )
+        XCTAssertNil(CanvasGestureRouting.pinchPanTranslation(
+            translation: CGPoint(x: 18, y: -7), suppressingAfterPinch: true
+        ))
     }
 
     @MainActor
@@ -368,6 +400,34 @@ final class MacCastTests: XCTestCase {
         XCTAssertNil(SessionAwareness.notification(
             from: .ready, to: .disconnected, hostName: "Studio", deliberate: true
         ))
+    }
+
+    /// A tab is one colour, so the four things a terminal can be have to be weighed rather than
+    /// drawn together. This is that order, and it is the whole of what a tab says.
+    func testATerminalSaysTheMostUrgentThingAboutIt() {
+        var terminal = RemoteTerminal(id: UUID(), name: "Terminal 1", isRunning: true)
+        // Opened, and the login shell has not printed its prompt yet.
+        XCTAssertEqual(terminal.state, .starting)
+
+        terminal.output = Data("ready\n".utf8)
+        XCTAssertEqual(terminal.state, .running)
+
+        terminal.attention = .password
+        XCTAssertEqual(terminal.state, .attention(.password))
+
+        // Waiting on the user outranks being broken, because only one of the two is something
+        // the user can do anything about.
+        terminal.failure = "Could not write to the terminal."
+        XCTAssertEqual(terminal.state, .attention(.password))
+
+        terminal.attention = nil
+        XCTAssertEqual(terminal.state, .failed("Could not write to the terminal."))
+
+        terminal.failure = nil
+        terminal.isRunning = false
+        // Ended, not broken. `exit` is a thing shells do, and a tab that cried wolf at every
+        // one of them would be a tab nobody reads.
+        XCTAssertEqual(terminal.state, .stopped)
     }
 
 }

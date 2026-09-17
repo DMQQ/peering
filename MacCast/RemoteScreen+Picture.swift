@@ -68,9 +68,14 @@ extension RemoteScreen {
             }
     }
 
+    /// The Mac's pointer, drawn where this phone last put it.
+    ///
+    /// Only in control. In observe a tap reaches nothing, so showing a pointer would invite the
+    /// exact interaction that mode promises to block.
     var clientCursor: some View {
         Group {
-            if model.phase == .ready,
+            if interactionMode.tapsReachTheMac,
+               model.phase == .ready,
                let point = CanvasGeometry.point(
                    normalized: remoteCursor,
                    bounds: canvasSize,
@@ -96,7 +101,7 @@ extension RemoteScreen {
     /// A captured window is usually a different shape from a phone held sideways, so the fitted
     /// picture is a band with bars either side of it. This is the scale at which the *shorter*
     /// axis of the picture matches the screen — which fills it, and crops the other axis, which
-    /// is what the user then pans around in drag & zoom.
+    /// is what the user then pans around while zoomed.
     var fillZoom: CGFloat {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return 1 }
         let rect = CanvasGeometry.videoRect(bounds: canvasSize, pixelSize: model.capturePixelSize)
@@ -107,8 +112,20 @@ extension RemoteScreen {
     /// What the picture is drawn at, and — because every touch is mapped back through it — what
     /// a touch means. One property rather than two, so a click can never be resolved against a
     /// scale the picture is not actually drawn at.
+    ///
+    /// In Fill the user's zoom rides *on top of* the fill scale rather than competing with it,
+    /// and that is the whole difference between a pinch that works and one that looks broken.
+    ///
+    /// It was `max(zoom, fillZoom)`, which discarded the user's zoom for as long as it was the
+    /// smaller of the two — and `fillZoom` is 1.4× in landscape and over 3× in portrait for a
+    /// full-size desktop, so a pinch had *no effect whatsoever* until the picture had already
+    /// been magnified past the fill by some other means. There is no other means: the pinch was
+    /// the door, and this was the lock on it.
+    ///
+    /// Multiplying leaves the resting state exactly as it was — at `zoom == 1` this is `fillZoom`
+    /// — and gives every step of the pinch somewhere to go from there.
     var effectiveZoom: CGFloat {
-        scalesToFill ? max(zoom, fillZoom) : zoom
+        scalesToFill ? fillZoom * zoom : zoom
     }
 
 }

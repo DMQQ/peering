@@ -135,13 +135,17 @@ enum Motion {
     static let morph = Animation.spring(response: 0.4, dampingFraction: 0.68)
 }
 
-/// The whole palette: two colours and a set of opacities.
+/// The whole palette: a set of opacities, and the handful of colours that are states rather
+/// than shades.
 ///
-/// No accent hue, deliberately. This screen is a frame around a picture, and the picture — a
-/// Mac's desktop, whatever the user happens to be doing on it — is the only thing here entitled
-/// to a colour. An accent would be competing with the content for attention, which is the one
-/// thing chrome must never do. Where a state needs emphasis it gets brightness instead, which
-/// is quieter and survives every accessibility setting a hue does not.
+/// No accent hue by default, deliberately. This screen is a frame around a picture, and the
+/// picture — a Mac's desktop, whatever the user happens to be doing on it — is the only thing
+/// here entitled to a colour. An accent would be competing with the content for attention,
+/// which is the one thing chrome must never do. Where a state needs emphasis it gets brightness
+/// instead, which is quieter and survives every accessibility setting a hue does not.
+///
+/// The exceptions are the states white cannot say at arm's length: ``accent``, ``danger`` and
+/// ``reading(_:)``.
 enum ColorPalette {
     /// The ink. Selection, checkmarks, live indicators, anything that is "on".
     static let ink = Color.white
@@ -162,6 +166,16 @@ enum ColorPalette {
     /// A selected control's fill. Filled rather than tinted: the point of the accent is that a
     /// glance finds it, and a 25%-opacity blue on a dark panel is a glance that misses.
     static let selectedFill = Color.blue
+
+    /// Something that did not work.
+    ///
+    /// One red for the whole app, so a failed terminal's tab and the line in its output that
+    /// says why are the same red — two reds a few points apart is the kind of near-match that
+    /// reads as a mistake without anyone being able to name it.
+    static let danger = Color(red: 0.98, green: 0.45, blue: 0.40)
+    /// Something that may not have been meant, in a tool's own words. Dimmer than ``danger``,
+    /// because a warning is a tool being careful and not a thing that has gone wrong.
+    static let caution = Color(red: 0.97, green: 0.75, blue: 0.35)
     /// A resting surface — rows, chips, anything that needs a little more body than the glass
     /// behind it.
     static let surface = Color.white.opacity(0.07)

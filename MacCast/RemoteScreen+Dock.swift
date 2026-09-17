@@ -158,12 +158,8 @@ extension RemoteScreen {
                         escapeButton
                         tabButton
                         settingsButton
-                        // The chevron's column, which this row alone leaves free. A move
-                        // control is the one thing here that had nowhere else to go: row one
-                        // is full, row three is the five navigation keys, and the alternative
-                        // was giving up a control people use to make room for one they reach
-                        // for now and then.
-                        moveButton
+                        // Keep the fifth column so this row stays aligned with the one above.
+                        emptyDockSlot
                     }
                     // The keys the landscape rail keeps below its fold, which portrait had no
                     // equivalent for at all. Five of them and five columns, so each lands in a
@@ -185,7 +181,13 @@ extension RemoteScreen {
         }
         .padding(.vertical, ChromeMetrics.railPadding)
         .padding(.horizontal, ChromeMetrics.railSidePadding)
-        .frame(width: width)
+        // The height as well as the width, and it is the bar's own number rather than a copy of
+        // it: ``dockHeight`` is what the pointer above is placed from, and until this was pinned
+        // it was also a number the bar could disagree with. A content-sized bar is only as tall as
+        // its contents, and the moment any cell in it is flexible in height the column hands the
+        // bar whatever it has going spare — which it did, over the picture, for the whole of the
+        // joystick's room. Fixed, the two readings of "how tall is the dock" cannot drift.
+        .frame(width: width, height: dockHeight)
         .clipShape(dockShape)
         .glassEffect(.regular, in: dockShape)
     }

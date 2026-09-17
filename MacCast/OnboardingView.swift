@@ -40,10 +40,10 @@ struct OnboardingView: View {
             icon: "hand.point.up.left",
             title: "Drive it",
             body: """
-                View & scroll puts your fingers on the Mac. Drag to move the pointer, tap to \
-                click, two fingers to scroll.
+                Control & zoom puts your fingers on the Mac. Drag and tap to control it, pinch \
+                to zoom, then use two fingers to move around the enlarged picture.
 
-                Drag & zoom moves only the picture, so nothing you do reaches the Mac by accident.
+                Switch to Observe when you want to inspect the picture without sending input.
                 """
         ),
         Page(

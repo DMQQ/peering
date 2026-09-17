@@ -11,20 +11,21 @@
 //! module comment on `session.rs` for why that is safe.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
+use crate::quota::QuotaTracker;
 use crate::session::{Join, Registry, Token};
 
 /// How long a connection may sit without presenting a token. Long enough to survive a slow start,
 /// short enough that an idle socket cannot be used to hold resources.
 const TOKEN_DEADLINE: Duration = Duration::from_secs(5);
 
-pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
+pub async fn serve(listener: TcpListener, registry: Arc<Registry>, quota: Arc<QuotaTracker>) {
     info!(addr = %listener.local_addr().map(|a| a.to_string()).unwrap_or_default(), "control relay listening");
 
     loop {
@@ -48,8 +49,9 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
                 }
 
                 let registry = Arc::clone(&registry);
+                let quota = Arc::clone(&quota);
                 tokio::spawn(async move {
-                    if let Err(error) = handle(stream, registry).await {
+                    if let Err(error) = handle(stream, registry, quota).await {
                         debug!(%peer, %error, "control connection ended");
                     }
                 });
@@ -62,13 +64,17 @@ pub async fn serve(listener: TcpListener, registry: Arc<Registry>) {
     }
 }
 
-async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Result<()> {
+async fn handle(mut stream: TcpStream, registry: Arc<Registry>, quota: Arc<QuotaTracker>) -> std::io::Result<()> {
     // No buffering here, and none needed: this is the only read this side ever does. Everything
     // after it belongs to TLS.
     let mut token: Token = [0u8; 16];
     timeout(TOKEN_DEADLINE, stream.read_exact(&mut token))
         .await
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "no token presented"))??;
+
+    // Look up the client ID before joining. The registry still holds the session at this point,
+    // and we need it after the splice to record usage against the right client.
+    let client_id = registry.client_id_for_token(&token).await;
 
     let Some(join) = registry.join_control(&token, stream).await else {
         // Not a token we issued, or one that has already been used or swept. Closed without a
@@ -92,13 +98,25 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
 
     debug!(peer = %theirs.peer_addr().map(|a| a.to_string()).unwrap_or_default(), "splicing");
 
+    let started = Instant::now();
+
     // Copies both directions until either side closes. The result is discarded on purpose: a
     // session ending is the normal case, not an error worth logging at a level anyone reads.
     let _ = tokio::io::copy_bidirectional(&mut mine, &mut theirs).await;
 
+    let elapsed = started.elapsed();
+
     // Released so the token cannot be presented again. Without this a token stays valid for the
     // rest of its TTL, and a leaked one could hold a splice open.
     registry.release(&token).await;
+
+    // Deduct from the client's relay allowance. Paid clients are tracked but never blocked;
+    // the quota tracker's is_paid check is what keeps their counter from mattering.
+    if let Some(id) = client_id {
+        quota.record(&id, elapsed);
+        debug!(client_id = %id, elapsed_secs = elapsed.as_secs(), "relay usage recorded");
+    }
+
     debug!("splice finished");
     Ok(())
 }
