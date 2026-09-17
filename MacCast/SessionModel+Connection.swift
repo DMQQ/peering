@@ -105,7 +105,7 @@ extension SessionModel {
             return
         }
         pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
     }
 
     /// Explicit route choices from the trusted-Mac row. The regular row tap stays automatic;
@@ -121,7 +121,7 @@ extension SessionModel {
     func connectToTrustedOverRelay(hostID: String) {
         guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
         pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
     }
 
     // MARK: - Quick connect
@@ -152,7 +152,7 @@ extension SessionModel {
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             connect(to: .discovered(host))
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
         }
     }
 
@@ -192,7 +192,7 @@ extension SessionModel {
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
             stopReconnecting()
             isResuming = true
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
         } else {
             // Includes the LAN-only case: the Mac is paired and simply not here yet. The ladder
             // keeps asking until it appears, which is the whole of what "wait for it to come

@@ -385,6 +385,12 @@ final class SessionModel {
     var showKeyboard = false
     var typedPreview = ""
 
+    // MARK: - Purchase
+
+    let storeManager = StoreManager()
+    /// Set when the relay signals quota exhaustion. Shows `PaywallView`.
+    var showPaywall = false
+
     // MARK: - Collaborators
 
     let renderer = VideoRenderer()
@@ -468,7 +474,7 @@ final class SessionModel {
         case .discovered(let host):
             connectionPath = .lan
             UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
-        case .relay(let hostID, _):
+        case .relay(let hostID, _, _):
             connectionPath = .relay
             UserDefaults.standard.set(hostID, forKey: Self.lastHostIDKey)
         case .address:

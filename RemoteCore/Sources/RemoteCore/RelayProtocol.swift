@@ -3,11 +3,11 @@ import Foundation
 /// Messages either app sends to `peeringd` over its signalling WebSocket.
 public enum RelayClientMessage: Sendable, Equatable, Encodable {
     case registerHost(deviceID: String, name: String, protocolVersion: UInt16)
-    case connectToHost(hostID: String, clientID: String, protocolVersion: UInt16)
+    case connectToHost(hostID: String, clientID: String, protocolVersion: UInt16, apiKey: String? = nil)
     case ping
 
     private enum CodingKeys: String, CodingKey {
-        case type, name, protocolVersion
+        case type, name, protocolVersion, apiKey
         case deviceID = "deviceId"
         case hostID = "hostId"
         case clientID = "clientId"
@@ -21,11 +21,12 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(deviceID, forKey: .deviceID)
             try container.encode(name, forKey: .name)
             try container.encode(protocolVersion, forKey: .protocolVersion)
-        case .connectToHost(let hostID, let clientID, let protocolVersion):
+        case .connectToHost(let hostID, let clientID, let protocolVersion, let apiKey):
             try container.encode("connectToHost", forKey: .type)
             try container.encode(hostID, forKey: .hostID)
             try container.encode(clientID, forKey: .clientID)
             try container.encode(protocolVersion, forKey: .protocolVersion)
+            if let apiKey { try container.encode(apiKey, forKey: .apiKey) }
         case .ping:
             try container.encode("ping", forKey: .type)
         }

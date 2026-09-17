@@ -74,6 +74,8 @@ public final class ClientSession: @unchecked Sendable {
         case audio(AudioEvent)
         /// A reconnectable shell session event from the authenticated control channel.
         case terminal(TerminalEvent)
+        /// The relay's free allowance for this client ID is exhausted for the current period.
+        case relayQuotaExceeded
     }
 
     public enum VideoEvent: Sendable {
@@ -98,13 +100,13 @@ public final class ClientSession: @unchecked Sendable {
         /// and the honest fallback for a network that blocks multicast.
         case address(host: String, port: UInt16)
         /// A previously paired Mac reached through `peeringd` by its stable device ID.
-        case relay(hostID: String, name: String)
+        case relay(hostID: String, name: String, apiKey: String? = nil)
 
         public var displayName: String {
             switch self {
             case .discovered(let host): return host.name
             case .address(let host, let port): return "\(host):\(port)"
-            case .relay(_, let name): return name
+            case .relay(_, let name, _): return name
             }
         }
     }
@@ -289,7 +291,7 @@ public final class ClientSession: @unchecked Sendable {
 
         let pinned: Data? = {
             if case .discovered(let host) = target { return pins.pin(for: host.id) }
-            if case .relay(let hostID, _) = target { return pins.pin(for: hostID) }
+            if case .relay(let hostID, _, _) = target { return pins.pin(for: hostID) }
             // A literal address says nothing about *which* Mac is at it, so there is no pin
             // to insist on before the handshake. The post-handshake check below covers it.
             return nil
@@ -317,14 +319,15 @@ public final class ClientSession: @unchecked Sendable {
                     pinnedServerKey: nil,
                     timeout: timeout
                 )
-            case .relay(let hostID, _):
+            case .relay(let hostID, _, let relayApiKey):
                 guard let pin = pins.pin(for: hostID) else {
                     throw Failure.pinMismatch(hostID: hostID)
                 }
                 let allocation = try await RelaySignallingConnection.requestSession(
                     at: ProtocolInfo.relaySignallingURL,
                     hostID: hostID,
-                    clientID: clientID
+                    clientID: clientID,
+                    apiKey: relayApiKey
                 )
                 let proxy = RelayControlProxy(session: allocation)
                 let endpoint = try await proxy.start()
@@ -340,6 +343,10 @@ public final class ClientSession: @unchecked Sendable {
                 )
             }
         } catch {
+            if let e = error as? RelaySignallingError,
+               case .refused(let code, _) = e, code == "quotaExceeded" {
+                emit(.relayQuotaExceeded)
+            }
             let isRelaySetupFailure = error is RelaySignallingError || error is RelayTunnelError
             let message = (pinned != nil && !isRelaySetupFailure)
                 // A pin was in force and TLS refused, which is the one failure worth naming
@@ -364,7 +371,7 @@ public final class ClientSession: @unchecked Sendable {
         //    Mac knows its own pin store.
         let hostID: String? = {
             if case .discovered(let host) = target { return host.id }
-            if case .relay(let hostID, _) = target { return hostID }
+            if case .relay(let hostID, _, _) = target { return hostID }
             return nil
         }()
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false

@@ -197,6 +197,11 @@ struct ContentView: View {
                 scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
             }
         }
+        .sheet(isPresented: Binding(get: { model.showPaywall }, set: { model.showPaywall = $0 })) {
+            PaywallView { model.showPaywall = false }
+                .environment(model.storeManager)
+                .preferredColorScheme(.dark)
+        }
     }
 
     /// Whether the app is in the part of a connection that has nothing to show yet.

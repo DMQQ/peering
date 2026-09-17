@@ -159,6 +159,16 @@ extension SessionModel {
             }
         case .terminal(let event):
             apply(terminal: event)
+        case .relayQuotaExceeded:
+            if storeManager.isPro {
+                // Paid — relay doesn't recognise the key yet (no backend). Treat as transient.
+                append(note: "Relay quota reached. Your subscription is active; please try again later.")
+            } else {
+                showPaywall = true
+                // Suppress the reconnect ladder: there is nothing to reconnect to.
+                userEndedSession = true
+                stopReconnecting()
+            }
         }
     }
 

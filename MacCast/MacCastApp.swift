@@ -39,6 +39,7 @@ struct MacCastApp: App {
                 .environment(model)
                 .task {
                     model.start()
+                    await model.storeManager.start()
                     // Handed over once, so Siri and Shortcuts have something to reach. The
                     // intents cannot read a view hierarchy and the model is owned here, not by
                     // a view — see ``IntentHost``.

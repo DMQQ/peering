@@ -51,14 +51,16 @@ public final class RelaySignallingConnection: @unchecked Sendable {
     public static func requestSession(
         at url: URL,
         hostID: String,
-        clientID: String
+        clientID: String,
+        apiKey: String? = nil
     ) async throws -> RelaySession {
         let connection = RelaySignallingConnection(url: url)
         defer { connection.cancel() }
         try await connection.send(.connectToHost(
             hostID: hostID,
             clientID: clientID,
-            protocolVersion: ProtocolInfo.version
+            protocolVersion: ProtocolInfo.version,
+            apiKey: apiKey
         ))
 
         while true {
