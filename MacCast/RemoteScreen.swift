@@ -215,6 +215,7 @@ struct RemoteScreen: View {
         }
         .sheet(isPresented: $showsTerminals) {
             TerminalPanel()
+                .presentationDetents([.large])
         }
         // Nothing here is a sheet any more. Both of these are panels now, so the whole session —
         // what to share, what the connection is doing, the keys — lives in one visual language on

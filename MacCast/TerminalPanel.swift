@@ -7,10 +7,11 @@ struct TerminalPanel: View {
     @Environment(SessionModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var command = ""
-    @State private var newName = ""
-    @State private var isCreating = false
+    /// The tab whose name is being typed, and what has been typed into it so far.
+    @State private var renamingID: UUID?
+    @State private var renameText = ""
     @FocusState private var inputFocused: Bool
-    @FocusState private var createFocused: Bool
+    @FocusState private var renameFocused: Bool
 
     private var selected: RemoteTerminal? {
         guard let id = model.selectedTerminalID else { return nil }
@@ -21,7 +22,9 @@ struct TerminalPanel: View {
         NavigationStack {
             VStack(spacing: 0) {
                 tabStrip
-                Divider().opacity(0.35)
+                // No divider here. The strip draws its own rule along the bottom edge, behind
+                // the tabs, and a system divider a point under that line was a second hairline
+                // running across the seam the selected tab is supposed to be joined to.
                 if let terminal = selected {
                     output(terminal)
                     if !model.terminalHistory.isEmpty { historyStrip(terminal.id) }
@@ -39,12 +42,6 @@ struct TerminalPanel: View {
                         description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
                     )
                 }
-                // At the bottom, over the input it belongs to. It was at the top, under the tab
-                // strip, which put the thing being named as far from the keyboard naming it as
-                // the screen allows.
-                if isCreating {
-                    createRow
-                }
             }
             .background(Color.black)
             .navigationTitle("Mac terminals")
@@ -58,43 +55,24 @@ struct TerminalPanel: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button { model.refreshTerminals() } label: {
-                        Image(systemName: "arrow.clockwise")
+                ToolbarItem(placement: .primaryAction) {
+                    // One button and no menu. A new terminal is always a shell with no name:
+                    // it is named by the first command run in it, or by hand on the tab, and
+                    // neither of those is a question worth asking before the shell exists.
+                    Button { model.createTerminal() } label: {
+                        Image(systemName: "plus")
                     }
-                    // A menu rather than a button, because there are two ways to open a shell
-                    // and only one of them wants a name: the common case is a terminal to type
-                    // in, which the Mac will call Terminal 1, 2, 3 on its own. The other case is
-                    // a terminal you want to find again later among five others, and that one is
-                    // worth a word — often the last command, which is what the field starts with.
-                    Menu {
-                        Button("New terminal", systemImage: "plus") {
-                            model.createTerminal(name: "")
-                        }
-                        Button("New named terminal…", systemImage: "textformat") {
-                            beginCreating()
-                        }
-                    } label: {
-                        Image(systemName: isCreating ? "xmark" : "plus")
-                    }
-                    .disabled(isCreating)
                     .accessibilityLabel("New terminal")
                 }
                 // The keyboard's own bar, which is where iOS puts a dismiss key and therefore
                 // where the hand looks for one. It also puts it a keyboard's height away from
-                // send, which the row above could not.
-                //
-                // While a terminal is being named it offers Create instead, because this bar sits
-                // exactly where the create row's own button is — the row is at the bottom of the
-                // panel and the keyboard lands on top of it, so the button under the thumb was
-                // the one being covered. The only way to create was Return.
+                // send, which the row above could not. A name being typed is committed by the
+                // same key, because letting go of the field is what says the name is finished.
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    if isCreating {
-                        Button("Create") { create() }
-                            .font(.system(size: 16, weight: .semibold))
-                    } else {
-                        Button("Done") { inputFocused = false }
+                    Button("Done") {
+                        inputFocused = false
+                        renameFocused = false
                     }
                 }
             }
@@ -103,149 +81,229 @@ struct TerminalPanel: View {
         .onAppear { model.refreshTerminals() }
     }
 
-    /// Naming a terminal, in the panel rather than in a dialog over it.
+    /// Names a tab, in the tab.
     ///
-    /// It was an alert with a text field in it, which is a lot of ceremony for one short name —
-    /// and it arrives on top of the panel, hiding the thing being created, to ask a question
-    /// about it. In the panel it is a line that appears where the terminal will be, with the
-    /// keyboard already up.
-    private var createRow: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "terminal")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(ColorPalette.accent)
-            TextField("Terminal \(model.terminals.count + 1)", text: $newName)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.system(.body, design: .monospaced))
-                .focused($createFocused)
-                .submitLabel(.go)
-                .onSubmit { create() }
-            Button("Create") { create() }
-                .font(.system(size: 13, weight: .semibold))
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        // The same material the input row below it wears, so the two read as one block that
-        // appeared under the terminal rather than as a banner across it.
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-        }
-        // No transition, and deliberately. It slides in and the keyboard slides up over the same
-        // half second, which is two things animating one layout — the row jitters as the keyboard
-        // takes the space it was moving into. In one frame, and the keyboard's own animation is
-        // the only movement there is.
+    /// The name starts as what the tab is already called, so the common edit is one word changed
+    /// rather than a name remembered. Emptying it is meaningful: the Mac reads an empty name as
+    /// "stop calling it that" and goes back to naming the terminal after what is run in it.
+    private func beginRename(_ terminal: RemoteTerminal) {
+        model.selectTerminal(terminal.id)
+        renameText = terminal.name
+        renamingID = terminal.id
+        // A turn later, because the field has to exist before it can take focus — set in the
+        // same pass there is nothing to focus and the keyboard never comes up.
+        Task { @MainActor in renameFocused = true }
     }
 
-    private func beginCreating() {
-        if isCreating {
-            isCreating = false
-            newName = ""
-            createFocused = false
-            return
-        }
-        // Started on the last command, because that is the name most people would have chosen:
-        // a shell opened to run something is remembered by what it ran.
-        newName = model.terminalHistory.first ?? ""
-        isCreating = true
-        // A turn later, because the field has to exist before it can take focus — set in the same
-        // pass, there is nothing to focus and the keyboard never comes up.
-        Task { @MainActor in createFocused = true }
+    private func renameField(_ terminal: RemoteTerminal) -> some View {
+        TextField("Name", text: $renameText)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .font(.system(size: 12.5, weight: .medium, design: .monospaced))
+            .foregroundStyle(ColorPalette.ink)
+            .focused($renameFocused)
+            .submitLabel(.done)
+            .onSubmit { commitRename(terminal.id) }
+            // Wide enough for a word, not for a command: a name is being typed here, and a tab
+            // that grew to fit every letter of one is a tab that pushed the others off screen.
+            .frame(width: 116)
+            // Letting go of the field is how a name is finished. There is nothing else to press,
+            // and a field left open on a tab that then scrolls out of reach is a name nobody can
+            // commit.
+            .onChange(of: renameFocused) { _, focused in
+                if !focused { commitRename(terminal.id) }
+            }
     }
 
-    private func create() {
-        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        // No name is a name: the host falls back to "Terminal N", which is a better answer than
-        // refusing to start a shell over a label.
-        model.createTerminal(name: name)
-        newName = ""
-        isCreating = false
-        createFocused = false
+    private func commitRename(_ id: UUID) {
+        // Cleared first, so the focus change that follows — this sets the flag the field watches
+        // — finds nothing left to commit and stops here rather than sending the name twice.
+        guard renamingID == id else { return }
+        let name = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        renamingID = nil
+        renameText = ""
+        renameFocused = false
+        model.renameTerminal(id, to: name)
     }
 
     /// The open terminals, as tabs.
     ///
-    /// A tab is not a chip. What makes one read as a tab is that it belongs to the thing below
-    /// it: the tab you are in is drawn in the *content's* colour, joined to it along the bottom
-    /// edge, so the page looks like it is coming up out of the tab — and the ones you are not in
-    /// sit behind it, shorter, on the other side of a hairline. Capsules with a name in them are
-    /// buttons, however they are labelled, and that is what this kept being.
+    /// A row of names on the panel's own black, with a rule under the one you are in. Not shapes
+    /// standing on the page: a tab drawn as a lid raised above the content's flat edge is a bump
+    /// however it is coloured, and a strip of two of them reads as something surfacing out of the
+    /// panel rather than as the page's own header. The row is joined to the page instead — one
+    /// black, no seam — and the mark for where you are is a rule *inside* the row rather than a
+    /// shape outside it.
+    ///
+    /// **One height for every tab**, which is the other half of the same fix. The tab in front used
+    /// to be the taller one, and that is what made the strip read as three-dimensional: whatever
+    /// grows upward out of its own row is a lump in it. What says which one is on now is ink (the
+    /// name at full brightness against the others' half) and the rule under it.
+    ///
+    /// The name on a tab is a working title — the last command run there, or a name typed onto
+    /// the tab itself — so the strip has to hold names of any length and stay readable while
+    /// they change under it.
     private var tabStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(model.terminals) { terminal in
-                    tab(terminal)
+        ScrollViewReader { reader in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(model.terminals) { terminal in
+                        tab(terminal).id(terminal.id)
+                    }
                 }
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 10)
-            // The rule the tabs stand on. The selected tab is drawn over it and in the content's
-            // own black, which is the seam that makes the two one object.
-            .background(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(height: 1)
+            // The seam the row stands on, across the whole panel and behind the tabs rather than
+            // among them: drawn inside the scrolled stack it was only as wide as the tabs were and
+            // slid along with them, which is a rule drawn on the tabs and not the edge under them.
+            .background(alignment: .bottom) { hairline }
+            // A new terminal arrives at the far end of the strip, and a terminal that wants you
+            // is somewhere you were not looking. Both are worth being shown rather than hunted
+            // for, and both are things this selection is what changes.
+            .onChange(of: model.selectedTerminalID) { _, id in
+                guard let id else { return }
+                withAnimation(Motion.settle) { reader.scrollTo(id, anchor: .center) }
             }
         }
     }
 
     private func tab(_ terminal: RemoteTerminal) -> some View {
         let isSelected = model.selectedTerminalID == terminal.id
-        // Rounded at the top only, and flat along the bottom where it meets the content.
-        let shape = UnevenRoundedRectangle(
-            topLeadingRadius: 10,
-            topTrailingRadius: 10,
-            style: .continuous
-        )
-        return HStack(spacing: 7) {
-            Text(terminal.name)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? ColorPalette.ink : Color.secondary)
-                .lineLimit(1)
+        let state = terminal.state
+        let isRenaming = renamingID == terminal.id
+        return VStack(spacing: 0) {
+            HStack(spacing: 7) {
+                mark(for: state)
 
-            if terminal.attention != nil {
-                Image(systemName: "exclamationmark.circle.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-            }
-
-            // On the tab you are in and nowhere else — the close action belongs to the page you
-            // are looking at, and a cross on every tab is a row of little forms to fill in.
-            if isSelected {
-                Button {
-                    model.closeTerminal(terminal.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
+                if isRenaming {
+                    renameField(terminal)
+                } else {
+                    Text(terminal.name)
+                        // Monospaced, because most of the time this is a command, and the strip is
+                        // read by shape the way a command is.
+                        .font(.system(
+                            size: 12.5,
+                            weight: isSelected ? .semibold : .regular,
+                            design: .monospaced
+                        ))
+                        .foregroundStyle(nameColour(for: state, isSelected: isSelected))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close \(terminal.name)")
+
+                // On the tab you are in and nowhere else — the close action belongs to the page you
+                // are looking at, and a cross on every tab is a row of little forms to fill in. Not
+                // while a name is being typed either: the field is the whole of what that tab is
+                // doing, and a cross beside a caret is a thing to hit by accident.
+                if isSelected && !isRenaming {
+                    Button {
+                        model.closeTerminal(terminal.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, height: 22)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Close \(terminal.name)")
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .frame(
+                minWidth: 88,
+                // Capped, because the name is a command and commands are long. Uncapped while a
+                // name is being typed, since the field has a width of its own to be given.
+                maxWidth: isRenaming ? nil : 190,
+                alignment: .leading
+            )
+
+            // The rule, under the tab rather than around it, and clear of its ends so it reads as
+            // sitting on the seam rather than as the tab being boxed in. Ink rather than the
+            // accent: blue is this app's "something here wants you" — a lock, a question, a
+            // failure — and a tab would wear the same blue for two different reasons.
+            Capsule()
+                .fill(isSelected ? ColorPalette.ink : Color.clear)
+                .frame(height: 2)
+                .padding(.horizontal, 9)
+                .padding(.bottom, 5)
+        }
+        .contentShape(Rectangle())
+        // Selecting and renaming share the tab, and a double tap on it is what renames.
+        //
+        // Simultaneous rather than a pair of counted taps. Counted, the single tap has to wait
+        // out the double-tap window before it fires, and a tab strip that takes a third of a
+        // second to answer a thumb is worse than one where the second tap of a double selects
+        // again — which is idempotent, and therefore free.
+        .onTapGesture { model.selectTerminal(terminal.id) }
+        .simultaneousGesture(TapGesture(count: 2).onEnded { beginRename(terminal) })
+        // And on a long press, because a double tap is a desktop habit with nothing on screen
+        // to announce it.
+        .contextMenu {
+            Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(terminal) }
+            Button("Close", systemImage: "xmark", role: .destructive) {
+                model.closeTerminal(terminal.id)
             }
         }
-        .padding(.leading, 13)
-        .padding(.trailing, isSelected ? 5 : 13)
-        // The tab in front is taller than the ones behind it, which is how a tab bar says where
-        // you are without a legend.
-        .frame(height: isSelected ? 38 : 32)
-        .frame(minWidth: isSelected ? 112 : 78, alignment: .leading)
-        .background(
-            isSelected ? AnyShapeStyle(Color.black) : AnyShapeStyle(Color.white.opacity(0.05)),
-            in: shape
-        )
-        .overlay {
-            shape.strokeBorder(
-                isSelected ? Color.white.opacity(0.16) : Color.white.opacity(0.07),
-                lineWidth: 1
-            )
+    }
+
+    /// The line between one band of the panel and the next.
+    ///
+    /// The panel is five strips stacked — the tabs, the output, the history, the keys, the input —
+    /// and without a line between them they read as one undifferentiated black column with
+    /// controls floating in it. Which band a thing belongs to is most of what there is to know
+    /// about this screen: the keys send bytes and the input sends a line, and the two loose
+    /// strips at the bottom sitting against each other with nothing between them is what made
+    /// that hard to see.
+    ///
+    /// One line and one weight for every seam, because these are one object cut into strips. A
+    /// seam a point heavier in one place than another is the kind of thing that reads as sloppy
+    /// without anyone being able to say why.
+    private var hairline: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.08))
+            .frame(height: 1)
+    }
+
+    /// The one mark a tab carries.
+    ///
+    /// Every state that has something to say says it here, and the rest have nothing — a mark
+    /// on every tab would be a mark that means nothing. What appears is the state in one glance:
+    /// a spinner while the shell is still coming up, a lock when the Mac is asking for a
+    /// password, a question mark when it is asking for a yes or a no, and a warning when
+    /// something asked of the terminal did not work.
+    @ViewBuilder
+    private func mark(for state: TerminalState) -> some View {
+        switch state {
+        case .starting:
+            ProgressView()
+                .controlSize(.mini)
+                .tint(.secondary)
+        case .attention(let kind):
+            Image(systemName: kind == .password ? "lock.fill" : "questionmark.circle.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(ColorPalette.accent)
+        case .failed:
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(ColorPalette.danger)
+        case .running, .stopped:
+            EmptyView()
         }
-        .contentShape(shape)
-        .onTapGesture { model.selectTerminal(terminal.id) }
+    }
+
+    /// What colour a tab's name is written in.
+    ///
+    /// A state's tint wins over the selection, and it has to: "this terminal wants your password"
+    /// is the one thing on the strip that has to be found at a glance, and a selected tab that had
+    /// gone quiet would be the one place it could be missed. Colour is the exception the palette
+    /// allows and this is where it is spent.
+    private func nameColour(for state: TerminalState, isSelected: Bool) -> Color {
+        if let tint = state.tint { return tint }
+        if state == .stopped { return ColorPalette.ink.opacity(0.3) }
+        return isSelected ? ColorPalette.ink : Color.secondary
     }
 
     private func output(_ terminal: RemoteTerminal) -> some View {
@@ -307,9 +365,9 @@ struct TerminalPanel: View {
             var piece = AttributedString(line.text)
             switch line.kind {
             case .error:
-                piece.foregroundColor = Color(red: 0.98, green: 0.45, blue: 0.40)
+                piece.foregroundColor = ColorPalette.danger
             case .warning:
-                piece.foregroundColor = Color(red: 0.97, green: 0.75, blue: 0.35)
+                piece.foregroundColor = ColorPalette.caution
             case .plain:
                 break
             }
@@ -354,18 +412,22 @@ struct TerminalPanel: View {
             .padding(.vertical, 7)
         }
         .background(Color.white.opacity(0.02))
+        .overlay(alignment: .top) { hairline }
     }
 
     private func input(_ terminal: RemoteTerminal) -> some View {
         HStack(spacing: 8) {
-            TextField(terminal.isRunning ? "Type a command" : "Process exited", text: $command)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .font(.system(.body, design: .monospaced))
-                .focused($inputFocused)
-                .submitLabel(.send)
-                .onSubmit { submit(to: terminal.id) }
-                .disabled(!terminal.isRunning)
+            TerminalCommandField(
+                text: $command,
+                isFocused: Binding(
+                    get: { inputFocused },
+                    set: { inputFocused = $0 }
+                ),
+                placeholder: terminal.isRunning ? "Type a command" : "Process exited",
+                isEnabled: terminal.isRunning,
+                onSubmit: { submit(to: terminal.id) }
+            )
+            .frame(minHeight: 22)
             Button { submit(to: terminal.id) } label: {
                 Image(systemName: "arrow.up.circle.fill").font(.title2)
             }
@@ -381,9 +443,7 @@ struct TerminalPanel: View {
         // The terminal's own black, with a rule above it. It was a material, which put a grey
         // band across the bottom of a black panel and read as chrome from a different app.
         .background(Color.black)
-        .overlay(alignment: .top) {
-            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-        }
+        .overlay(alignment: .top) { hairline }
     }
 
     /// The keys a terminal needs and a phone keyboard has not got.
@@ -441,6 +501,7 @@ struct TerminalPanel: View {
             .padding(.vertical, 8)
         }
         .background(Color.white.opacity(0.05))
+        .overlay(alignment: .top) { hairline }
     }
 
     /// Between the groups in the key strip. The strip is long now, and a wall of thirty keys is
@@ -479,5 +540,88 @@ struct TerminalPanel: View {
         model.sendTerminalInput(command, to: id)
         command = ""
         inputFocused = true
+    }
+}
+
+/// A terminal command field whose Return key is handled without resigning first responder. SwiftUI
+/// TextField's submit action dismisses the keyboard before its callback, which creates a visible
+/// close/reopen cycle even when focus is immediately restored.
+private struct TerminalCommandField: UIViewRepresentable {
+    @Binding var text: String
+    @Binding var isFocused: Bool
+    let placeholder: String
+    let isEnabled: Bool
+    let onSubmit: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.delegate = context.coordinator
+        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.returnKeyType = .send
+        field.font = .monospacedSystemFont(ofSize: 17, weight: .regular)
+        field.textColor = .white
+        field.tintColor = .white
+        field.clearButtonMode = .never
+        return field
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if field.text != text { field.text = text }
+        field.placeholder = placeholder
+        field.isEnabled = isEnabled
+        if isFocused, !field.isFirstResponder {
+            field.becomeFirstResponder()
+        } else if !isFocused, field.isFirstResponder {
+            field.resignFirstResponder()
+        }
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: TerminalCommandField
+
+        init(_ parent: TerminalCommandField) { self.parent = parent }
+
+        @objc func changed(_ field: UITextField) {
+            parent.text = field.text ?? ""
+        }
+
+        // Feed UIKit focus events back into the SwiftUI binding. Without these, updateUIView
+        // sees isFocused=false on the re-render that immediately follows a keystroke (because
+        // SwiftUI re-renders on text change before the binding reflects the field's focus), and
+        // calls resignFirstResponder() — which is why the keyboard closes on the first letter.
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            if !parent.isFocused { parent.isFocused = true }
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            if parent.isFocused { parent.isFocused = false }
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            parent.onSubmit()
+            return false
+        }
+    }
+}
+
+private extension TerminalState {
+    /// The colour a tab wears for this state, or nothing for the states that are not asking for
+    /// anything — those are drawn in the strip's own greys.
+    ///
+    /// Brightness is the palette's rule and hue is its exception, and this is the second place
+    /// the exception is earned. A tab is 12 points of monospaced text in a row of near-identical
+    /// ones, and three shades of white at arm's length are one shade: "this terminal wants a
+    /// password" has to be findable at a glance or it is decoration.
+    var tint: Color? {
+        switch self {
+        case .attention: return ColorPalette.accent
+        case .failed: return ColorPalette.danger
+        case .starting, .running, .stopped: return nil
+        }
     }
 }

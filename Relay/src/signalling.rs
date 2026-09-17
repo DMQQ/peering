@@ -19,6 +19,7 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, Mutex};
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
@@ -176,7 +177,13 @@ async fn handle<S>(
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    let ws = match tokio_tungstenite::accept_async(stream).await {
+    // 64 KB is large enough for the biggest valid message (a SessionReady with two 32-char hex
+    // tokens plus a hostname) by a generous margin, and small enough to close a connection sending
+    // garbage before it allocates a meaningful amount of memory.
+    let mut config = WebSocketConfig::default();
+    config.max_message_size = Some(64 * 1024);
+    config.max_frame_size = Some(64 * 1024);
+    let ws = match tokio_tungstenite::accept_async_with_config(stream, Some(config)).await {
         Ok(ws) => ws,
         Err(error) => {
             debug!(%peer, %error, "websocket handshake failed");
@@ -249,12 +256,20 @@ async fn dispatch(
     relay_host: &str,
     registered_as: &mut Option<String>,
 ) -> Option<ServerMessage> {
+    // IDs and names are short strings — device IDs are UUIDs (36 chars) and names are
+    // human-readable labels. Cap at 256 bytes so a misbehaving client cannot accumulate
+    // unboundedly large strings in the host registry or in log lines.
+    const MAX_FIELD: usize = 256;
+
     match message {
         ClientMessage::RegisterHost {
             device_id,
             name,
             protocol_version,
         } => {
+            if device_id.len() > MAX_FIELD || name.len() > MAX_FIELD {
+                return Some(ServerMessage::error("invalid", "field too long"));
+            }
             hosts
                 .put(&device_id, name.clone(), protocol_version, self_tx.clone())
                 .await;
@@ -270,6 +285,9 @@ async fn dispatch(
             client_id,
             protocol_version,
         } => {
+            if host_id.len() > MAX_FIELD || client_id.len() > MAX_FIELD {
+                return Some(ServerMessage::error("invalid", "field too long"));
+            }
             let Some(host) = hosts.entry_for(&host_id).await else {
                 debug!(%host_id, "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
