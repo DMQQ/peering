@@ -471,12 +471,15 @@ final class HostModel {
             if case .lockScreen = command {
                 Task { @MainActor in
                     let src = CGEventSource(stateID: .hidSystemState)
-                    let down = CGEvent(keyboardEventSource: src, virtualKey: 0x19, keyDown: true)
-                    let up   = CGEvent(keyboardEventSource: src, virtualKey: 0x19, keyDown: false)
+                    // `Q` is keycode 12. 0x19 is `L`, which made the remote lock action
+                    // appear to do nothing while the rest of the command path was healthy.
+                    let down = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: true)
+                    let up   = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: false)
                     down?.flags = [.maskCommand, .maskControl]
                     up?.flags   = [.maskCommand, .maskControl]
                     down?.post(tap: .cghidEventTap)
                     up?.post(tap: .cghidEventTap)
+                    hostLog.notice("lock screen shortcut posted")
                 }
                 return
             }
@@ -771,7 +774,10 @@ final class HostModel {
 
         case .pairingCode(let code, let clientName):
             pairing = PairingPrompt(clientName: clientName, code: code)
-            record("Pairing code for \(clientName): \(code)")
+            record("Pairing request from \(clientName)")
+            // Code intentionally not logged: the unified log is readable by any local process,
+            // and the digits are already on screen for the user to compare.
+            hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
 
         case .pairingCompleted(let clientName, let accepted):
             pairing = nil

@@ -8,61 +8,78 @@ import UIKit
 /// pinch-zoom flipped on its own, so the same two-finger drag either scrolled the Mac or moved
 /// the view depending on something the user had done earlier in a different gesture — which is
 /// impossible to build a habit around.
-enum InteractionMode: String, CaseIterable, Identifiable {
-    /// Fingers drive the Mac: tap and drag are the pointer, two fingers scroll it.
+///
+/// Control includes viewing, scrolling, dragging, zooming and panning. Observe is the only
+/// separate mode because it makes a materially different promise: no input reaches the Mac.
+enum InteractionMode: CaseIterable, Identifiable, RawRepresentable {
+    typealias RawValue = String
+
+    /// Fingers drive the Mac and the view: one finger controls, pinch zooms, and two fingers
+    /// scroll while fitted or pan while zoomed.
     case control
-    /// Fingers drive the picture: drag pans, pinch zooms, and nothing reaches the Mac.
-    case navigate
     /// The picture can be inspected, while every input command is blocked.
     case observe
-    /// Trackpad mode: the whole screen is treated as a trackpad surface. One finger moves
-    /// the pointer by relative delta (no absolute mapping), two fingers scroll, tap to click.
-    case trackpad
+
+    /// `navigate` was the old Drag & zoom mode. Restoring it as control is the migration that
+    /// merges the two modes for existing installs instead of leaving a saved value with no case.
+    init?(rawValue: String) {
+        switch rawValue {
+        case "control", "navigate": self = .control
+        case "observe": self = .observe
+        default: return nil
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .control: return "control"
+        case .observe: return "observe"
+        }
+    }
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .control: return "View & scroll"
-        case .navigate: return "Drag & zoom"
+        case .control: return "Control & zoom"
         case .observe: return "Observe"
-        case .trackpad: return "Trackpad"
         }
     }
 
     var symbol: String {
         switch self {
         case .control: return "hand.point.up.left"
-        case .navigate: return "arrow.up.left.and.arrow.down.right"
         case .observe: return "eye"
-        case .trackpad: return "rectangle.and.hand.point.up.left.fill"
         }
     }
 
     var toggled: InteractionMode {
         switch self {
-        case .control: return .navigate
-        case .navigate: return .trackpad
-        case .trackpad: return .observe
+        case .control: return .observe
         case .observe: return .control
         }
     }
 }
 
 extension InteractionMode {
-    /// Whether a one-finger drag moves the picture (or trackpad-style relative pointer) rather
-    /// than sending absolute positions to the Mac.
-    var oneFingerDragPansCanvas: Bool { self == .navigate || self == .observe || self == .trackpad }
+    /// Pinching always resizes the canvas. The interaction mode only changes what drags do.
+    var pinchZoomsCanvas: Bool { true }
 
-    /// Whether the screen acts as a relative-delta trackpad (pointer follows the finger's
-    /// movement, not its absolute position). `onPanCanvas` deltas are used instead of `onTouchMove`.
-    var isTrackpad: Bool { self == .trackpad }
+    /// Whether a one-finger drag moves the picture rather than doing something on the Mac.
+    var oneFingerDragPansCanvas: Bool { self == .observe }
+
+    /// Whether a one-finger drag is sent to the Mac at all.
+    ///
+    /// The pair with ``oneFingerDragPansCanvas`` is the rule this file keeps: a drag moves the
+    /// picture or it goes to the Mac, and never both, so no mode can be ambiguous about what a
+    /// finger is doing.
+    var oneFingerDragReachesTheMac: Bool { self == .control }
 
     /// Whether a two-finger drag moves the picture rather than scrolling the Mac.
     ///
-    /// Always in drag & zoom. In view & scroll only while the picture is larger than the view
-    /// it is drawn in, which is the one case where there is somewhere to pan *to*. Fitted, with
-    /// bars down either side, the gesture keeps its other meaning and scrolls the Mac.
+    /// Always in observe. In control only while the picture is larger than the view it is drawn
+    /// in, which is the one case where there is somewhere to pan *to*. Fitted, with bars down
+    /// either side, the gesture scrolls the Mac.
     ///
     /// **The rule is about the picture, not about history.** An earlier version keyed off the
     /// zoom alone, and was argued against on the grounds that the same gesture would do
@@ -71,29 +88,12 @@ extension InteractionMode {
     /// overflows its view is the thing the user is looking at. The zoom is on screen in the
     /// pill besides — see the percentage readout in ``RemoteScreen``.
     func twoFingerDragPansCanvas(isZoomed: Bool) -> Bool {
-        // Trackpad mode never pans the canvas — two fingers always scroll the Mac.
-        if self == .trackpad { return false }
-        return self != .control || isZoomed
+        self != .control || isZoomed
     }
 
-    /// Whether a tap is a click on the Mac. False in drag & zoom, where a tap is nothing at all
-    /// — the mode exists so the picture can be moved and inspected without anything landing on
-    /// the Mac by accident.
-    var tapsReachTheMac: Bool { self == .control || self == .trackpad }
+    /// Whether a tap is a click on the Mac. Observe blocks it along with every other input.
+    var tapsReachTheMac: Bool { self == .control }
 
-    /// Whether a pinch resizes the picture. Drag & zoom only.
-    ///
-    /// This was both modes, on the argument that looking closer is not a mode — that a user who
-    /// wants to read a menu bar should not have to hand the pointer over to do it. The argument
-    /// holds in principle and lost to the gesture beside it: in view & scroll the two fingers of
-    /// a pinch *are* two fingers on the Mac, and a picture that grows under them is the one
-    /// thing in that mode not supposed to move without being asked.
-    ///
-    /// Gating it costs nothing structurally, which is why the gate was left here to close. The
-    /// guard below runs before `isPinching` is set, so a pinch in view & scroll never claims its
-    /// fingers — and what it falls through to is the two-finger scroll, which is what those
-    /// fingers were going to do anyway.
-    var pinchZoomsCanvas: Bool { self == .navigate || self == .observe }
 }
 
 /// The gesture surface over the video.
@@ -117,7 +117,7 @@ struct CanvasGestureView: UIViewRepresentable {
     var onScroll: (CGSize) -> Void
     /// Pinch: an incremental scale factor and the point it is centred on.
     var onZoom: (CGFloat, CGPoint) -> Void
-    /// A drag that moves the picture instead of the Mac: one finger or two, in drag & zoom.
+    /// A drag that moves the picture instead of the Mac.
     var onPanCanvas: (CGSize) -> Void
     /// The exact bounds UIKit uses for gesture locations.
     var onSizeChange: (CGSize) -> Void
@@ -260,6 +260,22 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// corner of it.
     private var isPinching = false
 
+    /// Whether the pinch in progress began over the chrome, and so is resizing nothing.
+    ///
+    /// The same latch as ``ignoresCurrentGesture``, reached from the pinch's side. A pinch reports
+    /// the point it is *centred on* rather than either finger, so two fingers that walk up the
+    /// screen as they close carry that point over the dock without either finger being anywhere
+    /// near it — and re-testing the point on every sample stopped the zoom halfway through the
+    /// gesture, with `isPinching` left set and both drag handlers still standing down.
+    private var pinchIgnoresChrome = false
+
+    /// Where the pinch was centred on the previous sample, so its movement can be told from its
+    /// scale — see ``handlePinch(_:)``.
+
+    /// Set when the pinch ends before the simultaneous pan recognizer. The fingers can still
+    /// report a few points of lift-off movement, which must not become a release jump.
+    private var suppressTwoFingerPanUntilEnd = false
+
     private lazy var oneFingerPan: UIPanGestureRecognizer = {
         let gesture = UIPanGestureRecognizer(target: self, action: #selector(handleOneFingerPan))
         // Exactly one touch. A second finger makes this fail rather than silently continuing
@@ -344,16 +360,37 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     // added.
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         let point = gestureRecognizer.location(in: self)
-        return !CanvasGeometry.isBlocked(point, regions: blockedRegions)
+        let blocked = CanvasGeometry.isBlocked(point, regions: blockedRegions)
+        return !blocked
     }
 
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
-        // Only allow pinch + two-finger pan to coexist; everything else remains exclusive.
-        let pair: Set<UIGestureRecognizer> = [pinch, twoFingerPan]
-        return pair.contains(gestureRecognizer) && pair.contains(other)
+        // The pinch is allowed to run beside both drags, and the one-finger drag beside the
+        // pinch. That is not two gestures at once — it is the pinch being allowed to *arrive*
+        // while a drag is already watching the first finger, which is the only way a hand that
+        // puts one finger down before the other can pinch at all.
+        //
+        // It was the two-finger drag alone, and the omission cost the pinch. Two fingers that
+        // land together are fine: the one-finger drag fails on the second touch and the pinch
+        // takes over. Two fingers that land *apart* are not — the first one begins a drag before
+        // the second arrives, and with the pair exclusive the pinch was never allowed to start
+        // while that drag was still running. So the pointer went on following the first finger
+        // under a hand that thought it was zooming, which is exactly what it looked like.
+        //
+        // Both drag handlers stand down the moment ``isPinching`` is set, so only one of these
+        // ever acts; see the guards in `handleOneFingerPan` and `handleTwoFingerPan`.
+        //
+        // The pinch pairs with either drag; the two drags never pair with each other. That second
+        // half is not a nicety — two drags at once is a pointer that goes on moving while the
+        // picture scrolls, which is the pairing `maximumNumberOfTouches = 1` exists to make
+        // impossible.
+        let drags: Set<UIGestureRecognizer> = [oneFingerPan, twoFingerPan]
+        let involvesPinch = gestureRecognizer === pinch || other === pinch
+        let allowed = involvesPinch && !(drags.contains(gestureRecognizer) && drags.contains(other))
+        return allowed
     }
 
     @available(*, unavailable)
@@ -383,6 +420,21 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         }
         defer { if isEnding { ignoresCurrentGesture = false } }
         guard !ignoresCurrentGesture else { return }
+
+        // The pinch owns both fingers once it starts, and this drag is the one that has to give
+        // way — see `shouldRecognizeSimultaneouslyWith` above.
+        //
+        // The end of the gesture is not skipped along with its movement. A drag that began
+        // before the pinch did has already put the Mac's button down, and a release that never
+        // follows is a button held down on someone else's Mac until they notice.
+        if isPinching {
+            // The movement is dropped rather than saved up. A translation accumulated during the
+            // pinch would land in one jump the moment the pinch ended and this drag resumed.
+            gesture.setTranslation(.zero, in: self)
+            guard isEnding, !interactionMode.oneFingerDragPansCanvas else { return }
+            handlers?.onTouchUp(point)
+            return
+        }
 
         if interactionMode.oneFingerDragPansCanvas {
             // Incremental, and the accumulator is reset each time, for the same reason the
@@ -435,8 +487,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
             onCollapseStatusBar?()
             return
         }
-        // Nothing at all in drag & zoom, which is the point of that mode: the picture can be
-        // moved and inspected without a stray tap landing on whatever is under it.
+        // Nothing reaches the Mac in observe mode.
         guard interactionMode.tapsReachTheMac else { return }
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
         handlers?.onTouchDown(point)
@@ -451,6 +502,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         if gesture.state == .began {
             let start = gesture.location(in: self)
             ignoresTwoFingerGesture = CanvasGeometry.isBlocked(start, regions: blockedRegions)
+            suppressTwoFingerPanUntilEnd = false
             // Decided once, here, rather than per sample — see `twoFingerDragPansCanvas`.
             twoFingerDragPansCanvas = interactionMode.twoFingerDragPansCanvas(isZoomed: isZoomed)
         }
@@ -459,17 +511,43 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         }
         guard !ignoresTwoFingerGesture else { return }
 
-        // The pinch owns both fingers while it lasts. Its translation is the user repositioning
-        // the picture under the pinch, not a scroll wheel.
-        guard !isPinching else { return }
+        let isEnding = gesture.state == .ended
+            || gesture.state == .cancelled
+            || gesture.state == .failed
 
-        let point = gesture.translation(in: self)
-        // Incremental, and the recogniser's accumulator is reset each time so the next
-        // callback reports only what moved since. Re-sending the cumulative translation would
-        // make the scroll accelerate away under the user's fingers.
-        gesture.setTranslation(.zero, in: self)
+        // During a pinch the simultaneous pan recognizer is the single owner of shared finger
+        // movement. The pinch recognizer below applies scale only; letting both callbacks pan
+        // would apply the same centroid delta twice (the visible rightward snap).
+        if !suppressTwoFingerPanUntilEnd,
+           isPinching || pinch.state == .began || pinch.state == .changed {
+            let movement = gesture.translation(in: self)
+            gesture.setTranslation(.zero, in: self)
+            if let movement = CanvasGestureRouting.pinchPanTranslation(
+                translation: movement,
+                suppressingAfterPinch: false
+            ) {
+                handlers?.onPanCanvas(CGSize(width: movement.x, height: movement.y))
+            }
+            return
+        }
 
-        guard point != .zero else { return }
+        if !CanvasGestureRouting.shouldDeliverTwoFingerPan(
+            whilePinching: isPinching,
+            suppressingAfterPinch: suppressTwoFingerPanUntilEnd
+        ) {
+            gesture.setTranslation(.zero, in: self)
+            if isEnding { suppressTwoFingerPanUntilEnd = false }
+            return
+        }
+
+        let decision = CanvasGestureRouting.twoFingerPan(
+            translation: gesture.translation(in: self),
+            whilePinching: isPinching
+        )
+        if decision.resetsRecognizerTranslation {
+            gesture.setTranslation(.zero, in: self)
+        }
+        guard let point = decision.translation else { return }
         // A translation is a displacement, not a position: both axes are signed and neither
         // has an origin, which is what `CGSize` means here and `CGPoint` would misdescribe.
         let translation = CGSize(width: point.x, height: point.y)
@@ -489,22 +567,53 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     }
 
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-        guard interactionMode.pinchZoomsCanvas else { return }
+        // **A pinch resizes the picture, in every mode.**
+        //
+        // It was closed on the argument that in view & scroll the two fingers of a pinch *are* two
+        // fingers on the Mac, and a picture that grows under them is the one thing in that mode not
+        // supposed to move without being asked. That is a real cost, and it is the smaller one:
+        // what the gate bought was a gesture that does *nothing* — not something else, nothing — in
+        // the mode most sessions are in, on the strength of an argument the user never made. Two
+        // fingers that pinch are asking to look closer on every device they have ever used, phone,
+        // Mac trackpad and tablet alike, and answering with silence is not protecting anyone from
+        // an accident; it is the one place the gesture does not work.
+        //
+        // Scrolling is not lost with it. That is the two-finger *drag*, which still scrolls the Mac
+        // in view & scroll whether or not the picture has been zoomed.
 
         // Set before the chrome check below, so a pinch that begins over a panel still owns its
         // two fingers and does not scroll the Mac behind the panel.
         switch gesture.state {
-        case .began, .changed: isPinching = true
-        case .ended, .cancelled, .failed: isPinching = false
-        default: break
+        case .began:
+            pinchIgnoresChrome = CanvasGeometry.isBlocked(
+                gesture.location(in: self),
+                regions: blockedRegions
+            )
+            isPinching = true
+        case .changed:
+            isPinching = true
+        case .ended, .cancelled, .failed:
+            isPinching = false
+            suppressTwoFingerPanUntilEnd = true
+        default:
+            break
         }
+        guard !pinchIgnoresChrome else { return }
 
         let point = gesture.location(in: self)
-        guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
+
+        let phase: CanvasGestureRouting.PinchPhase = switch gesture.state {
+        case .began: .began
+        case .changed: .changed
+        case .ended: .ended
+        case .cancelled: .cancelled
+        case .failed: .failed
+        default: .changed
+        }
         let scale = gesture.scale
         gesture.scale = 1
-        guard scale != 1 else { return }
-        handlers?.onZoom(scale, point)
+        guard let appliedScale = CanvasGestureRouting.pinchScale(for: phase, scale: scale) else { return }
+        handlers?.onZoom(appliedScale, point)
     }
 }
 

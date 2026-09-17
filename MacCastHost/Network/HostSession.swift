@@ -236,10 +236,17 @@ final class HostSession: @unchecked Sendable {
 
     private func handleClientHello(_ frame: Frame) throws {
         guard frame.kind == .clientHello else { throw SessionError.unexpectedMessage(frame.kind) }
+        guard frame.payload.count <= Self.maxControlPayload else {
+            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
+        }
         let hello = try decode(ClientHello.self, from: frame, as: .clientHello)
 
         guard hello.protocolVersion == ProtocolInfo.version else {
             throw SessionError.protocolMismatch(client: hello.protocolVersion, host: ProtocolInfo.version)
+        }
+
+        guard hello.clientID.utf8.count <= 256, hello.clientName.utf8.count <= 256 else {
+            throw SessionError.malformedPayload(.clientHello, SessionError.protocolMismatch(client: 0, host: 0))
         }
 
         // The peer's key comes from the TLS certificate, never from the message. A client
@@ -250,18 +257,21 @@ final class HostSession: @unchecked Sendable {
         clientName = hello.clientName
         peerPublicKey = presentedKey
 
+        let existingPin = pins.pin(for: clientID)
+        if let existingPin, !SPKI.matches(existingPin, presentedKey) {
+            // Someone is claiming a device ID we already trust, with a key we do not.
+            throw SessionError.clientKeyMismatch(clientID: clientID)
+        }
+
+        // Announced only after the key check: a client that fails it must not appear in the
+        // session list, because the disconnect that follows would name a device the UI
+        // never showed arriving.
         announced = true
         emit(.clientConnected(
             clientID: clientID,
             clientName: clientName,
             detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
         ))
-
-        let existingPin = pins.pin(for: clientID)
-        if let existingPin, !SPKI.matches(existingPin, presentedKey) {
-            // Someone is claiming a device ID we already trust, with a key we do not.
-            throw SessionError.clientKeyMismatch(clientID: clientID)
-        }
 
         let alreadyPaired = existingPin != nil
         send(.serverHello, ServerHello(
@@ -305,6 +315,9 @@ final class HostSession: @unchecked Sendable {
 
     private func handleClientCommit(_ frame: Frame) throws {
         guard frame.kind == .pairCommit else { throw SessionError.unexpectedMessage(frame.kind) }
+        guard frame.payload.count <= Self.maxControlPayload else {
+            throw SessionError.malformedPayload(.pairCommit, SessionError.protocolMismatch(client: 0, host: 0))
+        }
         let commit = try decode(PairingCommit.self, from: frame, as: .pairCommit)
         remoteCommitment = commit.commitment
 
@@ -321,6 +334,9 @@ final class HostSession: @unchecked Sendable {
 
     private func handleClientReveal(_ frame: Frame) throws {
         guard frame.kind == .pairReveal else { throw SessionError.unexpectedMessage(frame.kind) }
+        guard frame.payload.count <= Self.maxControlPayload else {
+            throw SessionError.malformedPayload(.pairReveal, SessionError.protocolMismatch(client: 0, host: 0))
+        }
         let reveal = try decode(PairingReveal.self, from: frame, as: .pairReveal)
 
         guard let commitment = remoteCommitment,
@@ -353,6 +369,9 @@ final class HostSession: @unchecked Sendable {
 
     private func handlePairConfirm(_ frame: Frame) throws {
         guard frame.kind == .pairConfirm else { throw SessionError.unexpectedMessage(frame.kind) }
+        guard frame.payload.count <= Self.maxControlPayload else {
+            throw SessionError.malformedPayload(.pairConfirm, SessionError.protocolMismatch(client: 0, host: 0))
+        }
         let confirm = try decode(PairConfirm.self, from: frame, as: .pairConfirm)
 
         guard confirm.accepted, let peerPublicKey else {

@@ -14,10 +14,6 @@ extension RemoteScreen {
     var gestures: some View {
         CanvasGestureView(
             onTouchDown: { point in
-                if interactionMode.isTrackpad {
-                    model.send(.mouseDown(button: .left))
-                    return
-                }
                 guard let normalized = normalized(point) else { return }
                 remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
@@ -29,23 +25,12 @@ extension RemoteScreen {
                 model.send(.mouseMove(to: normalized))
             },
             onTouchUp: { point in
-                if interactionMode.isTrackpad {
-                    model.send(.mouseUp(button: .left))
-                    releaseMoveIfArmed()
-                    return
-                }
                 guard let normalized = normalized(point) else { return }
                 remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
                 model.send(.mouseUp(button: .left))
-                releaseMoveIfArmed()
             },
             onSecondaryClick: { point in
-                if interactionMode.isTrackpad {
-                    model.send(.mouseDown(button: .right))
-                    model.send(.mouseUp(button: .right))
-                    return
-                }
                 guard let normalized = normalized(point) else { return }
                 remoteCursor = normalized
                 model.send(.mouseMove(to: normalized))
@@ -58,39 +43,39 @@ extension RemoteScreen {
                 // scrolling a page take several swipes.
                 model.send(.scroll(dx: Double(translation.width) * 2, dy: Double(translation.height) * 2))
             },
-            onZoom: { factor, _ in
-                zoom = min(max(zoom * factor, minimumZoom), maximumZoom)
-                // Zooming no longer decides what the fingers mean. It used to flip two-finger
-                // drags between scrolling the Mac and moving the picture, so the same gesture
-                // did different things depending on what the user had done minutes earlier.
-                // Only the mode switch moves that, and only the user moves the mode switch.
+            onZoom: { factor, centre in
+                let before = zoom
+                let after = min(max(zoom * factor, minimumZoom), maximumZoom)
+                // Anchored on the fingers rather than on the middle of the screen, which is the
+                // whole reason the recogniser reports where it is centred. Zooming about the
+                // centre walks the part being looked at out from under the hand looking at it, and
+                // the user's next move is always the same: drag it back.
                 //
-                // The pan is re-clamped rather than dropped past some threshold. Zooming out
-                // shrinks what there is to pan over, and letting the offset stand until the
-                // picture no longer overflows and then zeroing it snapped the view sideways in
-                // one frame. Clamped every step, the picture slides back as the room for it goes.
-                pan = clampedPan(pan)
+                // Worked out from the scale actually *applied* rather than the one asked for. At
+                // either end of the range the zoom is clamped, and a pan that went on moving for a
+                // zoom that did not happen would slide the picture sideways while nothing grew.
+                let applied = before > 0 ? after / before : 1
+                pan = CGSize(
+                    width: pan.width * applied
+                        + (centre.x - canvasSize.width / 2) * (1 - applied),
+                    height: pan.height * applied
+                        + (centre.y - canvasSize.height / 2) * (1 - applied)
+                )
+                zoom = after
+                // Do not clamp while the pinch is still producing samples. The available pan
+                // range changes as zoom changes; clamping here silently rewrites the user's
+                // offset mid-gesture and looks like the picture snapping to a new position.
+                // Pan gestures are clamped when the user explicitly drags the picture instead.
             },
             onPanCanvas: { translation in
-                if interactionMode.isTrackpad {
-                    // Relative movement: delta normalised by canvas size, scaled 2× to feel like
-                    // a physical trackpad (finger travel ≈ pointer travel at arm's length).
-                    guard canvasSize.width > 0, canvasSize.height > 0 else { return }
-                    let sensitivity: CGFloat = 2.0
-                    let dx = (translation.width / canvasSize.width) * sensitivity
-                    let dy = (translation.height / canvasSize.height) * sensitivity
-                    let nx = min(max(Double(CGFloat(remoteCursor.x) + dx), 0), 1)
-                    let ny = min(max(Double(CGFloat(remoteCursor.y) + dy), 0), 1)
-                    remoteCursor = NormalizedPoint(x: nx, y: ny)
-                    model.send(.mouseMove(to: remoteCursor))
-                } else {
-                    pan = clampedPan(
-                        CGSize(width: pan.width + translation.width,
-                               height: pan.height + translation.height)
-                    )
-                }
+                pan = clampedPan(
+                    CGSize(width: pan.width + translation.width,
+                           height: pan.height + translation.height)
+                )
             },
-            onSizeChange: { canvasSize = $0 },
+            onSizeChange: { size in
+                canvasSize = size
+            },
             interactionMode: interactionMode,
             // The drawn scale, not the user's zoom alone: `scalesToFill` enlarges the picture
             // without `zoom` moving, and a cropped picture is exactly the one with somewhere to
@@ -124,7 +109,7 @@ extension RemoteScreen {
 
     /// How far the picture can move before one of its edges would leave the canvas.
     ///
-    /// Drag & zoom makes this reachable: without a limit the picture can be flung off the screen
+    /// Zooming makes this reachable: without a limit the picture can be flung off the screen
     /// altogether, and the only thing that brings it back is the zoom reset, which is hidden
     /// while the zoom is at 100%. Losing the Mac with no visible way back is not a mode anyone
     /// would keep using.
@@ -157,10 +142,21 @@ extension RemoteScreen {
         guard canvasSize.width > 0, canvasSize.height > 0 else { return .zero }
         var leading: CGFloat = 0, trailing: CGFloat = 0, top: CGFloat = 0, bottom: CGFloat = 0
         for (region, rect) in chromeFrames where region != .panel {
-            leading = max(leading, rect.minX)
-            trailing = max(trailing, canvasSize.width - rect.maxX)
-            top = max(top, rect.minY)
-            bottom = max(bottom, canvasSize.height - rect.maxY)
+            // How far this piece of chrome reaches in from the edge it actually sits against:
+            // the *smaller* of its two distances to the sides, because chrome hugs one.
+            //
+            // Taking `rect.minX` as the measure from the left and `width - rect.maxX` as the
+            // measure from the right reads correctly for a single rect and is wrong for every
+            // rect in the set. A rail down the left edge then reports `width - railMaxX` —
+            // most of the screen — as the margin on the *right*, the max over both sides came
+            // out at most of the screen, and a zoomed picture could be dragged a full screen
+            // past its edge. Which is the one thing this clamp exists to prevent.
+            let horizontal = min(rect.minX, canvasSize.width - rect.maxX)
+            let vertical = min(rect.minY, canvasSize.height - rect.maxY)
+            leading = max(leading, horizontal)
+            trailing = max(trailing, horizontal)
+            top = max(top, vertical)
+            bottom = max(bottom, vertical)
         }
         // Plus a gap, so the picture's edge comes to rest beside the chrome rather than touching
         // it — the point is to see the edge, and an edge flush against a button is still an edge
@@ -179,7 +175,14 @@ extension RemoteScreen {
         let margin = panMargin
         func limit(_ extent: CGFloat, _ canvas: CGFloat, _ margin: CGFloat) -> CGFloat {
             let slack = (extent * effectiveZoom - canvas) / 2
-            return slack > 0 ? slack + margin : 0
+            if slack > 0 { return slack + margin }
+
+            // When zoomed below fit, the picture is intentionally smaller than the canvas. Keep
+            // a modest, zoom-proportional amount of travel instead of forcing it to the exact
+            // centre; this lets the user place the reduced picture slightly off-centre without
+            // allowing it to disappear completely.
+            let underfitProgress = max(0, min(1, (1 - effectiveZoom) / (1 - minimumZoom)))
+            return 80 * underfitProgress
         }
         return CGSize(
             width: limit(rect.width, canvasSize.width, margin.width),

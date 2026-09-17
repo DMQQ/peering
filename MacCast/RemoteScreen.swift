@@ -12,8 +12,7 @@ let joystickRadius: CGFloat = 50
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
 
-    /// Persisted, because a user who works in drag & zoom on a phone should not have to say so
-    /// again on every launch.
+    /// Persisted because observe mode's no-input promise must survive a relaunch.
     @AppStorage("Peering.interactionMode") var interactionMode: InteractionMode = .control
 
     /// Whether the picture is scaled up to reach the screen's edges.
@@ -42,13 +41,6 @@ struct RemoteScreen: View {
     /// No "has it been shown" flag is needed. `ContentView` swaps this whole view out whenever the
     /// phase leaves the remote screens, so the state below is built fresh at the start of every
     /// session and cannot survive into the next one.
-    /// Set when the Move button armed the command key, so the end of the drag that wanted it
-    /// knows to let go again.
-    ///
-    /// Deliberately not the button's selected state, which reads the latched modifiers
-    /// themselves: command can be armed from the shortcuts panel too, and the button should
-    /// light up for that without this claiming a release it did not cause.
-    @State var moveArmed = false
     @State var showsLandscapeHint = false
     @State var landscapeHintTask: Task<Void, Never>?
     /// Set when iOS refused a rotation, which means Rotation Lock is on. Lasts as long as the

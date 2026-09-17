@@ -15,15 +15,10 @@ extension RemoteScreen {
 
     /// What the wheel does, which is the mode's business rather than the wheel's.
     ///
-    /// In view & scroll it scrolls the Mac — the same thing the two-finger drag does, on a control
-    /// that can be found without aiming two fingers at the glass. In drag & zoom there is nothing
-    /// to scroll and a picture to resize, so it zooms. The pinch still does the same thing there:
-    /// this is a second way to ask, not a replacement for the first.
+    /// In control it scrolls the Mac. In observe it zooms the picture, because input is blocked.
     func wheelScroll(dy: CGFloat) {
         switch interactionMode {
         case .control: sendScroll(dy: dy)
-        case .trackpad: sendScroll(dy: dy)
-        case .navigate: zoomByWheel(dy)
         case .observe: zoomByWheel(dy)
         }
     }
@@ -61,6 +56,7 @@ extension RemoteScreen {
     /// shrink with the picture, so at 1× every offset is already out of bounds and holding one
     /// would leave the picture pinned off-centre for no reason the user can see.
     func zoomByWheel(_ pixels: CGFloat) {
+        let before = zoom
         zoom = min(max(zoom * exp(-pixels * Self.zoomPerPixel), minimumZoom), maximumZoom)
         // Re-clamped, not reset — see `onZoom`. The wheel is a finer control than a pinch and
         // makes the snap at the end of a zoom-out easier to produce, not harder.
@@ -79,7 +75,7 @@ extension RemoteScreen {
         // real one are the same fact; a joystick sends a delta and nothing comes back, because
         // the protocol does not carry the pointer's position — `InputTransform` has the inverse
         // for a host that reports it, and no host does. So the client advances its own copy by
-        // the same delta, in the same units, which is what the trackpad path already does.
+        // the same delta, in the same units.
         //
         // The units are the captured content's points, which is the space `joystickMove` is in —
         // see `capturePointSize`. That is why this divides by it rather than by anything the

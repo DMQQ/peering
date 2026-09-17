@@ -13,13 +13,19 @@ final class TerminalSessionManager: @unchecked Sendable {
     private final class Session: @unchecked Sendable {
         let id: UUID
         let ownerClientID: String
-        let name: String
+        /// The name the tab shows. Resolved from the two below rather than set directly, so
+        /// there is one place that decides which of them wins.
+        var name: String
         let process: Process
         let master: FileHandle
         var isRunning = true
         var history = Data()
         var promptTail = ""
         var lastAttention: (kind: TerminalAttentionKind, time: Date)?
+        /// The name the user typed. While this is set, nothing else renames the terminal.
+        var manualName: String?
+        /// The last command sent to it, which is what an unnamed terminal is called.
+        var lastCommand: String?
 
         init(id: UUID, ownerClientID: String, name: String, process: Process, master: FileHandle) {
             self.id = id
@@ -38,6 +44,7 @@ final class TerminalSessionManager: @unchecked Sendable {
     private var sessions: [UUID: Session] = [:]
     private var sinks: [String: Sink] = [:]
     private static let maximumHistoryBytes = 512 * 1024
+    private static let maximumSessionsPerClient = 10
 
     deinit {
         let active = lock.withLock { Array(sessions.values) }
@@ -64,8 +71,19 @@ final class TerminalSessionManager: @unchecked Sendable {
                 if !history.isEmpty { sink(.output(sessionID: info.id, data: history)) }
             }
 
-        case .create(let requestedName):
-            create(ownerClientID: clientID, name: requestedName, sink: sink)
+        case .create:
+            let count = lock.withLock { sessions.values.filter { $0.ownerClientID == clientID }.count }
+            guard count < Self.maximumSessionsPerClient else {
+                sink(.failed(sessionID: nil, message: "Terminal session limit reached."))
+                return
+            }
+            create(ownerClientID: clientID, sink: sink)
+
+        case .rename(let id, let name):
+            rename(id: id, ownerClientID: clientID, to: name, isManual: true)
+
+        case .retitle(let id, let command):
+            rename(id: id, ownerClientID: clientID, to: command, isManual: false)
 
         case .input(let id, let data):
             guard data.count <= 64 * 1024 else {
@@ -98,9 +116,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         _ = lock.withLock { sinks.removeValue(forKey: clientID) }
     }
 
-    private func create(ownerClientID: String, name requestedName: String, sink: @escaping Sink) {
-        let name = normalizedName(requestedName)
+    private func create(ownerClientID: String, sink: @escaping Sink) {
         let id = UUID()
+        let name = lock.withLock { unusedTerminalName() }
         var masterFD: Int32 = -1
         var slaveFD: Int32 = -1
         var size = winsize(ws_row: 30, ws_col: 100, ws_xpixel: 0, ws_ypixel: 0)
@@ -209,15 +227,58 @@ final class TerminalSessionManager: @unchecked Sendable {
         lock.withLock { sinks[clientID] }?(event)
     }
 
-    private func normalizedName(_ requested: String) -> String {
-        let trimmed = requested.trimmingCharacters(in: .whitespacesAndNewlines)
-        let safe = String(trimmed.filter { character in
+    /// Puts a new name on a terminal, if it will take one.
+    ///
+    /// Two kinds of name, and the difference between them is the whole of the naming rule. One
+    /// the user typed, which sticks and is never replaced. And one the terminal earns by being
+    /// used — the last command run in it — which holds only until the user names it by hand.
+    ///
+    /// Clearing the name is the way back. An empty field says "stop calling it that", and the
+    /// terminal goes back to the last thing that ran there, or to a number if nothing has.
+    private func rename(id: UUID, ownerClientID: String, to requested: String, isManual: Bool) {
+        let updated: TerminalSessionInfo? = lock.withLock {
+            guard let session = sessions[id], session.ownerClientID == ownerClientID else { return nil }
+            let name = sanitizedName(requested)
+            if isManual {
+                session.manualName = name.isEmpty ? nil : name
+            } else {
+                // Remembered even while a hand-typed name is in force, so clearing that name
+                // has something to fall back to.
+                guard !name.isEmpty else { return nil }
+                session.lastCommand = name
+            }
+            let resolved = session.manualName
+                ?? session.lastCommand
+                ?? unusedTerminalName(excluding: session)
+            guard resolved != session.name else { return nil }
+            session.name = resolved
+            return session.info
+        }
+        guard let updated else { return }
+        send(.renamed(updated), to: ownerClientID)
+        terminalLog.notice("renamed terminal to \(updated.name, privacy: .public)")
+    }
+
+    /// The lowest "Terminal N" that no live terminal is using.
+    ///
+    /// Counted rather than taken from the count: close the second of three and open another,
+    /// and counting hands out a second Terminal 2. That used to be a harmless collision and is
+    /// not one now that the strip of tabs is the list of terminals.
+    private func unusedTerminalName(excluding excluded: Session? = nil) -> String {
+        let taken = Set(sessions.values.filter { $0 !== excluded }.map(\.name))
+        var number = 1
+        while taken.contains("Terminal \(number)") { number += 1 }
+        return "Terminal \(number)"
+    }
+
+    /// A name with the control characters taken out and a length a tab can show.
+    private func sanitizedName(_ requested: String) -> String {
+        let safe = String(requested.filter { character in
             !character.isNewline && !character.unicodeScalars.contains {
                 CharacterSet.controlCharacters.contains($0)
             }
         }.prefix(40))
-        if !safe.isEmpty { return safe }
-        return "Terminal \(lock.withLock { sessions.count + 1 })"
+        return safe.trimmingCharacters(in: .whitespaces)
     }
 
     private func loginShell() -> String {

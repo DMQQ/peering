@@ -427,27 +427,63 @@ struct VideoLayerView: UIViewRepresentable {
         // moves what is already drawn instead of asking the view to lay out again at a new
         // origin, so the video layer is never resized and never re-fits the frame it is holding.
         //
-        // The container rather than the display view: the display view's layer is what PiP
-        // mirrors, and a transform on it would be a transform on the floating window too.
+        // The content view rather than the hosted view, which SwiftUI resizes out from under any
+        // transform put on it — see ``VideoHostView/contentView``. And rather than the display
+        // view, whose layer is what PiP mirrors: a transform on that one would be a transform on
+        // the floating window too.
+        let target = CGAffineTransform(translationX: pan.width, y: pan.height)
+            .scaledBy(x: zoom, y: zoom)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        view.transform = CGAffineTransform(translationX: pan.width, y: pan.height)
-            .scaledBy(x: zoom, y: zoom)
+        view.contentView.transform = target
         CATransaction.commit()
     }
 }
 
 /// A plain container, so the picture can be moved without moving the layer PiP mirrors.
 final class VideoHostView: UIView {
+    /// Carries the zoom and the pan. Never touched by SwiftUI, which is the whole point of it.
+    ///
+    /// A subview of its own rather than the hosted view itself, and this is not structure for its
+    /// own sake — it is the difference between a pinch that resizes the picture and one that only
+    /// moves a number. SwiftUI sizes a representable by setting its **frame**, and UIKit answers a
+    /// frame set on a transformed view by shrinking `bounds` until `bounds × transform` is the
+    /// frame again. So the hosted view rendered at exactly the size it was given whatever the
+    /// transform said, and every pinch was undone by the next layout pass. Measured in the
+    /// diagnostics, halfway through one pinch: `932×430` at 100% and `589×272` at 171% — the
+    /// picture shrinking under the transform that was meant to be growing it.
+    ///
+    /// A translation is not compensated the same way, which is why panning looked like it worked
+    /// whenever there was panning to do — one axis of one gesture, and the reason this survived
+    /// every attempt to catch it by reading.
+    let contentView = UIView()
+
     let displayView = VideoDisplayView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
-        displayView.frame = bounds
+        contentView.frame = bounds
+        addSubview(contentView)
+
+        displayView.frame = contentView.bounds
         // The picture fills whatever this is given, whatever shape that turns out to be.
         displayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        addSubview(displayView)
+        contentView.addSubview(displayView)
+    }
+
+    /// Sized through `bounds` and `center`, never through `frame`, which is why this is here
+    /// instead of an `autoresizingMask` on the content view.
+    ///
+    /// UIKit answers a *frame* set on a transformed view by shrinking its bounds until
+    /// `bounds × transform` is that frame again — the compensation that made every zoom
+    /// invisible, and an autoresizing subview re-runs it on every geometry change. Bounds and
+    /// centre leave the transform alone, so a rotation or the keyboard coming up cannot undo the
+    /// picture's scale behind the user's back.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        contentView.bounds = CGRect(origin: .zero, size: bounds.size)
+        contentView.center = CGPoint(x: bounds.midX, y: bounds.midY)
     }
 
     @available(*, unavailable)

@@ -38,7 +38,9 @@ struct ChromeFrameReporter: ViewModifier {
         } action: { rect in
             // Guarded, because writing state from a layout callback that state feeds back into
             // is how a layout loop starts.
-            if frames[region] != rect { frames[region] = rect }
+            if frames[region] != rect {
+                frames[region] = rect
+            }
         }
     }
 }
