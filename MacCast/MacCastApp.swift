@@ -28,6 +28,13 @@ struct MacCastApp: App {
     /// A model created by `HostPickerView` would be destroyed the moment the picker left the
     /// hierarchy, which is precisely when the connection starts being used.
     @State private var model = SessionModel()
+    /// The SSH side's model, owned here for the same reason and one more: an intent has no view
+    /// hierarchy to read it from, and "open a shell on prod" arrives before any screen exists to
+    /// have made one.
+    @State private var servers = SSHModel()
+    /// The commands both terminals keep one tap away, owned here because both read them.
+    @State private var quickCommands = QuickCommands()
+    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = false
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -36,7 +43,23 @@ struct MacCastApp: App {
             SecuredRootView {
                 ContentView()
             }
+                // Sideways, a screen may only move if it has somewhere to go.
+                //
+                // Every screen here is a vertical scroll view, and iOS gives one of those a bounce
+                // on both axes whether or not there is anything to the side — so a tab whose
+                // content is exactly the width of the phone still slides under a thumb dragged
+                // across it, and comes back. It reads as a layout that has come loose, and on a
+                // screen that is only ever scrolled down it is a movement with no meaning at all.
+                //
+                // `.basedOnSize` rather than `.never`, so this is a rule and not a ban: the two
+                // places in the app that genuinely scroll sideways — the tour's pages and the
+                // terminal — keep the movement they are made of. It sits here, on the root, because
+                // the value travels down through the environment to every scroll view beneath it,
+                // including the screens pushed from a tab and the sheets presented over one.
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
                 .environment(model)
+                .environment(servers)
+                .environment(quickCommands)
                 .task {
                     model.start()
                     await model.storeManager.start()
@@ -44,6 +67,12 @@ struct MacCastApp: App {
                     // intents cannot read a view hierarchy and the model is owned here, not by
                     // a view — see ``IntentHost``.
                     IntentHost.model = model
+                    IntentHost.servers = servers
+                    // Browsing triggers the local network permission prompt. Defer it until
+                    // after the welcome flow so a first-run user sees onboarding first.
+                    if hasSeenWelcome {
+                        model.startBrowsing()
+                    }
                 }
                 // The banners are for a user who is somewhere else. Coming back to the front
                 // is the moment they stop being the current news: the screen says the same

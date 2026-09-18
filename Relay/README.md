@@ -181,8 +181,8 @@ its own TLS.
 Environment=PEERINGD_SIGNAL_ADDR=0.0.0.0:8443
 Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
 Environment=PEERINGD_VIDEO_BIND=0.0.0.0:9444
-Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem
-Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/peering.dmqq.dev/privkey.pem
+Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/getpeering.app/fullchain.pem
+Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/getpeering.app/privkey.pem
 ```
 
 Bind 443 if it is free — it is the one port guest and corporate networks never block. Otherwise use
@@ -197,10 +197,10 @@ the relay does not need a certificate at all.
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name peering.dmqq.dev;
+    server_name getpeering.app;
 
-    ssl_certificate     /etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/peering.dmqq.dev/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/getpeering.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/getpeering.app/privkey.pem;
 
     location / {
         proxy_pass http://127.0.0.1:8443;
@@ -230,7 +230,7 @@ Environment=PEERINGD_VIDEO_BIND=0.0.0.0:9444
 # each client reached it on as the place to connect for control and video — which is right when
 # clients address it directly, and behind nginx is 127.0.0.1, so every client would be told to
 # connect to itself.
-Environment=PEERINGD_PUBLIC_HOST=peering.dmqq.dev
+Environment=PEERINGD_PUBLIC_HOST=getpeering.app
 ```
 
 The relay's signalling listener stays on loopback; nginx is the only thing that reaches it. Control
@@ -243,7 +243,7 @@ and video are opened directly in the firewall and are **not** proxied.
 whatever already terminates TLS on the machine is what should face the internet.
 
 **The two share a hostname, and that is the whole of the complication.** The app opens signalling at
-`wss://peering.dmqq.dev/` — the root path — so a `location /` that serves files would swallow it. The
+`wss://getpeering.app/` — the root path — so a `location /` that serves files would swallow it. The
 fix is to route on the one header that distinguishes them, which costs two maps and no application
 change:
 
@@ -262,10 +262,10 @@ map $http_upgrade $peering_upstream {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name peering.dmqq.dev;
+    server_name getpeering.app;
 
-    ssl_certificate     /etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/peering.dmqq.dev/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/getpeering.app/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/getpeering.app/privkey.pem;
 
     location / {
         proxy_pass http://$peering_upstream;
@@ -372,11 +372,11 @@ So use two names:
 
 | Name | Cloudflare | Carries |
 |---|---|---|
-| `peering.dmqq.dev` | Proxied (orange) | The site, and signalling. Cloudflare → nginx → the relay's loopback listeners |
-| something like `relay.dmqq.dev` | **DNS only (grey)** | Control and video. Clients reach the server directly |
+| `getpeering.app` | Proxied (orange) | The site, and signalling. Cloudflare → nginx → the relay's loopback listeners |
+| `relay.getpeering.app` | **DNS only (grey)** | Control and video. Clients reach the server directly |
 
 ```
-PEERINGD_PUBLIC_HOST=relay.dmqq.dev
+PEERINGD_PUBLIC_HOST=relay.getpeering.app
 ```
 
 Signalling still benefits from the orange cloud: the WebSocket rides HTTPS on 443, which is the one
@@ -440,12 +440,12 @@ not, and control and video cannot be proxied.
 
 | Name | Cloudflare | Points at | Carries |
 |---|---|---|---|
-| `peering.dmqq.dev` | proxied | nginx | Signalling |
-| `relay.dmqq.dev` | **DNS only** | the shared IPv4 | Control and video |
+| `getpeering.app` | proxied | nginx | Signalling |
+| `relay.getpeering.app` | **DNS only** | the shared IPv4 | Control and video |
 
 ```
 PEERINGD_VIDEO_BIND=0.0.0.0:9444
-PEERINGD_PUBLIC_HOST=relay.dmqq.dev
+PEERINGD_PUBLIC_HOST=relay.getpeering.app
 ```
 
 **The forwarded port need not match the bound one**, and it usually does not on a shared address —
@@ -524,7 +524,7 @@ The relay serves the site from the same process, so **anything that reaches the 
 relay is listening** — and `/healthz` exists to be pointed at:
 
 ```sh
-curl -s https://peering.dmqq.dev/healthz     # ok peeringd 0.1.0
+curl -s https://getpeering.app/healthz     # ok peeringd 0.1.0
 ```
 
 Point a free uptime monitor (UptimeRobot, Healthchecks, a cron job with curl and a mail command) at

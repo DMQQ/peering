@@ -1,4 +1,5 @@
 import Foundation
+import RemoteCore
 
 /// Turns measurements the client already has into a stable bitrate choice.
 ///
@@ -13,11 +14,15 @@ struct AutoQualityPolicy: Sendable {
     enum Tier: Int, Sendable, Equatable {
         case low, medium, high
 
+        /// The rates themselves come from ``VideoQualityTier``, because the host acts on the
+        /// same three numbers: it caps a stream on the control channel at the low one, and has
+        /// to put something back when the picture returns to the transport it prefers. A table
+        /// written out twice is two ends that can disagree about what a tier means.
         var bitrateKbps: Int {
             switch self {
-            case .low: return 2_000
-            case .medium: return 8_000
-            case .high: return 20_000
+            case .low: return VideoQualityTier.low.rawValue
+            case .medium: return VideoQualityTier.medium.rawValue
+            case .high: return VideoQualityTier.high.rawValue
             }
         }
 

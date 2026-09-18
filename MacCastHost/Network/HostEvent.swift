@@ -14,7 +14,12 @@ enum HostEvent: Sendable {
     case clientDisconnected(clientID: String, clientName: String)
 
     /// The six digits to show the user. Present only during a first pairing.
-    case pairingCode(code: String, clientName: String)
+    ///
+    /// `isRemote` says the phone reached this Mac through the relay rather than over the local
+    /// network, which changes what the person at the Mac is being asked to do: they are
+    /// comparing digits with somebody who may not be in the room, and the card has to say so
+    /// or the request reads as a device on this Wi-Fi that nobody can see.
+    case pairingCode(code: String, clientName: String, isRemote: Bool)
     case pairingCompleted(clientName: String, accepted: Bool)
 
     case failed(String)
@@ -47,6 +52,9 @@ struct ConnectedClient: Identifiable, Sendable, Equatable {
 struct PairingPrompt: Sendable, Equatable {
     let clientName: String
     let code: String
+    /// Whether the phone arrived through the relay, so the card can say the comparison is with
+    /// someone who is not necessarily on this network.
+    var isRemote = false
 }
 
 /// The outcome of the most recent pairing attempt, shown briefly and then dismissed.

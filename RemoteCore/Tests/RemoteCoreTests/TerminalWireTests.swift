@@ -20,6 +20,10 @@ struct TerminalWireTests {
             .rename(sessionID: id, name: "Build"),
             .retitle(sessionID: id, command: "npm run build"),
             .close(sessionID: id),
+            .listDirectory(sessionID: id, path: "/Users/someone/Desktop"),
+            // The one request that names no path, which the host answers with its home folder.
+            .listDirectory(sessionID: id, path: nil),
+            .readFile(sessionID: id, path: "/Users/someone/Desktop/notes.txt"),
         ]
 
         for request in requests {
@@ -40,6 +44,44 @@ struct TerminalWireTests {
             .exited(sessionID: id, status: 0),
             .closed(sessionID: id),
             .failed(sessionID: id, message: "Could not start the shell."),
+            .directory(
+                sessionID: id,
+                path: "/Users/someone/Desktop",
+                entries: [
+                    RemoteDirectoryEntry(
+                        name: "notes.txt",
+                        isDirectory: false,
+                        isSymlink: false,
+                        size: 1_244,
+                        permissions: "-rw-r--r--",
+                        modified: Date(timeIntervalSince1970: 1_760_000_000)
+                    ),
+                    // A link that points at a folder is both, which is the case the two flags
+                    // together exist for.
+                    RemoteDirectoryEntry(
+                        name: "shortcut",
+                        isDirectory: true,
+                        isSymlink: true,
+                        size: 0,
+                        permissions: "lrwxr-xr-x",
+                        modified: nil
+                    ),
+                ],
+                truncated: true
+            ),
+            .fileContents(
+                sessionID: id,
+                path: "/Users/someone/Desktop/notes.txt",
+                offset: 0,
+                totalBytes: 4_096,
+                data: Data("first line\n".utf8),
+                isLast: false
+            ),
+            .browseFailure(
+                sessionID: id,
+                path: "/Users/someone/Desktop",
+                message: "Peering is not allowed to read this."
+            ),
         ]
 
         for event in events {

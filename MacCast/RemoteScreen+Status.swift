@@ -151,10 +151,12 @@ extension RemoteScreen {
                     // the chips a little tighter, and the pill is a line shorter for it.
                     HStack(spacing: 7) {
                         if let latency = model.latencyMilliseconds {
-                            Text("\(Int(latency.rounded())) ms")
+                            Text(String(format: "%3d ms", Int(latency.rounded())))
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(ColorPalette.reading(latency))
-                                .fixedSize()
+                                .frame(width: 46, alignment: .trailing)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                         }
                         connectionPathChip
                         qualityChip
@@ -184,7 +186,7 @@ extension RemoteScreen {
                 // clipped; what ends on the left is a label, which is happy at the edge.
                 .padding(.leading, 16)
                 .padding(.trailing, 20)
-                .padding(.vertical, 8)
+                .padding(.vertical, 7)
                 .contentShape(Rectangle())
                 // The other half of the toggle. The collapsed bar expands on a tap and the
                 // expanded one closes on the next, so it is one control with one meaning
@@ -244,10 +246,12 @@ extension RemoteScreen {
                             // No spacer, for the reason Row 1 has none: the collapsed pill
                             // should be the width of what it says.
                             if let latency = model.latencyMilliseconds {
-                                Text("\(Int(latency.rounded())) ms")
+                                Text(String(format: "%3d ms", Int(latency.rounded())))
                                     .font(.caption2.monospacedDigit())
                                     .foregroundStyle(ColorPalette.reading(latency))
-                                    .fixedSize()
+                                    .frame(width: 46, alignment: .trailing)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
                         }
 
@@ -267,18 +271,17 @@ extension RemoteScreen {
                 }
                 .padding(.leading, 16)
                 .padding(.trailing, 20)
-                .padding(.vertical, 10)
+                .padding(.vertical, 8)
                 // Two lines rather than one, and a fixed height for the same reason it was fixed
                 // before: a pill that resized itself as a source changed would move the picture
                 // under a finger that is aiming at it.
                 //
                 // The height and the padding have to be read together, which is what went wrong
                 // the first time. Padding applied *before* a fixed frame lives inside it, so
-                // 8 + 8 plus two lines of text came to more than the 54 the frame allowed, and
-                // the padding was squeezed to nothing — which is exactly "too close to the top
-                // edge". At 60 there is slack for the padding to sit in, and that slack is the
-                // spacing.
-                .frame(height: 60)
+                // The frame leaves enough room for two lines without turning the collapsed
+                // status into a panel. The padding is kept inside the fixed height so source
+                // changes never move the picture underneath it.
+                .frame(height: 56)
                 .onTapGesture { expandStatusBar() }
                 .contentShape(pillShape)
                 // Opacity only, and on its own clock — see ``pillContents``. The scale that was
@@ -370,7 +373,7 @@ extension RemoteScreen {
         let wantsAttention = model.terminals.contains { $0.attention != nil }
         return sessionDot(
             symbol: running > 0 ? "terminal.fill" : "terminal",
-            label: running > 0 ? "Mac terminals — \(running) running" : "Open Mac terminals",
+            label: running > 0 ? "Mac terminals, \(running) running" : "Open Mac terminals",
             enabled: true,
             tint: wantsAttention ? .orange : (running > 0 ? ColorPalette.ink : nil),
             badge: running > 0 ? running : nil,
@@ -468,14 +471,14 @@ extension RemoteScreen {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "speedometer")
-                Text(model.streamQuality.rawValue)
+                Text(model.streamQuality.chipTitle)
                     .monospacedDigit()
             }
             .pillChip()
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .accessibilityLabel("Stream quality")
-        .accessibilityValue(model.streamQuality.rawValue)
+        .accessibilityValue(model.streamQuality.chipTitle)
     }
 
 
@@ -547,23 +550,6 @@ extension RemoteScreen {
     }
 
 }
-
-private extension SessionModel.StreamQuality {
-    /// What the quality menu says for each preset.
-    ///
-    /// The bitrate is in the line because that is the choice being made. A word like "Low" names
-    /// a rung on a ladder nobody has been shown — the thing the user is actually deciding is how
-    /// much of the connection to spend on the picture, and a number is the only way to say it.
-    var menuTitle: String {
-        switch self {
-        case .auto: return "Auto — follows the network"
-        case .low: return "Low — 2 Mbps"
-        case .medium: return "Medium — 8 Mbps"
-        case .high: return "High — 20 Mbps"
-        }
-    }
-}
-
 
 /// The one surface the pill's option row is built from.
 ///

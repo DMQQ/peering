@@ -57,7 +57,7 @@ struct ClipboardHistoryPanel: View {
                 Button("Clear", role: .destructive) { model.clearClipboardHistory() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("The Mac's own clipboard is untouched — this only forgets what this phone kept.")
+                Text("The Mac's own clipboard is untouched. This only forgets what this phone kept.")
             }
         }
         .preferredColorScheme(.dark)

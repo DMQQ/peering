@@ -1,5 +1,6 @@
 import AppIntents
 import RemoteCore
+import SSHCore
 import SwiftUI
 
 /// What Siri and Shortcuts can ask Peering to do.
@@ -21,6 +22,11 @@ import SwiftUI
 @MainActor
 enum IntentHost {
     static weak var model: SessionModel?
+
+    /// The Servers tab's model, handed over for the same reason and kept separate for a different
+    /// one: a shell and a remote desktop session are two products sharing an app, and an intent
+    /// for one has no business being able to reach the other.
+    static weak var servers: SSHModel?
 }
 
 /// One of the Macs this phone has paired with.
@@ -55,6 +61,45 @@ struct MacQuery: EntityQuery {
     /// small size means by a tap too.
     func defaultResult() async -> MacEntity? {
         SharedStore.knownMacs.first.map { MacEntity(id: $0.id, name: $0.name) }
+    }
+}
+
+/// One of the SSH servers saved in the Servers tab.
+///
+/// Backed by the App Group copy for the same reason ``MacEntity`` is: Siri has to turn a spoken
+/// name into a server, and it does that while the app is not running.
+struct ServerEntity: AppEntity {
+    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Server")
+    static var defaultQuery = ServerQuery()
+
+    let id: String
+    let name: String
+    let detail: String
+
+    var displayRepresentation: DisplayRepresentation {
+        // The detail is the subtitle rather than part of the title, because two servers can share
+        // a name — "prod" on two providers — and the thing that tells them apart is `user@host`.
+        DisplayRepresentation(title: "\(name)", subtitle: "\(detail)")
+    }
+}
+
+struct ServerQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [ServerEntity] {
+        SharedStore.knownServers
+            .filter { identifiers.contains($0.id) }
+            .map { ServerEntity(id: $0.id, name: $0.name, detail: $0.detail) }
+    }
+
+    func suggestedEntities() async throws -> [ServerEntity] {
+        SharedStore.knownServers.map { ServerEntity(id: $0.id, name: $0.name, detail: $0.detail) }
+    }
+
+    /// What "my server" means with nothing else said: the one used most recently, which is what
+    /// the Servers list puts at the top.
+    func defaultResult() async -> ServerEntity? {
+        SharedStore.knownServers.first.map {
+            ServerEntity(id: $0.id, name: $0.name, detail: $0.detail)
+        }
     }
 }
 
@@ -103,6 +148,71 @@ struct DisconnectIntent: AppIntent {
     }
 }
 
+struct OpenShellIntent: AppIntent {
+    static var title: LocalizedStringResource = "Open a shell"
+    static var description = IntentDescription(
+        "Opens Peering and starts an SSH shell on one of your saved servers."
+    )
+    /// The app, because there is nothing else that could open a socket: a shell is a TCP
+    /// connection made in this process, exactly as a session is.
+    static var openAppWhenRun: Bool = true
+
+    /// Optional on purpose, and the same reasoning as ``ConnectToMacIntent``'s — most people have
+    /// one server they mean, and "open a shell" should not become a question with one answer.
+    @Parameter(title: "Server")
+    var server: ServerEntity?
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let model = IntentHost.servers else {
+            return .result(dialog: "Peering is not ready yet. Try again in a moment.")
+        }
+
+        // Resolved against the *app's* list rather than the mirrored copy: the mirror is what
+        // Siri chose from, but this is the list the connection is actually made from, and they
+        // can differ by one deletion.
+        let host: SSHHost?
+        if let server {
+            host = model.hosts.first { $0.id.uuidString == server.id }
+        } else {
+            host = model.hosts.first
+        }
+
+        guard let host else {
+            return .result(dialog: "You have not saved any servers yet.")
+        }
+
+        model.openShellFromIntent(host)
+        // Says what it did, not what it hopes: with no saved password the app is about to ask for
+        // one, and a dialog claiming a shell is open would be wrong for as long as it takes to
+        // type it.
+        return .result(
+            dialog: model.hasStoredPassword(for: host)
+                ? "Opening a shell on \(host.displayName)."
+                : "Opening \(host.displayName). Peering needs your password."
+        )
+    }
+}
+
+struct EndShellsIntent: AppIntent {
+    static var title: LocalizedStringResource = "End my shells"
+    static var description = IntentDescription("Ends every SSH shell Peering has open.")
+    /// No app needed to *stop*, for the reason ``DisconnectIntent`` gives: with the app not
+    /// running there are no shells, and bringing it forward to say so would be the opposite of
+    /// what was asked.
+    static var openAppWhenRun: Bool = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let model = IntentHost.servers, !model.openShells.isEmpty else {
+            return .result(dialog: "No shells are open.")
+        }
+        let count = model.openShells.count
+        model.closeAllShells()
+        return .result(dialog: count == 1 ? "Ended your shell." : "Ended \(count) shells.")
+    }
+}
+
 /// The phrases Siri already knows, without the user building anything in Shortcuts first.
 ///
 /// Every phrase has to contain `\(.applicationName)` — that is the rule that keeps a shortcut
@@ -127,6 +237,30 @@ struct PeeringShortcuts: AppShortcutsProvider {
                 "Stop \(.applicationName)",
             ],
             shortTitle: "Disconnect",
+            systemImageName: "xmark.circle"
+        )
+
+        // Both forms of the phrase, and the parameterised one is not a nicety: without it Siri
+        // can only ever be told "a shell" and has to ask which server every single time, even
+        // when the user just said its name.
+        AppShortcut(
+            intent: OpenShellIntent(),
+            phrases: [
+                "Open a shell on \(\.$server) in \(.applicationName)",
+                "Open a shell in \(.applicationName)",
+                "Connect to a server in \(.applicationName)",
+            ],
+            shortTitle: "Open a shell",
+            systemImageName: "terminal"
+        )
+
+        AppShortcut(
+            intent: EndShellsIntent(),
+            phrases: [
+                "End my shells in \(.applicationName)",
+                "Close my shells in \(.applicationName)",
+            ],
+            shortTitle: "End my shells",
             systemImageName: "xmark.circle"
         )
     }

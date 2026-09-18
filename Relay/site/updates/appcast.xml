@@ -21,7 +21,7 @@
     <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
     <description><![CDATA[What changed in this version.]]></description>
     <enclosure
-      url="https://peering.dmqq.dev/download/Peering-202609220.dmg"
+      url="https://getpeering.app/download/Peering-202609220.dmg"
       sparkle:edSignature="..."
       length="12345678"
       type="application/octet-stream" />
@@ -33,7 +33,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
     <title>Peering for Mac</title>
-    <link>https://peering.dmqq.dev/</link>
+    <link>https://getpeering.app/</link>
     <description>Updates for the Peering host app for Mac.</description>
     <language>en</language>
   </channel>

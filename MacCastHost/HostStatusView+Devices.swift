@@ -8,15 +8,34 @@ import SwiftUI
 /// window's, and the window is easier to read in pieces than as one file of
 /// fifteen hundred lines.
 extension HostStatusView {
+    /// The width the deck itself needs before it goes side by side. See ``overviewLowerDeck``.
+    ///
+    /// Above the 638 points the two columns strictly need — 260 for the device list, 18 between
+    /// them, 360 for the activity feed — because a window at its minimum width leaves 650 points
+    /// between the pane's insets, and the sentence below says that one reads vertically.
+    static let deckBreakpoint: CGFloat = 780
+
     /// On a wide window the compact device list sits beside the longer activity feed, making
     /// the overview an intentionally uneven dashboard. At the minimum window width it falls
     /// back to the familiar vertical reading order.
+    ///
+    /// Chosen from the pane's measured width rather than by `ViewThatFits`, which was doing two
+    /// things wrong. It laid out both arrangements on every pass to choose between them, and this
+    /// deck is the tallest thing in the window. Worse, it chose by *ideal* size, and the ideal
+    /// width of the activity feed is the length of its longest sentence — so one long log line
+    /// could tip the whole deck from two columns into one, and the same line dropping out of the
+    /// tail could tip it back. A window that rearranges itself while somebody is reading it is a
+    /// window that looks like it is stuttering.
+    @ViewBuilder
     var overviewLowerDeck: some View {
-        ViewThatFits(in: .horizontal) {
+        // The insets come off first because that is what `paneWidth` measures: it is taken
+        // outside them, which is also how `previewHeight` reads it.
+        if paneWidth - Self.paneInset * 2 >= Self.deckBreakpoint {
             HStack(alignment: .top, spacing: 18) {
                 devicesSection.frame(width: 260, alignment: .topLeading)
                 activitySection.frame(minWidth: 360, alignment: .topLeading)
             }
+        } else {
             VStack(alignment: .leading, spacing: 24) {
                 devicesSection
                 activitySection
@@ -83,7 +102,81 @@ extension HostStatusView {
                 }
                 .hostPanel()
             }
+
+            remotePairingSection
         }
+    }
+
+    /// This Mac's ID, and the code that carries it to an iPhone that cannot see this network.
+    ///
+    /// The ID is the only thing about this Mac that travels by a route other than the network,
+    /// and until now it was reachable only as a tooltip and in the About pane — which is the
+    /// wrong place for the one value a person has to read off this screen and type into
+    /// another device. So it is shown where the pairing story is told, in the form that cannot
+    /// be mistyped, and it stays there whether or not anything is paired: a Mac with one phone
+    /// on it is exactly the Mac whose owner is about to pair a second.
+    ///
+    /// **The ID is not a secret, and this panel does not treat it as one.** It is an address,
+    /// like a hostname: whoever holds it can ask the relay to reach this Mac, and what happens
+    /// then is what happens across a desk — this window shows six digits, somebody here reads
+    /// them out, and the phone is trusted only if the two agree. A screenshot of this panel is
+    /// therefore not a way into the Mac, which is why there is no warning label on it.
+    var remotePairingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pair from another network")
+                .font(.subheadline.weight(.medium))
+
+            Text("An iPhone that is not on this network reaches this Mac by its ID. Type or scan it there, then read out the six digits when this window shows them.")
+                .font(.caption)
+                .foregroundStyle(HostPalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // The ID is also the Mac's registration name at the relay, and it stops being one
+            // the moment hosting stops. Said here rather than left to be discovered, because
+            // the panel above it would otherwise show a perfectly good ID for a Mac that
+            // nothing can reach.
+            if !model.status.isListening {
+                Text("Press Start first. A Mac that is not hosting is not registered with the relay, so no device can reach it by this ID.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                // Drawn only for an ID that could be dialled. Before the host has started
+                // there is nothing here, and a code that scanned to an empty ID would send
+                // someone to the relay with a value no Mac has ever registered.
+                if PairingPayload.canonicalIdentifier(model.deviceID) != nil,
+                   let image = qrCode(encoding: PairingPayload.encode(hostID: model.deviceID)) {
+                    Image(nsImage: image)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 84, height: 84)
+                        .padding(8)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .accessibilityLabel("This Mac's device ID, as a QR code")
+                }
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(model.deviceID)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button("Copy ID") {
+                        let board = NSPasteboard.general
+                        board.clearContents()
+                        board.setString(model.deviceID, forType: .string)
+                    }
+                    .controlSize(.small)
+                    .help("Copies the device ID on its own, for pasting into Peering on the iPhone")
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(14)
+        .hostPanel()
     }
 
     func deviceRow(name: String, id: String, detail: String, connected: Bool) -> some View {
@@ -128,7 +221,7 @@ extension HostStatusView {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(hoveredDeviceID == id ? HostPalette.ink : HostPalette.muted)
-                .help("Disconnect \(name) — it stays trusted and can reconnect")
+                .help("Disconnect \(name). It stays trusted and can reconnect")
             }
             Button(role: .destructive) {
                 forgetDevice = (id, name)
@@ -139,7 +232,7 @@ extension HostStatusView {
             }
             .buttonStyle(.plain)
             .foregroundStyle(hoveredDeviceID == id ? HostPalette.danger : HostPalette.faint)
-            .help("Forget \(name) — it will have to pair again")
+            .help("Forget \(name). It will have to pair again")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

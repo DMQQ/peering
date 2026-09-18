@@ -249,7 +249,17 @@ final class VideoCoordinator: @unchecked Sendable {
         // Weak, because the connection owns this closure. A strong capture would keep the
         // connection alive for as long as the streamer holds the peer — which is exactly the
         // leak that makes a disconnected client keep receiving frames.
-        peer.onClose = { [weak self, weak peer] _ in
+        //
+        // **Chained, not assigned.** A relayed session's video "connection" is the control
+        // connection itself, which the session has already claimed to know when its peer
+        // goes away — and replacing that handler would take the teardown with it: the session
+        // would never leave the server's list, the advertisement would stay withdrawn, and the
+        // datagram lane, whose whole lifetime is this one, would go on sending to a client
+        // that has gone. A direct session's video connection is a socket of its own, so the
+        // chain there is a single link and costs nothing.
+        let announced = peer.onClose
+        peer.onClose = { [weak self, weak peer] error in
+            announced?(error)
             guard let peer else { return }
             self?.videoPeerClosed(peer)
         }
@@ -290,6 +300,10 @@ final class VideoCoordinator: @unchecked Sendable {
             // A source choice belongs to the departed audience. Clear it synchronously so a
             // replacement queued behind the stop selects the host's default source.
             sourceWasChosen = false
+            // And so does a transport choice. Left standing, the next client — which has asked
+            // for nothing — would be served a capped picture on the control channel because of
+            // a decision somebody else made about a link that no longer exists.
+            forgetTransportChoiceLocked()
             scheduleStopIfIdleLocked(generation: audienceGeneration)
             return wasAttached
         }
@@ -581,11 +595,142 @@ final class VideoCoordinator: @unchecked Sendable {
         await pipeline.snapshot(maxWidth: maxWidth)
     }
 
+    /// Applies a stream-quality change requested by the client.
+    ///
+    /// The client's figure is remembered rather than applied blindly, because there are two
+    /// numbers here and only one of them is the client's to choose. See
+    /// ``effectiveBitrateKbpsLocked()``.
     func setStreamQuality(fps: Int, bitrateKbps: Int) {
-        if bitrateKbps > 0 {
-            pipeline.setBitrate(bitrateKbps * 1000)
+        guard bitrateKbps > 0 else { return }
+        lock.withLock { requestedBitrateKbps = bitrateKbps }
+        pipeline.setBitrate(effectiveBitrateKbps * 1000)
+    }
+
+    /// Moves video between the transport the client prefers and the control channel.
+    ///
+    /// Both the request and the refusal are the client's to make and the host's to judge, and
+    /// the judgement is the point of this method. The host knows two things the client cannot:
+    /// whether it has been producing frames at all, and whether the connection asking is the
+    /// one being served. Everything else — that the picture is missing, that the control
+    /// channel answers — is the client's evidence, and it is better evidence than anything
+    /// available here. Datagrams are never acknowledged, so a blocked path and a working one
+    /// look identical from this side of the socket.
+    func setVideoTransport(_ request: VideoTransportRequest, clientKey: Data?, controlPeer: PeerConnection) {
+        let served = lock.withLock { attached ?? waiting }
+        if let served, let clientKey, served.peerPublicKey != clientKey {
+            // Somebody else's picture. A session is served by one client at a time, and
+            // redirecting the stream to a second one on that client's say-so is the one thing
+            // the authorization check on a video connection exists to prevent.
+            coordinatorLog.notice("refused a video transport request from a client that is not being served")
+            return
+        }
+        guard served != nil else {
+            // Nothing to move. A client with no video peer at all is one whose video
+            // connection never arrived, which is a different failure with a different message
+            // already on its screen.
+            coordinatorLog.notice("refused a video transport request: no video client is attached")
+            return
+        }
+
+        switch request.transport {
+        case .control:
+            guard streamer.isProducing(within: Self.producingWindow) else {
+                // A still screen produces no frames at all, and neither does a capture that
+                // never started. Moving the stream in either case would cap the rate and change
+                // nothing else, so the request is declined and the client asks again shortly —
+                // by which time there is either a picture to move or nothing to move it for.
+                coordinatorLog.notice("declined the control-channel fallback: nothing has been produced recently")
+                return
+            }
+            guard streamer.use(transport: .control, controlPeer: controlPeer) else { return }
+            lock.withLock { videoTransport = .control }
+            pipeline.setBitrate(effectiveBitrateKbps * 1000)
+            coordinatorLog.notice("video moved to the control channel · \(request.reason, privacy: .public)")
+
+        case .primary:
+            streamer.use(transport: .primary, controlPeer: nil)
+            lock.withLock { videoTransport = .primary }
+            pipeline.setBitrate(effectiveBitrateKbps * 1000)
+            coordinatorLog.notice("video moved back to the transport the client prefers · \(request.reason, privacy: .public)")
         }
     }
+
+    /// Opens the relay's datagram path for a client that asked for it.
+    ///
+    /// The secret comes back to the caller, which sends it inside the control channel's TLS
+    /// session; this object never sees the control channel and the server never sees a socket.
+    /// `nil` is a refusal, and there are three of them, each with a reason worth keeping apart:
+    /// a client that is not the one being served (the same check ``setVideoTransport`` makes,
+    /// for the same reason), no client at all, and an allocation this Mac cannot build a lane
+    /// from. Every one of them leaves the session exactly as it was — the picture on the
+    /// control stream — which is a working session with a slower picture rather than a
+    /// broken one.
+    ///
+    /// The lane is installed before the secret is handed back, so the first datagrams are
+    /// already on their way by the time the client can read one. Losing those costs a few
+    /// frames of a path that is allowed to lose frames; waiting for the client to confirm it
+    /// has the key would cost a round trip on every session for no gain.
+    func enableVideoDatagrams(clientKey: Data?, relay: RelaySession) -> Data? {
+        let served = lock.withLock { attached ?? waiting }
+        if let served, let clientKey, served.peerPublicKey != clientKey {
+            coordinatorLog.notice("refused a video datagram request from a client that is not being served")
+            return nil
+        }
+        guard served != nil else {
+            coordinatorLog.notice("refused a video datagram request: no video client is attached")
+            return nil
+        }
+        guard let secret = VideoKeySchedule.randomSecret() else {
+            coordinatorLog.error("no secure random for a video secret; the picture stays on the control channel")
+            return nil
+        }
+
+        do {
+            let lane = try VideoDatagramLane(relay: relay, secret: secret)
+            guard streamer.useDatagrams(lane) else { return nil }
+            coordinatorLog.notice("video is going on the relay's datagram path")
+            return secret
+        } catch {
+            coordinatorLog.error("could not open the relay's video datagram path: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    /// The bitrate the client asked for, and the lane in force. Two values rather than one,
+    /// because the control channel has a ceiling of its own and the client's figure is what to
+    /// go back to when the picture leaves it.
+    private var requestedBitrateKbps = 0
+    private var videoTransport: VideoTransport = .primary
+
+    /// Drops both halves of the choice above. Call with `lock` held.
+    private func forgetTransportChoiceLocked() {
+        videoTransport = .primary
+        requestedBitrateKbps = 0
+    }
+
+    /// What the encoder should be running at: the client's choice, and the control channel's
+    /// ceiling on top of it.
+    ///
+    /// **The cap is enforced here rather than asked for.** The client is told to stop raising
+    /// the rate while it is in fallback, but a request is not an enforcement: the preset
+    /// buttons in the client's own interface send a figure directly, and a client that has
+    /// been capped must not be able to undo it by tapping "High". Video on the control channel
+    /// shares the link that carries input, and the 150-300 ms of latency this project spent a
+    /// day removing came from exactly that arrangement — so the ceiling holds whatever either
+    /// end says.
+    private var effectiveBitrateKbps: Int {
+        lock.withLock {
+            let asked = requestedBitrateKbps > 0
+                ? requestedBitrateKbps
+                : VideoFallbackPolicy.preferredTransportBitrateKbps
+            guard videoTransport == .control else { return asked }
+            return min(asked, VideoFallbackPolicy.controlChannelBitrateKbps)
+        }
+    }
+
+    /// How recently the encoder must have produced something for the host to believe that a
+    /// missing picture is the network's doing rather than there being no picture.
+    private static let producingWindow: TimeInterval = 5
 
     func stop() {
         // Before anything else: a teardown must not be reported as a failure to capture.
@@ -595,6 +740,7 @@ final class VideoCoordinator: @unchecked Sendable {
             waiting = nil
             attached = nil
             sourceWasChosen = false
+            forgetTransportChoiceLocked()
             audienceGeneration &+= 1
             scheduleLifecycleLocked { [weak self, pipeline] in
                 await pipeline.stop()

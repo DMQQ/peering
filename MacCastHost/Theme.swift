@@ -117,6 +117,27 @@ enum HostPalette {
     static let controlRadius: CGFloat = 10
 }
 
+/// The one place the display face is named on this side of the wire.
+///
+/// The client has the same enum in its own `Theme.swift`, and the two are copies for the same
+/// reason `HostPalette` above is: a face is a decision and not a value. The wordmark in the
+/// sidebar, the one in About, a screen's title and every section heading are four spellings of it,
+/// and four spellings are four chances for one to be left behind the day the face changes — which
+/// is how an app ends up with one heading that is not like the others, the sort of thing that
+/// reads as a mistake without anyone being able to say why.
+///
+/// Serif rather than the system face, and serif is the whole of the effect: the phone sets its
+/// wordmark, its screen titles and the tour's headings in it, and two windows meant to read as one
+/// product do not get to disagree about which family their names are set in.
+///
+/// Bold at every size, which is the client's rule too — the face is used for names, and a name set
+/// as a label is the one thing this is for.
+enum HostDisplayFont {
+    static func display(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .bold, design: .serif)
+    }
+}
+
 enum HostMotion {
     static let hover = Animation.spring(response: 0.24, dampingFraction: 0.86)
     static let press = Animation.spring(response: 0.18, dampingFraction: 0.78)

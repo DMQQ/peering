@@ -1,0 +1,104 @@
+{
+  "identifier" : "7F2C41A9",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21840001",
+      "localizations" : [
+
+      ],
+      "name" : "Peering Relay",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "3.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6741000001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited relay time for one Mac.",
+              "displayName" : "Relay",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.relay.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Relay Monthly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "6.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6741000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited relay for two Macs, terminals, and widgets.",
+              "displayName" : "Relay Plus",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.relayplus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Relay Plus Monthly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "24.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "6741000003",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Every Mac you own, every display and window as a source, terminals, snippets, audio, and relay without a limit.",
+              "displayName" : "Peering Pro",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "pl.dmq.peering.relay.year",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Peering Pro Yearly",
+          "subscriptionGroupID" : "21840001",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

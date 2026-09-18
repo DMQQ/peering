@@ -6,11 +6,32 @@
 	<string>Peering</string>
 	<key>CFBundleName</key>
 	<string>Peering</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>pl.dmq.peering.host</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>peering-host</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_remotedesktop._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Peering accepts screen-sharing connections from devices you have paired with it.</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://getpeering.app/updates/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>upn2nq1RFvoZVaug6TqhKto+H7XwH5vJ9fCfT/DBtzM=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

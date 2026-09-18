@@ -13,6 +13,10 @@ extension HostStatusView {
             sectionHeading("Settings", detail: "Options for this Mac host.")
 
             VStack(spacing: 0) {
+                LaunchAtLoginRow()
+
+                Divider().padding(.leading, 52)
+
                 HStack(spacing: 12) {
                     Image(systemName: "moon.zzz")
                         .font(.system(size: 16, weight: .medium))
@@ -90,7 +94,7 @@ extension HostStatusView {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Live preview")
                     .font(.subheadline.weight(.medium))
-                Text("Refreshes this window every couple of seconds with what the Mac is showing. Turning it off stops the snapshots altogether — an iPhone that is streaming still sees the screen.")
+                Text("Refreshes this window every couple of seconds with what the Mac is showing. Turning it off stops the snapshots altogether. An iPhone that is streaming still sees the screen.")
                     .font(.caption)
                     .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)

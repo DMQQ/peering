@@ -104,6 +104,7 @@ extension SessionModel {
 
     func setKeyboardMode(_ mode: KeyboardMode) {
         keyboardMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: PreferenceKey.keyboardMode)
     }
 
     /// Latches a modifier on or off.
@@ -208,10 +209,32 @@ extension SessionModel {
 
     // MARK: - Geometry
 
-    /// The title of the currently active capture source (display name or app name).
+    /// Whether the app is choosing the rate, or the person watching is.
+    var isAutomaticQuality: Bool { streamQuality == .auto }
+
+    /// Switches between the app choosing the rate and the person watching choosing it.
+    ///
+    /// Turning manual on does not mean "high": it means "let me choose", and the level it lands
+    /// on is the one picked last — or, the first time, the rate the policy had already settled
+    /// on. Landing anywhere else would be a jump in the picture at the exact moment someone
+    /// asked for control of it.
+    func setAutomaticQuality(_ automatic: Bool) {
+        setStreamQuality(automatic ? .auto : (lastManualQuality ?? StreamQuality(autoQualityPolicy.tier)))
+    }
+
+    /// Sets the preset, tells the Mac, and remembers it.
+    ///
+    /// The save is what makes the Settings tab's row and this one the same setting rather than
+    /// two: whichever is used, the stored token ends up saying the same thing, so the next
+    /// session starts where this one was left. It is written even when there is no session to
+    /// tell, which is the case the Settings tab exists for.
     func setStreamQuality(_ quality: StreamQuality) {
         streamQuality = quality
+        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKey.streamQuality)
         if let bitrateKbps = quality.bitrateKbps {
+            // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to
+            // return to.
+            lastManualQuality = quality
             send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
         } else {
             autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
@@ -220,15 +243,59 @@ extension SessionModel {
         }
     }
 
-    func applyInitialAutoQualityIfNeeded() {
-        guard streamQuality == .auto else { return }
+    /// Hands the Mac the quality the app is set to, when a session arrives.
+    ///
+    /// **Every arrival, and not only an automatic one.** It used to return early unless the
+    /// preset was ``StreamQuality/auto``, which left a manual level unsent after a reconnect —
+    /// and the Mac does not keep the figure across one: it clears `requestedBitrateKbps` when
+    /// the video peer closes and falls back to its own preferred rate, which is the top one. So
+    /// a phone reading "Low" could be watching a 20 Mbps stream, and the speed chip would have
+    /// been describing a setting that had stopped taking. Sending on each arrival costs one
+    /// message and makes the chip honest.
+    ///
+    /// The policy is rebuilt here rather than only in the automatic branch for the same reason:
+    /// it is what the rate falls back to if the user hands control back mid-session, and a
+    /// session that started manual would otherwise carry the previous session's tier into it.
+    ///
+    /// **The stored token is read here rather than ``streamQuality`` being trusted.** That
+    /// property is seeded once, when the model is built — and the model is built once, for the
+    /// life of the process (``MacCastApp``). The Settings tab writes the preference and cannot
+    /// reach this object at all, because that tab is unreachable while a session runs, which is
+    /// the whole reason it writes a preference instead of sending a command. So between a change
+    /// made there and the connect that follows, the two disagree, and the property is the stale
+    /// one. Reading the token is what closes the loop; this arrival is the only moment they can
+    /// be brought back together.
+    ///
+    /// Assigned rather than handed to ``setStreamQuality(_:)``, which would write the token back
+    /// on every arrival — the tab's `@AppStorage` observes that key, so the write would be a
+    /// pointless invalidation per session, and the two surfaces would be writing to each other.
+    func applyInitialQuality() {
+        let quality = SessionModel.storedQuality
+        streamQuality = quality
+
         autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
         lastAutoDroppedFrames = 0
-        send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+
+        if let bitrateKbps = quality.bitrateKbps {
+            lastManualQuality = quality
+            send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
+        } else {
+            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
+        }
     }
 
     func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
         guard streamQuality == .auto, let latencyMilliseconds else {
+            lastAutoDroppedFrames = snapshot.framesDropped
+            return
+        }
+
+        // On the control channel the host is holding the rate down on purpose, and the client
+        // asking for more would be asking it to break its own ceiling — see
+        // ``VideoCoordinator/effectiveBitrateKbps``. This end stops driving the number and
+        // lets the cap stand until the picture moves back. The measurement is still taken, so
+        // the policy starts from a clean window rather than from a stale one.
+        guard videoTransport == .primary else {
             lastAutoDroppedFrames = snapshot.framesDropped
             return
         }

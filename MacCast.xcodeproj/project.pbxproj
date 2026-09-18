@@ -10,6 +10,7 @@
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
 		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
+		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
 		C2C039FD30574AB600ABF943 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FC30574AB600ABF943 /* X509 */; };
 		C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FF30574AB600ABF943 /* SwiftASN1 */; };
 		C2C03AF83058094A00ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
@@ -17,6 +18,9 @@
 		C2C03B093058094B00ABF943 /* MacCastWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
 		C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
+		D4A10001305B000100ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
+		D4A10002305B000100ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
+		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,6 +45,13 @@
 			remoteGlobalIDString = C2C03AF43058094900ABF943;
 			remoteInfo = MacCastWidgetExtension;
 		};
+		D4A10004305B000100ABF943 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C2C039B730574AB400ABF943 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D4A1000A305B000100ABF943;
+			remoteInfo = MacCastHostWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -55,6 +66,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D4A10005305B000100ABF943 /* Embed Host Widget Extension */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Host Widget Extension";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +88,7 @@
 		C2C03AF73058094900ABF943 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		C2C03AF93058094A00ABF943 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityAttributes.swift; sourceTree = "<group>"; };
+		D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacCastHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -75,6 +98,13 @@
 				Info.plist,
 			);
 			target = C2C03AF43058094900ABF943 /* MacCastWidgetExtension */;
+		};
+		D4A10007305B000100ABF943 /* Exceptions for "MacCastHostWidget" folder in "MacCastHostWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -107,6 +137,14 @@
 			path = MacCastWidget;
 			sourceTree = "<group>";
 		};
+		D4A10008305B000100ABF943 /* MacCastHostWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D4A10007305B000100ABF943 /* Exceptions for "MacCastHostWidget" folder in "MacCastHostWidgetExtension" target */,
+			);
+			path = MacCastHostWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +153,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
+				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -138,6 +177,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
+				E1A00003305B000100ABF943 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,6 +187,15 @@
 			files = (
 				C2C03AFA3058094A00ABF943 /* SwiftUI.framework in Frameworks */,
 				C2C03AF83058094A00ABF943 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4A10009305B000100ABF943 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D4A10002305B000100ABF943 /* SwiftUI.framework in Frameworks */,
+				D4A10001305B000100ABF943 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -161,6 +210,7 @@
 				C2C039DB30574AB600ABF943 /* MacCastUITests */,
 				C2C039F230574AB600ABF943 /* MacCastHost */,
 				C2C03AFB3058094A00ABF943 /* MacCastWidget */,
+				D4A10008305B000100ABF943 /* MacCastHostWidget */,
 				C2C03AF63058094900ABF943 /* Frameworks */,
 				C2C039C030574AB400ABF943 /* Products */,
 				C2C03B14305809EC00ABF943 /* Shared */,
@@ -175,6 +225,7 @@
 				C2C039D830574AB600ABF943 /* MacCastUITests.xctest */,
 				C2C039F330574AB600ABF943 /* Peering.app */,
 				C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */,
+				D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -219,6 +270,7 @@
 			name = MacCast;
 			packageProductDependencies = (
 				C2C039EC30574AB600ABF943 /* RemoteCore */,
+				D4C0FF02305B000100ABF943 /* SSHCore */,
 			);
 			productName = MacCast;
 			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
@@ -278,10 +330,12 @@
 				C2C039F530574AB600ABF943 /* Sources */,
 				C2C039F630574AB600ABF943 /* Frameworks */,
 				C2C039F730574AB600ABF943 /* Resources */,
+				D4A10005305B000100ABF943 /* Embed Host Widget Extension */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D4A1000D305B000100ABF943 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C2C039F230574AB600ABF943 /* MacCastHost */,
@@ -289,6 +343,7 @@
 			name = MacCastHost;
 			packageProductDependencies = (
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
+				E1A00002305B000100ABF943 /* Sparkle */,
 			);
 			productName = MacCastHost;
 			productReference = C2C039F330574AB600ABF943 /* Peering.app */;
@@ -314,6 +369,28 @@
 			);
 			productName = MacCastWidgetExtension;
 			productReference = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "MacCastHostWidgetExtension" */;
+			buildPhases = (
+				D4A1000B305B000100ABF943 /* Sources */,
+				D4A10009305B000100ABF943 /* Frameworks */,
+				D4A1000C305B000100ABF943 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D4A10008305B000100ABF943 /* MacCastHostWidget */,
+			);
+			name = MacCastHostWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = MacCastHostWidgetExtension;
+			productReference = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -343,6 +420,9 @@
 					C2C03AF43058094900ABF943 = {
 						CreatedOnToolsVersion = 26.6;
 					};
+					D4A1000A305B000100ABF943 = {
+						CreatedOnToolsVersion = 26.6;
+					};
 				};
 			};
 			buildConfigurationList = C2C039BA30574AB400ABF943 /* Build configuration list for PBXProject "MacCast" */;
@@ -356,8 +436,10 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */,
+				D4C0FF01305B000100ABF943 /* XCLocalSwiftPackageReference "SSHCore" */,
 				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
+				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C2C039C030574AB400ABF943 /* Products */;
@@ -369,6 +451,7 @@
 				C2C039D730574AB600ABF943 /* MacCastUITests */,
 				C2C039F430574AB600ABF943 /* MacCastHost */,
 				C2C03AF43058094900ABF943 /* MacCastWidgetExtension */,
+				D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -403,6 +486,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C2C03AF33058094900ABF943 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D4A1000C305B000100ABF943 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -449,6 +539,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D4A1000B305B000100ABF943 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -466,6 +563,11 @@
 			isa = PBXTargetDependency;
 			target = C2C03AF43058094900ABF943 /* MacCastWidgetExtension */;
 			targetProxy = C2C03B073058094B00ABF943 /* PBXContainerItemProxy */;
+		};
+		D4A1000D305B000100ABF943 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D4A1000A305B000100ABF943 /* MacCastHostWidgetExtension */;
+			targetProxy = D4A10004305B000100ABF943 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -748,6 +850,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
@@ -776,6 +879,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = Peering;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
@@ -861,6 +965,62 @@
 			};
 			name = Release;
 		};
+		D4A1000E305B000100ABF943 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D4A1000F305B000100ABF943 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -918,12 +1078,25 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D4A10010305B000100ABF943 /* Build configuration list for PBXNativeTarget "MacCastHostWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D4A1000E305B000100ABF943 /* Debug */,
+				D4A1000F305B000100ABF943 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = RemoteCore;
+		};
+		D4C0FF01305B000100ABF943 /* XCLocalSwiftPackageReference "SSHCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SSHCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -944,6 +1117,14 @@
 				minimumVersion = 1.7.2;
 			};
 		};
+		E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -959,10 +1140,19 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = RemoteCore;
 		};
+		D4C0FF02305B000100ABF943 /* SSHCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SSHCore;
+		};
 		C2C039FC30574AB600ABF943 /* X509 */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */;
 			productName = X509;
+		};
+		E1A00002305B000100ABF943 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		C2C039FF30574AB600ABF943 /* SwiftASN1 */ = {
 			isa = XCSwiftPackageProductDependency;

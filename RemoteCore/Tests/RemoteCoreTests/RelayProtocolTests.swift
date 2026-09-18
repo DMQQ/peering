@@ -21,7 +21,7 @@ struct RelayProtocolTests {
 
     @Test("a ready session exposes endpoints and raw routing tokens")
     func readySession() throws {
-        let json = #"{"type":"sessionReady","controlHost":"relay.dmqq.dev","controlPort":20190,"videoHost":"relay.dmqq.dev","videoPort":30190,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}"#
+        let json = #"{"type":"sessionReady","controlHost":"relay.getpeering.app","controlPort":20190,"videoHost":"relay.getpeering.app","videoPort":30190,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}"#
 
         let message = try RelayMessageCodec.decode(
             RelayServerMessage.self,
@@ -29,9 +29,9 @@ struct RelayProtocolTests {
         )
 
         #expect(message == .sessionReady(RelaySession(
-            controlHost: "relay.dmqq.dev",
+            controlHost: "relay.getpeering.app",
             controlPort: 20_190,
-            videoHost: "relay.dmqq.dev",
+            videoHost: "relay.getpeering.app",
             videoPort: 30_190,
             controlToken: Data(0...15),
             videoToken: Data((240...255).reversed())
@@ -48,6 +48,55 @@ struct RelayProtocolTests {
 
         #expect(String(decoding: encoded, as: UTF8.self) ==
             #"{"clientId":"phone-1","hostId":"mac-1","protocolVersion":3,"type":"connectToHost"}"#)
+    }
+
+    /// The plan is the client's claim, and peeringd reads it by name: `free`, `relay`, `plus`,
+    /// `pro`. Anything else, including this field being absent, is the free allowance on the relay
+    /// side, so a typo here costs a subscriber their allowance rather than granting anything.
+    @Test("a connection request states the plan the client claims")
+    func connectRequestNamesItsPlan() throws {
+        let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
+            hostID: "mac-1",
+            clientID: "phone-1",
+            protocolVersion: 3,
+            plan: "relay"
+        ))
+
+        #expect(String(decoding: encoded, as: UTF8.self) ==
+            #"{"clientId":"phone-1","hostId":"mac-1","plan":"relay","protocolVersion":3,"type":"connectToHost"}"#)
+    }
+
+    /// The receipt travels beside the claim rather than instead of it, and the relay decides which
+    /// of the two it believes. The field name is Apple's — `Transaction.jwsRepresentation` — so that
+    /// what is sent here and what is read there are recognisably the same document.
+    @Test("a connection request carries the signed transaction beside the plan")
+    func connectRequestCarriesItsReceipt() throws {
+        let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
+            hostID: "mac-1",
+            clientID: "phone-1",
+            protocolVersion: 3,
+            plan: "pro",
+            jwsRepresentation: "eyJhbGci.eyJidW5kbGUi.c2ln"
+        ))
+
+        #expect(String(decoding: encoded, as: UTF8.self) ==
+            #"{"clientId":"phone-1","hostId":"mac-1","jwsRepresentation":"eyJhbGci.eyJidW5kbGUi.c2ln","plan":"pro","protocolVersion":3,"type":"connectToHost"}"#)
+    }
+
+    /// Absent rather than empty when there is nothing to prove. The relay reads a field that is not
+    /// there as "no receipt" and an empty string as a receipt that is malformed; they end in the
+    /// same allowance, but only one of them is what the app means, and the relay's log says which.
+    @Test("a connection request with nothing to prove leaves the receipt out")
+    func connectRequestOmitsAnAbsentReceipt() throws {
+        let encoded = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
+            hostID: "mac-1",
+            clientID: "phone-1",
+            protocolVersion: 3,
+            plan: "free"
+        ))
+
+        #expect(String(decoding: encoded, as: UTF8.self) ==
+            #"{"clientId":"phone-1","hostId":"mac-1","plan":"free","protocolVersion":3,"type":"connectToHost"}"#)
     }
 
     @Test("signalling JSON travels in a WebSocket text frame")

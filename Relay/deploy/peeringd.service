@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Peering relay (peeringd)
-Documentation=https://peering.dmqq.dev/
+Documentation=https://getpeering.app/
 After=network-online.target
 Wants=network-online.target
 

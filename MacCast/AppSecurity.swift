@@ -27,6 +27,71 @@ enum DeviceAuthentication {
             return false
         }
     }
+
+    // MARK: - A single server's own lock
+
+    /// What this device's biometry is, read from a throwaway context.
+    ///
+    /// `biometryType` is only filled in *after* a policy has been evaluated, which is the sort of
+    /// detail that ends up shipping a menu labelled "Biometrics" to somebody who has never seen
+    /// that word. Asking a context that is about to be thrown away is what gets it answered
+    /// without asking the user for a face.
+    private static var biometryType: LABiometryType {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return .none }
+        return context.biometryType
+    }
+
+    /// What it is called, so a picker can say "Face ID" rather than "biometrics".
+    static var biometryName: String {
+        switch biometryType {
+        case .faceID: return "Face ID"
+        case .touchID: return "Touch ID"
+        case .opticID: return "Optic ID"
+        default: return "Biometrics"
+        }
+    }
+
+    /// The glyph that goes with it — a Touch ID device showing a face reads as the wrong screen.
+    static var biometrySymbol: String {
+        switch biometryType {
+        case .touchID: return "touchid"
+        case .opticID: return "opticid"
+        default: return "faceid"
+        }
+    }
+
+    /// Whether this device can answer a per-server lock at all, so the option is not offered where
+    /// it cannot be honoured.
+    static var canLockServers: Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+    }
+
+    /// The gate a server's own lock asks for.
+    ///
+    /// `.deviceOwnerAuthentication` rather than the biometric-only policy above, and the difference
+    /// is deliberate. That one protects a switch the user turns on for the whole app and can turn
+    /// off again; this one is *stored on a server*, and a server whose only way in was a face the
+    /// phone no longer recognises — because the user re-enrolled, or is wearing a mask in a dark
+    /// room — would be a server they can no longer open from here at all. The device passcode is
+    /// the fallback Apple provides for exactly this, and it is still something only the owner
+    /// knows.
+    static func unlock(reason: String) async -> Bool {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            return false
+        }
+        do {
+            return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
+        } catch {
+            return false
+        }
+    }
 }
 
 /// Leaves a running session alive while hiding all of its controls and picture. Locking the

@@ -95,7 +95,8 @@ extension HostStatusView {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Peering")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .font(HostDisplayFont.display(19))
+                        .tracking(-0.5)
                     Text(model.deviceName)
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)

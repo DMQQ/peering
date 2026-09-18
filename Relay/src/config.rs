@@ -434,8 +434,8 @@ mod tests {
     fn a_public_host_is_optional_until_a_proxy_is_in_front() {
         assert!(configured(&[]).unwrap().public_host.is_none());
 
-        let config = configured(&[("PEERINGD_PUBLIC_HOST", "peering.dmqq.dev")]).unwrap();
-        assert_eq!(config.public_host.as_deref(), Some("peering.dmqq.dev"));
+        let config = configured(&[("PEERINGD_PUBLIC_HOST", "getpeering.app")]).unwrap();
+        assert_eq!(config.public_host.as_deref(), Some("getpeering.app"));
     }
 
     #[test]

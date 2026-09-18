@@ -38,6 +38,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         var pixelHeight = 0
         var codec: VideoCodec = .h264
         var framesEnqueued = 0
+        var bytesEnqueued: Int64 = 0
         var framesDropped = 0
         var awaitingKeyframe = true
         var lastError: String?
@@ -183,6 +184,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             renderer.enqueue(sample)
             self.lock.withLock {
                 self.snapshot.framesEnqueued += 1
+                self.snapshot.bytesEnqueued += Int64(frame.data.count)
                 self.snapshot.awaitingKeyframe = false
             }
         }

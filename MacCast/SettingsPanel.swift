@@ -17,7 +17,6 @@ struct SettingsPanel: View {
     /// Opens the source picker in this same panel rather than stacking a second one beside it.
     var onShowSources: () -> Void
 
-    @State private var confirmReset = false
     @State private var confirmLock = false
 
     /// Read here as well as in the screen that obeys it. Same key, one name for it in
@@ -41,7 +40,7 @@ struct SettingsPanel: View {
                 keyboard
                 macros
                 pairedMacs
-                reset
+                thisDevice
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -50,15 +49,6 @@ struct SettingsPanel: View {
         .padding(.horizontal, 10)
         .reportChromeFrame(.panel, into: $chromeFrames)
         .transition(.move(edge: .bottom).combined(with: .opacity))
-        .confirmationDialog(
-            "Reset this device's identity?",
-            isPresented: $confirmReset,
-            titleVisibility: .visible
-        ) {
-            Button("Reset", role: .destructive) { model.resetDeviceIdentity() }
-        } message: {
-            Text("Every Mac you have paired with will treat this device as a new one.")
-        }
         .confirmationDialog(
             "Lock this Mac?",
             isPresented: $confirmLock,
@@ -160,6 +150,8 @@ struct SettingsPanel: View {
             }
             .buttonStyle(RailButtonStyle(scale: 0.98))
 
+            quality
+
             HStack(spacing: 10) {
                 Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
                     .font(.system(size: 15, weight: .medium))
@@ -179,6 +171,70 @@ struct SettingsPanel: View {
             .padding(.vertical, 9)
             .rowSurface()
         }
+    }
+
+    /// Who picks the picture's bitrate: the app, or the person watching it.
+    ///
+    /// The status bar has offered the same four presets in one menu since it was a segmented row
+    /// that did not fit, and in that list "Auto" reads as the fourth rung of a ladder rather than
+    /// as the other answer to the question. The question has two answers and one of them has
+    /// three settings under it, so that is what this draws: a mode, and a level that appears only
+    /// beneath the mode that has levels. A row of three rates under "Automatic" would be a
+    /// control wired to nothing.
+    ///
+    /// The chip stays as it is. Four presets in a menu and a mode with three levels are the same
+    /// four states, and the chip is the faster way to reach one mid-session.
+    private var quality: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker("Quality", selection: Binding(
+                get: { !model.isAutomaticQuality },
+                set: { model.setAutomaticQuality(!$0) }
+            )) {
+                Text("Automatic").tag(false)
+                Text("Manual").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Stream quality mode")
+
+            if !model.isAutomaticQuality {
+                Picker("Level", selection: Binding(
+                    get: { model.streamQuality },
+                    set: { model.setStreamQuality($0) }
+                )) {
+                    ForEach(SessionModel.StreamQuality.manualCases, id: \.self) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Stream quality level")
+            }
+
+            Text(qualityExplanation)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// What the two modes do to the picture, in the words the numbers need.
+    ///
+    /// Both branches carry the figures, because "Manual" alone is not a setting anyone can weigh:
+    /// the choice being made is how much of the connection to spend on the picture, and the
+    /// presets on their own name a rung on a ladder the user has never been shown.
+    private var qualityExplanation: String {
+        guard !model.isAutomaticQuality else {
+            return """
+                Peering picks the rate and moves it as the connection does: down when frames \
+                arrive late or are dropped, up again after a stretch of clean ones. Low is \
+                2 Mbps, Medium is 8, High is 20.
+                """
+        }
+        let mbps = (model.streamQuality.bitrateKbps ?? 0) / 1_000
+        return """
+            The Mac sends the picture at \(mbps) Mbps and holds that rate whatever the network \
+            does. A connection with less room than this to spare shows it as stutter rather \
+            than as a softer picture — Low is 2 Mbps, Medium is 8, High is 20.
+            """
     }
 
     private var panels: some View {
@@ -361,7 +417,7 @@ struct SettingsPanel: View {
         }
     }
 
-    private var reset: some View {
+    private var thisDevice: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("This device")
             HStack(spacing: 10) {
@@ -383,20 +439,6 @@ struct SettingsPanel: View {
             .padding(.vertical, 9)
             .rowSurface()
             Text("The name Macs see for this device. iOS 16+ restricts apps from reading your custom device name without a special entitlement, so setting it here ensures Macs show the right name.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Button(role: .destructive) { confirmReset = true } label: {
-                Text("Reset identity")
-                    .font(.subheadline.weight(.medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .rowSurface()
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(RailButtonStyle(scale: 0.98))
-            Text("Generates a new key and a new device ID. Every Mac that knows this device must pair with it again.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

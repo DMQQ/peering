@@ -51,8 +51,15 @@ open ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug/Peerin
 cd RemoteCore && swift test
 
 # Install + launch on the connected iPhone
+#
+# NOTE: the path is Release-iphoneos, not Debug-iphoneos. The MacCast scheme's Run action builds
+# the Release configuration, so a plain `xcodebuild ... build` writes Release-iphoneos and leaves
+# any Debug-iphoneos directory untouched — installing from Debug therefore silently reinstalls a
+# build from some *earlier* session, which looks exactly like your changes not being there. Check
+# `ls -l` on the product before installing if in doubt. (`devicectl list devices` for the current
+# UDID; it is per-machine and does change.)
 xcrun devicectl device install app --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
-  ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Debug-iphoneos/MacCast.app
+  ~/Library/Developer/Xcode/DerivedData/MacCast-*/Build/Products/Release-iphoneos/MacCast.app
 xcrun devicectl device process launch --device 8A51FAD5-A897-57CD-9C09-395D9F2C258A \
   pl.dmq.peering
 
@@ -209,11 +216,22 @@ pipeline never switches on source kind. The catalogue is **live** — re-enumera
   with `CMSampleBufferCreateReady` (`decodeTimeStamp = .invalid`, valid because reordering is
   off). Use `renderer.enqueue/flush/isReadyForMoreMediaData` (the *renderer's*, not the layer's).
 - **Force a keyframe the moment a client connects** — never by tearing down the session.
+- **The control-channel video fallback** (protocol v12): when video stops arriving for three
+  seconds while the control channel still answers, the *client* asks the host to move video
+  onto the control channel (`videoTransport`, 0x18), where it travels cut into 16 KB chunks
+  (`videoChunk`, 0x17) so a control message is never stuck behind a whole keyframe. The host
+  decides whether to honour it — it refuses when it has produced nothing lately, because a
+  still screen and a blocked path look identical from its side — and caps the rate at the low
+  tier while the picture is there. The lane it came from keeps being probed with keyframes
+  every four seconds, and two of those arriving is what the client treats as recovery and asks
+  to switch back on. Rules live in `RemoteCore/VideoFallback.swift`, in values, so they can be
+  tested without a network; the host's half is `VideoStreamer.use(transport:controlPeer:)`.
 
 Reference for the directory layout: `RemoteCore/Sources/RemoteCore/` holds `Framing`,
 `Handshake`, `PairingSAS`, `TLSConfig`, `SelfSignedIdentity`, `PeerPinning`, `DeviceIdentity`,
 `ClientSession`, `ClientTransport`, `RemoteCommand`, `InputTransform`, `InputEncoding`,
-`CaptureSource`, `VideoWire`, `ServiceDiscovery`, `ConstantTime`, `ProtocolInfo`.
+`CaptureSource`, `VideoWire`, `VideoFallback`, `ServiceDiscovery`, `ConstantTime`,
+`ProtocolInfo`.
 
 ---
 

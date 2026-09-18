@@ -43,6 +43,143 @@ final class MacCastTests: XCTestCase {
         XCTAssertEqual(policy.tier, .medium)
     }
 
+    func testManualQualityOffersEveryPresetButAutomatic() {
+        // What the settings panel draws under "Manual". `auto` belongs to the mode picker above
+        // it, and a preset that appeared in both lists would be two controls for one setting.
+        XCTAssertEqual(SessionModel.StreamQuality.manualCases, [.low, .medium, .high])
+    }
+
+    func testTakingTheRateOverByHandStartsWhereAutomaticHadIt() {
+        // ``SessionModel/setAutomaticQuality(_:)`` hands the policy's current tier to the manual
+        // picker on the first switch. That is only seamless if a tier and the preset naming it
+        // agree on the rate — they are two separate enums that share a number, and the compiler
+        // does not connect them, so this is what holds them together.
+        for tier in [AutoQualityPolicy.Tier.low, .medium, .high] {
+            let preset = SessionModel.StreamQuality(tier)
+            XCTAssertEqual(preset.bitrateKbps, tier.bitrateKbps)
+        }
+    }
+
+    func testEveryQualityPresetSurvivesBeingStoredAndReadBack() {
+        // The stored preference is a `rawValue` in `UserDefaults`, so a preset that did not
+        // round-trip would come back as something else on the next launch — and the failure is
+        // silent, because `storedQuality` decodes a token it cannot read as "nothing stored".
+        for preset in SessionModel.StreamQuality.allCases {
+            XCTAssertEqual(SessionModel.StreamQuality(rawValue: preset.rawValue), preset)
+        }
+    }
+
+    func testTheWordsOnTheChipAreNotWhatIsStored() {
+        // ``StreamQuality/chipTitle`` is deliberately not the raw value, and this is the test
+        // that says so out loud. The raw value used to be the printed word, "Med" included, and
+        // an abbreviation chosen for a chip that shares a row with four other controls is not
+        // something a saved preference should be keyed on: the day it is reconsidered, every
+        // stored value stops decoding and resets to automatic without saying anything.
+        //
+        // Decoding the old spellings to `nil` is the fix, not a regression — nothing has ever
+        // written them under this key.
+        for preset in SessionModel.StreamQuality.allCases {
+            XCTAssertNil(SessionModel.StreamQuality(rawValue: preset.chipTitle))
+        }
+        XCTAssertNil(SessionModel.StreamQuality(rawValue: "Med"))
+        XCTAssertNil(SessionModel.StreamQuality(rawValue: ""))
+    }
+
+    func testTheChipStillSpellsTheFourWordsItAlwaysDid() {
+        // The rename of `rawValue` to `chipTitle` is invisible on screen or it is a bug: these
+        // are the four strings the speed chip printed before it, and it prints them still.
+        XCTAssertEqual(SessionModel.StreamQuality.auto.chipTitle, "Auto")
+        XCTAssertEqual(SessionModel.StreamQuality.low.chipTitle, "Low")
+        XCTAssertEqual(SessionModel.StreamQuality.medium.chipTitle, "Med")
+        XCTAssertEqual(SessionModel.StreamQuality.high.chipTitle, "High")
+    }
+
+    func testTheQualityMenuNamesTheRateItIsOffering() {
+        // The whole reason the menu exists in two places rather than one: "Low" names a rung on
+        // a ladder nobody has been shown, so every option carries what it costs. Both the speed
+        // chip and the Settings tab read this, which is what stops them describing the same four
+        // presets differently.
+        for preset in SessionModel.StreamQuality.allCases {
+            XCTAssertTrue(
+                preset.menuTitle.contains(preset.title),
+                "\(preset.menuTitle) does not name \(preset.title)"
+            )
+        }
+        XCTAssertEqual(SessionModel.StreamQuality.low.menuTitle, "Low, 2 Mbps")
+        XCTAssertEqual(SessionModel.StreamQuality.high.menuTitle, "High, 20 Mbps")
+    }
+
+    @MainActor
+    func testAnUnrecognisedQualityFallsBackToAutomatic() {
+        // ``SessionModel/storedQuality`` is the read side of the preference, and it has to answer
+        // for a key that was never written — which is every install that predates the setting,
+        // and the state of this one right now. Automatic is the behaviour the app had before the
+        // setting existed, so it is the only honest default. Removed again so the test leaves no
+        // preference behind for the next run.
+        let key = PreferenceKey.streamQuality
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+
+        UserDefaults.standard.removeObject(forKey: key)
+        XCTAssertEqual(SessionModel.storedQuality, .auto)
+
+        UserDefaults.standard.set("ultra", forKey: key)
+        XCTAssertEqual(SessionModel.storedQuality, .auto)
+
+        UserDefaults.standard.set(SessionModel.StreamQuality.medium.rawValue, forKey: key)
+        XCTAssertEqual(SessionModel.storedQuality, .medium)
+    }
+
+    @MainActor
+    func testASessionStartsAtWhatTheSettingsTabStored() {
+        // The half of the feature that is easy to leave out, and was. The Settings tab writes the
+        // preference and cannot reach the model — the model is built once for the life of the
+        // process, and that tab is unreachable while a session runs, which is why it writes a
+        // preference at all. So its copy of the preset is stale from launch, and the arrival is
+        // the only moment the two can be brought back together. Read the property instead of the
+        // token in ``SessionModel/applyInitialQuality()`` and this passes only when the change
+        // happened to be made before the app was started, which no test run would notice.
+        let key = PreferenceKey.streamQuality
+        let previous = UserDefaults.standard.object(forKey: key)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+
+        UserDefaults.standard.set(SessionModel.StreamQuality.high.rawValue, forKey: key)
+        // Built *after* the write, and the point is that the write is still what decides: the
+        // model is seeded at init, so a value stored while one is already running is the case
+        // that went wrong and the one worth asserting on.
+        let model = SessionModel()
+        model.applyInitialQuality()
+
+        XCTAssertEqual(model.streamQuality, .high)
+        XCTAssertEqual(model.lastManualQuality, .high)
+        XCTAssertEqual(
+            UserDefaults.standard.string(forKey: key),
+            "high",
+            "Adopting must not write the preference back — the Settings row observes that key."
+        )
+
+        // And the automatic case, which must come back automatic and must not invent a manual
+        // level to return to: there is none, and the policy's tier is what stands in.
+        UserDefaults.standard.set(SessionModel.StreamQuality.auto.rawValue, forKey: key)
+        let automatic = SessionModel()
+        automatic.applyInitialQuality()
+
+        XCTAssertEqual(automatic.streamQuality, .auto)
+        XCTAssertNil(automatic.lastManualQuality)
+    }
+
     func testDeltaVideoSampleIsMarkedAsDependentAndNotSync() throws {
         let sample = try makeVideoSample(isKeyframe: false)
 
@@ -430,4 +567,188 @@ final class MacCastTests: XCTestCase {
         XCTAssertEqual(terminal.state, .stopped)
     }
 
+}
+
+// MARK: - Subscription offers
+
+/// When the app asks the user to subscribe, and how often.
+///
+/// This is the part that can be wrong in a way nobody notices. An offer that never arrives costs
+/// a sale silently, and one that arrives twice is a nag the user has no switch for — both look
+/// exactly like the feature working, from inside the app, until somebody complains. So the
+/// decision is tested here rather than left to the screen that carries it.
+final class SessionOfferTests: XCTestCase {
+    /// Both of the keys the offers are remembered by, cleared before every test.
+    ///
+    /// They are `UserDefaults`, which outlives a test method and is shared by all of them: without
+    /// this, whichever test ran first would decide whether the next one passed, and the failure
+    /// would point at the wrong thing.
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.removeObject(forKey: PreferenceKey.offeredAfterFirstSession)
+        UserDefaults.standard.removeObject(forKey: PreferenceKey.lowRelayOfferWindow)
+    }
+
+    /// A finished session, ending now so that the window it falls in is the current one.
+    private func record(
+        path: ClientSessionRecord.Path,
+        duration: TimeInterval
+    ) -> ClientSessionRecord {
+        let endedAt = Date()
+        return ClientSessionRecord(
+            id: UUID(),
+            hostID: nil,
+            hostName: "Studio",
+            startedAt: endedAt.addingTimeInterval(-duration),
+            endedAt: endedAt,
+            path: path,
+            videoBytesReceived: 0,
+            logs: []
+        )
+    }
+
+    /// Long enough for an armed offer to have been shown, with room for a slow machine.
+    private func waitForArmedOffer() async {
+        try? await Task.sleep(for: .seconds(SessionModel.offerAfterSessionDelay + 0.4))
+    }
+
+    // MARK: RelayTime
+
+    func testRelayTimeReadsAsSecondsUnderAMinute() {
+        XCTAssertEqual(RelayTime.label(0), "0s")
+        XCTAssertEqual(RelayTime.label(12), "12s")
+        XCTAssertEqual(RelayTime.label(59), "59s")
+    }
+
+    func testRelayTimeReadsAsMinutesAndSecondsUnderAnHour() {
+        XCTAssertEqual(RelayTime.label(60), "1m 0s")
+        XCTAssertEqual(RelayTime.label(72), "1m 12s")
+        XCTAssertEqual(RelayTime.label(3599), "59m 59s")
+    }
+
+    /// Past an hour the seconds are dropped, so a reader gets a level rather than a stopwatch.
+    func testRelayTimeDropsTheSecondsOnceThereAreHours() {
+        XCTAssertEqual(RelayTime.label(3600), "1h")
+        XCTAssertEqual(RelayTime.label(3660), "1h 1m")
+        XCTAssertEqual(RelayTime.label(9720), "2h 42m")
+        XCTAssertEqual(RelayTime.label(10800), "3h")
+    }
+
+    /// Below zero is not a duration, and the arithmetic that feeds this can produce one even
+    /// though the estimate it reads clamps at zero.
+    func testRelayTimeClampsBelowZero() {
+        XCTAssertEqual(RelayTime.label(-1), "0s")
+        XCTAssertEqual(RelayTime.label(-900), "0s")
+    }
+
+    // MARK: The decision
+
+    /// The connect that was a mistake, and the one that dropped on arrival. Both reach this with a
+    /// record, because both reached `.ready` — which is what the floor is for.
+    @MainActor
+    func testASessionTooShortToHaveBeenUsedIsNotOffered() {
+        let model = SessionModel()
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 4))
+        XCTAssertNil(model.pendingOffer)
+    }
+
+    @MainActor
+    func testTheFirstRealSessionIsOffered() async {
+        let model = SessionModel()
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 90))
+
+        // The decision is made on the teardown and the showing is held back, so these are two
+        // separate things to be wrong.
+        XCTAssertNotNil(model.pendingOffer)
+        await waitForArmedOffer()
+
+        guard case .firstSession? = model.paywallReason else {
+            return XCTFail("expected the first-session door, got \(String(describing: model.paywallReason))")
+        }
+        XCTAssertTrue(model.hasOfferedAfterFirstSession)
+    }
+
+    @MainActor
+    func testTheFirstSessionIsOfferedOnlyOnceEver() async {
+        let model = SessionModel()
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 90))
+        await waitForArmedOffer()
+        XCTAssertTrue(model.hasOfferedAfterFirstSession)
+
+        // Dismissed, and then a second session ends. The door has been through once.
+        model.paywallReason = nil
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 90))
+        XCTAssertNil(model.pendingOffer)
+    }
+
+    /// Free is half an hour a day, so twenty-five minutes spent leaves five — under the quarter
+    /// that ``SessionModel/lowRelayAllowanceFraction`` calls running low.
+    @MainActor
+    func testARelaySessionThatLeavesTheAllowanceLowIsOffered() async {
+        let model = SessionModel()
+        model.hasOfferedAfterFirstSession = true
+        model.sessionHistory = [record(path: .relay, duration: 1500)]
+
+        model.offerSubscriptionIfDue(after: record(path: .relay, duration: 60))
+        await waitForArmedOffer()
+
+        guard case .runningLow(let remaining)? = model.paywallReason else {
+            return XCTFail("expected the running-low door, got \(String(describing: model.paywallReason))")
+        }
+        XCTAssertEqual(remaining, 300, accuracy: 1)
+        XCTAssertEqual(model.lowRelayOfferWindow, model.relayWindowNumber)
+    }
+
+    /// Spent and nearly spent are different sentences, and at zero only one of them is true.
+    @MainActor
+    func testSpendingTheLastOfTheAllowanceGetsTheWallRatherThanTheWarning() async {
+        let model = SessionModel()
+        model.hasOfferedAfterFirstSession = true
+        model.sessionHistory = [record(path: .relay, duration: 1800)]
+
+        model.offerSubscriptionIfDue(after: record(path: .relay, duration: 60))
+        await waitForArmedOffer()
+
+        guard case .quotaExhausted? = model.paywallReason else {
+            return XCTFail("expected the wall, got \(String(describing: model.paywallReason))")
+        }
+    }
+
+    /// A session that spent no relay, on a day whose relay is nearly gone. The meter has not moved
+    /// because of this session, and the Sessions tab is already saying the same figure.
+    @MainActor
+    func testASessionThatSpentNoRelayIsNotAnExcuseToSell() {
+        let model = SessionModel()
+        model.hasOfferedAfterFirstSession = true
+        model.sessionHistory = [record(path: .relay, duration: 1700)]
+
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 120))
+        XCTAssertNil(model.pendingOffer)
+    }
+
+    @MainActor
+    func testTheRunningLowOfferIsMadeOncePerWindow() async {
+        let model = SessionModel()
+        model.hasOfferedAfterFirstSession = true
+        model.sessionHistory = [record(path: .relay, duration: 1500)]
+
+        model.offerSubscriptionIfDue(after: record(path: .relay, duration: 60))
+        await waitForArmedOffer()
+        XCTAssertNotNil(model.paywallReason)
+
+        model.paywallReason = nil
+        model.offerSubscriptionIfDue(after: record(path: .relay, duration: 60))
+        XCTAssertNil(model.pendingOffer, "one window is one asking")
+    }
+
+    /// The paywall the user opened themselves is already on screen. There is one `paywallReason`,
+    /// and replacing it would rewrite the screen being read.
+    @MainActor
+    func testAnOpenPaywallIsNotOverwrittenByAnOffer() {
+        let model = SessionModel()
+        model.paywallReason = .upgrade
+
+        model.offerSubscriptionIfDue(after: record(path: .lan, duration: 90))
+        XCTAssertNil(model.pendingOffer)
+    }
 }

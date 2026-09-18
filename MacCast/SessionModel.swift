@@ -143,18 +143,119 @@ final class SessionModel {
         }
     }
 
-    enum StreamQuality: String, CaseIterable, Hashable, Sendable {
-        case auto   = "Auto"
-        case low    = "Low"
-        case medium = "Med"
-        case high   = "High"
+    /// A preset for the picture's bitrate, or the app's own choice of one.
+    ///
+    /// **The raw value is a storage token and not the word on screen**, which costs a `RawValue`
+    /// written out by hand and buys the setting being safe to persist. It used to be
+    /// `enum StreamQuality: String` with `"Auto"`, `"Low"`, `"Med"`, `"High"`, and the chip
+    /// printed `rawValue` directly — fine while nothing stored it. `@AppStorage` persists the raw
+    /// value, so that spelling would have keyed a saved preference on UI copy: "Med" is an
+    /// abbreviation chosen for a chip that shares a row with four other controls, and the day
+    /// somebody reconsiders it, every stored preference fails to decode and silently resets to
+    /// automatic. The token is `init?(rawValue:)`-decoded rather than force-read so that an
+    /// unknown one is distinguishable from a real answer — the same shape, for the same reason,
+    /// as ``InteractionMode``.
+    enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
+        typealias RawValue = String
 
+        case auto, low, medium, high
+
+        init?(rawValue: String) {
+            switch rawValue {
+            case "auto": self = .auto
+            case "low": self = .low
+            case "medium": self = .medium
+            case "high": self = .high
+            default: return nil
+            }
+        }
+
+        var rawValue: String {
+            switch self {
+            case .auto: return "auto"
+            case .low: return "low"
+            case .medium: return "medium"
+            case .high: return "high"
+            }
+        }
+
+        /// The three rates that can be picked by hand, in order.
+        ///
+        /// `auto` is not the fourth rung of this ladder, it is the other answer to the same
+        /// question — let the app choose the rate, or choose it yourself. ``SettingsPanel``
+        /// shows it that way, as one mode and then three levels, and it asks for this list
+        /// rather than spelling the three out so that adding a case here cannot leave the
+        /// picker behind.
+        static let manualCases: [StreamQuality] = allCases.filter { $0 != .auto }
+
+        /// The same three numbers as ``AutoQualityPolicy/Tier``, and the same source for them:
+        /// `Low` here is exactly what the host caps a stream at when the picture is on the
+        /// control channel, so a preset that named a different figure would read on screen as
+        /// a setting that does not take.
         var bitrateKbps: Int? {
             switch self {
             case .auto: return nil
-            case .low: return 2_000
-            case .medium: return 8_000
-            case .high: return 20_000
+            case .low: return VideoQualityTier.low.rawValue
+            case .medium: return VideoQualityTier.medium.rawValue
+            case .high: return VideoQualityTier.high.rawValue
+            }
+        }
+
+        /// What the status chip prints, abbreviated for the row it sits in.
+        ///
+        /// This is what ``rawValue`` used to be, and it is the only reason the two were ever the
+        /// same string. The chip shares its row with the path, the fit and the camera, so the
+        /// names are clipped to fit it — see ``title`` and ``menuTitle`` for the roomier
+        /// spellings.
+        var chipTitle: String {
+            switch self {
+            case .auto: return "Auto"
+            case .low: return "Low"
+            case .medium: return "Med"
+            case .high: return "High"
+            }
+        }
+
+        /// The name spelled out, for somewhere with more room than the status chip.
+        ///
+        /// ``chipTitle`` is what the chip prints, abbreviated to "Auto" and "Med" because that
+        /// chip shares a row with four other controls. A settings row has the width of the
+        /// panel and no such excuse.
+        var title: String {
+            switch self {
+            case .auto: return "Automatic"
+            case .low: return "Low"
+            case .medium: return "Medium"
+            case .high: return "High"
+            }
+        }
+
+        /// The name and what it costs, for a menu that has to say what is being given up.
+        ///
+        /// The figure is the whole point of it: "Low" and "Medium" mean nothing to somebody who
+        /// has not already learned this app's ladder, and the choice being made is how much of
+        /// the connection to spend on the picture. Shared by the status chip's menu
+        /// (``RemoteScreen``) and the Settings tab, so the two cannot come to describe the same
+        /// four presets differently.
+        var menuTitle: String {
+            switch self {
+            case .auto: return "Auto, follows the network"
+            case .low: return "Low, 2 Mbps"
+            case .medium: return "Medium, 8 Mbps"
+            case .high: return "High, 20 Mbps"
+            }
+        }
+
+        /// The preset that names a given automatic tier.
+        ///
+        /// For handing the rate over: whatever the policy had settled on is where a manual
+        /// choice should start, and the two enums share their numbers through
+        /// ``bitrateKbps`` but not their cases.
+        init(_ tier: AutoQualityPolicy.Tier) {
+            switch tier {
+            case .low: self = .low
+            case .medium: self = .medium
+            case .high: self = .high
             }
         }
     }
@@ -169,6 +270,12 @@ final class SessionModel {
     var latencyMilliseconds: Double?
     var catalog: CaptureCatalog?
     var notes: [String] = []
+    var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
+    var activeSessionHistoryID: UUID?
+    var activeSessionHistoryStartedAt: Date?
+    var activeSessionBytes: Int64 = 0
+    var lastBandwidthSampleBytes: Int64 = 0
+    var activeSessionLogs: [String] = []
     var videoStatus = "No video stream"
     /// The frames per second arriving, as measured by the last two polls — see
     /// ``updateFrameRate(from:)``. Zero until there have been two samples to compare.
@@ -177,9 +284,38 @@ final class SessionModel {
     var lastFrameSample: (count: Int, at: Date)?
     /// True while the video channel is delivering frames (not ended/absent).
     var isVideoStreaming = false
+    /// Which channel the picture is arriving on. `.control` means the Mac's network is not
+    /// letting video through and the session has fallen back — see ``VideoFallbackPolicy``.
+    var videoTransport: VideoTransport = .primary
     var connectionPath: ConnectionPath?
     var pairedHostIDs: [String] = []
-    var streamQuality: StreamQuality = .auto
+    /// The quality the app is set to, read straight from the defaults.
+    ///
+    /// Failable decoding on purpose: an absent or unrecognised token means "nothing has been
+    /// stored yet", which is ``StreamQuality/auto`` — the behaviour the app had before the
+    /// setting existed. A force-read would make a token from a future version read as a choice
+    /// somebody made.
+    static var storedQuality: StreamQuality {
+        UserDefaults.standard.string(forKey: PreferenceKey.streamQuality)
+            .flatMap(StreamQuality.init(rawValue:)) ?? .auto
+    }
+
+    /// The bitrate preset. Stored rather than computed from the defaults, because every surface
+    /// showing it has to redraw when it changes and a computed property reading `UserDefaults` is
+    /// a change nothing observes — see ``terminalHistory``, which is here for the same reason.
+    ///
+    /// Seeded at init from ``storedQuality``, and written back by ``setStreamQuality(_:)``, which
+    /// is also how the Settings tab's row reaches a session: that tab cannot be opened while one
+    /// is running, so it writes the preference and the next arrival picks it up here.
+    var streamQuality: StreamQuality = SessionModel.storedQuality
+    /// The level to come back to when the rate is taken over by hand again.
+    ///
+    /// Seeded from the stored preference, so that Automatic → Manual returns to the level last
+    /// saved rather than to whatever the policy happens to be sitting on. `nil` when the stored
+    /// value is automatic, which is right: there is no manual level to come back to, and the
+    /// policy's current tier stands in — see ``setAutomaticQuality(_:)``.
+    var lastManualQuality: StreamQuality? =
+        SessionModel.storedQuality.bitrateKbps == nil ? nil : SessionModel.storedQuality
     var autoQualityPolicy = AutoQualityPolicy(path: .lan)
     var lastAutoDroppedFrames = 0
     /// Optimistic state for the current session's physical-display privacy command. The host
@@ -238,6 +374,34 @@ final class SessionModel {
     var lastSentCommand: String?
     var lastSentAt: Date?
 
+    // MARK: - File browsing
+
+    /// Every folder the Mac has listed, keyed by the terminal it was listed for and the path it
+    /// was listed at. See ``RemoteDirectoryKey``.
+    ///
+    /// Held rather than asked for per appearance, and that is most of what makes browsing feel like
+    /// a file manager instead of a series of waits: stepping into a folder and back out of it is
+    /// instant, and a folder already in hand is shown while its next copy is on the way.
+    var directories: [RemoteDirectoryKey: RemoteDirectory] = [:]
+
+    /// Which folder each terminal's browser is showing, and no entry for a browser that has not
+    /// opened yet or one still waiting on the Mac's home folder to resolve to a path.
+    ///
+    /// In the model rather than in the panel because the panel is rebuilt every time it opens —
+    /// the same reason the clipboard history is here — and because resolving "home" into a path is
+    /// something only the Mac can answer.
+    var browsingPaths: [UUID: String] = [:]
+
+    /// Folders asked for and not yet answered — what a spinner on the panel is reading.
+    var pendingDirectories: Set<RemoteDirectoryKey> = []
+
+    /// Why a folder could not be listed, until it lists.
+    var browseFailures: [RemoteDirectoryKey: String] = [:]
+
+    /// The file being shown, and how much of it has arrived. One at a time because only one can be
+    /// on screen — opening another replaces it.
+    var filePreview: RemoteFilePreview?
+
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
     /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user
@@ -246,6 +410,15 @@ final class SessionModel {
     var hostNames: [String: String] = [:]
     /// The server ID of the currently (or most recently) connected Mac.
     var currentHostID: String?
+
+    /// The ID a first pairing was dialled by, while one is in flight or has just failed.
+    ///
+    /// Kept because the one failure this path produces on its own is the wrong ID: the relay
+    /// answers for whatever holds the ID it was given, so "not registered" and "you typed one
+    /// digit wrong" arrive as the same message, and the only thing that can tell the user which
+    /// they are looking at is the ID they asked for. Cleared by every other connect, so it can
+    /// never caption a session that was not a first pairing — see ``connect(to:)``.
+    var remotePairingHostID: String?
 
     /// When each trusted Mac was last successfully connected to, keyed by host ID.
     var lastConnectedAt: [String: Date] = {
@@ -363,7 +536,9 @@ final class SessionModel {
         return name
     }
     static let manualPortKey = "Peering.manualPort"
-    var keyboardMode: KeyboardMode = .unicode
+    var keyboardMode: KeyboardMode = KeyboardMode(
+        rawValue: UserDefaults.standard.string(forKey: PreferenceKey.keyboardMode) ?? "unicode"
+    ) ?? .unicode
     var isObserving = false
     var latchedModifiers: Modifiers = []
     var activeSourceID: String?
@@ -388,8 +563,14 @@ final class SessionModel {
     // MARK: - Purchase
 
     let storeManager = StoreManager()
-    /// Set when the relay signals quota exhaustion. Shows `PaywallView`.
-    var showPaywall = false
+    /// Why the paywall is up, or `nil` when it is not. Shows `PaywallView`.
+    ///
+    /// The reason travels with the flag rather than beside it, so the screen that shows the paywall
+    /// never has to guess which door the user came through — and so a second door cannot be added
+    /// without saying what it is. There are five now: the relay refusing a connection, the Sessions
+    /// tab's relay card, a row in Settings, and the two the app opens by itself — see
+    /// ``offerSubscriptionIfDue(after:)``.
+    var paywallReason: PaywallView.Reason?
 
     // MARK: - Collaborators
 
@@ -410,6 +591,14 @@ final class SessionModel {
     var device = DeviceIdentity(id: "", name: "")
     var session: ClientSession?
     var videoPoll: Task<Void, Never>?
+
+    /// The offer that is waiting for the screen change to finish. See
+    /// ``SessionModel/offerSubscriptionIfDue(after:)``.
+    ///
+    /// A task rather than a timestamp, because what has to be cancellable is the showing and not the
+    /// decision — and it doubles as the flag that stops a second session ending inside the same
+    /// half-second from arming a second offer.
+    var pendingOffer: Task<Void, Never>?
 
     /// Set by the two ways the user ends a session themselves, read and cleared by the
     /// transition that follows.
@@ -451,6 +640,9 @@ final class SessionModel {
             // state, so each is hopped deliberately rather than by luck.
             Task { @MainActor in self.apply(event) }
         }
+    }
+
+    func startBrowsing() {
         browser.start()
     }
 
@@ -473,12 +665,23 @@ final class SessionModel {
         switch target {
         case .discovered(let host):
             connectionPath = .lan
+            remotePairingHostID = nil
             UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
         case .relay(let hostID, _, _):
             connectionPath = .relay
+            remotePairingHostID = nil
             UserDefaults.standard.set(hostID, forKey: Self.lastHostIDKey)
+        case .relayPairing(let hostID, _, _):
+            connectionPath = .relay
+            remotePairingHostID = hostID
+            // Same reasoning as the literal address below: nothing here has been proven to be
+            // this Mac yet, so nothing is remembered as "the last Mac". The handshake writes
+            // the ID it actually reached, and that is the first moment it is worth keeping —
+            // a half-typed ID left here would be dialled again by the reconnect ladder.
+            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
         case .address:
             connectionPath = .direct
+            remotePairingHostID = nil
             // The handshake will replace this with the server's real ID. Keeping the ID of a
             // different Mac during that window could make an automatic retry dial the relay for
             // the wrong machine.
@@ -512,11 +715,21 @@ final class SessionModel {
         notes.removeAll()
         terminals.removeAll()
         selectedTerminalID = nil
+        // The listings and the preview describe the Mac of the session that is ending — folder
+        // names from one Mac shown against another would be worse than a wait.
+        directories.removeAll()
+        browsingPaths.removeAll()
+        pendingDirectories.removeAll()
+        browseFailures.removeAll()
+        filePreview = nil
         // Cleared with the rest: a notice describes the Mac of *this* connection, and one
         // left over would caption the next session with something nobody said about it.
         remoteNotice = nil
         videoStatus = "No video stream"
         isVideoStreaming = false
+        // A lane belongs to the session that chose it. Left standing, the next connection
+        // would caption its first second as a fallback it has not made.
+        videoTransport = .primary
         privacyModeEnabled = false
 
         let session = ClientSession(
@@ -559,6 +772,16 @@ final class SessionModel {
             }
         )
         self.session = session
+        // Whether a missing picture could be a network blocking video, which is a question
+        // about *where* this Mac is and not one the session can answer for itself. A Mac found
+        // over Bonjour is on this network, where the answer is a different problem entirely;
+        // the relay and a typed-in address both cross networks nobody here controls.
+        //
+        // On the relay as it stands the picture already shares the control channel, so asking
+        // for it there is a reduction in rate rather than a move — which is also the honest
+        // response to a channel that stalled while carrying input. The move is what it becomes
+        // on any path where video has a transport of its own.
+        session.videoFallbackEnabled = connectionPath != .lan
         startVideoPolling()
 
         Task { await session.connect(to: target) }
@@ -692,7 +915,8 @@ final class SessionModel {
     /// what it carries. It makes a different promise: that the Mac's device ID and the times it
     /// is connected never reach a server at all. That is the promise the FAQ makes, and it is
     /// only keepable if this actually gates every dial — see ``connectToTrusted(hostID:)``,
-    /// ``reconnectToLastHost()`` and ``resumeIfNeeded()``, which are all of them.
+    /// ``reconnectToLastHost()``, ``resumeIfNeeded()`` and ``pairWithRemoteMac(hostID:)``,
+    /// which are all of them.
     ///
     /// Read through `object(forKey:)` rather than `bool(forKey:)` so that unset is
     /// distinguishable from off. The default is on, which is the behaviour the app had before

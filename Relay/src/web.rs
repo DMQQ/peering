@@ -697,7 +697,7 @@ mod tests {
         // work when the site directory is missing or unreadable, because "the relay is up" and
         // "the site is deployed" are different questions and a monitor wants the first.
         let response = respond(
-            "GET /healthz HTTP/1.1\r\nHost: peering.dmqq.dev\r\n",
+            "GET /healthz HTTP/1.1\r\nHost: getpeering.app\r\n",
             Path::new("/nonexistent-site-root"),
         )
         .await;

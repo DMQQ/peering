@@ -48,6 +48,35 @@ enum SharedStore {
             defaults?.set(data, forKey: "knownMacs")
         }
     }
+
+    /// One SSH server the phone knows about.
+    ///
+    /// Mirrored for two reasons rather than one. `KnownMac` is here because the widget's process
+    /// cannot read the app's `UserDefaults`; this is here for that *and* for Siri, which resolves
+    /// "open a shell on prod" into a server at moments when the app is not running. An entity
+    /// query that could only see the app's own defaults would offer an empty list, and a
+    /// parameter with nothing to choose from is a phrase Siri simply refuses.
+    ///
+    /// Strings, not `SSHHost`: this file is compiled into the widget too, which does not link
+    /// `SSHCore` and has no use for a port number.
+    struct KnownServer: Codable, Identifiable, Hashable {
+        let id: String
+        let name: String
+        /// `user@host:port`, which is what tells two servers on one box apart.
+        let detail: String
+    }
+
+    /// The saved servers, in the order the app's list shows them — most recently used first.
+    static var knownServers: [KnownServer] {
+        get {
+            guard let data = defaults?.data(forKey: "knownServers") else { return [] }
+            return (try? JSONDecoder().decode([KnownServer].self, from: data)) ?? []
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults?.set(data, forKey: "knownServers")
+        }
+    }
 }
 
 /// The Live Activity's shape, compiled into **both** the app and the widget extension.

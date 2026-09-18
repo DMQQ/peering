@@ -13,7 +13,10 @@ import Security
 final class HostSession: @unchecked Sendable {
     /// The largest payload we will accept on the control channel. Commands and catalogs are
     /// small; anything approaching this is a bug or an attack.
-    private static let maxControlPayload = 64 * 1024
+    ///
+    /// Shared rather than repeated, because it is the number the video fallback cuts its
+    /// chunks to fit under — see ``ProtocolInfo/maxControlPayload``.
+    private static let maxControlPayload = ProtocolInfo.maxControlPayload
 
     private enum State {
         case awaitingRole
@@ -63,6 +66,14 @@ final class HostSession: @unchecked Sendable {
     private let pins: PinStore
     private let emit: @Sendable (HostEvent) -> Void
 
+    /// Whether this connection arrived through the relay rather than from this network.
+    ///
+    /// The session's own behaviour does not depend on it — TLS and the handshake are the same
+    /// either way, which is the whole point of the design — but the *user's* does. A pairing
+    /// prompt on a relayed connection is asking someone at this Mac to compare digits with a
+    /// person who is not in the room, and the card cannot say that unless it is told.
+    private let arrivedThroughRelay: Bool
+
     /// Invoked once the session is authenticated and may carry commands.
     var onCommand: (@Sendable (RemoteCommand) -> Void)?
     /// Invoked with the video connection once a client opens one.
@@ -70,6 +81,20 @@ final class HostSession: @unchecked Sendable {
     /// Used by relayed sessions that temporarily carry video on the control stream. Invoked only
     /// after the same pin/SAS authorization required by a normal video connection.
     var onAuthorized: (@Sendable (PeerConnection) -> Void)?
+    /// Called when an authorized client asks for video to move between transports.
+    ///
+    /// Routed from the session rather than decided here because a session knows only its own
+    /// connection, while the answer needs the video pipeline and the peer that is being served.
+    /// Given to the server, which has both.
+    var onVideoTransportRequest: (@Sendable (VideoTransportRequest) -> Void)?
+    /// Called when an authorized client asks for the secret that seals video datagrams.
+    ///
+    /// Answers with the secret, or `nil` for a refusal — and the refusal is silence rather
+    /// than an error, because there is nothing for the client to do about it: a Mac that does
+    /// not answer is a Mac still sending the picture down the stream this session already
+    /// has. The server holds the relay's allocation and the pipeline, which are the two
+    /// things this needs and the two things a session does not have.
+    var onVideoKeyRequest: (@Sendable () -> Data?)?
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
     var onRequestClipboard: (@Sendable () -> String?)?
     /// Called when the client pushes its clipboard to the host.
@@ -87,6 +112,33 @@ final class HostSession: @unchecked Sendable {
     /// for a connection the UI was told about in the first place.
     private var announced = false
 
+    /// When the last frame arrived from this client, and what stops a session outliving its peer.
+    ///
+    /// The client pings once a second — see `ClientSession.startPinging` — so silence here is
+    /// evidence rather than an inference. It exists because TCP does not reliably report that a
+    /// peer is gone: a phone whose app is killed while the network has already moved on sends no
+    /// FIN, and the host then holds a session that is still authorized, still suppresses the
+    /// Bonjour advertisement, and is still shown as connected, indefinitely. That is not
+    /// hypothetical — it is what a Mac left invisible on its own network for eighteen minutes
+    /// with a session the phone had long forgotten looked like.
+    ///
+    /// Written in ``handle(_:)`` and read by the server's reaper, both on the server's serial
+    /// queue — the same reason ``state`` needs no lock.
+    private var lastHeard = DispatchTime.now()
+
+    /// Seconds since anything arrived from this client.
+    var silence: TimeInterval {
+        Double(DispatchTime.now().uptimeNanoseconds - lastHeard.uptimeNanoseconds) / 1_000_000_000
+    }
+
+    /// Set when *we* end this session, so its close is not reported as a failure.
+    ///
+    /// The two are indistinguishable at the socket: a client that vanished and a session the
+    /// host just closed both produce a cancelled connection. Without this, reaping a device that
+    /// simply went quiet reports "Connection ended: Operation canceled" against its name — an
+    /// error message about nothing, shown under a device the user only wanted to stop seeing.
+    private var closedByHost = false
+
     // Pairing ephemerals. Generated per attempt, never persisted — they exist only to
     // contribute entropy the other side cannot predict.
     private var localEphemeral: P256.KeyAgreement.PrivateKey?
@@ -100,12 +152,14 @@ final class HostSession: @unchecked Sendable {
         identity: SelfSignedIdentity,
         device: DeviceIdentity,
         pins: PinStore,
+        arrivedThroughRelay: Bool,
         emit: @escaping @Sendable (HostEvent) -> Void
     ) {
         self.connection = connection
         self.identity = identity
         self.device = device
         self.pins = pins
+        self.arrivedThroughRelay = arrivedThroughRelay
         self.emit = emit
     }
 
@@ -120,7 +174,7 @@ final class HostSession: @unchecked Sendable {
             // A close that follows our own `fail` carries no new information — the real
             // explanation was already emitted, and the cancellation error it produces
             // ("Operation canceled") would read in the UI as a second, unrelated problem.
-            if let error, state != .failed {
+            if let error, state != .failed, !closedByHost {
                 emit(.failed("Connection ended: \(error.localizedDescription)"))
             }
 
@@ -137,6 +191,7 @@ final class HostSession: @unchecked Sendable {
     }
 
     func cancel() {
+        closedByHost = true
         connection.cancel()
     }
 
@@ -187,6 +242,10 @@ final class HostSession: @unchecked Sendable {
     // MARK: - Message handling
 
     private func handle(_ frame: Frame) {
+        // Stamped before anything is done with it, and for every frame rather than only pings:
+        // a client that is sending video requests but has stopped answering pings is no more
+        // present than one that has stopped entirely, and liveness is "anything at all arrived".
+        lastHeard = DispatchTime.now()
         do {
             try route(frame)
         } catch {
@@ -363,7 +422,11 @@ final class HostSession: @unchecked Sendable {
             serverIdentityPublicKey: identity.publicKeyBytes
         )
 
-        emit(.pairingCode(code: PairingSAS.code(for: transcript), clientName: clientName))
+        emit(.pairingCode(
+            code: PairingSAS.code(for: transcript),
+            clientName: clientName,
+            isRemote: arrivedThroughRelay
+        ))
         state = .awaitingConfirmation
     }
 
@@ -429,6 +492,23 @@ final class HostSession: @unchecked Sendable {
             onTerminalRequest?(request) { [weak self] event in
                 self?.sendTerminalEvent(event)
             }
+
+        case .videoTransport:
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.videoTransport, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let request = try decode(VideoTransportRequest.self, from: frame, as: .videoTransport)
+            onVideoTransportRequest?(request)
+
+        case .videoKeyRequest:
+            // A question with no payload. What it asks — may this session send video over the
+            // relay's datagram path — is answered from the server's own state, so there is
+            // nothing here to read and nothing to refuse for being malformed.
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.videoKeyRequest, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            guard let secret = onVideoKeyRequest?() else { return }
+            send(MessageKind.videoKey, VideoKeyGrant(secret: secret))
 
         default:
             throw SessionError.unexpectedMessage(frame.kind)

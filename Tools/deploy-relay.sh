@@ -131,7 +131,8 @@ install -m 644 /tmp/peeringd-healthcheck.service /etc/systemd/system/peeringd-he
 install -m 644 /tmp/peeringd-healthcheck.timer /etc/systemd/system/peeringd-healthcheck.timer
 rm -f /tmp/peeringd-healthcheck.sh /tmp/peeringd-healthcheck.service /tmp/peeringd-healthcheck.timer
 systemctl daemon-reload
-# `enable` as well as start, or the check exists until the next reboot and then does not.
+# Enable as well as start, or the check exists until the next reboot and then does not.
+# (No backticks in here: this heredoc is unquoted, so the remote shell would run them.)
 systemctl enable --now peeringd-healthcheck.timer >/dev/null 2>&1 || true
 
 systemctl restart peeringd
@@ -144,6 +145,6 @@ echo "==> verifying"
 ssh "${SSH_ARGS[@]}" "$SSH_TARGET" 'curl -s --max-time 5 http://127.0.0.1:8080/healthz || echo "healthz did not answer"'
 # Then from here, through whatever terminates TLS — which is the half a user meets, and the half
 # that was answering 502 while the relay itself was fine.
-curl -s --max-time 10 https://peering.dmqq.dev/healthz || echo "(the public hostname did not answer)"
+curl -s --max-time 10 https://getpeering.app/healthz || echo "(the public hostname did not answer)"
 echo
 echo "==> done. 'systemctl status peeringd' and 'journalctl -u peeringd -n 30' on the box for the rest."

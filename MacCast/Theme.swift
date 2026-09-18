@@ -119,6 +119,39 @@ enum Motion {
     /// rather than after it.
     static let tap = Animation.smooth(duration: 0.18)
 
+    /// A screen arriving: the Connect header, the cards under it, a page of the tour.
+    ///
+    /// Critically damped, and it is the only spring here that is. `settle` and `morph` are allowed
+    /// their give because both are moving a shape the user is already looking at — a panel
+    /// appearing, a pill opening into a panel — and the overshoot is what says the thing has
+    /// weight. An entrance is not that. It is a whole screen arriving in a dozen pieces, each on
+    /// its own delay, and give in every one of them means the last frames disagree about which way
+    /// is down: the header is still coming up while the first card is already settling, and the
+    /// screen reads as restless rather than as arrived, however good any one piece looks.
+    ///
+    /// Long, for the same reason. Nothing here is answering a finger — it is the first thing the
+    /// screen does, it does it once, and the distance travelled is large: the mark comes down from
+    /// a centred display size to a header one. Cut it short and the movement becomes a jump.
+    static let arrive = Animation.spring(response: 0.52, dampingFraction: 1)
+
+    /// The Connect header's journey from the middle of the screen to its corner, in two halves.
+    ///
+    /// Two curves rather than one, and that is the whole of it: the leftward travel and the upward
+    /// one are separate animations of separate values, so the mark does not take the diagonal.
+    /// A straight line between two points is the one path that reads as a transition rather than
+    /// as something moving — the header being the one thing on the screen the eye is given before
+    /// anything else, it is worth the second curve.
+    ///
+    /// `travel` leads and `rise` follows, so the mark leaves the middle going left and climbs into
+    /// its corner at the end of the movement rather than cutting across the screen. The split is
+    /// well short of an L: both curves are still running for most of the journey, and the bow
+    /// between them is what is left of the straight line.
+    ///
+    /// They have to share a duration. Two curves of different lengths are two arrivals, and the
+    /// mark would land, move again, and land.
+    static let travel = Animation.timingCurve(0.3, 0.6, 0.32, 1, duration: 0.88)
+    static let rise = Animation.timingCurve(0.55, 0.12, 0.32, 1, duration: 0.88)
+
     /// The status pill opening into the status panel, and back.
     ///
     /// Its own speed, and slower than `settle`: nothing is arriving here — one shape is becoming
@@ -230,6 +263,242 @@ enum PreferenceKey {
     /// session: someone who does not want to hear what the Mac is playing does not want to hear
     /// it next time either.
     static let hostAudioMuted = "Peering.hostAudioMuted"
+    /// Whether Live Activities are shown during a session (Lock Screen and Dynamic Island).
+    static let liveActivities = "Peering.liveActivities"
+    /// The input protocol selected for the on-screen keyboard.
+    static let keyboardMode = "Peering.keyboardMode"
+    /// The bitrate preset a session runs at.
+    ///
+    /// Persisted because it is a decision about the picture rather than about one session — the
+    /// same reasoning as ``hostAudioMuted``. It is also the only way the Settings tab can offer
+    /// the setting at all: that tab is unreachable while connected (``ContentView`` swaps the
+    /// whole tab bar for the remote screen), so it can write a preference and never a command.
+    /// The session adopts this when it arrives — see ``SessionModel/applyInitialQuality()``.
+    static let streamQuality = "Peering.streamQuality"
+    /// Whether the one-time offer that follows a user's first finished session has been made.
+    ///
+    /// A flag rather than `sessionHistory.count == 1`. The history keeps the last thirty records
+    /// and prunes the rest, so its count answers "how much is stored"; this answers "what has
+    /// already been said", which is the only question the offer has.
+    static let offeredAfterFirstSession = "Peering.offeredAfterFirstSession"
+    /// Which 24-hour window the "running low" offer was last made in, as the window's own number.
+    ///
+    /// The relay counts its allowance in epoch seconds divided into days — see `Relay/src/quota.rs`
+    /// — and this stores the bucket that came out rather than a moment. The only question ever
+    /// asked of it is whether it is the bucket we are in now, and two spellings of one instant is
+    /// how a comparison starts disagreeing with itself.
+    static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"
+}
+
+/// The shared backdrop for every root tab: near-black with one soft light from above.
+struct AppBackdrop: View {
+    var body: some View {
+        ZStack {
+            ColorPalette.backdrop
+            RadialGradient(
+                colors: [.white.opacity(0.07), .clear],
+                center: .top,
+                startRadius: 0,
+                endRadius: 460
+            )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+/// The one place the display face is named.
+///
+/// Reached for anything set as a *name* rather than as a label: the wordmark, a screen's title, the
+/// headings of the tour. Named once because a face is a decision and not a value — four separate
+/// `design: .serif` spellings are four chances for one of them to be left behind the day the app
+/// picks a different face, and what that looks like is one heading in the app that is not like the
+/// others, which is the sort of thing that reads as a mistake without anyone being able to say why.
+enum DisplayFont {
+    static func display(_ size: CGFloat) -> Font {
+        .system(size: size, weight: .bold, design: .serif)
+    }
+
+    static func display(_ style: Font.TextStyle) -> Font {
+        .system(style, design: .serif).weight(.bold)
+    }
+}
+
+/// The display face, at a size an animation can interpolate.
+///
+/// `Text` cannot be resized the way a frame can. `.font()` is a discrete change — a name that
+/// changes size jumps between the two sizes — so a label that resizes while everything around it
+/// glides is the one part of a movement that does not move, however smoothly the rest of it goes.
+/// That is what the Connect header's fold was: a mark travelling to its corner with a name
+/// snapping under it, twice, at the size changes.
+///
+/// `Animatable` is the whole of the fix. The interpolated size arrives as a new value on every
+/// frame of the animation and the label is re-rendered at it, so the name grows and shrinks with
+/// the geometry rather than between two states of it. It costs a re-render per frame, which is
+/// worth paying for the one label in the app whose size changes while it moves.
+struct AnimatableDisplay: ViewModifier, Animatable {
+    var size: CGFloat
+    var tracking: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(size, tracking) }
+        set {
+            size = newValue.first
+            tracking = newValue.second
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .font(DisplayFont.display(size))
+            .tracking(tracking)
+    }
+}
+
+/// A row's subject: one glyph, in a rounded tile.
+///
+/// The Connect screen uses it for a device, the Sessions screen for a past connection, and the
+/// settings rows use the same object at a third of the size (``Controls/icon(_:tint:)``) for a
+/// switch's subject. One shape at two scales rather than two shapes that happen to look similar.
+///
+/// It lives here rather than as a method on whichever screen needed it first, because it *was* a
+/// method on whichever screen needed it first — and the second screen copied the body out by hand
+/// rather than reaching for it, which is how two copies of one surface style start drifting.
+struct IconTile: View {
+    let symbol: String
+    var size: CGFloat = 42
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size * 0.405, weight: .medium))
+            .foregroundStyle(ColorPalette.ink)
+            .frame(width: size, height: size)
+            .background {
+                RoundedRectangle(cornerRadius: size * 0.286, style: .continuous)
+                    .fill(ColorPalette.ink.opacity(0.12))
+            }
+    }
+}
+
+/// The wordmark, with a light travelling across it.
+///
+/// Both screens that show the app's name — the introduction and the Connect header — show it with
+/// the same light crossing it, which is the point: it is the one piece of the app that is a *sign*
+/// rather than an interface, and a sign that behaves differently in two places is not one.
+///
+/// The one thing here that moves without being asked to, and it earns that by being the only thing
+/// on either screen that is *not* an interface. A light crossing a name is how a sign says it is
+/// lit; it says it without moving a letter, changing a colour, or making anyone wait, which is more
+/// than any of the alternatives manage — letters that rise in sequence trade legibility for a
+/// second, and a word that changes colour is asking to be looked at rather than read.
+///
+/// The name is painted at 88% rather than at full white, and that is not a shade of choice. Light
+/// crossing light is nothing: the sweep is invisible against a wordmark already at the maximum, so
+/// the effect and the brightness are the same decision.
+struct Wordmark: View {
+    let size: CGFloat
+    let tracking: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// When the light started, so the sweep begins on the frame the name does rather than
+    /// wherever in an absolute cycle the clock happened to be.
+    @State private var began = Date()
+
+    /// One crossing, and the pause after it.
+    private static let crossing: TimeInterval = 1.6
+    private static let cycle: TimeInterval = 4.2
+
+    private var label: some View {
+        Text("Peering")
+            .modifier(AnimatableDisplay(size: size, tracking: tracking))
+    }
+
+    var body: some View {
+        label
+            // Not full white, and that is the effect's doing rather than the palette's: light
+            // crossing light is nothing, so a name already at the maximum leaves the sweep nowhere
+            // to go. At 78% the crossing reads as the light arriving and the name being left
+            // brighter for a moment, which is the whole of what a reflection off a wordmark is.
+            .foregroundStyle(ColorPalette.ink.opacity(0.78))
+            .overlay {
+                if !reduceMotion {
+                    GeometryReader { geometry in
+                        let width = geometry.size.width
+                        let height = geometry.size.height
+                        // A timeline rather than a repeating animation, and it is not a preference.
+                        // This was `withAnimation(.linear(...).repeatForever)` kicked off from
+                        // `onAppear`, and it looked right for exactly as long as the header took to
+                        // fold: the name's own size changes at the end of the entrance, the
+                        // animation on top of it is cancelled by the re-layout that follows, and
+                        // because the view's identity survives the change `onAppear` never fires
+                        // again. What was left was a sweep that had run once, stopping off the side
+                        // of the name where it could not be seen — indistinguishable from an
+                        // effect that never worked. A timeline has no transaction to be cancelled
+                        // by and reads the clock directly.
+                        TimelineView(.periodic(from: .now, by: 1.0 / 20.0)) { context in
+                            band(width: width, height: height, elapsed: context.date.timeIntervalSince(began))
+                        }
+                        .mask { label }
+                    }
+                    .allowsHitTesting(false)
+                }
+            }
+    }
+
+    /// The light itself: a soft band, travelling left to right and then out of sight.
+    private func band(width: CGFloat, height: CGFloat, elapsed: TimeInterval) -> some View {
+        // Travelling from well off one side to well off the other, so that the crossing is the
+        // first two fifths of a cycle that spends the rest of it beyond the last letter. The pause
+        // at either end is what keeps this a detail rather than a strobe: a sweep that restarts
+        // the moment it leaves is a loop, and a loop is a thing the eye starts waiting for.
+        let progress = min(max(elapsed.truncatingRemainder(dividingBy: Self.cycle) / Self.crossing, 0), 1)
+        return LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white.opacity(0.9), location: 0.5),
+                .init(color: .white.opacity(0), location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        // A band rather than a hard line: a gradient a third of the name wide, brightest in the
+        // middle, is a reflection. The same thing at a tenth of the width is a scanning bar, which
+        // reads as the app doing something rather than as the light falling on it — and much
+        // wider than this and there is no edge to the light, only a name that gets brighter.
+        .frame(width: width * 0.34, height: height)
+        .offset(x: (progress * 3 - 1.5) * width)
+        .frame(width: width, height: height)
+    }
+}
+
+/// A reliable tab heading that does not disappear with navigation-bar scroll state.
+struct TabScreenHeader: View {
+    let title: String
+    let detail: String?
+
+    init(_ title: String, detail: String? = nil) {
+        self.title = title
+        self.detail = detail
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            // The display face, so a screen's title belongs to the same family as the wordmark that
+            // opens the app and the headings inside the tour. The label under it stays in the system
+            // face: one of these is the screen's name and the other is a sentence about it, and
+            // setting both in the display face would make the tagline read as a second title.
+            Text(title)
+                .font(DisplayFont.display(34))
+                .tracking(-1.2)
+            if let detail {
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityAddTraits(.isHeader)
+    }
 }
 
 /// A section heading: small, tracked, uppercase.
@@ -251,18 +520,39 @@ struct SectionLabel: View {
 }
 
 extension View {
-    /// A card, lit from above.
+    /// A card, drawn on the backdrop rather than laid on top of it.
     ///
     /// The stroke is a gradient rather than one flat opacity: brighter along the top edge and
     /// fading down the sides is how a raised surface catches light, and it is the whole
     /// difference between a rectangle drawn on the background and a panel sitting in front of it.
     /// It costs nothing but a gradient, and no colour is added to do it.
+    ///
+    /// There is no fill, and taking it away was the fix rather than a tidy-up. It used to be
+    /// ``ColorPalette/surface`` — white at 7% — and white at 7% over a near-black backdrop is not
+    /// a raised surface, it is a grey one. Every card on every screen became the same flat grey
+    /// panel, one shade lighter than the page it sat on and one shade darker than the rows inside
+    /// it, so the three levels a card needs — page, card, row — collapsed into three greys a few
+    /// points apart. That is the shape that reads as a mistake without anyone being able to name
+    /// it. Outlined instead, the card keeps its edge from the stroke and its depth from the
+    /// backdrop's own light, and the picture behind it is never covered up.
     func cardSurface() -> some View {
         self
             .padding(16)
+            .cardBackground()
+    }
+
+    /// The card's shape alone, for a card built out of more than one block.
+    ///
+    /// The Connect screen's two halves — nearby, and the Macs already paired — are each padded
+    /// around a divider that runs the full width of the card, and the single 16-point inset
+    /// ``cardSurface()`` applies would pull that divider in to the padding instead of leaving it
+    /// at the card's edge, which is what makes them two sections of one card rather than two cards
+    /// with a gap between them.
+    func cardBackground() -> some View {
+        self
             .background {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(.thinMaterial)
+                    .fill(.clear)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)

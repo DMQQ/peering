@@ -83,6 +83,12 @@ public final class ClientSession: @unchecked Sendable {
         case config(VideoStreamConfig)
         case frame(EncodedVideoFrame)
         case ended(String)
+        /// Which channel the picture is coming down, after the client's own fallback decision.
+        ///
+        /// Reported rather than inferred by the UI, because the two lanes look identical on
+        /// screen and the difference is the whole explanation for why the picture is smaller
+        /// than it was. ``VideoTransport`` carries the reasoning.
+        case transport(VideoTransport)
     }
 
     public enum AudioEvent: Sendable {
@@ -100,14 +106,56 @@ public final class ClientSession: @unchecked Sendable {
         /// and the honest fallback for a network that blocks multicast.
         case address(host: String, port: UInt16)
         /// A previously paired Mac reached through `peeringd` by its stable device ID.
-        case relay(hostID: String, name: String, apiKey: String? = nil)
+        ///
+        /// `entitlement` is what this device can say about what it has bought: the receipt Apple
+        /// signed for the live subscription, the plan it claims, and the relay's own key. See
+        /// ``RelayEntitlement``, and ``RelayClientMessage/connectToHost`` for what the relay does
+        /// with each of the three.
+        case relay(hostID: String, name: String, entitlement: RelayEntitlement)
+
+        /// A Mac this device has never paired with, dialled by an ID the user typed or scanned.
+        ///
+        /// **A separate case rather than a flag, because the difference is a permission.**
+        /// ``relay(hostID:name:entitlement:)`` means "the Mac I know by this ID", and it is
+        /// refused outright when no pin is stored for it — a guard worth keeping exactly as it
+        /// is, since the only ID a device can be born knowing is one a user gave it. This case
+        /// means "a Mac I have never met", and what licenses the dial is that a person read the
+        /// ID off the other machine and typed or scanned it. Spelling that as its own case means
+        /// no default, no boolean and no call site can arrive here by accident: every switch
+        /// over ``Target`` has to say what it does about an unpaired Mac, and the compiler asks.
+        ///
+        /// What arrives here is an **address, not a credential**. A device ID is not a secret —
+        /// the Mac shows it, the relay routes by it, and anyone who can read a QR code can
+        /// repeat it. Authorising a connection on one would be authorising it on a string a
+        /// stranger can copy. The authentication is still the six digits both screens show and
+        /// the two people compare, exactly as they do across a desk; this case removes the
+        /// requirement that the two devices can see each other, and nothing else. See
+        /// ``PairingPayload`` for why the two codes are different kinds of thing.
+        case relayPairing(hostID: String, name: String, entitlement: RelayEntitlement)
 
         public var displayName: String {
             switch self {
             case .discovered(let host): return host.name
             case .address(let host, let port): return "\(host):\(port)"
-            case .relay(_, let name, _): return name
+            case .relay(_, let name, _), .relayPairing(_, let name, _): return name
             }
+        }
+
+        /// The Mac's device ID, for the targets that name one rather than an address.
+        ///
+        /// `nil` for a literal address, which says nothing about *which* Mac is at it.
+        var hostID: String? {
+            switch self {
+            case .discovered(let host): return host.id
+            case .relay(let hostID, _, _), .relayPairing(let hostID, _, _): return hostID
+            case .address: return nil
+            }
+        }
+
+        /// Whether this dial is a first pairing, where no pin is expected to exist yet.
+        var isFirstPairing: Bool {
+            if case .relayPairing = self { return true }
+            return false
         }
     }
 
@@ -118,6 +166,16 @@ public final class ClientSession: @unchecked Sendable {
         case commitmentMismatch
         case noServerKey
         case pinMismatch(hostID: String)
+        /// The Mac that answered through the relay is not the one whose ID was dialled.
+        ///
+        /// A routing check, and nothing more. The relay routes by device ID, so a Mac that
+        /// reports a different one means the user typed or scanned the wrong Mac's code, or
+        /// scanned it badly — a mistake worth catching in the second it takes to appear rather
+        /// than leaving them to compare six digits that can never match and conclude the app is
+        /// broken. It is deliberately *not* doing any of the authenticating: the ID is a name
+        /// the relay and the Mac both know, and only the code comparison covers the case where
+        /// the relay itself answers with something it is not.
+        case hostIDMismatch(dialled: String, answered: String)
         case unexpected(MessageKind, expected: String)
         case identity(String)
 
@@ -169,6 +227,8 @@ public final class ClientSession: @unchecked Sendable {
                 return "The Mac's certificate did not expose a public key, so it cannot be pinned."
             case .pinMismatch(let hostID):
                 return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the stored pin."
+            case .hostIDMismatch(let dialled, let answered):
+                return "A different Mac answered: \(answered), not \(dialled). Check that the code you scanned or typed came from the Mac you meant."
             case .unexpected(let kind, let expected):
                 return "Expected \(expected) from the Mac, got \(kind)."
             case .identity(let detail):
@@ -206,6 +266,69 @@ public final class ClientSession: @unchecked Sendable {
     private var pingSentAt: DispatchTime?
     /// The last few round trips, newest last. See ``reportLatency()``.
     private var latencySamples: [Double] = []
+
+    /// The video transport watchdog: the rules, and the three things it watches. See
+    /// ``evaluateVideoTransport()``.
+    private var videoWatchTask: Task<Void, Never>?
+    private var fallbackPolicy = VideoFallbackPolicy()
+    /// When a picture last arrived, on either lane. The fallback's whole input.
+    private var lastPictureAt: TimeInterval?
+    /// When the control channel last answered anything.
+    private var lastControlReplyAt: TimeInterval?
+    /// Chunks in from the control channel, pictures out. Only ever fed from the control lane:
+    /// the preferred transport carries whole frames, which need no reassembly.
+    private var videoChunks = VideoChunkReassembler()
+    private var _videoFallbackEnabled = true
+    /// The lane the UI has already been told about, so a repeated request is not a repeated note.
+    private var announcedTransport: VideoTransport = .primary
+
+    /// The relay's allocation for this session, when there is one. Its video host and port are
+    /// where the Mac's datagrams come from, and its token is what this end binds with.
+    private var relaySession: RelaySession?
+    /// Whether this session wants the relay's datagram path, and has not opened it yet.
+    ///
+    /// **A flag rather than the act itself, and the delay is the point.** The lane is opened
+    /// when the Mac's description of the stream has arrived, not when the session becomes
+    /// ready — because the description is what the Mac sends it on. Opening before that puts
+    /// a race between the Mac's first config and the key that opens it: the Mac grants the
+    /// lane before its capture has produced anything to describe, sends the description down
+    /// the new lane the moment it has one, and if that datagram arrives before the grant does
+    /// the client cannot read it and the picture starts black. Waiting for a description that
+    /// travelled the control channel removes the race rather than losing a coin toss to it.
+    private var wantsVideoDatagrams = false
+    /// The socket the Mac's sealed video datagrams arrive on. Nil on every session that is
+    /// not a relayed one, and nil until the lane is opened.
+    private var videoDatagrams: VideoDatagramSocket?
+    /// The other half of that lane: the key, the replay window and the reassembler. Set when
+    /// the Mac's answer to ``MessageKind/videoKeyRequest`` arrives, and nil until then — a
+    /// datagram that arrives before it cannot be opened, which is why the Mac's first few
+    /// frames after a grant are wasted rather than late.
+    private var videoOpener: VideoDatagramOpener?
+    /// How many datagrams did not authenticate, and whether the user has been told.
+    ///
+    /// Counted rather than merely logged because the interesting case is the *rate*: one is a
+    /// corrupted packet, and one per picture is two ends that are not speaking the same key.
+    private var datagramFailures = 0
+    private var reportedDatagramFailure = false
+
+    /// Whether this session's video could be travelling a path that a network can block.
+    ///
+    /// Set by the caller from the *kind* of connection, because that is knowledge the session
+    /// does not have: a Mac found over Bonjour is on this network, where a missing picture is
+    /// a different problem with a different answer, while a relay session and a typed-in
+    /// address both cross networks nobody here controls. Moving a local session onto the
+    /// control channel would trade a fast picture for a slow one to solve a problem the local
+    /// network does not have.
+    public var videoFallbackEnabled: Bool {
+        get { lock.withLock { _videoFallbackEnabled } }
+        set { lock.withLock { _videoFallbackEnabled = newValue } }
+    }
+
+    /// The device ID a first pairing was dialled by, so the answer can be checked against it.
+    ///
+    /// Set by ``connect(to:timeout:)`` for every attempt — `nil` for the targets where the ID
+    /// is not the user's to give — and read once, when the Mac says who it is.
+    private var pairingHostID: String?
 
     private var ephemeral: P256.KeyAgreement.PrivateKey?
     private var nonce: Data?
@@ -292,10 +415,19 @@ public final class ClientSession: @unchecked Sendable {
         let pinned: Data? = {
             if case .discovered(let host) = target { return pins.pin(for: host.id) }
             if case .relay(let hostID, _, _) = target { return pins.pin(for: hostID) }
+            // Looked up and *not* insisted on. A first pairing has no pin by definition, and
+            // the requirement the target carries is that the user asked for this Mac; the pin
+            // is used when there is one, which is what happens when the same ID is dialled
+            // again by someone who already paired with it. What is skipped is only the
+            // refusal, and the handshake below still checks a stored pin if it finds one.
+            if case .relayPairing(let hostID, _, _) = target { return pins.pin(for: hostID) }
             // A literal address says nothing about *which* Mac is at it, so there is no pin
             // to insist on before the handshake. The post-handshake check below covers it.
             return nil
         }()
+        // Recorded for the post-handshake check, which is the one thing a first pairing
+        // cannot do without: the ID the user read off the other machine.
+        lock.withLock { pairingHostID = target.isFirstPairing ? target.hostID : nil }
 
         let connection = ClientConnection(label: "pl.dmq.peering.client.control")
         connection.onFrame = { [weak self] frame in self?.handle(frame) }
@@ -319,26 +451,30 @@ public final class ClientSession: @unchecked Sendable {
                     pinnedServerKey: nil,
                     timeout: timeout
                 )
-            case .relay(let hostID, _, let relayApiKey):
+            case .relay(let hostID, _, let entitlement):
+                // The guard this case has always had, unchanged. A relay dial to a Mac this
+                // device claims to know, with nothing in the pin store to back the claim, is
+                // refused here rather than at the far end.
                 guard let pin = pins.pin(for: hostID) else {
                     throw Failure.pinMismatch(hostID: hostID)
                 }
-                let allocation = try await RelaySignallingConnection.requestSession(
-                    at: ProtocolInfo.relaySignallingURL,
+                try await openRelayTunnel(
+                    to: connection,
                     hostID: hostID,
-                    clientID: clientID,
-                    apiKey: relayApiKey
-                )
-                let proxy = RelayControlProxy(session: allocation)
-                let endpoint = try await proxy.start()
-                lock.withLock {
-                    relayProxy = proxy
-                    usesRelayedSingleStream = true
-                }
-                try await connection.connect(
-                    to: endpoint,
-                    identity: identity,
+                    entitlement: entitlement,
                     pinnedServerKey: pin,
+                    timeout: timeout
+                )
+
+            case .relayPairing(let hostID, _, let entitlement):
+                // The same tunnel, without the refusal above. `pinned` is whatever the pin
+                // store happens to hold for this ID — see ``Target/relayPairing(hostID:name:entitlement:)``
+                // for what licenses that, and why the ID is not the secret in this exchange.
+                try await openRelayTunnel(
+                    to: connection,
+                    hostID: hostID,
+                    entitlement: entitlement,
+                    pinnedServerKey: pinned,
                     timeout: timeout
                 )
             }
@@ -369,11 +505,7 @@ public final class ClientSession: @unchecked Sendable {
 
         // 2. Say who we are. `wantsPairing` is advisory — the Mac decides, because only the
         //    Mac knows its own pin store.
-        let hostID: String? = {
-            if case .discovered(let host) = target { return host.id }
-            if case .relay(let hostID, _, _) = target { return hostID }
-            return nil
-        }()
+        let hostID = target.hostID
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
         connection.send(.clientHello, ClientHello(
             clientID: clientID,
@@ -385,6 +517,43 @@ public final class ClientSession: @unchecked Sendable {
         lock.withLock { state = .awaitingServerHello }
         emit(.phase(.handshaking))
         coalescer.start()
+    }
+
+    /// Opens the relay's tunnel to a Mac and connects to it through the far end.
+    ///
+    /// One implementation for both relay targets, because the only thing that differs between
+    /// them is the pin they arrive with — and it is the pin, not the plumbing, that the two
+    /// meanings turn on. Splitting this in two would mean two copies of the ordering below,
+    /// which is the part that has to be right.
+    private func openRelayTunnel(
+        to connection: ClientConnection,
+        hostID: String,
+        entitlement: RelayEntitlement,
+        pinnedServerKey: Data?,
+        timeout: TimeInterval
+    ) async throws {
+        let allocation = try await RelaySignallingConnection.requestSession(
+            at: ProtocolInfo.relaySignallingURL,
+            hostID: hostID,
+            clientID: clientID,
+            entitlement: entitlement
+        )
+        let proxy = RelayControlProxy(session: allocation)
+        let endpoint = try await proxy.start()
+        lock.withLock {
+            relayProxy = proxy
+            usesRelayedSingleStream = true
+            // Kept because the relay told this end where the Mac's video datagrams
+            // will come from and what to bind with, and there is no second chance to
+            // ask: the signalling socket is closed the moment the session is returned.
+            relaySession = allocation
+        }
+        try await connection.connect(
+            to: endpoint,
+            identity: identity,
+            pinnedServerKey: pinnedServerKey,
+            timeout: timeout
+        )
     }
 
     /// Claims the session for one connect attempt. Returns `false` if it is already in use,
@@ -439,6 +608,14 @@ public final class ClientSession: @unchecked Sendable {
         }
         guard let serverKey = lock.withLock({ _serverKey }) else {
             fail(Failure.noServerKey.errorDescription ?? "")
+            return
+        }
+
+        // Before the pin and before the pairing: is this the Mac that was dialled? Checked
+        // here rather than at the relay, which routes by ID but answers for whatever holds
+        // it. See ``Failure/hostIDMismatch(dialled:answered:)`` for what this is and is not.
+        if let dialled = lock.withLock({ pairingHostID }), hello.serverID != dialled {
+            fail(Failure.hostIDMismatch(dialled: dialled, answered: hello.serverID).errorDescription ?? "")
             return
         }
 
@@ -643,11 +820,14 @@ public final class ClientSession: @unchecked Sendable {
         // peer key, so it can only be opened once the handshake above has finished.
         if lock.withLock({ usesRelayedSingleStream }) {
             emit(.video(.connecting))
-            emit(.note("Remote session open; video is sharing the encrypted relay stream."))
+            // The relay's video transport is wanted, but not yet: see ``wantsVideoDatagrams``
+            // for why the request waits for the Mac's description of the stream.
+            lock.withLock { wantsVideoDatagrams = true }
         } else {
             openVideoIfNeeded()
         }
         startPinging()
+        startVideoWatch()
     }
 
     private func handleReady(_ frame: Frame) {
@@ -684,8 +864,13 @@ public final class ClientSession: @unchecked Sendable {
                 emit(.terminal(event))
             }
 
-        case .videoConfig, .videoFrame, .audioConfig, .audioFrame:
-            handleVideoFrame(frame)
+        case .videoConfig, .videoFrame, .videoChunk, .audioConfig, .audioFrame:
+            // Everything this connection delivers is the control lane, including whole frames
+            // when the session is a relayed one and the Mac has not granted a datagram lane.
+            handleVideoFrame(frame, from: .control)
+
+        case .videoKey:
+            handleVideoKey(frame)
 
         default:
             sessionLog.notice("ignoring unexpected \(String(describing: frame.kind), privacy: .public) on a ready session")
@@ -764,6 +949,11 @@ public final class ClientSession: @unchecked Sendable {
         let sample = Double(DispatchTime.now().uptimeNanoseconds - sent.uptimeNanoseconds) / 1_000_000
 
         let window = lock.withLock { () -> [Double] in
+            // A pong is the only thing that proves the control channel is working, and the
+            // fallback asks that question before it moves the session's whole picture onto
+            // this channel. Answered here because this is where a pong is known to have
+            // arrived, rather than by a second timer inferring it from the latency figure.
+            lastControlReplyAt = Self.monotonicNow()
             latencySamples.append(sample)
             if latencySamples.count > Self.latencyWindow { latencySamples.removeFirst() }
             return latencySamples
@@ -788,7 +978,8 @@ public final class ClientSession: @unchecked Sendable {
         video = connection
         lock.unlock()
 
-        connection.onFrame = { [weak self] frame in self?.handleVideoFrame(frame) }
+        // The dedicated video connection, which is the lane the fallback is a fallback *from*.
+        connection.onFrame = { [weak self] frame in self?.handleVideoFrame(frame, from: .primary) }
         connection.onClose = { [weak self] failure in
             guard let self else { return }
             self.lock.withLock { if self.video === connection { self.video = nil } }
@@ -827,16 +1018,177 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    private func handleVideoFrame(_ frame: Frame) {
+    /// Opens the relay's video datagram lane and asks the Mac for the key that opens it.
+    ///
+    /// Called once the Mac has described the stream, and only on a session that wants the
+    /// lane — see ``wantsVideoDatagrams``.
+    ///
+    /// **The bind goes first, and that ordering is the whole reason this is not one call.**
+    /// The relay forwards nothing to an address it has not been told about, and it is told by
+    /// a datagram consisting of this end's token and nothing else. So the socket binds the
+    /// moment it exists, the request for the key follows it over the control channel a round
+    /// trip later, and by the time the Mac's first sealed datagram can reach the relay the
+    /// address it is meant for is registered. The reverse order would spend the first frames
+    /// of every session on a relay that had nowhere to send them.
+    private func startVideoDatagrams() {
+        lock.lock()
+        guard wantsVideoDatagrams, videoDatagrams == nil, let relay = relaySession else {
+            lock.unlock()
+            return
+        }
+        let socket: VideoDatagramSocket
+        do {
+            socket = try VideoDatagramSocket(
+                host: relay.videoHost,
+                port: relay.videoPort,
+                token: relay.videoToken,
+                label: "pl.dmq.peering.client.video.datagrams"
+            )
+        } catch {
+            // Not fatal, and not silent either: without this socket the session still works,
+            // with the picture back on the stream the control channel shares.
+            //
+            // The wish is dropped rather than retried, because this failure has one cause — an
+            // allocation whose token or port is not what the wire contract fixes them at — and
+            // it will be the same cause on the next stream description as it was on this one.
+            wantsVideoDatagrams = false
+            lock.unlock()
+            sessionLog.error("could not open the relay's video datagram socket: \(String(describing: error), privacy: .public)")
+            emit(.note("Could not open the relay's video path; the picture will share the control channel."))
+            return
+        }
+        videoDatagrams = socket
+        datagramFailures = 0
+        reportedDatagramFailure = false
+        lock.unlock()
+
+        socket.onDatagram = { [weak self] datagram in self?.handleDatagram(datagram) }
+        socket.onFailure = { [weak self] error in
+            sessionLog.error("the video datagram socket failed: \(error.localizedDescription, privacy: .public)")
+            self?.emit(.note("The relay's video path stopped responding."))
+        }
+        // The bind and the keepalive that repeats it. A NAT binding that expires is a session
+        // that stops receiving video without anything on either end reporting a problem.
+        socket.start()
+
+        emit(.note("Remote session open; asking the Mac to send the picture directly."))
+        // The request carries nothing: the question is whether this session may use the relay's
+        // datagram path, and both ends can already see everything needed to answer that.
+        connection()?.send(Frame(kind: .videoKeyRequest))
+    }
+
+    /// The Mac's answer to ``MessageKind/videoKeyRequest``: the session's video secret.
+    ///
+    /// Only accepted once the socket exists, because a key with nowhere to receive is a value
+    /// that would sit in the session looking like a working lane. A Mac that does not answer
+    /// is a Mac still sending the picture down the relay's control stream, which is what this
+    /// session did before there was a datagram path at all.
+    private func handleVideoKey(_ frame: Frame) {
+        guard let grant = try? MessageCodec.decode(VideoKeyGrant.self, from: frame.payload),
+              grant.secret.count == VideoKeySchedule.secretSize
+        else {
+            sessionLog.error("the Mac sent a video key this build could not read")
+            return
+        }
+
+        let opener = VideoKeySchedule(secret: grant.secret).opener(direction: .hostToClient)
+        let accepted = lock.withLock { () -> Bool in
+            guard videoDatagrams != nil else { return false }
+            videoOpener = opener
+            return true
+        }
+        guard accepted else { return }
+        emit(.note("The Mac is sending video directly."))
+    }
+
+    /// One datagram from the relay, opened and fed into the same path a whole frame takes.
+    ///
+    /// There is one decoder and one renderer in this app, and both are downstream of
+    /// ``handleVideoFrame(_:from:)``. What comes out of the opener is the frame the Mac cut
+    /// up — never a chunk, which is why nothing here reassembles anything.
+    private func handleDatagram(_ datagram: Data) {
+        let outcome = lock.withLock { () -> Result<Frame?, any Error> in
+            guard let current = videoOpener else { return .success(nil) }
+            // Mutated in place rather than copied: the replay window and the partial picture
+            // being assembled *are* the state, and opening through a copy would forget both.
+            var opener = current
+            defer { videoOpener = opener }
+            do { return .success(try opener.open(datagram)) } catch { return .failure(error) }
+        }
+
+        switch outcome {
+        case .success(let frame):
+            guard let frame else { return }
+            handleVideoFrame(frame, from: .primary)
+
+        case .failure(let error):
+            // Counted, logged, and never dropped in silence. A datagram that does not
+            // authenticate is the only thing that tells "this network is losing video" apart
+            // from "these two ends are not speaking the same key", and the second of those
+            // has no other symptom at all.
+            let (total, firstTime) = lock.withLock { () -> (Int, Bool) in
+                datagramFailures += 1
+                let first = !reportedDatagramFailure
+                reportedDatagramFailure = true
+                return (datagramFailures, first)
+            }
+            // Every failure logged at picture rate would bury the log that explains it, so
+            // the first is reported and the rest are summarised as they accumulate.
+            if total == 1 || total % 512 == 0 {
+                sessionLog.error("""
+                    a video datagram did not authenticate \
+                    (\(String(describing: error), privacy: .public)) · \
+                    \(total, privacy: .public) so far
+                    """
+                )
+            }
+            if firstTime {
+                emit(.note("Some of the Mac's video datagrams could not be read; the picture may fall back to the control channel."))
+            }
+        }
+    }
+
+    /// One video-channel frame, from whichever lane delivered it.
+    ///
+    /// `transport` is not decoration. A picture arriving on the transport the session prefers
+    /// while the fallback is in force is the only evidence that the path works again, and it
+    /// is what the client's decision to go back is made of — see
+    /// ``VideoFallbackPolicy/notePrimaryPicture()``.
+    private func handleVideoFrame(_ frame: Frame, from transport: VideoTransport) {
+        // Chunked payloads are what the fallback looks like on the wire, and they are put back
+        // together into exactly the frame they were cut from. One level only: a chunk of a
+        // chunk is refused by the reassembler rather than followed.
+        if frame.kind == .videoChunk {
+            let reassembled = lock.withLock { () -> Frame? in
+                do {
+                    return try videoChunks.ingest(frame)
+                } catch {
+                    // Dropped, not fatal. A picture is worth less than the session, and the
+                    // next frame starts the assembly over from nothing.
+                    sessionLog.error("dropping a malformed video chunk: \(String(describing: error), privacy: .public)")
+                    return nil
+                }
+            }
+            guard let reassembled else { return }
+            handleVideoFrame(reassembled, from: transport)
+            return
+        }
+
         switch frame.kind {
         case .videoConfig:
+            note(pictureOn: transport)
             guard let config = try? MessageCodec.decode(VideoStreamConfig.self, from: frame.payload) else {
                 sessionLog.error("could not decode a video config")
                 return
             }
             emit(.video(.config(config)))
+            // A described stream is what the datagram lane waits for. See
+            // ``wantsVideoDatagrams``: the description has just arrived over the control
+            // channel, so the Mac is already streaming and the lane has something to carry.
+            startVideoDatagrams()
 
         case .videoFrame:
+            note(pictureOn: transport)
             do {
                 emit(.video(.frame(try EncodedVideoFrame(decoding: frame.payload))))
             } catch {
@@ -864,6 +1216,129 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
+    // MARK: - Video transport
+
+    /// Watches the picture for the one failure neither end otherwise sees.
+    ///
+    /// A blocked video transport looks from both sides exactly like a working session: the
+    /// control channel is up, the Mac answers, the status is green, and no picture comes. No
+    /// message in the protocol reports it, because nothing is missing — the frames are being
+    /// produced and are simply not arriving. So the client watches for the absence and says
+    /// so, which is the half of the loop the host cannot run. The rules are in
+    /// ``VideoFallbackPolicy``; what is here is the clock and the two observations it runs on.
+    private func startVideoWatch() {
+        lock.lock()
+        // The moment the session became ready is also the moment the first picture is
+        // measured from, and that *is* the session-start probe: three seconds of a ready
+        // session with a healthy control channel and nothing arriving is the answer, and no
+        // extra packet is sent to ask the question.
+        lastPictureAt = Self.monotonicNow()
+        lastControlReplyAt = nil
+        fallbackPolicy.reset()
+        guard videoWatchTask == nil else { lock.unlock(); return }
+        let task = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled, let self else { return }
+                self.evaluateVideoTransport()
+            }
+        }
+        videoWatchTask = task
+        lock.unlock()
+    }
+
+    /// Forgets the fallback's state and hands back the watch to cancel.
+    ///
+    /// Call with `lock` held — both callers are teardown paths that already have it — and
+    /// cancel the returned task after releasing it. `NSLock` is not recursive, so a version
+    /// of this that took the lock itself would deadlock the session on its way out.
+    private func stopVideoWatchLocked() -> Task<Void, Never>? {
+        let task = videoWatchTask
+        videoWatchTask = nil
+        fallbackPolicy.reset()
+        lastPictureAt = nil
+        lastControlReplyAt = nil
+        videoChunks = VideoChunkReassembler()
+        announcedTransport = .primary
+        // The datagram lane's state is the same kind of thing: a replay window and a partial
+        // picture describe a link, and both belong to the session that opened it. The socket
+        // itself is cancelled by the teardown paths, which have already been handed it.
+        wantsVideoDatagrams = false
+        videoOpener = nil
+        datagramFailures = 0
+        reportedDatagramFailure = false
+        return task
+    }
+
+    private func evaluateVideoTransport() {
+        let now = Self.monotonicNow()
+        lock.lock()
+        let decision = fallbackPolicy.advance(
+            now: now,
+            lastPictureAt: lastPictureAt,
+            lastControlReplyAt: lastControlReplyAt,
+            applies: _videoFallbackEnabled && state == .ready
+        )
+        lock.unlock()
+
+        switch decision {
+        case .none:
+            break
+
+        case .useControlChannel:
+            // A request rather than an instruction, and the host is right to treat it as one:
+            // it will not move a picture it has not been producing, because a Mac sitting on a
+            // still screen cannot tell a blocked path from nothing having changed either.
+            // Which is also why the ask is repeated on its own schedule — see ``VideoFallbackPolicy``
+            // — while what the *screen* is told happens once, when the lane actually changes.
+            connection()?.send(.videoTransport, VideoTransportRequest(
+                transport: .control,
+                reason: "no picture for \(Int(VideoFallbackPolicy.silenceBeforeFallback))s "
+                    + "on a control channel that is answering"
+            ))
+            announce(.control, note: "No video is arriving. Asking the Mac to send the picture over the control channel.")
+
+        case .usePrimaryTransport:
+            connection()?.send(.videoTransport, VideoTransportRequest(
+                transport: .primary,
+                reason: "video is arriving again on the transport it prefers"
+            ))
+            announce(.primary, note: "Video is arriving again on the faster path.")
+        }
+    }
+
+    /// Says which lane the picture is on, the first time it is on it.
+    ///
+    /// Once per change rather than once per decision, because a request that produced no
+    /// picture is repeated and the client would otherwise fill its own note list with the same
+    /// sentence — the ask is a packet, but the note is something a person reads.
+    private func announce(_ transport: VideoTransport, note: String) {
+        let changed = lock.withLock { () -> Bool in
+            guard announcedTransport != transport else { return false }
+            announcedTransport = transport
+            return true
+        }
+        guard changed else { return }
+        emit(.video(.transport(transport)))
+        emit(.note(note))
+    }
+
+    /// A picture arrived, on one lane or the other.
+    private func note(pictureOn transport: VideoTransport) {
+        lock.withLock {
+            lastPictureAt = Self.monotonicNow()
+            if transport == .primary { fallbackPolicy.notePrimaryPicture() }
+        }
+    }
+
+    /// Monotonic seconds, for the interval arithmetic above.
+    ///
+    /// `DispatchTime` rather than `Date`: these are intervals, and a device that syncs its
+    /// clock mid-session must not be able to look like three seconds of silence.
+    private static func monotonicNow() -> TimeInterval {
+        TimeInterval(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+    }
+
     // MARK: - Teardown
 
     private func controlClosed(_ failure: ClientConnection.Failure) {
@@ -889,12 +1364,16 @@ public final class ClientSession: @unchecked Sendable {
         let control = self.control
         let video = self.video
         let relayProxy = self.relayProxy
+        let datagrams = self.videoDatagrams
         self.control = nil
         self.video = nil
         self.relayProxy = nil
+        self.videoDatagrams = nil
+        self.relaySession = nil
         usesRelayedSingleStream = false
         pingTask?.cancel()
         pingTask = nil
+        let videoWatch = stopVideoWatchLocked()
         state = .idle
         _phase = .disconnected
         ephemeral = nil
@@ -902,8 +1381,10 @@ public final class ClientSession: @unchecked Sendable {
         remoteCommitment = nil
         lock.unlock()
 
+        videoWatch?.cancel()
         coalescer.flush()
         video?.cancel()
+        datagrams?.cancel()
         control?.cancel()
         relayProxy?.cancel()
         emit(.phase(.disconnected))
@@ -916,18 +1397,25 @@ public final class ClientSession: @unchecked Sendable {
         _phase = .failed(message)
         let video = self.video
         let relayProxy = self.relayProxy
+        let datagrams = self.videoDatagrams
         self.video = nil
         self.relayProxy = nil
+        self.videoDatagrams = nil
+        self.relaySession = nil
         pingTask?.cancel()
         pingTask = nil
+        let videoWatch = stopVideoWatchLocked()
         lock.unlock()
 
+        videoWatch?.cancel()
         guard !alreadyFailed else { return }
         sessionLog.error("session failed: \(message, privacy: .public)")
         emit(.phase(.failed(message)))
         // The video socket carries no handshake of its own and is authorized only by this
-        // control session, so it dies with it.
+        // control session, so it dies with it. The datagram lane is the same arrangement one
+        // step further out: the relay only forwards it while the session it belongs to lives.
         video?.cancel()
+        datagrams?.cancel()
         relayProxy?.cancel()
         connection()?.cancel()
     }

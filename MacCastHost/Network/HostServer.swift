@@ -32,10 +32,26 @@ final class HostServer: @unchecked Sendable {
     private let port: UInt16
 
     private var listener: NWListener?
+
+    /// Ends sessions whose client has stopped answering, so a dead connection cannot outlive it.
+    private var reaper: DispatchSourceTimer?
     private var controlSessions: [HostSession] = []
-    private var pendingRelayBridges: [RelayControlBridge] = []
-    private var activeRelayBridges: [RelayControlBridge] = []
+    private var pendingRelayBridges: [RelayTunnel] = []
+    private var activeRelayBridges: [RelayTunnel] = []
     private let terminalManager = TerminalSessionManager()
+
+    /// A relay session's local end, and the allocation the relay gave it.
+    ///
+    /// The two are kept together because they are only ever known together — the allocation
+    /// arrives on the signalling socket and the connection it belongs to is accepted a moment
+    /// later — and because the allocation is what a granted datagram lane is built from: the
+    /// address the relay wants this Mac's video sent to, and the token that says which session
+    /// is sending it. Without it a relayed session has no picture but the one on the control
+    /// stream, which is the arrangement the datagram path exists to leave.
+    private struct RelayTunnel {
+        let bridge: RelayControlBridge
+        let session: RelaySession
+    }
 
     /// Each video connection is tagged with the client key that authorized it, so it can be
     /// torn down when that client's control session ends.
@@ -45,6 +61,8 @@ final class HostServer: @unchecked Sendable {
     private var _onEvent: (@Sendable (HostEvent) -> Void)?
     private var _onCommand: (@Sendable (RemoteCommand) -> Void)?
     private var _onVideoConnection: (@Sendable (PeerConnection) -> Void)?
+    private var _onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
+    private var _onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
     private var _onRequestClipboard: (@Sendable () -> String?)?
     private var _onReceiveClipboard: (@Sendable (String) -> Void)?
 
@@ -61,6 +79,30 @@ final class HostServer: @unchecked Sendable {
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)? {
         get { callbackLock.withLock { _onVideoConnection } }
         set { callbackLock.withLock { _onVideoConnection = newValue } }
+    }
+
+    /// Called when a client asks for video to move between transports, with the key that
+    /// identifies it and the control connection the request arrived on.
+    ///
+    /// Three arguments rather than one because the decision needs all three: the key says
+    /// whether this client is the one being served, the connection is where the picture goes
+    /// if it moves, and the request says which way. The server is the only object that has the
+    /// control connection and the video pipeline in the same place.
+    var onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)? {
+        get { callbackLock.withLock { _onVideoTransport } }
+        set { callbackLock.withLock { _onVideoTransport = newValue } }
+    }
+
+    /// Called when a relayed client asks for the secret that seals video datagrams, with the
+    /// key that identifies it and the allocation the session came from.
+    ///
+    /// Answers with the secret when a datagram lane was set up for that client, or `nil` when
+    /// it was refused — which is what the session turns into silence rather than an error.
+    /// The key and the allocation are both here rather than in the session because only the
+    /// server knows which allocation a given connection arrived through.
+    var onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)? {
+        get { callbackLock.withLock { _onVideoKeyRequest } }
+        set { callbackLock.withLock { _onVideoKeyRequest = newValue } }
     }
 
     /// Called when any client requests the host clipboard. Return `nil` to send nothing.
@@ -150,6 +192,12 @@ final class HostServer: @unchecked Sendable {
 
         self.listener = listener
         listener.start(queue: queue)
+
+        let reaper = DispatchSource.makeTimerSource(queue: queue)
+        reaper.schedule(deadline: .now() + Self.reaperInterval, repeating: Self.reaperInterval)
+        reaper.setEventHandler { [weak self] in self?.reapSilentSessions() }
+        reaper.resume()
+        self.reaper = reaper
     }
 
     func stop() {
@@ -157,11 +205,13 @@ final class HostServer: @unchecked Sendable {
         // can deallocate the server before the async block runs. A weak capture would then
         // skip listener?.cancel(), leaving the port held and the next start() unable to bind.
         queue.async { [self] in
+            reaper?.cancel()
+            reaper = nil
             listener?.cancel()
             listener = nil
             for session in controlSessions { session.cancel() }
             for entry in videoConnections { entry.peer.cancel() }
-            for bridge in pendingRelayBridges + activeRelayBridges { bridge.cancel() }
+            for tunnel in pendingRelayBridges + activeRelayBridges { tunnel.bridge.cancel() }
             controlSessions.removeAll()
             videoConnections.removeAll()
             pendingRelayBridges.removeAll()
@@ -242,6 +292,47 @@ final class HostServer: @unchecked Sendable {
     ///
     /// Withdrawn on *authorization* rather than on connection, which is the distinction that
     /// keeps a failed handshake from hiding the Mac.
+    /// How long a session may go unheard before it is treated as gone.
+    ///
+    /// The app pings once a second for the whole life of a session, so this is sixty missed
+    /// pings — unambiguous, and far shorter than the "still connected" a vanished client used to
+    /// be shown as, which was however long the host stayed open.
+    ///
+    /// **Sixty rather than fifteen, and the difference is the point.** What this actually tests
+    /// is "the client sends nothing on control", and sending is a *client* behaviour rather than
+    /// something the protocol guarantees — which showed up immediately in testing. The probe
+    /// (`Tools/MacCastProbe`) speaks the protocol through a raw `FrameChannel` and never runs the
+    /// app's ping loop at all, so a `--video-recv` window went quiet on control by design and a
+    /// fifteen-second limit killed a session that was streaming 75 frames a second at the time.
+    /// A limit tuned to the app's cadence is a limit that breaks every other client, so this one
+    /// is set where only genuine absence reaches it.
+    ///
+    /// Still deliberately longer than the ~30 seconds iOS can grant an app in the background, so
+    /// that switching away and coming straight back does not cost the user their session.
+    private static let silenceLimit: TimeInterval = 60
+
+    /// How often to look. Well under the limit, so a session is ended within a few seconds of
+    /// going quiet rather than up to a whole interval late.
+    private static let reaperInterval: TimeInterval = 5
+
+    /// Ends sessions whose client has stopped answering.
+    ///
+    /// This is what makes the withdrawal in ``updateAdvertisement()`` safe to have. That
+    /// withdrawal is the right behaviour — a Mac mid-session should not be offering itself to a
+    /// second phone — but it means a session that the host believes in and the client does not
+    /// is a Mac that has removed itself from the network. Nothing else here would ever notice:
+    /// the connection stays open, `isAuthorized` stays true, and the 18-minute phantom that
+    /// prompted this had its last real frame long before it was looked at.
+    private func reapSilentSessions() {
+        for session in controlSessions where session.isAuthorized && session.silence > Self.silenceLimit {
+            sessionLog.notice("A device stopped answering; ending its session")
+            // `cancel()` closes the connection and the close handler does everything else —
+            // the session leaves the list, its video streams end, and the advertisement goes
+            // back up. Doing any of that here as well would do it twice.
+            session.cancel()
+        }
+    }
+
     private func updateAdvertisement() {
         guard let listener else { return }
         let inUse = controlSessions.contains { $0.isAuthorized }
@@ -258,8 +349,9 @@ final class HostServer: @unchecked Sendable {
     // MARK: - Connections
 
     private func accept(_ connection: NWConnection) {
-        let relayBridge = pendingRelayBridges.isEmpty ? nil : pendingRelayBridges.removeFirst()
-        if let relayBridge { activeRelayBridges.append(relayBridge) }
+        let tunnel = pendingRelayBridges.isEmpty ? nil : pendingRelayBridges.removeFirst()
+        if let tunnel { activeRelayBridges.append(tunnel) }
+        let relayBridge = tunnel?.bridge
         let peer = PeerConnection(connection: connection, queue: queue)
 
         let session = HostSession(
@@ -267,6 +359,9 @@ final class HostServer: @unchecked Sendable {
             identity: identity,
             device: device,
             pins: pins,
+            // A relayed connection reaches this same `accept` through the loopback bridge, so
+            // the pending allocation is the only thing that knows where it really came from.
+            arrivedThroughRelay: relayBridge != nil,
             emit: { [weak self] event in self?.emit(event) }
         )
         session.onCommand = { [weak self] command in
@@ -278,9 +373,27 @@ final class HostServer: @unchecked Sendable {
         session.onReceiveClipboard = { [weak self] text in
             self?.onReceiveClipboard?(text)
         }
+        session.onVideoTransportRequest = { [weak self, weak session] request in
+            guard let self, let session else { return }
+            // The control peer, not a lookup: this is the connection the request arrived on,
+            // so it is the connection that can carry the answer. The session's key is what
+            // ties it to the video connection already being served.
+            self.onVideoTransport?(session.peerPublicKey, request, peer)
+        }
         session.onTerminalRequest = { [weak self, weak session] request, sink in
             guard let self, let session else { return }
             self.terminalManager.handle(clientID: session.clientID, request: request, sink: sink)
+        }
+        // Only a session that arrived through the relay has anywhere to send datagrams, and
+        // the allocation that says where came in with it. A direct session's request is
+        // answered with the same silence as one from a client that is not being served: it has
+        // its own video connection, and a datagram path across the internet is not something
+        // this Mac can offer it.
+        if let relaySession = tunnel?.session {
+            session.onVideoKeyRequest = { [weak self, weak session] in
+                guard let self, let session else { return nil }
+                return self.onVideoKeyRequest?(session.peerPublicKey, relaySession)
+            }
         }
         session.onVideoConnection = { [weak self] videoPeer in
             guard let self else { return }
@@ -334,7 +447,7 @@ final class HostServer: @unchecked Sendable {
             self.updateAdvertisement()
             if let relayBridge {
                 relayBridge.cancel()
-                activeRelayBridges.removeAll { $0 === relayBridge }
+                activeRelayBridges.removeAll { $0.bridge === relayBridge }
             }
         }
 
@@ -353,7 +466,7 @@ final class HostServer: @unchecked Sendable {
                     session: relaySession,
                     localPort: self.port
                 )
-                self.pendingRelayBridges.append(bridge)
+                self.pendingRelayBridges.append(RelayTunnel(bridge: bridge, session: relaySession))
                 bridge.start()
             } catch {
                 self.emit(.failed("Could not open the relay control tunnel: \(error.localizedDescription)"))

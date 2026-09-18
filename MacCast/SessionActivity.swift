@@ -16,6 +16,10 @@ final class SessionActivity {
 
     private var activity: Activity<SessionActivityAttributes>?
 
+    private var isEnabled: Bool {
+        UserDefaults.standard.object(forKey: PreferenceKey.liveActivities) as? Bool ?? true
+    }
+
     private init() {}
 
     /// The one entry point, called beside the notifier on every phase change.
@@ -28,6 +32,10 @@ final class SessionActivity {
         deliberate: Bool = false,
         path: SessionActivityAttributes.Path? = nil
     ) {
+        guard isEnabled else {
+            end()
+            return
+        }
         guard previous != phase else { return }
 
         // A dropped session is put back on its own, and the card should say so rather than
@@ -91,6 +99,7 @@ final class SessionActivity {
         startedAt: Date?,
         path: SessionActivityAttributes.Path? = nil
     ) {
+        guard isEnabled else { return }
         show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
     }
 
@@ -104,7 +113,14 @@ final class SessionActivity {
         startedAt: Date?,
         path: SessionActivityAttributes.Path? = nil
     ) {
+        guard isEnabled else { return }
         show(.dropped, hostName: hostName, startedAt: startedAt, path: path)
+    }
+
+    /// Applies the Settings switch immediately. Enabling takes effect on the next connection;
+    /// disabling also removes a card that is already on the Lock Screen.
+    func preferenceChanged(enabled: Bool) {
+        if !enabled { end() }
     }
 
     /// Shows a state that is about the session rather than being it.
@@ -166,6 +182,7 @@ final class SessionActivity {
         attributes: SessionActivityAttributes,
         state: SessionActivityAttributes.ContentState
     ) {
+        guard isEnabled, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         do {
             activity = try Activity.request(
                 attributes: attributes,

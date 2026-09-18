@@ -26,7 +26,7 @@ extension HostStatusView {
             // something is live says more than a label that changes one word.
             HStack(alignment: .center, spacing: 14) {
                 Text(capturingTitle)
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(HostDisplayFont.display(26))
                     .tracking(-0.4)
                     .lineLimit(1)
 
@@ -101,10 +101,18 @@ extension HostStatusView {
             .clipShape(RoundedRectangle(cornerRadius: HostPalette.panelRadius - 3, style: .continuous))
         }
         .hostPrimaryPanel()
-        .scaleEffect(heroHovered ? 1.002 : 1)
-        .onHover { hovering in
-            withAnimation(HostMotion.hover) { heroHovered = hovering }
+        // The pointer's arrival used to scale this panel by two points in a thousand, which is
+        // not something anybody can see and was something everybody paid for: `scaleEffect` sits
+        // *outside* `hostPrimaryPanel`, so the panel's 28-point shadow was inside the animated
+        // content and had to be blurred again on every frame of the spring, for a movement of two
+        // points on a pane this wide. The bezel lighting up is the same acknowledgement for the
+        // price of one stroke, and a one-point stroke does not blur.
+        .overlay {
+            RoundedRectangle(cornerRadius: HostPalette.panelRadius + 3, style: .continuous)
+                .strokeBorder(HostPalette.ink.opacity(heroHovered ? 0.14 : 0), lineWidth: 1)
         }
+        .animation(HostMotion.hover, value: heroHovered)
+        .onHover { heroHovered = $0 }
     }
 
     /// The shape the frame should be.

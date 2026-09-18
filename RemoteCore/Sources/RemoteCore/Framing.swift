@@ -64,6 +64,39 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// Terminal snapshots, output, attention signals, and lifecycle events from the host.
     case terminalEvent = 0x16
+
+    /// One piece of a video payload travelling the control channel. See ``VideoChunk``.
+    ///
+    /// A fallback rather than a second stream: the bytes inside are the same bytes
+    /// ``videoFrame`` carries, cut into pieces a control message can hold. A network that
+    /// blocks the video transport leaves the session up and the picture missing, and this is
+    /// what the picture arrives as instead.
+    case videoChunk = 0x17
+
+    /// An authenticated client asking the host to move video between the transport it prefers
+    /// and the control channel. Carries a ``VideoTransportRequest``.
+    ///
+    /// It exists because the host cannot tell a datagram that arrived from one that was
+    /// dropped at the first router, while the client can see that nothing is arriving at all.
+    /// The end with the evidence is the end that speaks.
+    case videoTransport = 0x18
+
+    /// An authenticated client asking the Mac for the secret that seals video datagrams.
+    ///
+    /// Carries nothing: the question is "may this session send video over the relay's
+    /// datagram path", and everything needed to answer it is already known to both ends. A
+    /// client asks only on a relayed session — a direct one has its own video connection and
+    /// nothing to gain — and the Mac answers only when it is serving the client that asked.
+    case videoKeyRequest = 0x19
+
+    /// The Mac's answer to a ``videoKeyRequest``: the session's video secret. Carries a
+    /// ``VideoKeyGrant``.
+    ///
+    /// It travels inside the control channel's TLS session, which is authenticated at both
+    /// ends by the pairing, so nothing further is needed to protect it — and the relay, which
+    /// terminates neither end of that connection, never sees it. What the relay forwards
+    /// afterwards is ciphertext it has no key for.
+    case videoKey = 0x1A
 }
 
 public enum FramingError: Error, Equatable, Sendable {

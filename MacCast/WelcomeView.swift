@@ -21,18 +21,39 @@ struct WelcomeFlow: View {
 
     private enum Stage { case landing, tour }
 
+    /// The landing leaving to the left, the way the tour's own pages move.
+    ///
+    /// This was a cross-fade, and a cross-fade between these two screens is very nearly no
+    /// animation at all: both are the same near-black, both carry the same two buttons at the same
+    /// distance from the bottom, and the only part of the picture that changes is the block in the
+    /// middle. Measured against what the eye has to go on, two thirds of the screen is identical
+    /// before and after, so what the user sees is the middle of the page being redrawn — which is
+    /// how a screen that *has* an animation comes to be described as one that hasn't.
+    ///
+    /// A push answers the question the cross-fade left open: which way is forward. It is also the
+    /// direction the tour already moves in — its pages are swiped leftwards — so the landing
+    /// leaves the way a page does, and the tour arrives the way a page does.
+    private static let landingLeaves = AnyTransition.asymmetric(
+        insertion: .opacity,
+        removal: .move(edge: .leading).combined(with: .opacity)
+    )
+    private static let tourArrives = AnyTransition.asymmetric(
+        insertion: .move(edge: .trailing).combined(with: .opacity),
+        removal: .opacity
+    )
+
     var body: some View {
         ZStack {
             switch stage {
             case .landing:
                 LandingView(
-                    onStart: { withAnimation(Motion.settle) { stage = .tour } },
+                    onStart: { withAnimation(Motion.arrive) { stage = .tour } },
                     onSkip: onFinish
                 )
-                .transition(.opacity)
+                .transition(Self.landingLeaves)
             case .tour:
                 OnboardingView(onFinish: onFinish)
-                    .transition(.opacity)
+                    .transition(Self.tourArrives)
             }
         }
         // Both stages are portrait. `ContentView` already pins everything that is not the remote
@@ -42,10 +63,115 @@ struct WelcomeFlow: View {
     }
 }
 
+/// The landing's opening state and its resting state, as the two ends of one journey.
+///
+/// The same shape as the Connect header's own set — see `Hero` in `HostPickerView` — because the
+/// two are the same arrival, one screen apart: the mark opens large in the middle of the screen and
+/// settles into its corner as what follows arrives under it. Keeping the numbers local rather than
+/// sharing one table is deliberate. The two rest at different sizes for good reasons (this one is
+/// the first thing anyone sees and the mark is the whole of it), and a single table parameterised
+/// for both would be a table of exceptions.
+private enum LandingHero {
+    /// The mark's resting size, which is the size the asset is drawn at when the page is still.
+    static let restMark: CGFloat = 96
+    static let openMark: CGFloat = 136
+    static let restName: CGFloat = 42
+    static let openName: CGFloat = 56
+    static let restTracking: CGFloat = -1.5
+    static let openTracking: CGFloat = -2.6
+    static let restGap: CGFloat = 14
+    static let openGap: CGFloat = 22
+    /// The hero's resting height, held fixed while it moves.
+    ///
+    /// Load-bearing, and the reason the claims under it do not shuffle: the mark shrinks and the
+    /// name's point size changes on the way in, both of which are layout, and a hero that resized
+    /// itself would drag everything below it upward as it landed. The movement is an offset from
+    /// this frame instead. The Connect header pays the same price for the same reason.
+    static let height: CGFloat = 186
+    /// The hero's own top padding, which is also how far the mark sits below the top of the block
+    /// when it is not being measured.
+    static let topGap: CGFloat = 14
+}
+
 /// The hero, the claims, and the two ways out.
 private struct LandingView: View {
     var onStart: () -> Void
     var onSkip: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Whether the claims have arrived, which is the last of the four beats.
+    @State private var arrived = false
+    /// The hero's arrival, in the same four numbers the Connect screen uses: how far the mark has
+    /// appeared, how far the name has followed it, and how far the pair has travelled left and up.
+    /// Two of them are separate because they are separate curves — see ``Motion/travel``.
+    @State private var markZoom: CGFloat = 0
+    @State private var titleReveal: CGFloat = 0
+    @State private var heroTravel: CGFloat = 0
+    @State private var heroRise: CGFloat = 0
+    /// Measured once, while each is the width the centring wants — the state the hero is leaving.
+    /// See the same trick, and the same warning, on the Connect header.
+    @State private var nameWidth: CGFloat = 0
+    @State private var taglineWidth: CGFloat = 0
+    /// Where the page's block is laid out, in screen coordinates, and where the middle of the
+    /// screen is. Both are read from the *layout*, which an offset does not touch, so the opening
+    /// position is a subtraction rather than a guess about how tall the claims will be.
+    @State private var blockTop: CGFloat = 0
+    @State private var blockWidth: CGFloat = 0
+    @State private var viewportMidY: CGFloat = 0
+    @State private var entranceStarted = false
+
+    /// How long between one claim and the next.
+    ///
+    /// Small, and it has to be: six of them at a tenth of a second each is most of a second of
+    /// watching a list assemble itself, which is a thing to sit through rather than a thing to
+    /// read. This is the whole difference between the page introducing itself and the page
+    /// performing.
+    private static let stagger: Double = 0.055
+
+    /// What this does, in the order someone deciding would ask.
+    ///
+    /// Every line is checkable against the app, and the two that most often need correcting are
+    /// answered here rather than only in the FAQ: there is a relay, and it is named as one; and
+    /// the encryption is described as what it is — the two devices authenticating each other,
+    /// not a promise about a server that cannot read what it carries anyway.
+    private struct ClaimLine {
+        let icon: String
+        let title: String
+        let detail: String
+    }
+
+    private static let claimLines: [ClaimLine] = [
+        ClaimLine(
+            icon: "lock.shield",
+            title: "Encrypted, device to device",
+            detail: "Pair once, on the same network or across one. No account, nothing stored."
+        ),
+        ClaimLine(
+            icon: "network",
+            title: "Come back from anywhere",
+            detail: "After pairing, an end-to-end encrypted relay reaches your Mac remotely."
+        ),
+        ClaimLine(
+            icon: "hand.point.up.left",
+            title: "You actually drive it",
+            detail: "Pointer, keyboard, joystick, scroll wheel, macros."
+        ),
+        ClaimLine(
+            icon: "macwindow",
+            title: "A screen, an app, or one window",
+            detail: "Share any of them. Switch without reconnecting."
+        ),
+        ClaimLine(
+            icon: "rectangle.split.3x1",
+            title: "Every desktop you have",
+            detail: "All your Spaces, each shown as a picture."
+        ),
+        ClaimLine(
+            icon: "pip",
+            title: "Keeps going when you leave",
+            detail: "Picture in Picture, Live Activity, widget."
+        )
+    ]
 
     var body: some View {
         ZStack {
@@ -57,6 +183,15 @@ private struct LandingView: View {
                     hero
                     claims
                 }
+                // Where the block sits and how wide it is, read from the layout rather than from
+                // the frames of anything that moves. Two things depend on it: the width the hero
+                // centres itself against, and the distance from the mark's resting place to the
+                // middle of the screen — which is where the hero opens. None of that can be
+                // measured off the hero itself, whose offset would be part of the answer.
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                    blockTop = frame.minY
+                    blockWidth = frame.width
+                }
                 .padding(.horizontal, 18)
                 .padding(.vertical, 24)
                 // Fills the viewport and centres the block inside it, which is the other half of
@@ -65,6 +200,10 @@ private struct LandingView: View {
                 // it. Centred, the same space is split above and below and reads as margin rather
                 // than as something missing. Taller content still scrolls, unchanged.
                 .containerRelativeFrame(.vertical, alignment: .center)
+                // The middle of that viewport, which is where the hero starts from.
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midY } action: { midY in
+                    viewportMidY = midY
+                }
             }
             // Outside the scroll view, so the way forward is on screen from the first frame.
             // It was the last thing in the stack, which put both buttons below the fold on a
@@ -104,6 +243,81 @@ private struct LandingView: View {
             SkipButton(action: onSkip)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
+        .task { await arrive() }
+    }
+
+    /// The page arriving, in the order it wants to be read: the mark, then the name, then the hero
+    /// taking its place, then the claims one after another — the same four beats, on the same
+    /// curves, as the Connect header, because it is the same arrival seen from the other side.
+    ///
+    /// A beat of delay first, and not decoration. Setting a value in the same update as the view's
+    /// first render animates *from* the value it already has — the page simply appears, and the
+    /// code that looks like an entrance does nothing at all. It wants one frame on screen at the
+    /// starting value before anything moves.
+    private func arrive() async {
+        guard !entranceStarted else { return }
+        entranceStarted = true
+        guard !reduceMotion else {
+            markZoom = 1
+            titleReveal = 1
+            heroTravel = 1
+            heroRise = 1
+            arrived = true
+            return
+        }
+
+        try? await Task.sleep(for: .milliseconds(100))
+        withAnimation(Motion.arrive) { markZoom = 1 }
+
+        try? await Task.sleep(for: .milliseconds(520))
+        withAnimation(Motion.arrive) { titleReveal = 1 }
+
+        try? await Task.sleep(for: .milliseconds(600))
+        withAnimation(Motion.travel) { heroTravel = 1 }
+        withAnimation(Motion.rise) { heroRise = 1 }
+
+        try? await Task.sleep(for: .milliseconds(620))
+        withAnimation(Motion.arrive) { arrived = true }
+    }
+
+    private func entrance(delay: Double) -> Animation? {
+        reduceMotion ? nil : Motion.arrive.delay(delay)
+    }
+
+    /// How far something has to move to sit in the middle of the block's width, less the part of
+    /// that journey the hero has already made. The Connect header's rule, for its reason: alignment
+    /// cannot be travelled through, so the centring is an offset from a leading-aligned frame.
+    private func centred(_ size: CGFloat, in width: CGFloat) -> CGFloat {
+        (width - size) / 2 * (1 - heroTravel)
+    }
+
+    private var markSize: CGFloat {
+        LandingHero.restMark + (LandingHero.openMark - LandingHero.restMark) * (1 - heroTravel)
+    }
+
+    private var markGap: CGFloat {
+        LandingHero.restGap + (LandingHero.openGap - LandingHero.restGap) * (1 - heroTravel)
+    }
+
+    private var nameSize: CGFloat {
+        LandingHero.restName + (LandingHero.openName - LandingHero.restName) * (1 - heroTravel)
+    }
+
+    private var nameTracking: CGFloat {
+        LandingHero.restTracking + (LandingHero.openTracking - LandingHero.restTracking) * (1 - heroTravel)
+    }
+
+    /// Where the mark's middle sits when the page is still, and so how far down the hero has to be
+    /// drawn for it to open in the middle of the screen instead.
+    ///
+    /// Worked out from the block's laid-out top rather than measured off the mark, because the mark
+    /// carries the offset being solved for: measuring it would be asking it where it would be if it
+    /// were not where it is. The two inputs are layout, and layout is the same on the first frame
+    /// as on the last.
+    private var heroStartOffset: CGFloat {
+        guard viewportMidY > 0, blockTop > 0 else { return 0 }
+        let markRestMidY = blockTop + LandingHero.topGap + LandingHero.restMark / 2
+        return max(0, viewportMidY - markRestMidY) * (1 - heroRise)
     }
 
     /// The mark, the name, and the one sentence the whole app exists to make true.
@@ -113,28 +327,57 @@ private struct LandingView: View {
     /// presented as the app icon, because a rounded-square tile is what an icon looks like in a
     /// place that is *listing* apps, and this screen is not one of those.
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             Image("Pears")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 96, height: 96)
+                .frame(width: markSize, height: markSize)
+                .scaleEffect(markZoom)
+                .opacity(markZoom)
+                .padding(.bottom, markGap)
+                .offset(x: centred(markSize, in: blockWidth))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Peering")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .tracking(-1.5)
+                // The same wordmark the Connect screen shows, light and all. One name for the app
+                // rather than a rounded one on the way in and a serif one once you are past it —
+                // and the same sign, so the second screen reads as somewhere you have already been.
+                Wordmark(size: nameSize, tracking: nameTracking)
+                    .opacity(titleReveal)
+                    .offset(
+                        x: centred(nameWidth, in: blockWidth),
+                        y: 14 * (1 - titleReveal)
+                    )
+                    // Measured while it is still, and only while it is, for the reason the Connect
+                    // header gives: what the centring wants is the width of the state being left.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measured in
+                        guard heroTravel == 0 else { return }
+                        nameWidth = measured
+                    }
 
                 // The whole opening statement, and there is deliberately nothing else under it.
                 // A sentence explaining what the app is used to sit here; it said what this line
                 // already says, and two lines of prose above five rows of claims is how a first
                 // screen turns into something to get past rather than something to read.
                 Text("Your Mac, in your pocket.")
-                    .font(.system(.title3, design: .rounded).weight(.medium))
+                    .font(.system(.title3).weight(.medium))
                     .foregroundStyle(.secondary)
+                    .opacity(titleReveal)
+                    .offset(
+                        x: centred(taglineWidth, in: blockWidth),
+                        y: 10 * (1 - titleReveal)
+                    )
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measured in
+                        guard heroTravel == 0 else { return }
+                        taglineWidth = measured
+                    }
             }
         }
-        .padding(.top, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // The resting height, whatever the hero is doing on its way there — see `LandingHero.height`.
+        .frame(height: LandingHero.height, alignment: .topLeading)
+        .padding(.top, LandingHero.topGap)
+        .offset(y: heroStartOffset)
     }
 
     /// What it does, in the order someone deciding would ask.
@@ -145,42 +388,35 @@ private struct LandingView: View {
     /// not a promise about a server that cannot read what it carries anyway.
     private var claims: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Claim(
-                icon: "lock.shield",
-                title: "Encrypted, device to device",
-                detail: "Pair once on the same network. No account, nothing stored."
-            )
-            Claim(
-                icon: "network",
-                title: "Come back from anywhere",
-                detail: "After pairing, an end-to-end encrypted relay reaches your Mac remotely."
-            )
-            Claim(
-                icon: "hand.point.up.left",
-                title: "You actually drive it",
-                detail: "Pointer, keyboard, joystick, scroll wheel, macros."
-            )
-            Claim(
-                icon: "macwindow",
-                title: "A screen, an app, or one window",
-                detail: "Share any of them. Switch without reconnecting."
-            )
-            Claim(
-                icon: "rectangle.split.3x1",
-                title: "Every desktop you have",
-                detail: "All your Spaces, each shown as a picture."
-            )
-            Claim(
-                icon: "pip",
-                title: "Keeps going when you leave",
-                detail: "Picture in Picture, Live Activity, widget."
-            )
+            ForEach(Array(Self.claimLines.enumerated()), id: \.offset) { index, line in
+                Claim(icon: line.icon, title: line.title, detail: line.detail)
+                    .opacity(arrived ? 1 : 0)
+                    .offset(y: arrived ? 0 : 14)
+                    // Each one a little after the last, so the list arrives in the order it asks
+                    // to be read rather than all at once. The first waits for the name above it.
+                    .animation(entrance(delay: 0.14 + Self.stagger * Double(index)), value: arrived)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The way forward, which arrives last.
+    ///
+    /// It used to be on screen from the first frame, and that was deliberate — a landing whose
+    /// only exit has to be waited for is a landing that reads as a wall. The *Skip* button still
+    /// is: it has to be findable the moment somebody decides this is not for them. This one is a
+    /// different thing. It is the end of the sentence the page is telling, and one that is
+    /// already sitting there while the hero is still travelling answers a question the page has
+    /// not finished asking — which is what made the whole arrival read as a page that was simply
+    /// there rather than one that had introduced itself.
+    ///
+    /// So it comes in with the last claim. The space it occupies is reserved either way: it lives
+    /// in the bottom inset, so nothing above it moves as it fades up.
     private var actions: some View {
         WelcomePrimaryButton(title: "Get started", action: onStart)
+            .opacity(arrived ? 1 : 0)
+            .offset(y: arrived ? 0 : 12)
+            .animation(entrance(delay: 0.3), value: arrived)
     }
 
     /// One soft light from the top, the same one the host picker uses. A single flat near-black
@@ -208,20 +444,63 @@ struct WelcomePrimaryButton: View {
     let title: String
     var action: () -> Void
 
+    /// Taller and heavier than a stock control, and deliberately.
+    ///
+    /// This is the only filled button on the three screens that carry it, and on two of them it is
+    /// the only way forward. At 44 points and subheadline-semibold it measured as a large *link* —
+    /// the same weight as the sentences above it, in a box the size of a system control — which
+    /// undersells the one thing on the page the user is meant to press. The height is Apple's own
+    /// minimum for a comfortable target with margin over it; the weight is what makes it read as
+    /// the primary action rather than as another label.
+    ///
+    /// It applies to the paywall's buy button too, which uses this same view and wants the same
+    /// thing for the same reason.
+    private static let height: CGFloat = 54
+
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(.headline.weight(.bold))
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(height: Self.height)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(ColorPalette.ink)
-        .foregroundStyle(.black)
+        .buttonStyle(WelcomeButtonStyle())
         // The title changes under the finger between the last page and the one before it.
         // Swapping the word without animating it keeps that a label change rather than a button
         // that shrinks and grows as it is pressed.
         .animation(nil, value: title)
+    }
+}
+
+/// The one filled button in the flow, with a press you can feel.
+///
+/// `.borderedProminent` was here, and it does have a press state — the fill eases a little darker
+/// over the default 0.2 seconds. Over a white fill on a near-black screen that is a change of
+/// almost nothing, and a fifth of a second is long enough that it reads as the button being busy
+/// rather than as the button being held. The one control that advances the introduction has to
+/// answer a thumb immediately, so it shrinks and it haptics, and both are over before the finger
+/// is.
+///
+/// Released, it comes back on a spring with a little give in it. The shrink is deliberately not
+/// springy — the press is a statement and wants to land — and the return is the opposite: it is
+/// the button letting go, and a small overshoot there is the whole of what makes a tap feel like
+/// it did something.
+private struct WelcomeButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(ColorPalette.ink, in: Capsule())
+            .foregroundStyle(ColorPalette.onInk)
+            .scaleEffect(configuration.isPressed ? 0.965 : 1)
+            .opacity(configuration.isPressed ? 0.86 : 1)
+            .animation(
+                configuration.isPressed
+                    ? .easeOut(duration: 0.12)
+                    : .spring(response: 0.34, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.7), trigger: configuration.isPressed) { _, pressed in
+                pressed
+            }
     }
 }
 

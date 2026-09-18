@@ -530,6 +530,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
 
             let scale = backingScale(for: bounds)
+            // `NSRunningApplication.icon` can briefly be nil while an app is launching. The
+            // bundle icon is available earlier and is the same artwork users recognize in Finder.
+            let iconData: Data? = {
+                if let running, let data = iconPNGData(for: running) { return data }
+                guard let bundleURL = running?.bundleURL else { return nil }
+                return iconPNGData(for: NSWorkspace.shared.icon(forFile: bundleURL.path))
+            }()
+
             result.append(CaptureSourceDescriptor(
                 kind: .application,
                 // Not `application.applicationName` directly. It is empty for some
@@ -541,7 +549,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 title: title,
                 subtitle: owned.count == 1 ? "1 window" : "\(owned.count) windows",
                 bundleIdentifier: bundleIdentifier,
-                iconPNGData: running.flatMap { iconPNGData(for: $0) },
+                iconPNGData: iconData,
                 source: .application(application.processID),
                 pixelSize: CGSize(width: bounds.width * scale, height: bounds.height * scale)
             ))

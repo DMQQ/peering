@@ -173,7 +173,17 @@ struct HostStatusView: View {
         // to *stop* this loop rather than let it run on drawing pictures nobody asked for. A
         // cancelled task is the only way to stop taking screenshots of someone's Mac.
         .task(id: PreviewKey(source: model.capturingSource, enabled: showsPreview)) {
-            guard showsPreview else {
+            // Two reasons to stop, and the second one used to be missing. With no device attached
+            // there is no coordinator, so `snapshot()` answers nil in the same breath it is asked
+            // — and the loop wrote that nil into `preview` every two seconds regardless, a write
+            // that invalidates this window and everything in it. The task is on the window rather
+            // than on the Overview pane, so a Mac with nobody on it paid twice a second, on every
+            // pane, for a picture it already knew was absent.
+            //
+            // `capturingSource` is the honest gate rather than a second look at the setting: it
+            // is what the pane draws, it is set from the coordinator's own report of what it is
+            // sending, and it is nil exactly when there is nothing being sent.
+            guard showsPreview, model.capturingSource != nil else {
                 preview = nil
                 return
             }
@@ -238,12 +248,10 @@ struct HostStatusView: View {
 
     // MARK: - Connect
 
-    static let supportURL = URL(string: "https://buymeacoffee.com/")!
-
     func sectionHeading(_ title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(HostDisplayFont.display(17))
                 .tracking(-0.2)
             Text(detail).font(.caption).foregroundStyle(HostPalette.muted)
         }
@@ -292,9 +300,11 @@ struct HostStatusView: View {
         return "\(code[code.startIndex..<middle]) \(code[middle...])"
     }
 
-    func qrCode(for code: String) -> NSImage? {
+    /// Draws whatever ``PairingPayload`` encoded, so the strings on this side and the ones the
+    /// iPhone parses are produced by one implementation rather than two that agree by hand.
+    func qrCode(encoding payload: String) -> NSImage? {
         let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data("peering://pair?code=\(code)".utf8)
+        filter.message = Data(payload.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage?.transformed(by: .init(scaleX: 9, y: 9)) else {
             return nil

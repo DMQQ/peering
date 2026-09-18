@@ -60,7 +60,8 @@ extension HostStatusView {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Peering")
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
+                        .font(HostDisplayFont.display(29))
+                        .tracking(-0.8)
                     Text("Your Mac, right here.")
                         .font(.callout)
                         .foregroundStyle(HostPalette.muted)
@@ -78,20 +79,48 @@ extension HostStatusView {
             .hostPanel()
             .textSelection(.enabled)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("This is a personal project, and it will not ask you for an account or a subscription.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Link(destination: Self.supportURL) {
-                    Label("Buy me a coffee", systemImage: "cup.and.saucer")
+            HStack(spacing: 10) {
+                // The same row the iPhone app has, and here because this is the half of the
+                // pair that captures the screen: a picture that is black, late or the wrong
+                // size is a bug on this Mac, and the report should not have to start with
+                // "which app are you using".
+                Link(destination: Self.reportURL) {
+                    Label("Report an issue", systemImage: "envelope")
                 }
-                .controlSize(.large)
+
+                HostDiagnosticsRow(model: model)
             }
+            .controlSize(.large)
         }
     }
 
-    /// Where the About pane points. **Set this to your own page** — leaving it at the site root
-    /// means the button takes people somewhere that is not about you.
+    /// Where a report goes, with the two facts that make one actionable already in the draft.
+    ///
+    /// The app version and the macOS release are the first things anyone has to ask for. Neither
+    /// identifies the person or the machine: there is no account, and nothing here is a serial
+    /// number. Nothing about the session is included either — no Mac name, no device ID.
+    private static var reportURL: URL {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let build = info?["CFBundleVersion"] as? String ?? "unknown"
+        let body = """
+            What happened:
+
+
+            What I expected:
+
+
+            Peering for Mac \(version) (\(build))
+            \(ProcessInfo.processInfo.operatingSystemVersionString)
+            """
+
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = "support@getpeering.app"
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "Peering issue (Mac)"),
+            URLQueryItem(name: "body", value: body),
+        ]
+        return components.url ?? URL(string: "mailto:support@getpeering.app")!
+    }
 }

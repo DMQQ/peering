@@ -2,8 +2,13 @@
 import SwiftUI
 import UIKit
 
-/// Camera surface used only during first pairing. The QR payload is not a credential: it is
-/// the same one-time SAS value the user can type manually, and is compared locally.
+/// Camera surface used only during pairing, and it hands back whatever the QR code said.
+///
+/// Two different codes are read through it, and neither is a credential: the Mac's pairing
+/// panel shows the six-digit SAS value the user can also type by hand, and the same panel
+/// shows the Mac's device ID for pairing across networks. Which one was scanned is decided by
+/// ``PairingPayload``, not here — this type only knows how to read a QR code, and a view that
+/// wants one kind of code has to say what it does with the other.
 struct PairingCodeScanner: UIViewControllerRepresentable {
     let onCode: (String) -> Void
 

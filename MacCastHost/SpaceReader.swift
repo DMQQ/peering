@@ -210,8 +210,13 @@ private func readDisplays() -> [ManagedDisplay] {
         // outside the list costs the client *every* preview on that display, not one tile.
         // Keeping it and *labelling* it means the list stays complete and the caller can still
         // tell a place it may be sent from an application it may only return to.
+        var seenSpaceIDs = Set<Int32>()
         let parsed = spaces.compactMap { space -> ManagedSpace? in
             guard let id = (space["id64"] as? NSNumber)?.int32Value else { return nil }
+            // The window server can briefly report the same Space twice while Mission Control
+            // is reordering it. Keep the first position so the phone never draws two tiles for
+            // one desktop during that transition.
+            guard seenSpaceIDs.insert(id).inserted else { return nil }
             return ManagedSpace(
                 id: id,
                 isFullscreen: (space["type"] as? NSNumber)?.intValue == 4,
@@ -228,9 +233,15 @@ private func readDisplays() -> [ManagedDisplay] {
         return ManagedDisplay(displayID: displayID, identifier: identifier, spaces: parsed, activeID: activeID)
     }
 
+    // Mirrored and recently detached screens can briefly arrive as two entries that resolve to
+    // the same CGDirectDisplayID. SwiftUI keys display rows by that ID, so letting both through
+    // produces a duplicated row and unstable identity. Preserve the first complete entry.
+    var seenDisplayIDs = Set<UInt32>()
+    let unique = parsed.filter { seenDisplayIDs.insert($0.displayID).inserted }
+
     // Main first, then whatever order the window server listed the rest in.
     let main = CGMainDisplayID()
-    return parsed.filter { $0.displayID == main } + parsed.filter { $0.displayID != main }
+    return unique.filter { $0.displayID == main } + unique.filter { $0.displayID != main }
 }
 
 /// Reads every display's Spaces from the window server.

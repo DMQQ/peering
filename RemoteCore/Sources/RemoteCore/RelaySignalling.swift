@@ -48,11 +48,15 @@ public final class RelaySignallingConnection: @unchecked Sendable {
     }
 
     /// Opens the short-lived phone-side signalling conversation and returns the allocated session.
+    ///
+    /// `entitlement` is what this device has bought and what it can prove — see ``RelayEntitlement``.
+    /// The relay decides the allowance from the receipt when there is one that verifies and from
+    /// the claimed plan when there is not, so an empty entitlement is the free allowance.
     public static func requestSession(
         at url: URL,
         hostID: String,
         clientID: String,
-        apiKey: String? = nil
+        entitlement: RelayEntitlement = RelayEntitlement()
     ) async throws -> RelaySession {
         let connection = RelaySignallingConnection(url: url)
         defer { connection.cancel() }
@@ -60,7 +64,9 @@ public final class RelaySignallingConnection: @unchecked Sendable {
             hostID: hostID,
             clientID: clientID,
             protocolVersion: ProtocolInfo.version,
-            apiKey: apiKey
+            apiKey: entitlement.apiKey,
+            plan: entitlement.plan,
+            jwsRepresentation: entitlement.jwsRepresentation
         ))
 
         while true {

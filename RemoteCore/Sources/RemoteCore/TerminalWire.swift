@@ -14,6 +14,55 @@ public struct TerminalSessionInfo: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+/// One entry in a directory listing.
+///
+/// Name, type and a little metadata rather than a path: the path is the one the listing was
+/// asked for plus this name, and sending it per entry would be the same string a thousand times
+/// — see ``TerminalRequest/listDirectory(sessionID:path:)``.
+public struct RemoteDirectoryEntry: Codable, Equatable, Sendable {
+    public let name: String
+    /// Whether the entry opens as a folder. True for a symbolic link that points at one, because
+    /// that is the question a tap on the row is asking; ``isSymlink`` is what tells the two apart.
+    public let isDirectory: Bool
+    public let isSymlink: Bool
+    /// The entry's own size, which is what `ls -l` prints beside it: the bytes a file holds, or
+    /// for a directory the bytes its own entry takes. Deliberately **not** a walk of what is
+    /// inside a folder — that is a number nobody asked the disk for, it costs a tree read per row
+    /// to get, and `ls -l` does not print it either.
+    ///
+    /// Zero where the provider could not say, which is the one listing that answers with names
+    /// alone — see ``permissions``.
+    public let size: Int64
+    /// The mode bits in the form `ls -l` prints them, type character included: `-rw-r--r--`.
+    /// One string rather than the nine booleans it would take to say the same thing in the wire
+    /// format, and in the form the audience for it already reads.
+    ///
+    /// Empty where the provider could not say. The two are the same fact arrived at twice — every
+    /// listing that stats an entry has both, and the `ls` fallback that has neither has neither —
+    /// which is what lets a client tell "no size" from "zero bytes" without a third field.
+    public let permissions: String
+    /// When the Mac says it was last changed, and nothing when the filesystem would not say.
+    /// Optional rather than a stand-in date, because a row reading "1 January 1" is worse than a
+    /// row with no date on it.
+    public let modified: Date?
+
+    public init(
+        name: String,
+        isDirectory: Bool,
+        isSymlink: Bool,
+        size: Int64,
+        permissions: String,
+        modified: Date?
+    ) {
+        self.name = name
+        self.isDirectory = isDirectory
+        self.isSymlink = isSymlink
+        self.size = size
+        self.permissions = permissions
+        self.modified = modified
+    }
+}
+
 /// Requests sent by an authenticated client over the control connection.
 public enum TerminalRequest: Codable, Equatable, Sendable {
     case list
@@ -28,6 +77,13 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// this once the terminal has been named by hand.
     case retitle(sessionID: UUID, command: String)
     case close(sessionID: UUID)
+    /// One folder's contents, for the file browser. `nil` means the Mac's home folder, which is
+    /// the one path the phone cannot work out for itself — the answer carries the path it
+    /// resolved to, and every request after the first names a path outright.
+    case listDirectory(sessionID: UUID, path: String?)
+    /// A file's contents, for the browser's preview. Read-only, and bounded: see
+    /// ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
+    case readFile(sessionID: UUID, path: String)
 }
 
 public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {
@@ -46,5 +102,31 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
     case attention(sessionID: UUID, kind: TerminalAttentionKind, message: String)
     case exited(sessionID: UUID, status: Int32)
     case closed(sessionID: UUID)
+    /// One folder's contents, sorted by the host — folders first, then names — so every client
+    /// shows the same order without having to agree on how to compare strings. `truncated` says
+    /// the host's entry cap was reached and there is more on disk than was sent.
+    case directory(sessionID: UUID, path: String, entries: [RemoteDirectoryEntry], truncated: Bool)
+    /// A file being previewed, in pieces.
+    ///
+    /// Chunked rather than sent as one payload, and the reason is the connection rather than the
+    /// file: this shares the control channel with every keystroke, and a single large frame is a
+    /// long write that input queues behind. `totalBytes` is the size on disk, so a client can say
+    /// how much of a long file it is showing — offset plus length is what says it was cut short,
+    /// which is why there is no separate flag for it.
+    case fileContents(
+        sessionID: UUID,
+        path: String,
+        offset: Int,
+        totalBytes: Int,
+        data: Data,
+        isLast: Bool
+    )
+    /// A browse request that could not be answered: a folder that could not be read, or a file
+    /// that could not be shown. Carries the path it was about, so the panel that asked can clear
+    /// the right waiting state and leave the others alone.
+    ///
+    /// Deliberately not ``failed``: that one lands on the terminal's tab, and a folder the Mac
+    /// will not open is not a fact about the shell.
+    case browseFailure(sessionID: UUID, path: String, message: String)
     case failed(sessionID: UUID?, message: String)
 }

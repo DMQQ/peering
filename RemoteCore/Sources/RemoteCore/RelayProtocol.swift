@@ -1,13 +1,61 @@
 import Foundation
 
+/// What this device tells the relay about what it has bought, and what it can prove.
+///
+/// The three fields are the three things the relay can read, and they are worth different amounts.
+/// `jwsRepresentation` is the proof: the signed transaction StoreKit handed back for the live
+/// subscription, read off the `VerificationResult<Transaction>` that `Transaction.currentEntitlements`
+/// yields rather than off the transaction it wraps. The relay verifies it against Apple's root and,
+/// when it verifies, believes it over everything else here. `plan` is the claim, used when there is
+/// no proof to check — an older app, or this one in the moment before `currentEntitlements`
+/// answers. `apiKey` is neither: it is the only grant the relay holds on its own side, and this
+/// app's key matches nothing in that list.
+///
+/// Grouped rather than passed as three arguments because the three travel together and are read
+/// together, and because a call site that forgets one of them is a paying subscriber metered at
+/// half an hour a day — the failure the proof exists to remove.
+public struct RelayEntitlement: Sendable, Equatable {
+    /// The plan this device is on: `free`, `relay`, `plus` or `pro`. Omitted means the free plan,
+    /// which is also what an unrecognised spelling means.
+    public let plan: String?
+    /// The signed transaction for the subscription above, or `nil` when there is nothing to send.
+    public let jwsRepresentation: String?
+    public let apiKey: String?
+
+    public init(
+        plan: String? = nil,
+        jwsRepresentation: String? = nil,
+        apiKey: String? = nil
+    ) {
+        self.plan = plan
+        self.jwsRepresentation = jwsRepresentation
+        self.apiKey = apiKey
+    }
+}
+
 /// Messages either app sends to `peeringd` over its signalling WebSocket.
 public enum RelayClientMessage: Sendable, Equatable, Encodable {
     case registerHost(deviceID: String, name: String, protocolVersion: UInt16)
-    case connectToHost(hostID: String, clientID: String, protocolVersion: UInt16, apiKey: String? = nil)
+    /// A request for a session, with whatever this client can say about what it has bought.
+    ///
+    /// **`plan` is a claim and `jwsRepresentation` is the evidence for it.** The relay verifies the
+    /// receipt against Apple's published root and meters by the product it names; the plan is read
+    /// only when there is no receipt that verifies, which is the arrangement `storekit.rs` in the
+    /// relay documents at length, including when it ends. Both are optional and both are read
+    /// leniently: an unrecognised or absent plan, and any receipt that does not verify, mean the
+    /// free allowance rather than a refusal to connect.
+    case connectToHost(
+        hostID: String,
+        clientID: String,
+        protocolVersion: UInt16,
+        apiKey: String? = nil,
+        plan: String? = nil,
+        jwsRepresentation: String? = nil
+    )
     case ping
 
     private enum CodingKeys: String, CodingKey {
-        case type, name, protocolVersion, apiKey
+        case type, name, protocolVersion, apiKey, plan, jwsRepresentation
         case deviceID = "deviceId"
         case hostID = "hostId"
         case clientID = "clientId"
@@ -21,12 +69,28 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(deviceID, forKey: .deviceID)
             try container.encode(name, forKey: .name)
             try container.encode(protocolVersion, forKey: .protocolVersion)
-        case .connectToHost(let hostID, let clientID, let protocolVersion, let apiKey):
+        case .connectToHost(
+            let hostID,
+            let clientID,
+            let protocolVersion,
+            let apiKey,
+            let plan,
+            let jwsRepresentation
+        ):
             try container.encode("connectToHost", forKey: .type)
             try container.encode(hostID, forKey: .hostID)
             try container.encode(clientID, forKey: .clientID)
             try container.encode(protocolVersion, forKey: .protocolVersion)
             if let apiKey { try container.encode(apiKey, forKey: .apiKey) }
+            // Left out rather than sent as null when there is nothing to say: the relay's own
+            // spelling of "no plan" and "no receipt" is the field being absent, and both ends
+            // agreeing on one spelling is one fewer case to get wrong.
+            if let plan { try container.encode(plan, forKey: .plan) }
+            // A few kilobytes of base64, which the signalling socket's 64 KB message limit has
+            // room for — see the relay's `MAX_JWS_BYTES`, which is what refuses an oversized one.
+            if let jwsRepresentation {
+                try container.encode(jwsRepresentation, forKey: .jwsRepresentation)
+            }
         case .ping:
             try container.encode("ping", forKey: .type)
         }

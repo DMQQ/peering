@@ -100,7 +100,12 @@ struct PairingPrompt: View {
         .sheet(isPresented: $showsScanner) {
             NavigationStack {
                 PairingCodeScanner { payload in
-                    guard let scannedCode = pairingCode(from: payload) else { return }
+                    // The parser lives in `RemoteCore` beside the encoder that drew the code
+                    // and beside the one for the Mac's device ID, because the two codes are
+                    // read by two screens and each has to refuse the other's — see
+                    // ``PairingPayload``. It refuses anything that is not six digits, so a
+                    // Mac's ID scanned here leaves the prompt exactly as it was.
+                    guard let scannedCode = PairingPayload.code(from: payload) else { return }
                     showsScanner = false
                     enteredCode = scannedCode
                     if scannedCode == code {
@@ -122,15 +127,5 @@ struct PairingPrompt: View {
         }
     }
 
-    private func pairingCode(from payload: String) -> String? {
-        guard let components = URLComponents(string: payload),
-              components.scheme == "peering",
-              components.host == "pair",
-              let value = components.queryItems?.first(where: { $0.name == "code" })?.value,
-              value.count == 6,
-              value.allSatisfy(\.isNumber)
-        else { return nil }
-        return value
-    }
 }
 

@@ -3,6 +3,7 @@ import Foundation
 import IOKit.pwr_mgt
 import Observation
 import RemoteCore
+import WidgetKit
 import os
 
 /// Host diagnostics, visible with:
@@ -36,15 +37,21 @@ final class HostModel {
         }
     }
 
-    private(set) var status: Status = .idle
-    private(set) var deviceName = ""
+    private(set) var status: Status = .idle {
+        didSet { publishHostWidgetState() }
+    }
+    private(set) var deviceName = "" {
+        didSet { publishHostWidgetState() }
+    }
     private(set) var deviceID = ""
 
     /// Present only while a first-time pairing is waiting on the user's comparison.
     private(set) var pairing: PairingPrompt?
     private(set) var lastOutcome: PairingOutcome?
 
-    private(set) var connectedClients: [ConnectedClient] = []
+    private(set) var connectedClients: [ConnectedClient] = [] {
+        didSet { publishHostWidgetState() }
+    }
     private(set) var pairedClientIDs: [String] = []
 
     // Held while at least one client is connected. Released when the last client disconnects.
@@ -199,6 +206,41 @@ final class HostModel {
     var boundPort: UInt16 {
         if case .listening(let bound) = status { return bound }
         return port
+    }
+
+    // MARK: - Desktop widget
+
+    private static let widgetSuiteName = "group.pl.dmq.peering"
+
+    /// Publishes the small amount of host state a WidgetKit extension can read.
+    private func publishHostWidgetState(listening override: Bool? = nil) {
+        guard let defaults = UserDefaults(suiteName: Self.widgetSuiteName) else { return }
+        defaults.set(override ?? status.isListening, forKey: "hostWidget.isListening")
+        defaults.set(deviceName.isEmpty ? Self.defaultDeviceName : deviceName, forKey: "hostWidget.deviceName")
+        defaults.set(connectedClients.map(\.name), forKey: "hostWidget.connectedNames")
+        WidgetCenter.shared.reloadTimelines(ofKind: "PeeringHostControl")
+    }
+
+    /// Handles Start and Stop links from the macOS desktop widget.
+    func handleWidgetCommand(_ url: URL) {
+        guard url.scheme == "peering-host" else { return }
+        switch url.host {
+        case "start":
+            start()
+        case "stop":
+            // On a cold launch the window's task also calls start. Let that idempotent launch
+            // path settle before applying the explicit Stop command from the widget.
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(180))
+                self?.stop()
+            }
+        default:
+            break
+        }
+    }
+
+    func prepareForTermination() {
+        publishHostWidgetState(listening: false)
     }
 
     /// Changes the port, and restarts the listener if one is running.
@@ -410,6 +452,23 @@ final class HostModel {
         // the user's screen, and it is not repeated here.
         server.onVideoConnection = { [weak coordinator] peer in
             coordinator?.handleVideoConnection(peer)
+        }
+
+        // A client whose picture is not arriving asks for it on the control channel, and that
+        // request has to reach the pipeline along with the connection it arrived on. Straight
+        // through, off the main actor: deciding it is a question about sockets and an encoder,
+        // and hoisting it to the actor that draws the window would only put it behind the
+        // window. See ``VideoCoordinator/setVideoTransport(_:clientKey:controlPeer:)``.
+        server.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
+            coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)
+        }
+
+        // And the same shape for the relay's datagram path: the session's request comes with
+        // the client's key and the allocation the relay handed over, and the answer is the
+        // secret that seals what goes on it — or nil, which the session turns into silence and
+        // the client reads as "the picture stays where it is".
+        server.onVideoKeyRequest = { [weak coordinator] clientKey, relay in
+            coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay)
         }
 
         // `input` is captured directly rather than reached through `self`, and deliberately
@@ -772,9 +831,11 @@ final class HostModel {
                 setPrivacyMode(false)
             }
 
-        case .pairingCode(let code, let clientName):
-            pairing = PairingPrompt(clientName: clientName, code: code)
-            record("Pairing request from \(clientName)")
+        case .pairingCode(let code, let clientName, let isRemote):
+            pairing = PairingPrompt(clientName: clientName, code: code, isRemote: isRemote)
+            record(isRemote
+                   ? "Pairing request from \(clientName), over the relay"
+                   : "Pairing request from \(clientName)")
             // Code intentionally not logged: the unified log is readable by any local process,
             // and the digits are already on screen for the user to compare.
             hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")

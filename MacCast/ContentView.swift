@@ -87,12 +87,29 @@ struct ContentView: View {
     /// connection does not make the user wait again after it has already finished.
     private static let connectingSuccessShownFor: TimeInterval = 0.28
 
-    /// Exiting is a system response, so it is quicker and quieter than the modal's arrival.
+    /// Exiting is a system response, so it is quieter than the modal's arrival.
     /// Opacity only: scaling the whole screen away makes the live desktop behind it appear to
     /// lurch forward at exactly the moment it should simply become available.
-    private static let connectingFadeDuration: TimeInterval = 0.24
+    ///
+    /// The curve is the whole of this, and it used to be wrong. It was
+    /// `timingCurve(0.23, 1, 0.32, 1)` — both control points pinned at y = 1, which is the
+    /// definition of a front-loaded ease-out: by 13% of the duration 49% of the fade had happened,
+    /// by 26% it was at 78%, and the last two thirds of the animation moved what was left. What
+    /// that reads as is not a slow fade but a fast one followed by a stretch of nothing, which is
+    /// why it looked like the card was cut rather than faded.
+    ///
+    /// `0.4, 0, 0.2, 1` is the standard symmetric ease: the slope is gentle at both ends, so the
+    /// veil leaves at a rate the eye can follow from the first frame. Longer with it, because a
+    /// curve that starts slowly needs the time to arrive — the two numbers are one decision.
+    ///
+    /// Still a timing curve rather than a spring, and that is deliberate:
+    /// ``scheduleConnectingFade(after:allowFailure:)`` sleeps for exactly this long before removing
+    /// the view, and a timing curve finishes at its duration where a spring finishes when it
+    /// settles. Those cannot be made to agree for a spring, and a sleep that outlives its animation
+    /// is an invisible full-screen view still eating taps.
+    private static let connectingFadeDuration: TimeInterval = 0.34
     private static let connectingFade = Animation.timingCurve(
-        0.23, 1, 0.32, 1,
+        0.4, 0, 0.2, 1,
         duration: connectingFadeDuration
     )
 
@@ -116,7 +133,13 @@ struct ContentView: View {
                 RemoteScreen()
                     .transition(Self.screenHandover)
             } else if !hasSeenWelcome {
-                WelcomeFlow { withAnimation(Motion.settle) { hasSeenWelcome = true } }
+                WelcomeFlow {
+                    withAnimation(Motion.settle) { hasSeenWelcome = true }
+                    model.startBrowsing()
+                }
+                    // The last page of the introduction shows the plans, so the store has to
+                    // reach it — the same injection the paywall gets, for the same reason.
+                    .environment(model.storeManager)
                     .transition(.opacity)
             } else {
                 HostPickerView(acknowledgedFailure: $acknowledgedFailure)
@@ -140,6 +163,15 @@ struct ContentView: View {
                 // the full-screen veil mounted until opacity reaches zero makes the handoff
                 // deterministic even while the picker underneath becomes the remote screen.
                 .opacity(connectingIsFading ? 0 : 1)
+                // And it stops taking taps as soon as it starts leaving. Opacity is a paint, not
+                // a permission: without this the veil is invisible for the whole fade and still
+                // swallowing every touch, so the first thing the user does on the freshly arrived
+                // screen — tap the thing they were waiting for — does nothing at all.
+                //
+                // Only during the exit. While the card is up it keeps its hit testing, which is
+                // what stops a tap during a handshake from finding the list underneath and
+                // starting a second connection.
+                .allowsHitTesting(!connectingIsFading)
                 .transition(
                     reduceMotion
                         ? .opacity
@@ -197,8 +229,14 @@ struct ContentView: View {
                 scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
             }
         }
-        .sheet(isPresented: Binding(get: { model.showPaywall }, set: { model.showPaywall = $0 })) {
-            PaywallView { model.showPaywall = false }
+        // Presented from the top level rather than from whichever screen asked for it, so the
+        // paywall is the same screen with the same animation however the user got here — and so
+        // that opening it does not depend on the screen underneath still being on display.
+        .sheet(isPresented: Binding(
+            get: { model.paywallReason != nil },
+            set: { if !$0 { model.paywallReason = nil } }
+        )) {
+            PaywallView(reason: model.paywallReason ?? .upgrade) { model.paywallReason = nil }
                 .environment(model.storeManager)
                 .preferredColorScheme(.dark)
         }
@@ -354,6 +392,134 @@ struct ContentView: View {
 /// there was no way out of it: a Mac that never answers left it up forever with no message and
 /// no escape. So a slow attempt says so and offers a way out, a failed one says what went wrong
 /// and stays until it is read, and success gets a brief checkmark before the desktop is revealed.
+/// The Mac and the iPhone, with the link running between them.
+///
+/// This was a decoration on the Connect screen's header, and it was wasted there: the dots between
+/// the two devices are the only part of the drawing that has anything to say, and what they say —
+/// these two are reaching for each other — is only true while something is connecting. So it lives
+/// on the connecting card now, which is the moment it was drawing all along.
+///
+/// `scale` multiplies every measurement in it rather than there being a second drawing at another
+/// size. Two copies of a pair of devices is two pairs of proportions, and the difference shows up
+/// as one of them looking subtly wrong beside the other.
+private struct DeviceLinkArtwork: View {
+    var scale: CGFloat = 1
+
+    var body: some View {
+        // Twenty frames a second rather than one per screen refresh, and it costs nothing to look
+        // at. Both movements here are a slow drift and a slow pulse over several seconds; the
+        // difference between that at 20Hz and at 120Hz is not visible, and the difference in what
+        // it costs to redraw a TimelineView on every frame is very much there.
+        //
+        // A timeline rather than a repeating animation — see ``Wordmark`` in `HostPickerView` for
+        // what a `repeatForever` loop does when a re-layout lands on top of it.
+        TimelineView(.periodic(from: .now, by: 1.0 / 20.0)) { context in
+            let now = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 10 * scale) {
+                mac.offset(y: wave(now, period: 5.2) * 1.6 * scale)
+                dots(at: now)
+                phone.offset(y: wave(now, period: 6.4, phase: 0.35) * 1.6 * scale)
+            }
+        }
+        .fixedSize()
+        .accessibilityHidden(true)
+    }
+
+    private var mac: some View {
+        ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: 6 * scale, style: .continuous)
+                .fill(.white.opacity(0.12))
+                .frame(width: 58 * scale, height: 38 * scale)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4 * scale, style: .continuous)
+                        .fill(ColorPalette.surface)
+                        .padding(3 * scale)
+                        .overlay {
+                            Image(systemName: "cursorarrow.motionlines")
+                                .font(.system(size: 11 * scale, weight: .medium))
+                                .foregroundStyle(ColorPalette.ink)
+                        }
+                }
+            Capsule()
+                .fill(.white.opacity(0.18))
+                .frame(width: 68 * scale, height: 3 * scale)
+                .offset(y: 3 * scale)
+        }
+    }
+
+    /// The iPhone.
+    ///
+    /// A body with a gradient in it, a screen cut into it, an island across the screen's top and a
+    /// home indicator under it — four things, and the difference between this and the outlined
+    /// rounded rectangle it used to be is the difference between a phone and a card. The outline
+    /// was drawn *inside* the body, which put a second rectangle a few points in from the first
+    /// with nothing between them, and at this size that is not a bezel: it is a box with a line in
+    /// it.
+    ///
+    /// The screen takes ``ColorPalette/surface``, the same material as the Mac's, so the two
+    /// devices are lit the same way and read as a pair rather than as two drawings.
+    private var phone: some View {
+        RoundedRectangle(cornerRadius: 7.5 * scale, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.30), .white.opacity(0.12)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(width: 24 * scale, height: 46 * scale)
+            .overlay {
+                RoundedRectangle(cornerRadius: 7.5 * scale, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.55), .white.opacity(0.15)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: max(1, scale)
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 5.5 * scale, style: .continuous)
+                    .fill(ColorPalette.surface)
+                    .padding(2 * scale)
+            }
+            .overlay(alignment: .top) {
+                Capsule()
+                    .fill(.white.opacity(0.30))
+                    .frame(width: 8 * scale, height: 2 * scale)
+                    .padding(.top, 4 * scale)
+            }
+            .overlay(alignment: .bottom) {
+                Capsule()
+                    .fill(.white.opacity(0.22))
+                    .frame(width: 6 * scale, height: 1.2 * scale)
+                    .padding(.bottom, 3 * scale)
+            }
+    }
+
+    private func dots(at now: TimeInterval) -> some View {
+        HStack(spacing: 4 * scale) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(ColorPalette.ink)
+                    .frame(width: 3 * scale, height: 3 * scale)
+                    .opacity(
+                        0.42 + 0.42 * wave(
+                            now,
+                            period: 1.5,
+                            phase: -Double(index) * (0.25 / 1.5)
+                        )
+                    )
+            }
+        }
+    }
+
+    private func wave(_ now: TimeInterval, period: Double, phase: Double = 0) -> CGFloat {
+        CGFloat(sin(2 * .pi * (now / period + phase)))
+    }
+}
+
 private struct ConnectingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -381,10 +547,27 @@ private struct ConnectingView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 26) {
-                Image(systemName: failure == nil ? "macbook" : "exclamationmark.triangle")
-                    .font(.system(size: 46, weight: .light))
-                    .foregroundStyle(ColorPalette.ink)
-                    .contentTransition(.symbolEffect(.replace))
+                // The two devices, mid-handshake, where a lone Mac used to be. A single glyph said
+                // "a Mac" on the one screen whose whole subject is *two* things and what is passing
+                // between them — and the dots running between these two are the connection being
+                // made, at the size the drawing was always meant to be seen at.
+                //
+                // It stays put when the attempt fails, and only the glyph on top of it changes:
+                // the slot is a fixed height so a failure does not shift the name and the
+                // sentence under it by thirty points, which is the sort of jump that reads as the
+                // card having been rebuilt rather than as a message appearing on it.
+                ZStack {
+                    if failure == nil {
+                        DeviceLinkArtwork(scale: 1.8)
+                            .transition(.opacity)
+                    } else {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 46, weight: .light))
+                            .foregroundStyle(ColorPalette.ink)
+                            .transition(.opacity)
+                    }
+                }
+                .frame(height: 92)
 
                 VStack(spacing: 7) {
                     Text(hostName ?? "Your Mac")

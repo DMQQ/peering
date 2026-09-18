@@ -25,13 +25,16 @@ extension SessionModel {
             // the point the stopwatch starts from — is about where the session came from,
             // not only about where it landed.
             let previous = self.phase
+            if previous == .ready, phase != .ready {
+                finishSessionHistory()
+            }
             self.phase = phase
             if phase == .ready {
                 pairedHostIDs = pins.hostIDs
                 // A handshake that reached `.ready` has just established or confirmed a pin, and
                 // that is one of the few moments the paired list can have changed.
                 publishKnownMacs()
-                applyInitialAutoQualityIfNeeded()
+                applyInitialQuality()
                 session?.sendTerminal(.list)
             }
             if case .failed(let message) = phase {
@@ -47,6 +50,7 @@ extension SessionModel {
                 if previous != .ready {
                     reconnectAttempt = 0
                     sessionStartedAt = Date()
+                    beginSessionHistory()
                     UserDefaults.standard.set(true, forKey: Self.resumeKey)
                     // Record the last-connected timestamp for the Trusted Macs list.
                     if let id = currentHostID {
@@ -118,6 +122,13 @@ extension SessionModel {
             hostName = hello.hostName
             currentHostID = hello.serverID
             UserDefaults.standard.set(hello.serverID, forKey: Self.lastHostIDKey)
+            // Also the name the widget and the Lock Screen card show for the last Mac, for
+            // the same reason: it is the only one of the two that came from the Mac itself.
+            // It matters most where there was nothing to go on before the handshake — a
+            // first pairing dialled by an ID knows no name at all until this arrives, and
+            // the placeholder it was carrying would otherwise outlive the session.
+            UserDefaults.standard.set(hello.hostName, forKey: Self.lastHostNameKey)
+            SharedStore.lastHostName = hello.hostName
             if hostNames[hello.serverID] != hello.hostName {
                 hostNames[hello.serverID] = hello.hostName
                 UserDefaults.standard.set(hostNames, forKey: Self.hostNamesKey)
@@ -160,11 +171,17 @@ extension SessionModel {
         case .terminal(let event):
             apply(terminal: event)
         case .relayQuotaExceeded:
-            if storeManager.isPro {
-                // Paid — relay doesn't recognise the key yet (no backend). Treat as transient.
+            if storeManager.relayPlan.isUnlimited {
+                // A plan the relay does not meter was refused, which means the relay read this
+                // device as free — an older relay that does not know the plan field, or a plan it
+                // does not recognise. Nothing this side can do about it, and the connection may
+                // well succeed on a retry against a relay that has been updated, so it stays a
+                // note rather than a paywall in front of somebody who has already paid.
                 append(note: "Relay quota reached. Your subscription is active; please try again later.")
             } else {
-                showPaywall = true
+                // Free, or on Relay with the day's three hours spent. Both are a wall the plans
+                // above can remove, and the paywall says which one was hit — see `Reason.detail`.
+                paywallReason = .quotaExhausted
                 // Suppress the reconnect ladder: there is nothing to reconnect to.
                 userEndedSession = true
                 stopReconnecting()
@@ -185,8 +202,10 @@ extension SessionModel {
                 connect(to: .discovered(host))
             }
             self.resumeIfNeeded()
+            // The second sentence matters more than it did: an empty list here is now the
+            // moment to look at the other way in, which is the row directly below this text.
             browseStatus = hosts.isEmpty
-                ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network."
+                ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network, or pair with a Mac that is not on your network."
                 : "\(hosts.count) Mac\(hosts.count == 1 ? "" : "s") found"
         case .failed(let message):
             // Bonjour failing is silent on iOS without the local-network permission and the
@@ -221,6 +240,16 @@ extension SessionModel {
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.
+        case .transport(let transport):
+            // The client's own decision, reported back to the screen. The picture looks the
+            // same on either lane and is smaller on one of them, so without this the user is
+            // left to guess why the Mac suddenly looks soft.
+            videoTransport = transport
+            if transport == .control {
+                append(note: "The picture is coming over the control channel, at reduced quality.")
+            } else {
+                append(note: "The picture is back on the direct video channel.")
+            }
         case .ended(let reason):
             videoStatus = "Video ended: \(reason)"
             isVideoStreaming = false
@@ -235,11 +264,16 @@ extension SessionModel {
                 guard let self else { return }
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
+                    self.captureSessionBandwidth(snapshot)
                     self.updateFrameRate(from: snapshot)
                     self.updateAutoQuality(from: snapshot)
 
                     let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
                     let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
+                    // Said here rather than only in the notes, because this is the line the
+                    // user reads when the picture looks wrong. A reduced rate that nothing on
+                    // screen explains reads as a fault in the app.
+                    let lane = self.videoTransport == .control ? " · sharing the control channel" : ""
                     // The *rate* leads, and the running total follows it. "1234 frames" answers
                     // how long the session has been up; the question a picture that looks choppy
                     // actually raises is how many are arriving each second, and only a
@@ -247,7 +281,7 @@ extension SessionModel {
                     let rate = self.videoFramesPerSecond > 0
                         ? " · \(Int(self.videoFramesPerSecond.rounded())) fps"
                         : ""
-                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)"
+                    self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)\(lane)"
                 }
             }
         }
@@ -288,6 +322,12 @@ extension SessionModel {
     func append(note: String) {
         notes.append(note)
         if notes.count > 12 { notes.removeFirst(notes.count - 12) }
+        if activeSessionHistoryID != nil {
+            activeSessionLogs.append(note)
+            if activeSessionLogs.count > 40 {
+                activeSessionLogs.removeFirst(activeSessionLogs.count - 40)
+            }
+        }
     }
 
     // MARK: - Pairing

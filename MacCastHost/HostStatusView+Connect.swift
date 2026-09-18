@@ -49,7 +49,7 @@ extension HostStatusView {
                     connectRow(
                         symbol: "globe",
                         title: "From anywhere",
-                        detail: "Once paired, this Mac stays reachable through the relay even on a different network."
+                        detail: "Once paired, this Mac stays reachable through the relay on any network. A first pairing can go that way too: use the device ID in Devices."
                     )
                 }
                 .hostPanel()
@@ -89,7 +89,14 @@ extension HostStatusView {
                     Label("Pair a new iPhone", systemImage: "iphone.and.arrow.forward")
                         .font(.title3.weight(.semibold))
 
-                    Text("Scan this code with Peering, or enter the six digits on \(pairing.clientName).")
+                    // Two sentences, because the two pairings ask for different things. On the
+                    // network the phone can read the code itself, and the person here is the
+                    // one confirming. Over the relay there is somebody else at the other end,
+                    // and the only way the digits cross is that this person reads them out —
+                    // so the card says which of the two situations it is looking at.
+                    Text(pairing.isRemote
+                         ? "This iPhone reached this Mac over the relay, so it is not on this network. Read the six digits out to whoever is holding it: they enter them on the iPhone, and the pairing only goes through if they match."
+                         : "Scan this code with Peering, or enter the six digits on \(pairing.clientName).")
                         .font(.callout)
                         .foregroundStyle(HostPalette.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -99,14 +106,17 @@ extension HostStatusView {
                         .tracking(2)
                         .textSelection(.enabled)
 
-                    Label("Only pair a device you recognize.", systemImage: "lock.fill")
+                    Label(pairing.isRemote
+                          ? "Only read these digits to someone you are expecting."
+                          : "Only pair a device you recognize.",
+                          systemImage: "lock.fill")
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
                 }
 
                 Spacer(minLength: 20)
 
-                if let image = qrCode(for: pairing.code) {
+                if let image = qrCode(encoding: PairingPayload.encode(code: pairing.code)) {
                     Image(nsImage: image)
                         .interpolation(.none)
                         .resizable()

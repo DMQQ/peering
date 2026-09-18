@@ -49,7 +49,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         var attempt = 0
 
         while !Task.isCancelled {
-            onStatus("Connecting to peering.dmqq.dev…")
+            onStatus("Connecting to getpeering.app…")
             let connection = RelaySignallingConnection(url: ProtocolInfo.relaySignallingURL)
             lock.withLock { self.connection = connection }
             do {
@@ -75,7 +75,7 @@ final class RelayHostRegistration: @unchecked Sendable {
                         if !registered {
                             registered = true
                             attempt = 0
-                            onStatus("Registered with peering.dmqq.dev")
+                            onStatus("Registered with getpeering.app")
                         }
                     case .sessionReady(let session):
                         onSession(session)

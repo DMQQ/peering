@@ -6,6 +6,77 @@ import SwiftUI
 /// An extension on the model rather than a type of its own: this state is the
 /// model's, and splitting the *type* would mean either exposing it or copying it.
 extension SessionModel {
+    /// What this device can say about what it bought, in the shape the relay asks for it.
+    ///
+    /// Built in one place because every route to a relay session has to carry it, and a call
+    /// site that forgets part of it is a paying subscriber counted down at the free allowance
+    /// — the failure this whole arrangement exists to remove. The receipt is the part that
+    /// matters: the relay verifies it against Apple's root and meters by the product it names,
+    /// and the plan beside it is read only when there is no receipt to check, which is the case
+    /// for an app older than this one and for the moment before ``StoreManager/start()`` has
+    /// asked the App Store what is current. See ``RelayEntitlement``.
+    var relayEntitlement: RelayEntitlement {
+        RelayEntitlement(
+            plan: storeManager.relayPlan.rawValue,
+            jwsRepresentation: storeManager.activeJWS,
+            apiKey: storeManager.apiKey
+        )
+    }
+
+    /// The relay target for a paired Mac.
+    func relayTarget(hostID: String, name: String) -> ClientSession.Target {
+        .relay(hostID: hostID, name: name, entitlement: relayEntitlement)
+    }
+
+    /// The relay target for a Mac this device has never met.
+    func relayPairingTarget(hostID: String, name: String) -> ClientSession.Target {
+        .relayPairing(hostID: hostID, name: name, entitlement: relayEntitlement)
+    }
+
+    /// Starts a first pairing with a Mac that is not on this network.
+    ///
+    /// **This is the one path into a Mac with no pin behind it, and the licence is the user.**
+    /// Every other route in — the trusted rows, the last-Mac reconnect, the resume after a drop
+    /// — insists on a stored pin for the ID before it will dial the relay, because each of them
+    /// is the app acting on its own about a Mac it already knows. Here the user has just read a
+    /// device ID off the other machine and typed or scanned it, which is a decision the app
+    /// cannot make for them and must not make on their behalf. So the guard is not relaxed; it
+    /// is answered. The Mac still asks both people to compare six digits before it trusts this
+    /// device, and that comparison is what authorises the pairing — the ID only decided who was
+    /// asked. See ``ClientSession/Target/relayPairing(hostID:name:entitlement:)``.
+    ///
+    /// - Returns: what is wrong with the text, or `nil` once an attempt is in flight. The caller
+    ///   shows the sentence where the user can see the field it came from.
+    @discardableResult
+    func pairWithRemoteMac(hostID text: String) -> PairingPayloadError? {
+        let hostID: String
+        do {
+            hostID = try PairingPayload.hostID(from: text)
+        } catch let problem as PairingPayloadError {
+            return problem
+        } catch {
+            // `PairingPayload` reports every refusal as one of its own cases, so this is
+            // unreachable rather than a fallback — but the field is the user's text and
+            // something has to be said about it either way.
+            return .notAnIdentifier(text)
+        }
+
+        guard allowsRelay else {
+            // Not a failure of the pairing, and not an error card: a setting the user turned
+            // off, on a screen that says so. Said here as well because this is the path that
+            // cannot work at all without it — the Mac is not on this network, so there is no
+            // second route to try.
+            append(note: "Remote access is turned off in Settings, so a Mac on another network cannot be reached.")
+            return nil
+        }
+
+        // Named "A Mac" until the handshake says otherwise. A first pairing has never been
+        // told what the Mac calls itself, and the ID is not a name — inventing one from it
+        // would put six hexadecimal characters where a person expects a Mac's name.
+        connect(to: relayPairingTarget(hostID: hostID, name: "A Mac"))
+        return nil
+    }
+
     func confirmPairing(accepted: Bool) {
         // Declining ends the session from the Mac's side too, and that arrives as a
         // `.disconnected` like any other — with the model's phase still on `.confirming`.
@@ -32,6 +103,7 @@ extension SessionModel {
         // lost. After the lines beneath them they are simply nil.
         let wasStartedAt = sessionStartedAt
         let wasPath = Self.activityPath(connectionPath)
+        finishSessionHistory()
 
         // Recorded before anything moves. `ClientSession` announces the end itself, and by
         // the time that event is applied the phase below has already been set — so this flag
@@ -105,7 +177,7 @@ extension SessionModel {
             return
         }
         pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
+        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
     }
 
     /// Explicit route choices from the trusted-Mac row. The regular row tap stays automatic;
@@ -121,7 +193,7 @@ extension SessionModel {
     func connectToTrustedOverRelay(hostID: String) {
         guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
         pendingHostID = nil
-        connect(to: .relay(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
+        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
     }
 
     // MARK: - Quick connect
@@ -152,7 +224,7 @@ extension SessionModel {
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             connect(to: .discovered(host))
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
+            connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
         }
     }
 
@@ -192,7 +264,7 @@ extension SessionModel {
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
             stopReconnecting()
             isResuming = true
-            connect(to: .relay(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac", apiKey: storeManager.apiKey))
+            connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
         } else {
             // Includes the LAN-only case: the Mac is paired and simply not here yet. The ladder
             // keeps asking until it appears, which is the whole of what "wait for it to come
@@ -271,7 +343,11 @@ extension SessionModel {
         // when `startPictureInPicture` still has a view hierarchy to lift the layer out of.
         SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
 
-        guard phase.holdsSession, backgroundTask == .invalid else { return }
+        // Also keep the process alive when the reconnect ladder is running. A LAN session that
+        // drops moves to `.failed` immediately — before `enteringBackground()` — so
+        // `phase.holdsSession` is already false. Without this, the app suspends, `Task.sleep`
+        // freezes, and the "dropped" Live Activity card is never shown.
+        guard (phase.holdsSession || isReconnecting), backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
         }
@@ -303,8 +379,18 @@ extension SessionModel {
     /// correct it with. And the user, who is not looking, gets a banner.
     func backgroundTimeExpired() {
         endBackgroundAssertion()
-        guard phase.holdsSession else { return }
-        disconnect(deliberate: false)
+        if phase.holdsSession {
+            disconnect(deliberate: false)
+        } else if isReconnecting {
+            // Background time ran out before the reconnect ladder finished. Cancel it and show
+            // the "dropped" card; the ladder will restart when the user returns to the foreground.
+            stopReconnecting()
+            SessionActivity.shared.sessionDropped(
+                hostName: hostName ?? "the Mac",
+                startedAt: nil,
+                path: Self.activityPath(connectionPath)
+            )
+        }
     }
 
     func endBackgroundAssertion() {
@@ -326,43 +412,12 @@ extension SessionModel {
         append(note: "Forgot \(hostID). Unpair this device on the Mac as well.")
     }
 
-    /// Destroys this device's identity key and mints a fresh one under a new device ID.
-    ///
-    /// Both, not just the key. A Mac that already holds a pin for this client ID will only
-    /// ever accept the key it pinned, so rotating the key alone locks the device out of every
-    /// Mac it has paired with. Changing the ID as well makes this device a stranger again,
-    /// which is what "start over" has to mean.
-    /// Destroys this device's identity key and mints a fresh one under a new device ID.
-    ///
-    /// Both, not just the key. A Mac that already holds a pin for this client ID will only
-    /// ever accept the key it pinned, so rotating the key alone locks the device out of every
-    /// Mac it has paired with. Changing the ID as well makes this device a stranger again,
-    /// which is what "start over" has to mean.
-    func resetDeviceIdentity() {
-        session?.disconnect()
-        session = nil
-        // The phase moves off `.ready` here rather than through `apply(_:)`, so the elapsed
-        // time has to be cleared here too or the readout would outlive its session.
-        sessionStartedAt = nil
-        phase = .disconnected
-        do {
-            try SelfSignedIdentity.destroy(role: .client)
-        } catch {
-            append(note: "Could not destroy the old key: \((error as? LocalizedError)?.errorDescription ?? "\(error)")")
-            return
-        }
-        _ = pins.removeAll()
-
-        UserDefaults.standard.removeObject(forKey: "Peering.deviceID")
-        device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
-
-        do {
-            self.identity = try SelfSignedIdentity.loadOrCreate(role: .client, commonName: device.name)
-            append(note: "New identity \(device.id.prefix(8))…. Pair again on the Mac.")
-        } catch {
-            identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-        }
-    }
+    // A `resetDeviceIdentity()` used to sit here: it destroyed the key, cleared the pins and let
+    // `DeviceIdentity` mint a new client ID. It went with the buttons that called it. The relay
+    // counts relay time per client ID, so the method's whole effect, from the relay's side, was to
+    // hand the caller a fresh allowance — every reset was another day's worth, whatever the plan
+    // said. Reinstating it means reinstating that, so it should come back only alongside a quota
+    // the relay counts against something a reset cannot change.
 
     func setDeviceName(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
