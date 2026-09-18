@@ -13,8 +13,9 @@ use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
+use peeringd::storekit::StoreKitVerifier;
 use peeringd::udp_relay::PortPool;
-use peeringd::{signalling, tcp_relay};
+use peeringd::{signalling, tcp_relay, web};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,12 +40,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The control relay is plain TCP on purpose, and it is worth being clear that this is not a gap
     // to be closed later: terminating TLS here would mean the relay could read the control channel,
     // and end-to-end confidentiality is the whole property being sold.
-    let quota = Arc::new(QuotaTracker::new(config.free_minutes, config.paid_keys.clone()));
+    let quota = Arc::new(QuotaTracker::new(config.plans, config.paid_keys.clone()));
 
-    if config.free_minutes == 0 {
-        info!("relay is gated — free clients cannot use relay (PEERINGD_FREE_MINUTES=0)");
+    // The one thing here that is not about bandwidth: whether a plan is Apple's or the client's.
+    // Built once, holds no state that outlives a session, and reaches nowhere — see `storekit`.
+    let receipts = Arc::new(StoreKitVerifier::apple(config.trust_claimed_plans));
+
+    // The allowances are logged as minutes because that is how they are configured and how the
+    // app's copy states them; seconds would be a conversion nobody asked for. `unlimited` is the
+    // top two plans and is not configurable — see `PlanAllowances`.
+    info!(
+        free_minutes = config.plans.free_seconds.map(|s| s / 60),
+        relay_minutes = config.plans.relay_seconds.map(|s| s / 60),
+        "relay quota active; the plan comes from the receipt Apple signed, and from the plan the client claims when there is no receipt that verifies"
+    );
+
+    // Said at startup rather than only in a comment, because it is the state of the one known hole
+    // in the relay and the line an operator should see before deciding it is fine. Read off the
+    // verifier rather than off the configuration, so the warning is about what was actually built.
+    if receipts.trusts_claims() {
+        warn!(
+            "a client with no verifiable receipt is metered by the plan it claims, which a patched app can lie about; set PEERINGD_TRUST_CLAIMED_PLANS=0 to meter every unproven plan as free"
+        );
     } else {
-        info!(free_minutes = config.free_minutes, "relay quota active; set PEERINGD_PAID_KEYS to grant unlimited access");
+        info!(
+            "claimed plans are not trusted: only a receipt that verifies against Apple's root buys more than the free allowance"
+        );
+    }
+
+    if config.plans.free_seconds == Some(0) {
+        info!("relay is gated — clients on the free plan cannot use relay (PEERINGD_FREE_MINUTES=0)");
     }
 
     let control = TcpListener::bind(config.control_addr).await?;
@@ -92,6 +117,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "peeringd ready"
     );
 
+    // The site, if there is one. Binds its own listener, which fails soft: a relay deployed
+    // without a `site` directory is a perfectly good relay, and should not refuse to start over a
+    // missing landing page.
+    if let Some((listener, root)) = web::bind(config.web_addr, config.web_root.clone()).await {
+        tokio::spawn(web::serve(listener, Arc::new(root)));
+    }
+
     let settings = Settings {
         host: config.public_host.clone(),
         // Falls back to the bound port, which is right whenever nothing is forwarded.
@@ -103,6 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         public_video_port: config.public_video_port,
         session_ttl: config.session_ttl,
         quota,
+        receipts,
     };
 
     tokio::select! {

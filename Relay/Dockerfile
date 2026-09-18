@@ -12,6 +12,12 @@
 #     -e PEERINGD_TLS_KEY=/certs/live/relay.example/privkey.pem \
 #     peeringd
 #
+# The image carries the site as well, and serves it on 127.0.0.1:8080 — inside the container, so a
+# reverse proxy on the host either reaches it through the container network or the relay is told to
+# bind wider:
+#
+#   -e PEERINGD_WEB_ADDR=0.0.0.0:8080 -p 8080:8080
+#
 # Building for a server of a different architecture needs `--platform`:
 #
 #   docker build --platform linux/amd64 -t peeringd Relay    # x86_64 VPS, from an Apple Silicon Mac
@@ -46,7 +52,15 @@ FROM alpine:3
 RUN apk add --no-cache ca-certificates
 COPY --from=build /src/target/x86_64-unknown-linux-musl/release/peeringd /usr/local/bin/peeringd
 
+# The site. Copied rather than baked into the binary so that changing a line of the privacy policy
+# is a container rebuild and not a Rust build — and so the pages can be opened and read by whoever
+# has to stand behind them.
+COPY --from=build /src/site /srv/site
+ENV PEERINGD_WEB_ROOT=/srv/site
+
 # 8443 signalling, 9443 control, 9444 the base for per-session video ports — see PEERINGD_VIDEO_BIND.
+# 8080 is the site, and is loopback-only unless PEERINGD_WEB_ADDR is changed: it belongs behind
+# whatever terminates TLS on the host, not on a published port.
 EXPOSE 8443/tcp 9443/tcp 9444/udp
 
 ENTRYPOINT ["peeringd"]

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peering · your Mac, from anywhere</title>
+<meta name="description" content="Peering puts your Mac's screen on your iPhone. Pair once on your own network; after that an end-to-end encrypted relay reaches it from anywhere. No account, no analytics, and a relay that cannot read what it carries.">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Peering · your Mac, from anywhere">
+<meta property="og:description" content="Your Mac's screen on your iPhone, over your own network or through a relay that cannot read what it carries.">
+<meta property="og:url" content="https://peering.dmqq.dev/">
+<meta property="og:image" content="https://peering.dmqq.dev/assets/pears-512.png">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="bar" id="bar">
+  <div class="wrap bar-inner">
+    <a class="brand" href="#top" aria-label="Peering, home">
+      <img src="/assets/pears-128.png" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#features">What it does</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="/download">Download</a>
+    </nav>
+
+    <a class="btn btn-small btn-primary bar-cta" href="/download">Get Peering</a>
+
+    <button class="menu" id="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero" id="top">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <img class="hero-mark" src="/assets/pears-512.png" alt="" width="96" height="96">
+        <h1>Peering</h1>
+        <p class="lede">Your Mac, from anywhere.</p>
+        <p class="body">
+          Peering puts your Mac's screen on your iPhone. Over your own network, or through a
+          relay when you are somewhere else. The two devices pair directly, the connection is
+          end-to-end encrypted, and nothing in the middle can read what it carries.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/download">Download for Mac</a>
+          <!-- TODO before launch: add the App Store badge next to this, linking to
+               https://apps.apple.com/app/id<your-app-id>. The iPhone app has no link yet, and an
+               anchor that goes nowhere is worse than none — see /download for what visitors are
+               told in the meantime. -->
+          <a class="btn btn-quiet" href="#how">See how it works</a>
+        </div>
+        <p class="fine">iPhone, and macOS on the Mac you want to reach. Free to use on your own network.</p>
+      </div>
+
+      <!-- A real screenshot of the app, in a drawn frame rather than a rendered one. -->
+      <div class="phone" aria-label="The Peering app, showing the Connect screen">
+        <div class="phone-screen">
+          <img src="/assets/app-connect.png" alt="Peering on iPhone: the Connect screen, with Nearby Macs and Trusted Macs." width="603" height="1311">
+        </div>
+        <div class="phone-island" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section" id="how">
+    <div class="wrap">
+      <h2>Pair once. Then it is just there.</h2>
+      <p class="section-lede">
+        Three steps the first time, and one step every time after that.
+      </p>
+
+      <ol class="steps">
+        <li class="card step">
+          <span class="step-n">1</span>
+          <h3>Pair on your own network</h3>
+          <p>
+            Open Peering on the Mac and pick it from Nearby on the iPhone. Both screens show the
+            same six digits. Confirm only if they match, and the two devices remember each
+            other's keys.
+          </p>
+        </li>
+        <li class="card step">
+          <span class="step-n">2</span>
+          <h3>Choose what to share</h3>
+          <p>
+            A whole display, one running app, or a single window. The list is live, including
+            apps you have not opened yet, and you can switch at any time without dropping the
+            connection.
+          </p>
+        </li>
+        <li class="card step">
+          <span class="step-n">3</span>
+          <h3>Leave the house</h3>
+          <p>
+            After pairing, the relay finds your Mac from other networks. Lock your phone and the
+            session survives; Picture in Picture and a Live Activity keep it in reach.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <h2>What it does</h2>
+      <p class="section-lede">
+        Everything below travels over one encrypted connection between your two devices.
+      </p>
+
+      <div class="grid">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3.2v5.4c0 4.3-2.9 7.9-7 9.4-4.1-1.5-7-5.1-7-9.4V6.2z"/><path d="M12 10.4v3.2"/><circle cx="12" cy="8.9" r="1.1"/></svg>
+          <h3>Encrypted, device to device</h3>
+          <p>Each device makes its own key and keeps it in its own Keychain. There is no account and nothing stored on a server.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8c2.4 2.4 3.6 5.2 3.6 8.2s-1.2 5.8-3.6 8.2c-2.4-2.4-3.6-5.2-3.6-8.2s1.2-5.8 3.6-8.2z"/><path d="M4.2 9.4h15.6M4.2 14.6h15.6"/></svg>
+          <h3>Come back from anywhere</h3>
+          <p>After pairing, an end-to-end encrypted relay reaches your Mac when it is on another network.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.6l12.2 8.1-5.2 1.1-2.3 5z"/><path d="M4.5 19.5h6"/></svg>
+          <h3>You actually drive it</h3>
+          <p>Pointer, keyboard, joystick, scroll wheel and macros. Control &amp; zoom puts your fingers on the Mac.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><path d="M3.4 8.6h17.2"/><path d="M12 8.6v10.8"/></svg>
+          <h3>A screen, an app, or one window</h3>
+          <p>Share any of them, and switch between them without reconnecting.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="6.4" width="14" height="11.2" rx="2.4"/><path d="M7.4 4.2h11.2a2.4 2.4 0 012.4 2.4v9"/></svg>
+          <h3>Every desktop you have</h3>
+          <p>All of your Spaces, each one shown as a picture rather than a list of names.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
+          <h3>Keeps going when you leave</h3>
+          <p>Picture in Picture over other apps, a Live Activity on the Lock Screen, and a widget on the Home Screen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="section" id="privacy">
+    <div class="wrap">
+      <h2>The relay carries it. It cannot read it.</h2>
+      <p class="section-lede">
+        That is a property of how the relay is built, not a promise about how it behaves.
+      </p>
+
+      <div class="card privacy-card">
+        <div class="diagram" aria-hidden="true">
+          <span class="node">iPhone</span>
+          <span class="link"><i></i></span>
+          <span class="node node-relay">Relay</span>
+          <span class="link"><i></i></span>
+          <span class="node">Mac</span>
+        </div>
+
+        <div class="privacy-notes">
+          <div>
+            <h3>What the relay handles</h3>
+            <p>
+              Your devices' IDs, your Mac's name, the protocol version, which plan the app says
+              you are on, and how much relay time has been used. That is the whole list. It is
+              what addressing two machines and counting allowance requires.
+            </p>
+          </div>
+          <div>
+            <h3>What it cannot read</h3>
+            <p>
+              The control channel is a TLS session belonging to your two devices, copied through
+              without being terminated. Video, audio, keystrokes, pointer input and clipboard
+              text are sealed with keys the relay was never given.
+            </p>
+          </div>
+          <div>
+            <h3>What the app collects</h3>
+            <p>
+              Nothing. No analytics, no advertising, no third-party tracking SDKs, and no
+              account to attach any of it to.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing">
+    <div class="wrap">
+      <h2>Pricing</h2>
+      <p class="section-lede">
+        Connecting over your own network is free and always will be. The relay is what reaches
+        your Mac from somewhere else, and it is metered.
+      </p>
+
+      <div class="plans">
+        <div class="card plan">
+          <h3>Free</h3>
+          <p class="plan-price">$0</p>
+          <p class="plan-note">on your own network</p>
+          <ul>
+            <li>Unlimited local connections</li>
+            <li>Every display, app and window</li>
+            <li>Clipboard, keyboard, macros</li>
+            <li>Half an hour of relay every day</li>
+          </ul>
+        </div>
+
+        <div class="card plan">
+          <h3>Relay</h3>
+          <p class="plan-price">$4.99<span>/month</span></p>
+          <p class="plan-note">for one Mac</p>
+          <ul>
+            <li>Everything free has</li>
+            <li>Three hours of relay every day</li>
+            <li>One paired Mac</li>
+          </ul>
+        </div>
+
+        <div class="card plan">
+          <h3>Relay Plus</h3>
+          <p class="plan-price">$14.99<span>/month</span></p>
+          <p class="plan-note">for two Macs</p>
+          <ul>
+            <li>Everything in Relay</li>
+            <li>Unlimited relay</li>
+            <li>Two paired Macs</li>
+            <li>Terminal sessions</li>
+            <li>Live Activities and widgets</li>
+          </ul>
+        </div>
+
+        <div class="card plan plan-best">
+          <span class="plan-badge">Best value</span>
+          <h3>Pro</h3>
+          <p class="plan-price">$79.99<span>/year</span></p>
+          <p class="plan-note">everything, billed yearly</p>
+          <ul>
+            <li>Everything in Relay Plus</li>
+            <li>Every Mac you own</li>
+            <li>Session audio and Picture in Picture</li>
+            <li>Wake on LAN and privacy mode</li>
+            <li>Everything added while you are subscribed</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="fine">
+        Prices are set per country by the App Store and shown in the app before you buy.
+        Subscriptions renew automatically until cancelled, the monthly plans every month and Pro
+        every year. You can cancel any time in your App Store settings.
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <h2>Questions</h2>
+
+      <div class="faq">
+        <details>
+          <summary>Can the relay see my screen or my controls?</summary>
+          <p>
+            No. It forwards the encrypted connection between your paired devices and cannot read
+            the video, audio, clipboard text, keystrokes or pointer input inside it.
+          </p>
+        </details>
+        <details>
+          <summary>What does the relay know about me?</summary>
+          <p>
+            Your Mac's device ID and name, your iPhone's device ID, the protocol version, which
+            plan the app says you are on, and connection usage. A paid connection also sends its
+            relay access key. Nothing else, and no account is involved.
+          </p>
+        </details>
+        <details>
+          <summary>Do I need an account?</summary>
+          <p>
+            No. Peering creates an identity on each device and stores it in that device's
+            Keychain. There is nothing to sign up for and no password.
+          </p>
+        </details>
+        <details>
+          <summary>Why do the two screens show a code?</summary>
+          <p>
+            Each device creates its own key. The six digits are how you confirm that the device
+            you are pairing with is the one in front of you. Once you confirm it, both devices
+            remember the other's public key.
+          </p>
+        </details>
+        <details>
+          <summary>Can I transfer files?</summary>
+          <p>
+            Not yet. Peering carries the screen, Mac audio, controls, terminal commands and
+            clipboard text, but not files.
+          </p>
+        </details>
+        <details>
+          <summary>Does it work on a network I do not control?</summary>
+          <p>
+            Yes. Once paired, the connection uses the relay over the internet, so it works from a
+            hotel, a train, or someone else's Wi-Fi. The local network only has to be shared for
+            the first pairing.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.png" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Legal and support">
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@dmqq.dev">Support</a>
+    </nav>
+    <p class="foot-fine">© 2026 Peering. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

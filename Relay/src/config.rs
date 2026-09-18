@@ -56,12 +56,76 @@ pub struct Config {
     /// Mac and lives until both connections have been made and then dropped, or until this elapses
     /// and it is swept.
     pub session_ttl: Duration,
-    /// Free relay minutes per client per 30-day window. Set to 0 to disable relay for free clients
-    /// entirely.
-    pub free_minutes: u64,
+    /// How much relay time each plan is allowed, per window.
+    pub plans: PlanAllowances,
     /// API keys that grant unlimited relay access, loaded from `PEERINGD_PAID_KEYS` as a
     /// comma-separated list. Each key is an opaque string the client presents in `ConnectToHost`.
+    ///
+    /// **This is the second grant the relay does not take the client's word for**, the first being
+    /// the receipt on `ConnectToHost` and the plan it proves — see `storekit`. It is kept even
+    /// though nothing mints a key that could be in it, because it costs nothing and it is the only
+    /// way to grant one machine unlimited relay without a purchase.
     pub paid_keys: HashSet<String>,
+    /// Whether a plan the client claims is believed when it sends no receipt, or one that does not
+    /// verify. `PEERINGD_TRUST_CLAIMED_PLANS`, true by default.
+    ///
+    /// **True is a known hole, kept for the length of one transition.** The app shipped before the
+    /// relay could verify receipts, and a client that sends no proof is metered by what it says it
+    /// bought. Reading an unproven plan as free instead would be the safe answer to "did this
+    /// client pay" and the wrong answer to "should this deploy cut off every subscriber" — it would
+    /// take every existing one down to half an hour a day on the day it shipped. `storekit.rs`
+    /// carries the whole of that reasoning and the condition for closing it.
+    ///
+    /// Setting it false is what an operator does to measure the drop before everyone gets it:
+    /// sessions then log `plan_trust="neither"` for clients that used to be `claimed`, and when
+    /// that count is nothing that matters, this field goes away along with the fallback.
+    pub trust_claimed_plans: bool,
+    /// Where the marketing site is served.
+    ///
+    /// **Loopback by default**, and deliberately. The site is meant to sit behind whatever already
+    /// terminates TLS on the machine — nginx, Caddy, Cloudflare — and a listener that is
+    /// accidentally public is a worse mistake than one that is accidentally private.
+    pub web_addr: SocketAddr,
+    /// The directory the site is read from.
+    ///
+    /// Relative paths resolve against the working directory, which is what makes `cargo run` in
+    /// this crate serve the copy in `site/` with no configuration at all. A directory that is not
+    /// there is not an error: the relay says so and carries on without a site.
+    pub web_root: PathBuf,
+}
+
+/// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
+const DEFAULT_FREE_MINUTES: u64 = 30;
+/// Relay-plan minutes per client per window, unless `PEERINGD_RELAY_MINUTES` says otherwise.
+const DEFAULT_RELAY_MINUTES: u64 = 180;
+
+/// What each plan is allowed, in seconds per window.
+///
+/// The two numbers here are the whole of the product's promise about relay time: half an hour a
+/// day free, three hours a day on the cheapest subscription, and no limit above that. They are
+/// configurable because an operator may want to be stingier or more generous than the app's copy
+/// says, and the app's copy is what has to keep up — `SessionHistory.swift` mirrors these numbers
+/// to draw its "free relay time" bar, or the bar lies.
+///
+/// Zero is allowed and means what it says: `PEERINGD_FREE_MINUTES=0` blocks relay for free clients
+/// entirely rather than making it unlimited. There is deliberately no spelling for "unlimited"
+/// here. An operator who wants to give a plan away for nothing has set the price of the product,
+/// not configured the relay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlanAllowances {
+    /// `PEERINGD_FREE_MINUTES`, 30 by default. `None` would mean unlimited; nothing sets it.
+    pub free_seconds: Option<u64>,
+    /// `PEERINGD_RELAY_MINUTES`, 180 by default.
+    pub relay_seconds: Option<u64>,
+}
+
+impl Default for PlanAllowances {
+    fn default() -> Self {
+        Self {
+            free_seconds: Some(DEFAULT_FREE_MINUTES * 60),
+            relay_seconds: Some(DEFAULT_RELAY_MINUTES * 60),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +173,8 @@ pub enum ConfigError {
     HalfATlsPair(&'static str),
     BadPortRange(String),
     BadPort(&'static str, String),
+    /// A switch that is not one of the spellings of yes and no.
+    NotABoolean(&'static str, String),
 }
 
 impl fmt::Display for ConfigError {
@@ -126,6 +192,9 @@ impl fmt::Display for ConfigError {
             }
             Self::BadPort(name, value) => {
                 write!(f, "{name} is not a port number between 1 and 65535: {value:?}")
+            }
+            Self::NotABoolean(name, value) => {
+                write!(f, "{name} is not a switch like 0, 1, true or false: {value:?}")
             }
         }
     }
@@ -182,8 +251,18 @@ impl Config {
             public_host: get("PEERINGD_PUBLIC_HOST"),
             tls,
             session_ttl: Duration::from_secs(seconds(&get, "PEERINGD_SESSION_TTL", 300)?),
-            free_minutes: seconds(&get, "PEERINGD_FREE_MINUTES", 15)?,
+            plans: PlanAllowances {
+                free_seconds: Some(seconds(&get, "PEERINGD_FREE_MINUTES", DEFAULT_FREE_MINUTES)? * 60),
+                relay_seconds: Some(
+                    seconds(&get, "PEERINGD_RELAY_MINUTES", DEFAULT_RELAY_MINUTES)? * 60,
+                ),
+            },
             paid_keys,
+            trust_claimed_plans: boolean(&get, "PEERINGD_TRUST_CLAIMED_PLANS", true)?,
+            web_addr: address(&get, "PEERINGD_WEB_ADDR", "127.0.0.1:8080")?,
+            web_root: get("PEERINGD_WEB_ROOT")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("site")),
         })
     }
 }
@@ -209,6 +288,21 @@ fn optional_port(get: Lookup<'_>, name: &'static str) -> Result<Option<u16>, Con
         Some(raw) => match raw.parse::<u16>() {
             Ok(port) if port > 0 => Ok(Some(port)),
             _ => Err(ConfigError::BadPort(name, raw)),
+        },
+    }
+}
+
+/// A switch, refused rather than guessed when it is neither. `PEERINGD_TRUST_CLAIMED_PLANS=maybe`
+/// is a typo, and a typo that silently means "trust every claim" is the one outcome this must not
+/// have; `0` and `1` are accepted beside the words because that is how they are written in a
+/// compose file.
+fn boolean(get: Lookup<'_>, name: &'static str, default: bool) -> Result<bool, ConfigError> {
+    match get(name).map(|raw| raw.trim().to_ascii_lowercase()) {
+        None => Ok(default),
+        Some(raw) => match raw.as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(ConfigError::NotABoolean(name, raw)),
         },
     }
 }
@@ -301,6 +395,69 @@ mod tests {
         assert!(matches!(
             configured(&[("PEERINGD_SESSION_TTL", "soon")]),
             Err(ConfigError::BadDuration(_, _))
+        ));
+    }
+
+    #[test]
+    fn the_default_allowances_are_the_ones_the_app_states() {
+        let config = configured(&[]).unwrap();
+
+        assert_eq!(config.plans, PlanAllowances::default());
+        assert_eq!(config.plans.free_seconds, Some(30 * 60), "free is half an hour a day");
+        assert_eq!(config.plans.relay_seconds, Some(180 * 60), "Relay is three hours a day");
+    }
+
+    #[test]
+    fn each_allowance_is_configurable_in_minutes() {
+        let config = configured(&[
+            ("PEERINGD_FREE_MINUTES", "5"),
+            ("PEERINGD_RELAY_MINUTES", "600"),
+        ])
+        .unwrap();
+
+        assert_eq!(config.plans.free_seconds, Some(5 * 60));
+        assert_eq!(config.plans.relay_seconds, Some(600 * 60));
+
+        // Zero is a number rather than a spelling of unlimited: it turns the plan off, which is
+        // what the operator who sets it is asking for.
+        let config = configured(&[("PEERINGD_FREE_MINUTES", "0")]).unwrap();
+        assert_eq!(config.plans.free_seconds, Some(0));
+
+        assert!(matches!(
+            configured(&[("PEERINGD_RELAY_MINUTES", "three hours")]),
+            Err(ConfigError::BadDuration(_, _))
+        ));
+    }
+
+    /// The fallback is on unless someone says otherwise, because that is the behaviour the app
+    /// that shipped already relies on: a subscriber's client sends a plan and no proof, and reading
+    /// that as free is the outcome this default exists to avoid.
+    #[test]
+    fn claims_are_trusted_unless_the_operator_says_not_to() {
+        assert!(configured(&[]).unwrap().trust_claimed_plans);
+
+        for off in ["0", "false", "off", "no", "FALSE", " 0 "] {
+            let config = configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", off)]).unwrap();
+            assert!(
+                !config.trust_claimed_plans,
+                "{off:?} should turn the fallback off"
+            );
+        }
+
+        for on in ["1", "true", "on", "yes"] {
+            assert!(configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", on)])
+                .unwrap()
+                .trust_claimed_plans);
+        }
+    }
+
+    /// A switch nobody can read is refused rather than guessed. The guess would be the wrong way
+    /// round whatever it was, and a typo here decides whether every claim is believed.
+    #[test]
+    fn a_switch_that_is_not_a_switch_is_refused() {
+        assert!(matches!(
+            configured(&[("PEERINGD_TRUST_CLAIMED_PLANS", "maybe")]),
+            Err(ConfigError::NotABoolean("PEERINGD_TRUST_CLAIMED_PLANS", _))
         ));
     }
 

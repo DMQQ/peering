@@ -24,8 +24,9 @@ use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
 use crate::protocol::{hex, ClientMessage, ServerMessage};
-use crate::quota::QuotaTracker;
+use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
+use crate::storekit::{ReceiptCache, StoreKitVerifier};
 use crate::udp_relay;
 
 /// How the relay describes itself to the two ends.
@@ -48,6 +49,22 @@ pub struct Settings {
     pub public_video_port: Option<u16>,
     pub session_ttl: Duration,
     pub quota: Arc<QuotaTracker>,
+    /// Decides whether a client's plan is Apple's or its own claim — see `storekit`.
+    ///
+    /// Beside the quota rather than inside it, because the two answer different questions: this one
+    /// is what the client bought, and `quota` is what that buys them. Keeping the verification out
+    /// of the counter is also what lets the counter be tested without a certificate in sight.
+    pub receipts: Arc<StoreKitVerifier>,
+}
+
+/// What one signalling connection carries from message to message.
+#[derive(Default)]
+struct ConnectionState {
+    /// The device ID this socket registered as, so the registration can be removed when it closes.
+    registered_as: Option<String>,
+    /// The verdict on the receipts this client has sent, so a JWS is verified once per session
+    /// rather than once per message. See `storekit::ReceiptCache`.
+    receipts: ReceiptCache,
 }
 
 /// The Macs that are currently registered, by device ID.
@@ -179,9 +196,10 @@ async fn handle<S>(
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    // 64 KB is large enough for the biggest valid message (a SessionReady with two 32-char hex
-    // tokens plus a hostname) by a generous margin, and small enough to close a connection sending
-    // garbage before it allocates a meaningful amount of memory.
+    // 64 KB is large enough for the biggest valid message — a `ConnectToHost` carrying a receipt,
+    // which is a few kilobytes of base64 and is capped at `storekit::MAX_JWS_BYTES` — by a generous
+    // margin, and small enough to close a connection sending garbage before it allocates a
+    // meaningful amount of memory.
     let mut config = WebSocketConfig::default();
     config.max_message_size = Some(64 * 1024);
     config.max_frame_size = Some(64 * 1024);
@@ -199,7 +217,7 @@ async fn handle<S>(
     // That is what lets the select below own `sink` exclusively: a reply written straight to the
     // sink from the read arm would need it borrowed in both arms at once.
     let (tx, mut rx) = mpsc::channel::<ServerMessage>(32);
-    let mut registered_as: Option<String> = None;
+    let mut state = ConnectionState::default();
 
     loop {
         tokio::select! {
@@ -208,7 +226,7 @@ async fn handle<S>(
                     Some(Ok(Message::Text(text))) => {
                         let reply = match serde_json::from_str::<ClientMessage>(&text) {
                             Ok(message) => {
-                                dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut registered_as).await
+                                dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut state).await
                             }
                             Err(error) => {
                                 debug!(%peer, %error, "unparseable signalling message");
@@ -242,7 +260,7 @@ async fn handle<S>(
         }
     }
 
-    if let Some(device_id) = registered_as {
+    if let Some(device_id) = state.registered_as {
         hosts.remove_if_ours(&device_id, &tx).await;
         info!(%device_id, "host went offline");
     }
@@ -256,7 +274,7 @@ async fn dispatch(
     hosts: &HostRegistry,
     settings: &Settings,
     relay_host: &str,
-    registered_as: &mut Option<String>,
+    state: &mut ConnectionState,
 ) -> Option<ServerMessage> {
     // IDs and names are short strings — device IDs are UUIDs (36 chars) and names are
     // human-readable labels. Cap at 256 bytes so a misbehaving client cannot accumulate
@@ -275,7 +293,7 @@ async fn dispatch(
             hosts
                 .put(&device_id, name.clone(), protocol_version, self_tx.clone())
                 .await;
-            *registered_as = Some(device_id.clone());
+            state.registered_as = Some(device_id.clone());
             info!(%device_id, %name, protocol_version, "host registered");
             Some(ServerMessage::Registered {
                 session_ttl_seconds: settings.session_ttl.as_secs(),
@@ -287,6 +305,8 @@ async fn dispatch(
             client_id,
             protocol_version,
             api_key,
+            plan,
+            jws_representation,
         } => {
             if host_id.len() > MAX_FIELD || client_id.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
@@ -297,13 +317,50 @@ async fn dispatch(
                 }
             }
 
-            // Check relay quota before allocating a session. Paid keys bypass the counter;
-            // free clients are blocked when their monthly allowance is exhausted.
-            let remaining = settings.quota.remaining(&client_id, api_key.as_deref());
+            // The plan is resolved before anything is allocated, and the raw strings are dropped
+            // here: what travels on is the resolved plan and how it was arrived at, so nothing
+            // downstream can be tempted to read a name this relay does not know, or to treat a
+            // receipt as proof without having verified it. The receipt is verified at most once per
+            // connection, which is what `ReceiptCache` is for, and it is never logged.
+            let claimed = Plan::from_wire(plan.as_deref());
+            let resolved = state.receipts.resolve(
+                &settings.receipts,
+                claimed,
+                jws_representation.as_deref(),
+            );
+            let plan = resolved.plan;
+
+            // One line, and only when a receipt was sent and refused: it is the answer to "why is
+            // this client metered as free", and it is the evidence an operator collects with
+            // PEERINGD_TRUST_CLAIMED_PLANS=0 before turning the fallback off.
+            if let Some(rejected) = resolved.rejected {
+                info!(
+                    %client_id,
+                    plan = plan.as_str(),
+                    plan_trust = resolved.trust.as_str(),
+                    reason = rejected.reason(),
+                    "receipt refused"
+                );
+            }
+
+            // Check relay quota before allocating a session. Paid keys bypass the counter; a plan
+            // with an allowance is blocked when its allowance for this window is exhausted, and
+            // the two unlimited plans are not blocked at all.
+            let remaining = settings.quota.remaining(&client_id, api_key.as_deref(), plan);
             if remaining == Some(0) {
+                // Logged because it is the line an operator is asked about: "why was I cut off"
+                // is answered here, with the plan that was applied, whether Apple or the client
+                // said so, and so whether the client was metered as free when it did not think
+                // it was.
+                info!(
+                    %client_id,
+                    plan = plan.as_str(),
+                    plan_trust = resolved.trust.as_str(),
+                    "relay allowance exhausted"
+                );
                 return Some(ServerMessage::error(
                     "quotaExceeded",
-                    "free relay allowance exhausted for this period",
+                    "relay allowance exhausted for this period",
                 ));
             }
 
@@ -345,8 +402,20 @@ async fn dispatch(
 
             // The name is here because it is the one thing that makes this log line useful to
             // whoever is running the relay: a device ID identifies a machine to a database, and a
-            // name identifies it to a person reading `journalctl`.
-            info!(%host_id, host_name = %host.name, %client_id, video_port, "session allocated");
+            // name identifies it to a person reading `journalctl`. The plan is here because it is
+            // what decides whether this session is metered at all, and an operator reading a
+            // session back needs that settled by the line rather than inferred from the client —
+            // which is what `plan_trust` is for: `verified` means Apple signed the plan, `claimed`
+            // means the client's word for it, `neither` means the free allowance.
+            info!(
+                %host_id,
+                host_name = %host.name,
+                %client_id,
+                video_port,
+                plan = plan.as_str(),
+                plan_trust = resolved.trust.as_str(),
+                "session allocated"
+            );
 
             // The two ends get *different* video tokens, which is the one place the messages they
             // receive diverge. See `VideoPairing` for why a shared token cannot express a re-bind.
@@ -386,9 +455,35 @@ async fn dispatch(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::PlanAllowances;
 
     fn channel() -> (mpsc::Sender<ServerMessage>, mpsc::Receiver<ServerMessage>) {
         mpsc::channel(4)
+    }
+
+    fn settings_with(quota: Arc<QuotaTracker>) -> Settings {
+        Settings {
+            host: None,
+            public_control_port: 9443,
+            video_bind: "127.0.0.1:0".parse().unwrap(),
+            video_ports: Arc::new(udp_relay::PortPool::new(None)),
+            public_video_port: None,
+            session_ttl: Duration::from_secs(60),
+            quota,
+            // Pinned to Apple's real root, so a receipt in these tests verifies only if someone
+            // has Apple's signing key. The receipt path itself is exercised in `storekit`'s own
+            // tests, where the chain is one the test can actually sign with.
+            receipts: Arc::new(StoreKitVerifier::apple(true)),
+        }
+    }
+
+    /// The allowances the app states, which are the relay's defaults: half an hour free and three
+    /// hours on Relay. Two numbers rather than one, so a test that confuses the plans fails.
+    fn default_settings() -> Settings {
+        settings_with(Arc::new(QuotaTracker::new(
+            PlanAllowances::default(),
+            Default::default(),
+        )))
     }
 
     #[tokio::test]
@@ -430,17 +525,9 @@ mod tests {
     async fn asking_for_an_unknown_host_reports_it_offline() {
         let registry = Arc::new(Registry::new());
         let hosts = HostRegistry::new();
-        let settings = Settings {
-            host: None,
-            public_control_port: 9443,
-            video_bind: "127.0.0.1:0".parse().unwrap(),
-            video_ports: Arc::new(udp_relay::PortPool::new(None)),
-            public_video_port: None,
-            session_ttl: Duration::from_secs(60),
-            quota: Arc::new(QuotaTracker::new(15, Default::default())),
-        };
+        let settings = default_settings();
         let (tx, _rx) = channel();
-        let mut registered = None;
+        let mut state = ConnectionState::default();
 
         let reply = dispatch(
             ClientMessage::ConnectToHost {
@@ -448,13 +535,15 @@ mod tests {
                 client_id: "phone".into(),
                 protocol_version: 3,
                 api_key: None,
+                plan: None,
+                jws_representation: None,
             },
             &tx,
             &registry,
             &hosts,
             &settings,
             "127.0.0.1",
-            &mut registered,
+            &mut state,
         )
         .await;
 
@@ -474,17 +563,9 @@ mod tests {
         let (host_tx, _host_rx) = channel();
         hosts.put("mac", "Studio".into(), 3, host_tx).await;
 
-        let settings = Settings {
-            host: None,
-            public_control_port: 9443,
-            video_bind: "127.0.0.1:0".parse().unwrap(),
-            video_ports: Arc::new(udp_relay::PortPool::new(None)),
-            public_video_port: None,
-            session_ttl: Duration::from_secs(60),
-            quota: Arc::new(QuotaTracker::new(15, Default::default())),
-        };
+        let settings = default_settings();
         let (tx, _rx) = channel();
-        let mut registered = None;
+        let mut state = ConnectionState::default();
 
         let reply = dispatch(
             ClientMessage::ConnectToHost {
@@ -492,13 +573,15 @@ mod tests {
                 client_id: "phone".into(),
                 protocol_version: 2,
                 api_key: None,
+                plan: None,
+                jws_representation: None,
             },
             &tx,
             &registry,
             &hosts,
             &settings,
             "127.0.0.1",
-            &mut registered,
+            &mut state,
         )
         .await;
 
@@ -513,17 +596,9 @@ mod tests {
         let (host_tx, mut host_rx) = channel();
         hosts.put("mac", "Studio".into(), 3, host_tx).await;
 
-        let settings = Settings {
-            host: None,
-            public_control_port: 9443,
-            video_bind: "127.0.0.1:0".parse().unwrap(),
-            video_ports: Arc::new(udp_relay::PortPool::new(None)),
-            public_video_port: None,
-            session_ttl: Duration::from_secs(60),
-            quota: Arc::new(QuotaTracker::new(15, Default::default())),
-        };
+        let settings = default_settings();
         let (tx, _rx) = channel();
-        let mut registered = None;
+        let mut state = ConnectionState::default();
 
         let reply = dispatch(
             ClientMessage::ConnectToHost {
@@ -531,13 +606,15 @@ mod tests {
                 client_id: "phone".into(),
                 protocol_version: 3,
                 api_key: None,
+                plan: None,
+                jws_representation: None,
             },
             &tx,
             &registry,
             &hosts,
             &settings,
             "relay.test",
-            &mut registered,
+            &mut state,
         )
         .await;
 
@@ -576,5 +653,85 @@ mod tests {
         assert_eq!((video_host, video_port), (ready.2, ready.3));
         assert_eq!(control_token, ready.4);
         assert_ne!(video_token, ready.5, "the two ends must not share a token");
+    }
+
+    /// Sends one connect request against a Mac that is registered and a counter that is already
+    /// spent, and reports what the phone was told.
+    async fn connect_with(plan: Option<&str>, spent_seconds: u64) -> Option<ServerMessage> {
+        let registry = Arc::new(Registry::new());
+        let hosts = HostRegistry::new();
+        let (host_tx, _host_rx) = channel();
+        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+
+        let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
+        // Recorded rather than configured away, so the test travels the same path a client does.
+        quota.record("phone", Duration::from_secs(spent_seconds));
+        let settings = settings_with(quota);
+
+        let (tx, _rx) = channel();
+        let mut state = ConnectionState::default();
+        dispatch(
+            ClientMessage::ConnectToHost {
+                host_id: "mac".into(),
+                client_id: "phone".into(),
+                protocol_version: 3,
+                api_key: None,
+                plan: plan.map(str::to_string),
+                jws_representation: None,
+            },
+            &tx,
+            &registry,
+            &hosts,
+            &settings,
+            "127.0.0.1",
+            &mut state,
+        )
+        .await
+    }
+
+    /// Half an hour free means half an hour: a client that has spent more than that is refused.
+    #[tokio::test]
+    async fn a_spent_free_allowance_is_refused() {
+        let reply = connect_with(None, 30 * 60 + 1).await;
+        assert!(
+            matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
+            "expected a quota refusal, got {reply:?}"
+        );
+    }
+
+    /// The same client, saying `relay`, is inside its much larger allowance — which is the whole
+    /// of what a subscription buys here.
+    #[tokio::test]
+    async fn a_relay_plan_is_still_connected_after_the_free_hour_is_spent() {
+        let reply = connect_with(Some("relay"), 30 * 60 + 1).await;
+        assert!(
+            matches!(reply, Some(ServerMessage::SessionReady { .. })),
+            "Relay should have three hours, not half an hour: {reply:?}"
+        );
+    }
+
+    /// And a client saying `pro` is not blocked by the counter at all.
+    #[tokio::test]
+    async fn a_pro_plan_is_not_blocked_by_its_counter() {
+        for plan in ["plus", "pro"] {
+            let reply = connect_with(Some(plan), 100 * 3600).await;
+            assert!(
+                matches!(reply, Some(ServerMessage::SessionReady { .. })),
+                "{plan} should not be metered, got {reply:?}"
+            );
+        }
+    }
+
+    /// The trust boundary, stated as a test: the plan is the client's word, so the only defence
+    /// is that an unrecognised word buys nothing. `pro` spelled any other way is free.
+    #[tokio::test]
+    async fn a_plan_the_relay_does_not_know_is_metered_as_free() {
+        for claimed in ["enterprise", "unlimited", "pro max", ""] {
+            let reply = connect_with(Some(claimed), 30 * 60 + 1).await;
+            assert!(
+                matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
+                "{claimed:?} should have been metered as free, got {reply:?}"
+            );
+        }
     }
 }

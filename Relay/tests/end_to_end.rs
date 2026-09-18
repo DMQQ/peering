@@ -16,10 +16,12 @@ use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::time::timeout;
 use tokio_tungstenite::tungstenite::Message;
 
+use peeringd::config::PlanAllowances;
 use peeringd::protocol::{unhex, ClientMessage, ServerMessage};
 use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
+use peeringd::storekit::StoreKitVerifier;
 use peeringd::udp_relay::{bind_packet, PortPool};
 use peeringd::{signalling, tcp_relay};
 
@@ -51,7 +53,7 @@ async fn start() -> TestRelay {
     let signal = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let signal_port = signal.local_addr().unwrap().port();
 
-    let quota = Arc::new(QuotaTracker::new(15, Default::default()));
+    let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
     tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
 
     tokio::spawn(signalling::serve(
@@ -66,6 +68,9 @@ async fn start() -> TestRelay {
             public_video_port: None,
             session_ttl: Duration::from_secs(60),
             quota,
+            // Pinned to Apple's real root, so nothing this test sends can be mistaken for a
+            // receipt. The verified path has its own tests, with a chain they can sign.
+            receipts: Arc::new(StoreKitVerifier::apple(true)),
         },
         None,
     ));
@@ -179,6 +184,13 @@ async fn a_mac_and_a_phone_are_introduced_and_their_control_sockets_talk() {
             client_id: "phone".into(),
             protocol_version: 3,
             api_key: None,
+            // What the app sends for a user who has bought nothing. The relay reads the field
+            // leniently — see `Plan::from_wire` — and this is the spelling that must never be
+            // mistaken for a paid one.
+            plan: Some("free".into()),
+            // No receipt: what the app sends until `Transaction.currentEntitlements` has answered,
+            // and what every client that has bought nothing sends for its whole life.
+            jws_representation: None,
         },
     )
     .await;
@@ -226,6 +238,8 @@ async fn video_datagrams_flow_between_the_two_ends() {
             client_id: "phone".into(),
             protocol_version: 3,
             api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
         },
     )
     .await;
@@ -272,6 +286,8 @@ async fn a_phone_asking_for_a_mac_that_is_not_running_is_told_so() {
             client_id: "phone".into(),
             protocol_version: 3,
             api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
         },
     )
     .await;
@@ -313,6 +329,8 @@ async fn a_mac_that_disconnects_stops_being_reachable() {
             client_id: "phone".into(),
             protocol_version: 3,
             api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
         },
     )
     .await;
@@ -350,6 +368,8 @@ async fn a_stolen_control_token_is_no_use_twice() {
             client_id: "phone".into(),
             protocol_version: 3,
             api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
         },
     )
     .await;

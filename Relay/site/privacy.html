@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy · Peering</title>
+<meta name="description" content="What Peering keeps, what the relay handles, and what neither of them can see.">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.png" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated 18 September 2026</p>
+
+    <div class="card callout">
+      <strong>The short version.</strong> Peering has no accounts and collects nothing. There is
+      no analytics, no advertising, and no third-party SDK in the app. Your screen, audio,
+      keystrokes, pointer input and clipboard travel between your own two devices inside one
+      encrypted connection, and the relay that carries it when you are away from home is built so
+      that it cannot read any of it.
+    </div>
+
+    <h2>1. Who this is from</h2>
+    <p>
+      Peering is an app for iPhone that connects to a companion app on your own Mac. This policy
+      covers both apps, and the relay server that lets them reach each other across the internet.
+      For anything in here, including any request about your data, write to
+      <a href="mailto:support@dmqq.dev">support@dmqq.dev</a>.
+    </p>
+
+    <h2>2. What stays on your devices</h2>
+    <p>
+      The app works without an account, so there is no profile of you anywhere except on the
+      hardware you are holding. This is the complete list of what the apps keep, and all of it
+      lives on your iPhone or your Mac:
+    </p>
+    <ul>
+      <li>
+        <strong>Your device identity.</strong> Each device generates its own key when you first
+        open the app and keeps it in that device's Keychain. It never leaves the device.
+      </li>
+      <li>
+        <strong>Paired Macs.</strong> The name, public key and last-connected time of Macs you
+        have paired with, so they can be listed and reconnected to.
+      </li>
+      <li>
+        <strong>Session history.</strong> The last 30 sessions: when they started, how long they
+        lasted, which connection path they used, and the duration. Used to show your own usage,
+        including how much relay time is left in the current 24-hour period.
+      </li>
+      <li>
+        <strong>Clipboard items.</strong> The 12 most recent pieces of text you pulled from your
+        Mac are kept on the iPhone until you clear them.
+      </li>
+      <li>
+        <strong>Your settings.</strong> Preferences such as whether relay connections are
+        allowed, whether Face ID is required to open the app, and your Mac's name.
+      </li>
+    </ul>
+    <p>
+      Deleting the app removes all of this. Nothing above is sent to us, because there is nowhere
+      for it to be sent.
+    </p>
+
+    <h2>3. What the relay handles</h2>
+    <p>
+      When your two devices are on different networks they cannot reach each other directly, so
+      they both connect outwards to a relay server which introduces them and copies bytes between
+      them. To do that job it handles:
+    </p>
+    <ul>
+      <li>your Mac's device ID and its name;</li>
+      <li>your iPhone's device ID;</li>
+      <li>the protocol version your apps are speaking;</li>
+      <li>which plan your app says it is on, so the right allowance can be applied;</li>
+      <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
+      <li>the relay access key, for connections made with a paid plan;</li>
+      <li>the IP address of each device, which any server necessarily sees.</li>
+    </ul>
+    <p>
+      <strong>The relay cannot read what it carries.</strong> The control channel is a TLS session
+      belonging to your two devices. The relay copies the encrypted bytes without terminating it
+      and has no key for them. Video, audio, keystrokes, pointer input and clipboard text are
+      sealed separately with keys your devices exchanged with each other and never disclosed to
+      the relay. This is a property of how it is built, not a promise about how it is operated.
+    </p>
+    <p>
+      <strong>The relay writes nothing to a database.</strong> Sessions and usage counters are
+      held in memory for as long as the process runs and vanish when it restarts. The server keeps
+      ordinary operational logs, which record that a session was allocated and the device IDs and
+      Mac name above, and never any content. Those logs stay on the server and follow whatever
+      retention the machine's logging is configured with.
+    </p>
+
+    <h2>4. What we never do</h2>
+    <ul>
+      <li>We do not sell, rent or share your data with anyone.</li>
+      <li>We do not run analytics, crash reporting, advertising or attribution SDKs in the app.</li>
+      <li>We do not build a profile of you, and there is no account to attach one to.</li>
+      <li>We do not read, store or inspect what passes through the relay.</li>
+      <li>We do not send your Mac's screen, sound or input anywhere other than your own iPhone.</li>
+    </ul>
+
+    <h2>5. Purchases</h2>
+    <p>
+      Every paid plan is a subscription, and all of them are handled entirely by Apple through the
+      App Store.
+      Apple processes the payment and tells the app whether an entitlement is active; we never see
+      your name, your card or your billing address. Apple's handling of that information is
+      covered by <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>.
+    </p>
+    <p>
+      When a paid plan is active, the app tells the relay which plan it is on, and the relay
+      applies that plan's allowance instead of the free one. It also sends a relay access key: a
+      random identifier generated on your device, not tied to your Apple Account or your identity,
+      and stored in your device's Keychain. It is what the relay would use to recognise a device
+      that has been given unlimited access directly.
+    </p>
+
+    <h2>6. This website</h2>
+    <p>
+      This site is a handful of static files. It sets no cookies of its own, runs no analytics,
+      and has no sign-up, comments or contact form. It is served through Cloudflare, which handles
+      connection data such as your IP address in order to deliver the page and protect the site
+      from abuse.
+    </p>
+
+    <h2>7. Your rights</h2>
+    <p>
+      Privacy law in the European Union and the United Kingdom gives you the right to see, correct,
+      export or delete the personal data held about you, to object to its processing, and to
+      complain to your national data protection authority. Because Peering has no account and no
+      database of users, in practice there is almost nothing for us to act on: the data described
+      in section 2 is on your devices, under your control, and deleting the app removes it. The one
+      exception is the relay's operational logs, which are described in section 3. Write to
+      <a href="mailto:support@dmqq.dev">support@dmqq.dev</a> and we will answer within 30 days.
+    </p>
+
+    <h2>8. Children</h2>
+    <p>
+      Peering is not directed at children and is not intended for anyone under 13, or under the
+      minimum age at which a person may consent to online services in their country.
+    </p>
+
+    <h2>9. Changes</h2>
+    <p>
+      If this policy changes in a way that matters, the date at the top changes and the new version
+      appears here before it takes effect. Continuing to use the app after that means you accept
+      it.
+    </p>
+
+    <h2>10. Contact</h2>
+    <p>
+      Questions, requests and anything else about privacy:
+      <a href="mailto:support@dmqq.dev">support@dmqq.dev</a>.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.png" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Legal and support">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@dmqq.dev">Support</a>
+    </nav>
+    <p class="foot-fine">© 2026 Peering. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+</body>
+</html>

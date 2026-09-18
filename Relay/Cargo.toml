@@ -4,12 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = "0.23.1"
 futures-util = "0.3.34"
 rand = "0.9.5"
+ring = "0.17.14"
 rustls-pemfile = "2.2.0"
+rustls-pki-types = "1.15.1"
+rustls-webpki = { version = "0.103.15", features = ["ring"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros", "signal"] }
+# `fs` is for the site: reading a file is blocking work, and `tokio::fs` is what keeps it off the
+# reactor threads. The relay itself never touches the disk beyond its own certificate.
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros", "signal", "fs"] }
 # `ring` rather than rustls's default `aws-lc-rs`, and the reason is deployment rather than
 # anything this code does. `aws-lc-rs` builds a large C library through CMake and Perl, which on a
 # small VPS is slow, needs build tools installed, and is the usual reason a cross-compile fails.
@@ -18,6 +24,9 @@ tokio-rustls = { version = "0.26.5", default-features = false, features = ["ring
 tokio-tungstenite = "0.29.0"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+x509-cert = { version = "0.3.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+p256 = "0.14.0"
+rcgen = "0.14.10"
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros", "net", "time"] }
