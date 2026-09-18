@@ -75,7 +75,51 @@ public final class RelaySignallingConnection: @unchecked Sendable {
             case .hostOffline(let id): throw RelaySignallingError.hostOffline(id)
             case .error(let code, let message): throw RelaySignallingError.refused(code: code, message: message)
             case .pong, .registered: continue
+            // Never sent unsolicited, and never in answer to a session request. Ignored rather
+            // than refused: this conversation is over the moment `sessionReady` arrives, and a
+            // message from a relay with more to say than this client asked for is not a reason to
+            // lose the session it has just handed over.
+            case .peerAddress: continue
             }
         }
+    }
+
+    /// Asks the relay where the other end of this session is, until it answers or gives up.
+    ///
+    /// **Two ordinary answers, not one.** The first is an address. The second is being told that the
+    /// peer has not been heard from yet — which is what the very first ask usually gets, because a
+    /// client asks as soon as it has a session and the peer's own bind datagram is still in flight.
+    /// So this asks again rather than reporting failure, and `nil` means only that the asking ran
+    /// out, which is a state both callers treat as "stay on the relay".
+    ///
+    /// One connection for the whole conversation rather than one per ask: the asks are a few hundred
+    /// milliseconds apart, and a TCP and TLS and WebSocket handshake each time would cost more than
+    /// the asking does. The connection is still short-lived — it exists for this and no longer.
+    public static func discoverPeer(
+        at url: URL,
+        videoToken: Data,
+        attempts: Int = 8,
+        interval: Duration = .milliseconds(150)
+    ) async throws -> RelayPeerAddress? {
+        let connection = RelaySignallingConnection(url: url)
+        defer { connection.cancel() }
+        try await connection.send(.requestPeerAddress(videoToken: videoToken))
+
+        for attempt in 0..<max(1, attempts) {
+            // Read before sleeping, so the first answer — which is often already waiting — is
+            // returned without a delay that exists only to space out the retries.
+            switch try await connection.receive() {
+            case .peerAddress(let address): return address
+            case .error(let code, _) where code == "peerAddressUnknown":
+                guard attempt < attempts - 1 else { return nil }
+                try await Task.sleep(for: interval)
+            case .error(let code, let message):
+                throw RelaySignallingError.refused(code: code, message: message)
+            case .pong, .registered: continue
+            case .sessionReady, .hostOffline:
+                throw RelaySignallingError.unexpectedResponse
+            }
+        }
+        return nil
     }
 }

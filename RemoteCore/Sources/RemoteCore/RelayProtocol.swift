@@ -52,6 +52,17 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         plan: String? = nil,
         jwsRepresentation: String? = nil
     )
+    /// Ask the relay where the other end of this session is.
+    ///
+    /// Asked with this end's own video token, which is the only thing either end holds that says
+    /// which of the session's two slots it is — so the answer is always the *peer*. Nothing new is
+    /// collected to answer it either: the relay already stores each slot's observed address, because
+    /// forwarding is impossible without it.
+    ///
+    /// Expect to be told `peerAddressUnknown` on the first ask. A client asks as soon as it has a
+    /// session and before it has sent a datagram, so the peer has usually not been heard from yet;
+    /// that is the ordinary first answer, not a failure, and the caller asks again.
+    case requestPeerAddress(videoToken: Data)
     case ping
 
     private enum CodingKeys: String, CodingKey {
@@ -59,6 +70,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case deviceID = "deviceId"
         case hostID = "hostId"
         case clientID = "clientId"
+        case videoToken
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -91,9 +103,21 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             if let jwsRepresentation {
                 try container.encode(jwsRepresentation, forKey: .jwsRepresentation)
             }
+        case .requestPeerAddress(let videoToken):
+            try container.encode("requestPeerAddress", forKey: .type)
+            try container.encode(Self.hex(videoToken), forKey: .videoToken)
         case .ping:
             try container.encode("ping", forKey: .type)
         }
+    }
+
+    /// Lowercase hex of sixteen bytes, which is how the relay spells a video token on the wire.
+    ///
+    /// The relay's `unhex` is exact about length and forgiving about case, so the only way to get
+    /// this wrong is to drop a leading zero — which is what `%02x` is here to prevent, and which
+    /// would otherwise turn a token into a thirty-one character string the relay refuses.
+    private static func hex(_ bytes: Data) -> String {
+        bytes.map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -123,6 +147,24 @@ public struct RelaySession: Sendable, Equatable {
     }
 }
 
+/// Where the other end of a session was last seen, as seen from the relay's outside.
+///
+/// **An observation, not a promise.** It is the source address of the peer's most recent video
+/// datagram, so it is the peer as the peer's own NAT presents it — which is exactly the address
+/// anything else on the internet would have to send to. Whether the peer's NAT will *accept* a
+/// packet from a third party is a different question that the relay cannot answer, and this type
+/// carries no claim about it: the two ends settle that between themselves by trying, and by needing
+/// nothing but the session key they already share to make sense of what comes back.
+public struct RelayPeerAddress: Sendable, Equatable {
+    public let host: String
+    public let port: UInt16
+
+    public init(host: String, port: UInt16) {
+        self.host = host
+        self.port = port
+    }
+}
+
 public enum RelayProtocolError: LocalizedError, Sendable, Equatable {
     case unknownMessage(String)
     case invalidToken
@@ -140,6 +182,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     case registered(sessionTTLSeconds: UInt64)
     case sessionReady(RelaySession)
     case hostOffline(deviceID: String)
+    /// Where the other end of this session is, in answer to `requestPeerAddress`.
+    case peerAddress(RelayPeerAddress)
     case pong
     case error(code: String, message: String)
 
@@ -149,6 +193,7 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         case controlToken, videoToken
         case deviceID = "deviceId"
         case code, message
+        case host, port
     }
 
     public init(from decoder: Decoder) throws {
@@ -175,6 +220,11 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
             ))
         case "hostOffline":
             self = .hostOffline(deviceID: try container.decode(String.self, forKey: .deviceID))
+        case "peerAddress":
+            self = .peerAddress(RelayPeerAddress(
+                host: try container.decode(String.self, forKey: .host),
+                port: try container.decode(UInt16.self, forKey: .port)
+            ))
         case "pong":
             self = .pong
         case "error":

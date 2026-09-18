@@ -23,7 +23,7 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::protocol::{hex, ClientMessage, ServerMessage};
+use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::storekit::{ReceiptCache, StoreKitVerifier};
@@ -431,6 +431,38 @@ async fn dispatch(
             }
 
             Some(ready(allocated.video_tokens[CLIENT_SLOT]))
+        }
+
+        // One end asking where the other is, so the two can try a path between themselves.
+        //
+        // A pure read of a table the datagram path already fills, and deliberately not a wait: the
+        // answer is whatever the routing table knows at this instant, and "the peer has not spoken
+        // yet" is reported rather than parked on. Waiting would hold a task per session on a
+        // connection that may never need one, and the asker is about to send its own bind datagram
+        // — the address it wants is a few milliseconds behind the question, not a reason to keep
+        // the relay holding it.
+        //
+        // Nothing here decides whether the answer is *useful*. Whether the peer's NAT will accept a
+        // packet from a third party is not something this process can know, and the two ends settle
+        // it themselves by trying. This hands over an observation and no promise.
+        ClientMessage::RequestPeerAddress { video_token } => {
+            let Some(token) = unhex(&video_token) else {
+                return Some(ServerMessage::error(
+                    "invalid",
+                    "video token is not 16 bytes of hex",
+                ));
+            };
+
+            match registry.routes().peer_address(&token) {
+                Some(address) => Some(ServerMessage::PeerAddress {
+                    host: address.ip().to_string(),
+                    port: address.port(),
+                }),
+                None => Some(ServerMessage::error(
+                    "peerAddressUnknown",
+                    "the other end of this session has not sent a datagram yet",
+                )),
+            }
         }
 
         ClientMessage::Ping => Some(ServerMessage::Pong),

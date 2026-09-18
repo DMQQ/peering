@@ -4,8 +4,17 @@
 //!
 //! Two ends, each behind a NAT that will not admit unsolicited traffic, both connect *outward* to
 //! this process. It introduces them (signalling), splices their control connections (TCP), and
-//! forwards their video datagrams (UDP). Neither end ever learns the other's address, because
-//! neither end needs to: both address the relay.
+//! forwards their video datagrams (UDP).
+//!
+//! Both ends address the relay, and for most of this project's life neither learned the other's
+//! address at all — the relay was the only thing that knew both, which is what lets a session open
+//! between two machines neither of which can be dialled. That is still how a session *starts*. What
+//! changed is that either end may now ask (`requestPeerAddress`) and be told where its peer was last
+//! seen, so the two can try a path between themselves and keep this one as the fallback. The relay
+//! hands over an observation and no promise: whether a peer's NAT will admit a third party is not
+//! something this process can know, and the two ends settle it by trying. Nothing below about what
+//! the relay can and cannot read changes — a direct path is sealed with the same key it was never
+//! told, and this is why the claim that follows is about *reading*, never about *carrying*.
 //!
 //! # What this is not
 //!

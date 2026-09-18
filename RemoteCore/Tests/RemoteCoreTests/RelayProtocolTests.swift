@@ -120,4 +120,67 @@ struct RelayProtocolTests {
         )
         #expect(decoded == .registered(sessionTTLSeconds: 300))
     }
+
+    /// The introduction, asked for. Spelled out rather than round-tripped, because the other end of
+    /// this contract is Rust: a rename on either side is a silent break at runtime rather than a
+    /// compile error here, which is exactly the kind of failure a literal pins.
+    @Test("asking where the peer is sends the asker's own token, in the relay's hex")
+    func peerAddressRequest() throws {
+        let message = RelayClientMessage.requestPeerAddress(
+            videoToken: Data(repeating: 0xcd, count: 16)
+        )
+
+        let encoded = try RelayMessageCodec.encode(message)
+
+        #expect(String(decoding: encoded, as: UTF8.self) ==
+            #"{"type":"requestPeerAddress","videoToken":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}"#)
+    }
+
+    /// A leading zero is the one byte a hex encoder can silently drop, and what that produces is a
+    /// thirty-one character token the relay refuses by length alone — a session that never opens,
+    /// from a fault that looks like nothing at all in a diff.
+    @Test("a token whose first byte is zero keeps both of its digits")
+    func peerAddressRequestKeepsLeadingZeros() throws {
+        let message = RelayClientMessage.requestPeerAddress(
+            videoToken: Data([0x00] + Array(repeating: 0xab, count: 15))
+        )
+
+        let encoded = try RelayMessageCodec.encode(message)
+        let text = String(decoding: encoded, as: UTF8.self)
+
+        #expect(text.contains("\"videoToken\":\"00" + String(repeating: "ab", count: 15) + "\""))
+    }
+
+    @Test("an address from the relay decodes into the peer's host and port")
+    func peerAddressReply() throws {
+        let json = #"{"type":"peerAddress","host":"203.0.113.7","port":51234}"#
+
+        let decoded = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+
+        #expect(decoded == .peerAddress(RelayPeerAddress(host: "203.0.113.7", port: 51234)))
+    }
+
+    /// An IPv6 literal is just a host string to this codec, and the relay does not bracket it. This
+    /// pins that the two ends agree — the alternative is finding out when the first v6 user cannot
+    /// be reached, which is a bug with no symptom at all on an IPv4 machine.
+    @Test("an IPv6 address survives as the relay spells it")
+    func peerAddressIPv6() throws {
+        let json = #"{"type":"peerAddress","host":"2001:db8::1","port":443}"#
+
+        let decoded = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+
+        #expect(decoded == .peerAddress(RelayPeerAddress(host: "2001:db8::1", port: 443)))
+    }
+
+    /// The "not yet" answer arrives as an error, so it is worth pinning that it is a code the caller
+    /// can tell apart from a refusal — the two lead to opposite decisions, one being to ask again
+    /// and the other to give up on the relay entirely.
+    @Test("the unknown-peer answer is a code, not just a failure")
+    func peerAddressUnknown() throws {
+        let json = #"{"type":"error","code":"peerAddressUnknown","message":"not yet"}"#
+
+        let decoded = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+
+        #expect(decoded == .error(code: "peerAddressUnknown", message: "not yet"))
+    }
 }

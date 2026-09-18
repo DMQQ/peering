@@ -62,6 +62,30 @@ pub enum ClientMessage {
 
     /// Keeps the signalling connection alive through idle NAT timeouts.
     Ping,
+
+    /// One end asking where the *other* end of its session is.
+    ///
+    /// **This is the one message that makes the relay's oldest promise false**, so it is worth being
+    /// exact about what changes. Until now neither end ever learned the other's address: both
+    /// addressed the relay, and the relay was the only thing that knew both. That is what lets a
+    /// session open between two machines neither of which can be dialled — and it is also why every
+    /// byte goes to Helsinki even when the two ends are in the same city.
+    ///
+    /// What the answer buys is an *introduction*, not a redirect. Knowing where the peer is lets the
+    /// two ends try a path between themselves and fall back to this relay when it does not open, so
+    /// the worst case is the behaviour that existed before this message did. The relay is not
+    /// asking either end to trust the answer: the two ends authenticate each other with the pairing
+    /// handshake they already run over the control channel, and a wrong address simply fails to
+    /// answer.
+    ///
+    /// The asker identifies itself by its own `video_token`, which is the only thing either end
+    /// holds that says which of the session's two slots it is. Nothing new is collected to answer
+    /// it: the relay already stores each slot's observed source address, because forwarding is
+    /// impossible without it.
+    RequestPeerAddress {
+        /// Hex, and the asking end's own — its peer's address is what comes back.
+        video_token: String,
+    },
 }
 
 /// What the relay sends back.
@@ -90,6 +114,20 @@ pub enum ServerMessage {
 
     /// The Mac is not registered. It is asleep, off, or has not been launched.
     HostOffline { device_id: String },
+
+    /// Where the other end of this session was last seen, as seen from the relay's outside.
+    ///
+    /// It is the source address of the peer's most recent video datagram, so it is the peer as the
+    /// peer's *own* NAT presents it — which is exactly the address anything else on the internet
+    /// would have to send to for the packet to be delivered. Whether it is delivered is a different
+    /// question, and one the relay cannot answer: a NAT that forwards to the relay need not accept
+    /// anything from a third party, and the address the relay saw may have been replaced by a
+    /// fresh one for a different destination. That uncertainty is why the two ends prove the path
+    /// to each other rather than treating this message as a fact.
+    ///
+    /// Sent only in answer to [`ClientMessage::RequestPeerAddress`], and only when the peer has
+    /// been heard from at all — see the `peerAddressUnknown` error for the other case.
+    PeerAddress { host: String, port: u16 },
 
     Pong,
 
@@ -345,6 +383,29 @@ mod tests {
         })
         .unwrap();
         assert_eq!(json, r#"{"type":"hostOffline","deviceId":"abc"}"#);
+    }
+
+    /// The introduction, pinned in both directions. The Swift side decodes these by name, so a
+    /// rename here is a silent break at runtime rather than a compile error there.
+    #[test]
+    fn a_peer_address_round_trips_and_the_tag_is_the_swift_case_name() {
+        let json = serde_json::to_string(&ServerMessage::PeerAddress {
+            host: "203.0.113.7".into(),
+            port: 51234,
+        })
+        .expect("should encode");
+        assert_eq!(
+            json,
+            r#"{"type":"peerAddress","host":"203.0.113.7","port":51234}"#
+        );
+
+        let text = r#"{"type":"requestPeerAddress","videoToken":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"}"#;
+        assert_eq!(
+            serde_json::from_str::<ClientMessage>(text).expect("should parse"),
+            ClientMessage::RequestPeerAddress {
+                video_token: "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd".into(),
+            }
+        );
     }
 
     #[test]

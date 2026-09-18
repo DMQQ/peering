@@ -4,8 +4,16 @@ The relay that lets a phone reach its Mac from outside the local network.
 
 Both ends sit behind NATs that will not admit unsolicited traffic, so both connect *outward* to
 this process. It introduces them, splices their control connections, and forwards their video
-datagrams. Neither end ever learns the other's address, because neither end needs to — both
-address the relay.
+datagrams.
+
+Both ends address the relay, and for most of this project's life neither learned the other's
+address at all — this process was the only thing that knew both, which is what lets a session open
+between two machines neither of which can be dialled. That is still how a session *starts*. Either
+end may now ask (`requestPeerAddress`) and be told where its peer was last seen, so the two can try
+a path between themselves and keep this one as the fallback. What comes back is an observation and
+no promise: whether a peer's NAT will admit a third party is not something the relay can know, and
+the two ends settle it by trying. **What this process can read does not change** — a direct path is
+sealed with the same key it was never told.
 
 ## What it does not do
 
@@ -654,6 +662,13 @@ session, so the relay forwards ciphertext it cannot read and never sees a nonce 
 ## Cost
 
 Bandwidth is the only real cost, and at this scale it is small. Relayed 1080p video is roughly
-2.25 GB per hour at 5 Mbps, and a €5/month VPS typically includes tens of terabytes. The relay
-holds a UDP socket per live session, so `PEERINGD_SESSION_TTL` bounds the file descriptors that
-clients who walk away without disconnecting can leave behind.
+2.25 GB per hour at 5 Mbps, and a €5/month VPS typically includes tens of terabytes.
+
+**The hardware is not the constraint, and a capacity estimate should start from bandwidth.** There
+is one UDP socket for the whole process, not one per session — every session is demultiplexed by the
+sixteen-byte prefix — so video costs no file descriptors at all. What a session costs is two file
+descriptors for its control splice and about a megabyte of kernel socket buffers; what it costs in
+CPU is a `recv_from`, a table lookup and a `send_to` per datagram, with no crypto on this side
+because the payload is sealed. A session that walks away without disconnecting is still worth
+reaping, and `PEERINGD_SESSION_TTL` is what does it — but it bounds memory and sockets, not the
+thing that actually runs out first, which is the traffic allowance.

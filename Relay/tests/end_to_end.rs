@@ -303,6 +303,103 @@ async fn video_datagrams_flow_between_the_two_ends() {
     assert_eq!(&buf[..len], &frame[16..]);
 }
 
+/// The introduction: an end can ask where the other one is, and is told the address the relay saw.
+///
+/// This is the message that makes the relay a rendezvous rather than a conduit, so what it has to
+/// get right is narrow and worth pinning exactly: that the answer is the *peer's* address rather
+/// than the asker's own, that asking early is an answerable state rather than a failure, and that
+/// asking is never a way to put anything into the routing table.
+#[tokio::test]
+async fn an_end_can_learn_where_its_peer_is() {
+    let relay = start().await;
+    let mut mac = register_mac(&relay, "mac").await;
+
+    let mut phone = connect(relay.signal_port).await;
+    send(
+        &mut phone,
+        &ClientMessage::ConnectToHost {
+            host_id: "mac".into(),
+            client_id: "phone".into(),
+            protocol_version: 3,
+            api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
+        },
+    )
+    .await;
+
+    let phone_session = await_session(&mut phone).await;
+    let mac_session = await_session(&mut mac).await;
+
+    // The ordinary first answer. A client asks as soon as it has a session and before it has sent
+    // anything, so this state is the one that will actually be hit in the field — and it has to be
+    // a reply rather than a closed connection, because the caller's next move is to ask again.
+    send(
+        &mut phone,
+        &ClientMessage::RequestPeerAddress {
+            video_token: phone_session.video_token.clone(),
+        },
+    )
+    .await;
+    match next_message(&mut phone).await {
+        ServerMessage::Error { code, .. } => assert_eq!(code, "peerAddressUnknown"),
+        other => panic!("expected an unknown-peer error, got {other:?}"),
+    }
+
+    let video: SocketAddr = ([127, 0, 0, 1], relay.video_port).into();
+    let phone_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let mac_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+
+    // Each end binds its slot with a bare token, which is all the relay needs to have seen one of
+    // them. Nothing is forwarded and nothing is answered; this is the address being learned.
+    phone_udp
+        .send_to(&unhex(&phone_session.video_token).unwrap(), video)
+        .await
+        .unwrap();
+    mac_udp
+        .send_to(&unhex(&mac_session.video_token).unwrap(), video)
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    send(
+        &mut phone,
+        &ClientMessage::RequestPeerAddress {
+            video_token: phone_session.video_token.clone(),
+        },
+    )
+    .await;
+
+    match next_message(&mut phone).await {
+        ServerMessage::PeerAddress { host, port } => {
+            assert_eq!(host, "127.0.0.1");
+            assert_eq!(
+                port,
+                mac_udp.local_addr().unwrap().port(),
+                "the Mac's own address, not the relay's and not the phone's"
+            );
+        }
+        other => panic!("expected the peer's address, got {other:?}"),
+    }
+
+    // And the same question asked by the Mac answers with the phone, which is what makes the pair
+    // symmetric: both ends can start a direct path, so neither has to be the one that dials.
+    send(
+        &mut mac,
+        &ClientMessage::RequestPeerAddress {
+            video_token: mac_session.video_token.clone(),
+        },
+    )
+    .await;
+
+    match next_message(&mut mac).await {
+        ServerMessage::PeerAddress { port, .. } => {
+            assert_eq!(port, phone_udp.local_addr().unwrap().port())
+        }
+        other => panic!("expected the phone's address, got {other:?}"),
+    }
+}
+
 #[tokio::test]
 async fn two_sessions_share_the_one_video_port_without_crossing() {
     // What the shared socket is for, end to end. On the old design this test is impossible on the

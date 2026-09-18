@@ -234,6 +234,24 @@ impl VideoRoutes {
         }
     }
 
+    /// Where one end's *peer* was last seen, if it has been seen at all.
+    ///
+    /// The same lookup [`route`](Self::route) does, minus the binding, and read-only: this answers a
+    /// question that arrived over signalling rather than a datagram, so there is no sender to bind
+    /// and nothing to forward. The lookup is by token rather than by session because a token is what
+    /// tells the relay *which* of the two slots is asking — the address that comes back is the
+    /// other one.
+    ///
+    /// `None` covers both "no session holds this token" and "the peer has not spoken yet", and the
+    /// two are deliberately one answer: to the only question the caller has — is there anywhere to
+    /// point this end — they are the same fact, and a distinct error for each would invite the
+    /// client to treat one as retryable and the other as fatal when both are simply early.
+    pub fn peer_address(&self, token: &Token) -> Option<SocketAddr> {
+        let inner = lock(&self.inner);
+        let route = inner.routes.get(token)?;
+        inner.routes.get(&route.peer).and_then(|peer| peer.addr)
+    }
+
     /// Drops sessions that have heard nothing from either end for `idle_ttl`, returning how many
     /// went.
     ///
@@ -512,6 +530,69 @@ mod tests {
     /// A token for session `n`, so a test with many sessions can name them without listing them.
     fn token(n: u8) -> Token {
         [n; 16]
+    }
+
+    /// The introduction the relay can now give: where one end's peer was last seen.
+    ///
+    /// "Unknown" is the ordinary state of a session whose second end has not started yet, and it is
+    /// the state a client asks in — it asks *before* it has sent anything, because the answer is
+    /// what tells it where to send. So the `None` here is the expected first answer rather than a
+    /// failure, and the tests below are about which end learns what once the datagrams arrive.
+    #[test]
+    fn a_peer_address_appears_once_the_other_end_has_been_heard() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        assert_eq!(routes.peer_address(&CLIENT), None, "nobody has spoken yet");
+        assert_eq!(routes.peer_address(&HOST), None);
+
+        routes.route(&CLIENT, addr(1, 4000));
+
+        assert_eq!(
+            routes.peer_address(&HOST),
+            Some(addr(1, 4000)),
+            "the end that has not spoken can be told where the one that has, is"
+        );
+        assert_eq!(
+            routes.peer_address(&CLIENT),
+            None,
+            "and the end that spoke is told nothing, because its peer has not been heard"
+        );
+
+        routes.route(&HOST, addr(2, 5000));
+        assert_eq!(routes.peer_address(&CLIENT), Some(addr(2, 5000)));
+        assert_eq!(routes.peer_address(&HOST), Some(addr(1, 4000)));
+    }
+
+    /// A carrier NAT that moves a mapping mid-session is the thing the binding exists for, and the
+    /// answer has to move with it: an end told an address that stopped working would try the direct
+    /// path, fail, and fall back — which is survivable but is exactly the latency this is for.
+    #[test]
+    fn a_peer_address_follows_a_rebind() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+        routes.route(&CLIENT, addr(1, 4000));
+        routes.route(&HOST, addr(2, 5000));
+
+        routes.route(&HOST, addr(3, 6000));
+
+        assert_eq!(routes.peer_address(&CLIENT), Some(addr(3, 6000)));
+    }
+
+    /// Nothing is learned by asking with a token the table does not hold, and asking must not be a
+    /// way to put anything *into* the table either — the write path is `route`, and it needs a
+    /// datagram.
+    #[test]
+    fn an_unknown_token_has_no_peer_address() {
+        let routes = VideoRoutes::new();
+        assert_eq!(routes.peer_address(&token(9)), None);
+
+        routes.open(&[CLIENT, HOST]);
+        assert_eq!(
+            routes.peer_address(&token(9)),
+            None,
+            "and stays unknown once a session exists"
+        );
     }
 
     fn routes() -> VideoRoutes {
