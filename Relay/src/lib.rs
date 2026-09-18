@@ -10,10 +10,13 @@
 //! # What this is not
 //!
 //! **It is not a security boundary, and nothing here should ever become one.** The relay cannot
-//! read a single byte of what it carries. Control is a TLS session belonging to the two ends,
-//! which the relay copies without terminating; video is sealed with a key the two ends exchanged
-//! over that TLS session block by block, and which the relay was never told. Its tokens are
-//! addressing hints, not credentials — see the module comment on `session`.
+//! read what it carries. Control is a TLS session belonging to the two ends, which the relay copies
+//! without terminating; video is sealed with a key the two ends exchanged over that TLS session
+//! block by block, and which the relay was never told. It reads one thing: the sixteen-byte token
+//! that opens a video datagram, which is what a shared video port routes on, and, behind it, the
+//! counter the two ends order frames with. Both are addressing and sequencing hints rather than
+//! credentials — see the module comment on `session` — and everything after them is ciphertext this
+//! process has no key for.
 //!
 //! That property is the product. "Your Mac's screen does not pass through our servers in a form we
 //! can see" is a claim that has to stay true as this code grows, and the way to keep it true is to

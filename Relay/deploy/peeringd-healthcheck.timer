@@ -1,0 +1,17 @@
+# Runs the health check every few minutes.
+#
+# Five minutes rather than one: the point is to catch "alive but not serving" before a person
+# does, not to run a monitoring system. A minute would be 1,440 log-free checks a day on a box
+# that shares its CPU with everything else on it.
+[Unit]
+Description=Peering relay health check timer
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+# So a check caught mid-run is not skipped when the timer fires again — and so a machine that was
+# asleep does not owe a backlog of them.
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

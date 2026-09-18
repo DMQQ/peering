@@ -1,258 +1,189 @@
-//! The video relay: one UDP socket per session, forwarding between the two ends that bound to it.
+//! The video relay: one UDP socket for the whole relay, demultiplexed by the token each datagram
+//! starts with.
 //!
-//! Per-session sockets rather than one shared socket with a demultiplexing header, and the reason
-//! is the payload: what crosses here is sealed video, and a header of ours sitting in front of it
-//! would have to be parsed, validated and re-emitted for every datagram at video rates. A port
-//! that is already unique to a session answers the same question once, at allocation, for free.
+//! # Why one socket
 //!
-//! The datagrams are opaque. The two ends seal them with a key the relay is never told — see the
-//! session-key exchange in the plan — so a relay that wanted to look at the screen would find
-//! ciphertext, and one that wanted to tamper with it would be caught by the tag.
+//! The previous design bound a socket per session, out of a configured range of ports, and gave the
+//! port to both ends in their `ready` message. The argument for it was that a port unique to a
+//! session answers "whose datagram is this" once, at allocation, for free — no header to parse, no
+//! table to keep. What that argument did not price is the port itself. The production host forwards
+//! a handful of ports on a shared IPv4, its video range is a single port, and a range of one is a
+//! ceiling of one session with video. The cost of a per-session port is a port per session, and
+//! there is nowhere to get more of them.
+//!
+//! So every session now sends to the same address, and the first sixteen bytes of every datagram
+//! say which session and which end it came from. That prefix is not a new field and needs no round
+//! trip to establish: it is the end's own video token, the same one its `ready` message already
+//! carried, and the relay looks it up in the routing table (`session::VideoRoutes`) and forwards
+//! what follows to the other end. One forwarded port, any number of sessions.
+//!
+//! # What the relay may read
+//!
+//! The prefix, and only because it has to route on it. Behind it sits the counter the two ends use
+//! to order frames, eight bytes that this process can see and must not care about, and then the
+//! sealed frame, which it can neither read nor forge: the ends seal those with a key the relay was
+//! never told, so everything past the prefix is ciphertext and the tag that would catch a tamperer
+//! is not ours to check. `lib.rs` states that as the design principle, and this is where it has to
+//! stay true — a relay with a shared port has more reasons to look inside a datagram, not fewer.
+//!
+//! One consequence is worth writing down rather than discovering later: a video token now travels
+//! in the clear in front of every datagram, on a port anyone can reach, so anyone on the path can
+//! read one. The bind packet this replaced put the token on the wire in the clear too — this is the
+//! same bargain, not a new one — but it is now in every datagram rather than in the occasional one,
+//! and a port that serves every session is a port worth probing. What a token buys is a claim on a
+//! slot: a redirect, or a way to stop one end's video, at worst. Not a frame of it, which is sealed
+//! with a key this process never sees — see the module comment on `session`.
 
-use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::net::UdpSocket;
-use tokio::sync::oneshot;
-use tokio::time::timeout;
+use tokio::time::MissedTickBehavior;
 use tracing::{debug, info};
 
-use crate::config::PortRange;
-use crate::session::{Token, VideoPairing};
+use crate::session::{Routed, Token, VideoRoutes};
 
-/// Marks a datagram as "this is where I live" rather than payload.
-const BIND_MAGIC: [u8; 4] = *b"PBND";
-pub const BIND_LEN: usize = 4 + 16;
+/// The token that opens every datagram: the one part of it this process reads, and the only part it
+/// is entitled to. Fixed by the wire contract, and the length of a [`Token`].
+pub const PREFIX_LEN: usize = 16;
 
-/// How often an idle session re-checks whether it is still wanted.
-const IDLE_POLL: Duration = Duration::from_secs(10);
+/// How often the shared socket looks for sessions that have gone quiet.
+///
+/// Ten seconds against a session TTL measured in minutes: soon enough that an abandoned session is
+/// not routed for long, rare enough that the scan is nothing.
+const REAP_INTERVAL: Duration = Duration::from_secs(10);
 
 /// The largest datagram we will carry. Deliberately the protocol maximum rather than something
-/// snug: `recv_from` **truncates** into a short buffer, and a truncated datagram would be
-/// forwarded as a smaller but perfectly well-formed packet, which is far worse than dropping it.
-/// Clients keep under the path MTU, so this is never reached in practice.
+/// snug: `recv_from` **truncates** into a short buffer, and a truncated datagram would be forwarded
+/// as a smaller but perfectly well-formed packet, which is far worse than dropping it. Clients keep
+/// under the path MTU, so this is never reached in practice.
 const MAX_DATAGRAM: usize = 65_535;
 
-/// The bind packet a client sends to claim its slot. Also what the Swift side must produce.
-pub fn bind_packet(token: &Token) -> Vec<u8> {
-    let mut packet = Vec::with_capacity(BIND_LEN);
-    packet.extend_from_slice(&BIND_MAGIC);
-    packet.extend_from_slice(token);
-    packet
-}
+/// How long the receive loop waits after a failed read before trying again.
+const RECEIVE_BACKOFF: Duration = Duration::from_millis(10);
 
-/// The token a bind packet carries, if this is a bind packet at all.
+/// Binds the relay's one video socket and starts forwarding on it.
 ///
-/// Only the shape is checked here; whether the token belongs to *this* session is
-/// [`VideoPairing::bind`]'s question, because answering it is what decides the slot.
-fn bind_token(packet: &[u8]) -> Option<Token> {
-    if packet.len() != BIND_LEN || packet[..4] != BIND_MAGIC {
-        return None;
-    }
-    let mut token = [0u8; 16];
-    token.copy_from_slice(&packet[4..]);
-    Some(token)
-}
-
-/// Where a session's video port comes from.
-enum PortChoice {
-    /// No range configured, so let the OS pick. Fine on loopback, and fine anywhere the ports do
-    /// not have to be named in a firewall rule.
-    Any,
-    Fixed(u16),
-}
-
-/// Hands out session video ports from a configured range, and takes them back when a session ends.
+/// Bound once, before any session exists, and the address is what every `ready` message names: the
+/// port is a property of the relay now, not of a session, so it is decided here and never again.
+/// Port 0 asks the OS to choose, which is what a relay with no firewall in front of it wants and
+/// what the tests use; an explicit port is what a forwarded one needs, and it is the only number an
+/// operator has to open.
 ///
-/// **The bookkeeping is ours rather than the operating system's**, and that is not belt-and-braces.
-/// "Try to bind the next port and see whether it fails" is the obvious approach and it is wrong:
-/// where `SO_REUSEADDR` is in play a bind succeeds against a port that is already in use, which
-/// would put two sessions on one port and interleave two people's video. Tracking allocation here
-/// is deterministic regardless of how the platform treats that flag.
-pub struct PortPool {
-    range: Option<PortRange>,
-    used: Mutex<HashSet<u16>>,
-}
-
-impl PortPool {
-    pub fn new(range: Option<PortRange>) -> Self {
-        Self {
-            range,
-            used: Mutex::new(HashSet::new()),
-        }
-    }
-
-    /// Whether a fixed range is in force. Used for the startup log, so an operator can see at a
-    /// glance whether the ports they opened are the ports that will be used.
-    pub fn range(&self) -> Option<PortRange> {
-        self.range
-    }
-
-    fn take(&self) -> std::io::Result<PortChoice> {
-        let Some(range) = self.range else {
-            return Ok(PortChoice::Any);
-        };
-
-        let mut used = lock_ports(&self.used);
-        match range.iter().find(|port| used.insert(*port)) {
-            Some(port) => Ok(PortChoice::Fixed(port)),
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::AddrNotAvailable,
-                format!(
-                    "every port in the configured video range {}-{} is in use",
-                    range.first, range.last
-                ),
-            )),
-        }
-    }
-
-    fn release(&self, port: u16) {
-        lock_ports(&self.used).remove(&port);
-    }
-}
-
-fn lock_ports(ports: &Mutex<HashSet<u16>>) -> MutexGuard<'_, HashSet<u16>> {
-    ports.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// Binds a socket for one session and starts forwarding on it.
-///
-/// Returns the port the two ends should send to. The socket is bound before this returns, so a
-/// client that is told the port can use it immediately.
-pub async fn serve_session(
+/// Returns the address actually bound, so a caller configured with port 0 can report the port it
+/// was given — this is the only place that number is known.
+pub async fn serve(
     bind: SocketAddr,
-    pool: Arc<PortPool>,
-    pairing: Arc<Mutex<VideoPairing>>,
-    shutdown: oneshot::Receiver<()>,
+    routes: Arc<VideoRoutes>,
     idle_ttl: Duration,
-) -> std::io::Result<u16> {
-    let mut addr = bind;
-    let chosen = pool.take()?;
-    let fixed = match chosen {
-        PortChoice::Any => None,
-        PortChoice::Fixed(port) => {
-            addr.set_port(port);
-            Some(port)
-        }
-    };
+) -> std::io::Result<SocketAddr> {
+    let socket = UdpSocket::bind(bind).await?;
+    let bound = socket.local_addr()?;
 
-    let socket = match UdpSocket::bind(addr).await {
-        Ok(socket) => socket,
-        Err(error) => {
-            // Hand the port straight back rather than leaving it marked as taken by a session that
-            // never started — otherwise a port that cannot be bound at all is lost for the life of
-            // the process, and a range full of them would exhaust itself.
-            if let Some(port) = fixed {
-                pool.release(port);
-            }
-            return Err(error);
-        }
-    };
+    tokio::spawn(forward(socket, routes, idle_ttl));
 
-    // Read from the socket rather than trusting `fixed`: with no range configured this is the OS's
-    // choice, and it is the only place that value is known.
-    let port = socket.local_addr()?.port();
-
-    tokio::spawn(async move {
-        forward(socket, pairing, shutdown, idle_ttl).await;
-        if fixed.is_some() {
-            pool.release(port);
-        }
-        debug!(port, "video session closed");
-    });
-
-    Ok(port)
+    Ok(bound)
 }
 
-async fn forward(
-    socket: UdpSocket,
-    pairing: Arc<Mutex<VideoPairing>>,
-    mut shutdown: oneshot::Receiver<()>,
-    idle_ttl: Duration,
-) {
+async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration) {
     let mut buf = vec![0u8; MAX_DATAGRAM];
-    let mut dropped_unbound: u64 = 0;
+    let mut dropped: u64 = 0;
+
+    // Expiry has a clock of its own rather than riding on the socket falling silent. The old
+    // per-session socket was read by nobody but its own session, so silence meant *that* session
+    // had stopped; this one carries every session, so it is silent only when all of them are, and a
+    // session that went quiet while another kept streaming would never be looked at at all.
+    let mut reap = tokio::time::interval(REAP_INTERVAL);
+    // Delay rather than the default burst: a reactor that was busy for a while should not come back
+    // and run a handful of expiry passes back to back.
+    reap.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     loop {
-        // The shutdown arm breaks, so the receiver is never polled after it has resolved — which
-        // matters, because polling a completed `oneshot` a second time panics.
-        //
-        // Waiting on this at all is what makes a one-port video range work. Otherwise the socket
-        // lives out the idle timeout after a phone has already reconnected, and the replacement
-        // session is refused the only port there is.
-        let received = tokio::select! {
-            _ = &mut shutdown => {
-                debug!("session superseded; releasing the video port");
-                break;
-            }
-            received = timeout(IDLE_POLL, socket.recv_from(&mut buf)) => received,
-        };
-
-        match received {
-            Ok(Ok((len, from))) => {
-                let packet = &buf[..len];
-
-                // A bind packet carrying a token from this session claims or moves a slot. One
-                // carrying anything else falls through rather than being swallowed here, so a
-                // stray packet cannot consume the bind path — it is then dropped as unbound
-                // traffic, which is the correct outcome for a token that is not ours.
-                if let Some(claimed) = bind_token(packet)
-                    && let Some(slot) = lock(&pairing).bind(&claimed, from)
-                {
-                    debug!(%from, slot, "video slot bound");
-                    continue;
+        tokio::select! {
+            _ = reap.tick() => {
+                let expired = routes.reap(idle_ttl);
+                if expired > 0 {
+                    // The dropped count is reported beside it because the two answer one question,
+                    // which is how much arrives that no live session claims. At most one line per
+                    // tick, never one per datagram: at video rates a line per drop would bury the
+                    // log it is written to.
+                    info!(expired, dropped, "expired video sessions");
+                } else if dropped > 0 {
+                    debug!(dropped, "video datagrams arrived that no bound session claims");
                 }
+                dropped = 0;
+            }
 
-                // Bound to a name *before* the match, and that is load-bearing rather than
-                // stylistic. A temporary in a `match` scrutinee lives until the end of the match,
-                // so `match lock(..).peer_of(..)` would hold the guard across the `send_to` await
-                // below — serialising every datagram of the session behind one lock and making
-                // this future non-`Send`. As a separate statement the guard is released at the
-                // semicolon.
-                let peer = lock(&pairing).peer_of(&from);
-                match peer {
-                    Some(peer) => {
-                        let _ = socket.send_to(packet, peer).await;
+            received = socket.recv_from(&mut buf) => match received {
+                Ok((len, from)) => {
+                    let packet = &buf[..len];
+
+                    // Shorter than a token, so it names nothing and cannot be routed. This is the
+                    // only length rule here, and it is about routing rather than about the payload:
+                    // everything past the prefix belongs to the two ends and is never inspected,
+                    // counted or validated, whatever it looks like.
+                    if packet.len() < PREFIX_LEN {
+                        dropped += 1;
+                        continue;
                     }
-                    // An unbound source gets no reply, for the same reason an unknown control
-                    // token gets none: silence tells a prober nothing about whether a session is
-                    // here. Counted rather than logged per packet, because a stray scanner or a
-                    // client that bound to the wrong port would otherwise write a line per
-                    // datagram and bury everything else.
-                    None => dropped_unbound += 1,
-                }
-            }
-            Ok(Err(error)) => {
-                debug!(%error, "video socket failed");
-                break;
-            }
-            // Nothing arrived. That is the moment to ask whether the session is still wanted at
-            // all — a client that walked away leaves a socket bound until something notices, and
-            // this is what notices.
-            Err(_) => {
-                if lock(&pairing).idle_for() > idle_ttl {
-                    if dropped_unbound > 0 {
-                        info!(dropped_unbound, "video session expired with unbound traffic");
+
+                    // Infallible: the slice is exactly `PREFIX_LEN`, which is the length of a
+                    // token. Worth the `expect` rather than a copy of the first line of every
+                    // datagram.
+                    let token: &Token = packet[..PREFIX_LEN]
+                        .try_into()
+                        .expect("a prefix is exactly the length of a token");
+
+                    match routes.route(token, from) {
+                        // No session holds this token, or the address it came from already holds
+                        // the other end of the session it claims. Dropped without a reply, for the
+                        // same reason an unknown control token gets none: silence tells a prober
+                        // nothing about whether a session is here, and the honest answer to both
+                        // cases is that there is no route.
+                        Routed::Dropped => dropped += 1,
+
+                        // Bound, but the other end has not claimed its slot yet, so there is
+                        // nowhere to send this. Early rather than wrong: the frames a Mac sends
+                        // before its phone has spoken are dropped here, and the ones after it
+                        // speaks are not.
+                        Routed::NoPeer => {}
+
+                        // A datagram that is nothing but the prefix. It binds the address it came
+                        // from and asks for nothing back: it is how an end claims its slot, and how
+                        // it keeps a NAT mapping from expiring under a session. There is nothing to
+                        // forward — a bare token is not a frame, and passing it on would hand the
+                        // peer an empty datagram to reject.
+                        Routed::Peer(_) if packet.len() == PREFIX_LEN => {}
+
+                        // Everything past the prefix, forwarded exactly as it arrived. The relay
+                        // does not parse it, cannot read it, and must not rewrite it: its shape is
+                        // the two ends' business, and a datagram that is not a whole number of
+                        // anything is still a datagram they may have meant.
+                        Routed::Peer(peer) => {
+                            let _ = socket.send_to(&packet[PREFIX_LEN..], peer).await;
+                        }
                     }
-                    break;
                 }
-            }
+                // One datagram failed, which is a thing that happens: a queue overrun, or an error
+                // the kernel is reporting from an earlier send on this socket. None of them mean
+                // the port is unusable, and breaking here would take every session's video down at
+                // once over something that cost one datagram. The pause is what stops an error the
+                // kernel keeps repeating from turning this loop into a spin; it is not on the path
+                // a working relay takes.
+                Err(error) => {
+                    debug!(%error, "video socket failed to receive");
+                    tokio::time::sleep(RECEIVE_BACKOFF).await;
+                }
+            },
         }
     }
-}
-
-/// A poisoned lock only means some other task panicked while holding it, and the data here — two
-/// socket addresses — cannot be left inconsistent by a panic. Recovering beats taking the whole
-/// relay down over a session's bookkeeping.
-fn lock(pairing: &Mutex<VideoPairing>) -> MutexGuard<'_, VideoPairing> {
-    pairing.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::{CLIENT_SLOT, HOST_SLOT};
     use std::net::Ipv4Addr;
 
     const CLIENT_TOKEN: Token = [3u8; 16];
@@ -266,249 +197,330 @@ mod tests {
         local(0)
     }
 
-    #[test]
-    fn a_bind_packet_yields_the_token_it_carries() {
-        let token = [7u8; 16];
-        assert_eq!(bind_token(&bind_packet(&token)), Some(token));
-
-        assert_eq!(bind_token(&[]), None);
-        assert_eq!(bind_token(&bind_packet(&token)[..8]), None, "truncated");
-        assert_eq!(bind_token(b"not a bind packet at all"), None);
-    }
-
-    #[test]
-    fn a_payload_shaped_like_a_bind_packet_cannot_claim_a_slot() {
-        // Video datagrams are opaque and arbitrary bytes, so one that happens to begin with the
-        // magic and be exactly the right length must not be able to take a slot. What stops it is
-        // that the token is checked against the session rather than merely parsed — which is why
-        // that check lives in the pairing and not here.
-        let mut video = VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN]);
-        let impostor = bind_token(&bind_packet(&[8u8; 16])).expect("the shape is right");
-        assert_ne!(impostor, CLIENT_TOKEN);
-
-        assert_eq!(video.bind(&impostor, local(5000)), None);
-        assert_eq!(video.peer_of(&local(5000)), None);
-    }
-
-    /// Binds both ends, and returns the relay address, a socket for each end, and the session's
-    /// keep-alive.
-    ///
-    /// The keep-alive is handed back rather than held here, and it has to be: it drives the
-    /// shutdown signal, so dropping it on return would close the relay before the caller could use
-    /// it. Every caller binds it for the length of the test.
-    async fn connected_session() -> (SocketAddr, UdpSocket, UdpSocket, oneshot::Sender<()>) {
-        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
-        let (keep_alive, shutdown) = oneshot::channel();
-
-        let port = serve_session(
+    /// A relay with one socket and an empty table, and the table so a test can open sessions in it.
+    async fn relay() -> (SocketAddr, Arc<VideoRoutes>) {
+        let routes = Arc::new(VideoRoutes::new());
+        let addr = serve(
             ephemeral(),
-            Arc::new(PortPool::new(None)),
-            Arc::clone(&pairing),
-            shutdown,
-            Duration::from_secs(30),
+            Arc::clone(&routes),
+            Duration::from_secs(300),
         )
         .await
         .expect("should bind");
+        (addr, routes)
+    }
 
-        let relay = local(port);
+    /// A datagram as an end produces one: its own token, then whatever it wants forwarded.
+    fn datagram(token: &Token, payload: &[u8]) -> Vec<u8> {
+        let mut packet = token.to_vec();
+        packet.extend_from_slice(payload);
+        packet
+    }
+
+    /// Both ends bound, with one socket for each: exactly what two clients do on connecting.
+    async fn bound_session(
+        relay: SocketAddr,
+        routes: &VideoRoutes,
+        tokens: &[Token; 2],
+    ) -> (UdpSocket, UdpSocket) {
+        routes.open(tokens);
         let client = UdpSocket::bind(ephemeral()).await.unwrap();
         let host = UdpSocket::bind(ephemeral()).await.unwrap();
 
-        // Both ends claim a slot before any payload moves, which is what the real clients do on
-        // connecting and what stops the first datagram from being dropped as unbound.
-        client.send_to(&bind_packet(&CLIENT_TOKEN), relay).await.unwrap();
-        host.send_to(&bind_packet(&HOST_TOKEN), relay).await.unwrap();
+        // A bare token each, which is all a bind is now. Nothing payload-shaped moves before the
+        // slots are bound, so a test that follows is testing the forwarding and not the bind.
+        client.send_to(&tokens[CLIENT_SLOT], relay).await.unwrap();
+        host.send_to(&tokens[HOST_SLOT], relay).await.unwrap();
         tokio::time::sleep(Duration::from_millis(50)).await;
 
-        (relay, client, host, keep_alive)
+        (client, host)
+    }
+
+    /// What the other end received, or `None` if nothing arrived in time.
+    ///
+    /// The buffer is the protocol maximum for the same reason the relay's is: a test that truncated
+    /// would report the relay as having changed a datagram it forwarded perfectly.
+    async fn received(socket: &UdpSocket) -> Option<Vec<u8>> {
+        let mut buf = [0u8; 65_535];
+        let (len, _) = tokio::time::timeout(Duration::from_millis(200), socket.recv_from(&mut buf))
+            .await
+            .ok()?
+            .ok()?;
+        Some(buf[..len].to_vec())
     }
 
     #[tokio::test]
-    async fn a_datagram_reaches_the_other_end_and_not_back_to_its_sender() {
-        let (relay, client, host, _session) = connected_session().await;
+    async fn a_datagram_reaches_the_other_end_without_its_prefix() {
+        let (relay, routes) = relay().await;
+        let (client, host) =
+            bound_session(relay, &routes, &[CLIENT_TOKEN, HOST_TOKEN]).await;
 
-        client.send_to(b"from the phone", relay).await.unwrap();
-
-        let mut buf = [0u8; 64];
-        let (len, _) = timeout(Duration::from_secs(2), host.recv_from(&mut buf))
+        // What a client sends: its token, the counter, the sealed frame and its tag. Only the last
+        // three are anybody else's business.
+        let sealed = b"\x00\x00\x00\x00\x00\x00\x00\x07the sealed frame\x00\x00tag";
+        client
+            .send_to(&datagram(&CLIENT_TOKEN, sealed), relay)
             .await
-            .expect("the peer should receive it within the timeout")
             .unwrap();
-        assert_eq!(&buf[..len], b"from the phone");
 
-        // And not echoed back: a relay that reflected traffic to its sender would double every
+        let forwarded = received(&host).await.expect("the peer should receive it");
+        assert_eq!(
+            forwarded, sealed,
+            "the peer gets the datagram less the prefix, byte for byte"
+        );
+        assert!(
+            !forwarded.starts_with(&CLIENT_TOKEN),
+            "and specifically not the sender's token left in front of it"
+        );
+
+        // Not echoed back either: a relay that reflected traffic to its sender would double every
         // frame and make the stream incomprehensible at the far end.
         assert!(
-            timeout(Duration::from_millis(200), client.recv_from(&mut buf))
-                .await
-                .is_err(),
+            received(&client).await.is_none(),
             "the sender should not receive its own datagram back"
         );
     }
 
     #[tokio::test]
-    async fn traffic_from_an_unbound_address_is_dropped_without_a_reply() {
-        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
-        // Held for the test's lifetime: dropping it would fire the shutdown signal immediately and
-        // close the relay the test is about to use.
-        let (_keep_alive, shutdown) = oneshot::channel();
+    async fn a_bare_token_binds_and_forwards_nothing() {
+        let (relay, routes) = relay().await;
+        routes.open(&[CLIENT_TOKEN, HOST_TOKEN]);
+        let client = UdpSocket::bind(ephemeral()).await.unwrap();
+        let host = UdpSocket::bind(ephemeral()).await.unwrap();
+        // The host binds first so that the only thing missing is the client's slot: if the bare
+        // token were forwarded, or if it failed to bind, this test would say which.
+        host.send_to(&HOST_TOKEN, relay).await.unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
 
-        let port = serve_session(
-            ephemeral(),
-            Arc::new(PortPool::new(None)),
-            Arc::clone(&pairing),
-            shutdown,
-            Duration::from_secs(30),
-        )
-        .await
-        .expect("should bind");
-
-        let stranger = UdpSocket::bind(ephemeral()).await.unwrap();
-        stranger.send_to(b"hello?", local(port)).await.unwrap();
-
-        let mut buf = [0u8; 64];
+        client.send_to(&CLIENT_TOKEN, relay).await.unwrap();
         assert!(
-            timeout(Duration::from_millis(200), stranger.recv_from(&mut buf))
-                .await
-                .is_err(),
+            received(&host).await.is_none(),
+            "a datagram of nothing but a token carries nothing to forward"
+        );
+
+        // And it did bind: a frame the client sends next arrives at the host, which can only happen
+        // if the client's slot was claimed by the bare token before it.
+        client
+            .send_to(&datagram(&CLIENT_TOKEN, b"a frame"), relay)
+            .await
+            .unwrap();
+        assert_eq!(received(&host).await.as_deref(), Some(&b"a frame"[..]));
+    }
+
+    #[tokio::test]
+    async fn a_repeated_bare_token_is_accepted_and_still_forwards_nothing() {
+        // The keepalive. A client re-sends its token on a timer for the life of the session, so
+        // this is the most common datagram on the socket by a wide margin, and it must be quiet:
+        // not an error, not a log line, and above all not something the peer is handed.
+        let (relay, routes) = relay().await;
+        let (client, host) =
+            bound_session(relay, &routes, &[CLIENT_TOKEN, HOST_TOKEN]).await;
+
+        for _ in 0..3 {
+            client.send_to(&CLIENT_TOKEN, relay).await.unwrap();
+        }
+        assert!(received(&host).await.is_none());
+
+        client
+            .send_to(&datagram(&CLIENT_TOKEN, b"still here"), relay)
+            .await
+            .unwrap();
+        assert_eq!(received(&host).await.as_deref(), Some(&b"still here"[..]));
+    }
+
+    #[tokio::test]
+    async fn an_unknown_token_is_dropped_without_a_reply() {
+        let (relay, routes) = relay().await;
+        let (client, host) =
+            bound_session(relay, &routes, &[CLIENT_TOKEN, HOST_TOKEN]).await;
+
+        // A prober with no session, sending something token-shaped and then something that is not.
+        let stranger = UdpSocket::bind(ephemeral()).await.unwrap();
+        stranger
+            .send_to(&datagram(&[9u8; 16], b"hello?"), relay)
+            .await
+            .unwrap();
+        stranger.send_to(b"not even a token", relay).await.unwrap();
+
+        assert!(
+            received(&stranger).await.is_none(),
             "an unbound source should be ignored, not answered"
         );
-    }
-
-    #[test]
-    fn a_pool_without_a_range_lets_the_os_choose() {
-        let pool = PortPool::new(None);
-        assert!(matches!(pool.take(), Ok(PortChoice::Any)));
-        assert!(pool.range().is_none());
-    }
-
-    #[test]
-    fn a_pool_hands_out_each_port_once_and_then_refuses() {
-        // Handing the same port to two sessions is the failure this bookkeeping exists to prevent,
-        // and it is one the operating system would not necessarily catch — see the comment on
-        // PortPool.
-        let pool = PortPool::new(PortRange::parse("40000-40002"));
-
-        let mut taken = Vec::new();
-        for _ in 0..3 {
-            match pool.take().expect("should still have a port") {
-                PortChoice::Fixed(port) => taken.push(port),
-                PortChoice::Any => panic!("a configured range should fix the port"),
-            }
-        }
-        taken.sort();
-        assert_eq!(taken, vec![40000, 40001, 40002], "each handed out exactly once");
-
-        assert!(pool.take().is_err(), "an exhausted range must refuse");
-    }
-
-    #[test]
-    fn a_released_port_becomes_available_again() {
-        let pool = PortPool::new(PortRange::parse("40000-40000"));
-
-        let Ok(PortChoice::Fixed(port)) = pool.take() else {
-            panic!("the only port should be handed out");
-        };
-        assert!(pool.take().is_err(), "and then there are none left");
-
-        pool.release(port);
         assert!(
-            matches!(pool.take(), Ok(PortChoice::Fixed(again)) if again == port),
-            "a session ending must give its port back, or a range exhausts itself over time"
+            received(&host).await.is_none(),
+            "and nothing it sends may reach a session it is not part of"
+        );
+        assert!(
+            received(&client).await.is_none(),
+            "in either direction"
         );
     }
 
     #[tokio::test]
-    async fn a_session_binds_inside_the_configured_range() {
-        // The property the firewall rule depends on: if it says these ports, these are the ports.
-        let pool = Arc::new(PortPool::new(PortRange::parse("47800-47805")));
-        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
-        let (_keep_alive, shutdown) = oneshot::channel();
+    async fn a_datagram_from_the_peers_address_is_dropped() {
+        // One end sending with the other's token, from the other's address. Forwarding it would be
+        // forwarding it back to where it came from, so the honest answer is to drop it — and to
+        // leave both ends exactly where they were rather than let either slot follow it.
+        let (relay, routes) = relay().await;
+        let (client, host) =
+            bound_session(relay, &routes, &[CLIENT_TOKEN, HOST_TOKEN]).await;
 
-        let port = serve_session(
-            "127.0.0.1:0".parse().unwrap(),
-            Arc::clone(&pool),
-            pairing,
-            shutdown,
-            Duration::from_secs(30),
-        )
-        .await
-        .expect("should bind inside the range");
+        host.send_to(&datagram(&CLIENT_TOKEN, b"stolen"), relay)
+            .await
+            .unwrap();
 
         assert!(
-            (47800..=47805).contains(&port),
-            "bound {port}, which is outside the range the firewall would open"
+            received(&client).await.is_none(),
+            "the phone must not be handed the Mac's datagram addressed to it"
         );
+        assert!(received(&host).await.is_none(), "nor reflected back at the Mac");
+
+        // Nothing moved: a frame in each direction still takes the ordinary path.
+        client
+            .send_to(&datagram(&CLIENT_TOKEN, b"up"), relay)
+            .await
+            .unwrap();
+        assert_eq!(received(&host).await.as_deref(), Some(&b"up"[..]));
+
+        host.send_to(&datagram(&HOST_TOKEN, b"down"), relay)
+            .await
+            .unwrap();
+        assert_eq!(received(&client).await.as_deref(), Some(&b"down"[..]));
     }
 
     #[tokio::test]
-    async fn a_superseded_session_gives_its_port_back_at_once() {
-        // A range of exactly one, which is what a server with a single forwarded UDP port looks
-        // like. Without the shutdown signal the first session would hold that port for the whole
-        // idle timeout, so a phone reconnecting inside that window would be refused — and a phone
-        // reconnects precisely when something has just gone wrong, which is the worst moment to
-        // also be unable to start a session.
-        let pool = Arc::new(PortPool::new(PortRange::parse("47900-47900")));
-        let pairing = Arc::new(Mutex::new(VideoPairing::new([CLIENT_TOKEN, HOST_TOKEN])));
+    async fn the_relay_carries_payloads_of_any_length_unread() {
+        // The relay is a pipe. None of these is a counter followed by a sealed frame and a tag, and
+        // the relay cannot tell and must not care: it forwards the bytes it was given, including a
+        // payload that is not a whole number of anything.
+        let (relay, routes) = relay().await;
+        let (client, host) =
+            bound_session(relay, &routes, &[CLIENT_TOKEN, HOST_TOKEN]).await;
 
-        let (first_keep_alive, first_shutdown) = oneshot::channel();
-        let first = serve_session(
-            ephemeral(),
-            Arc::clone(&pool),
-            Arc::clone(&pairing),
-            first_shutdown,
-            Duration::from_secs(300),
-        )
-        .await
-        .expect("the first session should get the only port");
-        assert_eq!(first, 47900);
+        for len in [1usize, 3, 7, 8, 16, 17, 24, 1000, 4096] {
+            let payload: Vec<u8> = (0..len).map(|byte| (byte % 251) as u8).collect();
+            client
+                .send_to(&datagram(&CLIENT_TOKEN, &payload), relay)
+                .await
+                .unwrap();
 
-        // A second session while the first is still live is genuinely refused — there is one port
-        // and it is taken. This is the correct answer, not a bug.
-        let (_second_keep_alive, second_shutdown) = oneshot::channel();
-        assert!(
-            serve_session(
-                ephemeral(),
-                Arc::clone(&pool),
-                Arc::clone(&pairing),
-                second_shutdown,
-                Duration::from_secs(300),
-            )
-            .await
-            .is_err(),
-            "a second session cannot have the port while the first holds it"
-        );
-
-        // Dropping the sender is what the registry does when a reconnect supersedes a session.
-        drop(first_keep_alive);
-
-        // The task has to wake and release, which is asynchronous — poll rather than sleeping a
-        // fixed amount, so the test does not encode a guess about scheduling.
-        let mut second_keep_alive = None;
-        let mut reclaimed = None;
-        for _ in 0..50 {
-            tokio::time::sleep(Duration::from_millis(20)).await;
-            let (keep_alive, shutdown) = oneshot::channel();
-            if let Ok(port) = serve_session(
-                ephemeral(),
-                Arc::clone(&pool),
-                Arc::clone(&pairing),
-                shutdown,
-                Duration::from_secs(300),
-            )
-            .await
-            {
-                second_keep_alive = Some(keep_alive);
-                reclaimed = Some(port);
-                break;
-            }
+            assert_eq!(
+                received(&host).await.as_deref(),
+                Some(payload.as_slice()),
+                "a {len}-byte payload should arrive unchanged"
+            );
         }
+    }
+
+    #[tokio::test]
+    async fn two_sessions_share_the_socket_and_do_not_cross() {
+        // The point of the whole change: one port, two sessions with video at once, and neither
+        // one's frames reaching the other's ends. Under the old design this is what a range of one
+        // port made impossible.
+        let (relay, routes) = relay().await;
+        let first_client_token = [11u8; 16];
+        let first_host_token = [12u8; 16];
+        let second_client_token = [21u8; 16];
+        let second_host_token = [22u8; 16];
+
+        let (first_client, first_host) =
+            bound_session(relay, &routes, &[first_client_token, first_host_token]).await;
+        let (second_client, second_host) =
+            bound_session(relay, &routes, &[second_client_token, second_host_token]).await;
+        assert_eq!(routes.len(), 2);
+
+        // Interleaved, because two sessions that only work one at a time would pass a test that
+        // sent them in sequence.
+        first_host
+            .send_to(&datagram(&first_host_token, b"first frame"), relay)
+            .await
+            .unwrap();
+        second_host
+            .send_to(&datagram(&second_host_token, b"second frame"), relay)
+            .await
+            .unwrap();
+        first_client
+            .send_to(&datagram(&first_client_token, b"first click"), relay)
+            .await
+            .unwrap();
+        second_client
+            .send_to(&datagram(&second_client_token, b"second click"), relay)
+            .await
+            .unwrap();
 
         assert_eq!(
-            reclaimed,
-            Some(47900),
-            "the port must come back as soon as the old session is superseded, not when it expires"
+            received(&first_client).await.as_deref(),
+            Some(&b"first frame"[..])
         );
-        drop(second_keep_alive);
+        assert_eq!(
+            received(&second_client).await.as_deref(),
+            Some(&b"second frame"[..])
+        );
+        assert_eq!(
+            received(&first_host).await.as_deref(),
+            Some(&b"first click"[..])
+        );
+        assert_eq!(
+            received(&second_host).await.as_deref(),
+            Some(&b"second click"[..])
+        );
+    }
+
+    #[tokio::test]
+    async fn a_session_that_ends_stops_routing_and_leaves_the_others_forwarding() {
+        // Teardown, on the one structure that now outlives every session it holds. Closing one
+        // session must take its two tokens out without touching the session next to it — a flaw
+        // here is a leak that lasts as long as the process does.
+        let (relay, routes) = relay().await;
+        let closing_client = [31u8; 16];
+        let closing_host = [32u8; 16];
+        let live_client = [41u8; 16];
+        let live_host = [42u8; 16];
+
+        let (closing_client_socket, closing_host_socket) =
+            bound_session(relay, &routes, &[closing_client, closing_host]).await;
+        let (live_client_socket, live_host_socket) =
+            bound_session(relay, &routes, &[live_client, live_host]).await;
+
+        routes.close(&[closing_client, closing_host]);
+
+        closing_host_socket
+            .send_to(&datagram(&closing_host, b"nobody"), relay)
+            .await
+            .unwrap();
+        assert!(
+            received(&closing_client_socket).await.is_none(),
+            "a retired token routes nothing"
+        );
+
+        live_host_socket
+            .send_to(&datagram(&live_host, b"somebody"), relay)
+            .await
+            .unwrap();
+        assert_eq!(
+            received(&live_client_socket).await.as_deref(),
+            Some(&b"somebody"[..]),
+            "and the session beside it is untouched"
+        );
+        assert_eq!(routes.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn the_port_is_the_bound_one_and_port_zero_reports_what_the_os_chose() {
+        // What `ready` has to be able to say. With port 0 the OS picks, and the only place that
+        // number is known is the socket that was bound, so it has to come back out of `serve`.
+        let (relay, _routes) = relay().await;
+
+        assert_ne!(relay.port(), 0, "a port was chosen");
+
+        let explicit = tokio::net::UdpSocket::bind(ephemeral()).await.unwrap();
+        let taken = explicit.local_addr().unwrap();
+        drop(explicit);
+
+        let routes = Arc::new(VideoRoutes::new());
+        let bound = serve(taken, routes, Duration::from_secs(300))
+            .await
+            .expect("an explicit port should bind");
+        assert_eq!(bound, taken, "an explicit port is used as given");
     }
 }

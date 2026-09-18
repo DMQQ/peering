@@ -18,18 +18,22 @@ pub struct Config {
     pub signal_addr: SocketAddr,
     /// Control relay: two connections per session, spliced.
     pub control_addr: SocketAddr,
-    /// Video relay: the address to bind per-session UDP sockets on. Port 0 means the OS picks, and
-    /// the port is reported back to the two ends — which is what we want, since a session's port
-    /// has to be unique.
-    pub video_bind: SocketAddr,
-    /// The range session video ports are drawn from, if one is configured.
+    /// Video relay: the address the relay's **one** UDP socket is bound on, at startup.
     ///
-    /// **Worth setting on anything with a firewall.** With no range the OS chooses from the whole
-    /// ephemeral range — 32768 to 60999 on a default Linux — so allowing video through means
-    /// opening twenty-eight thousand UDP ports. A range of a hundred turns that into one rule.
-    /// Video failing while control works is what a closed range looks like, and it is a miserable
-    /// thing to debug, so it is better to say which ports will be used and let them be opened.
-    pub video_ports: Option<PortRange>,
+    /// Port 0 means the OS picks, and the port is reported to every session in its `ready` message —
+    /// which is only workable because there is exactly one of them. This is the port a firewall
+    /// rule has to open, and the whole point of the shared socket: a host forwarding a small number
+    /// of ports on a shared address forwards this one, and every session with video uses it.
+    pub video_bind: SocketAddr,
+    /// `PEERINGD_VIDEO_PORTS` as it was found, if it was found at all.
+    ///
+    /// **Read, and deliberately not parsed.** It named the range session video ports were drawn
+    /// from, and sessions no longer have ports of their own, so there is no range to name — but an
+    /// existing deployment has this line in its environment and a relay that refused to start over
+    /// it would be a relay that goes down on the next deploy. Kept only so startup can say, loudly,
+    /// that it is doing nothing. `main` is where that warning is written; nothing here interprets
+    /// the value, and a typo in it is no longer an error because nothing depends on it.
+    pub stale_video_ports: Option<String>,
     /// The control port **as clients must reach it**, when that differs from the port the relay
     /// binds.
     ///
@@ -37,9 +41,12 @@ pub struct Config {
     /// port of yours, and the two numbers need not match. Clients can only reach the outside one,
     /// so that is the one to hand them.
     pub public_control_port: Option<u16>,
-    /// The video port as clients must reach it, for the same reason. Only meaningful with a
-    /// single-port [`Self::video_ports`] range — a range is a different port per session, and there
-    /// is no way to express a per-session mapping on a shared address.
+    /// The video port as clients must reach it, for the same reason.
+    ///
+    /// Unlike the control port this cannot be read off the bound socket at all, because the
+    /// forwarded port is the host's to choose and need not match. It now applies to every session
+    /// at once, which is what makes the shared address workable: one number to forward, one number
+    /// to tell every client, instead of a range whose ports could not be forwarded individually.
     pub public_video_port: Option<u16>,
     /// The address to tell clients to connect back to, when it differs from the address they
     /// reached us on.
@@ -134,44 +141,12 @@ pub struct TlsFiles {
     pub key: PathBuf,
 }
 
-/// An inclusive range of ports, written `40000-40100`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PortRange {
-    pub first: u16,
-    pub last: u16,
-}
-
-impl PortRange {
-    pub fn parse(text: &str) -> Option<Self> {
-        let (first, last) = text.split_once('-')?;
-        let first: u16 = first.trim().parse().ok()?;
-        let last: u16 = last.trim().parse().ok()?;
-
-        // Port 0 is excluded deliberately: it means "let the OS choose", which is the opposite of
-        // what someone configuring a fixed range is asking for.
-        (first > 0 && first <= last).then_some(Self { first, last })
-    }
-
-    pub fn len(&self) -> usize {
-        usize::from(self.last - self.first) + 1
-    }
-
-    pub fn is_empty(&self) -> bool {
-        false // A range that parsed always holds at least one port.
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = u16> {
-        self.first..=self.last
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConfigError {
     BadAddress(&'static str, String),
     BadDuration(&'static str, String),
     /// A certificate without its key, or a key without its certificate.
     HalfATlsPair(&'static str),
-    BadPortRange(String),
     BadPort(&'static str, String),
     /// A switch that is not one of the spellings of yes and no.
     NotABoolean(&'static str, String),
@@ -186,9 +161,6 @@ impl fmt::Display for ConfigError {
             }
             Self::HalfATlsPair(missing) => {
                 write!(f, "{missing} is set but its partner is not; TLS needs both")
-            }
-            Self::BadPortRange(value) => {
-                write!(f, "PEERINGD_VIDEO_PORTS is not a range like 40000-40100: {value:?}")
             }
             Self::BadPort(name, value) => {
                 write!(f, "{name} is not a port number between 1 and 65535: {value:?}")
@@ -229,13 +201,10 @@ impl Config {
             (None, Some(_)) => return Err(ConfigError::HalfATlsPair("PEERINGD_TLS_KEY")),
         };
 
-        let video_ports = match get("PEERINGD_VIDEO_PORTS") {
-            None => None,
-            Some(raw) => match PortRange::parse(&raw) {
-                Some(range) => Some(range),
-                None => return Err(ConfigError::BadPortRange(raw)),
-            },
-        };
+        // Not parsed, not validated, not used — see the field. The raw value is carried out of here
+        // only so that startup can name what it is ignoring, which is the difference between an
+        // operator who knows their old range is dead and one who believes it is still opening ports.
+        let stale_video_ports = get("PEERINGD_VIDEO_PORTS");
 
         let paid_keys = get("PEERINGD_PAID_KEYS")
             .map(|raw| raw.split(',').map(|k| k.trim().to_string()).filter(|k| !k.is_empty()).collect())
@@ -245,7 +214,7 @@ impl Config {
             signal_addr: address(&get, "PEERINGD_SIGNAL_ADDR", "0.0.0.0:8443")?,
             control_addr: address(&get, "PEERINGD_CONTROL_ADDR", "0.0.0.0:9443")?,
             video_bind: address(&get, "PEERINGD_VIDEO_BIND", "0.0.0.0:0")?,
-            video_ports,
+            stale_video_ports,
             public_control_port: optional_port(&get, "PEERINGD_PUBLIC_CONTROL_PORT")?,
             public_video_port: optional_port(&get, "PEERINGD_PUBLIC_VIDEO_PORT")?,
             public_host: get("PEERINGD_PUBLIC_HOST"),
@@ -339,7 +308,7 @@ mod tests {
         assert_eq!(
             config.video_bind.port(),
             0,
-            "a session's port must be pickable"
+            "the relay's one video port must be pickable"
         );
         assert!(config.tls.is_none());
         assert_eq!(config.session_ttl, Duration::from_secs(300));
@@ -497,43 +466,32 @@ mod tests {
     }
 
     #[test]
-    fn no_video_range_configured_means_the_os_chooses() {
+    fn no_video_bind_configured_means_the_os_chooses() {
         let config = configured(&[]).unwrap();
-        assert!(config.video_ports.is_none());
+        assert_eq!(config.video_bind.port(), 0);
     }
 
+    /// The line this replaced. It named the range session video ports were drawn from, and an
+    /// existing deployment still has it in its environment file — so a relay that refused to start
+    /// over it, or that quietly appeared to honour it, would both be wrong. What is asserted here
+    /// is that it parses, that nothing in the configuration takes its value seriously, and that the
+    /// raw text survives far enough for startup to say it is being ignored.
     #[test]
-    fn a_video_range_is_parsed_inclusively() {
-        let config = configured(&[("PEERINGD_VIDEO_PORTS", "40000-40100")]).unwrap();
-        let range = config.video_ports.expect("should have parsed");
+    fn a_retired_video_range_is_carried_along_rather_than_refused() {
+        // The production value, and the shape the warning matters for: a range of one, which is a
+        // ceiling of one session with video. It is now nothing at all.
+        let config = configured(&[("PEERINGD_VIDEO_PORTS", "30190-30190")]).unwrap();
+        assert_eq!(config.stale_video_ports.as_deref(), Some("30190-30190"));
 
-        assert_eq!(range.first, 40000);
-        assert_eq!(range.last, 40100);
-        assert_eq!(range.len(), 101, "both ends are included");
-        assert_eq!(range.iter().count(), 101);
-        assert_eq!(range.iter().next(), Some(40000));
-        assert_eq!(range.iter().last(), Some(40100));
-    }
-
-    #[test]
-    fn a_single_port_range_is_allowed() {
-        let range = PortRange::parse("40000-40000").expect("should parse");
-        assert_eq!(range.len(), 1);
-    }
-
-    #[test]
-    fn a_nonsense_video_range_is_refused() {
-        for bad in ["", "40000", "40100-40000", "0-10", "abc-def", "40000-", "-40100", "70000-70001"] {
+        // And it is not interpreted, so anything at all gets the same treatment: a value that used
+        // to be a hard startup error is now a sentence in the log.
+        for nonsense in ["", "40000", "40100-40000", "0-10", "abc-def", "70000-70001"] {
             assert!(
-                PortRange::parse(bad).is_none(),
-                "{bad:?} should not parse as a range"
+                configured(&[("PEERINGD_VIDEO_PORTS", nonsense)]).is_ok(),
+                "{nonsense:?} must not stop the relay from starting"
             );
         }
 
-        // And through the config, so the error is reported rather than silently ignored.
-        assert!(matches!(
-            configured(&[("PEERINGD_VIDEO_PORTS", "40100-40000")]),
-            Err(ConfigError::BadPortRange(_))
-        ));
+        assert!(configured(&[]).unwrap().stale_video_ports.is_none());
     }
 }

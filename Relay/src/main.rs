@@ -14,8 +14,7 @@ use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
-use peeringd::udp_relay::PortPool;
-use peeringd::{signalling, tcp_relay, web};
+use peeringd::{signalling, tcp_relay, udp_relay, web};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -75,11 +74,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let control = TcpListener::bind(config.control_addr).await?;
     let signal = TcpListener::bind(config.signal_addr).await?;
 
+    // The video socket, bound once here and shared by every session: the port is a property of the
+    // relay now rather than of a session, so it is decided before the first one exists and never
+    // again. Failing to bind is fatal and deliberately so — a relay that starts without video would
+    // hand out sessions whose video silently goes nowhere, which is the hardest kind of fault to
+    // read from the phone's end of it.
+    let video = udp_relay::serve(
+        config.video_bind,
+        registry.routes(),
+        config.session_ttl,
+    )
+    .await?;
+
+    // What a firewall rule has to allow, and it is one port for the whole relay however many
+    // sessions run at once. This line is the replacement for the old one about a range, and it is
+    // the number an operator has to forward on a shared address.
+    info!(
+        video_bind = %video,
+        video_public = config.public_video_port.unwrap_or(video.port()),
+        "video is one shared UDP port, however many sessions run at once; this is the one to open"
+    );
+
+    // The range that used to be here. It is read from the environment and ignored — see the field —
+    // and it is said out loud rather than dropped, because an operator who still believes their
+    // video ports are the ones in this line will read a forwarding rule they no longer need as the
+    // reason a session has no video.
+    if let Some(range) = &config.stale_video_ports {
+        warn!(
+            peeringd_video_ports = %range,
+            peeringd_video_bind = %config.video_bind,
+            "PEERINGD_VIDEO_PORTS is ignored: sessions no longer have video ports of their own, so there is no range to allocate from. Put the port you forward in PEERINGD_VIDEO_BIND, and in PEERINGD_PUBLIC_VIDEO_PORT if clients reach it on a different one; this line can be deleted from the environment file"
+        );
+    }
+
     tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
-    // forever rather than as a one-off. A session holds a bound UDP socket, so letting them
-    // accumulate would leak file descriptors, not just memory.
+    // forever rather than as a one-off. This is also what retires the video routes of a session
+    // whose control connection died, so letting sessions accumulate would leak entries in a table
+    // that lasts as long as the process, not just memory.
     let sweep_registry = Arc::clone(&registry);
     let ttl = config.session_ttl;
     tokio::spawn(async move {
@@ -93,26 +126,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let video_ports = Arc::new(PortPool::new(config.video_ports));
-
-    // The video range is logged at startup because it is the number that has to match the firewall,
-    // and a mismatch shows up as "control works, video never arrives" — which is far harder to
-    // diagnose from the symptom than from this line.
-    match video_ports.range() {
-        Some(range) => info!(
-            video_ports = %format!("{}-{} ({} ports)", range.first, range.last, range.len()),
-            "video will use a fixed port range — open exactly these"
-        ),
-        None => warn!(
-            "no PEERINGD_VIDEO_PORTS range set, so session video ports are chosen by the OS from \
-             the entire ephemeral range; a firewall must allow all of it"
-        ),
-    }
-
     info!(
         control = %config.control_addr,
         signal = %config.signal_addr,
-        video_bind = %config.video_bind,
         session_ttl_seconds = config.session_ttl.as_secs(),
         "peeringd ready"
     );
@@ -130,9 +146,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         public_control_port: config
             .public_control_port
             .unwrap_or_else(|| config.control_addr.port()),
-        video_bind: config.video_bind,
-        video_ports,
-        public_video_port: config.public_video_port,
+        // The forwarded port unless one was named, read off the socket that was actually bound so
+        // that a relay configured with `PEERINGD_VIDEO_BIND=0.0.0.0:0` still tells its clients
+        // somewhere they can reach.
+        video_port: config.public_video_port.unwrap_or(video.port()),
         session_ttl: config.session_ttl,
         quota,
         receipts,

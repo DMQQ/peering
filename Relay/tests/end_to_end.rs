@@ -22,8 +22,7 @@ use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
-use peeringd::udp_relay::{bind_packet, PortPool};
-use peeringd::{signalling, tcp_relay};
+use peeringd::{signalling, tcp_relay, udp_relay};
 
 /// Generous enough to absorb a loaded CI machine, short enough that a hang fails the test rather
 /// than the suite.
@@ -34,6 +33,8 @@ type Ws = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<T
 struct TestRelay {
     signal_port: u16,
     control_port: u16,
+    /// The one port every session is told to send video to, whoever it belongs to.
+    video_port: u16,
 }
 
 /// The endpoints a session hands to one end.
@@ -56,6 +57,16 @@ async fn start() -> TestRelay {
     let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
     tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
 
+    // The relay's one video socket, bound exactly as `main` binds it and before signalling starts,
+    // so that the port every session is told is the port that exists.
+    let video = udp_relay::serve(
+        "127.0.0.1:0".parse().unwrap(),
+        registry.routes(),
+        Duration::from_secs(60),
+    )
+    .await
+    .expect("the video socket should bind");
+
     tokio::spawn(signalling::serve(
         signal,
         registry,
@@ -63,9 +74,7 @@ async fn start() -> TestRelay {
         Settings {
             host: Some("127.0.0.1".into()),
             public_control_port: control_port,
-            video_bind: "127.0.0.1:0".parse().unwrap(),
-            video_ports: Arc::new(PortPool::new(None)),
-            public_video_port: None,
+            video_port: video.port(),
             session_ttl: Duration::from_secs(60),
             quota,
             // Pinned to Apple's real root, so nothing this test sends can be mistaken for a
@@ -78,7 +87,19 @@ async fn start() -> TestRelay {
     TestRelay {
         signal_port,
         control_port,
+        video_port: video.port(),
     }
+}
+
+/// One video datagram as an end produces it: its own token, a counter, the sealed bytes and the
+/// tag. Everything past the first sixteen bytes is the two ends' business and the relay reads none
+/// of it — this shape is only here so the test can check what comes out the other side.
+fn video_datagram(token: &str, counter: u64, sealed: &[u8]) -> Vec<u8> {
+    let mut packet = unhex(token).expect("the token should be hex").to_vec();
+    packet.extend_from_slice(&counter.to_be_bytes());
+    packet.extend_from_slice(sealed);
+    packet.extend_from_slice(&[0u8; 16]); // The AEAD tag. The relay never looks at it.
+    packet
 }
 
 async fn connect(port: u16) -> Ws {
@@ -246,32 +267,125 @@ async fn video_datagrams_flow_between_the_two_ends() {
 
     let phone_session = await_session(&mut phone).await;
     let mac_session = await_session(&mut mac).await;
-    let video: SocketAddr = ([127, 0, 0, 1], phone_session.video_port).into();
+
+    // Both ends are told the same port, because there is only one: the relay's, not the session's.
+    assert_eq!(phone_session.video_port, relay.video_port);
+    assert_eq!(mac_session.video_port, relay.video_port);
+    let video: SocketAddr = ([127, 0, 0, 1], relay.video_port).into();
 
     let phone_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let mac_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
 
-    // Each end claims its slot with its own token. These are deliberately not the same value, and
-    // that is what lets a re-bind later move one end without disturbing the other.
+    // Each end claims its slot by sending its own token and nothing else. That bare token is the
+    // bind: it registers the address the datagram came from, and there is nothing in it to forward.
     phone_udp
-        .send_to(&bind_packet(&unhex(&phone_session.video_token).unwrap()), video)
+        .send_to(&unhex(&phone_session.video_token).unwrap(), video)
         .await
         .unwrap();
     mac_udp
-        .send_to(&bind_packet(&unhex(&mac_session.video_token).unwrap()), video)
+        .send_to(&unhex(&mac_session.video_token).unwrap(), video)
         .await
         .unwrap();
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     // The Mac sends a frame. This is the direction that matters: video only ever goes this way.
-    mac_udp.send_to(b"a sealed frame", video).await.unwrap();
+    let frame = video_datagram(&mac_session.video_token, 7, b"a sealed frame");
+    mac_udp.send_to(&frame, video).await.unwrap();
 
     let mut buf = [0u8; 64];
     let (len, _) = timeout(PATIENCE, phone_udp.recv_from(&mut buf))
         .await
         .expect("the phone should receive the frame")
         .unwrap();
-    assert_eq!(&buf[..len], b"a sealed frame");
+
+    // Everything but the prefix, byte for byte: the counter and the sealed frame, with no sixteen
+    // bytes of the Mac's token left in front of them for the phone to choke on.
+    assert_eq!(&buf[..len], &frame[16..]);
+}
+
+#[tokio::test]
+async fn two_sessions_share_the_one_video_port_without_crossing() {
+    // What the shared socket is for, end to end. On the old design this test is impossible on the
+    // deployment that has one forwarded port: the second session is refused a video socket, because
+    // the only port in the range is held by the first. Here both sessions are handed the same port
+    // and the token in front of each datagram is what keeps them apart.
+    let relay = start().await;
+    let mut first_mac = register_mac(&relay, "mac-one").await;
+    let mut second_mac = register_mac(&relay, "mac-two").await;
+
+    let mut first_phone = connect(relay.signal_port).await;
+    send(
+        &mut first_phone,
+        &ClientMessage::ConnectToHost {
+            host_id: "mac-one".into(),
+            client_id: "phone-one".into(),
+            protocol_version: 3,
+            api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
+        },
+    )
+    .await;
+    let mut second_phone = connect(relay.signal_port).await;
+    send(
+        &mut second_phone,
+        &ClientMessage::ConnectToHost {
+            host_id: "mac-two".into(),
+            client_id: "phone-two".into(),
+            protocol_version: 3,
+            api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
+        },
+    )
+    .await;
+
+    let first_phone_session = await_session(&mut first_phone).await;
+    let first_mac_session = await_session(&mut first_mac).await;
+    let second_phone_session = await_session(&mut second_phone).await;
+    let second_mac_session = await_session(&mut second_mac).await;
+
+    assert_eq!(
+        first_phone_session.video_port, second_phone_session.video_port,
+        "two sessions, one port"
+    );
+    let video: SocketAddr = ([127, 0, 0, 1], relay.video_port).into();
+
+    let first_phone_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let first_mac_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let second_phone_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    let second_mac_udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+
+    for (socket, session) in [
+        (&first_phone_udp, &first_phone_session),
+        (&first_mac_udp, &first_mac_session),
+        (&second_phone_udp, &second_phone_session),
+        (&second_mac_udp, &second_mac_session),
+    ] {
+        socket
+            .send_to(&unhex(&session.video_token).unwrap(), video)
+            .await
+            .unwrap();
+    }
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let first_frame = video_datagram(&first_mac_session.video_token, 1, b"first Mac's frame");
+    let second_frame = video_datagram(&second_mac_session.video_token, 1, b"second Mac's frame");
+    first_mac_udp.send_to(&first_frame, video).await.unwrap();
+    second_mac_udp.send_to(&second_frame, video).await.unwrap();
+
+    let mut buf = [0u8; 128];
+    let (len, _) = timeout(PATIENCE, first_phone_udp.recv_from(&mut buf))
+        .await
+        .expect("the first phone should receive its Mac's frame")
+        .unwrap();
+    assert_eq!(&buf[..len], &first_frame[16..]);
+
+    let (len, _) = timeout(PATIENCE, second_phone_udp.recv_from(&mut buf))
+        .await
+        .expect("the second phone should receive its Mac's frame")
+        .unwrap();
+    assert_eq!(&buf[..len], &second_frame[16..]);
 }
 
 #[tokio::test]

@@ -27,7 +27,6 @@ use crate::protocol::{hex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
 use crate::storekit::{ReceiptCache, StoreKitVerifier};
-use crate::udp_relay;
 
 /// How the relay describes itself to the two ends.
 #[derive(Clone)]
@@ -40,13 +39,11 @@ pub struct Settings {
     /// that forwards a port on a shared address picks both numbers, and only the outside one is
     /// reachable.
     pub public_control_port: u16,
-    pub video_bind: SocketAddr,
-    /// Where session video ports come from — see [`udp_relay::PortPool`].
-    pub video_ports: Arc<udp_relay::PortPool>,
-    /// The video port as clients reach it, for the same reason as `public_control_port`. Only
-    /// meaningful with a single-port range: with several, each session gets its own port and there
-    /// is no per-session mapping to express.
-    pub public_video_port: Option<u16>,
+    /// The video port as clients must reach it. One port for the whole relay, decided once at
+    /// startup when the shared socket was bound, so the same number goes into every session's
+    /// `ready` — which is the change that makes a host forwarding a handful of ports on a shared
+    /// IPv4 workable at all. See `udp_relay`.
+    pub video_port: u16,
     pub session_ttl: Duration,
     pub quota: Arc<QuotaTracker>,
     /// Decides whether a client's plan is Apple's or its own claim — see `storekit`.
@@ -382,23 +379,11 @@ async fn dispatch(
                 ));
             }
 
+            // No video socket is bound here any more, and that is the point of the shared one: this
+            // is where a session used to be refused because the whole video range was in use, and
+            // now the only thing allocation can run out of is memory. `allocate` opens the session's
+            // routes in the shared table before it returns.
             let allocated = registry.allocate(&host_id, &client_id).await;
-
-            let video_port = match udp_relay::serve_session(
-                settings.video_bind,
-                Arc::clone(&settings.video_ports),
-                Arc::clone(&allocated.video),
-                allocated.shutdown,
-                settings.session_ttl,
-            )
-            .await
-            {
-                Ok(port) => port,
-                Err(error) => {
-                    warn!(%error, "could not bind a video socket");
-                    return Some(ServerMessage::error("relay", "no video port available"));
-                }
-            };
 
             // The name is here because it is the one thing that makes this log line useful to
             // whoever is running the relay: a device ID identifies a machine to a database, and a
@@ -411,22 +396,22 @@ async fn dispatch(
                 %host_id,
                 host_name = %host.name,
                 %client_id,
-                video_port,
+                video_port = settings.video_port,
                 plan = plan.as_str(),
                 plan_trust = resolved.trust.as_str(),
                 "session allocated"
             );
 
             // The two ends get *different* video tokens, which is the one place the messages they
-            // receive diverge. See `VideoPairing` for why a shared token cannot express a re-bind.
-            // The control token is shared because it is presented once by each side and used up.
+            // receive diverge: their tokens are what the shared video socket routes on, so a shared
+            // one could not say which end a datagram came from. See `VideoRoutes`. The control token
+            // is shared because it is presented once by each side and used up.
             let ready = |video_token: Token| ServerMessage::SessionReady {
                 control_host: relay_host.to_string(),
                 control_port: settings.public_control_port,
                 video_host: relay_host.to_string(),
-                // The bound port unless it has been said otherwise, which is the case on a shared
-                // address where the forwarded port is the host's to choose.
-                video_port: settings.public_video_port.unwrap_or(video_port),
+                // The same number for every session, because every session sends to the same port.
+                video_port: settings.video_port,
                 control_token: hex(&allocated.control_token),
                 video_token: hex(&video_token),
             };
@@ -461,13 +446,16 @@ mod tests {
         mpsc::channel(4)
     }
 
+    /// The port every session is told to send video to. A fixed number rather than a bound socket:
+    /// what these tests are about is what signalling *says*, and the port it says it on is decided
+    /// at startup and belongs to `udp_relay`'s own tests and to the end-to-end ones.
+    const VIDEO_PORT: u16 = 30190;
+
     fn settings_with(quota: Arc<QuotaTracker>) -> Settings {
         Settings {
             host: None,
             public_control_port: 9443,
-            video_bind: "127.0.0.1:0".parse().unwrap(),
-            video_ports: Arc::new(udp_relay::PortPool::new(None)),
-            public_video_port: None,
+            video_port: VIDEO_PORT,
             session_ttl: Duration::from_secs(60),
             quota,
             // Pinned to Apple's real root, so a receipt in these tests verifies only if someone
@@ -632,7 +620,10 @@ mod tests {
         };
         assert_eq!(ready.0, "relay.test");
         assert_eq!(ready.1, 9443);
-        assert_ne!(ready.3, 0, "a real video port should have been bound");
+        assert_eq!(
+            ready.3, VIDEO_PORT,
+            "the session is told the one port the shared socket is on"
+        );
 
         // ...and so is the Mac, which never asked. Everything matches except the video token —
         // the two ends have to be distinguishable, so that a re-bind from one cannot move the

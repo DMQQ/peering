@@ -21,7 +21,6 @@ use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::{
     APPLE_ROOT_CA_G3_SHA256, APP_BUNDLE_ID, MAX_JWS_BYTES, Rejection, StoreKitVerifier, Trust,
 };
-use peeringd::udp_relay::PortPool;
 use peeringd::signalling;
 use support::{
     ChainOptions, TestChain, environmentless_transaction, revoked_transaction, sandbox_transaction,
@@ -611,9 +610,9 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
         Settings {
             host: Some("127.0.0.1".into()),
             public_control_port: 9443,
-            video_bind: "127.0.0.1:0".parse().expect("should parse"),
-            video_ports: Arc::new(PortPool::new(None)),
-            public_video_port: None,
+            // Signaling only in this test: what a client pays for never reaches the video socket,
+            // so the port is a number and nothing here binds it.
+            video_port: 30190,
             session_ttl: Duration::from_secs(60),
             quota,
             receipts: Arc::new(verifier),

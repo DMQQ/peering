@@ -32,16 +32,16 @@ cargo run --release             # same, optimised
 cargo test                      # the unit tests and 5 end-to-end socket tests
 ```
 
-With no configuration it listens on all interfaces, picks a video port per session, and serves
-signalling in plaintext. That is exactly right for pointing both apps at `127.0.0.1`, and never
-right for a public address.
+With no configuration it listens on all interfaces, binds one shared socket for every session's
+video, and serves signalling in plaintext. That is exactly right for pointing both apps at
+`127.0.0.1`, and never right for a public address.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `PEERINGD_SIGNAL_ADDR` | `0.0.0.0:8443` | Signalling listener |
 | `PEERINGD_CONTROL_ADDR` | `0.0.0.0:9443` | Control relay listener |
-| `PEERINGD_VIDEO_BIND` | `0.0.0.0:0` | Address per-session UDP sockets bind to |
-| `PEERINGD_VIDEO_PORTS` | — | Range session video ports come from, e.g. `40000-40100`. **Set this anywhere with a firewall** — see below |
+| `PEERINGD_VIDEO_BIND` | `0.0.0.0:0` | Address the **one** video socket binds to. Every session shares it, so `0` is fine — the port chosen is reported to both ends in `ready`, and `PEERINGD_PUBLIC_VIDEO_PORT` is how a firewall or port-forward maps it |
+| `PEERINGD_VIDEO_PORTS` | — | **Retired.** Sessions no longer have ports of their own, so this does nothing. A value left in an env file is read, ignored and warned about at startup rather than being allowed to stop the relay — see below |
 | `PEERINGD_TLS_CERT` | — | Certificate for signalling. Both this and the key, or neither |
 | `PEERINGD_TLS_KEY` | — | Private key for signalling |
 | `PEERINGD_SESSION_TTL` | `300` | Seconds a session survives without activity |
@@ -132,12 +132,22 @@ nothing issues one, so filling the variable in today means reading the value out
 some other means. Giving a device unlimited relay is what the plan field does now, and this
 variable is what it would be replaced by if plans ever become verifiable.
 
-**`PEERINGD_VIDEO_PORTS` matters more than it looks.** Unset, the OS picks each session's video
-port from the whole ephemeral range — 32768 to 60999 on a default Linux — so allowing video through
-a firewall means opening twenty-eight thousand UDP ports. A range of a hundred turns that into one
-rule. What a closed range looks like is *control working and video never arriving*, which is a
-miserable thing to debug from the symptom; the startup log prints the range that will be used so it
-can be checked against the firewall directly.
+**The video socket is one port, and it used to be one per session.** Sessions now share a socket
+and each datagram says which session it belongs to, so a host with a handful of forwarded UDP ports
+— which is what a shared-IPv4 VPS gives you — can carry any number of concurrent sessions instead
+of one. A host that used to set `PEERINGD_VIDEO_PORTS=40000-40100` now sets
+`PEERINGD_VIDEO_BIND=0.0.0.0:<one port>` and forwards that one port; the startup log prints the
+address and port actually bound, which is the number to check a firewall against. What a closed
+port looks like is *control working and video never arriving*, which is a miserable thing to debug
+from the symptom.
+
+**What the relay reads, since it is no longer nothing.** Each datagram begins with the sender's
+video token — 16 bytes, which the relay uses to find the session and strips before forwarding — and
+behind it sits an 8-byte counter and the sealed payload. So the relay sees which session a packet
+belongs to, its size, and its position in the sequence. It cannot read or forge a byte of what it
+forwards: the payload is sealed with a key the two ends derive from a secret they exchanged inside
+the TLS session, and the relay was never told it. `src/lib.rs` states this in the same terms, and
+that statement is the one to keep true.
 
 The relay reports the address a client reached it on as the address to connect back to, so a
 directly-addressed server needs no configuration for this. `RUST_LOG=debug` for per-connection
@@ -170,7 +180,7 @@ its own TLS.
 ```ini
 Environment=PEERINGD_SIGNAL_ADDR=0.0.0.0:8443
 Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
-Environment=PEERINGD_VIDEO_PORTS=40000-40100
+Environment=PEERINGD_VIDEO_BIND=0.0.0.0:9444
 Environment=PEERINGD_TLS_CERT=/etc/letsencrypt/live/peering.dmqq.dev/fullchain.pem
 Environment=PEERINGD_TLS_KEY=/etc/letsencrypt/live/peering.dmqq.dev/privkey.pem
 ```
@@ -214,7 +224,7 @@ server {
 ```ini
 Environment=PEERINGD_SIGNAL_ADDR=127.0.0.1:8443
 Environment=PEERINGD_CONTROL_ADDR=0.0.0.0:9443
-Environment=PEERINGD_VIDEO_PORTS=40000-40100
+Environment=PEERINGD_VIDEO_BIND=0.0.0.0:9444
 
 # Required here, and the one setting that is easy to miss. Without it the relay reports the address
 # each client reached it on as the place to connect for control and video — which is right when
@@ -434,7 +444,7 @@ not, and control and video cannot be proxied.
 | `relay.dmqq.dev` | **DNS only** | the shared IPv4 | Control and video |
 
 ```
-PEERINGD_VIDEO_PORTS=40000-40000
+PEERINGD_VIDEO_BIND=0.0.0.0:9444
 PEERINGD_PUBLIC_HOST=relay.dmqq.dev
 ```
 
@@ -445,19 +455,20 @@ the host picks both. Only the outside number is reachable, so tell the relay whi
 PEERINGD_CONTROL_ADDR=[::]:9443
 PEERINGD_PUBLIC_CONTROL_PORT=51234    # what mikr.us forwards to 9443
 
-PEERINGD_PUBLIC_VIDEO_PORT=51235      # what mikr.us forwards to 40000
+PEERINGD_PUBLIC_VIDEO_PORT=51235      # what mikr.us forwards to 9444
 ```
 
 Both default to the bound port, so they are only needed when the two differ. Check the forwarding
 panel before assuming; getting it wrong produces clients that are told to connect to a port that
 nothing answers on, which looks exactly like the relay being down.
 
-**The video range must be as small as the number of ports you forward** — with one forwarded UDP
-port, a single-port range. The relay refuses a session when its range is exhausted rather than
-quietly sharing a port, so a range wider than the forwarding is a session that cannot start rather
-than two sessions that interfere.
+**One forwarded UDP port is now enough for any number of sessions.** That is the point of the
+per-datagram prefix: every session shares the socket, so the number of ports you can forward stopped
+being the number of people who can connect at once. It used to be a real ceiling — a host that could
+forward one UDP port could carry one concurrent session, and the relay refused the rest rather than
+letting two sessions interfere.
 
-One port is genuinely enough for this product: one phone, one Mac, one session. A reconnect
+A reconnect
 supersedes the previous session and takes the port straight back, rather than waiting for it to
 expire — which is the behaviour a one-port range depends on, and which is why a session's video
 task stops the moment it is superseded.
@@ -468,12 +479,13 @@ Open exactly the ports in use and nothing else:
 
 ```sh
 # shape A
-ufw allow 8443/tcp && ufw allow 9443/tcp && ufw allow 40000:40100/udp
+ufw allow 8443/tcp && ufw allow 9443/tcp && ufw allow 9444/udp
 # shape B
-ufw allow 443/tcp  && ufw allow 9443/tcp && ufw allow 40000:40100/udp
+ufw allow 443/tcp  && ufw allow 9443/tcp && ufw allow 9444/udp
 ```
 
-The video rule can only be written once `PEERINGD_VIDEO_PORTS` is set.
+One UDP port, not a range. It is the port in `PEERINGD_VIDEO_BIND`, and the startup log prints
+it — every session shares it, so the firewall rule does not change as sessions come and go.
 
 #### Unit, and updating
 
@@ -520,6 +532,18 @@ that URL and check it every five minutes. It is one line of configuration and it
 between learning about an outage from a monitor and learning about it from the person who tried to
 connect. The endpoint reports nothing but liveness and the version: not sessions, not devices, not
 load — see ``web.rs`` for why that restraint is deliberate.
+
+**The relay also checks itself, every five minutes, from the box it runs on.**
+`deploy/peeringd-healthcheck.{sh,service,timer}` install with the binary and restart the relay if
+`/healthz` stops answering while the process is still alive — which is the failure `Restart=always`
+cannot see, because from systemd's side the service is perfectly healthy. It retries once before
+acting, and after restarting it checks *again* and says so when the restart did not help, so "it
+is stuck" and "it is genuinely broken" are different lines in the journal rather than one silent
+restart loop.
+
+That covers the machine being up. It does not cover the machine being gone, the certificate
+expiring, or the hostname failing to resolve — for those you still want the external monitor
+above, because a box that is not running cannot tell you it is not running.
 
 The binary is static with no runtime dependencies, so an update is a file replacement:
 
@@ -599,22 +623,33 @@ precedes it. Stealing one buys an attacker a connection that fails its handshake
 
 ### Video — UDP
 
-Send a bind packet to `videoHost:videoPort`:
+Every datagram, in both directions, begins with the sender's own `videoToken`:
 
 ```
-  4 bytes        16 bytes
-  "PBND"     ‖   unhex(videoToken)
+  16 bytes                 8 bytes         n bytes          16 bytes
+  unhex(videoToken)   ‖   counter   ‖   ciphertext   ‖   AEAD tag
 ```
 
-Then send and receive video datagrams on the same socket. Anything from an unbound address is
-dropped **without a reply**, so a prober learns nothing about whether a session exists.
+The relay reads the 16-byte prefix to find the session and the slot, **strips it**, and forwards the
+rest verbatim. A datagram of exactly 16 bytes — the token and nothing else — is a **bind and a
+keepalive**: it registers that address with the slot and is not forwarded, which is also how a
+client keeps a NAT binding open across a quiet spell. Anything from an unbound address, or carrying
+an unknown token, is dropped **without a reply**, so a prober learns nothing about whether a session
+exists.
 
-**Each end has a different token, and that is load-bearing.** With one shared token the relay could
-not tell which slot a re-bind belonged to, so a phone whose carrier NAT moved it mid-session would
-be indistinguishable from a stranger taking a slot, and slot assignment would depend on which
+**Each end has a different token, and that is still load-bearing.** With one shared token the relay
+could not tell which slot a re-bind belonged to, so a phone whose carrier NAT moved it mid-session
+would be indistinguishable from a stranger taking a slot, and slot assignment would depend on which
 packet happened to arrive first. Two tokens fix the mapping — slot 0 is always the phone, slot 1 is
-always the Mac — and make re-binding work: re-send the bind packet from the new address and the
-slot follows. Datagrams are otherwise opaque; the relay never looks inside one.
+always the Mac — and make re-binding work: the next datagram from the new address moves the slot and
+the peer follows.
+
+**What the prefix costs, and what it buys.** Sixteen bytes per datagram, and the relay can now see
+which session a packet belongs to and where it sits in the sequence. What it buys is that the port
+count stops being the session count: one forwarded UDP port carries every session on the host,
+where a per-session socket needed a port each — and a shared-IPv4 VPS gives you about seven. The
+payload is sealed with a key the two ends derive from a secret exchanged inside the control
+session, so the relay forwards ciphertext it cannot read and never sees a nonce it could forge.
 
 ## Cost
 

@@ -58,9 +58,9 @@ COPY --from=build /src/target/x86_64-unknown-linux-musl/release/peeringd /usr/lo
 COPY --from=build /src/site /srv/site
 ENV PEERINGD_WEB_ROOT=/srv/site
 
-# 8443 signalling, 9443 control, 9444 the base for per-session video ports — see PEERINGD_VIDEO_BIND.
-# 8080 is the site, and is loopback-only unless PEERINGD_WEB_ADDR is changed: it belongs behind
-# whatever terminates TLS on the host, not on a published port.
+# 8443 signalling, 9443 control, 9444 the one video socket every session shares — see
+# PEERINGD_VIDEO_BIND. 8080 is the site, and is loopback-only unless PEERINGD_WEB_ADDR is changed:
+# it belongs behind whatever terminates TLS on the host, not on a published port.
 EXPOSE 8443/tcp 9443/tcp 9444/udp
 
 ENTRYPOINT ["peeringd"]

@@ -1,0 +1,11 @@
+# One run of the health check. Started by the timer beside it; not enabled on its own.
+[Unit]
+Description=Peering relay health check
+After=peeringd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/peeringd-healthcheck.sh
+
+# The script is `set -eu` and exits non-zero only when something went genuinely wrong, and a
+# failing unit is how that reaches `systemctl --failed`.
