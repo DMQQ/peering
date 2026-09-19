@@ -116,6 +116,15 @@ public final class ClientSession: @unchecked Sendable {
         /// An address came back and probes are going out to it. Nothing has arrived from the Mac at
         /// that address, so the packets are being dropped on the way.
         case probing(peer: String)
+        /// The relay named an address this end cannot even open a socket to.
+        ///
+        /// Its own case because it was the bug, and it was invisible for exactly as long as it was
+        /// nothing: the relay renders a dual-stack socket's v4-mapped source as `::ffff:a.b.c.d`,
+        /// `getaddrinfo` refuses that for an `AF_INET` socket, and both call sites discarded the
+        /// error. Every session stayed on the relay and looked like two NATs that would not
+        /// cooperate. Folding the mapping away is the fix; this is the sentence that would have
+        /// found it in an afternoon.
+        case addressUnusable(peer: String)
         /// The Mac is answering directly and the picture is coming from it.
         case open(peer: String)
 
@@ -125,6 +134,7 @@ public final class ClientSession: @unchecked Sendable {
             case .notTried: return "Not tried"
             case .noAddress: return "The relay has not said where the Mac is"
             case .probing(let peer): return "Knocking on \(peer), nothing back yet"
+            case .addressUnusable(let peer): return "The relay named \(peer), which this phone cannot use"
             case .open(let peer): return "Straight to \(peer)"
             }
         }
@@ -1222,11 +1232,18 @@ public final class ClientSession: @unchecked Sendable {
                         at: ProtocolInfo.relaySignallingURL,
                         videoToken: relay.videoToken
                     ) {
-                        // A failure here is not fatal and not retried on its own: an address this
-                        // socket will not take is one the next discovery will replace, and until
-                        // then ``sendDirect`` does nothing rather than sending to the relay.
-                        try? socket.setDirectPeer(host: address.host, port: address.port)
-                        self?.reportDirectPath(.probing(peer: "\(address.host):\(address.port)"))
+                        // A failure here is not fatal, but it is *said*, which it was not: the
+                        // `try?` that used to be here is how an address nothing could parse went
+                        // unnoticed for the whole life of the feature. The next discovery replaces
+                        // it, and until then ``sendDirect`` does nothing rather than sending to the
+                        // relay.
+                        let peer = "\(address.host):\(address.port)"
+                        do {
+                            try socket.setDirectPeer(host: address.host, port: address.port)
+                            self?.reportDirectPath(.probing(peer: peer))
+                        } catch {
+                            self?.reportDirectPath(.addressUnusable(peer: peer))
+                        }
                     } else {
                         self?.reportDirectPath(.noAddress)
                     }

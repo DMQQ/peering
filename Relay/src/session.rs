@@ -246,10 +246,48 @@ impl VideoRoutes {
     /// two are deliberately one answer: to the only question the caller has — is there anywhere to
     /// point this end — they are the same fact, and a distinct error for each would invite the
     /// client to treat one as retryable and the other as fatal when both are simply early.
+    /// Where the *other* end of this session is, spoken in a way the asker can use.
+    ///
+    /// **The spelling is the whole of this function, and getting it wrong made the direct path
+    /// impossible for everybody.** This socket is bound on `[::]`, so a datagram from a client on
+    /// IPv4 arrives with a v4-mapped source address and renders as `::ffff:203.0.113.7`. The asker
+    /// has an `AF_INET` socket, because that is what resolving the relay over IPv4 gives it, and
+    /// `getaddrinfo` with `AF_INET` and `AI_NUMERICHOST` **refuses a v4-mapped literal outright**:
+    ///
+    /// ```text
+    /// ::ffff:203.0.113.7   AF_INET   -> fails
+    /// 203.0.113.7          AF_INET   -> works
+    /// 203.0.113.7          AF_INET6  -> fails
+    /// 2001:db8::1          AF_INET6  -> works
+    /// ```
+    ///
+    /// Neither end could resolve what this handed it, both call sites discard the error, and so
+    /// neither ever sent a probe and neither ever said so. Every session stayed on the relay and
+    /// the whole feature was inert, which looked exactly like two NATs that would not cooperate.
+    ///
+    /// So the mapping is folded away for a v4 asker, and a peer in the *other* family is not
+    /// offered at all: an address the asker's socket cannot parse is worse than no answer, because
+    /// the answer is what the asker retries on and "no address yet" is at least honest.
     pub fn peer_address(&self, token: &Token) -> Option<SocketAddr> {
         let inner = lock(&self.inner);
         let route = inner.routes.get(token)?;
-        inner.routes.get(&route.peer).and_then(|peer| peer.addr)
+        let peer = fold(inner.routes.get(&route.peer)?.addr?);
+
+        // The asker's own address is what says which spelling it can parse, and on the very first
+        // ask it is often not known yet: the client asks before it has sent anything, because the
+        // answer is what tells it where to send. That is ordinary and the caller asks again; what
+        // it gets in the meantime is the peer folded, which is still better than the raw form,
+        // because the raw form is what nothing could parse.
+        let Some(mine) = route.addr.map(fold) else { return Some(peer) };
+
+        match (mine, peer) {
+            (SocketAddr::V4(_), SocketAddr::V4(_)) | (SocketAddr::V6(_), SocketAddr::V6(_)) => {
+                Some(peer)
+            }
+            // One end on IPv4 and the other on IPv6, with no common address family: there is no
+            // path between them to find, and saying nothing is the accurate answer.
+            _ => None,
+        }
     }
 
     /// Drops sessions that have heard nothing from either end for `idle_ttl`, returning how many
@@ -315,6 +353,21 @@ impl Table {
 /// and addresses — cannot be left inconsistent by a panic: every mutation is one insert, one remove
 /// or a field assignment. Recovering beats propagating, which would now take the video of every
 /// session down at once over one session's bookkeeping.
+/// A peer's address as the family it actually is, with the v4-mapping folded away.
+///
+/// `SocketAddr::is_ipv4` answers `false` for a v4-mapped address, because it is an `Ipv6Addr` with
+/// an IPv4 address inside it, which is exactly the trap this whole bug was made of. Everything
+/// here works on the folded form so that "is this end on IPv4" means what it says.
+fn fold(address: SocketAddr) -> SocketAddr {
+    match address {
+        SocketAddr::V4(_) => address,
+        SocketAddr::V6(v6) => match v6.ip().to_ipv4_mapped() {
+            Some(v4) => SocketAddr::new(std::net::IpAddr::V4(v4), v6.port()),
+            None => address,
+        },
+    }
+}
+
 fn lock(inner: &StdMutex<Table>) -> MutexGuard<'_, Table> {
     inner.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -527,9 +580,79 @@ mod tests {
         SocketAddr::from((Ipv4Addr::new(127, 0, 0, last), port))
     }
 
+    /// What `recv_from` on a dual-stack socket reports for a client that is on IPv4: an IPv6
+    /// address with the IPv4 one inside it. This is the shape the bug was made of, so the tests
+    /// have to be able to produce it.
+    fn mapped(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
+        SocketAddr::new(
+            std::net::IpAddr::V6(Ipv4Addr::new(a, b, c, d).to_ipv6_mapped()),
+            port,
+        )
+    }
+
     /// A token for session `n`, so a test with many sessions can name them without listing them.
     fn token(n: u8) -> Token {
         [n; 16]
+    }
+
+    /// The bug that made the direct path impossible for everybody.
+    ///
+    /// This socket is bound on `[::]`, so a client on IPv4 is seen as `::ffff:a.b.c.d`. That string
+    /// resolves under `AF_INET6` and **fails under `AF_INET`**, which is the family the client's
+    /// socket actually has. So both ends were handed an address neither could parse, both discarded
+    /// the error, and neither ever sent a probe. Every session stayed on the relay, which on screen
+    /// is indistinguishable from two NATs that will not cooperate.
+    #[test]
+    fn an_ipv4_peer_is_given_as_ipv4_and_not_as_a_mapped_ipv6_address() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        // What `recv_from` on a dual-stack socket hands back for an IPv4 client.
+        routes.route(&CLIENT, mapped(203, 0, 113, 7, 4000));
+        routes.route(&HOST, mapped(198, 51, 100, 9, 5000));
+
+        assert_eq!(
+            routes.peer_address(&HOST),
+            Some(SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 4000))),
+            "the asker is on IPv4, so the answer has to be a plain IPv4 address"
+        );
+        assert!(routes.peer_address(&HOST).unwrap().is_ipv4());
+
+        // And the same in the other direction, because both ends ask.
+        assert_eq!(
+            routes.peer_address(&CLIENT),
+            Some(SocketAddr::from((Ipv4Addr::new(198, 51, 100, 9), 5000)))
+        );
+    }
+
+    /// And when the two ends are in different families there is nothing to hand over, because an
+    /// address the asker's socket cannot parse is worse than no answer: the asker retries on an
+    /// answer, and "not yet" is at least true.
+    #[test]
+    fn ends_in_different_families_are_not_introduced() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        routes.route(&CLIENT, mapped(203, 0, 113, 7, 4000));
+        routes.route(&HOST, SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 1], 5000)));
+
+        assert_eq!(routes.peer_address(&HOST), None);
+        assert_eq!(routes.peer_address(&CLIENT), None);
+    }
+
+    /// A genuine IPv6 peer is offered as IPv6, unfolded, to an asker that is on IPv6.
+    #[test]
+    fn two_ipv6_ends_are_introduced_as_ipv6() {
+        let routes = VideoRoutes::new();
+        routes.open(&[CLIENT, HOST]);
+
+        let client = SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 2], 4000));
+        let host = SocketAddr::from(([0x2a00, 0x1450, 0x4001, 0, 0, 0, 0, 1], 5000));
+        routes.route(&CLIENT, client);
+        routes.route(&HOST, host);
+
+        assert_eq!(routes.peer_address(&HOST), Some(client));
+        assert_eq!(routes.peer_address(&CLIENT), Some(host));
     }
 
     /// The introduction the relay can now give: where one end's peer was last seen.
