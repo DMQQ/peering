@@ -99,9 +99,9 @@ struct PaywallView: View {
                 let left = RelayTime.label(remaining)
                 switch plan {
                 case .free:
-                    return "\(left) left of today's free relay time. When it runs out the relay stops working until tomorrow — Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day, and the plans above it remove the limit."
+                    return "\(left) left of today's free relay time. When it runs out the relay stops working until tomorrow. Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day, and the plans above it remove the limit."
                 case .relay:
-                    return "\(left) left of today's relay time. When it runs out the relay stops working until tomorrow — the plans above remove the daily limit."
+                    return "\(left) left of today's relay time. When it runs out the relay stops working until tomorrow. The plans above remove the daily limit."
                 case .plus, .pro:
                     // Unreachable as the app is wired: an unmetered plan has no remaining figure to
                     // be low, so ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for one and
@@ -443,7 +443,10 @@ private struct PlanCard: View {
 
                     Spacer(minLength: 8)
 
-                    Text(price ?? "—")
+                    // Three dots rather than a dash for a price the store has not answered with.
+                    // A dash in a price column reads as a minus sign, and this is the one place on
+                    // the screen where a mark that could be arithmetic is worth avoiding.
+                    Text(price ?? "···")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(ColorPalette.ink)
                         .multilineTextAlignment(.trailing)

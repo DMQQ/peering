@@ -49,7 +49,7 @@ struct PairingSASTests {
         }
     }
 
-    @Test("is deterministic — both sides must agree")
+    @Test("is deterministic, so both sides must agree")
     func deterministic() {
         #expect(PairingSAS.code(for: transcript()) == PairingSAS.code(for: transcript()))
     }

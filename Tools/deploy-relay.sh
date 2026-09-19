@@ -99,6 +99,12 @@ scp -q "${SCP_ARGS[@]}" \
     "$REPO_DIR/Relay/deploy/peeringd-healthcheck.service" \
     "$REPO_DIR/Relay/deploy/peeringd-healthcheck.timer" \
     "$SSH_TARGET:/tmp/"
+# And the relay's own unit, for the same reason the healthcheck's travels: it is part of what a
+# deployment installs rather than something set up once by hand and left to drift. It has to go
+# with the binary in particular, because the unit is what declares the state directory the relay
+# writes its usage log into. A binary that expects one and a unit that does not grant it is a
+# relay that starts, records nothing, and looks healthy.
+scp -q "${SCP_ARGS[@]}" "$REPO_DIR/Relay/deploy/peeringd.service" "$SSH_TARGET:/tmp/"
 
 if [ "$YES" != "--yes" ]; then
     printf 'install on %s and restart peeringd? [y/N] ' "$SSH_TARGET"
@@ -130,6 +136,10 @@ install -m 755 /tmp/peeringd-healthcheck.sh /usr/local/bin/peeringd-healthcheck.
 install -m 644 /tmp/peeringd-healthcheck.service /etc/systemd/system/peeringd-healthcheck.service
 install -m 644 /tmp/peeringd-healthcheck.timer /etc/systemd/system/peeringd-healthcheck.timer
 rm -f /tmp/peeringd-healthcheck.sh /tmp/peeringd-healthcheck.service /tmp/peeringd-healthcheck.timer
+install -m 644 /tmp/peeringd.service /etc/systemd/system/peeringd.service
+rm -f /tmp/peeringd.service
+# Before the restart below, not after: this is what tells systemd to create the state directory
+# the new unit declares, and a restart that happens first starts the relay without one.
 systemctl daemon-reload
 # Enable as well as start, or the check exists until the next reboot and then does not.
 # (No backticks in here: this heredoc is unquoted, so the remote shell would run them.)
@@ -143,6 +153,10 @@ REMOTE
 echo "==> verifying"
 # From the box first: that proves the process is listening, and it is the half this script controls.
 ssh "${SSH_ARGS[@]}" "$SSH_TARGET" 'curl -s --max-time 5 http://127.0.0.1:8080/healthz || echo "healthz did not answer"'
+# Whether the counter found a home, said by the relay itself rather than inferred from a file
+# existing. A relay that could not open its usage log still answers healthz, so the healthz check
+# above passes in exactly the case this line exists to catch.
+ssh "${SSH_ARGS[@]}" "$SSH_TARGET" 'journalctl -u peeringd -n 40 --no-pager | grep -i "usage" | tail -2 || echo "(no usage line in the journal yet)"'
 # Then from here, through whatever terminates TLS — which is the half a user meets, and the half
 # that was answering 502 while the relay itself was fine.
 curl -s --max-time 10 https://getpeering.app/healthz || echo "(the public hostname did not answer)"

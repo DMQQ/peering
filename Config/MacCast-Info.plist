@@ -30,8 +30,30 @@
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<!--
+	  Export compliance, answered once and attached to every build from here on.
+
+	  Without this key App Store Connect asks the same encryption question on every single
+	  upload, and the answer does not change between them.
+
+	  `false` is the declaration that the app uses only encryption that is exempt from the
+	  documentation requirements, and that is the case here on both counts that matter. Every
+	  algorithm is a standard one: P-256 key agreement, HKDF-SHA256, ChaCha20-Poly1305,
+	  SHA-256, and TLS to the relay. That rules out the "proprietary or non-standard" limb.
+	  And none of it is implemented here: the app imports `Crypto`, which on an Apple platform
+	  compiles its own implementation away and re-exports CryptoKit, so the work is done by
+	  corecrypto in the operating system. There is no third-party crypto library in the bundle.
+	  See swift-crypto's own README, which says exactly that about Apple platforms.
+
+	  What this is not is a decision this file can make for you. It is a declaration to Apple
+	  and, through them, to the US government, and the app has to stay inside it: a proprietary
+	  cipher, or a vendored crypto library, would make it false and would need a classification
+	  instead. The Mac host carries the same reasoning in its own plist.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!--
 	  What keeps a session alive once the app is not on screen. iOS suspends an app that has
-	  nothing to do, and a suspended app's sockets die — which is what ended every session the
+	  nothing to do, and a suspended app's sockets die, which is what ended every session the
 	  moment the phone was locked or another app was opened, and what made the Live Activity
 	  only ever live for the thirty seconds of grace.
 

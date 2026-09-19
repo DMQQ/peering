@@ -727,7 +727,9 @@ private struct PlanChoice: View {
 
                 Spacer(minLength: 8)
 
-                Text(price ?? "—")
+                // Three dots rather than a dash, for the reason the paywall's copy of this line
+                // gives: a dash sitting where a price goes reads as a minus sign.
+                Text(price ?? "···")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(ColorPalette.ink)
                     .lineLimit(1)

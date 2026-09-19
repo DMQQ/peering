@@ -35,7 +35,7 @@ final class Updater {
     /// The version on disk, for a screen that shows one.
     var currentVersion: String {
         let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let short = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
         let build = info?["CFBundleVersion"] as? String
         return build.map { "\(short) (\($0))" } ?? short
     }
