@@ -1,89 +1,46 @@
 import SwiftUI
 
-/// Ending a shell, asked about at the top of the screen the shell is on.
+/// Ending a shell, asked as an alert rather than in a card anchored to the tab.
 ///
-/// Not a `confirmationDialog`, which is what this was and is the wrong shape for the question. On
-/// iPhone that presents as an action sheet pinned to the bottom edge, so a cross tapped on a tab
-/// at the top of the screen raises a question at the bottom of it — with the tab still visible
-/// above and nothing joining the two. An action sheet is right for "what do you want to do with
-/// this photo"; this is a question about one specific tab, and it should be asked where that tab
-/// is.
+/// **This was a popover, and it was a popover twice. Both times the answer was unreachable.**
 ///
-/// A popover with `attachmentAnchor: .rect(.bounds)` does exactly that: it opens against the
-/// bounds of whatever it is attached to, and `.presentationCompactAdaptation(.popover)` is what
-/// stops iPhone turning it back into a sheet.
-struct TerminalEndPrompt: View {
-    let name: String
-    /// What stops, in this terminal's own terms — a shell on the Mac, or one on a server.
-    let detail: String
-    let onEnd: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("End \(name)?")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(ColorPalette.ink)
-
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 10) {
-                Button("Keep it", role: .cancel, action: onCancel)
-                    .buttonStyle(.bordered)
-
-                Spacer(minLength: 0)
-
-                Button("End", role: .destructive, action: onEnd)
-                    .buttonStyle(.borderedProminent)
-                    .tint(ColorPalette.danger)
-                    .foregroundStyle(.white)
-            }
-            .padding(.top, 2)
-        }
-        // Wide enough that the sentence is two lines rather than five, narrow enough to sit under
-        // a tab without running off the screen.
-        .frame(width: 280)
-        .padding(14)
-        .preferredColorScheme(.dark)
-    }
-}
-
+/// The first failure was horizontal, and it is written down because it is the useful half. The card
+/// was anchored to the tab the question is about, and a popover is placed relative to its anchor
+/// without ever being pulled back onto the screen: anchored to a tab whose leading edge sits past
+/// the middle of the phone, the card ran off the right-hand edge and took the End button with it.
+/// The repair was to anchor to a full-width row instead, which puts the card in the same place for
+/// one tab as for six, and what carried the "this one" the position used to carry was the shell's
+/// name in the question. That reasoning still reads as sound.
+///
+/// The second failure was vertical and had the same shape. The row being anchored to is a tab strip
+/// at the top of the screen, and the card wanted to open above it, so it was cut off at the top
+/// edge with its two answers off screen and untappable. Which is the whole of what makes this an
+/// alert: **a card that cannot be placed wrongly beats a card in a better place.** The popover's
+/// argument was that a question about one tab should be asked where that tab is, and that argument
+/// has now cost two broken presentations, in two axes, on the two screens that use it.
+///
+/// What an alert gives up is the anchor, and it is worth naming what that costs: the question no
+/// longer points at the shell it is about. The name in the title is what carries it now, which is
+/// the same thing the first repair already fell back on.
 extension View {
-    /// Attaches ``TerminalEndPrompt``, anchored to the bounds of whatever it is attached to.
+    /// Attaches the question about ending a shell, whenever `isPresented` is true.
     ///
-    /// **Attach it to a full-width row, not to the thing the question is about.** That is not what
-    /// this started as, and the difference is a defect rather than a nicety. A popover is placed
-    /// relative to its anchor and is *not* pulled back onto the screen: anchored to a tab whose
-    /// leading edge is past the middle of the phone, the card runs off the right-hand edge and
-    /// takes the End button with it, leaving a question with one visible answer and one that
-    /// nobody can reach. Three guesses at the cause were tested in the simulator and all three
-    /// were wrong — it is not the horizontal scroller the tabs live in (taking the scroller out
-    /// changed nothing), it is not the width of the card (a narrow one clips as readily), and it
-    /// is not the arrow edge. It is where the anchor sits on the screen, and no modifier fixes
-    /// that from the anchor's side.
-    ///
-    /// A row that spans the width and sits at the top puts the card in the same place for one tab
-    /// as for six. What carries the "this one" that the position used to is the name in the
-    /// question. Both call sites are tab strips — ``TerminalPanel`` and ``SSHTerminalScreen`` —
-    /// and ``SSHTab`` gets away with attaching it to a row because those rows are full width and
-    /// start at the left edge.
+    /// Attach it to anything in the screen that owns the shell. Where the alert lands no longer
+    /// depends on the anchor, which is the entire reason it is an alert.
     func terminalEndPrompt(
         name: String,
         detail: String,
         isPresented: Binding<Bool>,
         onEnd: @escaping () -> Void
     ) -> some View {
-        popover(isPresented: isPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
-            TerminalEndPrompt(
-                name: name,
-                detail: detail,
-                onEnd: onEnd,
-                onCancel: { isPresented.wrappedValue = false }
-            )
-            .presentationCompactAdaptation(.popover)
+        alert("End \(name)?", isPresented: isPresented) {
+            // Cancel first, and given the role rather than a colour: Escape maps to it on the
+            // simulator and a hardware keyboard, and the role is what keeps the destructive answer
+            // from being the one a stray return lands on.
+            Button("Keep it", role: .cancel) { }
+            Button("End", role: .destructive, action: onEnd)
+        } message: {
+            Text(detail)
         }
     }
 }
