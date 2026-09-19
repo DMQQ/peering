@@ -766,7 +766,29 @@ struct TerminalPanel: View {
                     // that opens a picker and then fails is worse than no button.
                     onUpload: terminal.isRunning
                         ? { model.uploadFile($0, sessionID: terminal.id) }
-                        : nil
+                        : nil,
+                    // And absent for the same reason: a run button types a command into a shell, so
+                    // a shell that has ended is one with nothing to type into.
+                    onRun: terminal.isRunning ? { run($0, in: terminal) } : nil,
+                    // The Mac's own answer to "what happens to it", and the reason the two browsers
+                    // hand this in rather than sharing one: Peering moves things to the Trash on
+                    // the Mac, where they can be put back, and there is no such thing on an SFTP
+                    // server. Two machines, two weights on one word.
+                    deleteHint: "It can be put back from the Trash on your Mac.",
+                    // The three changes, absent together and for a reason of their own on top of
+                    // the shell being live: a change names a path, and until the Mac has said where
+                    // this browser opens there is no path to name. `canMake` is the pair.
+                    onCreate: canMake(terminal)
+                        ? { model.createEntry($0, kind: $1, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    onRename: canMake(terminal)
+                        ? { model.renameEntry($0, to: $1, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    onDelete: canMake(terminal)
+                        ? { model.deleteEntry($0, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    isChanging: model.isChangingFile(sessionID: terminal.id),
+                    changeFailure: model.changeFailure(sessionID: terminal.id)
                 )
             }
             browseControls(terminal)
@@ -807,6 +829,21 @@ struct TerminalPanel: View {
         }
     }
 
+    /// Where something would be made, renamed or deleted. Only meaningful when ``canMake``.
+    ///
+    /// The empty string is unreachable rather than a fallback: ``canMake(_:)`` is false whenever
+    /// there is no browsing path, and every closure that reads this is `nil` at the same time.
+    private var folder: String { browsingPath ?? "" }
+
+    /// Whether this browser can change anything on the Mac.
+    ///
+    /// Both halves are needed. The shell has to be running, because every change is a request
+    /// through it; and the folder has to have resolved, because a change names a path and the path
+    /// is the one thing this panel does not have until the Mac has said where the browser opens.
+    private func canMake(_ terminal: RemoteTerminal) -> Bool {
+        terminal.isRunning && browsingPath != nil
+    }
+
     /// A row was tapped: folders are entered, files are read.
     private func open(_ entry: RemoteDirectoryEntry, in terminal: RemoteTerminal) {
         let path = childPath(entry.name, of: browsingPath)
@@ -815,6 +852,22 @@ struct TerminalPanel: View {
         } else {
             model.previewFile(path, sessionID: terminal.id)
         }
+    }
+
+    /// Runs an executable file, in a shell of its own.
+    ///
+    /// The confirmation has already happened — the panel holds it, so that neither browser can be
+    /// the one that forgot it. What is left is the command and where it goes.
+    ///
+    /// A **new tab** rather than this terminal, and the difference is worth naming: the shell
+    /// behind this browser is one the user has been typing into, and a file that prints for a
+    /// minute, prompts for a password or runs until it is interrupted should not take that over.
+    /// Leaving the browser as well, because the whole reason someone pressed Run is to see what
+    /// came out of it, and the output goes to the terminal that just opened.
+    private func run(_ entry: RemoteDirectoryEntry, in terminal: RemoteTerminal) {
+        let path = childPath(entry.name, of: browsingPath)
+        model.runInNewTerminal(ShellPath.runCommand(for: path))
+        withAnimation(Motion.tap) { isBrowsing = false }
     }
 
     /// Goes into a folder: the browser shows it, and the shell changes directory to it.

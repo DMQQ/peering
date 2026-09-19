@@ -14,6 +14,17 @@ extension SessionModel {
         session?.sendTerminal(.create)
     }
 
+    /// Opens a shell and runs a command in it.
+    ///
+    /// **A shell of its own rather than the one the browser is sitting on.** That shell is the one
+    /// the user has been typing into, and a file that prints for a minute or waits on a prompt
+    /// should not take it over — nor should running one quietly change the directory it was in.
+    /// The cost is one round trip between the tap and the output, which is what ``pendingRun`` is.
+    func runInNewTerminal(_ command: String) {
+        pendingRun = command
+        createTerminal()
+    }
+
     /// Names a terminal by hand. This is the name it keeps, whatever runs in it next.
     ///
     /// Applied here as well as on the Mac, because the tab under the finger is the one thing
@@ -125,6 +136,20 @@ extension SessionModel {
     /// inherits — a client that grows to whatever it is sent is one that runs out of memory on a
     /// Mac's mistake.
     static let previewByteLimit = 1024 * 1024
+
+    /// The most of a *picture* this side keeps, which is the same figure the Mac caps one at.
+    ///
+    /// Matching rather than smaller, and that is the point: this side's limit is a backstop against
+    /// a Mac that sends more than it promised, and a backstop that engaged below the sender's own
+    /// cap would be doing something else entirely. It would cut a picture in half, and half a JPEG
+    /// is not a smaller picture, it is no picture at all. So the two numbers agree, and the only
+    /// thing the limit here can catch is a Mac that has stopped respecting its own.
+    static let imagePreviewByteLimit = 8 * 1024 * 1024
+
+    /// The most of *this* file to keep, which depends on what it turned out to be.
+    static func previewByteLimit(for kind: RemoteFileKind) -> Int {
+        kind.isDrawn ? imagePreviewByteLimit : previewByteLimit
+    }
 
     /// The folder a terminal's browser is showing, and `nil` while that is still the Mac's home
     /// folder with its path not yet resolved.
@@ -272,6 +297,128 @@ extension SessionModel {
         }
     }
 
+    // MARK: - Changing the tree
+
+    /// Makes an empty file or a folder in the folder on screen.
+    ///
+    /// The name is checked here before anything is sent, which is the first of the two checks —
+    /// the Mac makes the second. Not a nicety: a name is typed by a person, and a round trip to be
+    /// told that a slash is not a name is a wait for an answer that was already known.
+    func createEntry(_ name: String, kind: RemoteEntryKind, in folder: String, sessionID id: UUID) {
+        guard RemoteFileName.isValid(name) else { return }
+        send(operation: .create(path: childPath(name, of: folder), kind: kind), sessionID: id)
+    }
+
+    /// Gives something in the folder on screen a new name.
+    ///
+    /// The path is rebuilt from the folder and the new name rather than sent as a destination, and
+    /// that is the wire's rule rather than this method's convenience: a rename names a thing, while
+    /// a path could name somewhere else entirely. See ``RemoteFileOperation/rename(path:to:)``.
+    func renameEntry(_ entry: RemoteDirectoryEntry, to name: String, in folder: String, sessionID id: UUID) {
+        guard RemoteFileName.isValid(name) else { return }
+        let path = childPath(entry.name, of: folder)
+        guard name != entry.name else { return }
+        send(operation: .rename(path: path, to: name), sessionID: id)
+    }
+
+    /// Removes something in the folder on screen, and everything inside it if it is a folder.
+    ///
+    /// The confirmation that makes this safe is the panel's, and it is asked there because that is
+    /// the one place both browsers go through — see ``FileBrowserPanel``. Nothing here asks again:
+    /// the user has already said yes to a sentence naming what would go.
+    func deleteEntry(_ entry: RemoteDirectoryEntry, in folder: String, sessionID id: UUID) {
+        send(operation: .delete(path: childPath(entry.name, of: folder)), sessionID: id)
+    }
+
+    /// One change, and the bookkeeping that makes its answer findable.
+    ///
+    /// Refuses while another is in the air through the same shell. That is not a queue with a
+    /// length of one for tidiness: the Mac echoes back the path it was given, so two operations in
+    /// flight through one terminal are two answers that could both match one remembered request.
+    private func send(operation: RemoteFileOperation, sessionID id: UUID) {
+        guard changes[id] == nil else { return }
+
+        let path: String
+        switch operation {
+        case .create(let target, _), .rename(let target, _), .delete(let target):
+            path = target
+        }
+
+        changes[id] = FileChange(operation: operation, path: path)
+        changeFailures.removeValue(forKey: id)
+        session?.sendTerminal(.changeFile(sessionID: id, operation: operation))
+    }
+
+    /// What a change that landed leaves behind.
+    ///
+    /// Two jobs, and both are about the cache being wrong rather than merely old.
+    ///
+    /// **A rename moves a file, and the browser may be *in* the thing that moved.** Renaming is
+    /// asked for from a row, and a row is always a child of the folder on screen, so this side
+    /// cannot rename the folder it is looking at — but the browse path is remembered per shell
+    /// rather than per view, and a second look after the fact is four lines against a browser that
+    /// spends the rest of the session asking about a path that no longer exists.
+    ///
+    /// **A delete takes the folder and everything filed under it.** The pruned cache is not the
+    /// only place a listing lives: a folder that was open a moment ago is a listing this end holds
+    /// under a path that is a lie now, and stepping back into it would show what used to be there.
+    private func finish(_ change: FileChange, sessionID id: UUID) {
+        let folder = (change.path as NSString).deletingLastPathComponent
+
+        switch change.operation {
+        case .create:
+            // Nothing was invalidated — a folder's own row does not change when something is put
+            // inside it — so the folder is only re-listed, which is the whole of what makes the
+            // new row appear.
+            break
+        case .rename(_, let name):
+            let renamed = childPath(name, of: folder)
+            pruneBrowsing(atOrBelow: change.path, sessionID: id)
+            if browsingPaths[id] == change.path { browsingPaths[id] = renamed }
+        case .delete:
+            pruneBrowsing(atOrBelow: change.path, sessionID: id)
+        }
+
+        listDirectory(folder, sessionID: id)
+    }
+
+    /// Whether this terminal is waiting on a change it asked for.
+    ///
+    /// Read by the panel to disable the controls that would start a second one — see ``changes``.
+    func isChangingFile(sessionID id: UUID) -> Bool { changes[id] != nil }
+
+    /// Why the last change through this terminal did not land, if it did not.
+    func changeFailure(sessionID id: UUID) -> String? { changeFailures[id] }
+
+    /// Forgets everything cached about a folder and everything under it.
+    ///
+    /// For the answers that make the cache wrong rather than merely old: a folder that has been
+    /// deleted, or one that has been renamed out from under the path it was filed under. Nothing
+    /// else clears these, because nothing else can invalidate a listing — a file appearing inside a
+    /// folder does not change what that folder's own row says.
+    ///
+    /// Containment rather than equality, so a folder deleted from a listing takes every listing
+    /// below it with it, and the key for the unresolved request — a path of `nil` — is left alone
+    /// because it belongs to no folder at all.
+    private func pruneBrowsing(atOrBelow path: String, sessionID id: UUID) {
+        func isBelow(_ key: RemoteDirectoryKey) -> Bool {
+            guard key.terminalID == id, let keyPath = key.path else { return false }
+            return pathContains(keyPath, path)
+        }
+        directories = directories.filter { !isBelow($0.key) }
+        pendingDirectories = pendingDirectories.filter { !isBelow($0) }
+        browseFailures = browseFailures.filter { !isBelow($0.key) }
+
+        if let preview = filePreview, preview.terminalID == id, pathContains(preview.path, path) {
+            filePreview = nil
+        }
+        if let browsed = browsingPaths[id], pathContains(browsed, path) {
+            // The folder on screen was the one that went. Left pointing at it, the browser would
+            // keep asking about a path that no longer exists and showing the refusal.
+            browsingPaths.removeValue(forKey: id)
+        }
+    }
+
     func directory(_ path: String?, sessionID id: UUID) -> RemoteDirectory? {
         directories[RemoteDirectoryKey(terminalID: id, path: path)]
     }
@@ -318,6 +465,11 @@ extension SessionModel {
         writes.removeValue(forKey: id)
         saveFailures.removeValue(forKey: id)
         uploadFailures.removeValue(forKey: id)
+        // And a change, for the reason above and one more: the Mac refuses every request naming a
+        // terminal that has gone, so this answer is never coming, and the panel's controls are
+        // disabled for as long as the entry is here.
+        changes.removeValue(forKey: id)
+        changeFailures.removeValue(forKey: id)
     }
 
     func apply(terminal event: TerminalEvent) {
@@ -334,6 +486,14 @@ extension SessionModel {
             terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
             selectedTerminalID = info.id
             append(note: "\(info.name) opened")
+            // The shell a Run button was waiting for. Taken here rather than left set, because the
+            // id it needs did not exist until this line — see ``pendingRun``. Through
+            // ``sendTerminalInput(_:to:)`` rather than the raw send, so the tab is named after the
+            // file it is running and the command lands in the history like any other.
+            if let command = pendingRun {
+                pendingRun = nil
+                sendTerminalInput(command, to: info.id)
+            }
         case .renamed(let info):
             guard let index = terminals.firstIndex(where: { $0.id == info.id }) else { return }
             terminals[index].name = info.name
@@ -391,17 +551,20 @@ extension SessionModel {
                 browseFailures[unresolved] = message
             }
 
-        case .fileContents(let id, let path, let offset, let totalBytes, let data, let isLast):
+        case .fileContents(let id, let path, let kind, let offset, let totalBytes, let data, let isLast):
             guard var preview = filePreview, preview.terminalID == id, preview.path == path else {
                 // A piece of a file nobody is looking at any more, or of one opened in another
                 // terminal since. Dropped rather than shown under the wrong name.
                 return
             }
+            // The kind is taken from the wire before the cap is applied, because the cap depends on
+            // it. It is the same value on every piece, so which piece arrives first does not matter.
+            preview.kind = kind
             // Pieces are joined before they are decoded, because a cut can fall inside a
             // character — see ``TerminalEvent/fileContents``. Past the cap they are dropped
             // instead, so a Mac that one day sends more than it promised cannot grow this phone's
             // memory by the size of a file; the size on disk is still what says it was cut short.
-            if offset + data.count <= Self.previewByteLimit {
+            if offset + data.count <= Self.previewByteLimit(for: kind) {
                 preview.data.append(data)
             }
             preview.totalBytes = totalBytes
@@ -443,6 +606,31 @@ extension SessionModel {
             }
             append(note: "Terminal: \(message)")
 
+        case .fileOperationDone(let id, let path, let note):
+            // Matched on the path as well as the terminal, exactly as ``wroteFile`` is and for the
+            // same reason: a change asked for in one folder that lands after the user has walked
+            // into another must not clear a wait belonging to something they have not done.
+            guard let change = changes[id], change.path == path else { break }
+            changes.removeValue(forKey: id)
+            changeFailures.removeValue(forKey: id)
+            finish(change, sessionID: id)
+            append(note: "Terminal: \(note)")
+
+        case .fileOperationFailure(let id, let path, let message):
+            guard let change = changes[id], change.path == path else { break }
+            changes.removeValue(forKey: id)
+            // Beside the list rather than in place of it. The panel draws `browseFailures` as a
+            // full state — a folder that cannot be read has nothing to show — and this is the
+            // opposite case: the folder is fine, one thing in it did not happen, and the user is
+            // most likely going to try again on the row that is still on screen.
+            changeFailures[id] = message
+            // A rename that did not land may still have been the one that emptied a folder, and a
+            // delete that did not land certainly was not. Re-asking is cheap and is the only way to
+            // know which: nothing here can tell what the disk looks like now.
+            if case .delete = change.operation {
+                listDirectory((path as NSString).deletingLastPathComponent, sessionID: id)
+            }
+
         case .closed(let id):
             let name = terminals.first(where: { $0.id == id })?.name ?? "Terminal"
             terminals.removeAll { $0.id == id }
@@ -458,6 +646,12 @@ extension SessionModel {
             // A terminal that is gone takes its outstanding browse requests with it: a panel left
             // waiting on a listing that is never coming has no way back on its own.
             if let id { clearPendingBrowsing(for: id) }
+            // And a run whose shell never arrived is dropped here rather than kept. It is the one
+            // thing in this file that outlives the request that set it, and a command left waiting
+            // would be fired into whatever shell was opened next — a file the user asked to run
+            // once, running at some later moment they did not choose, in a tab they opened for
+            // something else.
+            pendingRun = nil
             append(note: "Terminal: \(message)")
         }
     }
@@ -489,12 +683,21 @@ struct RemoteDirectory: Equatable {
 struct RemoteFilePreview: Equatable {
     let terminalID: UUID
     let path: String
+    /// What the bytes are, as the Mac decided when it read them.
+    ///
+    /// Not worked out here from the name, because the two answers are not the same question: a
+    /// `.png` that holds text is a text file, and an SVG is text on the wire and a picture on the
+    /// screen. The side that looked at the bytes is the side that can say.
+    var kind = RemoteFileKind.text
     var totalBytes = 0
     /// The pieces received so far, still joined rather than decoded: a chunk boundary can fall
     /// inside a character, so the text is only read out once the whole of it is here.
     var data = Data()
     var isComplete = false
 
+    /// The bytes as text. Only meaningful when ``kind`` is not a raster image — decoding a
+    /// photograph this way is a screenful of replacement characters, which is the whole reason the
+    /// kind travels with it.
     var text: String { String(decoding: data, as: UTF8.self) }
 
     /// Whether what is here is the beginning of a file rather than the whole of one.
@@ -508,6 +711,12 @@ struct RemoteFilePreview: Equatable {
     /// what arrived, so the comparison says "the whole file" about one that was cut off at the cap.
     /// Only the side that stopped reading knows it stopped, so when it says so that is the answer —
     /// and this is a value somebody's file depends on, because an edit is written back whole.
+    ///
+    /// For a picture it means something blunter than it does for text. A long text file is shown
+    /// from the beginning and said to be; a picture that stops at the cap cannot be drawn at all,
+    /// because there is no such thing as the first eight megabytes of a JPEG. So the panel refuses
+    /// to draw one and says why, rather than handing a decoder half a file and showing whatever
+    /// comes out.
     var reportedTruncation: Bool?
 
     var isTruncated: Bool {

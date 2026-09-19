@@ -32,10 +32,18 @@ public struct SSHDirectory: Sendable, Equatable {
 /// `data` is what to show and `totalBytes` is what is on disk, which is the same pair the Mac's
 /// browser sends: a preview that stopped at the cap says so, and one that reached the end does
 /// not. The bytes are already trimmed to a whole number of characters — see
-/// ``SSHFileService/text(_:path:totalBytes:)``.
+/// ``SSHFileService/text(_:kind:path:totalBytes:isTruncated:)``.
 public struct SSHFileContents: Sendable, Equatable {
     public let path: String
     public let data: Data
+    /// What these bytes are, decided by the server's bytes rather than by the name they arrived
+    /// under — see ``RemoteFileKind/sniff(prefix:path:)``.
+    ///
+    /// Defaulted, because only one of the two doors that make this value is asking the question.
+    /// A read has to answer it and does. A write is answering with the bytes the caller just sent,
+    /// so the caller already knows, and the answer it gets back is about the size rather than the
+    /// kind.
+    public let kind: RemoteFileKind
     public let totalBytes: Int
     /// Whether these bytes are the whole file or only the front of it.
     ///
@@ -49,9 +57,16 @@ public struct SSHFileContents: Sendable, Equatable {
     /// as ``SSHDirectory/isTruncated``.
     public let isTruncated: Bool
 
-    public init(path: String, data: Data, totalBytes: Int, isTruncated: Bool = false) {
+    public init(
+        path: String,
+        data: Data,
+        kind: RemoteFileKind = .text,
+        totalBytes: Int,
+        isTruncated: Bool = false
+    ) {
         self.path = path
         self.data = data
+        self.kind = kind
         self.totalBytes = totalBytes
         self.isTruncated = isTruncated
     }
@@ -78,6 +93,9 @@ struct SSHBrowseRequest: Sendable {
         /// The bytes are `Data` rather than `String` because the same door carries an upload, and
         /// an upload is whatever the user picked: a script, an archive, a PDF.
         case write(contents: Data)
+        /// Something made, renamed or removed. See ``RemoteFileOperation`` for the three and for
+        /// why they travel as one.
+        case change(RemoteFileOperation)
     }
 
     let kind: Kind
@@ -99,6 +117,14 @@ enum SSHBrowseResult: Sendable {
     /// screen showing text nobody had confirmed, and a file that came back different — truncated by
     /// a quota, re-encoded by something in between — would look saved.
     case written(SSHFileContents)
+    /// What the server did, in a sentence the caller can put in the log.
+    ///
+    /// Composed here rather than on the phone for the reason the Mac's is: this is the side that
+    /// watched it happen, and for a recursive delete it is the only side that knows how much went.
+    /// There is no contents to hand back — the caller re-lists the folder, which is the same move
+    /// an upload already makes and for the same reason: asking again is cheaper to get right than
+    /// patching one entry into a list that may have moved on in other ways too.
+    case changed(note: String)
 }
 
 /// The folder tree at the far end of a connection.
@@ -143,6 +169,10 @@ final class SSHFileService {
             case .write(let contents):
                 request.continuation.resume(
                     returning: .written(try await write(contents, to: request.path))
+                )
+            case .change(let operation):
+                request.continuation.resume(
+                    returning: .changed(note: try await change(operation))
                 )
             }
         } catch let error as SSHSessionError {
@@ -306,22 +336,48 @@ final class SSHFileService {
             }
 
             let totalBytes = Int(attributes.size ?? 0)
-            let limit = attributes.size == nil
-                ? Self.maximumPreviewBytes
-                : min(totalBytes, Self.maximumPreviewBytes)
 
             let file = try await sftp.openFile(filePath: path, flags: .read)
             var data = Data()
-            do {
-                // A read is allowed to return less than it was asked for, so it is asked again
-                // until the cap or the end of the file. The Mac's own reader loops for the same
-                // reason: for a regular file it never does, and the loop costs one comparison.
-                while data.count < limit {
-                    let length = UInt32(min(limit - data.count, Self.previewChunkBytes))
+            var kind = RemoteFileKind.text
+            var limit = Self.maximumPreviewBytes
+
+            /// Reads until the cap or the end of the file.
+            ///
+            /// A read is allowed to return less than it was asked for, so it is asked again. The
+            /// Mac's own reader loops for the same reason: for a regular file it never does, and
+            /// the loop costs one comparison. A local function rather than one loop, because this
+            /// now runs twice — see below.
+            func read(upTo cap: Int) async throws {
+                while data.count < cap {
+                    let length = UInt32(min(cap - data.count, Self.previewChunkBytes))
                     let piece = try await file.read(from: UInt64(data.count), length: length)
                     guard piece.readableBytes > 0 else { break }
                     data.append(contentsOf: piece.readableBytesView)
                 }
+            }
+
+            do {
+                // Twice, because the first pass decides the size of the second: what the head of
+                // the file turns out to be is what says how much of the rest is worth carrying.
+                // The Mac's reader is split the same way.
+                let probe = attributes.size == nil
+                    ? Self.binaryProbeBytes
+                    : min(totalBytes, Self.binaryProbeBytes)
+                try await read(upTo: probe)
+
+                guard let sniffed = RemoteFileKind.sniff(prefix: data, path: path) else {
+                    throw SSHSessionError.browse(
+                        "That file is not text or a picture, so there is nothing to show here."
+                    )
+                }
+                kind = sniffed
+                limit = attributes.size == nil
+                    ? (kind.isDrawn ? Self.maximumImagePreviewBytes : Self.maximumPreviewBytes)
+                    : min(totalBytes, kind.isDrawn
+                        ? Self.maximumImagePreviewBytes
+                        : Self.maximumPreviewBytes)
+                try await read(upTo: limit)
                 try? await file.close()
             } catch {
                 try? await file.close()
@@ -335,10 +391,23 @@ final class SSHFileService {
             let truncated = data.count >= limit
                 && (attributes.size == nil || totalBytes > data.count)
 
-            // Checked after the handle is shut rather than before it, so that a file whose bytes
-            // turn out not to be text has still been closed exactly once on the way out.
+            // A raster image is bytes, and goes exactly as it was read. Text and SVG are both text
+            // on the wire, and text has one more thing to answer first — see
+            // ``text(_:kind:path:totalBytes:isTruncated:)``. Checked after the handle is shut
+            // rather than before it, so a file that turns out not to be showable has still been
+            // closed exactly once on the way out.
+            if kind == .image {
+                return SSHFileContents(
+                    path: path,
+                    data: data,
+                    kind: .image,
+                    totalBytes: max(totalBytes, data.count),
+                    isTruncated: truncated
+                )
+            }
             return try Self.text(
                 data,
+                kind: kind,
                 path: path,
                 totalBytes: max(totalBytes, data.count),
                 isTruncated: truncated
@@ -384,23 +453,235 @@ final class SSHFileService {
         }
     }
 
+    // MARK: - Changing the tree
+
+    /// Something made, renamed or removed, over SFTP.
+    ///
+    /// **SFTP only, for the reason a write is.** The fallback provider is a one-off `ls` command,
+    /// and changing a server's filesystem through a shell would mean quoting, here-documents and
+    /// an `rm` assembled out of a name that arrived over a network — a different way to delete
+    /// the wrong thing on every line. Refused with a sentence instead.
+    private func change(_ operation: RemoteFileOperation) async throws -> String {
+        guard provider != .exec else {
+            throw SSHSessionError.browse(
+                "This server does not offer SFTP, so files cannot be changed here."
+            )
+        }
+
+        // Read before the session opens rather than inside the closure, because the closure is not
+        // isolated and `start` is state this instance owns.
+        let start = self.start
+
+        return try await withSFTP { sftp in
+            switch operation {
+            case .create(let path, let kind):
+                return try await Self.create(at: path, kind: kind, over: sftp)
+            case .rename(let path, let name):
+                return try await Self.rename(at: path, to: name, over: sftp)
+            case .delete(let path):
+                return try await Self.delete(at: path, start: start, over: sftp)
+            }
+        }
+    }
+
+    /// An empty file, or a folder.
+    ///
+    /// The name is checked here as well as on the phone — ``RemoteFileName/isValid(_:)`` — and the
+    /// check is what stops a rename or a creation becoming a *move*: a name holding a slash would
+    /// otherwise name something in another folder, or above this one, and the panel offering it
+    /// believes it is naming one thing inside the folder on screen.
+    private static func create(
+        at path: String,
+        kind: RemoteEntryKind,
+        over sftp: SFTPClient
+    ) async throws -> String {
+        let name = (path as NSString).lastPathComponent
+        guard RemoteFileName.isValid(name) else {
+            throw SSHSessionError.browse("That is not a name a file can have.")
+        }
+
+        switch kind {
+        case .folder:
+            try await sftp.createDirectory(atPath: path)
+            return "created folder \(name)"
+
+        case .file:
+            // `forceCreate` is `SSH_FXF_EXCL`, despite the name: it fails when the file is already
+            // there, which is what makes this report a taken name as a taken name rather than
+            // silently truncating somebody else's file to nothing. Closed immediately, because the
+            // point is the entry and not the handle.
+            let file = try await sftp.openFile(
+                filePath: path,
+                flags: [.write, .create, .forceCreate]
+            )
+            try await file.close()
+            return "created file \(name)"
+        }
+    }
+
+    /// A new name for something already on the server.
+    ///
+    /// **The destination is checked before the rename, and the check is not a formality.** SFTP v3
+    /// has no "do not overwrite" flag and its `rename` follows POSIX, which replaces the
+    /// destination — so a rename onto a name that is taken destroys a file the user never picked.
+    /// The pre-check turns that into a refusal, and what is left is the race: a file created
+    /// between the check and the rename still goes. Closing it entirely would need an extension
+    /// not every server implements, and the alternative — letting `rename` through unguarded —
+    /// loses data every time rather than in a window measured in milliseconds.
+    private static func rename(
+        at path: String,
+        to name: String,
+        over sftp: SFTPClient
+    ) async throws -> String {
+        guard RemoteFileName.isValid(name) else {
+            throw SSHSessionError.browse("That is not a name a file can have.")
+        }
+        let folder = (path as NSString).deletingLastPathComponent
+        let old = (path as NSString).lastPathComponent
+        let renamed = folder.isEmpty || folder == "/" ? "/" + name : folder + "/" + name
+
+        if renamed == path { return "renamed \(old) to \(name)" }
+
+        if (try? await sftp.getAttributes(at: renamed)) != nil {
+            throw SSHSessionError.browse("Something with that name is already there.")
+        }
+
+        try await sftp.rename(at: path, to: renamed)
+        return "renamed \(old) to \(name)"
+    }
+
+    /// A file, or a folder and everything inside it.
+    ///
+    /// **The walk happens first and the deleting second, and that ordering is the whole of the
+    /// safety here.** A folder cannot be `rmdir`'d until it is empty, so a recursive delete is
+    /// necessarily a list of things followed by a list of removals — and collecting the whole list
+    /// before removing anything means the two failure modes are "nothing happened" and "it worked"
+    /// rather than "half the tree is gone and the connection dropped". It is also what makes the
+    /// cap meaningful: a folder too large to walk is refused while it is still intact.
+    ///
+    /// **A symbolic link is a name, not a door.** Each entry's type comes from its parent's
+    /// listing, which describes the entry itself — `getAttributes` is `SSH_FXP_STAT` and follows
+    /// the link, so asking about a link that way would answer about whatever it points at. A link
+    /// is removed as a link and never descended into, which is the difference between deleting a
+    /// shortcut and deleting the folder it was pointing at.
+    private static func delete(
+        at path: String,
+        start: String?,
+        over sftp: SFTPClient
+    ) async throws -> String {
+        let name = (path as NSString).lastPathComponent
+        // Guard rails against a bug rather than against a user: the browser draws a row per entry,
+        // so nothing in the app offers to delete the folder a login starts in or anything above
+        // it — you delete a row, not the folder you are standing in.
+        //
+        // **Containment and not equality**, for the reason the Mac's own guard gives: with the
+        // login directory at `/home/dmq`, equality alone would leave `/home` — every account on
+        // the server — as a legal thing to delete. The check is `pathContains(start, path)`, which
+        // asks whether the *target* is an ancestor of where the session started, and so covers the
+        // start directory, everything above it and the root without naming any of them.
+        //
+        // Nothing at all is covered when the start is not yet known, which is why the root is
+        // refused on its own as well: a server whose listing never resolved would otherwise have
+        // no guard at all, and `rmdir /` is not something to learn from a server's logs.
+        guard path != "/", !(start.map { pathContains($0, path) } ?? false) else {
+            throw SSHSessionError.browse("That is too much of the server to delete.")
+        }
+        guard let root = try? await sftp.getAttributes(at: path) else {
+            throw SSHSessionError.browse("That is no longer there.")
+        }
+        // A file, or a link to anything at all: one `remove`, and no walking. This is also the
+        // branch that keeps a link's target out of it.
+        guard root.permissions.map({ $0 & 0o170_000 == 0o040_000 }) == true else {
+            try await sftp.remove(at: path)
+            return "deleted \(name)"
+        }
+
+        // Each entry carries what it is, decided in the walk, because the walk is the only place
+        // that can answer it safely: a second look at removal time would be `getAttributes`, which
+        // follows a link — so a link recorded as "not a folder" here could come back as one there
+        // and be `rmdir`'d as though it were a folder of its own.
+        var doomed: [(path: String, isFolder: Bool)] = []
+        var pending = [path]
+        var count = 0
+
+        while let folder = pending.popLast() {
+            let listed = try await sftp.listDirectory(atPath: folder)
+            for component in listed.flatMap(\.components) {
+                let entry = component.filename
+                guard entry != ".", entry != ".." else { continue }
+                count += 1
+                // Refused rather than truncated: half a delete is the one outcome this whole
+                // function is arranged to avoid, and a cap that trimmed the list would produce
+                // exactly that — every entry removed, then an `rmdir` the server refuses.
+                //
+                // The number is a time bound as much as a size one. This runs on the command loop
+                // the shell's keystrokes share, and SFTP is a round trip per entry, so the cap is
+                // what keeps a delete from making the terminal stop answering for minutes.
+                guard count <= maximumDeleteEntries else {
+                    throw SSHSessionError.browse(
+                        "That folder has more in it than this app will delete in one go (\(maximumDeleteEntries) entries). Delete it on the server instead."
+                    )
+                }
+
+                let child = folder.hasSuffix("/") ? folder + entry : folder + "/" + entry
+                // The type bits are the entry's own, which is the entire reason this reads them
+                // from the parent's listing rather than asking the server about the entry: a link
+                // is a file here, however its target would be classified.
+                let isFolder = (component.attributes.permissions ?? 0) & 0o170_000 == 0o040_000
+                doomed.append((child, isFolder))
+                // Descended into only when it is a real folder. A link to a folder is a name that
+                // points, and walking through it would delete the tree on the other side.
+                if isFolder { pending.append(child) }
+            }
+        }
+
+        // Reversed, and that is what makes this a post-order delete without a recursion: a folder
+        // is always appended before anything inside it, so walking the list backwards removes every
+        // child before its parent and each `rmdir` finds a folder that is already empty.
+        for entry in doomed.reversed() {
+            if entry.isFolder {
+                try await sftp.rmdir(at: entry.path)
+            } else {
+                try await sftp.remove(at: entry.path)
+            }
+        }
+        try await sftp.rmdir(at: path)
+
+        return doomed.isEmpty ? "deleted folder \(name)" : "deleted \(name) and \(doomed.count) more"
+    }
+
+    /// How many entries one delete will take out.
+    ///
+    /// A thousand, and the figure is about the connection rather than the disk: this is answered
+    /// inline on the loop that every keystroke goes through, and each entry is a round trip — so
+    /// ten thousand files is a terminal that has stopped responding for minutes. Past the cap the
+    /// answer is a refusal and a sentence saying to do it on the server, which is honest and
+    /// costs the user one other tool for a folder they were unlikely to be deleting from a phone.
+    private static let maximumDeleteEntries = 1_000
+
     /// The bytes of a preview, checked the way the Mac's own reader checks them.
     ///
-    /// Three refusals and one trim, all four of them the host's rules rather than new ones: a NUL
-    /// byte near the start is what `file` calls binary and what no text view can draw; a buffer
-    /// that does not decode is not text either; and up to three bytes come off the end first, for
-    /// the case where the read stopped at the cap rather than at the end of the file and the cut
-    /// landed inside a character. Calling a text file binary because it was a long one is exactly
-    /// the wrong answer.
+    /// One refusal and one trim, both of them the host's rules rather than new ones: a buffer that
+    /// does not decode is not text, and up to three bytes come off the end first, for the case
+    /// where the read stopped at the cap rather than at the end of the file and the cut landed
+    /// inside a character. Calling a text file binary because it was a long one is exactly the
+    /// wrong answer.
+    ///
+    /// The NUL check that used to be the first of the two refusals has moved into
+    /// ``RemoteFileKind/sniff(prefix:path:)``, and is not repeated here. That is not a relaxation:
+    /// the sniffer runs on the same first eight kilobytes before this is reached, and a file with a
+    /// NUL in that window never gets this far. What is left for this function is the question the
+    /// sniffer cannot answer from a prefix, which is whether the *whole* read decodes.
+    ///
+    /// `kind` is carried through rather than decided here, because it was decided from the bytes
+    /// and this only ever sees text and SVG.
     private static func text(
         _ data: Data,
+        kind: RemoteFileKind,
         path: String,
         totalBytes: Int,
         isTruncated: Bool
     ) throws -> SSHFileContents {
-        guard !data.prefix(binaryProbeBytes).contains(0) else {
-            throw SSHSessionError.browse("That file is not text, so there is nothing to show here.")
-        }
         var trimmed = data
         var dropped = 0
         while dropped < 3, String(data: trimmed, encoding: .utf8) == nil, !trimmed.isEmpty {
@@ -408,11 +689,14 @@ final class SSHFileService {
             dropped += 1
         }
         guard String(data: trimmed, encoding: .utf8) != nil else {
-            throw SSHSessionError.browse("That file is not text, so there is nothing to show here.")
+            throw SSHSessionError.browse(
+                "That file is not text or a picture, so there is nothing to show here."
+            )
         }
         return SSHFileContents(
             path: path,
             data: trimmed,
+            kind: kind,
             totalBytes: totalBytes,
             isTruncated: isTruncated
         )
@@ -539,8 +823,16 @@ final class SSHFileService {
     /// it inherits from whatever the server decided to send.
     private static let maximumListingBytes = 4 * 1024 * 1024
     private static let maximumPreviewBytes = 128 * 1024
+    /// How much of a picture is fetched, rather than how much text.
+    ///
+    /// Sixty-four times the text cap, for the reason the Mac's own reader gives: a hundred
+    /// kilobytes of text is two thousand lines, and a hundred kilobytes of photograph is a
+    /// thumbnail. A preview that stops partway through a JPEG is not a smaller picture, it is no
+    /// picture. Over a WAN this is the one transfer here that is worth a wait, and it is a wait the
+    /// user asked for by opening the file.
+    private static let maximumImagePreviewBytes = 8 * 1024 * 1024
     private static let previewChunkBytes = 32 * 1024
-    private static let binaryProbeBytes = 8 * 1024
+    private static let binaryProbeBytes = RemoteFileKind.probeBytes
 
     /// What to tell the phone when something on the far end says no.
     ///

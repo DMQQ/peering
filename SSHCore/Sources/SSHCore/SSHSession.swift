@@ -4,6 +4,7 @@ import Foundation
 import NIO
 import NIOFoundationCompat
 import NIOSSH
+import RemoteCore
 import os
 
 private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "ssh")
@@ -361,6 +362,36 @@ public final class SSHSession: Sendable {
             throw SSHSessionError.browse("The server answered a write with something else.")
         }
         return written
+    }
+
+    /// Makes, renames or removes something, and answers with what to say about it.
+    ///
+    /// One method rather than three, because the operation is already the unit the phone builds
+    /// and the two ends share: the same ``RemoteFileOperation`` value goes out over the control
+    /// channel to a Mac and down this path to a server, so the browser composes it once and
+    /// whichever machine answers does so in the same terms.
+    ///
+    /// Answers with the sentence rather than with the thing it acted on, because what the caller
+    /// does next is re-list the folder either way — the same move an upload makes, and for the
+    /// same reason: asking again is cheaper to get right than patching one entry into a list that
+    /// may have changed in other ways too.
+    ///
+    /// Throws ``SSHSessionError/notConnected`` when there is no shell to ask through, and
+    /// ``SSHSessionError/browse(_:)`` when the server answered and the answer was no.
+    @discardableResult
+    public func change(_ operation: RemoteFileOperation) async throws -> String {
+        // The path the operation is about, which is the one the answer is keyed to — the same
+        // value the Mac's own `changeFile` echoes back, so both ends answer alike.
+        let path: String
+        switch operation {
+        case .create(let target, _), .rename(let target, _), .delete(let target):
+            path = target
+        }
+
+        guard case .changed(let note) = try await browse(.change(operation), at: path) else {
+            throw SSHSessionError.browse("The server answered a change with something else.")
+        }
+        return note
     }
 
     /// Asks the command loop something, and waits for it to answer.

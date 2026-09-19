@@ -114,12 +114,22 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// enough that a preview is never a wait. A longer file is shown from the beginning and said
     /// to be, rather than refused.
     private static let maximumPreviewBytes = 128 * 1024
+    /// How much of a *picture* a preview shows.
+    ///
+    /// Sixty-four times the text cap, and the reason is that the two are answering different
+    /// questions. A hundred kilobytes of text is two thousand lines, more than anyone scrolls; a
+    /// hundred kilobytes of photograph is a thumbnail, and a preview that stops a third of the way
+    /// into a JPEG is not a smaller picture, it is no picture at all — there is nothing useful to
+    /// draw from the first bytes of one. So the limit here is set by what a picture actually
+    /// weighs: eight megabytes covers a phone photo and a screenshot with room to spare, and the
+    /// refusal past it is said out loud rather than shown as a broken frame.
+    private static let maximumImagePreviewBytes = 8 * 1024 * 1024
     /// How much of a file travels per event. Comfortably inside the 64 KB the control channel
     /// accepts for a request, and small enough that a preview never sits in front of a keystroke
     /// for long — see ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
     private static let previewChunkBytes = 32 * 1024
     /// How much of a file is looked at to decide whether it is text at all.
-    private static let binaryProbeBytes = 8 * 1024
+    private static let binaryProbeBytes = RemoteFileKind.probeBytes
 
     deinit {
         let active = lock.withLock { Array(sessions.values) }
@@ -206,6 +216,13 @@ final class TerminalSessionManager: @unchecked Sendable {
                 ownerClientID: clientID,
                 sink: sink
             )
+
+        case .changeFile(let id, let operation):
+            guard liveSession(id, ownerClientID: clientID) != nil else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            change(id: id, operation: operation, sink: sink)
 
         case .resize(let id, let columns, let rows):
             guard columns > 0, rows > 0,
@@ -369,7 +386,7 @@ final class TerminalSessionManager: @unchecked Sendable {
     }
 
     private enum PreviewOutcome {
-        case contents(Data, totalBytes: Int)
+        case contents(Data, kind: RemoteFileKind, totalBytes: Int)
         case failure(String)
     }
 
@@ -434,8 +451,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
         DispatchQueue.global(qos: .userInitiated).async {
             switch Self.contents(of: url) {
-            case .contents(let data, let totalBytes):
-                Self.send(data, totalBytes: totalBytes, id: id, path: url.path, sink: sink)
+            case .contents(let data, let kind, let totalBytes):
+                Self.send(data, kind: kind, totalBytes: totalBytes, id: id, path: url.path, sink: sink)
             case .failure(let message):
                 sink(.browseFailure(sessionID: id, path: url.path, message: message))
             }
@@ -647,11 +664,23 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// A chunk boundary can fall inside a UTF-8 character — the cut is by bytes and the text is
     /// not — so the client joins the pieces before decoding them. The last piece says it is the
     /// last, and `totalBytes` is what tells a whole file from the beginning of one.
-    private static func send(_ data: Data, totalBytes: Int, id: UUID, path: String, sink: Sink) {
+    ///
+    /// Every piece carries the kind, the same value each time, because the client's answer to
+    /// "what am I holding" has to be there before the first piece is drawn and there is no piece
+    /// marked as the one it should be read from.
+    private static func send(
+        _ data: Data,
+        kind: RemoteFileKind,
+        totalBytes: Int,
+        id: UUID,
+        path: String,
+        sink: Sink
+    ) {
         guard !data.isEmpty else {
             sink(.fileContents(
                 sessionID: id,
                 path: path,
+                kind: kind,
                 offset: 0,
                 totalBytes: totalBytes,
                 data: Data(),
@@ -666,6 +695,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             sink(.fileContents(
                 sessionID: id,
                 path: path,
+                kind: kind,
                 offset: offset,
                 totalBytes: totalBytes,
                 data: data.subdata(in: offset..<end),
@@ -780,12 +810,12 @@ final class TerminalSessionManager: @unchecked Sendable {
         return type + String(characters)
     }
 
-    /// A file's text, bounded.
+    /// A file's contents, bounded: its text if it is text, and its bytes if it is a picture.
     ///
     /// Four answers, and the refusals are each a thing the user would otherwise meet as a broken
-    /// screen: something that is not a file, something that cannot be read, something that is not
-    /// text, and something too long to show whole — the last of which is a beginning rather than a
-    /// refusal.
+    /// screen: something that is not a file, something that cannot be read, something that is
+    /// neither text nor a picture this can show, and something too long to show whole — the last
+    /// of which is a beginning rather than a refusal.
     private static func contents(of url: URL) -> PreviewOutcome {
         // Through `stat` rather than a resource value, so the answer follows a symbolic link: a
         // link to a text file is a text file to anyone looking at it.
@@ -811,12 +841,33 @@ final class TerminalSessionManager: @unchecked Sendable {
         defer { try? handle.close() }
 
         let totalBytes = Int(info.st_size)
-        let limit = min(totalBytes, Self.maximumPreviewBytes)
         var data = Data()
+        var kind = RemoteFileKind.text
         do {
             // A read is allowed to return less than it was asked for, so it is asked again until
             // the cap or the end of the file. For a regular file it never does, and the loop costs
             // one comparison.
+            //
+            // In two passes, because the first one decides the size of the second: what the head
+            // of the file turns out to be is what says how much of the rest is worth carrying.
+            let probe = min(totalBytes, Self.binaryProbeBytes)
+            while data.count < probe {
+                guard let piece = try handle.read(upToCount: probe - data.count),
+                      !piece.isEmpty else { break }
+                data.append(piece)
+            }
+
+            guard let sniffed = RemoteFileKind.sniff(prefix: data, path: url.path) else {
+                return .failure(
+                    "That file is not text or a picture, so there is nothing to show here."
+                )
+            }
+            kind = sniffed
+
+            let limit = min(
+                totalBytes,
+                kind.isDrawn ? Self.maximumImagePreviewBytes : Self.maximumPreviewBytes
+            )
             while data.count < limit {
                 guard let piece = try handle.read(upToCount: limit - data.count),
                       !piece.isEmpty else { break }
@@ -826,16 +877,14 @@ final class TerminalSessionManager: @unchecked Sendable {
             return .failure(browseMessage(for: error))
         }
 
-        // A NUL byte near the start is the same test `file` uses to call something binary, and the
-        // one editors refuse to open a file on. Nothing here can render an image or a database,
-        // and a screen of replacement characters is a worse answer than being told why.
-        guard !data.prefix(Self.binaryProbeBytes).contains(0) else {
-            return .failure("That file is not text, so there is nothing to show here.")
-        }
-        // And what got past that still has to decode. Up to three bytes come off the end first,
-        // for the case where the read stopped at the cap rather than at the end of the file and
-        // the cut landed inside a character: calling a text file binary because it was long is
-        // exactly the wrong answer.
+        // `isDrawn` set the cap above; this is a different question with a different answer. A
+        // raster image is bytes, and goes exactly as it was read. Text and SVG are both text on
+        // the wire, and text has one more thing to answer before it can be sent.
+        if kind == .image { return .contents(data, kind: kind, totalBytes: totalBytes) }
+
+        // It has to decode. Up to three bytes come off the end first, for the case where the read
+        // stopped at the cap rather than at the end of the file and the cut landed inside a
+        // character: calling a text file binary because it was long is exactly the wrong answer.
         var text = data
         var dropped = 0
         while dropped < 3, String(data: text, encoding: .utf8) == nil, !text.isEmpty {
@@ -843,9 +892,9 @@ final class TerminalSessionManager: @unchecked Sendable {
             dropped += 1
         }
         guard String(data: text, encoding: .utf8) != nil else {
-            return .failure("That file is not text, so there is nothing to show here.")
+            return .failure("That file is not text or a picture, so there is nothing to show here.")
         }
-        return .contents(text, totalBytes: totalBytes)
+        return .contents(text, kind: kind, totalBytes: totalBytes)
     }
 
     /// What to tell the phone when the filesystem says no.
@@ -879,6 +928,276 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
         if error.domain == NSPOSIXErrorDomain { return message(forErrno: Int32(error.code)) }
         return error.localizedDescription
+    }
+
+    /// What to tell the phone when a change to the tree says no.
+    ///
+    /// A third vocabulary beside ``browseMessage(for:)`` and ``writeMessage(for:)``, and the split
+    /// is the same one those two already make: each names the failures its own kind of operation
+    /// actually produces. What is new here is the name. Reading a file cannot fail because
+    /// something is already called that, and writing one replaces rather than creates — so
+    /// "already there" is a sentence only this path needs, and it is the sentence a user meets
+    /// most often, because it is what happens when they rename something to a name already in
+    /// the folder.
+    private static func changeMessage(for error: any Error) -> String {
+        let error = error as NSError
+        if error.domain == NSCocoaErrorDomain {
+            switch error.code {
+            case NSFileWriteFileExistsError:
+                return "Something with that name is already there."
+            // A file or folder that was removed, or that somebody renamed, between the listing
+            // going out and this arriving. The row the user tapped was real when they tapped it.
+            case NSFileNoSuchFileError:
+                return "That is no longer there."
+            case NSFileWriteNoPermissionError, NSFileReadNoPermissionError:
+                return message(forErrno: EPERM)
+            case NSFileWriteVolumeReadOnlyError:
+                return "That disk can only be read from, so nothing can be changed on it."
+            case NSFileWriteOutOfSpaceError:
+                return writeMessage(for: error)
+            default:
+                break
+            }
+        }
+        if error.domain == NSPOSIXErrorDomain {
+            switch Int32(error.code) {
+            // Raised by `mkdir` and by `rename` when the last component of the path is too long.
+            case ENAMETOOLONG:
+                return "That name is too long for this Mac."
+            default:
+                return message(forErrno: Int32(error.code))
+            }
+        }
+        return error.localizedDescription
+    }
+
+    // MARK: - Changing the tree
+
+    /// One change to a folder, on a queue that is not the one carrying keystrokes.
+    ///
+    /// Dispatched for the reason ``list(id:requested:sink:)`` is: this is disk work on a path that
+    /// may be a network volume — and a recursive delete on one takes as long as it takes — so it
+    /// happens off the connection's own queue, and the answer comes back through the sink the
+    /// shell's output already arrives on.
+    ///
+    /// The path is standardised for the work and echoed back as it arrived, which is the split
+    /// ``write(id:path:data:isLast:ownerClientID:sink:)`` already makes. The two are the same
+    /// file; they are not always the same string, and the client is holding the string it sent.
+    private func change(id: UUID, operation: RemoteFileOperation, sink: @escaping Sink) {
+        // Named by what it is about, because everything below is either one of these or a
+        // sentence: the work is a function of a path and the answer is a path.
+        let path: String
+        switch operation {
+        case .create(let target, _), .rename(let target, _), .delete(let target):
+            path = target
+        }
+
+        // Tested on the string that arrived, like every other browse request — see
+        // ``list(id:requested:sink:)``. A relative path would resolve against this process's
+        // working directory rather than the shell's, which is the directory the user believes
+        // they are looking at.
+        guard path.hasPrefix("/") else {
+            sink(.fileOperationFailure(
+                sessionID: id,
+                path: path,
+                message: "That is not a path this Mac can change."
+            ))
+            return
+        }
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            switch Self.perform(operation, at: url) {
+            case .done(let note):
+                sink(.fileOperationDone(sessionID: id, path: path, note: note))
+            case .failure(let message):
+                sink(.fileOperationFailure(sessionID: id, path: path, message: message))
+            }
+        }
+    }
+
+    private enum ChangeOutcome {
+        case done(String)
+        case failure(String)
+    }
+
+    /// Does the work, and says what to put in the log.
+    ///
+    /// The note is written here rather than on the phone because this is the side that watched it
+    /// happen: it is the side that counted what a folder held before it went, and the side that
+    /// knows whether "delete" meant the Trash or was refused.
+    private static func perform(_ operation: RemoteFileOperation, at url: URL) -> ChangeOutcome {
+        // Qualified, because `create` and `rename` are also the names of two instance methods
+        // that act on a terminal rather than on a file. The two are different things that happen
+        // to share a word, and the compiler can tell them apart — this is for the reader.
+        switch operation {
+        case .create(_, let kind):
+            return Self.create(at: url, kind: kind)
+        case .rename(_, let name):
+            return Self.rename(at: url, to: name)
+        case .delete:
+            return Self.delete(at: url)
+        }
+    }
+
+    /// An empty file, or a folder.
+    ///
+    /// **One new name and nothing above it, for both kinds.** The browser only ever asks for a
+    /// single thing in the folder it is showing — the phone's rule refuses a slash before it is
+    /// sent — so a path with two new components in it is either a bug or a client that has been
+    /// got at, and the answer to both is to refuse rather than to build a tree somebody did not
+    /// ask for. `withIntermediateDirectories: false` is the same decision made again by the
+    /// filesystem, so a race cannot slip past the check above it.
+    private static func create(at url: URL, kind: RemoteEntryKind) -> ChangeOutcome {
+        let name = url.lastPathComponent
+        guard RemoteFileName.isValid(name) else {
+            return .failure("That is not a name a file can have.")
+        }
+        // Tested before either creation path, so "there is nowhere to put it" is one sentence
+        // instead of a `createDirectory` failure the account may not be at fault for.
+        guard FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path) else {
+            return .failure("That folder is no longer there.")
+        }
+
+        switch kind {
+        case .folder:
+            do {
+                try FileManager.default.createDirectory(
+                    at: url,
+                    withIntermediateDirectories: false
+                )
+            } catch {
+                return .failure(changeMessage(for: error))
+            }
+            return .done("created folder \(name)")
+
+        case .file:
+            // `open` with `O_EXCL` rather than `createFile`, and the reason is the message rather
+            // than the mechanism. `createFile` answers a Bool that is "no" for a file that is
+            // already there, a folder that is not, and one this account may not write into — so
+            // the code would have to guess which sentence to show, and the obvious guess is the
+            // one that tells the user about permissions when the real answer is that the name is
+            // taken. `EEXIST` is that answer, stated outright.
+            //
+            // Exclusive also closes the race: two clients creating the same name at the same
+            // moment have one winner and one honest refusal, rather than one silently replacing
+            // the other's empty file.
+            let descriptor = Darwin.open(url.path, O_CREAT | O_EXCL | O_WRONLY, 0o644)
+            guard descriptor >= 0 else {
+                return .failure(changeMessage(for: NSError(
+                    domain: NSPOSIXErrorDomain,
+                    code: Int(errno)
+                )))
+            }
+            // Qualified for the same reason as the two above: this type has a `close` of its own
+            // that ends a terminal.
+            Darwin.close(descriptor)
+            return .done("created file \(name)")
+        }
+    }
+
+    /// A new name for something already in a folder.
+    ///
+    /// The name arrives rather than the path it becomes, so this is not a move: the new path is
+    /// built by replacing the last component of the old one, and there is no way to express
+    /// "somewhere else entirely". `moveItem` refuses a destination that already exists, so nothing
+    /// is ever clobbered by a rename — the user is told the name is taken and keeps both files.
+    private static func rename(at url: URL, to name: String) -> ChangeOutcome {
+        // The second of the two checks on a name — the phone makes the first — and the one that
+        // matters, since this end cannot see the keyboard the name was typed on.
+        guard RemoteFileName.isValid(name) else {
+            return .failure("That is not a name a file can have.")
+        }
+        let renamed = url.deletingLastPathComponent().appendingPathComponent(name)
+        guard renamed.path != url.path else {
+            return .done("renamed \(url.lastPathComponent) to \(name)")
+        }
+
+        do {
+            try FileManager.default.moveItem(at: url, to: renamed)
+        } catch {
+            return .failure(changeMessage(for: error))
+        }
+        return .done("renamed \(url.lastPathComponent) to \(name)")
+    }
+
+    /// A file, or a folder and everything in it.
+    ///
+    /// **To the Trash rather than to nothing.** This app runs on somebody's own Mac, where the
+    /// difference between a mistaken delete and a lost one is the whole of whether they trust the
+    /// button. `trashItem` moves a tree of any size in one move and hands back where it went, so
+    /// the file is in the Finder afterwards and can be put back — which is what makes a recursive
+    /// delete safe enough to offer from a phone at all. It is also why nothing here asks a second
+    /// time: the phone's confirmation already said what would happen, and a Mac that asked again
+    /// would be asking a question nobody is sitting in front of.
+    ///
+    /// **Nothing is ever followed.** A symbolic link is a file that points somewhere, and the two
+    /// ends of it are different things to delete: removing the link is what a row showing a link
+    /// means, and removing its target is somebody's folder going because they deleted a shortcut.
+    /// **That `trashItem` unlinks a link rather than descending through it was verified rather
+    /// than assumed**, because it is the one assumption here that could lose data quietly: a
+    /// shortcut to a folder was trashed and the folder, its subfolder and the file inside it were
+    /// all still in place afterwards, with the link itself the only thing that went.
+    private static func delete(at url: URL) -> ChangeOutcome {
+        let name = url.lastPathComponent
+        // Guard rails against a bug rather than against a user: the browser draws a row per entry
+        // and the row that would name the folder you are standing in does not exist, so nothing in
+        // the app can ask for these. A client that has been got at can.
+        //
+        // Tested against the home folder by **containment and not equality**, which is the whole
+        // of why this is a function in `RemoteCore` rather than a comparison here: equality
+        // against `/` and the home folder alone leaves `/Users` — every account on the machine —
+        // as a legal thing to delete. `pathContains` also covers `/` for free, since the root
+        // contains everything.
+        guard !pathContains(url.path, FileManager.default.homeDirectoryForCurrentUser.path) else {
+            return .failure("That is too much of this Mac to delete.")
+        }
+
+        let values = try? url.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
+        let isFolder = values?.isDirectory == true
+        // Counted before the move, because afterwards there is nothing left to walk. One pass over
+        // the tree, which for a folder of a few files is free and for a folder of a hundred
+        // thousand is the price of saying an honest number — and the answer is only ever used for
+        // that sentence.
+        let contents = isFolder && values?.isSymbolicLink != true
+            ? (Self.countInside(url) ?? 1)
+            : 1
+
+        do {
+            var moved: NSURL?
+            try FileManager.default.trashItem(at: url, resultingItemURL: &moved)
+            return .done(contents == 1
+                ? "moved \(name) to the Trash"
+                : "moved \(name) and \(contents - 1) more to the Trash")
+        } catch {
+            return .failure(changeMessage(for: error))
+        }
+    }
+
+    /// How many entries are inside a folder, itself included — or nothing if it cannot be walked.
+    ///
+    /// A count rather than a list: nothing wants the names, and holding a hundred thousand of them
+    /// to produce one number would be the memory this app spends on somebody's terminal instead.
+    /// `nil` means the tree could not be read, and is answered as a folder holding one thing,
+    /// which makes the sentence say what it always says rather than inventing a figure.
+    private static func countInside(_ url: URL) -> Int? {
+        guard let walk = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: nil,
+            // The default, spelled out: a link is listed rather than entered, which is the same
+            // rule the delete itself follows and the reason the two agree on the count.
+            options: [],
+            // A folder inside that cannot be read stops that branch and leaves the walk going,
+            // rather than failing the whole count and taking the honest number down with it.
+            errorHandler: { _, _ in true }
+        ) else { return nil }
+
+        // From one, because the folder itself is going too. Every step of the walk is one more
+        // thing: a subfolder is counted here and so are its contents, and a link is one thing
+        // whatever it points at.
+        var count = 1
+        while walk.nextObject() != nil { count += 1 }
+        return count
     }
 
     /// Puts a new name on a terminal, if it will take one.

@@ -55,6 +55,18 @@ struct DesktopsPanel: View {
     private static let chipHeight: CGFloat = 21
     private static let headingHeight: CGFloat = 22
     private static let panelInset: CGFloat = 10
+    /// The margin around the glass card, on the sides only.
+    private static let panelMargin: CGFloat = 10
+
+    /// What the panel's own insets take off the width its tiles are laid out in.
+    ///
+    /// **Exposed because the caller has to know it, and did not.** The width handed in is the
+    /// width the panel is *given*; the tiles get that much less the card's padding and the
+    /// margin outside it, on both sides. Leaving the margin out went unnoticed for as long as
+    /// the row scrolled sideways — an overestimate was absorbed by the scroll view and looked
+    /// like nothing at all. A grid does not scroll, so the same overestimate is a second column
+    /// hanging off the edge of the screen, which is exactly what it did.
+    static let horizontalInset: CGFloat = (panelInset + panelMargin) * 2
 
     /// Whether the panel is worth offering at all.
     ///
@@ -111,9 +123,9 @@ struct DesktopsPanel: View {
                     }
                 }
             }
-            .padding(10)
+            .padding(Self.panelInset)
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 10)
+            .padding(.horizontal, Self.panelMargin)
             .reportChromeFrame(.panel, into: $chromeFrames)
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }

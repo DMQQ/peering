@@ -42,6 +42,28 @@ struct TerminalWireTests {
                 data: Data(),
                 isLast: true
             ),
+            // The three changes a browser can make, which share one request case. A folder and a
+            // file are both here because they are the same operation with a different answer to
+            // "what should be at the end of it", and the kind is what carries that.
+            .changeFile(
+                sessionID: id,
+                operation: .create(path: "/Users/someone/Desktop/New Folder", kind: .folder)
+            ),
+            .changeFile(
+                sessionID: id,
+                operation: .create(path: "/Users/someone/Desktop/New File.txt", kind: .file)
+            ),
+            .changeFile(
+                sessionID: id,
+                operation: .rename(
+                    path: "/Users/someone/Desktop/notes.txt",
+                    to: "meeting notes.txt"
+                )
+            ),
+            .changeFile(
+                sessionID: id,
+                operation: .delete(path: "/Users/someone/Desktop/New Folder")
+            ),
         ]
 
         for request in requests {
@@ -90,9 +112,21 @@ struct TerminalWireTests {
             .fileContents(
                 sessionID: id,
                 path: "/Users/someone/Desktop/notes.txt",
+                kind: .text,
                 offset: 0,
                 totalBytes: 4_096,
                 data: Data("first line\n".utf8),
+                isLast: false
+            ),
+            // A picture in the same envelope, carrying bytes that deliberately are not text: the
+            // whole reason the kind travels is that this payload must never be decoded as a string.
+            .fileContents(
+                sessionID: id,
+                path: "/Users/someone/Desktop/photo.png",
+                kind: .image,
+                offset: 0,
+                totalBytes: 82_000,
+                data: Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF, 0xD8]),
                 isLast: false
             ),
             .browseFailure(
@@ -108,6 +142,28 @@ struct TerminalWireTests {
                 sessionID: id,
                 path: "/Users/someone/Desktop/notes.txt",
                 message: "That file is too large to send to this Mac."
+            ),
+            // The answers to the three changes in the request array above. The note is prose the
+            // host composed — it is the side that counted what a recursive delete removed — and
+            // the path is the one the client sent rather than the one that ended up on disk,
+            // because that is the row the client is still holding.
+            .fileOperationDone(
+                sessionID: id,
+                path: "/Users/someone/Desktop/New Folder",
+                note: "created folder New Folder"
+            ),
+            .fileOperationDone(
+                sessionID: id,
+                path: "/Users/someone/Desktop/notes.txt",
+                note: "renamed notes.txt to meeting notes.txt"
+            ),
+            // The one that matters most to get right: a change that did not happen is its own
+            // event, because a folder that would not be read and a folder that would not be
+            // changed leave the panel in two different states.
+            .fileOperationFailure(
+                sessionID: id,
+                path: "/Users/someone/Desktop/New Folder",
+                message: "Something with that name is already there."
             ),
         ]
 

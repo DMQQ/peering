@@ -60,6 +60,59 @@ struct FileBrowserPanel: View {
     /// shell that has ended, where there is nothing left to send a file down.
     var onUpload: ((URL) -> Void)?
 
+    /// Run an executable file, which is offered as a button on the row itself.
+    ///
+    /// Optional in the same way ``onUpload`` is, and absent for the same kind of reason: a shell
+    /// that has ended has nothing to type into. **It is called only after the user has confirmed**,
+    /// and the confirmation lives here rather than in either caller — this is the one place both
+    /// browsers go through, and a guard a caller can forget is not a guard.
+    ///
+    /// Nothing about this is a new privilege. What the button sends is a line typed into a shell
+    /// the user already has, which is exactly what a terminal is for; what it adds is that the
+    /// thing being typed is a file they can see rather than one they have to spell.
+    var onRun: ((RemoteDirectoryEntry) -> Void)?
+
+    /// What the delete confirmation says will become of what goes.
+    ///
+    /// Supplied by the caller because it is the one part of the sentence the panel cannot know and
+    /// the user cannot guess: the Mac moves things to the Trash and they can be put back, while an
+    /// SFTP server deletes them outright. Two machines, two very different weights on one word, and
+    /// the weight is the point of asking. Declared here with the capabilities rather than with the
+    /// state below, because it is part of what the caller is offering.
+    var deleteHint: String = "This cannot be undone."
+
+    /// Make something in the folder on screen.
+    ///
+    /// Optional in the same way, and `nil` means the same thing: a shell that has ended cannot be
+    /// asked to change anything, and a New Folder button that opens a dialog and then fails is
+    /// worse than one that is not there. The three below are one capability in three shapes, so
+    /// they are passed together and are meant to be absent together.
+    var onCreate: ((String, RemoteEntryKind) -> Void)?
+    /// Give something on screen a new name.
+    var onRename: ((RemoteDirectoryEntry, String) -> Void)?
+    /// Remove something on screen, and everything inside it if it is a folder.
+    ///
+    /// Called only after the user has confirmed, and **the confirmation lives here** rather than in
+    /// either caller — this is the one place both browsers go through, and a guard a caller can
+    /// forget is not a guard. Same reasoning as ``onRun``.
+    var onDelete: ((RemoteDirectoryEntry) -> Void)?
+
+    /// Whether a change asked for through this browser is still in the air.
+    ///
+    /// Drawn as a disabled control rather than as a spinner, because the operation is quick and the
+    /// thing that matters is not being able to start a second one: the machine answers a change by
+    /// naming the path it was given, so two in flight would be two answers matched against one
+    /// remembered request.
+    var isChanging: Bool = false
+
+    /// Why the last change did not happen, drawn above the list.
+    ///
+    /// **Above rather than in place of.** A failure here is not a folder that could not be read —
+    /// that is ``failure``, and it replaces the list because there is nothing to show. This is the
+    /// opposite: the folder is fine, one thing in it did not happen, and the row the user is most
+    /// likely to try again on is still on screen behind this sentence.
+    var changeFailure: String? = nil
+
     /// Whether the current wait has lasted long enough to be explained.
     ///
     /// The Mac blocks *inside* the listing call while macOS shows a Files-and-Folders prompt, so
@@ -79,6 +132,29 @@ struct FileBrowserPanel: View {
     /// Whether the system's file picker is up. See ``searchField`` for the button that raises it.
     @State private var showsImporter = false
 
+    /// The file a Run button was tapped on, waiting on the alert.
+    ///
+    /// Held rather than acted on, because the whole point of the confirmation is that the tap is
+    /// not the decision. See ``onRun``.
+    @State private var pendingRun: RemoteDirectoryEntry?
+
+    /// What a New File or New Folder tap is asking for, waiting on the name.
+    ///
+    /// The kind is held rather than two separate flags, because the two differ only in the noun and
+    /// the default name and every other line of the dialog is the same one.
+    @State private var pendingCreate: RemoteEntryKind?
+    /// The name in the create or rename field, as it is typed.
+    @State private var nameDraft = ""
+
+    /// The row a Rename tap is about, waiting on a new name.
+    @State private var pendingRename: RemoteDirectoryEntry?
+    /// The row a Delete tap is about, waiting on the confirmation.
+    ///
+    /// Held rather than acted on, for the reason ``pendingRun`` is: the tap that offers to delete
+    /// is not the decision to delete, and a recursive delete of somebody's folder is not a thing to
+    /// do on a mis-tap.
+    @State private var pendingDelete: RemoteDirectoryEntry?
+
     /// A real `@FocusState`, unlike the terminal's own command field, and it is the same fact
     /// that makes that one a plain flag: this is a SwiftUI `TextField` and claims its focus
     /// through a `.focused()` modifier, so SwiftUI and UIKit agree about who is first responder.
@@ -89,7 +165,65 @@ struct FileBrowserPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+                // **On the header rather than on the body, and that is not decoration.** SwiftUI
+                // does not reliably honour several alert modifiers stacked on one view — the Run
+                // alert below is already on the body, and a second one there risks silently never
+                // presenting at all. One alert per subtree is the arrangement that works, so the
+                // two name dialogs live here and the confirmation lives on `content`.
+                .alert(createTitle, isPresented: Binding(
+                    get: { pendingCreate != nil },
+                    set: { if !$0 { pendingCreate = nil } }
+                )) {
+                    TextField("Name", text: $nameDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("Cancel", role: .cancel) { pendingCreate = nil }
+                    Button("Create") {
+                        if let kind = pendingCreate { onCreate?(nameDraft, kind) }
+                        pendingCreate = nil
+                    }
+                } message: {
+                    Text("It will be made in \(path ?? "this folder").")
+                }
+                .alert("Rename", isPresented: Binding(
+                    get: { pendingRename != nil },
+                    set: { if !$0 { pendingRename = nil } }
+                )) {
+                    TextField("Name", text: $nameDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("Cancel", role: .cancel) { pendingRename = nil }
+                    Button("Rename") {
+                        if let entry = pendingRename { onRename?(entry, nameDraft) }
+                        pendingRename = nil
+                    }
+                } message: {
+                    // The name it has now, so a user who arrived here from a context menu on a long
+                    // row can see which of several similar names they are changing.
+                    Text(pendingRename?.name ?? "")
+                }
             content
+                .confirmationDialog(
+                    deleteTitle,
+                    isPresented: Binding(
+                        get: { pendingDelete != nil },
+                        set: { if !$0 { pendingDelete = nil } }
+                    ),
+                    titleVisibility: .visible
+                ) {
+                    Button(deleteButtonTitle, role: .destructive) {
+                        if let entry = pendingDelete { onDelete?(entry) }
+                        pendingDelete = nil
+                    }
+                    Button("Cancel", role: .cancel) { pendingDelete = nil }
+                } message: {
+                    // What the machine on the other end does with it, which is the one thing the
+                    // user needs to know and cannot guess: the Mac moves it to the Trash and it can
+                    // be put back; an SFTP server deletes it, and there is nowhere to put it back
+                    // from. The sentence is the caller's because only the caller knows which
+                    // machine this browser is talking to.
+                    Text(deleteMessage)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Only the thing being uploaded, not the whole Finder tree: this is one file into one
@@ -117,6 +251,68 @@ struct FileBrowserPanel: View {
         // would arrive in the new one as rows that are missing for no reason on screen — the same
         // fault as a search field that keeps its text after the thing it searched has gone.
         .onChange(of: path) { _, _ in query = "" }
+        // The one guard between a tap and a program running on somebody's machine, and it is here
+        // rather than in either browser so that neither of them can be the one that forgot it.
+        // Cancel is first and takes the cancel role, so the escape route is the one the system
+        // wires to a stray dismissal; Run is deliberately not the default action.
+        .alert(
+            "Run this file?",
+            isPresented: Binding(
+                get: { pendingRun != nil },
+                set: { if !$0 { pendingRun = nil } }
+            ),
+            presenting: pendingRun
+        ) { entry in
+            Button("Cancel", role: .cancel) { pendingRun = nil }
+            Button("Run") {
+                pendingRun = nil
+                onRun?(entry)
+            }
+        } message: { entry in
+            Text(
+                """
+                \(childPath(entry.name, of: path))
+
+                It will run with your permissions on the machine this folder is on.
+                """
+            )
+        }
+    }
+
+    // MARK: - The three dialogs
+
+    private var createTitle: String {
+        pendingCreate == .folder ? "New Folder" : "New File"
+    }
+
+    /// The confirmation's title and button, which sharpen when the folder is not empty.
+    ///
+    /// **The emptiness check reads the raw listing rather than the rows on screen**, and that is
+    /// the safe direction rather than an oversight: a folder holding only hidden files draws as an
+    /// empty folder and is not one, so checking `entries` warns about exactly the case a visible-
+    /// rows check would get wrong. The listing is already in hand, so this costs nothing.
+    private var deleteIsRecursive: Bool {
+        guard let directory, pendingDelete?.isDirectory == true else { return false }
+        return !(directory.entries.isEmpty && !directory.isTruncated)
+    }
+
+    private var deleteTitle: String {
+        guard let entry = pendingDelete else { return "Delete" }
+        return deleteIsRecursive
+            ? "Delete “\(entry.name)” and everything in it?"
+            : "Delete “\(entry.name)”?"
+    }
+
+    private var deleteButtonTitle: String { deleteIsRecursive ? "Delete All" : "Delete" }
+
+    /// What will go, and what becomes of it. Two sentences because they answer two questions: the
+    /// first is the panel's, since only the panel can see whether the row is a folder; the second
+    /// is the caller's, since only the caller knows which machine is behind it.
+    private var deleteMessage: String {
+        let scope = pendingDelete?.isDirectory == true
+            ? "The folder and everything inside it will go."
+            : "The file will go."
+        return scope + " " + deleteHint
     }
 
     // MARK: - Header
@@ -143,32 +339,82 @@ struct FileBrowserPanel: View {
     /// one that does not get used, and a folder with two hundred rows is the one place in this
     /// app where finding a name by scrolling is genuinely hopeless. It costs a row of height on
     /// a screen that has plenty of them.
-    /// The filter, and the one control that puts something new into this folder.
+    /// The filter, and the controls that change the folder rather than the view of it.
     ///
-    /// Side by side rather than the upload inside the capsule with the filter: the field is a place
-    /// to type and a button in it is a glyph competing with the clear cross for the same corner,
-    /// where this is a different kind of thing altogether — the only control on the panel that
-    /// changes the server rather than the view.
+    /// Side by side rather than inside the capsule with the filter: the field is a place to type
+    /// and a button in it is a glyph competing with the clear cross for the same corner, where
+    /// these are a different kind of thing altogether — they are the only controls on the panel
+    /// that change the machine rather than what is being looked at.
+    ///
+    /// Three of them now, and the create one is a menu rather than two buttons. A third circle in
+    /// this row would leave the filter field — the thing people actually use — squeezed between
+    /// glyphs, and "new file or new folder" is one question with two answers, which is what a menu
+    /// is for.
     @ViewBuilder
     private var searchField: some View {
         HStack(spacing: 8) {
             filterField
 
+            if onCreate != nil {
+                Menu {
+                    Button("New Folder", systemImage: "folder.badge.plus") {
+                        beginCreate(.folder)
+                    }
+                    Button("New File", systemImage: "doc.badge.plus") {
+                        beginCreate(.file)
+                    }
+                } label: {
+                    chrome("plus")
+                }
+                // Disabled rather than hidden while a change is in the air, because the operation
+                // is quick and a control that vanishes under the finger reads as a bug. It is the
+                // machine's answer that decides when this comes back.
+                .disabled(isChanging)
+                .accessibilityLabel("New file or folder")
+            }
+
             if onUpload != nil {
                 Button { showsImporter = true } label: {
-                    Image(systemName: "arrow.up.to.line")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(ColorPalette.ink)
-                        .frame(width: 32, height: 32)
-                        .background(Color.white.opacity(0.07), in: Circle())
-                        .contentShape(Circle())
+                    chrome("arrow.up.to.line")
                 }
                 .buttonStyle(RailButtonStyle(scale: 0.9))
+                .disabled(isChanging)
                 .accessibilityLabel("Upload a file to this folder")
             }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
+    }
+
+    /// One of the circular controls at the trailing end of the filter row.
+    ///
+    /// Written once because there are two of them now and they are meant to be indistinguishable
+    /// from each other: same 32 points, same 7% circle, same 13-point semibold glyph on the ink.
+    /// Two spellings of this would be two chances for one of them to drift a point to the left.
+    private func chrome(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(ColorPalette.ink)
+            .frame(width: 32, height: 32)
+            .background(Color.white.opacity(0.07), in: Circle())
+            .contentShape(Circle())
+    }
+
+    /// Opens the name dialog with a name nothing in this folder is using.
+    ///
+    /// The default is the Finder's, and the collision check runs against **the raw listing rather
+    /// than the visible rows** — a folder holding a hidden `New Folder` draws as though the name
+    /// were free, and the machine would then refuse the name the app had just chosen. Being told
+    /// that a name you did not type is taken is the most confusing answer this panel could give.
+    private func beginCreate(_ kind: RemoteEntryKind) {
+        let base = kind == .folder ? "New Folder" : "New File"
+        let suffix = kind == .folder ? "" : ".txt"
+        nameDraft = RemoteFileName.available(
+            base: base,
+            extension: suffix,
+            among: directory?.entries.map(\.name) ?? []
+        )
+        pendingCreate = kind
     }
 
     private var filterField: some View {
@@ -285,6 +531,42 @@ struct FileBrowserPanel: View {
 
     @ViewBuilder
     private var content: some View {
+        VStack(spacing: 0) {
+            changeFailureBanner
+            contentBody
+        }
+    }
+
+    /// Why a change did not happen, in a band above the list rather than in place of it.
+    ///
+    /// **The difference from ``failure`` is the whole reason this exists.** A folder that could not
+    /// be read has nothing to draw, so the panel replaces the list and offers to try again; a
+    /// rename that would not land left the folder perfectly readable, and covering it up would take
+    /// away the row the user is about to try again on — along with their place in a long list.
+    ///
+    /// It cannot be dismissed by hand, and it does not need to be: every one of the three
+    /// operations clears it on the way out, and so does opening a file or leaving the browser.
+    @ViewBuilder
+    private var changeFailureBanner: some View {
+        if let changeFailure {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(changeFailure)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(ColorPalette.caution)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ColorPalette.caution.opacity(0.12))
+        }
+    }
+
+    @ViewBuilder
+    private var contentBody: some View {
         if let failure {
             state(
                 symbol: "exclamationmark.triangle",
@@ -364,53 +646,93 @@ struct FileBrowserPanel: View {
         .scrollDismissesKeyboard(.immediately)
     }
 
-    /// One entry: a glyph, its name, what it is, and the way in.
+    /// One entry: a glyph, its name, what it is, and the way in — plus, when the file can be run,
+    /// a second way that is not "in".
     ///
     /// The same row as the app's other lists — see ``SSHQuickCommandsEditor/row`` — because it is
     /// the same object: a thing with a name, a line about it, and something on the other side of
     /// the tap.
     private func row(_ entry: RemoteDirectoryEntry) -> some View {
-        Button {
-            // Opening something is leaving the list, and a keyboard left up over the folder that
-            // arrives next is one the user has to put away before they can see it.
-            searchFocused = false
-            onOpen(entry)
-        } label: {
-            HStack(spacing: 11) {
-                Controls.icon(entry.isDirectory ? "folder" : "doc.text")
+        let offersRun = onRun != nil && entry.isExecutable
+        // Two buttons side by side rather than one inside the other. A `Button` nested in another
+        // button's label draws, and looks right, and never receives the tap: the outer one claims
+        // the whole row first. So the row is a row that *contains* two tappable things, which is
+        // the only arrangement where both of them work.
+        return HStack(spacing: 0) {
+            Button {
+                // Opening something is leaving the list, and a keyboard left up over the folder
+                // that arrives next is one the user has to put away before they can see it.
+                searchFocused = false
+                onOpen(entry)
+            } label: {
+                HStack(spacing: 11) {
+                    Controls.icon(entry.isDirectory ? "folder" : "doc.text")
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.name)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    // No font here — the two runs of it are set in two faces inside — and one line
-                    // only, because a row whose second line wrapped would be a row of two heights
-                    // in a list read by scanning down it.
-                    detail(for: entry)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.name)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(ColorPalette.ink)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        // No font here — the two runs of it are set in two faces inside — and one
+                        // line only, because a row whose second line wrapped would be a row of two
+                        // heights in a list read by scanning down it.
+                        detail(for: entry)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 10)
+
+                    // Pointing rather than offering to open: a tap on a file shows what is in it,
+                    // and a tap on a folder goes into it. Both are "in there", so both get the
+                    // same glyph.
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                // The trailing inset is shared with the run button when there is one, so the
+                // chevrons of two rows next to each other still line up.
+                .padding(.leading, 16)
+                .padding(.trailing, offersRun ? 2 : 16)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if let onRename {
+                    Button("Rename", systemImage: "character.cursor.ibeam") {
+                        nameDraft = entry.name
+                        pendingRename = entry
+                    }
+                    .menuInk()
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        pendingDelete = entry
+                    }
+                    // `role:` colours the label and not the glyph, so a destructive item needs
+                    // both or it draws a red word beside a white bin. See `Theme.menuDanger`.
+                    .menuDanger()
                 }
 
-                Spacer(minLength: 10)
+                Button("Put path in command line", systemImage: "arrow.up.forward.square") {
+                    onRevealPath(childPath(entry.name, of: path))
+                }
+                .menuInk()
+            }
 
-                // Pointing rather than offering to open: a tap on a file shows what is in it, and
-                // a tap on a folder goes into it. Both are "in there", so both get the same glyph.
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+            if offersRun {
+                Button { pendingRun = entry } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(ColorPalette.accent)
+                        .frame(width: 32, height: 32)
+                        .background(ColorPalette.accent.opacity(0.14), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.9))
+                .padding(.trailing, 12)
+                .accessibilityLabel("Run \(entry.name)")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button("Put path in command line", systemImage: "arrow.up.forward.square") {
-                onRevealPath(childPath(entry.name, of: path))
-            }
-            .menuInk()
         }
     }
 
@@ -567,14 +889,18 @@ struct FileBrowserPanel: View {
     }
 }
 
-/// A text file on a server, as far as it was read — and, when it can be, edited.
+/// A file on another machine, as far as it was read — and, when it can be, edited or looked at.
 ///
-/// **Reading and editing are two modes rather than one editable view, and that is not a
-/// compromise.** What makes this panel good at reading is that it does not wrap: a config, a script
-/// and a log are all read by their columns, so the readout is monospaced, scrolls on both axes, and
-/// lets a long line run off the side where it belongs. A text field cannot do that — it wraps, and
-/// it has one axis — so an editable readout would be a worse reader in exchange for being a writer.
-/// The mode is what lets each half be the best version of itself.
+/// **Reading and editing are still two modes, but they are no longer two renderers.** They used to
+/// be: the reader never wrapped, because a config, a script and a log are all read by their columns,
+/// and the editor always wrapped, because a text field has one axis. The result was the same file
+/// looking like two different files depending on whether a pencil had been tapped. Both are now
+/// ``MonospacedTextSurface``, one flag apart, with the flag on a toggle in the header — so wrapping
+/// is a choice the user makes about the file rather than a consequence of which mode they are in.
+///
+/// Pictures are the third thing a file can turn out to be, and the panel does not decide that: the
+/// kind arrives with the bytes, because the machine that read them is the one that can tell an SVG
+/// from a script. See ``RemoteFileKind``.
 ///
 /// The size line says when what is on screen is the beginning of a file rather than the whole of
 /// one, and that line is load-bearing rather than informative: **a file that was cut short cannot be
@@ -600,6 +926,13 @@ struct FilePreviewPanel: View {
     @State private var edited: String?
     /// A copy of the file on this phone, so it can be handed to Files. See ``temporaryCopy()``.
     @State private var shareURL: URL?
+    /// Whether lines wrap to the width of the panel. One value for both modes, which is what makes
+    /// the reader and the editor agree — see ``MonospacedTextSurface``.
+    ///
+    /// Starts on, and on is the right default for a panel that is usually opened to see what a file
+    /// says. The reason the reader used to be fixed the other way is real, though — a config or a
+    /// log is read by its columns — so the choice is here rather than made for the user.
+    @State private var wraps = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -607,6 +940,7 @@ struct FilePreviewPanel: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ColorPalette.backdrop)
         // Prepared when the file arrives rather than when the button is pressed: the share sheet
         // reads the file as it opens, so a URL that does not exist yet is a share sheet that comes
         // up empty. The file is at most the preview cap, so this is not a cost worth deferring.
@@ -617,11 +951,12 @@ struct FilePreviewPanel: View {
 
     /// Whether this file may be changed at all.
     ///
-    /// Three ways to be no, and they are different sentences on screen: the file was cut short at
-    /// the read cap, it is not the whole of itself yet, or whoever opened this panel has no way to
-    /// write one back.
+    /// Four ways to be no, and they are different sentences on screen: it is a picture rather than
+    /// something with text in it, the file was cut short at the read cap, it is not the whole of
+    /// itself yet, or whoever opened this panel has no way to write one back.
     private var canEdit: Bool {
-        onSave != nil && preview.isComplete && !preview.isTruncated && failure == nil
+        onSave != nil && preview.kind == .text && preview.isComplete && !preview.isTruncated
+            && failure == nil
     }
 
     /// Whether there is anything on screen to edit — an empty file is still a file.
@@ -657,6 +992,25 @@ struct FilePreviewPanel: View {
             }
 
             Spacer(minLength: 8)
+
+            // Present in both modes and doing the same thing in both, which is the point: what it
+            // toggles is a property of the file on screen, not of what is being done to it. Hidden
+            // for a picture, which has no lines to wrap.
+            if preview.kind == .text, failure == nil {
+                Button { wraps.toggle() } label: {
+                    Image(systemName: wraps ? "text.alignleft" : "arrow.left.and.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        // Accent on the *unusual* state rather than the on one, unlike the eye in
+                        // the browser's bar. Wrapping is the default, so tinting it would leave a
+                        // blue glyph in this header for every file ever opened; marking the
+                        // exception is what makes the exception visible.
+                        .foregroundStyle(wraps ? Color.secondary : ColorPalette.accent)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(wraps ? "Scroll long lines" : "Wrap long lines")
+            }
 
             if isEditing {
                 // Words rather than glyphs on this side, unlike the reading side: mid-edit the two
@@ -745,42 +1099,62 @@ struct FilePreviewPanel: View {
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if preview.data.isEmpty {
+        } else if preview.data.isEmpty && !preview.kind.isDrawn {
             Text("This file is empty.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if preview.kind.isDrawn {
+            // A picture that stopped at the cap is not a smaller picture. There is no such thing
+            // as the first eight megabytes of a JPEG, so there is nothing to draw and nothing to
+            // apologise for by drawing it — said plainly instead, with the size that caused it.
+            if preview.isTruncated {
+                VStack(spacing: 10) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(.tertiary)
+                    Text(
+                        """
+                        This picture is \
+                        \(preview.totalBytes.formatted(.byteCount(style: .file))), which is more \
+                        than a preview can carry.
+                        """
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 32)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                RemoteImageView(
+                    data: preview.data,
+                    kind: preview.kind,
+                    identity: preview.path
+                )
+            }
         } else {
-            text
+            reader
         }
     }
 
-    /// The file, laid out the way the terminal lays out its output.
+    /// The file, read.
     ///
-    /// Two scroll views and no wrapping, for the same reason the log has them: a text file read on
-    /// a phone is usually a config, a script or a log, and every one of those is read by its
-    /// columns. Lines that wrapped would lose the only structure they have.
-    private var text: some View {
-        ScrollView(.vertical) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(preview.text)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(ColorPalette.ink)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .padding(12)
-            }
-        }
+    /// One line of real work, because the wrapping is the surface's business now — but the size,
+    /// the face and the inset all still come from here, and they are the same ones ``editor`` gets,
+    /// which is what makes the two modes look like the same view.
+    private var reader: some View {
+        MonospacedTextSurface(text: preview.text, wraps: wraps)
     }
 
     /// The file, being changed.
     ///
-    /// Autocorrection and capitalisation are off, and neither is a preference: this is a config file
-    /// or a script, and a keyboard that capitalises the first word of a line or straightens a quote
-    /// has silently changed what the file means before anybody saved it. Smart punctuation is a
-    /// system keyboard setting that SwiftUI gives no way to reach from here — worth knowing, because
-    /// it is the one that still gets through.
+    /// The same surface as ``reader``, given a callback instead of nothing. Everything a keyboard
+    /// needs to be told is configured there rather than here, and it is worth knowing that a
+    /// `TextEditor` would not have let us say all of it anyway: smart quotes and smart dashes are
+    /// system keyboard settings SwiftUI gives no way to reach, and a straight quote turned into a
+    /// curly one is a silently changed config file.
     private var editor: some View {
         VStack(spacing: 0) {
             if let saveFailure {
@@ -799,18 +1173,11 @@ struct FilePreviewPanel: View {
                 .background(ColorPalette.caution.opacity(0.12))
             }
 
-            TextEditor(text: Binding(
-                get: { edited ?? preview.text },
-                set: { edited = $0 }
-            ))
-            .font(.system(size: 12, design: .monospaced))
-            .foregroundStyle(ColorPalette.ink)
-            .scrollContentBackground(.hidden)
-            .background(ColorPalette.backdrop)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-            .keyboardType(.asciiCapable)
-            .padding(.horizontal, 4)
+            MonospacedTextSurface(
+                text: edited ?? preview.text,
+                onEdit: { edited = $0 },
+                wraps: wraps
+            )
         }
     }
 

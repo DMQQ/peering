@@ -1006,6 +1006,9 @@ struct Probe {
         if options.drive {
             try await driveCursor(channel)
         }
+        for path in options.readFiles {
+            try await readFile(path, on: channel)
+        }
         for action in options.actions {
             switch action {
             case .type(let text):
@@ -1274,6 +1277,106 @@ struct Probe {
         channel.send(Frame(kind: .command, payload: try MessageCodec.encode(command)))
     }
 
+    /// Reads a file the way the browser reads one, and reports what came back.
+    ///
+    /// **The one part of the file browser nothing else here can reach.** A preview is not a
+    /// command and not a frame kind — it is a request and a stream of answers on the control
+    /// channel — so the rest of this probe can prove the connection works and say nothing at all
+    /// about whether a picture arrives as a picture or as a screenful of replacement characters.
+    ///
+    /// A terminal first, because the host answers a read only for a session this client owns. The
+    /// shell is left running afterwards: closing it is a second round trip this does not need, and
+    /// the connection goes away at the end of the run anyway.
+    static func readFile(_ path: String, on channel: FrameChannel) async throws {
+        channel.send(Frame(
+            kind: .terminalRequest,
+            payload: try MessageCodec.encode(TerminalRequest.create)
+        ))
+
+        var sessionID: UUID?
+        for _ in 0..<Self.maxSkippedFrames {
+            let frame = try await channel.next()
+            guard frame.kind == .terminalEvent else { noteSkipped(frame); continue }
+            switch try MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
+            case .created(let info):
+                sessionID = info.id
+            case .failed(_, let message):
+                throw ProbeError(message: "the host would not open a shell: \(message)")
+            default:
+                continue
+            }
+            break
+        }
+        guard let sessionID else {
+            throw ProbeError(message: "no terminal was created, so there is nothing to read through")
+        }
+        // Handed back on the way out, including on the way out of a failure. A host keeps a shell
+        // alive across disconnects on purpose — so a phone that reconnects finds its terminal
+        // where it left it — which means a probe that leaks one leaks it for good: a handful of
+        // runs and every later one fails on the host's per-client session limit instead of
+        // testing anything.
+        let release = try MessageCodec.encode(TerminalRequest.close(sessionID: sessionID))
+        defer { channel.send(Frame(kind: .terminalRequest, payload: release)) }
+
+        let started = Date()
+        channel.send(Frame(
+            kind: .terminalRequest,
+            payload: try MessageCodec.encode(TerminalRequest.readFile(sessionID: sessionID, path: path))
+        ))
+
+        var data = Data()
+        var kind: RemoteFileKind?
+        var totalBytes = 0
+        var chunks = 0
+        // Its own bound rather than `maxSkippedFrames`. That one is sized for "how many frames
+        // might arrive before the one I want" on a quiet channel; this is a *stream*, and a
+        // picture at the eight megabyte cap is two hundred and fifty-six pieces of it.
+        let maxPieces = 1024
+        for _ in 0..<maxPieces {
+            let frame = try await channel.next()
+            guard frame.kind == .terminalEvent else { noteSkipped(frame); continue }
+            switch try MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
+            case .fileContents(let id, let answered, let eventKind, let offset, let total, let piece, let isLast):
+                guard id == sessionID, answered == path else { continue }
+                // Checked rather than overwritten: the kind rides on every piece and is meant to be
+                // the same value every time, so a host that changed its mind mid-file would be
+                // caught here rather than showing up as a picture decoded from the wrong bytes.
+                if let kind, kind != eventKind {
+                    throw ProbeError(message: "the kind changed mid-file: \(kind) then \(eventKind)")
+                }
+                kind = eventKind
+                totalBytes = total
+                // The offset is what makes this a test of the chunking rather than a test of the
+                // transport: pieces joined in the wrong order, or a repeated one, would still sum
+                // to the right length and be the wrong file.
+                guard offset == data.count else {
+                    throw ProbeError(message: "piece arrived at offset \(offset), expected \(data.count)")
+                }
+                data.append(piece)
+                chunks += 1
+                if isLast {
+                    let elapsed = Date().timeIntervalSince(started)
+                    let shown = (kind ?? .text).rawValue
+                    let whole = data.count >= totalBytes ? "whole" : "TRUNCATED"
+                    log("""
+                        \(path) · \(shown) · \(data.count) of \(totalBytes) bytes \
+                        (\(whole)) in \(chunks) piece(s), \(String(format: "%.0f", elapsed * 1000))ms
+                        """)
+                    if (kind ?? .text) == .text, data.count < 4096 {
+                        log("  first line: \(String(decoding: data.prefix(200), as: UTF8.self).split(separator: "\n").first ?? "")")
+                    }
+                    return
+                }
+            case .browseFailure(_, let about, let message):
+                guard about == path else { continue }
+                throw ProbeError(message: "the host refused \(path): \(message)")
+            default:
+                continue
+            }
+        }
+        throw ProbeError(message: "\(path) never finished arriving after \(maxPieces) frames")
+    }
+
     /// Sends a ping and waits for the pong, which proves the host has processed everything
     /// sent before it — the two share one connection and one handler, so they are ordered.
     /// Without this the cursor would be read before the move had been handled, and the test
@@ -1481,6 +1584,9 @@ struct Probe {
         var videoRecvSeconds: TimeInterval = 5
         var timeout: TimeInterval = 8
         var browseOnly = false
+        /// A file to read the way the browser reads one, and report on. Repeatable, so one run
+        /// can ask about a text file and a picture without re-connecting between them.
+        var readFiles: [String] = []
         var find: String?
         var browseSeconds: TimeInterval = 3
         var drive = false
@@ -1593,6 +1699,11 @@ struct Probe {
                         throw ProbeError(message: "--flags needs a label, e.g. --flags BEFORE")
                     }
                     actions.append(.flags(value))
+                case "--read-file":
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--read-file needs a path")
+                    }
+                    readFiles.append(value)
                 case "--find":
                     guard let value = iterator.next() else { throw ProbeError(message: "--find needs a value") }
                     find = value
@@ -1647,6 +1758,8 @@ struct Probe {
           --browse discover hosts over Bonjour and stop; makes no connection
           --find   browse, then connect to the host whose name or ID matches
           --browse-seconds  how long to browse for (default 3)
+          --read-file  read a file through a terminal and report what the host said it is
+                       (repeatable, runs in argument order)
           --drive  move the real cursor and verify it lands where it was told
           --type   send a Unicode text injection (repeatable, runs in argument order)
           --key    send a keycode press/release (repeatable, runs in argument order)

@@ -466,6 +466,15 @@ final class SessionModel {
     /// on screen — opening another replaces it.
     var filePreview: RemoteFilePreview?
 
+    /// A command waiting for the shell that will run it.
+    ///
+    /// Running a file opens a terminal of its own, and a terminal has no id until the Mac answers
+    /// that it made one — so the command cannot be sent when the button is tapped, only remembered
+    /// until ``SessionModel/apply(terminal:)`` sees the shell arrive. One at a time, because the
+    /// second tap in the moment before the first shell exists means to run the second file, not
+    /// both, and a queue would be a promise about ordering that nothing here needs to make.
+    var pendingRun: String?
+
     /// A file on its way to the Mac, and which door it came through.
     struct FileWrite: Equatable {
         /// Whether the file is an editor's text or one the user picked.
@@ -499,6 +508,33 @@ final class SessionModel {
     /// terminal it is drawing rather than about whichever wrote last.
     var saveFailures: [UUID: String] = [:]
     var uploadFailures: [UUID: String] = [:]
+
+    /// Something being made, renamed or removed on the Mac, and which folder to ask about after.
+    struct FileChange: Equatable {
+        /// What is being asked for. Held rather than only the path, because the answer says what
+        /// happened but not what was *asked*, and the path a rename moves is built from both.
+        let operation: RemoteFileOperation
+        /// The path the request named — the file's own path for a rename, not the one it becomes.
+        /// What the Mac's answer is matched on, since it echoes back what it was sent.
+        let path: String
+    }
+
+    /// Changes in the air, by the terminal they were asked through.
+    ///
+    /// One per terminal, and deliberately: the Mac answers a change by naming the path it was
+    /// given, so two operations through one shell would be two answers matched against one
+    /// remembered request. The entry is also what disables the controls, so the second tap that
+    /// would cause that cannot be made.
+    var changes: [UUID: FileChange] = [:]
+
+    /// Why a change did not happen, by the terminal it was asked through.
+    ///
+    /// Deliberately not in ``uploadFailures`` or ``browseFailures``, and the reason is what the
+    /// panel does with each of them: a browse failure replaces the list with a full-panel state,
+    /// which is right for a folder that could not be read and wrong for a rename that could not
+    /// land — the user would lose the folder they are looking at, along with the row they were
+    /// about to try again on. This one is drawn above the list, which stays where it is.
+    var changeFailures: [UUID: String] = [:]
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
@@ -832,6 +868,11 @@ final class SessionModel {
         writes.removeAll()
         saveFailures.removeAll()
         uploadFailures.removeAll()
+        // The same reasoning for changes, and one more consequence: a change left in flight keeps
+        // the controls disabled, so a browser that reconnected to the same Mac would come back with
+        // its New Folder button refusing to do anything until the tab was closed and reopened.
+        changes.removeAll()
+        changeFailures.removeAll()
         // Cleared with the rest: a notice describes the Mac of *this* connection, and one
         // left over would caption the next session with something nobody said about it.
         remoteNotice = nil

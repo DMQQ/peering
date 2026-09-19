@@ -53,7 +53,22 @@ public enum ProtocolInfo {
     /// request, and the failure would land in the middle of an edit: the user picks a file, the
     /// phone sends it, and what comes back is a dropped session rather than a sentence saying the
     /// Mac is too old to be written to. Declared incompatible like the rest.
-    public static let version: UInt16 = 14
+    /// 15: pictures join text in the browser. `fileContents` gains a `kind`, and a file that is
+    /// an image is no longer refused by the two ends that read files. A 14 client cannot decode
+    /// the new field, and the failure would be the worst-shaped one yet: `RemoteFilePreview.text`
+    /// decodes whatever it is given as UTF-8, so the bytes of a photograph would arrive as a
+    /// screen of replacement characters with nothing to say they were ever a picture. Declared
+    /// incompatible like the rest, so the handshake turns a mixed pair into an update message
+    /// instead.
+    /// 16: the browser can change things, not only read them. `changeFile` carries a
+    /// `RemoteFileOperation` — make a file or folder, rename one, delete one — and the
+    /// `fileOperationDone` and `fileOperationFailure` events answer it. A 15 host cannot decode
+    /// the request, and the shape of that failure is the worst one yet: the user taps Delete,
+    /// the phone sends a request the Mac drops on the floor, and the row stays on screen because
+    /// nothing ever answers. A delete that silently does not happen is survivable; the version
+    /// that makes its absence indistinguishable from a slow reply is not, so this is declared
+    /// incompatible like the rest.
+    public static let version: UInt16 = 16
 
     /// The largest payload a control-channel message may carry.
     ///

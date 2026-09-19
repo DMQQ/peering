@@ -63,6 +63,79 @@ public struct RemoteDirectoryEntry: Codable, Equatable, Sendable {
     }
 }
 
+extension RemoteDirectoryEntry {
+    /// Whether this entry is a file with the execute bit set, which is the only thing about a
+    /// listing that says "this could be run".
+    ///
+    /// Read out of the mode string rather than asked for separately, because the mode string is
+    /// already the answer and ``permissions`` is empty exactly when nobody could say — the `ls`
+    /// fallback that produces names and nothing else. Empty is therefore "no", which is the honest
+    /// answer to a question whose evidence is missing.
+    ///
+    /// **Only a regular file counts.** A symbolic link's own mode carries the execute bit whether
+    /// or not the thing it points at does — `lrwxr-xr-x` is what `ls` prints for a link to a text
+    /// file — so a link is left out rather than offered as a run button that fails. Following one
+    /// is a question for whoever owns the filesystem, and the listing has not asked it.
+    public var isExecutable: Bool {
+        let bits = Array(permissions)
+        // Ten characters: the type, then owner, group and others, three each. Execute is the third
+        // of each group, at 3, 6 and 9.
+        guard bits.count == 10, bits[0] == "-" else { return false }
+        // `x` is the ordinary spelling. `s` and `t` are setuid, setgid and sticky shown *in place
+        // of* it, and those appear only where the execute bit is set as well — their uppercase
+        // forms mark the same bits without execute, which is the whole distinction `ls` is drawing.
+        func isExecuteMark(_ character: Character) -> Bool {
+            character == "x" || character == "s" || character == "t"
+        }
+        return isExecuteMark(bits[3]) || isExecuteMark(bits[6]) || isExecuteMark(bits[9])
+    }
+}
+
+/// What a creation should make.
+///
+/// Two cases and not ``RemoteFileKind``, deliberately. That type answers "what are these bytes
+/// and how should they be drawn" — text, a picture, an SVG — which is a question about a preview
+/// and has no answer for a folder. Borrowing it here would mean a folder is a `.image` or a
+/// `.svg`, and the code would read as though somebody had chosen between those two.
+public enum RemoteEntryKind: String, Codable, Equatable, Sendable {
+    case file
+    case folder
+}
+
+/// A change to the shape of a folder: something made, something renamed, something gone.
+///
+/// One type rather than four request cases, because the four share every part of their handling —
+/// a definite path, a wait, one outcome, and a re-list of the folder afterwards. The alternative
+/// was four cases whose bodies were the same six lines with a different Foundation call in the
+/// middle, and a client with four waiting flags where one will do.
+///
+/// It is also the unit the safety rules are written against. ``RemoteFileName/isValid(_:)``
+/// describes what a name may be, and it is asked by whoever builds one of these *and* by whoever
+/// answers it, because the two ends are on opposite sides of a network.
+public enum RemoteFileOperation: Codable, Equatable, Sendable {
+    /// Make an empty file, or a folder. `path` is where it should end up, already joined.
+    ///
+    /// A file arrives empty and is not written here: an empty file is one the browser can open,
+    /// preview and edit, so "make a file" and "start typing in it" are two taps rather than one
+    /// dialog that has to guess how much text to carry.
+    case create(path: String, kind: RemoteEntryKind)
+    /// Give something a new name, in the folder it is already in.
+    ///
+    /// A *name*, not a path — that distinction is the whole of why this is not a `move`. A rename
+    /// that took a path could cross folders, which is a different feature with different
+    /// questions, and the one thing a browser row can honestly offer is a new name for the thing
+    /// on it. The two ends both hold ``RemoteFileName/isValid(_:)``, which refuses a slash.
+    case rename(path: String, to: String)
+    /// Remove something, and everything inside it if it is a folder.
+    ///
+    /// Recursive, and the recursion is the caller's decision to make rather than the host's: what
+    /// arrives here has already been through a confirmation that said what it would do. The host
+    /// does not ask again — it cannot, there is nobody at its screen — and it does not second
+    /// guess, because a browser that offers to delete a folder and then refuses one that is not
+    /// empty is a browser whose Delete button means two different things.
+    case delete(path: String)
+}
+
 /// Requests sent by an authenticated client over the control connection.
 public enum TerminalRequest: Codable, Equatable, Sendable {
     case list
@@ -103,6 +176,13 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// the host appends rather than seeks, and the one marked last is where the file is either
     /// replaced or is not.
     case writeChunk(sessionID: UUID, path: String, data: Data, isLast: Bool)
+    /// Something made, renamed or removed, for the file browser.
+    ///
+    /// One request rather than one per operation — see ``RemoteFileOperation`` — and answered in
+    /// one piece rather than in chunks, because none of these carries a file. The answers are
+    /// ``TerminalEvent/fileOperationDone(sessionID:path:note:)`` and
+    /// ``TerminalEvent/fileOperationFailure(sessionID:path:message:)``.
+    case changeFile(sessionID: UUID, operation: RemoteFileOperation)
 }
 
 public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {
@@ -132,9 +212,16 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
     /// long write that input queues behind. `totalBytes` is the size on disk, so a client can say
     /// how much of a long file it is showing — offset plus length is what says it was cut short,
     /// which is why there is no separate flag for it.
+    ///
+    /// `kind` is what the pieces are, and it rides on every one of them rather than only the
+    /// first: the client's buffer is not a preview until it knows whether it is holding text it
+    /// should decode or a picture it should hand to `UIImage`, and the answer has to be there
+    /// before the first chunk is drawn. It is the same value every time, which is the price of a
+    /// reader that can start on any piece.
     case fileContents(
         sessionID: UUID,
         path: String,
+        kind: RemoteFileKind,
         offset: Int,
         totalBytes: Int,
         data: Data,
@@ -160,5 +247,27 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
     /// clears the panel, and the right answer to a save that failed is to leave the editor open on
     /// the text the user still has and say what went wrong beside it.
     case writeFailure(sessionID: UUID, path: String, message: String)
+    /// Something was made, renamed or removed, and it happened.
+    ///
+    /// `path` is the path the *client sent*, echoed back rather than reconstructed, which is the
+    /// same rule ``wroteFile`` follows and for the same reason: a client holding a path it built
+    /// cannot recognise an answer that comes back spelled differently. For a rename that path is
+    /// the old one, because that is the row the client was looking at.
+    ///
+    /// `note` is a finished sentence, written by the machine that did the work. It is the side
+    /// that knows what actually happened — a recursive delete is the clearest case, since only the
+    /// host counted what was inside the folder — and it is the same arrangement
+    /// ``browseFailure`` already has, where the far end composes the prose and the phone shows it.
+    /// The sentence is what goes in the terminal's log, so a rename that quietly worked still
+    /// leaves a line behind saying it did.
+    case fileOperationDone(sessionID: UUID, path: String, note: String)
+    /// A change that did not happen.
+    ///
+    /// Its own event rather than a share of ``browseFailure``, for the reason ``writeFailure``
+    /// gives: that one says a folder could not be read, and this one is about a folder that was
+    /// read perfectly well and then not changed. The difference is what the panel does with it —
+    /// a failed read replaces the list, and a failed rename leaves the list up and puts a sentence
+    /// beside it.
+    case fileOperationFailure(sessionID: UUID, path: String, message: String)
     case failed(sessionID: UUID?, message: String)
 }

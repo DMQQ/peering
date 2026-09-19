@@ -636,6 +636,9 @@ final class SSHModel {
                 filePreview = RemoteFilePreview(
                     terminalID: id,
                     path: contents.path,
+                    // The server's own answer about what it just read, which is the same answer the
+                    // Mac's browser gets over the wire. Nothing here re-derives it from the name.
+                    kind: contents.kind,
                     totalBytes: contents.totalBytes,
                     data: contents.data,
                     isComplete: true,
@@ -688,6 +691,7 @@ final class SSHModel {
                 filePreview = RemoteFilePreview(
                     terminalID: id,
                     path: written.path,
+                    kind: written.kind,
                     totalBytes: written.totalBytes,
                     data: written.data,
                     isComplete: true,
@@ -760,6 +764,73 @@ final class SSHModel {
         }
     }
 
+    // MARK: - Changing the tree
+
+    /// What a change is waiting on, and why the last one did not happen.
+    ///
+    /// Singular where the Mac's are keyed by terminal, and that is the shape of the two screens
+    /// rather than a shortcut: this browser draws one shell at a time and the panel that asks is
+    /// the selected one, so there is no second answer to keep apart from the first.
+    private(set) var isChangingFile = false
+    private(set) var changeFailure: String?
+
+    /// Makes an empty file or a folder in the folder on screen.
+    func createEntry(_ name: String, kind: RemoteEntryKind, in folder: String, sessionID id: UUID) {
+        guard RemoteFileName.isValid(name) else { return }
+        change(.create(path: childPath(name, of: folder), kind: kind), sessionID: id)
+    }
+
+    /// Gives something in the folder on screen a new name.
+    ///
+    /// The path is rebuilt from the folder and the new name rather than sent as a destination: a
+    /// rename names a thing, and a path could name somewhere else. See
+    /// ``RemoteFileOperation/rename(path:to:)``.
+    func renameEntry(_ entry: RemoteDirectoryEntry, to name: String, in folder: String, sessionID id: UUID) {
+        guard RemoteFileName.isValid(name), name != entry.name else { return }
+        change(.rename(path: childPath(entry.name, of: folder), to: name), sessionID: id)
+    }
+
+    /// Removes something in the folder on screen, and everything inside it if it is a folder.
+    ///
+    /// The confirmation that makes this safe is the panel's, which is the one place both browsers
+    /// go through. Nothing here asks again, and nothing here can: this is a `Task` with no view.
+    func deleteEntry(_ entry: RemoteDirectoryEntry, in folder: String, sessionID id: UUID) {
+        change(.delete(path: childPath(entry.name, of: folder)), sessionID: id)
+    }
+
+    /// One change, awaited, with the folder re-listed afterwards either way.
+    ///
+    /// **Refused while one is already in the air**, because there is one flag saying so and two
+    /// operations would share it — the second answer to arrive would clear a wait the first one
+    /// owns, and the controls would go live while something was still running.
+    ///
+    /// The folder is re-asked on success *and* on failure. On success because that is what puts the
+    /// new row on screen or takes the old one off; on failure because nothing here can tell what
+    /// the server's filesystem looks like now — a delete that failed halfway has still changed
+    /// something — and asking again is cheaper to get right than reasoning about it.
+    private func change(_ operation: RemoteFileOperation, sessionID id: UUID) {
+        guard let terminal = terminals.first(where: { $0.id == id }),
+              let folder = browsingPaths[id],
+              !isChangingFile
+        else { return }
+
+        isChangingFile = true
+        changeFailure = nil
+
+        Task { @MainActor in
+            defer { isChangingFile = false }
+            do {
+                _ = try await terminal.session.change(operation)
+            } catch {
+                // The shell this was asked through has gone, so there is nobody left to tell and
+                // nothing left to re-list. The panel's own check for a dead shell is what says so.
+                guard terminals.contains(where: { $0.id == id }) else { return }
+                changeFailure = Self.browseMessage(error)
+            }
+            listDirectory(folder, sessionID: id)
+        }
+    }
+
     func directory(_ path: String?, sessionID id: UUID) -> RemoteDirectory? {
         directories[RemoteDirectoryKey(terminalID: id, path: path)]
     }
@@ -788,6 +859,11 @@ final class SSHModel {
         browseFailures = browseFailures.filter { $0.key.terminalID != id }
         browsingPaths.removeValue(forKey: id)
         if filePreview?.terminalID == id { filePreview = nil }
+        // A change in the air through a shell that has gone is a change that cannot be finished,
+        // and `isChangingFile` is what disables the panel's controls — left set, the browser would
+        // come back with a New Folder button that refuses to do anything.
+        isChangingFile = false
+        changeFailure = nil
     }
 
     /// The sentence under a browse that did not work.

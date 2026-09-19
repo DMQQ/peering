@@ -377,6 +377,19 @@ struct SSHTerminalScreen: View {
         model.browsingPath(for: terminal.id)
     }
 
+    /// Where something would be made, renamed or deleted. Only meaningful when ``canMake``.
+    ///
+    /// The empty string is unreachable rather than a fallback: ``canMake`` is false whenever this
+    /// is `nil`, and every closure that reads it is `nil` at the same time.
+    private var folder: String { browsingPath ?? "" }
+
+    /// Whether this browser can change anything on the server.
+    ///
+    /// Both halves are needed. The shell has to be live, because every change is a request through
+    /// it; and the folder has to have resolved, because a change names a path and the path is the
+    /// one thing this screen does not have until the server has said where the browser is.
+    private var canMake: Bool { canType && browsingPath != nil }
+
     /// The browser, or the file it is showing, in the terminal's place.
     ///
     /// **In place of, never over**, which is the Mac panel's rule and a stronger one here: the log
@@ -426,7 +439,32 @@ struct SSHTerminalScreen: View {
                     // upload button that opens a picker and then fails is worse than no button.
                     onUpload: canType
                         ? { model.uploadFile($0, sessionID: terminal.id) }
-                        : nil
+                        : nil,
+                    // And absent for the same reason: a run types a command into the shell, so a
+                    // shell that has ended is one with nothing to type into.
+                    onRun: canType ? { run($0) } : nil,
+                    // An SFTP server has no Trash, so this is the one place the two browsers differ
+                    // in what the same word means. Said plainly, because a user who has learned
+                    // that Delete on their Mac is recoverable would otherwise bring that
+                    // expectation to a server where it is not.
+                    deleteHint: "This cannot be undone on the server.",
+                    // The three changes, absent together and for two reasons rather than one. A
+                    // session that has ended answers none of them, and a folder that has not
+                    // resolved yet is not a place to make anything in — `.` would be wherever the
+                    // server happened to start the shell rather than the folder on screen, which is
+                    // the one thing this browser never guesses at. The panel draws no rows until
+                    // the path arrives, so this is a window nobody can act in.
+                    onCreate: canMake
+                        ? { model.createEntry($0, kind: $1, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    onRename: canMake
+                        ? { model.renameEntry($0, to: $1, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    onDelete: canMake
+                        ? { model.deleteEntry($0, in: folder, sessionID: terminal.id) }
+                        : nil,
+                    isChanging: model.isChangingFile,
+                    changeFailure: model.changeFailure
                 )
             }
             browseControls
@@ -479,6 +517,22 @@ struct SSHTerminalScreen: View {
         } else {
             model.previewFile(path, sessionID: terminal.id)
         }
+    }
+
+    /// Runs an executable file, in the shell this session already has.
+    ///
+    /// **In the current shell rather than a new one, and that is a limit rather than a choice.**
+    /// An SSH session here is one connection with one shell on it — the Mac's browser can open a
+    /// tab because the Mac host can open another login shell, and there is no second one to open
+    /// on the far end of this. So the command goes where a `cd` already goes, through the same
+    /// door ``navigate(to:)`` uses, and the shell's own history is what holds the receipt.
+    ///
+    /// The confirmation has already happened: the panel holds it, so neither browser can be the
+    /// one that forgot it.
+    private func run(_ entry: RemoteDirectoryEntry) {
+        let path = childPath(entry.name, of: browsingPath)
+        model.send(Data((ShellPath.runCommand(for: path) + "\r").utf8), to: terminal)
+        withAnimation(Motion.tap) { isBrowsing = false }
     }
 
     /// Goes into a folder: the browser shows it, and the shell changes directory to it.

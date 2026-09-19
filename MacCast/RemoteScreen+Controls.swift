@@ -259,8 +259,16 @@ extension RemoteScreen {
     /// Worked out here rather than measured inside the panel: measuring it there made the number
     /// depend on the thing being sized, which is how the desktop tiles came out the same size as
     /// before the change that was supposed to grow them.
+    /// The width the panels' contents are laid out in.
+    ///
+    /// **The panel's own insets, taken off the width it is given** — and it is the whole of them,
+    /// which is the correction. This used to subtract a flat 20, which is only the padding inside
+    /// the glass card; the margin outside it was never accounted for. Nothing noticed while every
+    /// panel that used this scrolled or sized its own contents flexibly, because an overestimate
+    /// is absorbed by a view that can grow. The desktops grid cannot, and hung its second column
+    /// off the edge of the screen.
     func panelContentWidth(_ available: CGSize) -> CGFloat {
-        max(min(Self.panelWidth, available.width) - 20, 0)
+        max(min(Self.panelWidth, available.width) - DesktopsPanel.horizontalInset, 0)
     }
 
     /// The status pill, which is the one thing a panel must not be drawn over the top of.

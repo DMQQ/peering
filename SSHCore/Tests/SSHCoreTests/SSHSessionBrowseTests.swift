@@ -65,6 +65,47 @@ struct SSHSessionBrowseTests {
         }
     }
 
+    /// The three changes, and they are tested one at a time rather than as one because a hang in
+    /// any of them looks different from here. A listing that hangs is a spinner; a **delete** that
+    /// hangs is a file the user has been told nothing about and believes is gone, which is the
+    /// worst thing this whole module could do quietly.
+    @Test("a delete with nothing attached comes back rather than waiting")
+    func deleteRefused() async {
+        let error = await refusal {
+            _ = try await self.orphan().change(.delete(path: "/home/someone/notes.txt"))
+        }
+        guard case .notConnected = error else {
+            Issue.record("expected notConnected, got \(String(describing: error))")
+            return
+        }
+    }
+
+    @Test("and so does a rename")
+    func renameRefused() async {
+        let error = await refusal {
+            _ = try await self.orphan().change(
+                .rename(path: "/home/someone/notes.txt", to: "meeting notes.txt")
+            )
+        }
+        guard case .notConnected = error else {
+            Issue.record("expected notConnected, got \(String(describing: error))")
+            return
+        }
+    }
+
+    @Test("and a creation")
+    func createRefused() async {
+        let error = await refusal {
+            _ = try await self.orphan().change(
+                .create(path: "/home/someone/New Folder", kind: .folder)
+            )
+        }
+        guard case .notConnected = error else {
+            Issue.record("expected notConnected, got \(String(describing: error))")
+            return
+        }
+    }
+
     /// The fact an editor's safety rests on, and the one thing about a read that can be checked
     /// without a server: whether the bytes in hand are the whole file. A file whose read was cut
     /// short is not editable and not downloadable, and both of those refusals are decided here.
