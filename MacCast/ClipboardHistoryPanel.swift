@@ -94,6 +94,7 @@ struct ClipboardHistoryPanel: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Send to Mac", systemImage: "arrow.up.doc") { model.pushToMac(entry) }
+                .menuInk()
             Button("Delete", systemImage: "trash", role: .destructive) {
                 model.removeClipboardEntry(entry.id)
             }

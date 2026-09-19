@@ -393,6 +393,7 @@ struct TerminalPanel: View {
         // to announce it.
         .contextMenu {
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(terminal) }
+                .menuInk()
             Button("Close", systemImage: "xmark", role: .destructive) { requestClose(terminal) }
         }
     }

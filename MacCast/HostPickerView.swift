@@ -642,11 +642,10 @@ private struct HomeTab: View {
                             .multilineTextAlignment(.leading)
                     }
 
+                    // The spacer stays and the chevron that followed it does not: the row still has
+                    // to reach the far edge for its tap target, and the pairing sheet it opens is
+                    // something you come back from rather than somewhere the row leads.
                     Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 9)
@@ -784,12 +783,12 @@ private struct HomeTab: View {
 
                     Spacer(minLength: 8)
 
+                    // No chevron, and the row is where one used to be. Tapping this *connects*,
+                    // which is an action rather than a place, so a chevron was a claim the row did
+                    // not keep. It also sat beside the ellipsis menu, which made two trailing
+                    // glyphs of which only one was a control.
                     if model.isWaitingForHost {
                         ProgressView().controlSize(.mini)
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
                     }
                 }
                 .contentShape(Rectangle())
@@ -840,6 +839,7 @@ private struct HomeTab: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(RailButtonStyle())
+            .menuInk()
             .accessibilityLabel("More connection options")
         }
         .padding(.horizontal, 10)
@@ -888,16 +888,16 @@ private struct HomeTab: View {
             // number. "v12" beside a Mac that will not connect is a puzzle: the number means
             // nothing on its own, and the row is already dimmed, so what is left to say is what
             // to do. The number is still in the diagnostics, to whoever has to be told it.
+            // The chevron that used to sit in the `else` here is gone. Tapping a discovered Mac
+            // connects to it, so the row leads nowhere a chevron could honestly point at, and the
+            // branch it lived in made the badge and the arrow two states of one slot rather than
+            // one fact and one affordance.
             if let version = host.protocolVersion, version != ProtocolInfo.version {
                 Text("UPDATE")
                     .font(.caption2.weight(.semibold))
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     .background(ColorPalette.selectedFill, in: Capsule())
-            } else {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 10)
@@ -1199,9 +1199,6 @@ private struct ActivityTab: View {
                     // text on this card that changes on its own, and the moment it stops being
                     // comfortable it should be the thing the eye lands on.
                     .foregroundStyle(relayAllowanceIsLow ? ColorPalette.caution : .secondary)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
             }
 
             GeometryReader { geo in
@@ -1353,7 +1350,10 @@ private struct ActivityTab: View {
                     symbol: "macbook",
                     name: session.hostName,
                     detail: "\(session.path.rawValue) · \(durationLabel(session.duration)) · \(bytesLabel(session.videoBytesReceived))",
-                    startedAt: session.startedAt
+                    startedAt: session.startedAt,
+                    // The one of the three that leads somewhere: this is a NavigationLink, so the
+                    // chevron is a promise the row keeps.
+                    navigates: true
                 )
             }
             .buttonStyle(.plain)
@@ -1397,11 +1397,21 @@ private struct ActivityTab: View {
         return "\(durationLabel(record.duration)) · Connected"
     }
 
+    /// One line of a session. Not always a row that leads anywhere, which is the whole of why it
+    /// takes a parameter for the chevron.
+    ///
+    /// **This one row is three different things.** A Mac session pushes to its detail; a server
+    /// shell is *opened*, which is an action rather than a destination; and a server that has since
+    /// been removed does nothing at all and is not even a button. Drawn with a chevron
+    /// unconditionally, it promised "there is somewhere further on" on all three, and kept that
+    /// promise on one. A chevron is a claim about what a tap does, so it is decided by what the tap
+    /// does rather than by which list the row is in.
     private func recentRow(
         symbol: String,
         name: String,
         detail: String,
-        startedAt: Date
+        startedAt: Date,
+        navigates: Bool = false
     ) -> some View {
         HStack(spacing: 12) {
             IconTile(symbol: symbol)
@@ -1422,9 +1432,11 @@ private struct ActivityTab: View {
                 Text(RelativeDateTimeFormatter().localizedString(for: startedAt, relativeTo: Date()))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                if navigates {
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(.horizontal, 10)

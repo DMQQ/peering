@@ -459,6 +459,92 @@ final class MacCastTests: XCTestCase {
         ))
     }
 
+    // MARK: - The scroll wheel
+
+    // The wheel's whole claim to being more precise than the slider it replaced is that a notch is
+    // a fixed amount of finger travel and a fixed amount of document, so that "one line" is
+    // something a user can ask for by name. These pin that claim, and the two ways it could stop
+    // being true without anything looking wrong: travel lost when a drag turns round, and a wheel
+    // that comes to rest between notches and swallows the next tap on an arrow.
+
+    func testANotchIsAFixedAmountOfTravelAndOfDocument() {
+        var wheel = ScrollWheelState()
+
+        // Twelve points of finger travel is one notch in one sample, and one notch in twelve: the
+        // quantum is what was asked for, not a sum of however the drag happened to arrive.
+        XCTAssertEqual(wheel.roll(points: ScrollNotch.travel), 1)
+        for _ in 0..<11 { XCTAssertEqual(wheel.roll(points: 1), 0) }
+        XCTAssertEqual(wheel.delivered, 1)
+        XCTAssertEqual(wheel.roll(points: 1), 1)
+        XCTAssertEqual(wheel.delivered, 2)
+
+        // Twenty-four pixels a notch, which is about a line of the Mac's text.
+        XCTAssertEqual(ScrollNotch.pixels, 24)
+
+        // The rim runs ahead of the Mac by the part of a notch that has not been sent: that is
+        // what lets it turn smoothly under the finger while the Mac gets whole lines.
+        XCTAssertEqual(wheel.roll(points: 6), 0)
+        XCTAssertEqual(wheel.phase, 2.5, accuracy: 0.0001)
+        XCTAssertEqual(wheel.delivered, 2)
+    }
+
+    func testADragThatTurnsRoundTakesTheNotchesBack() {
+        var wheel = ScrollWheelState()
+
+        XCTAssertEqual(wheel.roll(points: 6), 0)
+        XCTAssertEqual(wheel.roll(points: -6), 0)
+        XCTAssertEqual(wheel.phase, 0, accuracy: 0.0001)
+        XCTAssertEqual(wheel.delivered, 0)
+
+        // Past a notch and back: the wheel is where it was and the Mac was never told anything.
+        XCTAssertEqual(wheel.roll(points: ScrollNotch.travel + 3), 1)
+        XCTAssertEqual(wheel.roll(points: -ScrollNotch.travel - 3), -1)
+        XCTAssertEqual(wheel.delivered, 0)
+    }
+
+    func testTheWheelSeatsItselfSoAnArrowAlwaysDeliversANotch() {
+        var wheel = ScrollWheelState()
+
+        // Let go most of the way into a notch, and the spring finishes it — forward, because it
+        // was pushed past halfway. At most half a notch of scroll either way, which is the price
+        // of the wheel always resting somewhere a whole notch is.
+        XCTAssertEqual(wheel.roll(points: ScrollNotch.travel / 2 + 1), 0)
+        XCTAssertEqual(wheel.seat(), 1)
+        XCTAssertEqual(wheel.phase, 1, accuracy: 0.0001)
+
+        // And short of halfway, it springs back rather than delivering a line the hand did not
+        // finish asking for.
+        XCTAssertEqual(wheel.roll(points: ScrollNotch.travel / 2 - 1), 0)
+        XCTAssertEqual(wheel.seat(), 0)
+        XCTAssertEqual(wheel.phase, 1, accuracy: 0.0001)
+
+        // Seated, so an arrow is exactly one notch — the finest step the control has, and the one
+        // that needs no aim.
+        XCTAssertEqual(wheel.roll(notches: -1), -1)
+        XCTAssertEqual(wheel.delivered, 0)
+    }
+
+    func testAFlickCarriesAPageAndThenStops() {
+        // A hard flick is capped rather than taken at its word: a phone flick is easily a thousand
+        // points a second, and at twelve points to the notch that is eighty notches before any
+        // coasting even starts.
+        let launch = WheelSpin.launch(pointsPerSecond: 5_000)
+        XCTAssertEqual(launch, WheelSpin.launchLimit)
+
+        // At the cap the coast is worth about a page — forty-one notches at twenty-four pixels is
+        // nine hundred and ninety-five — and it ends, which is the whole reason the stalling rate
+        // and the decay are the pair they are: the rate at the end of the duration *is* the
+        // stalling rate.
+        XCTAssertEqual(WheelSpin.travel(launch) * ScrollNotch.pixels, 995, accuracy: 15)
+        XCTAssertEqual(WheelSpin.rate(launch, after: WheelSpin.duration(launch)), WheelSpin.stalling, accuracy: 0.001)
+
+        // A gentle drag does not coast at all: the wheel has to be turning to keep turning, which
+        // is what stops a careful scroll from ending in an unasked-for lurch.
+        let slow = WheelSpin.launch(pointsPerSecond: 10)
+        XCTAssertEqual(slow, 10 / ScrollNotch.travel, accuracy: 0.0001)
+        XCTAssertEqual(WheelSpin.duration(slow), 0)
+    }
+
     // MARK: - Session awareness
 
     // A banner is a claim the user cannot check against anything, made at a moment they are

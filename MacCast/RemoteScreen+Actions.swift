@@ -9,17 +9,26 @@ import UIKit
 /// one file of two thousand lines. Members are `internal` here because Swift's
 /// `private` is file-scoped — see the note in `RemoteScreen`.
 extension RemoteScreen {
-    func sendScroll(dy: CGFloat) {
-        model.send(.scroll(dx: 0, dy: Double(dy)))
+    /// Sends a wheel delta, in the unit the host builds its event in: pixels of scroll, signed the
+    /// way a wheel rolled towards the user reads, so positive scrolls down.
+    ///
+    /// The only figure in the app that produces one is ``ScrollNotch/pixels``, which is why the
+    /// wheel hands over notches and this multiplies: the control counts detents and knows nothing
+    /// about pixels, and the one place that knows how big a detent is is the one place that
+    /// crosses to the wire.
+    func sendScroll(dy: Double) {
+        model.send(.scroll(dx: 0, dy: dy))
     }
 
     /// What the wheel does, which is the mode's business rather than the wheel's.
     ///
     /// In control it scrolls the Mac. In observe it zooms the picture, because input is blocked.
-    func wheelScroll(dy: CGFloat) {
+    /// Either way it is handed whole notches and converts them here, so that the two meanings of
+    /// the same control cannot disagree about how much a notch is.
+    func wheelNotch(_ notches: Int) {
         switch interactionMode {
-        case .control: sendScroll(dy: dy)
-        case .observe: zoomByWheel(dy)
+        case .control: sendScroll(dy: Double(notches) * ScrollNotch.pixels)
+        case .observe: zoomByNotch(notches)
         }
     }
 
@@ -44,20 +53,23 @@ extension RemoteScreen {
     /// How far one pixel of wheel travel moves the zoom.
     ///
     /// Multiplicative, because zoom is: a fixed step is an enormous change at 1× and invisible at
-    /// 6×, and a finger on the wheel has no idea which end of the range it is at. A full drag of
-    /// the track works out at roughly six times either way — enough to be worth the space, not so
-    /// much that it overshoots what the user aimed at.
+    /// 6×, and a finger on the wheel has no idea which end of the range it is at.
+    ///
+    /// The wheel arrives here as notches, which are turned into their pixel value on the way in, so
+    /// one notch is a step of about six per cent — and the arrows above and below the wheel are
+    /// exactly one of them. That is the same bargain the scrolling side strikes: a step the user
+    /// can ask for by name rather than however far a drag happened to travel.
     static let zoomPerPixel: CGFloat = 1.0 / 400
 
-    /// Resizes the picture by a wheel drag. Up is closer, which is the way the two-finger pinch
-    /// already goes.
+    /// Resizes the picture by whole wheel notches. Up is closer, which is the way the two-finger
+    /// pinch already goes.
     ///
     /// Zooming back out past the fit drops the pan, exactly as the pinch does: the pan limits
     /// shrink with the picture, so at 1× every offset is already out of bounds and holding one
     /// would leave the picture pinned off-centre for no reason the user can see.
-    func zoomByWheel(_ pixels: CGFloat) {
-        let before = zoom
-        zoom = min(max(zoom * exp(-pixels * Self.zoomPerPixel), minimumZoom), maximumZoom)
+    func zoomByNotch(_ notches: Int) {
+        let step = Double(notches) * ScrollNotch.pixels * Double(Self.zoomPerPixel)
+        zoom = min(max(zoom * exp(-step), minimumZoom), maximumZoom)
         // Re-clamped, not reset — see `onZoom`. The wheel is a finer control than a pinch and
         // makes the snap at the end of a zoom-out easier to produce, not harder.
         pan = clampedPan(pan)

@@ -489,14 +489,219 @@ struct ControlRail<Content: View>: View {
     }
 }
 
-/// A track you drag to scroll the Mac.
+/// What a notch of the wheel is worth, in the two units that have to agree.
 ///
-/// The two-finger gesture is the shortcut, but it takes the second hand off the phone and cannot
-/// be done one-handed at all — which is how a phone is usually held. This is the same action as
-/// something the thumb already holding the device can reach.
+/// The wheel is a *notched* control, and that is the whole of the redesign. A mouse wheel does not
+/// report how far a finger moved; it reports whole detents, and a detent is a fixed amount of
+/// document. Everything here is one of those fixed amounts.
+///
+/// - ``travel`` is how far a finger moves to earn one notch.
+/// - ``pixelsPerPoint`` is this screen's one scale from a finger's travel to the Mac's content.
+///   Shared deliberately: the two-finger drag on the picture already moved content at two pixels
+///   to the point, and the wheel now agrees with it, so two controls cannot disagree about what a
+///   centimetre of thumb is worth. The wheel used to have a scale of its own — six pixels to the
+///   point, three times this — and a scale nobody else used is half of what "imprecise" meant: a
+///   thumb's smallest deliberate movement is a point or two, which at six times was twelve pixels
+///   of document, too coarse to land on a line and too small to feel as a step.
+/// - ``pixels`` is their product, in the unit the host's wheel event is built in (`units: .pixel`).
+///   Derived rather than written down, so the three cannot drift apart.
+///
+/// Twenty-four pixels is about a line of text — a line of a document is twenty-odd points, a row
+/// of a terminal fifteen — and that is the reason for the number: one notch is one line, the
+/// smallest amount of scrolling that means anything on a desktop and the largest that is still a
+/// *small* amount.
+enum ScrollNotch {
+    /// Points of finger travel for one notch.
+    ///
+    /// Twelve: about a thumb tip's width, and a tenth of the panel. Far enough to be a movement
+    /// the hand made on purpose rather than a tremor, close enough that the notch arrives while
+    /// the wheel is still being rolled rather than after it has been let go.
+    static let travel: Double = 12
+
+    /// Pixels of the Mac's content for a point of finger travel.
+    ///
+    /// Two rather than one, which is where the two-finger drag started: at one, a point of finger
+    /// travel moves a single pixel and scrolling a page takes several swipes. The wheel borrows
+    /// the figure rather than keeping one of its own; a second scale is what it had before.
+    static let pixelsPerPoint: Double = 2
+
+    /// Pixels of the Mac's content for one notch — what the host is told to scroll.
+    static var pixels: Double { travel * pixelsPerPoint }
+}
+
+/// The wheel's own state: how far it has turned, and how much of that has been sent.
+///
+/// A type rather than a pair of `@State` properties in the view, because this arithmetic is the
+/// whole of what makes the control precise — travel in, whole notches out, with the part of a
+/// notch that is not one yet carried over to the next sample — and it is the one part of the wheel
+/// that can be checked without a phone in a hand. `MacCastTests` does.
+struct ScrollWheelState {
+    /// Travel that has not earned a notch yet, in points.
+    ///
+    /// The one piece of state here, and it is kept in points rather than in notches on purpose.
+    /// Dividing each sample by the notch and adding the fractions loses travel to rounding at
+    /// exactly the moment it matters: eleven points and then one point is not twelve points in
+    /// binary floating point, and a wheel that had been pushed a whole notch would sit a ten-
+    /// billionth of a point short of delivering it. Subtracting whole notches from the travel
+    /// itself cannot do that — eleven and one are both exact, and their sum is twelve.
+    ///
+    /// Always within one notch of zero in either direction, because ``roll(points:)`` settles it.
+    private var carry: Double = 0
+
+    /// Notches already handed over, so that the same one is not counted twice.
+    private(set) var delivered: Int = 0
+
+    /// How far the wheel has turned, in notches, for the rim to draw.
+    ///
+    /// Continuous, so the rim turns smoothly under the finger: a wheel that has turned half a
+    /// notch is half a notch along and is drawn there. The Mac is never sent the half — and this
+    /// being *derived* rather than tracked is what guarantees that, because there is no second
+    /// number here that could disagree with the first about where the wheel is.
+    var phase: Double { Double(delivered) + carry / ScrollNotch.travel }
+
+    /// Turns the wheel by a finger's travel, in points, and returns the whole notches that earned.
+    ///
+    /// Usually zero. Most samples of a drag are part of the notch being rolled rather than a notch
+    /// of their own, which is exactly the difference between this and the slider: that one sent
+    /// every sample it was given, so the amount scrolled was however far the hand happened to go.
+    mutating func roll(points: Double) -> Int {
+        carry += points
+        var whole = 0
+        // Loops rather than a division, because a sample can be worth several notches — a fast
+        // flick covers thirty points between two frames — and because subtracting the notch is
+        // exact where dividing by it is not.
+        while carry >= ScrollNotch.travel {
+            carry -= ScrollNotch.travel
+            whole += 1
+        }
+        while carry <= -ScrollNotch.travel {
+            carry += ScrollNotch.travel
+            whole -= 1
+        }
+        guard whole != 0 else { return 0 }
+        delivered += whole
+        return whole
+    }
+
+    /// Turns the wheel by whole notches, or by the fraction of one a coasting wheel covered in an
+    /// interval.
+    mutating func roll(notches: Double) -> Int {
+        roll(points: notches * ScrollNotch.travel)
+    }
+
+    /// Seats the wheel in the nearest notch, returning the whole notches that moves it by.
+    ///
+    /// The detent spring. A wheel at rest is always *in* a detent — the spring in a real one sees
+    /// to that, pulling it back if it was pushed less than halfway and forward if it was pushed
+    /// more — and this is that spring, run when the finger leaves. It costs at most half a notch
+    /// of scroll, in either direction, and it buys the thing the whole control depends on: after
+    /// every gesture the wheel is a whole number of notches from where it started, so the arrows
+    /// above and below always deliver exactly one, and can never be swallowed by a wheel that
+    /// happened to be resting between notches.
+    mutating func seat() -> Int {
+        let half = ScrollNotch.travel / 2
+        let whole = carry > half ? delivered + 1 : (carry < -half ? delivered - 1 : delivered)
+        carry = 0
+        let moved = whole - delivered
+        delivered = whole
+        return moved
+    }
+}
+
+/// What a wheel does after the finger lets go of it.
+///
+/// A wheel that has been spun keeps turning, and this is the shape of that: a rate that decays
+/// exponentially, so a flick covers distance and then comes to rest. The two alternatives are both
+/// wrong for this control. Stopping dead is what the slider did, and it is why a thumb-sized
+/// control could not move a long way. Running on is a document that has gone somewhere nobody sent
+/// it — which is why the decay is calibrated rather than merely slowed, and why a touch on the
+/// wheel catches it.
+enum WheelSpin {
+    /// The fastest a flick can launch the wheel, in notches per second.
+    ///
+    /// A phone flick is a violent thing — a thousand points a second is ordinary, and at twelve
+    /// points to a notch that is eighty notches a second — so the cap is for the flick that is not
+    /// ordinary. Without it the first fifth of a second would carry a whole document past the
+    /// user. At the cap the wheel turns two notches a frame, which is as much as the eye follows.
+    static let launchLimit: Double = 120
+
+    /// Seconds for the rate to fall to 1/e of what it was.
+    ///
+    /// A wheel's friction is close enough to exponential, and this is the figure that makes a coast
+    /// read as a wheel rather than as a scroll view: short enough that the document stops around
+    /// where the eye expects, long enough that a flick is worth making.
+    static let decay: Double = 0.35
+
+    /// The rate, in notches per second, below which the wheel is treated as stopped.
+    ///
+    /// A wheel creeping to a halt over half a minute is not a wheel, and the last notches of that
+    /// creep are ones nobody asked for. It is also what bounds the coast: an exponential tail is
+    /// infinite, and a wheel still turning while the user has moved on to something else would be
+    /// scrolling a window nobody is looking at.
+    static let stalling: Double = 1.5
+
+    /// The rate a flick launches the wheel at, from the speed of the finger as it left.
+    static func launch(pointsPerSecond speed: Double) -> Double {
+        min(speed / ScrollNotch.travel, launchLimit)
+    }
+
+    /// The rate a coasting wheel is turning at, `seconds` after the finger left it.
+    static func rate(_ launch: Double, after seconds: Double) -> Double {
+        launch * exp(-seconds / decay)
+    }
+
+    /// How long a flick keeps the wheel turning, in seconds.
+    static func duration(_ launch: Double) -> Double {
+        guard launch > stalling else { return 0 }
+        return decay * log(launch / stalling)
+    }
+
+    /// How far a flick carries, in notches, if it is not caught.
+    ///
+    /// The integral of ``rate(_:after:)`` over ``duration(_:)``, and the figure is worth knowing:
+    /// about forty notches at the cap, which at a line to a notch is a page. That is what a flick
+    /// is *for* — the two-finger drag is still the faster way across a document, and this is the
+    /// way to move a screenful without leaving the corner the thumb is already in.
+    static func travel(_ launch: Double) -> Double {
+        guard launch > stalling else { return 0 }
+        return decay * (launch - stalling)
+    }
+}
+
+/// A wheel you roll with a thumb.
+///
+/// It was a slider before — a track with a knob that followed the drag and sprang back to the
+/// middle when it was let go — and that shape was the imprecision, in three separate ways.
+///
+/// It asked the user to *position* something, and a position only means anything against a range.
+/// This control has no range: it does not know where the Mac's document is or how long it is, so
+/// the knob reported the drag rather than the scroll, and where it came to rest said nothing about
+/// what had happened on the other machine.
+///
+/// It sent a raw fraction of the finger's movement, six pixels to the point, so the amount scrolled
+/// was whatever the hand produced — a shaky drag scrolled further than a steady one — and there
+/// was no way to ask for one line, because a line was under two points of travel.
+///
+/// And it had no steps. Nothing in the feel of it said "that was one notch", so there was nothing
+/// to count, nothing to aim with, and no way to tell a small scroll that had happened from a small
+/// scroll that had not.
+///
+/// A wheel answers all three with the one thing a slider cannot have, which is a detent. A notch
+/// here is a fixed amount of finger travel (``ScrollNotch/travel``) and a fixed amount of document
+/// (``ScrollNotch/pixels``); it is felt as a tap in the hand, seen as one ridge passing the mark,
+/// and it can be counted. A drag is a number of notches rather than a distance. A flick keeps the
+/// wheel turning for a distance that is known in advance, and a touch catches it. The arrows above
+/// and below roll exactly one notch each, which is the finest step the control has and needs no aim
+/// at all — the thumb does not have to find the wheel to be precise with the Mac.
+///
+/// The two-finger gesture is still the shortcut, and still the only smooth one: it takes the second
+/// hand off the phone and cannot be done one-handed at all, which is how a phone is usually held,
+/// but it is a trackpad and this is a wheel, and a wheel is notched because that is what makes it
+/// countable. Both live on the same screen and either is right for what it is.
 struct ScrollWheelView: View {
-    /// Pixels to scroll, signed the way a two-finger drag is: positive is downward.
-    var onScroll: (CGFloat) -> Void
+    /// Whole notches, signed the way a wheel rolled towards the user reads: positive scrolls down,
+    /// which is the direction the two-finger drag on the picture already reports.
+    var onNotch: (Int) -> Void
 
     /// What this wheel does at the moment — scrolling the Mac or resizing the picture. Only ever
     /// spoken, and only because the same control means two different things depending on the mode
@@ -507,94 +712,75 @@ struct ScrollWheelView: View {
     /// Where this control's value sits, 0 at the bottom of the track and 1 at the top.
     ///
     /// Nil when the wheel has no value to show — scrolling the Mac has no position to report, so
-    /// the knob tracks the drag and springs back. Set, it becomes a gauge and the knob is replaced
-    /// by a fill up to this point.
+    /// the rim turns instead and the Mac is told about notches. Set, the control becomes a gauge
+    /// and the rim is replaced by a fill up to this point.
     var position: CGFloat?
 
-    /// A point of finger travel is several pixels of scroll. The track is short and has to cover
-    /// a whole page, so one-to-one would feel stuck.
-    private static let pixelsPerPoint: CGFloat = 6
-    /// How far the knob may travel from the centre while being dragged.
-    private static let knobTravel: CGFloat = 18
+    /// Points between one ridge and the next on the rim.
+    ///
+    /// One ridge to a notch, deliberately: the rim *is* the count. Someone who has watched three
+    /// ridges go past the mark has scrolled three lines and can say so without looking away from
+    /// the Mac to check.
+    private static let ridgeSpacing: CGFloat = 9
 
-    @State private var isDragging = false
-    @State private var lastOffset: CGFloat?
-    @State private var knob: CGFloat = 0
+    /// The width of the rim itself.
+    ///
+    /// Wider than the ten-point track it replaces, because it is now the whole of what the control
+    /// looks like rather than a groove for a knob to slide in.
+    private static let rimWidth: CGFloat = 14
+
+    /// How often a coasting wheel is advanced. Sixty times a second, like everything else here.
+    private static let spinHz: TimeInterval = 1.0 / 60
+
+    /// The shortest gap between two detents while the wheel is coasting. See ``detent(spinning:)``.
+    private static let detentInterval: TimeInterval = 0.05
+
+    /// How much of each sample's velocity is taken into the running estimate.
+    ///
+    /// The speed of the finger as it leaves is what launches the wheel, and one sample of a drag is
+    /// a noisy way to measure it: a single long frame reads as a fast flick. A third of each new
+    /// sample gives an estimate with a time constant of about fifty milliseconds — longer than a
+    /// frame, shorter than a flick. It errs low if anything, because a finger still accelerating as
+    /// it lifts gets only part of its true speed, and erring low costs a shorter coast, which is
+    /// the direction to be wrong in.
+    private static let velocitySmoothing: Double = 0.35
+
+    /// A gap longer than this between two samples is a stopped finger, not a slow one.
+    ///
+    /// No samples arrive while a finger rests, so a drag that ended in a pause would otherwise
+    /// carry the speed it had before the pause into the coast: flick, hold still, lift, and the
+    /// Mac runs on without the hand having asked for it. A finger that stopped meant to stop.
+    private static let restGap: TimeInterval = 0.06
+
+    @State private var wheel = ScrollWheelState()
+    /// The last position sampled, in the panel's coordinates. Nil between gestures, which is how
+    /// the first sample of a drag is told apart from the rest: it has a position but no travel.
+    @State private var lastY: CGFloat?
+    @State private var lastSampleAt: Date?
+    @State private var velocity: Double = 0
+    @State private var spinTask: Task<Void, Never>?
+    @State private var lastDetentAt: Date?
+    /// Incremented once per detent, and the trigger the haptic hangs off.
+    ///
+    /// A counter of its own rather than the notch count, because it is the *feedback* being
+    /// counted: a coast fires many detents for the notches of a single roll call, and a haptic
+    /// modifier keyed to `delivered` would have to be told which of them deserved one.
+    @State private var detents = 0
+
+    /// Whether this control is a wheel or a gauge, which is exactly whether it has a value to
+    /// report — ``position``.
+    ///
+    /// Nothing else is asked and nothing else needs to be. A control that shows a position must
+    /// not coast, because it would run on past its own end while the picture it describes stopped
+    /// moving, and it must not be spoken about in notches, because a notch is not what it is
+    /// showing. One flag, two consequences, both true by construction.
+    private var isGauge: Bool { position != nil }
 
     var body: some View {
         VStack(spacing: ChromeMetrics.buttonGap) {
-            chevron("chevron.up", step: -90)
-
-            ZStack {
-                GeometryReader { proxy in
-                    ZStack(alignment: .bottom) {
-                        Capsule()
-                            .fill(.white.opacity(0.12))
-                            .frame(width: 10)
-
-                        if let position {
-                            // A gauge, not a knob. In observe this control has a *value* to
-                            // report — how much of the zoom range lies below and how much above —
-                            // and a handle that springs back to the middle reports nothing at
-                            // all, which is exactly what made it confusing. A fill rising from
-                            // the bottom is the one shape that reads as "this much, out of that
-                            // much" without having to be learned.
-                            Capsule()
-                                .fill(ColorPalette.accent)
-                                .frame(width: 10, height: max(10, proxy.size.height * position))
-                                .animation(Motion.tap, value: position)
-                        } else {
-                            // The knob tracks the *drag*, not a scroll position. This control has
-                            // no idea where the Mac's document is, and a knob that claimed to
-                            // would start lying the moment anything else — a trackpad, an app, a
-                            // page load — moved it.
-                            Capsule()
-                                .fill(.white.opacity(isDragging ? 0.95 : 0.55))
-                                .frame(width: 10, height: 34)
-                                .offset(y: knob)
-                                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: knob)
-                        }
-                    }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // The whole panel is the drag target, not just the track. A 10pt-wide strip is not
-            // something a thumb can reliably find while holding a phone one-handed.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let y = value.location.y
-                        defer { lastOffset = y }
-                        guard let previous = lastOffset else {
-                            isDragging = true
-                            return
-                        }
-                        let delta = y - previous
-                        guard delta != 0 else { return }
-                        isDragging = true
-                        knob = min(max(knob + delta, -Self.knobTravel), Self.knobTravel)
-                        onScroll(delta * Self.pixelsPerPoint)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                        lastOffset = nil
-                        knob = 0
-                    }
-            )
-            .accessibilityLabel(label)
-            .accessibilityHint("Drag up or down")
-            .accessibilityAdjustableAction { direction in
-                switch direction {
-                case .increment: onScroll(-120)
-                case .decrement: onScroll(120)
-                @unknown default: break
-                }
-            }
-
-            chevron("chevron.down", step: 90)
+            chevron("chevron.up", notch: -1)
+            rim
+            chevron("chevron.down", notch: 1)
         }
         .padding(.vertical, ChromeMetrics.panelPadding)
         .frame(width: ChromeMetrics.panelWidth, height: ChromeMetrics.wheelHeight)
@@ -602,15 +788,263 @@ struct ScrollWheelView: View {
             .regular,
             in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
         )
+        // The detent, which is the whole of what a wheel has that a slider does not: a tick in the
+        // hand at the moment the notch goes out, so the count is available without looking, and —
+        // the part that matters for precision — so that a scroll the hand made is a scroll the
+        // hand *knows* it made.
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: detents)
+        // A wheel still coasting when its control leaves the screen has to be caught. Rotating to
+        // portrait is how that happens — the wheel is landscape's — and without this the Mac would
+        // go on scrolling with nothing on screen to say why, or to stop it.
+        .onDisappear { stopSpin() }
+        // And it is caught when what a notch *means* changes, which is a switch of mode: the rest
+        // of a flick would otherwise be spent as zoom steps nobody asked for, under a drawing that
+        // had turned into a gauge while the wheel was still turning.
+        .onChange(of: isGauge) { stopSpin() }
     }
 
-    private func chevron(_ symbol: String, step: CGFloat) -> some View {
+    /// The rim, and the mark the ridges turn past.
+    ///
+    /// The whole band is the drag target rather than the rim itself: fourteen points is not
+    /// something a thumb can reliably find while holding a phone one-handed, which is the reason
+    /// the old track's whole panel was one too. What changed is the drawing, not the target.
+    private var rim: some View {
+        ZStack {
+            if let position {
+                gauge(position)
+            } else {
+                ridges
+                indexMark
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .gesture(drag)
+        .accessibilityLabel(label)
+        .accessibilityHint(
+            isGauge
+                ? "Drag to zoom one step at a time"
+                : "Drag to roll the wheel a line at a time, flick to keep it rolling"
+        )
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: step(-1)
+            case .decrement: step(1)
+            @unknown default: break
+            }
+        }
+    }
+
+    /// The ridges, which are the notches, drawn rather than laid out.
+    ///
+    /// A `Canvas` because they move on every sample of a drag: a dozen views whose offsets were
+    /// rewritten sixty times a second would be a dozen layout passes per frame for what is a dozen
+    /// one-point lines.
+    private var ridges: some View {
+        Canvas { context, size in
+            // One ridge to a notch, and the pattern wraps, so the rim has no end. An endless
+            // surface is what makes this a wheel rather than the strip of track it used to be: a
+            // surface that ran out would have to be clamped somewhere, and a clamped control is
+            // the slider again. Wrapping costs the one thing a wheel also costs — seven whole
+            // notches in one gesture look like none from the drawing alone — and buys the same
+            // thing a wheel does: the surface never stops, so the hand can roll as far as it likes.
+            let spacing = Self.ridgeSpacing
+            let offset = CGFloat(wheel.phase.truncatingRemainder(dividingBy: 1)) * spacing
+            var y = offset
+            while y < size.height {
+                context.fill(
+                    Path(roundedRect: CGRect(x: 1.5, y: y, width: size.width - 3, height: 1),
+                         cornerRadius: 0.5),
+                    with: .color(ColorPalette.ink.opacity(0.5))
+                )
+                y += spacing
+            }
+        }
+        .frame(width: Self.rimWidth)
+        .frame(maxHeight: .infinity)
+        .background(ColorPalette.surface, in: Capsule())
+        .clipShape(Capsule())
+    }
+
+    /// The mark the ridges are counted against.
+    ///
+    /// Fixed, with the rim moving past it — the other way round from the knob, which was the thing
+    /// that moved. A reference that stays put is what lets the eye count ridges without first
+    /// working out where they started, and counting them is the point.
+    ///
+    /// White rather than the accent, which the palette keeps for selection and for the one gauge
+    /// fill on this screen: an index mark is a measurement, and everything that is not a hue here
+    /// is brightness. Full-strength ink against half-strength ridges says "reference" without
+    /// spending the colour that means "this one is on".
+    private var indexMark: some View {
+        Capsule()
+            .fill(ColorPalette.ink)
+            .frame(width: Self.rimWidth + 10, height: 2)
+            // The rim crosses a bright window and a black one, and a two-point line of white needs
+            // help on the first. The joystick's knob is shadowed for the same reason.
+            .shadow(color: .black.opacity(0.35), radius: 1.5, y: 0.5)
+            .allowsHitTesting(false)
+    }
+
+    /// The rim as a gauge: a fill rising from the bottom, for the one job this control has that
+    /// comes with a value — how much of the zoom range lies below and how much above.
+    ///
+    /// A handle that sprang back to the middle reported nothing at all, which is exactly what made
+    /// it confusing. A fill rising from the bottom is the one shape that reads as "this much, out
+    /// of that much" without having to be learned.
+    private func gauge(_ position: CGFloat) -> some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                Capsule()
+                    .fill(ColorPalette.surface)
+                    .frame(width: Self.rimWidth)
+
+                Capsule()
+                    .fill(ColorPalette.accent)
+                    .frame(width: Self.rimWidth, height: max(Self.rimWidth, proxy.size.height * position))
+                    .animation(Motion.tap, value: position)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+    }
+
+    /// Rolling the wheel with a finger on it.
+    ///
+    /// The travel is relative — this sample's position less the last one's — rather than read from
+    /// where the finger is on the panel. A wheel turns by how far it is rolled and its resting
+    /// position is not a value: the panel is a hundred and twenty points tall and a document is
+    /// not, so a mapping from a place on the panel to a place in the document would be a mapping
+    /// from nothing to nothing. That mapping is what the slider was doing, and it is why where the
+    /// knob came to rest never told anyone anything.
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                // A touch catches the wheel. The hand is on it now, so whatever it was doing it
+                // stops doing — dead, rather than handing the coast over to the finger's own
+                // speed, because a coast that eased into the hand would put part of a flick's
+                // distance in the arithmetic and part in the thumb, and the distance is the one
+                // thing a flick is supposed to have settled.
+                stopSpin()
+
+                let travel = value.location.y - (lastY ?? value.location.y)
+                lastY = value.location.y
+                sample(travel, at: value.time)
+                emit(wheel.roll(points: Double(travel)), spinning: false)
+            }
+            .onEnded { value in
+                let speed = launchSpeed(at: value.time)
+                lastY = nil
+                lastSampleAt = nil
+                velocity = 0
+                // The spring first, then the coast: the wheel seats itself in the notch it is
+                // nearest to, and a flick starts from a wheel that is sitting in a detent like a
+                // real one rather than from halfway between two.
+                emit(wheel.seat(), spinning: false)
+                startSpin(launch: WheelSpin.launch(pointsPerSecond: speed))
+            }
+    }
+
+    /// Feeds one sample into the running velocity estimate. See ``velocitySmoothing``.
+    private func sample(_ travel: CGFloat, at time: Date) {
+        guard let previous = lastSampleAt else {
+            lastSampleAt = time
+            velocity = 0
+            return
+        }
+        let interval = time.timeIntervalSince(previous)
+        lastSampleAt = time
+        // A pause is not a slow sample: dividing one would turn a stopped finger into a speed.
+        guard interval > 0, interval < Self.restGap else {
+            velocity = 0
+            return
+        }
+        velocity += (Double(travel) / interval - velocity) * Self.velocitySmoothing
+    }
+
+    /// How fast the finger was moving when it left, in points per second. See ``restGap``.
+    private func launchSpeed(at lift: Date) -> Double {
+        guard let last = lastSampleAt, lift.timeIntervalSince(last) < Self.restGap else { return 0 }
+        return velocity
+    }
+
+    /// Starts the wheel coasting, or does nothing if that was not a flick.
+    ///
+    /// A gauge does not coast — see ``isGauge`` — and neither does a finger that was placed and
+    /// lifted, or one that was dragged slowly: the wheel has to be turning faster than
+    /// ``WheelSpin/stalling`` before there is anything to coast with, which is what keeps a
+    /// careful drag from ending in a lurch.
+    private func startSpin(launch: Double) {
+        guard !isGauge, launch > WheelSpin.stalling else { return }
+        spinTask?.cancel()
+
+        let started = Date()
+        let duration = WheelSpin.duration(launch)
+        spinTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.spinHz))
+                // A cancelled sleep returns at once, and without this the loop would emit one more
+                // roll after the wheel had been caught.
+                guard !Task.isCancelled else { return }
+                let elapsed = Date().timeIntervalSince(started)
+                guard elapsed < duration else { return }
+                emit(wheel.roll(notches: WheelSpin.rate(launch, after: elapsed) * Self.spinHz),
+                     spinning: true)
+            }
+        }
+    }
+
+    /// Catches the wheel where it is. See ``drag`` for why it stops dead rather than slowing.
+    private func stopSpin() {
+        spinTask?.cancel()
+        spinTask = nil
+    }
+
+    /// One notch, from an arrow or from a VoiceOver adjustment.
+    ///
+    /// Nothing else about the control delivers less than a whole notch, and this is the one thing
+    /// that delivers exactly one: no aim, no travel, no judgement of distance. The finest step
+    /// there is, and the one a user reaching for a *small* scroll tries first — which is why it is
+    /// a notch rather than the ninety pixels it used to be, nearer four lines and too much to call
+    /// precise.
+    ///
+    /// A tap that arrives while the wheel is still coasting from a flick finishes the notch it was
+    /// in first, and then adds its own: that is what a hand grabbing a turning wheel would get.
+    private func step(_ notch: Int) {
+        stopSpin()
+        emit(wheel.seat(), spinning: false)
+        emit(wheel.roll(notches: Double(notch)), spinning: false)
+    }
+
+    /// Hands over whole notches, and taps the hand once for them.
+    private func emit(_ notches: Int, spinning: Bool) {
+        guard notches != 0 else { return }
+        onNotch(notches)
+        detent(spinning: spinning)
+    }
+
+    /// The detent: the tap in the hand that says a notch went by.
+    ///
+    /// Rate-limited while the wheel is coasting, because neither the hand nor the engine can count
+    /// at that speed: at the cap this asks for a hundred and twenty impacts a second, and the
+    /// Taptic Engine answers a rate like that by saturating into one continuous buzz that says
+    /// nothing about how fast the wheel is turning. Twenty a second reads as the rattle of a wheel
+    /// spinning down, which is the thing it is imitating.
+    private func detent(spinning: Bool) {
+        let now = Date()
+        if spinning, let last = lastDetentAt, now.timeIntervalSince(last) < Self.detentInterval {
+            return
+        }
+        lastDetentAt = now
+        detents += 1
+    }
+
+    private func chevron(_ symbol: String, notch: Int) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 11, weight: .bold))
             .foregroundStyle(.secondary)
             .frame(width: 32, height: 22)
             .contentShape(Rectangle())
-            .onTapGesture { onScroll(step) }
+            .onTapGesture { step(notch) }
     }
 }
 

@@ -38,10 +38,15 @@ extension RemoteScreen {
                 model.send(.mouseUp(button: .right))
             },
             onScroll: { translation in
-                // Doubled into pixels, which is the unit the host's wheel event is built in
-                // (`units: .pixel`). A point of finger travel moving one pixel would make
-                // scrolling a page take several swipes.
-                model.send(.scroll(dx: Double(translation.width) * 2, dy: Double(translation.height) * 2))
+                // Pixels, which is the unit the host's wheel event is built in (`units: .pixel`),
+                // at the one scale this screen moves content by — see `ScrollNotch`. Doubling a
+                // point of finger travel into two pixels is where that scale came from (one would
+                // make scrolling a page take several swipes), and the wheel's notches are built on
+                // the same figure rather than a second one of their own.
+                model.send(.scroll(
+                    dx: Double(translation.width) * ScrollNotch.pixelsPerPoint,
+                    dy: Double(translation.height) * ScrollNotch.pixelsPerPoint
+                ))
             },
             onZoom: { factor, centre in
                 let before = zoom

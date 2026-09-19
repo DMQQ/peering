@@ -183,9 +183,19 @@ struct RemotePairingSheet: View {
 
     /// One of the two ways to fill the field.
     ///
-    /// A row rather than a button because both of them are the same kind of thing — a way in —
-    /// and neither is the screen's action. The chevron is there because a row with a glyph and a
-    /// name on it looks like a label until something says it can be tapped.
+    /// A row rather than a button because both of them are the same kind of thing, a way in, and
+    /// neither is the screen's action.
+    ///
+    /// **The chevron is gone, and this is the row where that cost something.** It was here to say
+    /// that a row with a glyph and a name can be tapped, which is a job nothing else on these two
+    /// rows does. What replaces it is context: they sit directly under the field they fill, in the
+    /// same card, which is where a hand goes when a field is empty. If they ever read as labels,
+    /// this is the first place to put it back.
+    ///
+    /// It went because a chevron means "there is somewhere further on", and both of these do their
+    /// work without leaving the sheet: one puts the clipboard in the field, the other opens the
+    /// scanner. Keeping it here would have been the one place in the app where an arrow promised a
+    /// destination and delivered an action.
     private func fillRow(
         _ title: String,
         systemImage: String,
@@ -193,9 +203,7 @@ struct RemotePairingSheet: View {
     ) -> some View {
         Button(action: action) {
             Controls.row(title, systemImage: systemImage) {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                EmptyView()
             }
             .contentShape(Rectangle())
         }

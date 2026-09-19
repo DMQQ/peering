@@ -410,6 +410,7 @@ struct FileBrowserPanel: View {
             Button("Put path in command line", systemImage: "arrow.up.forward.square") {
                 onRevealPath(childPath(entry.name, of: path))
             }
+            .menuInk()
         }
     }
 

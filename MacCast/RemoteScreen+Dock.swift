@@ -250,8 +250,4 @@ extension RemoteScreen {
                 .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
         }
     }
-
-    /// Pixels straight through: the wheel has its own travel-to-pixels scale, unlike the
-    /// two-finger gesture which is doubled here because a point of finger travel moving one
-    /// pixel would make scrolling a page take several swipes.
 }

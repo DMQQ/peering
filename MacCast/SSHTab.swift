@@ -202,11 +202,10 @@ struct SSHTab: View {
                             .lineLimit(1)
                     }
 
+                    // No chevron: both of these rows *do* something rather than lead somewhere. A
+                    // server row opens a shell on it, and an open-shell row comes back to the one
+                    // already running, and neither is a place a chevron could point at.
                     Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
             }
@@ -259,6 +258,7 @@ struct SSHTab: View {
                 .frame(width: 36, height: 36)
                 .contentShape(Rectangle())
         }
+        .menuInk()
         .accessibilityLabel("More options for \(host.displayName)")
     }
 
@@ -294,11 +294,10 @@ struct SSHTab: View {
                             .lineLimit(1)
                     }
 
+                    // No chevron: both of these rows *do* something rather than lead somewhere. A
+                    // server row opens a shell on it, and an open-shell row comes back to the one
+                    // already running, and neither is a place a chevron could point at.
                     Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
             }

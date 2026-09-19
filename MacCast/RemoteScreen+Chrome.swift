@@ -80,7 +80,7 @@ extension RemoteScreen {
                 ZStack(alignment: .bottom) {
                     HStack(alignment: .bottom, spacing: ChromeMetrics.panelGap) {
                         ScrollWheelView(
-                            onScroll: wheelScroll(dy:),
+                            onNotch: wheelNotch(_:),
                             label: wheelLabel,
                             position: interactionMode == .observe ? zoomPosition : nil
                         )

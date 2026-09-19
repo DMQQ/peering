@@ -347,15 +347,19 @@ extension RemoteScreen {
         .contentShape(Rectangle())
         .buttonStyle(RailButtonStyle(scale: 0.92))
         .contextMenu {
+            // Tinted per item rather than on the closure: a modifier on the menu's own content is
+            // not a thing SwiftUI offers, so each row says it for itself.
             Button { model.lockMac() } label: {
                 Label("Lock screen", systemImage: "lock.fill")
             }
+            .menuInk()
             Button { model.setPrivacyMode(!model.privacyModeEnabled) } label: {
                 Label(
                     model.privacyModeEnabled ? "Restore display brightness" : "Dim displays",
                     systemImage: model.privacyModeEnabled ? "sun.max.fill" : "sun.min.fill"
                 )
             }
+            .menuInk()
         }
         .accessibilityLabel("Lock the Mac")
         .accessibilityHint("Touch and hold for Lock Screen or Dim Displays")
@@ -493,6 +497,7 @@ extension RemoteScreen {
             .pillChip()
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
+        .menuInk()
         .accessibilityLabel("Stream quality")
         .accessibilityValue(model.streamQuality.chipTitle)
     }
@@ -526,6 +531,7 @@ extension RemoteScreen {
             .pillChip(selected: scalesToFill)
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
+        .menuInk()
         .accessibilityLabel("How the picture fits the screen")
         .accessibilityValue(scalesToFill ? "Filling the phone screen" : "Fitting the whole screen")
         .fixedSize(horizontal: true, vertical: false)

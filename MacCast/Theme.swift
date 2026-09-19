@@ -63,8 +63,9 @@ enum ChromeMetrics {
     /// and its caption fighting for the same 46 points and the caption losing. The extra room goes
     /// to the label.
     static let buttonHeight: CGFloat = 62
-    /// The whole scroll wheel, chevrons and padding included. It is a nudge control, not a
-    /// scrollbar: the two-finger gesture is still the fast way to move a long way.
+    /// The whole scroll wheel, chevrons and padding included. It is a control for a thumb in the
+    /// corner of the screen, not a scrollbar: a flick keeps the wheel turning, and the two-finger
+    /// gesture is still the straight line to somewhere far away.
     static let wheelHeight: CGFloat = 120
     /// A standalone key — the return beside the pointer. Bigger than a rail button because it is
     /// hit with a thumb already resting on the joystick rather than aimed at.
@@ -520,6 +521,25 @@ struct SectionLabel: View {
 }
 
 extension View {
+    /// Menu items, drawn in the app's ink rather than in whatever tint reached them.
+    ///
+    /// **A menu is not a control that is "on", so the accent has no business in one.** The palette
+    /// gives the accent exactly one job, marking what is currently selected, and it does that on the
+    /// controls the user is choosing between. Inside a menu that choice has already been made: the
+    /// checkmark is a record of it rather than the choice itself, so a column of blue confirmations
+    /// reads as a column of things that are live rather than a list of things that can be picked.
+    ///
+    /// The tint gets in by inheritance. ``HostPickerView`` puts the accent on the whole tab view,
+    /// which is where the selected tab needs it, and a menu anywhere underneath takes it too. There
+    /// is no way to exempt a subtree from above, so the menu has to say so itself, and this is that
+    /// sentence in one place rather than in each of the eight menus.
+    ///
+    /// Destructive items are unaffected: ``role: .destructive`` colours its own row, and a red
+    /// "Delete" stays red, which is the other half of what a menu item is allowed to be.
+    func menuInk() -> some View {
+        tint(ColorPalette.ink)
+    }
+
     /// A card, drawn on the backdrop rather than laid on top of it.
     ///
     /// The stroke is a gradient rather than one flat opacity: brighter along the top edge and
