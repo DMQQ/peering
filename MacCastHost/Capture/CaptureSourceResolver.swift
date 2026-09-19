@@ -419,12 +419,35 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                     """)
                 continue
             }
-            await spacePreviews.capture(
+            guard let shot = await spacePreviews.capture(
                 spaceID: display.activeID,
                 filter: SCContentFilter(display: screen, excludingWindows: []),
                 configuration: Self.previewConfiguration(for: screen)
-            )
-            landed = spacePreviews.hasShot(for: display.activeID) || landed
+            ) else { continue }
+
+            // Read *after* the shutter, which the read above is not the last word on. Everything
+            // between them — the enumeration, the capture itself — is time the person has to
+            // switch again, and while the picture waits here nobody has checked which desktop it
+            // caught. The read above answers "where was the display when we decided to shoot";
+            // this one is the only thing that can answer "is this picture of the desktop it is
+            // about to be filed under".
+            //
+            // Discarded rather than re-filed when they disagree. Which of the two desktops the
+            // picture caught is not a question a screenshot can be asked, and a tile that keeps
+            // its older picture is a much smaller wrong than a tile showing a desktop it is not.
+            let afterShutter: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
+            guard afterShutter.first(where: { $0.displayID == display.displayID })?.activeID
+                    == display.activeID
+            else {
+                resolverLog.notice("""
+                    space \(display.activeID, privacy: .public) moved under the shutter; \
+                    the preview is discarded rather than filed under the wrong desktop
+                    """)
+                continue
+            }
+
+            spacePreviews.store(shot, for: display.activeID)
+            landed = true
         }
         guard landed else { return }
 

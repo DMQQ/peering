@@ -129,14 +129,15 @@ final class SpacePreviewCache: @unchecked Sendable {
         PreviewStore.write(shot, for: spaceID)
     }
 
-    /// Whether a Space has a picture, which is how a capture that produced one is told apart
-    /// from a capture that failed. The difference is a pushed catalogue, and there is no point
-    /// pushing one for a thumbnail that is not there.
-    func hasShot(for spaceID: Int32) -> Bool {
-        lock.withLock { shots[spaceID] != nil }
-    }
-
-    /// Photographs a display and files the result against a Space.
+    /// Photographs a display and **hands the picture back rather than filing it**.
+    ///
+    /// The caller files it, and that split is the whole point of the signature. A screenshot is
+    /// not instantaneous: between the read that established which desktop was showing and the
+    /// shutter there is room for the person to have switched again, and a picture filed under
+    /// the wrong id is one the client draws as a desktop it is not — a tile labelled Desktop 2
+    /// showing Desktop 3, with nothing on screen to say which of the two is lying. Only the
+    /// caller knows which id the picture was meant to be of, so only the caller can check that
+    /// it still is.
     ///
     /// **Never throws, and never reports a failure to anyone but the log.** A preview is
     /// decoration on the client's picker: a host without Screen Recording permission, a display
@@ -148,7 +149,9 @@ final class SpacePreviewCache: @unchecked Sendable {
     /// A one-shot screenshot rather than a second `SCStream`: the host runs one stream already
     /// for the live session, and a stream per desktop would compete with it for the same
     /// capture hardware to produce a picture that is only wanted once.
-    func capture(spaceID: Int32, filter: SCContentFilter, configuration: SCStreamConfiguration) async {
+    func capture(
+        spaceID: Int32, filter: SCContentFilter, configuration: SCStreamConfiguration
+    ) async -> SpaceShot? {
         do {
             let image = try await SCScreenshotManager.captureImage(
                 contentFilter: filter,
@@ -156,14 +159,15 @@ final class SpacePreviewCache: @unchecked Sendable {
             )
             guard let shot = Self.shot(from: image) else {
                 previewLog.notice("space preview \(spaceID, privacy: .public) could not be encoded")
-                return
+                return nil
             }
-            store(shot, for: spaceID)
+            return shot
         } catch {
             previewLog.notice("""
                 space preview \(spaceID, privacy: .public) not captured: \
                 \(error.localizedDescription, privacy: .public)
                 """)
+            return nil
         }
     }
 
