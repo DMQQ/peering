@@ -78,29 +78,33 @@ struct DesktopsPanel: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: Self.rowGap) {
                         ForEach(info.displays) { display in
-                            let size = tileSize(
-                                count: display.count,
-                                rows: info.displays.count,
-                                showsChips: info.displays.count > 1
-                            )
+                            let laying = layout(desktops: display.count, displays: info.displays.count)
                             VStack(alignment: .leading, spacing: 6) {
                                 if info.displays.count > 1 {
                                     chip(for: display)
                                 }
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: Self.tileGap) {
-                                        // Offsets rather than `1...count`, which is an empty range
-                                        // when a display reports nothing and traps on the way.
-                                        ForEach(0..<display.count, id: \.self) { offset in
-                                            tile(
-                                                display: display,
-                                                index: offset + 1,
-                                                showsScreenName: info.displays.count > 1,
-                                                size: size
-                                            )
-                                        }
+                                if laying.grid {
+                                    LazyVGrid(
+                                        columns: Array(
+                                            repeating: GridItem(
+                                                .fixed(laying.tile.width),
+                                                spacing: Self.tileGap
+                                            ),
+                                            count: laying.columns
+                                        ),
+                                        alignment: .leading,
+                                        spacing: Self.tileGap
+                                    ) {
+                                        tiles(of: display, acrossScreens: false, size: laying.tile)
                                     }
                                     .padding(.vertical, 2)
+                                } else {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: Self.tileGap) {
+                                            tiles(of: display, acrossScreens: true, size: laying.tile)
+                                        }
+                                        .padding(.vertical, 2)
+                                    }
                                 }
                             }
                         }
@@ -167,18 +171,83 @@ struct DesktopsPanel: View {
         model.catalog?.descriptor(for: .display(display.displayID))?.title ?? "Display"
     }
 
-    /// The size of one tile, for a row holding `count` of them.
+    /// The shape a screen's desktops are laid out in: whether it is a grid, how many go across,
+    /// how many rows that makes, and how big a tile comes out.
+    ///
+    /// **One screen is a grid; several are a row each.** With two or more screens the row-per-screen
+    /// layout is carrying information — it is what says which desktops belong to which screen, and
+    /// the chip above each row is read against it. With one screen there is nothing left to group,
+    /// and a single horizontal row leaves the panel exactly one tile tall and as empty as the phone
+    /// is wide.
+    private func layout(
+        desktops count: Int, displays: Int
+    ) -> (grid: Bool, columns: Int, rows: Int, tile: CGSize) {
+        guard displays == 1 else {
+            return (
+                grid: false,
+                columns: max(count, 1),
+                rows: displays,
+                tile: tileSize(columns: max(count, 1), rows: displays, showsChips: true)
+            )
+        }
+        return gridLayout(count: count)
+    }
+
+    /// The grid one screen's desktops take, and the size of a tile in it.
+    ///
+    /// The column count starts at the square root — the arrangement that keeps a grid as close to
+    /// square as whole tiles allow, so three desktops are two rows of two with one gap, four are a
+    /// true 2×2, and six are two rows of three. Two stay side by side, because a pair already has
+    /// the shape a grid would give it.
+    ///
+    /// Then it works *down*, and that is the part worth explaining. When the panel is short — a
+    /// phone held sideways, which is where ``maximumHeight`` bites — the height budget squeezes the
+    /// tiles to ``minimumTile``, and a row of them no longer reaches across the panel. What that
+    /// looks like is a column missing, which reads as a mistake rather than as a shortage. Dropping
+    /// a column makes the remaining tiles wider and the row full again; at one column it is the
+    /// plain single row this used to be, which is the right answer when there is no room.
+    private func gridLayout(count: Int) -> (grid: Bool, columns: Int, rows: Int, tile: CGSize) {
+        guard count > 0 else { return (grid: true, columns: 1, rows: 1, tile: Self.minimumTile) }
+
+        var columns = max(1, Int(ceil(Double(count).squareRoot())))
+        while true {
+            let rows = (count + columns - 1) / columns
+            let tile = tileSize(columns: columns, rows: rows, showsChips: false)
+            if columns == 1 || tile.width > Self.minimumTile.width {
+                return (grid: true, columns: columns, rows: rows, tile: tile)
+            }
+            columns -= 1
+        }
+    }
+
+    /// One screen's tiles, for whichever of the two layouts is putting them up.
+    ///
+    /// Offsets rather than `1...count`, which is an empty range when a display reports nothing and
+    /// traps on the way.
+    @ViewBuilder
+    private func tiles(of display: SpaceDisplay, acrossScreens: Bool, size: CGSize) -> some View {
+        ForEach(0..<display.count, id: \.self) { offset in
+            tile(
+                display: display,
+                index: offset + 1,
+                showsScreenName: acrossScreens,
+                size: size
+            )
+        }
+    }
+
+    /// The size of one tile, given how many go across its row and how many rows share the height.
     ///
     /// Grown to fill the width when a screen has only two or three desktops — a pair of thumbnails
     /// pinned at 104 points leaves most of the panel empty, which is the whole of "make them fill
     /// the window" — and held back by the height the panel actually has, so filling the width
     /// cannot cost the row below it its place. One fixed size cannot do both: it is too big for a
     /// short landscape panel and too small for a tall portrait one.
-    private func tileSize(count: Int, rows: Int, showsChips: Bool) -> CGSize {
-        guard count > 0 else { return Self.minimumTile }
+    private func tileSize(columns: Int, rows: Int, showsChips: Bool) -> CGSize {
+        guard columns > 0 else { return Self.minimumTile }
 
-        let gaps = CGFloat(count - 1) * Self.tileGap
-        var width = contentWidth > 0 ? (contentWidth - gaps) / CGFloat(count) : Self.minimumTile.width
+        let gaps = CGFloat(columns - 1) * Self.tileGap
+        var width = contentWidth > 0 ? (contentWidth - gaps) / CGFloat(columns) : Self.minimumTile.width
 
         if maximumHeight.isFinite, rows > 0 {
             let rowOverhead = Self.captionHeight + Self.rowInnerGap
