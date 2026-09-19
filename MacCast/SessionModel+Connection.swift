@@ -243,6 +243,36 @@ extension SessionModel {
     ///
     /// A deliberate disconnect clears the flag and nothing here fires; a dropped connection
     /// leaves it set, which is exactly the case this exists for.
+    // MARK: - Relay presence
+
+    /// Asks the relay which of the paired Macs are up, and takes the answer as the whole truth.
+    ///
+    /// **An empty answer is not news**, and that distinction is the point. `hostPresence` returns
+    /// nothing both when the relay answered with an error and when the network was down, and
+    /// neither of those is the relay saying every Mac has gone. So a round that learned nothing
+    /// leaves what was known standing, and only a round that learned *something* replaces it.
+    ///
+    /// Called by the Connect tab while it is on screen. Nothing polls in the background: the
+    /// answer is only ever drawn there, and a phone that asked after its Macs from a pocket would
+    /// be telling the relay where its owner is for no one's benefit.
+    func refreshRelayPresence() async {
+        let hostIDs = pairedHostIDs
+        guard !hostIDs.isEmpty, allowsRelay else {
+            if !allowsRelay { relayPresence.removeAll() }
+            return
+        }
+
+        let answers = await RelaySignallingConnection.hostPresence(
+            at: ProtocolInfo.relaySignallingURL,
+            hostIDs: hostIDs
+        )
+        guard !answers.isEmpty else { return }
+
+        // Replaced rather than merged, because a Mac that has gone is *absent* from the answer:
+        // merging would leave a stale `true` on the row of a Mac that is switched off.
+        relayPresence = answers
+    }
+
     func resumeIfNeeded() {
         // `session` is assigned synchronously in ``connect(to:)``, before the phase has heard
         // anything, while the browser fires `updated` on its own schedule — so the session is

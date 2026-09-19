@@ -79,9 +79,58 @@ public final class RelaySignallingConnection: @unchecked Sendable {
             // than refused: this conversation is over the moment `sessionReady` arrives, and a
             // message from a relay with more to say than this client asked for is not a reason to
             // lose the session it has just handed over.
-            case .peerAddress: continue
+            case .peerAddress, .hostPresence: continue
             }
         }
+    }
+
+    /// Asks the relay which of these Macs are registered right now.
+    ///
+    /// **One connection for the whole list**, because this is a poll that runs while the Connect
+    /// tab is open and a TLS and WebSocket handshake per Mac per poll would cost far more than the
+    /// asking does. The answers are matched by the `hostId` the relay echoes rather than by the
+    /// order they arrive in.
+    ///
+    /// **A Mac that was asked about and never answered is absent from the result**, which is the
+    /// third state and the reason this returns a dictionary rather than a set: "asked and told no"
+    /// and "never found out" are different sentences on screen, and only one of them is a fact.
+    ///
+    /// Answers nothing rather than throwing when the relay cannot be reached at all. A phone that
+    /// is offline, or a relay that is down, has not learned that any Mac is gone; it has learned
+    /// nothing, and the screen has to be able to tell those apart.
+    public static func hostPresence(at url: URL, hostIDs: [String]) async -> [String: Bool] {
+        guard !hostIDs.isEmpty else { return [:] }
+
+        let connection = RelaySignallingConnection(url: url)
+        defer { connection.cancel() }
+
+        var presence: [String: Bool] = [:]
+        do {
+            for hostID in hostIDs {
+                try await connection.send(.hostPresence(hostID: hostID))
+            }
+
+            // Bounded by the number of questions asked plus room for the `pong` or `registered`
+            // that can arrive alongside them, so a relay that answers with something unexpected
+            // cannot spin here. An older relay does not know the message at all and answers with
+            // an error, which leaves the whole list unknown: the honest outcome, and exactly what
+            // the screen drew before this existed.
+            var outstanding = Set(hostIDs)
+            for _ in 0..<(hostIDs.count * 2 + 4) where !outstanding.isEmpty {
+                switch try await connection.receive() {
+                case .hostPresence(let id, let online):
+                    presence[id] = online
+                    outstanding.remove(id)
+                case .error:
+                    return presence
+                default:
+                    continue
+                }
+            }
+        } catch {
+            return presence
+        }
+        return presence
     }
 
     /// Asks the relay where the other end of this session is, until it answers or gives up.
@@ -116,6 +165,10 @@ public final class RelaySignallingConnection: @unchecked Sendable {
             case .error(let code, let message):
                 throw RelaySignallingError.refused(code: code, message: message)
             case .pong, .registered: continue
+            // A presence answer this conversation did not ask for. Ignored rather than refused,
+            // for the reason the peer address above it is: a relay with more to say than this
+            // client asked is not a reason to give up on the direct path.
+            case .hostPresence: continue
             case .sessionReady, .hostOffline:
                 throw RelaySignallingError.unexpectedResponse
             }

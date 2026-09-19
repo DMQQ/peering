@@ -35,7 +35,18 @@ public struct RelayEntitlement: Sendable, Equatable {
 
 /// Messages either app sends to `peeringd` over its signalling WebSocket.
 public enum RelayClientMessage: Sendable, Equatable, Encodable {
-    case registerHost(deviceID: String, name: String, protocolVersion: UInt16)
+    /// A Mac announcing itself, with the proof that it is the Mac it says it is.
+    ///
+    /// **`proof` is optional on the wire and the relay accepts its absence**, which is what lets a
+    /// build that predates this keep working. What the proof buys is that an ID which has been
+    /// proved once can only be registered by the device that proved it. See ``RelayDeviceProof``
+    /// for what is signed and why a signature rather than a shared secret.
+    case registerHost(
+        deviceID: String,
+        name: String,
+        protocolVersion: UInt16,
+        proof: RelayDeviceProof? = nil
+    )
     /// A request for a session, with whatever this client can say about what it has bought.
     ///
     /// **`plan` is a claim and `jwsRepresentation` is the evidence for it.** The relay verifies the
@@ -63,24 +74,44 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// session and before it has sent a datagram, so the peer has usually not been heard from yet;
     /// that is the ordinary first answer, not a failure, and the caller asks again.
     case requestPeerAddress(videoToken: Data)
+    /// Is this Mac registered with the relay right now?
+    ///
+    /// **Asked because Bonjour cannot answer it and the app was drawing that silence as absence.**
+    /// The green dot on a paired Mac came from the local browse, so a Mac reached through the relay
+    /// was drawn as though it were switched off. The relay knows the answer and already gives it
+    /// away in `hostOffline` to anyone who tries to connect; this is the same fact asked as a
+    /// question, so asking does not cost a session.
+    ///
+    /// What it costs is a disclosure worth naming: a phone that asks after three Macs has told the
+    /// relay which three it is interested in, where before it revealed one at the moment it
+    /// connected to it. It is asked while the Connect tab is open and never in the background.
+    case hostPresence(hostID: String)
     case ping
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
+        case publicKey, proof, proofTime
         case deviceID = "deviceId"
         case hostID = "hostId"
         case clientID = "clientId"
         case videoToken
     }
 
+
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .registerHost(let deviceID, let name, let protocolVersion):
+        case .registerHost(let deviceID, let name, let protocolVersion, let proof):
             try container.encode("registerHost", forKey: .type)
             try container.encode(deviceID, forKey: .deviceID)
             try container.encode(name, forKey: .name)
             try container.encode(protocolVersion, forKey: .protocolVersion)
+            // All three or none. The relay treats a partial proof as a message it does not
+            // understand rather than salvaging what is there, so sending two of them would be
+            // sending something that gets refused for looking broken.
+            try container.encodeIfPresent(proof?.publicKey, forKey: .publicKey)
+            try container.encodeIfPresent(proof?.signature, forKey: .proof)
+            try container.encodeIfPresent(proof?.proofTime, forKey: .proofTime)
         case .connectToHost(
             let hostID,
             let clientID,
@@ -103,6 +134,9 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             if let jwsRepresentation {
                 try container.encode(jwsRepresentation, forKey: .jwsRepresentation)
             }
+        case .hostPresence(let hostID):
+            try container.encode("hostPresence", forKey: .type)
+            try container.encode(hostID, forKey: .hostID)
         case .requestPeerAddress(let videoToken):
             try container.encode("requestPeerAddress", forKey: .type)
             try container.encode(Self.hex(videoToken), forKey: .videoToken)
@@ -184,6 +218,12 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     case hostOffline(deviceID: String)
     /// Where the other end of this session is, in answer to `requestPeerAddress`.
     case peerAddress(RelayPeerAddress)
+    /// Whether a Mac is registered, in answer to `hostPresence`.
+    ///
+    /// `online: false` is a fact about the *relay*, not about the Mac: a Mac can be awake and
+    /// reachable on its own network while being registered nowhere. The screen that draws this is
+    /// careful not to turn it into the word "offline".
+    case hostPresence(deviceID: String, online: Bool)
     case pong
     case error(code: String, message: String)
 
@@ -192,6 +232,8 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         case sessionTTLSeconds = "sessionTtlSeconds"
         case controlToken, videoToken
         case deviceID = "deviceId"
+        case hostID = "hostId"
+        case online
         case code, message
         case host, port
     }
@@ -225,6 +267,11 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
                 host: try container.decode(String.self, forKey: .host),
                 port: try container.decode(UInt16.self, forKey: .port)
             ))
+        case "hostPresence":
+            self = .hostPresence(
+                deviceID: try container.decode(String.self, forKey: .hostID),
+                online: try container.decode(Bool.self, forKey: .online)
+            )
         case "pong":
             self = .pong
         case "error":

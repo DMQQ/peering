@@ -68,6 +68,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         case certificateRejected
         case identityCreationFailed
         case identityNotRemoved
+        case signing(String)
 
         public var errorDescription: String? {
             switch self {
@@ -86,6 +87,8 @@ public final class SelfSignedIdentity: @unchecked Sendable {
                 return "SecIdentityCreate failed. The key may not be keychain-backed."
             case .identityNotRemoved:
                 return "The identity key could not be removed from the keychain."
+            case .signing(let detail):
+                return "The identity key could not sign that: \(detail)"
             }
         }
     }
@@ -95,6 +98,35 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         self.certificateDER = certificateDER
         self.publicKeyBytes = publicKeyBytes
         self.commonName = commonName
+    }
+
+    /// Signs a message with this identity's private key: ECDSA over P-256 with SHA-256, DER.
+    ///
+    /// **The key does not leave the keychain to do this.** `SecKeyCreateSignature` is handed the
+    /// bytes and returns only the signature, exactly as the certificate above is minted, so there
+    /// is no window in which the private material exists in this process's memory.
+    ///
+    /// DER rather than the fixed 64-byte form, because that is what the algorithm identifier says
+    /// and what the relay's verifier expects. `.ecdsaSignatureMessageX962SHA256` is the one that
+    /// hashes the message itself; the `Digest` variant would want the caller to have hashed it
+    /// first, and two spellings of "sign this" is one more than a protocol needs.
+    public func signature(for message: Data) throws -> Data {
+        var key: SecKey?
+        let status = SecIdentityCopyPrivateKey(secIdentity, &key)
+        guard status == errSecSuccess, let key else { throw Failure.keychain(status) }
+
+        var error: Unmanaged<CFError>?
+        guard let signature = SecKeyCreateSignature(
+            key,
+            .ecdsaSignatureMessageX962SHA256,
+            message as CFData,
+            &error
+        ) else {
+            let detail = error.map { ($0.takeRetainedValue() as Error).localizedDescription }
+                ?? "the security framework gave no reason"
+            throw Failure.signing(detail)
+        }
+        return signature as Data
     }
 
     /// Loads the persistent key for `role`, generating it on first run, and mints a

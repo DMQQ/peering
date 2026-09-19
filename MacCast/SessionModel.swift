@@ -264,6 +264,52 @@ final class SessionModel {
 
     var phase: ClientSession.Phase = .idle
     var hosts: [DiscoveredHost] = []
+
+    /// Whether each paired Mac is registered with the relay, by host ID.
+    ///
+    /// **Three states, and the third is the reason this is not a `Set`.** `true` is the relay
+    /// saying it is there, `false` is the relay saying it is not, and *absent* is nobody having
+    /// found out. The screen draws the last two differently, because one is a fact and the other
+    /// is the app admitting it does not know, which is what it was doing before this existed,
+    /// while drawing it as though it were the first.
+    var relayPresence: [String: Bool] = [:]
+
+    /// What this phone knows about whether a paired Mac can be reached right now.
+    ///
+    /// **Three cases and not a `Bool`**, because "not reachable" is two different facts and only
+    /// one of them is about the Mac. The row used to be given a `Bool` and drew a grey dot for
+    /// everything that was not true, so a Mac that was awake on the other side of the country and
+    /// one that was switched off looked identical.
+    enum Reachability: Equatable {
+        /// On this network. Bonjour can see it, so it is up and it is addressable directly.
+        case nearby
+        /// Registered with the relay, so it is up and reachable from anywhere.
+        case viaRelay
+        /// The relay says it is not registered. Not quite "switched off": a Mac can be awake and
+        /// reachable on its own network while being registered nowhere, and that Mac is one this
+        /// phone cannot currently get to.
+        case notRegistered
+        /// Nobody has found out, or the asking did not come back.
+        case unknown
+
+        var isReachable: Bool {
+            switch self {
+            case .nearby, .viaRelay: return true
+            case .notRegistered, .unknown: return false
+            }
+        }
+    }
+
+    /// The three facts, in the order that decides them: this network first, then the relay, then
+    /// nothing.
+    func reachability(ofHost hostID: String) -> Reachability {
+        if hosts.contains(where: { $0.id == hostID }) { return .nearby }
+        switch relayPresence[hostID] {
+        case true?: return .viaRelay
+        case false?: return .notRegistered
+        case nil: return .unknown
+        }
+    }
     var browseStatus = "Looking for Macs on this network…"
     var hostName: String?
     var tlsDescription: String?

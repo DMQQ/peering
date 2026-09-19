@@ -145,6 +145,14 @@ private struct HomeTab: View {
     @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = true
     @AppStorage(PreferenceKey.requireBiometricUnlock) private var requiresBiometricUnlock = false
 
+    /// How often the Connect tab asks the relay which paired Macs are up.
+    ///
+    /// Twenty seconds, which is a compromise the screen does not have to make but the relay does:
+    /// the answer only changes when a Mac starts or stops, which is a user-scale event, and a
+    /// phone that asked every second would be a phone telling the relay where its owner is at a
+    /// constant rate for a fact that has not changed.
+    private static let presenceInterval: Duration = .seconds(20)
+
     private var showsUnacknowledgedFailure: Bool {
         guard let message = model.failureMessage else { return false }
         return message != acknowledgedFailure
@@ -285,6 +293,16 @@ private struct HomeTab: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
+            // **Polled from the tab, not from the model**, so the asking stops the moment this
+            // screen is not the one being looked at. `.task` is cancelled when the view goes away,
+            // which is the whole of the lifetime rule: the relay is asked which Macs this phone
+            // cares about only while the answer is on screen.
+            .task {
+                while !Task.isCancelled {
+                    await model.refreshRelayPresence()
+                    try? await Task.sleep(for: Self.presenceInterval)
+                }
+            }
             .sheet(isPresented: $showsManualConnection) {
                 manualSheet(address: $model.manualAddress, port: $model.manualPort)
             }
@@ -757,15 +775,25 @@ private struct HomeTab: View {
     // MARK: Rows
 
     private func pairedRow(_ hostID: String) -> some View {
-        let isOnline = model.hosts.contains { $0.id == hostID }
+        let reach = model.reachability(ofHost: hostID)
         let isActive = model.currentHostID == hostID && model.phase == .ready
         return HStack(spacing: 10) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
                         IconTile(symbol: "macbook")
+                        // Filled for a Mac known to be up, hollow for one that is not known to be
+                        // anything. A grey filled dot was the old drawing and it made the same
+                        // mark mean "off" and "unchecked", which are different sentences.
                         Circle()
-                            .fill(isOnline || isActive ? Color.green : Color.white.opacity(0.25))
+                            .fill(reach.isReachable || isActive ? Color.green : .clear)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        Color.white.opacity(reach.isReachable || isActive ? 0 : 0.35),
+                                        lineWidth: 1.5
+                                    )
+                            )
                             .frame(width: 9, height: 9)
                             .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 1.5))
                             .offset(x: 2, y: 2)
@@ -775,7 +803,7 @@ private struct HomeTab: View {
                         Text(model.displayName(forHostID: hostID) ?? "A Mac")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
-                        Text(pairedRowDetail(hostID: hostID, isOnline: isOnline, isActive: isActive))
+                        Text(pairedRowDetail(hostID: hostID, reach: reach, isActive: isActive))
                             .font(.caption2.monospaced())
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
@@ -803,7 +831,10 @@ private struct HomeTab: View {
                     } label: {
                         Label("Connect via LAN", systemImage: "wifi")
                     }
-                    .disabled(!isOnline || model.isBusy)
+                    // Only when Bonjour can actually see it. A Mac the relay says is up is not one
+                    // this can be dialled on the local network, which is the whole distinction
+                    // between the two rows above it.
+                    .disabled(reach != .nearby || model.isBusy)
 
                     Button {
                         model.connectToTrustedOverRelay(hostID: hostID)
@@ -818,7 +849,9 @@ private struct HomeTab: View {
                         } label: {
                             Label("Wake Mac", systemImage: "power")
                         }
-                        .disabled(isOnline)
+                        // A Mac known to be up has no reason to be woken, and one whose state is
+                        // unknown is exactly the case this is for.
+                        .disabled(reach.isReachable)
                     }
                 }
 
@@ -848,20 +881,42 @@ private struct HomeTab: View {
         .rowSurface()
     }
 
-    private func pairedRowDetail(hostID: String, isOnline: Bool, isActive: Bool) -> String {
+    /// What the row says under the name.
+    ///
+    /// **Two of these four sentences are admissions**, and they are the reason this takes a
+    /// ``SessionModel/Reachability`` rather than a `Bool`. "Last used Tuesday" is what this says
+    /// when it has not found out whether the Mac is up, and it says it rather than "offline"
+    /// because it does not know. "Not reachable" is the one case where the relay has actually
+    /// answered, and it is still not the word "offline": a Mac can be awake and reachable on its
+    /// own network while being registered nowhere.
+    private func pairedRowDetail(
+        hostID: String,
+        reach: SessionModel.Reachability,
+        isActive: Bool
+    ) -> String {
         let name = model.displayName(forHostID: hostID) ?? "A Mac"
         let sharesItsName = model.pairedHostIDs.contains {
             $0 != hostID && (model.displayName(forHostID: $0) ?? "A Mac") == name
         }
         if sharesItsName { return String(hostID.prefix(8)) }
+
         if isActive {
-            return isOnline ? "Connected via LAN" : "Connected via Relay"
+            return reach == .nearby ? "Connected via LAN" : "Connected via Relay"
         }
-        if isOnline { return "Nearby · tap to connect" }
-        if let last = model.lastConnectedAt[hostID] {
-            return "Last used " + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
+        switch reach {
+        case .nearby: return "Nearby · tap to connect"
+        case .viaRelay: return "Online · tap to connect"
+        case .notRegistered:
+            guard let last = model.lastConnectedAt[hostID] else { return "Not reachable" }
+            return "Not reachable · last used "
+                + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
+        case .unknown:
+            if let last = model.lastConnectedAt[hostID] {
+                return "Last used "
+                    + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
+            }
+            return model.allowsRelay ? "Not nearby · will try relay" : "Not nearby · LAN only"
         }
-        return model.allowsRelay ? "Not nearby · will try relay" : "Not nearby · LAN only"
     }
 
     private func hostRow(_ host: DiscoveredHost) -> some View {

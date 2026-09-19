@@ -4,6 +4,8 @@ import RemoteCore
 /// Keeps this Mac present at the public relay and accepts session allocations pushed by it.
 final class RelayHostRegistration: @unchecked Sendable {
     private let device: DeviceIdentity
+    /// The key this Mac signs its registration with. See ``RelayDeviceProof``.
+    private let identity: SelfSignedIdentity
     private let onSession: @Sendable (RelaySession) -> Void
     private let onStatus: @Sendable (String) -> Void
     private let lock = NSLock()
@@ -12,10 +14,12 @@ final class RelayHostRegistration: @unchecked Sendable {
 
     init(
         device: DeviceIdentity,
+        identity: SelfSignedIdentity,
         onSession: @escaping @Sendable (RelaySession) -> Void,
         onStatus: @escaping @Sendable (String) -> Void
     ) {
         self.device = device
+        self.identity = identity
         self.onSession = onSession
         self.onStatus = onStatus
     }
@@ -53,10 +57,26 @@ final class RelayHostRegistration: @unchecked Sendable {
             let connection = RelaySignallingConnection(url: ProtocolInfo.relaySignallingURL)
             lock.withLock { self.connection = connection }
             do {
+                // **Signed per attempt, not once.** The proof carries a timestamp that the relay
+                // will only accept for a few minutes either side of its own clock, and this loop
+                // retries for as long as the Mac is running, so a proof made when the task started
+                // would be stale by the second attempt and the Mac would never register again
+                // after a network blip.
+                //
+                // A signature that fails is not fatal. The registration goes out without a proof,
+                // which is exactly what this build sent before the proof existed: an id nobody has
+                // claimed is still accepted, and one that has been claimed is refused with a
+                // sentence in the journal rather than by this Mac going quiet.
+                let proof = try? RelayDeviceProof.make(deviceID: device.id, identity: identity)
+                if proof == nil {
+                    onStatus("This Mac could not sign its registration; the relay may refuse it.")
+                }
+
                 try await connection.send(.registerHost(
                     deviceID: device.id,
                     name: device.name,
-                    protocolVersion: ProtocolInfo.version
+                    protocolVersion: ProtocolInfo.version,
+                    proof: proof
                 ))
 
                 var registered = false

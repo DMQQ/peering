@@ -19,6 +19,54 @@ struct RelayProtocolTests {
             #"{"deviceId":"mac-1","name":"Studio","protocolVersion":3,"type":"registerHost"}"#)
     }
 
+    @Test("a proved registration carries all three fields")
+    func provedRegistration() throws {
+        let message = RelayClientMessage.registerHost(
+            deviceID: "mac-1",
+            name: "Studio",
+            protocolVersion: 14,
+            proof: RelayDeviceProof(publicKey: "04aa", signature: "3045", proofTime: 1_760_000_000)
+        )
+
+        let encoded = try RelayMessageCodec.encode(message)
+        let text = String(decoding: encoded, as: UTF8.self)
+
+        // Every field by name, because the relay reads them by name and a rename here is a
+        // registration that silently stops proving anything.
+        for fragment in [
+            #""type":"registerHost""#, #""deviceId":"mac-1""#, #""publicKey":"04aa""#,
+            #""proof":"3045""#, #""proofTime":1760000000"#,
+        ] {
+            #expect(text.contains(fragment), "\(fragment) should be on the wire")
+        }
+    }
+
+    /// **The string both ends have to build identically**, and the reason this test spells it out
+    /// rather than calling the function twice: a signature is over bytes, so two ends that compose
+    /// "what was signed" differently produce a proof that fails for a reason nothing on either side
+    /// can see. The relay pins the same literal in `device_proof::tests`, and these two are meant
+    /// to be read side by side.
+    @Test("the signed payload is the same string the relay builds")
+    func proofPayload() {
+        let payload = RelayDeviceProof.payload(
+            deviceID: "8B88D893-55BD-4F68-AF3F-E81D885A50A7",
+            proofTime: 1_760_000_000
+        )
+
+        #expect(String(decoding: payload, as: UTF8.self) ==
+            "peeringd-host-registration-v1\n8B88D893-55BD-4F68-AF3F-E81D885A50A7\n1760000000")
+    }
+
+    /// A device id cannot contain a newline and a time cannot contain anything but digits, so no
+    /// two different registrations can sign the same bytes. That is what makes the delimiter safe
+    /// rather than clever.
+    @Test("the payload separates its fields so two registrations cannot collide")
+    func proofPayloadIsUnambiguous() {
+        let one = RelayDeviceProof.payload(deviceID: "a\n1", proofTime: 2)
+        let two = RelayDeviceProof.payload(deviceID: "a", proofTime: 1)
+        #expect(String(decoding: one, as: UTF8.self) != String(decoding: two, as: UTF8.self))
+    }
+
     @Test("a ready session exposes endpoints and raw routing tokens")
     func readySession() throws {
         let json = #"{"type":"sessionReady","controlHost":"relay.getpeering.app","controlPort":20190,"videoHost":"relay.getpeering.app","videoPort":30190,"controlToken":"000102030405060708090a0b0c0d0e0f","videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}"#
@@ -170,6 +218,34 @@ struct RelayProtocolTests {
         let decoded = try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
 
         #expect(decoded == .peerAddress(RelayPeerAddress(host: "2001:db8::1", port: 443)))
+    }
+
+    @Test("a presence question names the Mac it is about")
+    func presenceQuestion() throws {
+        let encoded = try RelayMessageCodec.encode(
+            RelayClientMessage.hostPresence(hostID: "8B88D893")
+        )
+
+        #expect(String(decoding: encoded, as: UTF8.self) ==
+            #"{"hostId":"8B88D893","type":"hostPresence"}"#)
+    }
+
+    /// **The two answers are both answers.** `online: false` is the relay stating a fact, and it
+    /// has to arrive as a decoded value rather than as an error, because the screen draws it as
+    /// one and the absence of an answer as something else entirely.
+    @Test("both presence answers decode, and neither is an error")
+    func presenceAnswers() throws {
+        let online = try RelayMessageCodec.decode(
+            RelayServerMessage.self,
+            from: Data(#"{"type":"hostPresence","hostId":"mac-1","online":true}"#.utf8)
+        )
+        let offline = try RelayMessageCodec.decode(
+            RelayServerMessage.self,
+            from: Data(#"{"type":"hostPresence","hostId":"mac-1","online":false}"#.utf8)
+        )
+
+        #expect(online == .hostPresence(deviceID: "mac-1", online: true))
+        #expect(offline == .hostPresence(deviceID: "mac-1", online: false))
     }
 
     /// The "not yet" answer arrives as an error, so it is worth pinning that it is a code the caller
