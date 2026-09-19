@@ -6,6 +6,11 @@ DerivedData/
 .build/
 *.xcarchive
 
+# Disk images built by hand for local testing. They are the same class of artefact
+# as the published ones below: several megabytes, replaced on every version, and
+# nothing reads them. A copy had been tracked here since before the rules existed.
+dist/
+
 # Xcode per-user state. The shared schemes under xcshareddata are tracked; the
 # per-user ones (window layout, which scheme was last selected) are not.
 xcuserdata/
@@ -39,6 +44,9 @@ Relay/site/updates/*.zip
 # conversation, not inputs to the build, and nothing reads them.
 *-local-command-caveatcaveat-the-messages-below.txt
 *-this-session-is-being-continued-from-a-previous-c.txt
+# The same thing from other agents, written into the repository root. Two of these
+# were tracked, 2.5 MB between them.
+codex-session-*.md
 
 # Design-tool scratch state, written beside whatever it was pointed at.
 .impeccable/
