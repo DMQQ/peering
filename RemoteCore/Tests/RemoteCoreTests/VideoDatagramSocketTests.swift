@@ -260,6 +260,40 @@ struct VideoDatagramSocketTests {
         #expect(peer.receive() == [0x01, 0x02, 0x03], "everything after the token")
     }
 
+    /// **The case the framing got wrong, and the one that cost every direct session its picture.**
+    ///
+    /// `sendDirect` stripped the relay's token and `send` did not, and `send` is what carries
+    /// video. So the moment a punch opened, every frame went to the peer with sixteen bytes of
+    /// relay addressing still in front of it, which the receiver read as its counter and refused.
+    /// The probes came from `sendDirect` and kept working, so the path looked open from both ends
+    /// while no picture ever completed, and the client said "some of the Mac's video datagrams
+    /// could not be read" — which reads like a lossy network and was a framing mistake.
+    @Test("a plain send goes direct without the relay's token once the path is live")
+    func plainSendStripsTheTokenOnceThePathIsLive() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, collected) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let peer = try LoopbackSocket()
+        defer { peer.closeSocket() }
+        try socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+
+        // The peer speaks once, which is the whole of what makes the direct path live.
+        peer.send([0x01], to: socket.localPort)
+        #expect(await waitUntil { collected.firstFromPeer != nil })
+
+        let sealed = Self.token + Data([0x01, 0x02, 0x03])
+        socket.send([sealed]) { _ in }
+
+        #expect(
+            peer.receive() == [0x01, 0x02, 0x03],
+            "the token addresses the relay, and this datagram did not go to the relay"
+        )
+    }
+
     /// The whole mechanism in one test: the socket is on the relay, the peer speaks, and every send
     /// after that goes to the peer instead — with nothing negotiated and nothing acknowledged.
     @Test("the socket moves to the peer once the peer has been heard from")
@@ -276,17 +310,25 @@ struct VideoDatagramSocketTests {
         #expect(socket.localPort != 0, "the local port is what the peer is given to aim at")
         try socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
 
+        // Both frames carry the relay's token, because that is the shape ``VideoDatagramSealer``
+        // produces and the only shape this socket is ever handed. What changes with the
+        // destination is whether the socket keeps it: the relay needs it to know which session a
+        // datagram belongs to, and the peer has no relay to ask.
+        //
         // Nothing has arrived from the peer, so the peer is only a place the socket *could* send.
-        socket.send([Data([0xa1])]) { _ in }
-        #expect(relay.receive() == [0xa1], "until the peer is heard from, the relay carries it")
+        socket.send([Self.token + Data([0xa1])]) { _ in }
+        #expect(
+            relay.receive() == [UInt8](Self.token) + [0xa1],
+            "until the peer is heard from, the relay carries it, token and all"
+        )
 
         // The peer speaks. That is the whole of what "the path is open" means.
         peer.send([0x01], to: socket.localPort)
 
         #expect(await waitUntil { collected.firstFromPeer != nil })
 
-        socket.send([Data([0xb2])]) { _ in }
-        #expect(peer.receive() == [0xb2], "and now the peer carries it")
+        socket.send([Self.token + Data([0xb2])]) { _ in }
+        #expect(peer.receive() == [0xb2], "and now the peer carries it, without the token")
         #expect(relay.receive() == [], "and the relay does not")
     }
 

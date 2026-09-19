@@ -681,11 +681,14 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// be *believed* live before something has crossed it, so the datagrams that establish it are
     /// the one case that has to go direct without the socket's own permission.
     ///
-    /// The relay's token comes off. It is addressing and nothing else — which session a datagram
-    /// belongs to, and which end sent it — and going straight to the one endpoint that could
-    /// possibly want it, it is sixteen bytes of nothing. What leaves here is exactly the shape
-    /// ``VideoDatagram`` draws as "what an endpoint gets", so the receiver opens it with the code it
-    /// already has and there is no second framing to drift.
+    /// **The token does not come off here any more**, and that is the fix for a bug that cost every
+    /// direct session its picture. This used to strip it and ``send`` did not, so a probe went out
+    /// correctly framed while every video frame carried the relay's sixteen bytes into a socket
+    /// with no relay at the other end. The receiver read them as its counter, refused every
+    /// datagram, and reported "some of the Mac's video datagrams could not be read" — which reads
+    /// like a lossy network and is in fact a framing mistake made in one caller out of two.
+    ///
+    /// Stripping belongs where the destination is known, which is ``enqueue(_:direct:completion:)``.
     ///
     /// Does nothing when no peer has been set: at the start of every session, and for every session
     /// whose introduction never arrives.
@@ -697,8 +700,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             completion(nil)
             return
         }
-        let stripped = datagrams.map { $0.dropFirst(VideoDatagram.tokenSize) }
-        enqueue(stripped, direct: true, completion: completion)
+        enqueue(datagrams, direct: true, completion: completion)
     }
 
     public func cancel() {
@@ -817,16 +819,28 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             // on the relay — which is the whole thing this is for.
             let destination: Destination = direct || self.directPathIsLive ? .peer : .relay
 
+            // **The token comes off exactly when the datagram is not going to the relay, and it
+            // has to happen here rather than in the caller, because this is the only place that
+            // knows where a datagram is going.** It used to be stripped in ``sendDirect`` alone,
+            // which meant a probe went out correctly framed and every video frame did not:
+            // ``send`` carries the token because the relay needs it, and once the punch was live
+            // the same bytes were addressed straight at the peer with those sixteen bytes still
+            // in front of them. The receiver read the token as its counter and refused every
+            // one, which looks exactly like a lossy path. See the note on ``sendDirect``.
+            let payloads = destination == .peer
+                ? datagrams.map { $0.dropFirst(VideoDatagram.tokenSize) }
+                : datagrams
+
             guard self.bound else {
                 // Waiting for the bind. The oldest goes when the queue is full: a picture that is
                 // already stale is worth less than the one that just arrived, and a part of a
                 // picture is worth less than either.
                 self.held.append(Held(
-                    datagrams: datagrams,
+                    datagrams: payloads,
                     destination: destination,
                     completion: completion
                 ))
-                self.heldCount += datagrams.count
+                self.heldCount += payloads.count
                 // The newest is always kept, even when it alone is larger than the cap: it is the
                 // picture the client has not seen, and the ones being dropped are not.
                 while self.heldCount > Self.maxHeldDatagrams, self.held.count > 1 {
@@ -834,7 +848,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
                 }
                 return
             }
-            self.write(datagrams, to: destination, completion: completion)
+            self.write(payloads, to: destination, completion: completion)
         }
     }
 
