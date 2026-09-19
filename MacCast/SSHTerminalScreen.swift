@@ -391,8 +391,11 @@ struct SSHTerminalScreen: View {
                 FilePreviewPanel(
                     preview: preview,
                     failure: model.browseFailure(preview.path, sessionID: terminal.id),
+                    isSaving: model.isSavingFile,
+                    saveFailure: model.saveFailure,
                     onRevealPath: { reveal($0) },
-                    onClose: { model.closePreview() }
+                    onClose: { model.closePreview() },
+                    onSave: { model.saveFile($0, sessionID: terminal.id) }
                 )
             } else {
                 FileBrowserPanel(
@@ -402,8 +405,13 @@ struct SSHTerminalScreen: View {
                     // A shell that has ended is not a folder that failed. The session refuses
                     // every browse request for one, so the panel says that itself rather than
                     // asking and leaving a spinner on a server that has already stopped answering.
+                    // An upload that failed is shown in the folder's own failure slot rather than
+                    // one of its own: it is a fact about this folder, it is cleared by the next
+                    // attempt, and a second place for a sentence to appear in a panel this short
+                    // would be a second layout to keep right.
                     failure: canType
-                        ? model.browseFailure(browsingPath, sessionID: terminal.id)
+                        ? (model.uploadFailure
+                            ?? model.browseFailure(browsingPath, sessionID: terminal.id))
                         : "This shell has ended. Open a new shell to browse the server's files.",
                     showsHidden: showsHiddenFiles,
                     onOpen: { open($0) },
@@ -412,7 +420,13 @@ struct SSHTerminalScreen: View {
                     onReload: {
                         guard canType else { return }
                         model.listDirectory(browsingPath, sessionID: terminal.id)
-                    }
+                    },
+                    // Absent while the shell has ended, for the same reason the folder cannot be
+                    // listed then: there is no connection left to send anything down, and an
+                    // upload button that opens a picker and then fails is worse than no button.
+                    onUpload: canType
+                        ? { model.uploadFile($0, sessionID: terminal.id) }
+                        : nil
                 )
             }
             browseControls

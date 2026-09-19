@@ -346,6 +346,23 @@ public final class SSHSession: Sendable {
         return contents
     }
 
+    /// Replaces a file with the bytes given, and answers with what the server now holds.
+    ///
+    /// **The whole file, not a patch.** See ``SSHBrowseRequest/Kind/write(contents:)`` — the caller
+    /// hands over everything the file should contain, and everything not handed over is gone. The
+    /// editor is what enforces that, by refusing to open a file whose read was cut short; a caller
+    /// writing an upload is handing over a whole file by construction.
+    ///
+    /// Answers with contents rather than a bare acknowledgement so the caller can show the size the
+    /// server actually ended up with, rather than the one it hoped for.
+    public func writeFile(_ contents: Data, to path: String) async throws -> SSHFileContents {
+        guard case .written(let written) = try await browse(.write(contents: contents), at: path)
+        else {
+            throw SSHSessionError.browse("The server answered a write with something else.")
+        }
+        return written
+    }
+
     /// Asks the command loop something, and waits for it to answer.
     ///
     /// The two guards around the `yield` are the whole of the safety here, and they cover two

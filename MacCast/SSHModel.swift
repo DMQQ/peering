@@ -551,6 +551,24 @@ final class SSHModel {
     /// The file the browser is showing, and `nil` while it is showing a folder.
     private(set) var filePreview: RemoteFilePreview?
 
+    /// How large a file this app will try to send. See ``uploadFile(_:sessionID:)``.
+    ///
+    /// Sixty-four megabytes, which is a number about this phone rather than about any server: the
+    /// bytes are read into memory to be sent, and the alternative to refusing is being killed by the
+    /// system partway through, which looks to the user like the app crashing for no reason.
+    static let maximumUploadBytes = 64 * 1_048_576
+
+    /// Whether a save or an upload is in flight, and the last thing that went wrong with one.
+    ///
+    /// One pair of flags for both, because they are the same operation from the screen's point of
+    /// view — something is being written to the server and the user should not be told nothing while
+    /// it is. The failures are kept apart, because the two are fixed differently: a save that failed
+    /// is a file to correct, an upload that failed is a file to choose again.
+    private(set) var isSavingFile = false
+    private(set) var saveFailure: String?
+    private(set) var isUploadingFile = false
+    private(set) var uploadFailure: String?
+
     func browsingPath(for id: UUID) -> String? { browsingPaths[id] }
 
     /// Points a shell's browser at a folder, before asking for it.
@@ -620,7 +638,11 @@ final class SSHModel {
                     path: contents.path,
                     totalBytes: contents.totalBytes,
                     data: contents.data,
-                    isComplete: true
+                    isComplete: true,
+                    // The reader's answer, not this side's guess. See the note on the field: the
+                    // two disagree in exactly the case that matters, where the file is longer than
+                    // the cap and the server never said how long it was.
+                    reportedTruncation: contents.isTruncated
                 )
             } catch {
                 guard filePreview?.terminalID == id, filePreview?.path == path else { return }
@@ -634,6 +656,108 @@ final class SSHModel {
 
     func closePreview() {
         filePreview = nil
+    }
+
+    /// Writes what the editor holds back to the server, replacing the file.
+    ///
+    /// **Refuses a file whose read was cut short, and that refusal is the method rather than a
+    /// nicety.** A write replaces the file — SFTP has no "change these bytes" — so saving a preview
+    /// of the first 128 KB of something longer would destroy the rest and leave nothing behind to
+    /// say it had happened. The panel does not offer to edit such a file, and this does not extend
+    /// that offer any trust: the guard is here because this is the last place it can be.
+    func saveFile(_ text: String, sessionID id: UUID) {
+        guard let terminal = terminals.first(where: { $0.id == id }),
+              let preview = filePreview,
+              preview.terminalID == id,
+              !preview.isTruncated
+        else { return }
+
+        let path = preview.path
+        isSavingFile = true
+        saveFailure = nil
+
+        Task { @MainActor in
+            defer { isSavingFile = false }
+            do {
+                let written = try await terminal.session.writeFile(Data(text.utf8), to: path)
+                guard filePreview?.terminalID == id, filePreview?.path == path else { return }
+                // Replaced with what the server now holds rather than with what was sent. They are
+                // the same bytes unless something went wrong between here and the disk, and the
+                // whole reason the write answers with contents is so that "unless" has somewhere to
+                // show up.
+                filePreview = RemoteFilePreview(
+                    terminalID: id,
+                    path: written.path,
+                    totalBytes: written.totalBytes,
+                    data: written.data,
+                    isComplete: true,
+                    reportedTruncation: written.isTruncated
+                )
+            } catch {
+                guard filePreview?.terminalID == id, filePreview?.path == path else { return }
+                saveFailure = Self.browseMessage(error)
+            }
+        }
+    }
+
+    /// Copies a file the user picked into the folder being browsed.
+    ///
+    /// The destination is the folder on screen and the name is the one the file arrived with, which
+    /// is the only naming rule that needs no explanation. An existing file is replaced, because
+    /// that is what an upload to a folder you are looking at means — and the alternative, a silent
+    /// rename, leaves two files where the user expects one.
+    ///
+    /// **Capped, and the cap is about this phone rather than the server.** The bytes are read into
+    /// memory to be sent, so an upload of something enormous is an app the system kills rather than
+    /// a transfer that is slow. Refused with a sentence, which is a thing the user can act on.
+    func uploadFile(_ url: URL, sessionID id: UUID) {
+        guard let terminal = terminals.first(where: { $0.id == id }),
+              let folder = browsingPaths[id]
+        else { return }
+
+        let name = url.lastPathComponent
+        let destination = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+
+        isUploadingFile = true
+        uploadFailure = nil
+
+        Task { @MainActor in
+            defer { isUploadingFile = false }
+
+            // Security-scoped, because a file from the picker is outside the app's sandbox and
+            // reading it without this is a permission failure that looks like a missing file.
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+            let read: Result<Data, any Error>
+            do {
+                // Off the main actor: this is a file the user chose from anywhere on the device,
+                // and reading a few tens of megabytes of it on the main actor is a hitch on a screen
+                // that is drawing a terminal.
+                let bytes = try await Task.detached { try Data(contentsOf: url) }.value
+                read = bytes.count > Self.maximumUploadBytes
+                    ? .failure(SSHSessionError.browse(
+                        "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                    ))
+                    : .success(bytes)
+            } catch {
+                read = .failure(error)
+            }
+
+            switch read {
+            case .failure(let error):
+                uploadFailure = Self.browseMessage(error)
+            case .success(let data):
+                do {
+                    _ = try await terminal.session.writeFile(data, to: destination)
+                    // The folder on screen is now out of date by exactly one file, and asking again
+                    // is cheaper to get right than patching one entry in.
+                    listDirectory(folder, sessionID: id)
+                } catch {
+                    uploadFailure = Self.browseMessage(error)
+                }
+            }
+        }
     }
 
     func directory(_ path: String?, sessionID id: UUID) -> RemoteDirectory? {

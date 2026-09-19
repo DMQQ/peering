@@ -330,5 +330,15 @@ struct RemoteFilePreview: Equatable {
     /// Only asked once the last piece has arrived. Half a file is not a truncation, it is a file
     /// still coming, and a panel that said "truncated" while it was still filling would say it
     /// about every preview that worked.
-    var isTruncated: Bool { isComplete && data.count < totalBytes }
+    ///
+    /// **The reader's own answer wins when there is one.** The arithmetic below cannot see
+    /// everything the reader can: a server that reports no file size leaves `totalBytes` equal to
+    /// what arrived, so the comparison says "the whole file" about one that was cut off at the cap.
+    /// Only the side that stopped reading knows it stopped, so when it says so that is the answer —
+    /// and this is a value somebody's file depends on, because an edit is written back whole.
+    var reportedTruncation: Bool?
+
+    var isTruncated: Bool {
+        reportedTruncation ?? (isComplete && data.count < totalBytes)
+    }
 }

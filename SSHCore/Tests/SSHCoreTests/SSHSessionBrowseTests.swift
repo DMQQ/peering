@@ -48,4 +48,49 @@ struct SSHSessionBrowseTests {
             return
         }
     }
+
+    /// A write goes through the same door, and it has to be tested through it.
+    ///
+    /// Worth a test of its own rather than assumed from the two above, because a write is the one
+    /// request that changes something on the far end: a version of this that hung instead of
+    /// refusing would not be a leak, it would be an edit the user believes has been saved.
+    @Test("and a write, which is the one that must never look like it worked")
+    func writeRefused() async {
+        let error = await refusal {
+            _ = try await self.orphan().writeFile(Data("new contents".utf8), to: "/etc/hosts")
+        }
+        guard case .notConnected = error else {
+            Issue.record("expected notConnected, got \(String(describing: error))")
+            return
+        }
+    }
+
+    /// The fact an editor's safety rests on, and the one thing about a read that can be checked
+    /// without a server: whether the bytes in hand are the whole file. A file whose read was cut
+    /// short is not editable and not downloadable, and both of those refusals are decided here.
+    @Test("contents know whether they are the whole file")
+    func truncationIsCarried() {
+        let complete = SSHFileContents(path: "/a", data: Data("abc".utf8), totalBytes: 3)
+        #expect(!complete.isTruncated, "three bytes of three is the whole thing")
+
+        let cutShort = SSHFileContents(
+            path: "/a",
+            data: Data(repeating: 0x61, count: 131_072),
+            totalBytes: 900_000,
+            isTruncated: true
+        )
+        #expect(cutShort.isTruncated)
+
+        // The case the app's own arithmetic cannot see: a server that reported no size leaves the
+        // two counts equal, so only the reader's own answer distinguishes a short file from one cut
+        // off at the cap. If this ever stops being carried, the editor starts offering to save the
+        // first 128 KB of people's files.
+        let unknownSize = SSHFileContents(
+            path: "/a",
+            data: Data(repeating: 0x61, count: 131_072),
+            totalBytes: 131_072,
+            isTruncated: true
+        )
+        #expect(unknownSize.isTruncated, "equal counts are not proof of a whole file")
+    }
 }

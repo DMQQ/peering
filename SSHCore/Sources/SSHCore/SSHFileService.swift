@@ -37,11 +37,23 @@ public struct SSHFileContents: Sendable, Equatable {
     public let path: String
     public let data: Data
     public let totalBytes: Int
+    /// Whether these bytes are the whole file or only the front of it.
+    ///
+    /// **This is the difference between showing a file and destroying one.** The read stops at a cap,
+    /// so a long file arrives cut short — which is the right thing to draw and a catastrophic thing
+    /// to write back, because saving it would replace the file with its own first 128 KB and leave
+    /// nothing at all behind to say that the rest had been lost.
+    ///
+    /// Carried on the value rather than recomputed by whoever needs it, so that the editor and the
+    /// writer cannot arrive at different answers to the same question. Same shape and same reasoning
+    /// as ``SSHDirectory/isTruncated``.
+    public let isTruncated: Bool
 
-    public init(path: String, data: Data, totalBytes: Int) {
+    public init(path: String, data: Data, totalBytes: Int, isTruncated: Bool = false) {
         self.path = path
         self.data = data
         self.totalBytes = totalBytes
+        self.isTruncated = isTruncated
     }
 }
 
@@ -55,6 +67,17 @@ struct SSHBrowseRequest: Sendable {
     enum Kind: Sendable {
         case list
         case preview
+        /// Replace the file at `path` with `contents`.
+        ///
+        /// **The whole file, not a patch.** SFTP has no "change these bytes": the file is opened,
+        /// truncated and written from zero. So a caller that hands over less than the file held
+        /// destroys the difference, silently and irreversibly — which is why
+        /// ``SSHFileContents/isTruncated`` travels with every read and why the editor refuses to
+        /// open a file whose bytes are not all of it.
+        ///
+        /// The bytes are `Data` rather than `String` because the same door carries an upload, and
+        /// an upload is whatever the user picked: a script, an archive, a PDF.
+        case write(contents: Data)
     }
 
     let kind: Kind
@@ -69,6 +92,13 @@ struct SSHBrowseRequest: Sendable {
 enum SSHBrowseResult: Sendable {
     case listing(SSHDirectory)
     case contents(SSHFileContents)
+    /// What is on the server *now*, after a write — read back as the answer rather than assumed.
+    ///
+    /// Returned as contents rather than as a bare success so the editor learns the file's real size
+    /// and its own bytes as the server holds them. A save that echoed only "done" would leave the
+    /// screen showing text nobody had confirmed, and a file that came back different — truncated by
+    /// a quota, re-encoded by something in between — would look saved.
+    case written(SSHFileContents)
 }
 
 /// The folder tree at the far end of a connection.
@@ -110,6 +140,10 @@ final class SSHFileService {
                 request.continuation.resume(returning: .listing(try await directory(at: request.path)))
             case .preview:
                 request.continuation.resume(returning: .contents(try await contents(at: request.path)))
+            case .write(let contents):
+                request.continuation.resume(
+                    returning: .written(try await write(contents, to: request.path))
+                )
             }
         } catch let error as SSHSessionError {
             request.continuation.resume(throwing: error)
@@ -293,9 +327,60 @@ final class SSHFileService {
                 try? await file.close()
                 throw error
             }
+            // Whether the read stopped because the file ended or because the cap did.
+            //
+            // The second is the case that must never be written back, and a server that reported no
+            // size counts as the second once the cap is reached: "might be truncated" and "is
+            // truncated" lead to the same refusal, and guessing the other way loses somebody's file.
+            let truncated = data.count >= limit
+                && (attributes.size == nil || totalBytes > data.count)
+
             // Checked after the handle is shut rather than before it, so that a file whose bytes
             // turn out not to be text has still been closed exactly once on the way out.
-            return try Self.text(data, path: path, totalBytes: max(totalBytes, data.count))
+            return try Self.text(
+                data,
+                path: path,
+                totalBytes: max(totalBytes, data.count),
+                isTruncated: truncated
+            )
+        }
+    }
+
+    /// Replaces a file with the bytes given, over SFTP.
+    ///
+    /// **SFTP only, and that is not a limitation to be worked around.** The fallback provider is a
+    /// one-off `ls` command, and a server that refuses a session the SFTP subsystem is not one to be
+    /// sent file contents through a shell — escaping, quoting and a here-document would all have to
+    /// be right, and every one of them is a way to write something other than what the user meant.
+    /// Refused with a sentence instead.
+    ///
+    /// The open is `write | create | truncate`, which is exactly the whole-file replacement this
+    /// promises and nothing more. A file that already exists keeps its mode: `create` only creates
+    /// one that is not there, and truncating does not touch permissions — so saving a script leaves
+    /// it executable, which is the difference between an edit and a broken deploy.
+    private func write(_ contents: Data, to path: String) async throws -> SSHFileContents {
+        guard provider != .exec else {
+            throw SSHSessionError.browse(
+                "This server does not offer SFTP, so a file cannot be saved here."
+            )
+        }
+
+        return try await withSFTP { sftp in
+            let file = try await sftp.openFile(
+                filePath: path,
+                flags: [.write, .create, .truncate]
+            )
+            do {
+                // `SFTPFile.write` splits this into the 32 KB pieces the SFTP implementation wants,
+                // so the whole buffer may be handed over at once. It is a loop internally, which is
+                // why a large upload does not need one here.
+                try await file.write(ByteBuffer(data: contents), at: 0)
+                try await file.close()
+            } catch {
+                try? await file.close()
+                throw error
+            }
+            return SSHFileContents(path: path, data: contents, totalBytes: contents.count)
         }
     }
 
@@ -307,7 +392,12 @@ final class SSHFileService {
     /// the case where the read stopped at the cap rather than at the end of the file and the cut
     /// landed inside a character. Calling a text file binary because it was a long one is exactly
     /// the wrong answer.
-    private static func text(_ data: Data, path: String, totalBytes: Int) throws -> SSHFileContents {
+    private static func text(
+        _ data: Data,
+        path: String,
+        totalBytes: Int,
+        isTruncated: Bool
+    ) throws -> SSHFileContents {
         guard !data.prefix(binaryProbeBytes).contains(0) else {
             throw SSHSessionError.browse("That file is not text, so there is nothing to show here.")
         }
@@ -320,7 +410,12 @@ final class SSHFileService {
         guard String(data: trimmed, encoding: .utf8) != nil else {
             throw SSHSessionError.browse("That file is not text, so there is nothing to show here.")
         }
-        return SSHFileContents(path: path, data: trimmed, totalBytes: totalBytes)
+        return SSHFileContents(
+            path: path,
+            data: trimmed,
+            totalBytes: totalBytes,
+            isTruncated: isTruncated
+        )
     }
 
     // MARK: - The SFTP session

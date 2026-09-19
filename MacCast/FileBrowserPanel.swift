@@ -1,5 +1,6 @@
 import RemoteCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 // `childPath` moved to `RemoteCore`, alongside `ShellPath.quoted`, when the SSH browser turned
 // out to need the same join for a different reason: resolving a symbolic link means naming the
@@ -51,6 +52,14 @@ struct FileBrowserPanel: View {
     /// Ask for the current folder again.
     var onReload: () -> Void
 
+    /// Send a file the user picked to the folder on screen. Absent where there is no door for it —
+    /// the Mac's own browser, which cannot yet be written to at all.
+    ///
+    /// Optional rather than a closure that might do nothing, because the button is drawn from
+    /// whether this is here: a control that appears and then silently does nothing is worse than one
+    /// that was never offered.
+    var onUpload: ((URL) -> Void)?
+
     /// Whether the current wait has lasted long enough to be explained.
     ///
     /// The Mac blocks *inside* the listing call while macOS shows a Files-and-Folders prompt, so
@@ -67,6 +76,8 @@ struct FileBrowserPanel: View {
     /// typed would be a listing that flickers behind the keyboard. It also means both browsers
     /// narrow the same way, which they would not if one of them asked a server to.
     @State private var query = ""
+    /// Whether the system's file picker is up. See ``searchField`` for the button that raises it.
+    @State private var showsImporter = false
 
     /// A real `@FocusState`, unlike the terminal's own command field, and it is the same fact
     /// that makes that one a plain flag: this is a SwiftUI `TextField` and claims its focus
@@ -81,6 +92,17 @@ struct FileBrowserPanel: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Only the thing being uploaded, not the whole Finder tree: this is one file into one
+        // folder, and a picker that offers everything is a picker that makes the user work out
+        // which of the options they have already found is the one that sends it.
+        .fileImporter(
+            isPresented: $showsImporter,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            onUpload?(url)
+        }
         // Keyed to the wait itself, so the clock starts when a request goes out and the flag is
         // cleared the moment one comes back — including a wait that ends in a failure, which has
         // its own thing to say and should not be talked over.
@@ -121,7 +143,35 @@ struct FileBrowserPanel: View {
     /// one that does not get used, and a folder with two hundred rows is the one place in this
     /// app where finding a name by scrolling is genuinely hopeless. It costs a row of height on
     /// a screen that has plenty of them.
+    /// The filter, and the one control that puts something new into this folder.
+    ///
+    /// Side by side rather than the upload inside the capsule with the filter: the field is a place
+    /// to type and a button in it is a glyph competing with the clear cross for the same corner,
+    /// where this is a different kind of thing altogether — the only control on the panel that
+    /// changes the server rather than the view.
+    @ViewBuilder
     private var searchField: some View {
+        HStack(spacing: 8) {
+            filterField
+
+            if onUpload != nil {
+                Button { showsImporter = true } label: {
+                    Image(systemName: "arrow.up.to.line")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.07), in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.9))
+                .accessibilityLabel("Upload a file to this folder")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+    }
+
+    private var filterField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12, weight: .semibold))
@@ -160,8 +210,6 @@ struct FileBrowserPanel: View {
         .padding(.trailing, query.isEmpty ? 11 : 5)
         .frame(height: 32)
         .background(Color.white.opacity(0.07), in: Capsule())
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
     }
 
     // MARK: - Breadcrumbs
@@ -518,18 +566,36 @@ struct FileBrowserPanel: View {
     }
 }
 
-/// A text file on the Mac, as far as it was read.
+/// A text file on a server, as far as it was read — and, when it can be, edited.
 ///
-/// Read-only and bounded, and both of those are the whole of what it can do: this shows what the
-/// Mac sent and offers no way to change it. The size line says when what is on screen is the
-/// beginning of a file rather than the whole of one, because a preview that silently stopped
-/// short reads exactly like a file that ends there.
+/// **Reading and editing are two modes rather than one editable view, and that is not a
+/// compromise.** What makes this panel good at reading is that it does not wrap: a config, a script
+/// and a log are all read by their columns, so the readout is monospaced, scrolls on both axes, and
+/// lets a long line run off the side where it belongs. A text field cannot do that — it wraps, and
+/// it has one axis — so an editable readout would be a worse reader in exchange for being a writer.
+/// The mode is what lets each half be the best version of itself.
+///
+/// The size line says when what is on screen is the beginning of a file rather than the whole of
+/// one, and that line is load-bearing rather than informative: **a file that was cut short cannot be
+/// edited or downloaded**, because both of those would act on 128 KB as though it were the file.
+/// See ``SSHModel/saveFile(_:sessionID:)`` for why the guard is enforced there as well as here.
 struct FilePreviewPanel: View {
     let preview: RemoteFilePreview
     let failure: String?
+    /// Whether a write is in flight, and the last one that went wrong.
+    var isSaving: Bool = false
+    var saveFailure: String?
 
     var onRevealPath: (String) -> Void
     var onClose: () -> Void
+    /// Writes the text given back to the server. Absent where the file cannot be written — the
+    /// Mac's own browser, which has no such door yet.
+    var onSave: ((String) -> Void)?
+
+    /// The text being edited, or `nil` while the file is only being read.
+    @State private var edited: String?
+    /// A copy of the file on this phone, so it can be handed to Files. See ``temporaryCopy()``.
+    @State private var shareURL: URL?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -537,6 +603,29 @@ struct FilePreviewPanel: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Prepared when the file arrives rather than when the button is pressed: the share sheet
+        // reads the file as it opens, so a URL that does not exist yet is a share sheet that comes
+        // up empty. The file is at most the preview cap, so this is not a cost worth deferring.
+        .task(id: preview.path) {
+            shareURL = preview.isTruncated ? nil : Self.temporaryCopy(of: preview)
+        }
+    }
+
+    /// Whether this file may be changed at all.
+    ///
+    /// Three ways to be no, and they are different sentences on screen: the file was cut short at
+    /// the read cap, it is not the whole of itself yet, or whoever opened this panel has no way to
+    /// write one back.
+    private var canEdit: Bool {
+        onSave != nil && preview.isComplete && !preview.isTruncated && failure == nil
+    }
+
+    /// Whether there is anything on screen to edit — an empty file is still a file.
+    private var isEditing: Bool { edited != nil }
+
+    private var hasUnsavedChanges: Bool {
+        guard let edited else { return false }
+        return edited != preview.text
     }
 
     private var header: some View {
@@ -565,15 +654,61 @@ struct FilePreviewPanel: View {
 
             Spacer(minLength: 8)
 
-            Button { onRevealPath(preview.path) } label: {
-                Image(systemName: "arrow.up.forward.square")
-                    .font(.system(size: 15, weight: .semibold))
+            if isEditing {
+                // Words rather than glyphs on this side, unlike the reading side: mid-edit the two
+                // choices are the whole question on the screen, and a tick and a cross are two
+                // guesses about which does which.
+                Button("Cancel") { edited = nil }
+                    .font(.footnote.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
+
+                Button {
+                    if let edited { onSave?(edited) }
+                } label: {
+                    Text(isSaving ? "Saving…" : "Save")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(hasUnsavedChanges && !isSaving ? ColorPalette.accent : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasUnsavedChanges || isSaving)
+            } else {
+                // Absent rather than disabled when the file was cut short: a greyed control invites
+                // a tap and explains nothing, and the size line above already says why.
+                if let shareURL {
+                    ShareLink(item: shareURL) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Download to this phone")
+                }
+
+                if canEdit {
+                    Button { edited = preview.text } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Edit this file")
+                }
+
+                Button { onRevealPath(preview.path) } label: {
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Put path in command line")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Put path in command line")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -596,6 +731,8 @@ struct FilePreviewPanel: View {
             }
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if isEditing {
+            editor
         } else if !preview.isComplete {
             VStack(spacing: 10) {
                 ProgressView().controlSize(.small)
@@ -633,8 +770,69 @@ struct FilePreviewPanel: View {
         }
     }
 
+    /// The file, being changed.
+    ///
+    /// Autocorrection and capitalisation are off, and neither is a preference: this is a config file
+    /// or a script, and a keyboard that capitalises the first word of a line or straightens a quote
+    /// has silently changed what the file means before anybody saved it. Smart punctuation is a
+    /// system keyboard setting that SwiftUI gives no way to reach from here — worth knowing, because
+    /// it is the one that still gets through.
+    private var editor: some View {
+        VStack(spacing: 0) {
+            if let saveFailure {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(saveFailure)
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(ColorPalette.caution)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(ColorPalette.caution.opacity(0.12))
+            }
+
+            TextEditor(text: Binding(
+                get: { edited ?? preview.text },
+                set: { edited = $0 }
+            ))
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(ColorPalette.ink)
+            .scrollContentBackground(.hidden)
+            .background(ColorPalette.backdrop)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
+            .keyboardType(.asciiCapable)
+            .padding(.horizontal, 4)
+        }
+    }
+
     private var name: String {
         preview.path.split(separator: "/").last.map(String.init) ?? preview.path
+    }
+
+    /// A copy of the file on this phone, so the system's share sheet can take it somewhere.
+    ///
+    /// **This is what downloading means on iOS**, and it is worth being explicit about because it is
+    /// not what it means anywhere else: an app has no downloads folder it may write into, so the
+    /// file goes to a temporary location and the sheet decides where it lands — Files, another app,
+    /// an email. Named after the file it came from, because the name is the only thing about it that
+    /// survives the journey.
+    ///
+    /// `nil` when the bytes are not the whole file, which the caller checks as well: handing
+    /// somebody the first 128 KB of their own file under its real name is worse than not offering it.
+    private static func temporaryCopy(of preview: RemoteFilePreview) -> URL? {
+        let name = preview.path.split(separator: "/").last.map(String.init) ?? "file"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try preview.data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
+        }
     }
 
     /// What was read, and how much of the file that was.
