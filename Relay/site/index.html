@@ -62,7 +62,7 @@
           <a class="btn btn-primary" href="/download">Download for Mac</a>
           <!-- TODO before launch: add the App Store badge next to this, linking to
                https://apps.apple.com/app/id<your-app-id>. The iPhone app has no link yet, and an
-               anchor that goes nowhere is worse than none — see /download for what visitors are
+               anchor that goes nowhere is worse than none; see /download for what visitors are
                told in the meantime. -->
           <a class="btn btn-quiet" href="#how">See how it works</a>
         </div>
@@ -110,8 +110,9 @@
           <span class="step-n">3</span>
           <h3>Leave the house</h3>
           <p>
-            After pairing, the relay finds your Mac from other networks. Lock your phone and the
-            session survives; Picture in Picture and a Live Activity keep it in reach.
+            After pairing, your two devices find each other from other networks. Once they have,
+            the picture goes straight between them rather than the long way round. Lock your phone
+            and the session survives; Picture in Picture and a Live Activity keep it in reach.
           </p>
         </li>
       </ol>
@@ -162,6 +163,42 @@
           <h3>Keeps going when you leave</h3>
           <p>Picture in Picture over other apps, a Live Activity on the Lock Screen, and a widget on the Home Screen.</p>
         </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
+          <h3>Your servers, too</h3>
+          <p>Add a host over SSH and it sits beside your Macs. Its keys are checked the first time, and each host can carry its own lock: a passcode, or your face.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
+          <h3>A real shell</h3>
+          <p>Full-screen terminal sessions with a key row built for a phone: escape, control keys, arrows and word-at-a-time movement, plus independent tabs you can leave running.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
+          <h3>Browse and edit a server's files</h3>
+          <p>Walk the folders, open a config or a script, change it and save it. Upload from your phone, and save a copy down to Files.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3 1.8"/></svg>
+          <h3>Every session, remembered</h3>
+          <p>Each connection is filed with how long it lasted, how it was reached, how much came down the wire, and what the Mac said along the way.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
+          <h3>One clipboard</h3>
+          <p>Copy on the iPhone and paste on the Mac, or the other way round. Every pull is kept, so the last few things you copied are still there.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.4v7.2"/><path d="M8.1 6.6a6 6 0 108 0"/></svg>
+          <h3>Wake it, or hide it</h3>
+          <p>Wake a sleeping Mac over the network before you connect, and put its screen away when you would rather nobody walking past saw it.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -169,9 +206,10 @@
   <!-- Privacy -->
   <section class="section" id="privacy">
     <div class="wrap">
-      <h2>The relay carries it. It cannot read it.</h2>
+      <h2>Encrypted end to end. The relay is not a party to it.</h2>
       <p class="section-lede">
-        That is a property of how the relay is built, not a promise about how it behaves.
+        Your two devices hold the keys, and the relay was never given them. That is a property of
+        how it is built rather than a promise about how it behaves.
       </p>
 
       <div class="card privacy-card">
@@ -188,8 +226,15 @@
             <h3>What the relay handles</h3>
             <p>
               Your devices' IDs, your Mac's name, the protocol version, which plan the app says
-              you are on, and how much relay time has been used. That is the whole list. It is
-              what addressing two machines and counting allowance requires.
+              you are on, and how much relay time has been used. It also sees, as any server does,
+              the address each device connects from, and it gives each of them the other's so they
+              can try to reach one another directly.
+            </p>
+            <p>
+              That last part is new, and worth stating plainly: your two devices now learn each
+              other's public address, so the relay is no longer the only thing that knows where
+              either of them is. What it can <em>read</em> has not changed. It reads nothing, on
+              either path.
             </p>
           </div>
           <div>
@@ -301,6 +346,10 @@
             plan the app says you are on, and connection usage. A paid connection also sends its
             relay access key. Nothing else, and no account is involved.
           </p>
+          <p>
+            It also sees, as any server does, the address each device connects from, and it hands
+            each of them the other's, so they can try to reach one another directly.
+          </p>
         </details>
         <details>
           <summary>Do I need an account?</summary>
@@ -320,8 +369,18 @@
         <details>
           <summary>Can I transfer files?</summary>
           <p>
-            Not yet. Peering carries the screen, Mac audio, controls, terminal commands and
-            clipboard text, but not files.
+            On the servers you add over SSH, yes: walk their folders, open a file, change it and
+            save it, upload one from your phone, and save a copy down to Files. Your Mac's own
+            files can be browsed and read, but not written to yet.
+          </p>
+        </details>
+        <details>
+          <summary>Does my screen go through your servers?</summary>
+          <p>
+            Only when it has to. Your two devices try to open a path straight between themselves
+            first; the relay is what introduces them, and what carries the session when that path
+            cannot be opened, as on a carrier network that will not allow it. Both ways are
+            encrypted the same, and the relay cannot read either.
           </p>
         </details>
         <details>
