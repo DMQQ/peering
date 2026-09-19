@@ -122,6 +122,39 @@ struct ServiceDiscoveryTests {
         #expect(collapsed[0].protocolVersion == nil)
     }
 
+    private var endpoint: NWEndpoint {
+        .hostPort(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: ProtocolInfo.defaultPort)!)
+    }
+
+    @Test("a result with no device ID is not offered as a host")
+    func dropsResultsThatAreNotHosts() {
+        // `_remotedesktop._tcp` is Apple's own Screen Sharing service type, so the browser
+        // also returns every Mac on the network with Screen Sharing switched on. None of
+        // those publishes a device ID, and a row built from an endpoint description invites
+        // a tap that begins a MacCast handshake against a server that cannot answer one.
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: nil) == nil)
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["name": "Someone's Mac"])) == nil)
+    }
+
+    @Test("a device ID that is present but empty is not an identity")
+    func dropsEmptyDeviceID() {
+        // Every malformed advertisement of this shape would otherwise collapse onto one
+        // host, since the empty string is a perfectly good dictionary key.
+        #expect(DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["id": ""])) == nil)
+    }
+
+    @Test("a host that publishes only an ID is still connectable")
+    func keepsHostWithMinimalTXTRecord() {
+        // The requirement is the ID and nothing else. A missing name or version is cosmetic,
+        // and hiding the host for it would turn a TXT-record omission into a Mac the user
+        // cannot reach.
+        let host = DiscoveredHost.decode(endpoint: endpoint, txt: NWTXTRecord(["id": "mac-1"]))
+
+        #expect(host?.id == "mac-1")
+        #expect(host?.protocolVersion == nil)
+        #expect(host?.name.isEmpty == false)
+    }
+
     @Test("the Bonjour service type carries the protocol it advertises")
     func serviceTypeMatchesProtocol() {
         // Bound into the advertised type, the Info.plist key, and the browser's descriptor.

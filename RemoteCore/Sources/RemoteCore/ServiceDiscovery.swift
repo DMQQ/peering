@@ -102,6 +102,34 @@ extension DiscoveredHost {
         }
         .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
+
+    /// Builds a host from one browse result, or `nil` if that result is not a MacCast host.
+    ///
+    /// The service type is `_remotedesktop._tcp`, which is Apple's own Screen Sharing type rather
+    /// than one registered to this app. A browser for it also returns every Mac on the network
+    /// with Screen Sharing switched on, and each of those used to be listed: with no TXT record
+    /// the identity fell back to the endpoint description, so the picker offered a row named
+    /// after an `NWEndpoint` and tapping it began a MacCast handshake against a server that does
+    /// not speak the protocol.
+    ///
+    /// The **device ID** is what separates the two. It is required; a display name and a protocol
+    /// version are not, because neither is needed to connect. The ID is, and not marginally: it is
+    /// what the pin, the stored host and the handshake all key on, so a host publishing no ID
+    /// could not be paired with even if it were offered.
+    static func decode(endpoint: NWEndpoint, txt: NWTXTRecord?) -> DiscoveredHost? {
+        // An empty string is treated as absent. A TXT record with `id=` in it is a malformed
+        // advertisement rather than an identity, and every one of them would collapse to the
+        // same host.
+        guard let id = txt?[ProtocolInfo.TXTRecordKey.deviceID], !id.isEmpty else { return nil }
+
+        return DiscoveredHost(
+            id: id,
+            name: txt?[ProtocolInfo.TXTRecordKey.deviceName] ?? endpoint.debugDescription,
+            endpoint: endpoint,
+            protocolVersion: txt?[ProtocolInfo.TXTRecordKey.protocolVersion].flatMap(UInt16.init),
+            interfaceCount: 1
+        )
+    }
 }
 
 /// Browses for MacCast hosts on the local network.
@@ -249,25 +277,13 @@ public final class HostBrowser: @unchecked Sendable {
     // MARK: - Result handling
 
     private func rebuild(from results: Set<NWBrowser.Result>) {
-        let hosts = DiscoveredHost.collapse(results.map { result in
+        let hosts = DiscoveredHost.collapse(results.compactMap { result in
             let txt: NWTXTRecord? = {
                 if case .bonjour(let record) = result.metadata { return record }
                 return nil
             }()
 
-            // Fall back to the endpoint when the TXT record is absent or incomplete, so a
-            // host is never hidden just because it published less than expected. The
-            // endpoint description is ugly, but it is a real, connectable identity.
-            let id = txt?[ProtocolInfo.TXTRecordKey.deviceID]
-                ?? "endpoint:\(result.endpoint.debugDescription)"
-
-            return DiscoveredHost(
-                id: id,
-                name: txt?[ProtocolInfo.TXTRecordKey.deviceName] ?? result.endpoint.debugDescription,
-                endpoint: result.endpoint,
-                protocolVersion: txt?[ProtocolInfo.TXTRecordKey.protocolVersion].flatMap(UInt16.init),
-                interfaceCount: 1
-            )
+            return DiscoveredHost.decode(endpoint: result.endpoint, txt: txt)
         })
 
         guard hosts != current else { return }
