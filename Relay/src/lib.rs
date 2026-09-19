@@ -32,6 +32,8 @@
 //! keep this process too stupid to break it.
 
 pub mod config;
+pub mod device_bindings;
+pub mod device_proof;
 pub mod protocol;
 pub mod quota;
 pub mod session;

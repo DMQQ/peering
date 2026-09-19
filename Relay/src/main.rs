@@ -26,7 +26,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = Config::from_env()?;
     let registry = Arc::new(Registry::new());
-    let hosts = HostRegistry::new();
+    // Who each device id belongs to. A relay that does not write these down forgets them on
+    // restart, which re-opens the window for every id it had learned. See `device_bindings`.
+    let (hosts, binding_failure) = HostRegistry::with_bindings(config.device_bindings.clone());
+    match (&config.device_bindings, &binding_failure) {
+        (Some(path), None) => {
+            info!(path = %path.display(), "device bindings are persisted; a restart will not forget them")
+        }
+        (Some(path), Some(error)) => warn!(
+            path = %path.display(),
+            %error,
+            "the device binding store could not be opened; bindings are in memory and a restart will forget them"
+        ),
+        (None, _) => warn!(
+            "PEERINGD_DEVICE_BINDINGS is unset; bindings are in memory and a restart will forget which device proved which id"
+        ),
+    }
 
     let tls = match &config.tls {
         Some(files) => Some(acceptor(files)?),

@@ -45,6 +45,9 @@ StateDirectory=peeringd
 # of the decision: systemd applies these in the order they appear, so a value in the operator's file
 # wins over this line, where the other way round the file would be quietly overruled by a default.
 Environment=PEERINGD_USAGE_LOG=%S/peeringd/usage.log
+# And who each device id belongs to. A relay that forgets these on restart will register an
+# unproved claim for an id it had already seen proved, which is the window this closes.
+Environment=PEERINGD_DEVICE_BINDINGS=%S/peeringd/devices.jsonl
 
 # Every setting the relay takes, in one root-owned file, so this unit can stay in version control
 # without carrying a certificate path or an API key. See the environment table in the README.

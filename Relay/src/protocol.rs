@@ -20,10 +20,44 @@ pub enum ClientMessage {
     /// A Mac announcing itself. Holding this connection open *is* the Mac's presence: when it
     /// drops, the Mac is offline, and it re-registers when it comes back — on a new address, under
     /// the same device ID.
+    ///
+    /// **`device_id` on its own is a claim, and these three fields are the evidence.** A device ID
+    /// is not a secret and was never meant to be one: it is broadcast in the Mac's Bonjour TXT
+    /// record to everyone on the network and printed into the pairing QR code. That was harmless
+    /// while the ID was only a name two devices used to find each other, and it stopped being
+    /// harmless when this message started writing to a table with it. Anyone who learns an ID could
+    /// register it, and `HostRegistry` puts without checking, so a stranger could displace the real
+    /// Mac's registration and make it unreachable through the relay until it reconnected.
+    ///
+    /// The evidence is a signature, not a shared secret, because every device already holds the key
+    /// to make one: a long-term P-256 key in the keychain, whose public bytes the pairing handshake
+    /// already pins. Nothing new is minted, nothing new is stored, and losing the key is a failure
+    /// the app already has, because losing it breaks pairing too.
+    ///
+    /// All three are `None` in a build that predates this, and that is not a refusal: an id nobody
+    /// has proved yet is registered by anyone, exactly as before. What the proof buys is that an id
+    /// which has been proved can only be claimed by the device that proved it. See
+    /// `device_bindings`, which is where that rule lives and why it is shaped that way.
     RegisterHost {
         device_id: String,
         name: String,
         protocol_version: u16,
+        /// Hex of the 65-byte uncompressed P-256 point, `0x04 ‖ X ‖ Y`. The same value the two
+        /// devices pin for each other, so a phone that has paired with this Mac is looking at it.
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        /// Hex of a DER-encoded ECDSA signature over [`Self::proof_payload`].
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        /// Seconds since the Unix epoch, covered by the signature.
+        ///
+        /// A replayed registration is not much of an attack, since it proves the same key and lands
+        /// on the same binding, but it would let a captured message re-register a Mac that is already
+        /// connected, which is the displacement this exists to stop. The window is what makes that
+        /// replay worthless rather than merely uninteresting. It is a bound on how long a capture
+        /// stays useful, not a clock the relay trusts for anything else.
+        #[serde(default)]
+        proof_time: Option<u64>,
     },
 
     /// A phone asking where its Mac is.
@@ -86,6 +120,28 @@ pub enum ClientMessage {
         /// Hex, and the asking end's own — its peer's address is what comes back.
         video_token: String,
     },
+
+    /// Is this Mac registered with the relay right now?
+    ///
+    /// **Asked by a phone that has paired with a Mac and cannot see it.** Bonjour answers that
+    /// question for a Mac on the same network and answers nothing at all for one that is not, which
+    /// is every Mac reached through this relay. So the app had two states, nearby and unknown, and
+    /// drew the second one the same way it would draw *offline*: a grey dot on a Mac that was
+    /// sitting awake on the other side of the country. This is the smallest question that fixes it.
+    ///
+    /// It is a question and not a subscription: one ask, one answer, and the registration it reads
+    /// is the same one `ConnectToHost` consults before it will open a session. Nothing is stored
+    /// about the ask, and the answer says only whether the Mac is here, never where.
+    ///
+    /// **What it costs is worth naming**, because it is the first message that tells this process
+    /// something it did not already need to know: a phone that asks after three Macs has told the
+    /// relay which three it is interested in, where before it revealed one at the moment it
+    /// connected to it. That is a small disclosure and a real one, and it is why this is a poll the
+    /// app runs while the Connect tab is open rather than something it reports continuously.
+    HostPresence {
+        /// The device id the phone paired with, exactly as it stores it.
+        host_id: String,
+    },
 }
 
 /// What the relay sends back.
@@ -128,6 +184,17 @@ pub enum ServerMessage {
     /// Sent only in answer to [`ClientMessage::RequestPeerAddress`], and only when the peer has
     /// been heard from at all — see the `peerAddressUnknown` error for the other case.
     PeerAddress { host: String, port: u16 },
+
+    /// Whether a Mac is registered, in answer to [`ClientMessage::HostPresence`].
+    ///
+    /// `online: false` is a fact the relay is entitled to state: it is the same fact that makes
+    /// `ConnectToHost` answer [`ServerMessage::HostOffline`], read a moment earlier. It is *not* a
+    /// claim that the Mac is switched off, and the app is careful not to draw it as one: a Mac can
+    /// be awake and reachable on its own network while being registered nowhere.
+    ///
+    /// The `host_id` is echoed so an answer can be matched to its question without relying on the
+    /// order they arrive in.
+    HostPresence { host_id: String, online: bool },
 
     Pong,
 
@@ -184,6 +251,39 @@ pub fn unhex(text: &str) -> Option<Token> {
     Some(out)
 }
 
+/// The same encoding for a byte string of any length.
+///
+/// `hex` and `unhex` above are the token-sized pair and stay as they are, because a token is
+/// always exactly sixteen bytes and the fixed size is half of what makes decoding one safe. Keys
+/// and signatures are not a fixed size, so they get the general pair rather than a second
+/// special case.
+pub fn bytes_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut out, b| {
+            let _ = write!(out, "{b:02x}");
+            out
+        })
+}
+
+/// Decodes hex of any even length, and refuses anything else.
+///
+/// `None` rather than a partial answer for every way this can be wrong: an odd length, a character
+/// that is not a hex digit, or a string longer than the caller could possibly want. The length cap
+/// is the caller's, passed in, because "too long" means something different for a public key than
+/// for a signature and neither number belongs here.
+pub fn hex_bytes(text: &str, limit: usize) -> Option<Vec<u8>> {
+    if text.len() % 2 != 0 || text.len() > limit * 2 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(text.len() / 2);
+    for i in 0..text.len() / 2 {
+        out.push(u8::from_str_radix(text.get(i * 2..i * 2 + 2)?, 16).ok()?);
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -198,6 +298,30 @@ mod tests {
                 device_id: "abc".into(),
                 name: "Studio".into(),
                 protocol_version: 3,
+                // Absent, which is the shape a build that predates the proof sends. It has to parse,
+                // because every Mac in the field right now sends exactly this.
+                public_key: None,
+                proof: None,
+                proof_time: None,
+            }
+        );
+    }
+
+    /// And the shape a build that proves itself sends.
+    #[test]
+    fn a_proved_registration_round_trips_too() {
+        let text = r#"{"type":"registerHost","deviceId":"abc","name":"Studio","protocolVersion":14,
+            "publicKey":"04aa","proof":"3045","proofTime":1760000000}"#;
+        let message: ClientMessage = serde_json::from_str(text).expect("should parse");
+        assert_eq!(
+            message,
+            ClientMessage::RegisterHost {
+                device_id: "abc".into(),
+                name: "Studio".into(),
+                protocol_version: 14,
+                public_key: Some("04aa".into()),
+                proof: Some("3045".into()),
+                proof_time: Some(1_760_000_000),
             }
         );
     }

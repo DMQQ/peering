@@ -663,6 +663,9 @@ async fn register_mac(port: u16) -> Ws {
             device_id: "mac".into(),
             name: "Studio".into(),
             protocol_version: 3,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;

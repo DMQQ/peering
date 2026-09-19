@@ -108,6 +108,15 @@ pub struct Config {
     /// inside a state directory the service owns, and startup will say whether it took; leave it
     /// unset and startup will say, just as plainly, that a restart resets every counter.
     pub usage_log: Option<PathBuf>,
+    /// Where the device-to-public-key bindings are written. `PEERINGD_DEVICE_BINDINGS`.
+    ///
+    /// **Unset means the relay forgets them on restart**, and that is a real weakening rather than
+    /// a neutral default: a binding is what lets a registration that cannot sign for a device ID be
+    /// refused, so a relay that forgets re-opens the window for every ID it had learned. It is not
+    /// an *opening* of the hole, because the memory-only behaviour is still strictly better than
+    /// having no binding at all for the length of a run. Set it, in the same state directory as the
+    /// usage log. See `device_bindings.rs`.
+    pub device_bindings: Option<PathBuf>,
 }
 
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
@@ -242,6 +251,7 @@ impl Config {
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("site")),
             usage_log: get("PEERINGD_USAGE_LOG").map(PathBuf::from),
+            device_bindings: get("PEERINGD_DEVICE_BINDINGS").map(PathBuf::from),
         })
     }
 }

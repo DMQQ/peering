@@ -176,10 +176,17 @@ async fn register_mac(relay: &TestRelay, device_id: &str) -> Ws {
     let mut mac = connect(relay.signal_port).await;
     send(
         &mut mac,
+        // Unproved, which is what a Mac in the field sends today and what these tests are about.
+        // The proving path has its own tests in `device_proof` and `device_bindings`; what matters
+        // here is that the older shape still registers, because on the day this ships every Mac in
+        // the field is sending exactly this.
         &ClientMessage::RegisterHost {
             device_id: device_id.into(),
             name: "Studio".into(),
             protocol_version: 3,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;

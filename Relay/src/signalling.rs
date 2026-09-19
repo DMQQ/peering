@@ -12,8 +12,12 @@
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use crate::device_bindings::{Binding, DeviceBindings};
+use crate::device_proof;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -68,6 +72,18 @@ struct ConnectionState {
 #[derive(Clone, Default)]
 pub struct HostRegistry {
     inner: Arc<Mutex<HashMap<String, Host>>>,
+    /// Who each device id belongs to.
+    ///
+    /// **Here rather than threaded through as its own parameter**, and the reason is that it is a
+    /// property of this table rather than a second thing beside it: the rule it enforces is "only
+    /// the device that registered this id may register it again", which is a statement about the
+    /// entries below. It lives longer than any entry does, which is the whole point of it, and that
+    /// is the one way in which it is not like the table it sits in.
+    ///
+    /// Behind an `Arc` because this whole type is `Clone` and every clone must be looking at the
+    /// same bindings: a second copy that started empty would let a registration through on the
+    /// connection that happened to hold the fresh one.
+    bindings: Arc<DeviceBindings>,
 }
 
 struct Host {
@@ -90,7 +106,40 @@ impl HostRegistry {
         Self::default()
     }
 
-    async fn put(&self, device_id: &str, name: String, version: u16, tx: mpsc::Sender<ServerMessage>) {
+    /// The same registry, with device bindings that outlive the process.
+    ///
+    /// The failure is returned rather than logged here so that `main` can say at startup which of
+    /// the two it got, the way it does for the usage log.
+    pub fn with_bindings(path: Option<PathBuf>) -> (Self, Option<std::io::Error>) {
+        let (bindings, failure) = DeviceBindings::new(path);
+        (
+            Self {
+                bindings: Arc::new(bindings),
+                ..Self::default()
+            },
+            failure,
+        )
+    }
+
+    /// Registers a Mac, if it is entitled to the id it is claiming.
+    ///
+    /// **`proof` is the public key the registration proved control of, or `None` when it offered
+    /// no proof at all.** The check is in `DeviceBindings`, and the shape of it is what lets this
+    /// ship before every Mac in the field has updated: an id nobody has proved is registered by
+    /// anyone, exactly as before, and an id somebody has proved is registered only by that device.
+    async fn put(
+        &self,
+        device_id: &str,
+        name: String,
+        version: u16,
+        tx: mpsc::Sender<ServerMessage>,
+        proof: Option<&str>,
+    ) -> Result<(), &'static str> {
+        match self.bindings.check_and_bind(device_id, proof) {
+            Binding::Refused(reason) => return Err(reason),
+            Binding::Bound | Binding::Matched => {}
+        }
+
         self.inner.lock().await.insert(
             device_id.to_string(),
             Host {
@@ -99,6 +148,7 @@ impl HostRegistry {
                 tx,
             },
         );
+        Ok(())
     }
 
     /// Removes a registration **only if this connection still owns it**.
@@ -283,15 +333,69 @@ async fn dispatch(
             device_id,
             name,
             protocol_version,
+            public_key,
+            proof,
+            proof_time,
         } => {
             if device_id.len() > MAX_FIELD || name.len() > MAX_FIELD {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
-            hosts
-                .put(&device_id, name.clone(), protocol_version, self_tx.clone())
-                .await;
+
+            // **The proof, when there is one, is checked before anything is written.** Three
+            // fields or none: a registration carrying one of them is not a partial proof to be
+            // salvaged, it is a message this relay does not understand, and guessing at it is how
+            // a check becomes a hole.
+            let proved: Option<String> = match (&public_key, &proof, proof_time) {
+                (Some(key), Some(signature), Some(stamp)) => {
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    if !device_proof::time_is_current(stamp, now) {
+                        warn!(%device_id, "a device registration was signed for a different time");
+                        return Some(ServerMessage::error(
+                            "proofStale",
+                            "that registration was signed for a time this relay will not accept",
+                        ));
+                    }
+                    let body = device_proof::payload(&device_id, stamp);
+                    if !device_proof::verifies(key, signature, body.as_bytes()) {
+                        warn!(%device_id, "a device registration did not prove the key it claimed");
+                        return Some(ServerMessage::error(
+                            "proofInvalid",
+                            "that registration does not prove it comes from the device it names",
+                        ));
+                    }
+                    Some(key.clone())
+                }
+                _ => None,
+            };
+
+            if let Err(reason) = hosts
+                .put(
+                    &device_id,
+                    name.clone(),
+                    protocol_version,
+                    self_tx.clone(),
+                    proved.as_deref(),
+                )
+                .await
+            {
+                // Loud, and at warn rather than debug: this is either a device that has lost its
+                // key, or somebody claiming an id they do not own, and both are worth seeing in
+                // the journal without turning a log level up to find them.
+                warn!(%device_id, reason, "refused a device registration");
+                return Some(ServerMessage::error("deviceRefused", reason));
+            }
+
             state.registered_as = Some(device_id.clone());
-            info!(%device_id, %name, protocol_version, "host registered");
+            info!(
+                %device_id,
+                %name,
+                protocol_version,
+                proved = proved.is_some(),
+                "host registered"
+            );
             Some(ServerMessage::Registered {
                 session_ttl_seconds: settings.session_ttl.as_secs(),
             })
@@ -465,6 +569,19 @@ async fn dispatch(
             }
         }
 
+        // The same lookup `ConnectToHost` does a few lines above, asked as a question rather than
+        // as the first half of opening a session. Deliberately without the version check that one
+        // does: a phone asking whether its Mac is up has not committed to a session yet, and a Mac
+        // that is present but speaks an older protocol is present.
+        //
+        // No rate limit, and the reason is that there is nothing here to limit: an answer is a
+        // hashmap lookup on a key the client has to already know, device ids are UUIDs, and a
+        // client that wanted to enumerate them would have to guess 128 bits per ask.
+        ClientMessage::HostPresence { host_id } => {
+            let online = hosts.entry_for(&host_id).await.is_some();
+            Some(ServerMessage::HostPresence { host_id, online })
+        }
+
         ClientMessage::Ping => Some(ServerMessage::Pong),
     }
 }
@@ -510,7 +627,10 @@ mod tests {
     async fn a_registered_host_can_be_looked_up() {
         let hosts = HostRegistry::new();
         let (tx, _rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let host = hosts.entry_for("mac").await.expect("should be found");
         assert_eq!(host.protocol_version, 3);
@@ -527,8 +647,14 @@ mod tests {
         let (old_tx, _old_rx) = channel();
         let (new_tx, _new_rx) = channel();
 
-        hosts.put("mac", "Studio".into(), 3, old_tx.clone()).await;
-        hosts.put("mac", "Studio".into(), 3, new_tx.clone()).await;
+        hosts
+            .put("mac", "Studio".into(), 3, old_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+        hosts
+            .put("mac", "Studio".into(), 3, new_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         hosts.remove_if_ours("mac", &old_tx).await;
         assert_eq!(
@@ -539,6 +665,98 @@ mod tests {
 
         hosts.remove_if_ours("mac", &new_tx).await;
         assert_eq!(hosts.online_count().await, 0, "the real owner still can");
+    }
+
+    #[tokio::test]
+    async fn presence_is_answered_from_the_registry() {
+        let registry = Arc::new(Registry::new());
+        let hosts = HostRegistry::new();
+        let (host_tx, _host_rx) = channel();
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+
+        let settings = default_settings();
+
+        let answer = |host_id: &str, hosts: &HostRegistry, registry: &Arc<Registry>| {
+            let hosts = hosts.clone();
+            let registry = Arc::clone(registry);
+            let settings = settings.clone();
+            let (tx, _rx) = channel();
+            let host_id = host_id.to_string();
+            async move {
+                dispatch(
+                    ClientMessage::HostPresence { host_id: host_id.clone() },
+                    &tx,
+                    &registry,
+                    &hosts,
+                    &settings,
+                    "127.0.0.1",
+                    &mut ConnectionState::default(),
+                )
+                .await
+            }
+        };
+
+        assert_eq!(
+            answer("mac", &hosts, &registry).await,
+            Some(ServerMessage::HostPresence { host_id: "mac".into(), online: true })
+        );
+        assert_eq!(
+            answer("ghost", &hosts, &registry).await,
+            Some(ServerMessage::HostPresence { host_id: "ghost".into(), online: false }),
+            "an unregistered Mac is answered, not refused: the phone asked a question and no is an answer"
+        );
+
+        // And asking opens nothing. The whole point of a presence query over the app's old
+        // approach of simply trying to connect is that it does not cost a session.
+        assert_eq!(registry.len().await, 0, "presence must not allocate a session");
+    }
+
+    /// The answer follows the registration, so a Mac that has gone is reported gone.
+    #[tokio::test]
+    async fn a_mac_that_has_gone_is_reported_offline() {
+        let registry = Arc::new(Registry::new());
+        let hosts = HostRegistry::new();
+        let (host_tx, _host_rx) = channel();
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx.clone(), None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
+
+        let settings = default_settings();
+        let ask = |hosts: &HostRegistry, registry: &Arc<Registry>, settings: &Settings| {
+            let hosts = hosts.clone();
+            let registry = Arc::clone(registry);
+            let settings = settings.clone();
+            async move {
+                let (tx, _rx) = channel();
+                dispatch(
+                    ClientMessage::HostPresence { host_id: "mac".into() },
+                    &tx,
+                    &registry,
+                    &hosts,
+                    &settings,
+                    "127.0.0.1",
+                    &mut ConnectionState::default(),
+                )
+                .await
+            }
+        };
+
+        assert!(matches!(
+            ask(&hosts, &registry, &settings).await,
+            Some(ServerMessage::HostPresence { online: true, .. })
+        ));
+
+        // The Mac's socket dropping is what a laptop changing networks looks like from here.
+        hosts.remove_if_ours("mac", &host_tx).await;
+
+        assert_eq!(
+            ask(&hosts, &registry, &settings).await,
+            Some(ServerMessage::HostPresence { host_id: "mac".into(), online: false })
+        );
     }
 
     #[tokio::test]
@@ -581,7 +799,10 @@ mod tests {
         let registry = Arc::new(Registry::new());
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let settings = default_settings();
         let (tx, _rx) = channel();
@@ -614,7 +835,10 @@ mod tests {
         let registry = Arc::new(Registry::new());
         let hosts = HostRegistry::new();
         let (host_tx, mut host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let settings = default_settings();
         let (tx, _rx) = channel();
@@ -684,7 +908,10 @@ mod tests {
         let registry = Arc::new(Registry::new());
         let hosts = HostRegistry::new();
         let (host_tx, _host_rx) = channel();
-        hosts.put("mac", "Studio".into(), 3, host_tx).await;
+        hosts
+            .put("mac", "Studio".into(), 3, host_tx, None)
+            .await
+            .expect("an unproved registration is accepted while nothing is bound");
 
         let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
         // Recorded rather than configured away, so the test travels the same path a client does.
