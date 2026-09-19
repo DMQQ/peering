@@ -830,6 +830,7 @@ private struct HomeTab: View {
                     Button("Forget", systemImage: "trash", role: .destructive) {
                         forgetTarget = hostID
                     }
+                    .menuDanger()
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")

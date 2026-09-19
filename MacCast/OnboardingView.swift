@@ -69,7 +69,7 @@ struct OnboardingView: View {
                 """
         ),
         Page(
-            content: .feature(icon: "macwindow"),
+            content: .feature(icon: "macwindow", screenshot: "AppSources"),
             title: "Share what you need",
             body: """
                 A whole display, one running app, or a single window.
@@ -79,7 +79,7 @@ struct OnboardingView: View {
                 """
         ),
         Page(
-            content: .feature(icon: "hand.point.up.left"),
+            content: .feature(icon: "hand.point.up.left", screenshot: "AppControls"),
             title: "Drive it",
             body: """
                 Control & zoom puts your fingers on the Mac. Drag and tap to control it, pinch \
@@ -89,7 +89,7 @@ struct OnboardingView: View {
                 """
         ),
         Page(
-            content: .feature(icon: "arrow.triangle.2.circlepath"),
+            content: .feature(icon: "arrow.triangle.2.circlepath", screenshot: "AppPictureInPicture"),
             title: "Leave and come back",
             body: """
                 Lock your phone and the session survives. Picture in Picture keeps the picture \

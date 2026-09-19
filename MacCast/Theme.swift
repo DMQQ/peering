@@ -540,6 +540,21 @@ extension View {
         tint(ColorPalette.ink)
     }
 
+    /// A destructive menu item, red in its words *and* in its icon.
+    ///
+    /// **`role: .destructive` is not enough on its own, and this is why it exists.** The role
+    /// colours the label and leaves the symbol to the tint, so a menu carrying ``menuInk()`` gets a
+    /// red "Delete" with a white bin beside it. A row whose two halves disagree about whether it is
+    /// dangerous is worse than either answer on its own: the red says one thing, the white icon in
+    /// front of it says another, and the reader has to decide which of them the app meant.
+    ///
+    /// Applied per item rather than by leaving destructive items out of ``menuInk()``, because the
+    /// alternative is a row that silently depends on which tint happens to be reaching it, and that
+    /// is the same defect as the blue icons were.
+    func menuDanger() -> some View {
+        tint(ColorPalette.danger)
+    }
+
     /// A card, drawn on the backdrop rather than laid on top of it.
     ///
     /// The stroke is a gradient rather than one flat opacity: brighter along the top edge and

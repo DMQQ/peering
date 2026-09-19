@@ -395,6 +395,7 @@ struct TerminalPanel: View {
             Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(terminal) }
                 .menuInk()
             Button("Close", systemImage: "xmark", role: .destructive) { requestClose(terminal) }
+                .menuDanger()
         }
     }
 

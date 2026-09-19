@@ -111,6 +111,7 @@ struct SSHQuickCommandsEditor: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { commands.delete(quick) }
+                .menuDanger()
         }
     }
 }

@@ -98,6 +98,7 @@ struct ClipboardHistoryPanel: View {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 model.removeClipboardEntry(entry.id)
             }
+            .menuDanger()
         }
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {

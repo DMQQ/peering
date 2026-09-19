@@ -248,9 +248,11 @@ struct SSHTab: View {
                 Button("Forget its key", systemImage: "key.slash", role: .destructive) {
                     model.forgetKey(for: host)
                 }
+                .menuDanger()
             }
 
             Button("Delete", systemImage: "trash", role: .destructive) { model.delete(host) }
+                .menuDanger()
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 17, weight: .medium))

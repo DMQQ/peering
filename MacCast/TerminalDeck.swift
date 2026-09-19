@@ -47,6 +47,7 @@ struct TerminalDeck: View {
                         Button("Delete", systemImage: "trash", role: .destructive) {
                             remove(command)
                         }
+                        .menuDanger()
                     }
                 }
 
