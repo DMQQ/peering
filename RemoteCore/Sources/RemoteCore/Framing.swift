@@ -97,6 +97,14 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// terminates neither end of that connection, never sees it. What the relay forwards
     /// afterwards is ciphertext it has no key for.
     case videoKey = 0x1A
+    /// A sealed datagram sent only to see whether a direct path between the two ends is open.
+    ///
+    /// Carries nothing and the receiver does nothing with it beyond opening it. The opening *is* the
+    /// point: it proves the datagram came from the peer and not from anyone who can write a source
+    /// address into a packet, which is the one thing the relay's introduction cannot vouch for. The
+    /// address a probe arrives *from* is then trusted to send the picture to — so the cost of a
+    /// forged probe is not the picture, it is that the real one never opens.
+    case directProbe = 0x1B
 }
 
 public enum FramingError: Error, Equatable, Sendable {

@@ -1,119 +1,100 @@
-# Handoff: a direct path between the two ends
+# A direct path between the two ends
 
 **Why.** Every relayed session detours through one Hetzner box in Helsinki. For two ends in the same
-city that is ~100 ms of avoidable latency; for a US user reaching a US Mac it is ~200–400 ms, and
-6–10× worse than a direct path would be. The relay is doing NAT traversal the expensive way — by
-being the meeting point for *all* the traffic — when the cheap way is to use it only as an
-introduction.
+city that is ~100 ms of avoidable latency; for a US user reaching a US Mac it is ~200–400 ms, six to
+ten times what a direct path costs. The relay was doing NAT traversal the expensive way — by being
+the meeting point for *all* the traffic — when the cheap way is to use it only as an introduction.
 
-**What landed (2026-09-19).** The relay can now introduce the two ends, and the Swift side can ask
-for and decode the introduction. Nothing yet *uses* it, so no behaviour has changed.
+**It is built.** A relayed session now tries a path straight between the two ends and keeps the relay
+as its fallback. Default on, no setting, and the failure mode is exactly the behaviour that existed
+before.
+
+## What happens on a session now
+
+1. Both ends open their video datagram socket and bind to the relay, as they always did.
+2. The Mac grants the video secret over the control channel; the client builds its openers.
+3. **Both ends ask the relay where the other is** (`requestPeerAddress` → `peerAddress`) and point
+   their socket at the answer.
+4. **Both ends probe it**, sealing a `.directProbe` datagram each time so the receiver can tell a
+   real one from a forged source address by opening it with the session key.
+5. The Mac takes the address a probe arrives *from* as where to send the picture, and its socket
+   starts sending straight there — no relay token, because the token is the relay's addressing and
+   nothing else.
+6. The client sees the picture arrive from something that is not the relay and reports the change.
+7. If the probes stop — a NAT mapping expiring, a network moving — the socket reverts to the relay
+   by itself after `directPathIdleTimeout`, and the slow probe phase keeps trying to get it back.
 
 ## Done, and tested
 
 | Where | What |
 |---|---|
-| `Relay/src/protocol.rs` | `requestPeerAddress` (client → relay) and `peerAddress` (relay → client, `host` + `port`) |
-| `Relay/src/session.rs` | `VideoRoutes::peer_address(token)` — a read-only lookup of the *peer's* observed source address |
-| `Relay/src/signalling.rs` | dispatch for the new message; `peerAddressUnknown` when the peer has not been heard from |
-| `RemoteCore/RelayProtocol.swift` | `RelayPeerAddress`, the two new wire messages, hex encoding of the token |
-| `RemoteCore/RelaySignalling.swift` | `discoverPeer(at:videoToken:attempts:interval:)` — asks until answered, one connection for the whole conversation |
+| `Relay/src/protocol.rs` | `requestPeerAddress` / `peerAddress` |
+| `Relay/src/session.rs` | `VideoRoutes::peer_address` — a read-only lookup of the *peer's* observed address |
+| `Relay/src/signalling.rs` | dispatch; `peerAddressUnknown` while the peer has not been heard from |
+| `RemoteCore/VideoDatagram.swift` | **the socket rewritten**: one local port, two destinations, source-aware delivery |
+| `RemoteCore/ClientSession.swift` | discovers the peer, probes it, reports the path |
+| `MacCastHost/Video/VideoDatagramLane.swift` | probes back, and switches what it sends on the address a probe came from |
+| `MacCast/SessionModel+Events.swift` | records the path change |
 
-Tests: `cargo test` in `Relay/` (144, including a new end-to-end test that opens a real session over
-a real WebSocket and asserts each end is told the other's address) and `swift test` in `RemoteCore/`
-(281). Both green.
+Tests: `cargo test` in `Relay/` (**144**), `swift test` in `RemoteCore/` (**287**). All green. The iOS
+app and the host both build.
 
-Design notes worth keeping:
+## The four decisions worth keeping
 
-- **The ask is identified by the asker's own video token**, which is the only thing either end holds
-  that says which of the session's two slots it is. Nothing new is collected to answer it — the relay
-  already stores each slot's observed address, because forwarding is impossible without it.
-- **The answer is an observation, not a promise.** A NAT that forwards to the relay need not accept
-  anything from a third party. The relay cannot know, so it says where the peer *was* and the two
-  ends settle the rest by trying.
-- **`peerAddressUnknown` is the ordinary first answer**, not a failure: a client asks before it has
-  sent a datagram, so the peer has usually not been heard from yet. `discoverPeer` asks again.
-- `lib.rs` and `README.md` both state "neither end ever learns the other's address" as a deliberate
-  property. That is now false and those two lines should be updated rather than left to mislead.
+**The socket had to stop being connected.** It was an `NWConnection` to the relay, and a connected UDP
+socket cannot send to a second address *or* receive from one — the Mac's picture would have been
+discarded by the phone's own socket, silently. A UDP NAT mapping is also per local port, so the
+address the relay reports is only usable by the socket that earned it: the socket that talks to the
+relay had to become the socket that talks to the peer. It is now a BSD socket, which is also why it
+is finally testable — 6 of the new tests drive it on loopback.
 
-## The blocker, found the hard way
+**Anyone not the relay is a peer.** Classification is by *not being the relay*, not by matching a
+known address — the Mac cannot know the phone's address until a datagram arrives from it, so a rule
+requiring it first could never learn it. That makes `.peer` a fact about addressing, not identity,
+which is why the open is what decides whether to trust it.
 
-`VideoDatagramSocket` (`RemoteCore/VideoDatagram.swift:393`) is built on
-`NWConnection(to: .hostPort(relayHost, videoPort), using: .udp)` — **a connected UDP socket**. Two
-consequences, and together they are the whole of the remaining work:
+**The AEAD open is the path's proof.** A probe that opens under the session key came from the peer; a
+forgery fails to open and changes nothing. No new crypto, no nonce echo, no acknowledgement.
 
-1. **It only receives from the relay.** A connected UDP socket drops datagrams from any other
-   source, so a Mac sending straight to the phone would have its picture discarded by the phone's own
-   socket, silently.
-2. **The address the relay reports belongs to that socket's local port.** A UDP NAT mapping is per
-   local port, so opening a second socket to talk to the peer creates a *different* mapping — one the
-   peer has never been told about and cannot reach. The peer's address is only useful to the socket
-   that earned it.
+**Both ends knock.** A NAT that *maps* a port is not a NAT that *admits* traffic — the common kinds
+admit a packet from an address only once the machine has sent to that address. One-sided probing
+opens on the permissive NATs and fails silently on the rest, which is the worst kind of networking
+bug because it works on the developer's machine.
 
-So the transport has to become one local port that can send to **two** destinations and receive from
-**both**. That is the change; everything else is bookkeeping.
+## What is left
 
-## The design the rest should follow
-
-**Do not invent a second crypto path.** The datagram lane already seals arbitrary `MessageKind`s
-(`VideoDatagramSealer.seal(kind:payload:)`) and opens to arbitrary `Frame`s, keyed by a per-session
-secret the Mac grants over the control channel and split per direction by `VideoKeySchedule`. A
-direct datagram is byte-for-byte what the relay would have delivered — `[counter][ciphertext][tag]`,
-no prefix — so:
-
-- **the receiver needs no change at all** to *open* a direct datagram;
-- **the AEAD open is the path's proof.** A datagram that decrypts under the session key with a fresh
-  counter is authentically from the peer. That is stronger than a nonce echo, and it costs nothing
-  because the sealer already exists.
-
-**The liveness decision needs no new control messages.** The host's video socket sees the *source
-address* of everything that arrives. A datagram from the peer's address rather than the relay's is
-the whole signal:
-
-- each end sends sealed probes to the peer's reported address, from the socket that earned it;
-- the host, on seeing probes arrive from the peer, moves its video sending to that address — no
-  prefix, no relay;
-- it reverts to the relay when the probes stop. That heuristic is local to the host, needs no
-  version bump, and its failure mode is exactly today's behaviour.
-
-## Ordered work
-
-1. **`VideoDatagramSocket` → an unconnected socket with a destination.** Rework it to hold a set of
-   send destinations (the relay, and optionally a peer) and to deliver `(datagram, source)` to
-   `onDatagram`. Network.framework's UDP is only *connected* via `NWConnection`; an unconnected
-   socket is a `NWListener`-style reader plus `send(to:)`, or a BSD socket with a `DispatchSource`.
-   **This is the risky step and the one to do on its own**, with `Tools/run-probe.sh` against a real
-   Mac before anything is layered on it.
-2. **Probes.** A sealed, counter-consuming probe on the existing sealer, sent to the peer. The
-   opener already rejects replays, so a probe cannot be replayed into the stream.
-3. **Host: switch on observed source.** Track the last time a datagram arrived from the peer's
-   address; send direct while that is fresh, relay otherwise.
-4. **Client: the same, for the direction it sends** (input and the clipboard pull).
-5. **Report the path.** `ConnectionPath` (`MacCast/SessionModel.swift:126`) gains a fourth case, and
-   `SessionHistory` records it — which is what turns "did punching work?" into a number rather than
-   an opinion. `AutoQualityPolicy` reads the path too, so a direct path should be allowed the higher
-   bitrate sooner than a relayed one.
-6. **Only then, IPv6.** With the above in place a global IPv6 address is just another candidate, and
-   on an IPv6-only carrier (T-Mobile US) it needs no punching at all. It buys nothing before step 1
-   and would be untestable before step 5.
+1. **Record the path where the numbers live.** `ConnectionPath` (`MacCast/SessionModel.swift:126`)
+   should gain a case and `SessionHistory` should record it, so "did punching work, and how often"
+   becomes a number rather than an opinion. `SessionModel.usedDirectPath` is already set and is the
+   value to record — but do **not** fold it into `connectionPath`: the relay meters by how long it
+   splices a session whether or not the picture went around it, so moving the connection path off
+   `.relay` would make `relaySecondsUsedThisPeriod` stop counting a session the relay is still
+   charging for.
+2. **Let `AutoQualityPolicy` read it.** A direct path is not a relay path and should be allowed the
+   higher bitrate sooner; today it is judged by `connectionPath`, which is still `.relay`.
+3. **IPv6.** Now cheap: a global v6 address is just another candidate, and on an IPv6-only carrier
+   (T-Mobile US) it needs no punching past the firewall. It was worth nothing before step 1.
+4. **Reconsider the US relay.** With punching live, a US region is a fallback for the sessions that
+   cannot punch rather than the fix for latency. Decide it from step 1's numbers.
 
 ## How to test what cannot be tested here
 
-Real hole punching needs two networks, and this machine has one. What *can* be established without
-them:
+Real hole punching needs two networks and this machine has one. What is established:
 
-- **Loopback still exercises the whole mechanism** except the NAT itself: two processes, two sockets,
-  a probe that has to cross, and a switch that has to happen. `Relay/tests/end_to_end.rs` already
-  runs two ends against a real relay in-process and is the pattern to copy.
-- **The fallback is the thing to test hardest**, because it is what runs when the punch fails — which
-  is the majority case on cellular CGNAT. Assert that a session still opens and streams when the peer
-  address is never supplied, when it is supplied but refuses, and when it stops working mid-session.
-- **`SessionHistory` is the field instrument.** Once step 5 lands, a week of real use says what
-  fraction of connections punched, per network, without any new telemetry.
+- **Loopback exercises everything but the NAT**: `VideoDatagramSocketTests` opens a real socket, sends
+  to a real address, receives from a second one, and asserts the move from relay to peer — including
+  that the relay stops being used once the peer has spoken.
+- **The relay end to end**: `Relay/tests/end_to_end.rs` opens a real session over a real WebSocket and
+  asserts each end is told the other's address, and that asking early returns a recoverable
+  `peerAddressUnknown` rather than failing.
+- **The fallback is the thing to test hardest in the field**, because it is what runs when the punch
+  fails — the majority case on cellular CGNAT. It is the "nothing arrives from the peer" path, and
+  the socket reverting to `.relay` is already covered.
 
-## One thing to fix on the way past
+## Corrected on the way past
 
-`Relay/README.md` still says "The relay holds a UDP socket per live session, so `PEERINGD_SESSION_TTL`
-bounds the file descriptors that clients who walk away without disconnecting can leave behind." That
-describes the superseded per-session-port design; there has been one socket for the whole process
-since the token-prefix change. It misleads exactly the capacity question someone would ask next.
+`Relay/README.md` and `Relay/src/lib.rs` both claimed *"neither end ever learns the other's address"*.
+That was true and is not any more; both now say what is actually still guaranteed — that the relay
+cannot *read* what it carries. The README's capacity section also described a UDP socket per live
+session, superseded since the token prefix, which misled exactly the sizing question someone would
+ask next.

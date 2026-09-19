@@ -151,6 +151,22 @@ extension SessionModel {
             latencyMilliseconds = milliseconds
         case .note(let message):
             append(note: message)
+        case .path(let path):
+            // Which way the picture is actually arriving, which is the one thing about a session
+            // this app can only learn from the session itself.
+            //
+            // Recorded and deliberately not shown. The session already emits a note in words at the
+            // moment it changes, and that note goes into the session's own log — see
+            // ``append(note:)`` — so the fact is kept where somebody diagnosing a slow session would
+            // look for it, rather than added to the screen as a standing caption about the plumbing.
+            //
+            // It is *not* folded into ``connectionPath``, and that is a decision rather than an
+            // omission: the relay meters by how long it splices a session, whether or not the video
+            // went around it, so a session that punched successfully still spends its allowance.
+            // Moving the connection path off `.relay` here would make ``relaySecondsUsedThisPeriod``
+            // stop counting a session the relay is still charging for, and the meter would
+            // under-report by exactly the sessions that used the app most.
+            usedDirectPath = path == .direct
         case .remoteNotice(let message):
             remoteNotice = message
         case .clipboard(let text):

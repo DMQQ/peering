@@ -64,6 +64,38 @@ public enum VideoDatagramError: Error, Equatable, Sendable {
     case invalidPort(UInt16)
     /// Larger than anything this protocol produces, and refused rather than opened.
     case oversized(bytes: Int)
+    /// The relay's name did not resolve, so there is nowhere to send anything.
+    ///
+    /// Fatal at construction rather than at the first send: a socket that cannot reach the relay has
+    /// no path at all, and finding out at the first frame would be finding out after a session has
+    /// already been announced as open.
+    case unresolvedHost(String)
+    /// The peer's address is not one this socket can use — a host string that does not parse, or
+    /// one that answers only in the other address family.
+    ///
+    /// Not fatal, and not reported to the user: it means no direct path, which is the same outcome
+    /// as a punch that fails, and the session stays on the relay exactly as it did before any of
+    /// this existed.
+    case unusablePeerAddress(String)
+    /// The socket could not be created or bound.
+    case socketUnavailable(Int32)
+    /// A send failed for a reason that is not the ordinary lossiness of UDP.
+    case sendFailed(Int32)
+    /// A receive failed for a reason that is not the buffer being empty.
+    case socketReadFailed(Int32)
+}
+
+extension VideoDatagramError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .unresolvedHost(let host): return "Could not resolve the relay's address (\(host))."
+        case .unusablePeerAddress(let host): return "The peer's address is not usable from this socket (\(host))."
+        case .socketUnavailable(let code): return "The video socket could not be opened (\(code))."
+        case .sendFailed(let code): return "Sending a video datagram failed (\(code))."
+        case .socketReadFailed(let code): return "Reading the video socket failed (\(code))."
+        default: return nil
+        }
+    }
 }
 
 /// Which way a sealed datagram is travelling.
@@ -391,6 +423,24 @@ public struct VideoDatagramOpener {
 /// other signal says the connection is fine. Repeating the bind on a timer is what keeps that
 /// from happening on a call nobody touched for a few minutes.
 public final class VideoDatagramSocket: @unchecked Sendable {
+    /// Where an arriving datagram came from.
+    ///
+    /// Classified by *not being the relay* rather than by matching a known peer, and the difference
+    /// matters: the Mac does not know the phone's address until a datagram arrives from it, so a
+    /// rule that required knowing it first could never learn it. Anything that did not come from the
+    /// relay came straight from somebody, and the address it carries is where they can be reached.
+    ///
+    /// That makes this a fact about addressing and not a claim about identity — anyone able to write
+    /// a source address into a packet can produce a `.peer` datagram. Establishing *who* is the
+    /// caller's business, and it is done the way it is done everywhere else here: by opening what
+    /// arrived with the session key.
+    public enum Source: Sendable, Equatable {
+        /// The relay. Every session starts here, and most stay here for their whole life.
+        case relay
+        /// Straight from the other end, at this address.
+        case peer(host: String, port: UInt16)
+    }
+
     /// How often the bind is repeated.
     ///
     /// Well inside the shortest UDP timeout anyone deploys, and two orders of magnitude
@@ -407,12 +457,34 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// path uses.
     private static let maxHeldDatagrams = 32
 
+    /// How recently the peer must have been heard from for the direct path to be believed live.
+    ///
+    /// Generous relative to how often a peer speaks — many datagrams a second while the picture is
+    /// moving — so believing the path live is not a tight race against the next datagram. What it
+    /// has to survive is a lull: a still screen sends far less, and a path declared dead during one
+    /// would drop back to the relay and then have to be punched again.
+    public static let directPathIdleTimeout: TimeInterval = 12
+
     /// Named by the caller, because the two ends run the same code and a stack trace should
     /// say which of them it came from.
     private let queue: DispatchQueue
-    private let connection: NWConnection
     private let token: Data
+    /// The descriptor, and the address family it was created in. The family is not a property of
+    /// the socket so much as a constraint on it: a peer that answers only in the other one cannot
+    /// be reached from here, and saying so is better than a `sendto` that fails on every attempt.
+    private let fd: Int32
+    private let family: Int32
 
+    /// The relay, resolved once at init because every send needs it and nothing about it changes.
+    private let relayAddress: sockaddr_storage
+    private let relayLength: socklen_t
+
+    /// Where the peer is, once the relay has said. `nil` until then, which is the ordinary state of
+    /// every session that never asks — and while it is `nil` no direct path is attempted at all.
+    private var peerAddress: sockaddr_storage?
+    private var peerLength: socklen_t = 0
+
+    private var readSource: DispatchSourceRead?
     private var bindTimer: DispatchSourceTimer?
     /// Datagrams waiting for the bind, each with the caller that is waiting for them.
     ///
@@ -420,14 +492,14 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// pump's, which must be told when its frames are away or it never sends another, and a
     /// probe's, which does not care. Keeping only the last caller's completion would drop the
     /// pump's on the floor and stop the picture for the rest of the session.
-    private var held: [(datagrams: [Data], completion: (@Sendable (Error?) -> Void)?)] = []
+    private var held: [Held] = []
     private var heldCount = 0
     private var bound = false
     private var stopped = false
 
     /// Set before ``start()``. A datagram that arrived, with the relay's token prefix already
-    /// stripped and nothing else done to it.
-    public var onDatagram: (@Sendable (Data) -> Void)?
+    /// stripped and nothing else done to it, and where it came from.
+    public var onDatagram: (@Sendable (Data, Source) -> Void)?
     /// Set before ``start()``. Called for a socket that failed, and on every send that fails.
     public var onFailure: (@Sendable (Error) -> Void)?
 
@@ -435,45 +507,126 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     private let counterLock = NSLock()
     private var _sent = 0
     private var _received = 0
+    private var _receivedFromPeer = 0
 
     public var sentDatagrams: Int { counterLock.withLock { _sent } }
     public var receivedDatagrams: Int { counterLock.withLock { _received } }
+    /// How many datagrams arrived from the peer rather than the relay.
+    ///
+    /// A count rather than a flag, because the interesting question is not whether the punched path
+    /// came up but whether it stayed up: a path that works for a second and then stops is the
+    /// failure that looks like success in a boolean.
+    public var receivedFromPeer: Int { counterLock.withLock { _receivedFromPeer } }
+
+    /// Whether a peer has been set, which is what makes ``sendDirect(_:completion:)`` meaningful.
+    public var hasDirectPeer: Bool { queue.sync { peerAddress != nil } }
 
     public init(host: String, port: UInt16, token: Data, label: String) throws {
         guard token.count == VideoDatagram.tokenSize else {
             throw VideoDatagramError.invalidToken(bytes: token.count)
         }
-        guard let endpointPort = NWEndpoint.Port(rawValue: port) else {
-            throw VideoDatagramError.invalidPort(port)
-        }
         self.token = token
         queue = DispatchQueue(label: label)
-        connection = NWConnection(
-            to: .hostPort(host: NWEndpoint.Host(host), port: endpointPort),
-            using: .udp
-        )
-    }
 
-    /// Opens the socket, binds, and keeps the binding alive until ``cancel()``.
-    public func start() {
-        connection.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
-            switch state {
-            case .ready:
-                self.sendBind()
-                self.startBindTimer()
-                self.receiveNext()
-            case .failed(let error):
-                // A socket that has genuinely failed is worth saying out loud. `.waiting` is
-                // not: a UDP connection sits there whenever the interface is between states,
-                // resolves by itself, and reporting it would offer the user a problem that
-                // has already gone away.
-                self.onFailure?(error)
-            default:
-                break
+        // The relay's family decides the socket's, because the relay is the destination every
+        // session has and the peer is the one that might not exist.
+        guard let resolved = Self.resolve(host: host, port: port, family: AF_UNSPEC, numeric: false)
+        else {
+            throw VideoDatagramError.unresolvedHost(host)
+        }
+        relayAddress = resolved.address
+        relayLength = resolved.length
+        family = Int32(resolved.address.ss_family)
+
+        let descriptor = socket(family, SOCK_DGRAM, 0)
+        guard descriptor >= 0 else {
+            throw VideoDatagramError.socketUnavailable(errno)
+        }
+        fd = descriptor
+
+        // Non-blocking, so the read source drains what has arrived and returns rather than parking
+        // a thread on a socket that is idle for most of its life.
+        _ = fcntl(fd, F_SETFL, O_NONBLOCK)
+
+        // Bound to the family's wildcard and port zero: the kernel picks the port, the NAT gives it
+        // a mapping, and the relay reports what that mapping turned out to be. This is the address
+        // the whole direct path is built on, which is why it is the *only* socket — see the class
+        // note above.
+        var local = sockaddr_storage()
+        let localLength = Self.wildcard(family: family, into: &local)
+        let bound = withUnsafePointer(to: &local) { storage in
+            storage.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, localLength)
             }
         }
-        connection.start(queue: queue)
+        guard bound == 0 else {
+            let code = errno
+            close(fd)
+            throw VideoDatagramError.socketUnavailable(code)
+        }
+
+        // Read back rather than remembered, because the port was not this code's to choose: it is
+        // whatever the kernel handed out, and the value is only ever used to say which local port a
+        // session is sending from. What the *relay* reports is the NAT mapping in front of it,
+        // which this end never learns and does not need to.
+        var actual = sockaddr_storage()
+        var actualLength = socklen_t(MemoryLayout<sockaddr_storage>.size)
+        if withUnsafeMutablePointer(to: &actual, { storage in
+            storage.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getsockname(fd, $0, &actualLength)
+            }
+        }) == 0 {
+            localPort = UInt16(bigEndian: withUnsafeBytes(of: actual) {
+                $0.loadUnaligned(fromByteOffset: 2, as: UInt16.self)
+            })
+        }
+    }
+
+    /// The local port this socket bound, or 0 if it could not be read back.
+    ///
+    /// The port on this side of any NAT — not the address the relay reports, which is the mapping in
+    /// front of it and is what the peer is told. Exposed for diagnostics and for tests, and it says
+    /// nothing about where the session can be reached from.
+    public private(set) var localPort: UInt16 = 0
+
+    /// Opens the socket, binds, and keeps the binding alive until ``cancel()``.
+    ///
+    /// There is no "connected" state to wait for here, which is the difference this class was
+    /// rewritten for: a BSD socket is usable the moment it is bound, so the bind goes out
+    /// immediately rather than on a state change that may never arrive.
+    public func start() {
+        queue.async { [weak self] in
+            guard let self, !self.stopped else { return }
+
+            let source = DispatchSource.makeReadSource(fileDescriptor: self.fd, queue: self.queue)
+            source.setEventHandler { [weak self] in self?.drain() }
+            source.resume()
+            self.readSource = source
+
+            self.sendBind()
+            self.startBindTimer()
+        }
+    }
+
+    /// Points the socket at the other end, so datagrams can go straight there.
+    ///
+    /// Throws when the address cannot be used from this socket — a peer that answers only in the
+    /// other address family, or a host string that does not parse. Both are the same outcome for
+    /// the caller: no direct path, and the session stays on the relay, which is what happens to
+    /// every connection whose punch fails anyway.
+    public func setDirectPeer(host: String, port: UInt16) throws {
+        let resolved = try queue.sync { () -> (address: sockaddr_storage, length: socklen_t) in
+            guard let resolved = Self.resolve(
+                host: host, port: port, family: family, numeric: true
+            ) else {
+                throw VideoDatagramError.unusablePeerAddress(host)
+            }
+            return resolved
+        }
+        queue.sync {
+            peerAddress = resolved.address
+            peerLength = resolved.length
+        }
     }
 
     /// Sends the datagrams one payload became, and reports when the last of them is away.
@@ -481,7 +634,147 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// The completion is what drives the sender's flow control — one item in flight at a
     /// time — so it is called for the whole group rather than per datagram, and a group held
     /// waiting for the bind reports once it has actually been sent.
+    /// Sends the datagrams one payload became, by whichever path is currently the better one.
+    ///
+    /// The completion is what drives the sender's flow control — one item in flight at a
+    /// time — so it is called for the whole group rather than per datagram, and a group held
+    /// waiting for the bind reports once it has actually been sent.
+    ///
+    /// **The choice of path is made here rather than by the caller**, and that is deliberate: every
+    /// sender above this already knows how to send, and the only thing that changes with a direct
+    /// path is which address the bytes go to. Pushing that decision up would mean every caller
+    /// learning about punching, and getting it wrong in one of them would be a session that quietly
+    /// stayed on the relay — which is the thing this is for.
     public func send(_ datagrams: [Data], completion: @escaping @Sendable (Error?) -> Void) {
+        enqueue(datagrams, direct: false, completion: completion)
+    }
+
+    /// Sends to the peer explicitly, whether or not the path is yet believed live.
+    ///
+    /// This is the probe's door, and the only caller that has any business using it: a path cannot
+    /// be *believed* live before something has crossed it, so the datagrams that establish it are
+    /// the one case that has to go direct without the socket's own permission.
+    ///
+    /// The relay's token comes off. It is addressing and nothing else — which session a datagram
+    /// belongs to, and which end sent it — and going straight to the one endpoint that could
+    /// possibly want it, it is sixteen bytes of nothing. What leaves here is exactly the shape
+    /// ``VideoDatagram`` draws as "what an endpoint gets", so the receiver opens it with the code it
+    /// already has and there is no second framing to drift.
+    ///
+    /// Does nothing when no peer has been set: at the start of every session, and for every session
+    /// whose introduction never arrives.
+    public func sendDirect(
+        _ datagrams: [Data],
+        completion: @escaping @Sendable (Error?) -> Void
+    ) {
+        guard hasDirectPeer else {
+            completion(nil)
+            return
+        }
+        let stripped = datagrams.map { $0.dropFirst(VideoDatagram.tokenSize) }
+        enqueue(stripped, direct: true, completion: completion)
+    }
+
+    public func cancel() {
+        queue.async { [weak self] in self?.stopOnQueue() }
+    }
+
+    // MARK: - All on `queue`
+
+    /// Where a group of datagrams is going.
+    private enum Destination: Equatable {
+        case relay
+        case peer
+    }
+
+    /// One held group, remembering the destination chosen for it.
+    ///
+    /// Remembered rather than recomputed when the flush happens: a group held before the bind was
+    /// chosen for the path as it stood then, and re-deciding later would move the first frames of a
+    /// session onto a path that had not been proved yet.
+    private struct Held {
+        let datagrams: [Data]
+        let destination: Destination
+        let completion: (@Sendable (Error?) -> Void)?
+    }
+
+    /// When a datagram was last seen arriving from the peer, and whether one ever has.
+    private var lastPeerAt: Date?
+
+    /// Whether the direct path is believed to be carrying the session, on the queue.
+    ///
+    /// Belief, not proof, and it is the whole of the switching rule: the path is live while the peer
+    /// has been heard from recently and dead the moment it has not. Nothing is negotiated and
+    /// nothing is signalled — a punch that works is self-evident in both directions, and one that
+    /// stops working is equally self-evident, which is what makes the fallback automatic rather
+    /// than a recovery path somebody has to remember to trigger.
+    ///
+    /// The window is generous relative to how often a peer speaks — many datagrams a second while
+    /// the picture moves — so this is not a tight race. What it has to survive is a lull: a still
+    /// screen sends far less, and a path declared dead during one would fall back to the relay and
+    /// then have to be punched again.
+    private var directPathIsLive: Bool {
+        guard peerAddress != nil, let last = lastPeerAt else { return false }
+        return Date().timeIntervalSince(last) < Self.directPathIdleTimeout
+    }
+
+    /// Reads everything that has arrived and returns, rather than parking on the descriptor.
+    ///
+    /// The loop is what makes one read source serve a burst: a dispatch source fires once when the
+    /// socket becomes readable, and a picture arriving as forty datagrams is one event and forty
+    /// reads. It stops on `EAGAIN`, which is not a failure but the buffer being empty.
+    private func drain() {
+        guard !stopped else { return }
+        var buffer = [UInt8](repeating: 0, count: VideoDatagram.maxDatagramSize)
+
+        while true {
+            var from = sockaddr_storage()
+            var fromLength = socklen_t(MemoryLayout<sockaddr_storage>.size)
+
+            let read: Int = withUnsafeMutablePointer(to: &from) { storage in
+                storage.withMemoryRebound(to: sockaddr.self, capacity: 1) { pointer in
+                    buffer.withUnsafeMutableBytes { bytes -> Int in
+                        guard let base = bytes.baseAddress else { return -1 }
+                        return recvfrom(fd, base, bytes.count, 0, pointer, &fromLength)
+                    }
+                }
+            }
+
+            if read < 0 {
+                if errno != EAGAIN, errno != EWOULDBLOCK, errno != EINTR {
+                    onFailure?(VideoDatagramError.socketReadFailed(errno))
+                }
+                return
+            }
+            guard read > 0 else { return }
+
+            let source: Source
+            if Self.sameAddress(from, relayAddress) {
+                source = .relay
+            } else if let origin = Self.describe(from, length: fromLength) {
+                source = .peer(host: origin.host, port: origin.port)
+            } else {
+                // An address that cannot be named is one this end could not send back to, so it is
+                // not a path however it arrived. Counted with the relay's traffic rather than the
+                // peer's, because nothing about it is a working direct path.
+                source = .relay
+            }
+
+            let fromPeer = source != .relay
+            counterLock.withLock {
+                _received += 1
+                if fromPeer { _receivedFromPeer += 1 }
+            }
+            if fromPeer { lastPeerAt = Date() }
+            onDatagram?(Data(buffer[0..<read]), source)
+        }
+    }
+
+    private func enqueue(
+        _ datagrams: [Data],
+        direct: Bool,
+        completion: @escaping @Sendable (Error?) -> Void
+    ) {
         guard !datagrams.isEmpty else {
             completion(nil)
             return
@@ -491,33 +784,43 @@ public final class VideoDatagramSocket: @unchecked Sendable {
                 completion(nil)
                 return
             }
+            // Chosen here, on the queue, rather than by the caller: every sender above this already
+            // knows how to send, and the only thing that changes with a direct path is which address
+            // the bytes go to. Pushing the decision up would mean every caller learning about
+            // punching, and getting it wrong in one of them would be a session that quietly stayed
+            // on the relay — which is the whole thing this is for.
+            let destination: Destination = direct || self.directPathIsLive ? .peer : .relay
+
             guard self.bound else {
-                // Waiting for the bind. The oldest goes when the queue is full: a picture
-                // that is already stale is worth less than the one that just arrived, and a
-                // part of a picture is worth less than either.
-                self.held.append((datagrams, completion))
+                // Waiting for the bind. The oldest goes when the queue is full: a picture that is
+                // already stale is worth less than the one that just arrived, and a part of a
+                // picture is worth less than either.
+                self.held.append(Held(
+                    datagrams: datagrams,
+                    destination: destination,
+                    completion: completion
+                ))
                 self.heldCount += datagrams.count
-                // The newest is always kept, even when it alone is larger than the cap: it is
-                // the picture the client has not seen, and the ones being dropped are not.
+                // The newest is always kept, even when it alone is larger than the cap: it is the
+                // picture the client has not seen, and the ones being dropped are not.
                 while self.heldCount > Self.maxHeldDatagrams, self.held.count > 1 {
                     self.heldCount -= self.held.removeFirst().datagrams.count
                 }
                 return
             }
-            self.write(datagrams, completion: completion)
+            self.write(datagrams, to: destination, completion: completion)
         }
     }
 
-    public func cancel() {
-        queue.async { [weak self] in self?.stopOnQueue() }
-    }
-
-    // MARK: - All on `queue`
-
     /// Registers this address with the relay and tells it which session the address belongs
     /// to. Sixteen bytes and no payload: everything after the token would be forwarded.
+    ///
+    /// Always to the relay, even once a direct path is carrying the picture. This is the address
+    /// the relay remembers, and a direct path is built *on* that address rather than instead of it
+    /// — if the relay forgot where this end is, a punch that later stopped working would have
+    /// nothing left to fall back to.
     private func sendBind() {
-        connection.send(content: token, completion: .contentProcessed { [weak self] error in
+        write([token], to: .relay) { [weak self] error in
             guard let self else { return }
             if let error {
                 // The bind is the one send that has to work. Without it the relay has nowhere
@@ -533,7 +836,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             }
             self.bound = true
             self.flushHeld()
-        })
+        }
     }
 
     /// Closes the socket and releases everyone waiting on it. Call on `queue`.
@@ -545,7 +848,12 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         let waiting = held
         held.removeAll()
         heldCount = 0
-        connection.cancel()
+        readSource?.cancel()
+        readSource = nil
+        // The descriptor is this class's to close: nothing else was given a copy, and leaving it
+        // open would hold the local port — and with it the NAT mapping the relay still has on
+        // record — for the life of the process.
+        close(fd)
         for entry in waiting { entry.completion?(nil) }
     }
 
@@ -555,31 +863,52 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         held.removeAll(keepingCapacity: true)
         heldCount = 0
 
-        let datagrams = waiting.flatMap(\.datagrams)
-        write(datagrams) { error in
-            // Every caller is told together and in order. Each of them asked for a send that
-            // is now behind them in the same queue, so "everything up to mine is away" is the
-            // same moment for all of them.
-            for entry in waiting { entry.completion?(error) }
+        // Grouped by destination, because one flush can straddle both: the frames held before a bind
+        // went to the relay, and the path may have been proved by the time the bind lands. Each
+        // group is a single write so that every caller in it is told the same moment — "everything
+        // up to mine is away" — which is all the flow control above actually needs.
+        for destination in [Destination.relay, .peer] {
+            let group = waiting.filter { $0.destination == destination }
+            guard !group.isEmpty else { continue }
+            write(group.flatMap(\.datagrams), to: destination) { error in
+                for entry in group { entry.completion?(error) }
+            }
         }
     }
 
-    private func write(_ datagrams: [Data], completion: (@Sendable (Error?) -> Void)?) {
-        var remaining = datagrams
-        let last = remaining.removeLast()
-        // Every datagram but the last goes out without bookkeeping, for the same reason the
-        // control lane's chunks do: only the last one gates the next picture, and a per
-        // datagram completion would be a callback storm for no added ordering.
-        for datagram in remaining {
-            connection.send(content: datagram, completion: .contentProcessed { _ in })
-        }
-        connection.send(content: last, completion: .contentProcessed { [weak self] error in
-            if let self {
-                self.counterLock.withLock { self._sent += datagrams.count }
-                if let error { self.onFailure?(error) }
+    /// The one place a datagram is actually handed to the kernel.
+    ///
+    /// A full send buffer is not reported as a failure. Datagrams are already allowed to be lost —
+    /// that is what the opener's replay window and the frame-level chunking are for — and a socket
+    /// that called "would block" an error would tear down a session over the ordinary consequence
+    /// of a busy link.
+    private func write(
+        _ datagrams: [Data],
+        to destination: Destination,
+        completion: (@Sendable (Error?) -> Void)?
+    ) {
+        var address = destination == .peer ? (peerAddress ?? relayAddress) : relayAddress
+        let peerIsSet = peerAddress != nil
+        let length = destination == .peer && peerIsSet ? peerLength : relayLength
+
+        var failure: Error?
+        for datagram in datagrams {
+            let result: Int = datagram.withUnsafeBytes { bytes -> Int in
+                guard let base = bytes.baseAddress else { return -1 }
+                return withUnsafePointer(to: &address) { storage in
+                    storage.withMemoryRebound(to: sockaddr.self, capacity: 1) { pointer in
+                        sendto(fd, base, bytes.count, 0, pointer, length)
+                    }
+                }
             }
-            completion?(error)
-        })
+            if result < 0, errno != EAGAIN, errno != EWOULDBLOCK, failure == nil {
+                failure = VideoDatagramError.sendFailed(errno)
+            }
+        }
+
+        counterLock.withLock { _sent += datagrams.count }
+        if let failure { onFailure?(failure) }
+        completion?(failure)
     }
 
     private func startBindTimer() {
@@ -597,21 +926,118 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         bindTimer = timer
     }
 
-    private func receiveNext() {
-        // The datagram-preserving read rather than the stream one: what arrives is one
-        // datagram and what leaves here is one datagram, which is the whole contract between
-        // the sealer and the opener.
-        connection.receiveMessage { [weak self] (data: Data?, _: NWConnection.ContentContext?, _: Bool, error: NWError?) in
-            guard let self, !self.stopped else { return }
-            if let data, !data.isEmpty {
-                self.counterLock.withLock { self._received += 1 }
-                self.onDatagram?(data)
+    // MARK: - Addressing
+
+    /// Whether two socket addresses are the same host and port.
+    ///
+    /// Only the port and the address are compared, not the whole structure: the kernel writes a
+    /// length and padding into the storage that a resolved address does not carry, so a byte-for-byte
+    /// comparison would call the peer a stranger every time and the direct path would never be
+    /// believed.
+    private static func sameAddress(_ lhs: sockaddr_storage, _ rhs: sockaddr_storage?) -> Bool {
+        guard let rhs, lhs.ss_family == rhs.ss_family else { return false }
+
+        return withUnsafeBytes(of: lhs) { left in
+            withUnsafeBytes(of: rhs) { right in
+                let leftPort = left.loadUnaligned(fromByteOffset: 2, as: UInt16.self)
+                let rightPort = right.loadUnaligned(fromByteOffset: 2, as: UInt16.self)
+                guard leftPort == rightPort else { return false }
+
+                switch Int32(lhs.ss_family) {
+                case AF_INET:
+                    return left.loadUnaligned(fromByteOffset: 4, as: UInt32.self)
+                        == right.loadUnaligned(fromByteOffset: 4, as: UInt32.self)
+                case AF_INET6:
+                    return left.loadUnaligned(fromByteOffset: 8, as: UInt64.self)
+                        == right.loadUnaligned(fromByteOffset: 8, as: UInt64.self)
+                        && left.loadUnaligned(fromByteOffset: 16, as: UInt64.self)
+                            == right.loadUnaligned(fromByteOffset: 16, as: UInt64.self)
+                default:
+                    return false
+                }
             }
-            if let error {
-                self.onFailure?(error)
-                return
+        }
+    }
+
+    /// The host and port a received address holds, as text.
+    ///
+    /// `NI_NUMERICHOST`, so an address goes back out exactly as it came in and no name is ever
+    /// looked up on a value that arrived over the network — a resolver fed by a remote peer is a
+    /// peer that gets to choose how long the lookup takes.
+    private static func describe(
+        _ address: sockaddr_storage,
+        length: socklen_t
+    ) -> (host: String, port: UInt16)? {
+        var storage = address
+        var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        var service = [CChar](repeating: 0, count: Int(NI_MAXSERV))
+
+        let result = withUnsafePointer(to: &storage) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                getnameinfo(
+                    $0, length,
+                    &host, socklen_t(host.count),
+                    &service, socklen_t(service.count),
+                    NI_NUMERICHOST | NI_NUMERICSERV
+                )
             }
-            self.receiveNext()
+        }
+        guard result == 0 else { return nil }
+        return (String(cString: host), UInt16(String(cString: service)) ?? 0)
+    }
+
+    /// Resolves `host` and `port` into a socket address, restricted to `family`.
+    ///
+    /// `numeric` is for the peer, which the relay hands over as a literal address: it must never be
+    /// looked up, because a name arriving from a server and going straight into a resolver is how a
+    /// signalling service gets to point a session at a host of its choosing.
+    private static func resolve(
+        host: String,
+        port: UInt16,
+        family: Int32,
+        numeric: Bool
+    ) -> (address: sockaddr_storage, length: socklen_t)? {
+        var hints = addrinfo()
+        hints.ai_family = family
+        hints.ai_socktype = SOCK_DGRAM
+        if numeric { hints.ai_flags = AI_NUMERICHOST }
+
+        var info: UnsafeMutablePointer<addrinfo>?
+        guard getaddrinfo(host, String(port), &hints, &info) == 0, let first = info else {
+            return nil
+        }
+        defer { freeaddrinfo(info) }
+        guard let addr = first.pointee.ai_addr, first.pointee.ai_addrlen > 0 else { return nil }
+
+        var storage = sockaddr_storage()
+        memcpy(&storage, addr, Int(first.pointee.ai_addrlen))
+        return (storage, first.pointee.ai_addrlen)
+    }
+
+    /// The wildcard address for a family, so the kernel picks the port.
+    ///
+    /// Port zero is the point: the port is not this code's to choose. Whatever the kernel hands
+    /// back is what the NAT builds a mapping for, and whatever the NAT builds is what the relay
+    /// reports to the peer — so a port chosen here would be a number with no relationship to the
+    /// address the direct path actually depends on.
+    private static func wildcard(family: Int32, into storage: inout sockaddr_storage) -> socklen_t {
+        switch family {
+        case AF_INET6:
+            var address = sockaddr_in6()
+            address.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+            address.sin6_family = sa_family_t(AF_INET6)
+            address.sin6_port = 0
+            address.sin6_addr = in6addr_any
+            memcpy(&storage, &address, MemoryLayout<sockaddr_in6>.size)
+            return socklen_t(MemoryLayout<sockaddr_in6>.size)
+        default:
+            var address = sockaddr_in()
+            address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = 0
+            address.sin_addr = in_addr(s_addr: INADDR_ANY)
+            memcpy(&storage, &address, MemoryLayout<sockaddr_in>.size)
+            return socklen_t(MemoryLayout<sockaddr_in>.size)
         }
     }
 }

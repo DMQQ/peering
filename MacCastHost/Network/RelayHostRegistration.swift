@@ -85,6 +85,12 @@ final class RelayHostRegistration: @unchecked Sendable {
                         throw RelaySignallingError.refused(code: "relay", message: message)
                     case .hostOffline:
                         break
+                    // Never sent unsolicited, and never in answer to anything this end says: the
+                    // Mac does not ask where its clients are, it learns by being sent to. Ignored
+                    // rather than refused, because a relay that says more than this build expects
+                    // is not a reason to drop a registration that is otherwise working.
+                    case .peerAddress:
+                        break
                     }
                 }
             } catch {

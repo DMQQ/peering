@@ -288,6 +288,15 @@ final class SessionModel {
     /// letting video through and the session has fallen back — see ``VideoFallbackPolicy``.
     var videoTransport: VideoTransport = .primary
     var connectionPath: ConnectionPath?
+
+    /// Whether the picture is being carried straight between the two ends rather than around
+    /// through the relay.
+    ///
+    /// Separate from ``connectionPath`` on purpose — the relay still splices the control connection
+    /// and still meters the session, so the two are genuinely different facts and collapsing them
+    /// would make the allowance meter under-count. Set from the session's own observation of what
+    /// arrives, and false until it says otherwise: every session starts on the relay.
+    var usedDirectPath = false
     var pairedHostIDs: [String] = []
     /// The quality the app is set to, read straight from the defaults.
     ///
@@ -662,6 +671,11 @@ final class SessionModel {
         // reads its own defaults, and the widget can only see the shared container.
         UserDefaults.standard.set(target.displayName, forKey: Self.lastHostNameKey)
         SharedStore.lastHostName = target.displayName
+        // Cleared for every new session, whatever the target. A punched path belongs to the session
+        // that proved it: the NAT mapping behind it can be gone by the next one, and a stale `true`
+        // would have the app reporting a direct path it is not using — on the one screen somebody
+        // would look at to find out why a connection is slow.
+        usedDirectPath = false
         switch target {
         case .discovered(let host):
             connectionPath = .lan

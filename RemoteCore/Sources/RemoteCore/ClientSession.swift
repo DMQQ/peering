@@ -76,6 +76,24 @@ public final class ClientSession: @unchecked Sendable {
         case terminal(TerminalEvent)
         /// The relay's free allowance for this client ID is exhausted for the current period.
         case relayQuotaExceeded
+        /// Which way the picture is now arriving, once it has changed from the way it started.
+        ///
+        /// Sent when the direct path takes over and when it is given up, and only then. A session
+        /// begins on the relay and stays there unless a punch succeeds, so "relay" is the state a
+        /// session is in until this says otherwise — and the absence of this event means the
+        /// ordinary case, not a failure.
+        case path(DatagramPath)
+    }
+
+    /// Which way the picture is arriving, as this end observes it.
+    ///
+    /// Only one of the two directions is observed here and that is enough: this end knows what
+    /// arrives, and the Mac decides what to send from what *it* receives. The two agree because they
+    /// are watching the same path from opposite ends, and neither has to tell the other what it
+    /// decided — which is why a punched path costs no new control messages at all.
+    public enum DatagramPath: Sendable, Equatable {
+        case relay
+        case direct
     }
 
     public enum VideoEvent: Sendable {
@@ -299,6 +317,17 @@ public final class ClientSession: @unchecked Sendable {
     /// The socket the Mac's sealed video datagrams arrive on. Nil on every session that is
     /// not a relayed one, and nil until the lane is opened.
     private var videoDatagrams: VideoDatagramSocket?
+    /// The task that asks the relay where the Mac is and then keeps probing it.
+    ///
+    /// Held so it can be cancelled with the socket: a probe that outlives its session is a datagram
+    /// sent to an address that has moved on, and a task that outlives it is a leak.
+    private var directPathTask: Task<Void, Never>?
+    /// The last path reported to the owner, so a change is reported once rather than per datagram.
+    ///
+    /// Seeded with `.relay` rather than left optional: every session starts on the relay, so the
+    /// first datagram to arrive is not news, and treating it as such would put a message on screen
+    /// at the start of every session.
+    private var reportedPath: DatagramPath = .relay
     /// The other half of that lane: the key, the replay window and the reassembler. Set when
     /// the Mac's answer to ``MessageKind/videoKeyRequest`` arrives, and nil until then — a
     /// datagram that arrives before it cannot be opened, which is why the Mac's first few
@@ -1062,7 +1091,9 @@ public final class ClientSession: @unchecked Sendable {
         reportedDatagramFailure = false
         lock.unlock()
 
-        socket.onDatagram = { [weak self] datagram in self?.handleDatagram(datagram) }
+        socket.onDatagram = { [weak self] datagram, source in
+            self?.handleDatagram(datagram, from: source)
+        }
         socket.onFailure = { [weak self] error in
             sessionLog.error("the video datagram socket failed: \(error.localizedDescription, privacy: .public)")
             self?.emit(.note("The relay's video path stopped responding."))
@@ -1099,6 +1130,62 @@ public final class ClientSession: @unchecked Sendable {
         }
         guard accepted else { return }
         emit(.note("The Mac is sending video directly."))
+        beginDirectPath(secret: grant.secret)
+    }
+
+    /// Asks the relay where the Mac is, and then tries to open a path straight to it.
+    ///
+    /// Silent on every failure, which is the design rather than an omission: a session that cannot
+    /// discover its peer, or whose probes never arrive, is a session on the relay — what every
+    /// session was before this existed and what most will still be. Nothing here has earned a
+    /// sentence on screen until it works.
+    private func beginDirectPath(secret: Data) {
+        guard let pair = lock.withLock({ () -> (VideoDatagramSocket, RelaySession)? in
+            guard let socket = videoDatagrams, let relay = relaySession else { return nil }
+            return (socket, relay)
+        }) else { return }
+        let (socket, relay) = pair
+
+        directPathTask?.cancel()
+        directPathTask = Task { [weak self] in
+            let address = try? await RelaySignallingConnection.discoverPeer(
+                at: ProtocolInfo.relaySignallingURL,
+                videoToken: relay.videoToken
+            )
+            // No introduction means no direct path, and no retry. The relay answers only once the
+            // Mac has been heard from, and it is heard from continuously while a session is up — so
+            // a session that never gets an answer is one whose Mac is not sending datagrams at all,
+            // and asking again would be asking the same question of the same silence.
+            guard let address, !Task.isCancelled else { return }
+            guard (try? socket.setDirectPeer(host: address.host, port: address.port)) != nil else {
+                return
+            }
+
+            let schedule = VideoKeySchedule(secret: secret)
+            guard var sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
+            else { return }
+
+            // Quick while there is any prospect of it working, then slow for the rest of the
+            // session. The fast phase is what gets a session onto the direct path within a beat of
+            // opening; the slow one is what recovers a path that a NAT mapping expiry took away,
+            // for the price of one small datagram every few seconds. It never stops, because the
+            // thing it is guarding against — a mapping that quietly expires — never stops either.
+            //
+            // Each probe is sealed afresh, and that is load-bearing rather than tidy. The counter is
+            // the AEAD nonce, and the Mac's replay window is doing its job — so a probe reused byte
+            // for byte would be discarded from the second one onward, and the path would never be
+            // believed however many were sent.
+            var attempt = 0
+            while !Task.isCancelled {
+                let probe = sealer.seal(kind: .directProbe, payload: Data())
+                if !probe.isEmpty {
+                    socket.sendDirect(probe) { _ in }
+                }
+                attempt += 1
+                let interval: Duration = attempt <= 12 ? .milliseconds(250) : .seconds(5)
+                try? await Task.sleep(for: interval)
+            }
+        }
     }
 
     /// One datagram from the relay, opened and fed into the same path a whole frame takes.
@@ -1106,7 +1193,29 @@ public final class ClientSession: @unchecked Sendable {
     /// There is one decoder and one renderer in this app, and both are downstream of
     /// ``handleVideoFrame(_:from:)``. What comes out of the opener is the frame the Mac cut
     /// up — never a chunk, which is why nothing here reassembles anything.
-    private func handleDatagram(_ datagram: Data) {
+    /// Reports a change of path, once per change.
+    ///
+    /// Once per change and not once per datagram: the picture arrives thousands of times a minute
+    /// and the only fact worth passing on is which way it is coming, which changes at most twice in
+    /// a session. A note goes with the change *to* the direct path and not with the change back —
+    /// falling back to the relay is the ordinary case, and saying so every time a mapping expires
+    /// would be an app that appears to keep breaking.
+    private func noteDatagramPath(_ source: VideoDatagramSocket.Source) {
+        var path: DatagramPath = .relay
+        if case .peer = source { path = .direct }
+        let changed = lock.withLock { () -> Bool in
+            guard reportedPath != path else { return false }
+            reportedPath = path
+            return true
+        }
+        guard changed else { return }
+        emit(.path(path))
+        if path == .direct {
+            emit(.note("The picture is coming straight from the Mac."))
+        }
+    }
+
+    private func handleDatagram(_ datagram: Data, from source: VideoDatagramSocket.Source) {
         let outcome = lock.withLock { () -> Result<Frame?, any Error> in
             guard let current = videoOpener else { return .success(nil) }
             // Mutated in place rather than copied: the replay window and the partial picture
@@ -1119,6 +1228,12 @@ public final class ClientSession: @unchecked Sendable {
         switch outcome {
         case .success(let frame):
             guard let frame else { return }
+            noteDatagramPath(source)
+            // A probe has done its whole job by opening: it proved the datagram came from the peer
+            // and not from anyone who can write a source address into a packet, and the address it
+            // arrived from is now what the Mac sends to. There is nothing in it to render, and a
+            // real frame has never been seen under this kind.
+            guard frame.kind != .directProbe else { return }
             handleVideoFrame(frame, from: .primary)
 
         case .failure(let error):
@@ -1370,6 +1485,9 @@ public final class ClientSession: @unchecked Sendable {
         self.relayProxy = nil
         self.videoDatagrams = nil
         self.relaySession = nil
+        directPathTask?.cancel()
+        directPathTask = nil
+        reportedPath = .relay
         usesRelayedSingleStream = false
         pingTask?.cancel()
         pingTask = nil
@@ -1402,6 +1520,9 @@ public final class ClientSession: @unchecked Sendable {
         self.relayProxy = nil
         self.videoDatagrams = nil
         self.relaySession = nil
+        directPathTask?.cancel()
+        directPathTask = nil
+        reportedPath = .relay
         pingTask?.cancel()
         pingTask = nil
         let videoWatch = stopVideoWatchLocked()
