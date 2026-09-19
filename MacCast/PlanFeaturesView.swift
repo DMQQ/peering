@@ -2,10 +2,15 @@ import SwiftUI
 
 /// One thing the app does, and the plan it needs if it needs one.
 ///
-/// `plan` is `nil` for everything today, and that is not an oversight: nothing in this app is
-/// gated on a subscription except relay time, which the plan cards already state. The field exists
-/// so that adding a gate later is editing this table rather than rewriting this screen — fill it
-/// in and the row draws its badge, with no other change anywhere.
+/// `plan` is `nil` for everything the free plan includes, which is most of the app. Where it is
+/// set, the row draws a badge and the plan named there is what the paywall's own card for that
+/// tier claims, in the same words. The two screens are one tap apart, so a feature that is free
+/// here and paid there is not a difference of opinion, it is a page contradicting itself.
+///
+/// **The badge is a statement about the product, not about the code.** Nothing on this screen is
+/// enforced: the only thing the app meters today is relay time, and a user who never subscribes
+/// can still open a terminal. Filling this in is the first half of gating them and not the whole
+/// of it, and the copy below is written so that it stays true until the second half lands.
 struct PlanFeature: Identifiable {
     let id = UUID()
     let icon: String
@@ -24,7 +29,7 @@ struct PlanFeatureGroup: Identifiable {
 ///
 /// A paywall is a comparison, and a comparison is only as honest as what it leaves out. The cards
 /// answer "which of these is worth it" in three lines each, which is the right length for a
-/// decision and the wrong length for an inventory — so the sheet carries a way to see the whole
+/// decision and the wrong length for an inventory, so the sheet carries a way to see the whole
 /// list rather than making its case by omission.
 ///
 /// It is also the answer to a question people actually ask before subscribing: *what am I paying
@@ -41,7 +46,7 @@ struct PlanFeaturesView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         TabScreenHeader(
                             "Everything included",
-                            detail: "Every plan runs the whole app. What differs is how much relay time you get."
+                            detail: "Most of the app is in every plan, the free one included. A row wearing a plan name is one that plan adds."
                         )
 
                         ForEach(Self.groups) { group in
@@ -59,12 +64,12 @@ struct PlanFeaturesView: View {
                         // rather than implied by what is missing from the cards above.
                         Controls.card(
                             "What a plan changes",
-                            footer: "Relay time is the only thing metered today. Local connections are unlimited on every plan, including the free one."
+                            footer: "Connecting over your own network is unlimited on every plan, including the free one. Relay time is the only thing metered."
                         ) {
                             VStack(spacing: 0) {
                                 ForEach(Array(StoreManager.Tier.allCases.enumerated()), id: \.element.id) { index, tier in
                                     Controls.row(tier.name, systemImage: tier == .pro ? "sparkles" : "clock") {
-                                        Text(self.allowance(for: tier))
+                                        Text(self.summary(for: tier))
                                             .font(.caption.weight(.medium))
                                             .foregroundStyle(.secondary)
                                     }
@@ -124,11 +129,18 @@ struct PlanFeaturesView: View {
         .padding(.vertical, 5)
     }
 
-    private func allowance(for tier: StoreManager.Tier) -> String {
+    /// What a tier buys, in the two numbers that differ: relay time and Macs.
+    ///
+    /// Both on one line because they are one decision. A reader comparing three rows is comparing
+    /// two facts about each, and splitting them into two tables makes the middle row look like two
+    /// separate choices rather than one worse one.
+    private func summary(for tier: StoreManager.Tier) -> String {
+        let allowance: String
         switch tier {
-        case .relay: return "3 hours a day"
-        case .relayPlus, .pro: return "No limit"
+        case .relay: allowance = "3 hours a day"
+        case .relayPlus, .pro: allowance = "No limit"
         }
+        return "\(allowance) · \(tier.macCount)"
     }
 
     /// The inventory.
@@ -158,19 +170,25 @@ struct PlanFeaturesView: View {
                 detail: "The relay finds your Mac when it is somewhere else. It carries the session without being able to read it."
             ),
             PlanFeature(
+                icon: "arrow.left.arrow.right",
+                title: "Straight between the two",
+                detail: "When the networks allow it, the picture takes a path the two devices find for themselves, and only the control connection goes through the relay."
+            ),
+            PlanFeature(
                 icon: "qrcode.viewfinder",
                 title: "Pair a Mac that is not nearby",
                 detail: "Scan the code a Mac shows to pair without ever being on the same network as it."
             ),
             PlanFeature(
-                icon: "power",
-                title: "Wake a sleeping Mac",
-                detail: "Send a wake-up packet, then connect. No walking over to press a key."
-            ),
-            PlanFeature(
                 icon: "faceid",
                 title: "Face ID to open",
                 detail: "Require Face ID each time the app comes back, so a locked phone is the only thing that unlocks the Mac."
+            ),
+            PlanFeature(
+                icon: "power",
+                title: "Wake a sleeping Mac",
+                detail: "Send a wake-up packet, then connect. It reaches a Mac on your own network, not one across the internet.",
+                plan: .pro
             ),
         ]),
 
@@ -178,7 +196,8 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "macwindow",
                 title: "A display, an app, or one window",
-                detail: "Share the whole screen, a single application, or one window. Switch without reconnecting."
+                detail: "Share the whole screen, a single application, or one window. Switch without reconnecting.",
+                plan: .pro
             ),
             PlanFeature(
                 icon: "rectangle.3.group",
@@ -188,22 +207,25 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "speedometer",
                 title: "Picture matched to the network",
-                detail: "The bitrate follows what the connection can carry, so a weak link degrades instead of stalling."
+                detail: "The bitrate follows what the connection can carry, so a weak link degrades instead of stalling. You can also pin it to Low, Medium or High yourself."
             ),
             PlanFeature(
                 icon: "speaker.wave.2",
                 title: "Sound from the Mac",
-                detail: "Hear what is playing on the Mac, with a mute when you would rather not."
+                detail: "Hear what is playing on the Mac. Captured and sent, and there is no control to unmute it yet, so sessions are silent today.",
+                plan: .pro
             ),
             PlanFeature(
                 icon: "pip",
                 title: "Picture in Picture",
-                detail: "Keep the Mac's screen floating over other apps while you do something else."
+                detail: "Keep the Mac's screen floating over other apps while you do something else.",
+                plan: .pro
             ),
             PlanFeature(
                 icon: "moon.fill",
                 title: "Privacy mode",
-                detail: "Dim the Mac's own displays while you work, so nobody standing there watches along."
+                detail: "Dim the Mac's own displays while you work, so nobody standing there watches along.",
+                plan: .pro
             ),
             PlanFeature(
                 icon: "camera",
@@ -220,8 +242,8 @@ struct PlanFeaturesView: View {
             ),
             PlanFeature(
                 icon: "macbook.and.iphone",
-                title: "Trackpad and scroll wheel",
-                detail: "A relative pointer for the small corrections a fingertip cannot make precisely."
+                title: "Trackpad, pointer and scroll wheel",
+                detail: "A relative pointer for the small corrections a fingertip cannot make, and a notched wheel that scrolls the Mac a line at a time."
             ),
             PlanFeature(
                 icon: "keyboard",
@@ -234,6 +256,11 @@ struct PlanFeaturesView: View {
                 detail: "A mode that shows the screen and sends no input at all."
             ),
             PlanFeature(
+                icon: "lock.fill",
+                title: "Lock the Mac, or darken it",
+                detail: "Lock the Mac from the session screen, or put its displays out without ending the session."
+            ),
+            PlanFeature(
                 icon: "doc.on.clipboard",
                 title: "Clipboard, and its history",
                 detail: "Pull the Mac's clipboard onto the phone, and keep what you pulled earlier."
@@ -241,12 +268,14 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "wand.and.stars",
                 title: "Macros",
-                detail: "Save a sequence and fire it with one tap, for the things you type every time."
+                detail: "Save a sequence and fire it with one tap, for the things you type every time.",
+                plan: .pro
             ),
             PlanFeature(
                 icon: "text.badge.plus",
                 title: "Snippets and quick commands",
-                detail: "The commands you keep one tap away, above the keyboard, in every terminal."
+                detail: "The commands you keep one tap away, above the keyboard, in every terminal.",
+                plan: .pro
             ),
         ]),
 
@@ -254,17 +283,38 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "terminal",
                 title: "A shell on your Mac",
-                detail: "Open a terminal inside the session, with tabs, without leaving the app."
+                detail: "Open a terminal inside the session, with tabs you can name, and the control keys a phone keyboard cannot send.",
+                plan: .relayPlus
+            ),
+            PlanFeature(
+                icon: "clock.arrow.circlepath",
+                title: "Commands you ran before",
+                detail: "The last commands sent to a shell, one tap from the input field. A command the shell did not recognise is dropped from the list."
             ),
             PlanFeature(
                 icon: "server.rack",
                 title: "SSH servers",
-                detail: "Saved hosts, keys kept in the Keychain, and the fingerprint shown the first time."
+                detail: "Saved hosts, passwords in the Keychain, the fingerprint shown the first time, and a Face ID or passcode lock you can put on any one of them."
             ),
             PlanFeature(
                 icon: "folder",
                 title: "Browse by tapping",
                 detail: "Walk a folder tree on either machine, change directory and preview a file without typing a path."
+            ),
+            PlanFeature(
+                icon: "pencil",
+                title: "Read and change a file",
+                detail: "Open a text file, edit it and save it back, with the file's own permissions kept. A file too long to show whole is read but not offered for editing, because saving it would throw the rest away."
+            ),
+            PlanFeature(
+                icon: "square.and.arrow.up",
+                title: "Take a file off the machine",
+                detail: "Download what you are looking at to the phone and hand it to Files, or to anything else in the share sheet."
+            ),
+            PlanFeature(
+                icon: "arrow.up.to.line",
+                title: "Send a file to it",
+                detail: "Pick a file from the phone and put it in the folder you are looking at, up to 64 MB."
             ),
         ]),
 
@@ -272,17 +322,24 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "bolt.horizontal.circle",
                 title: "Live Activity",
-                detail: "The session's state and duration on the Lock Screen and in the Dynamic Island."
+                detail: "The session's state and duration on the Lock Screen and in the Dynamic Island.",
+                plan: .relayPlus
             ),
             PlanFeature(
                 icon: "square.grid.2x2",
                 title: "Home Screen widget",
-                detail: "One tap to open Peering on the Mac you used last."
+                detail: "One tap to open Peering on the Mac you used last.",
+                plan: .relayPlus
             ),
             PlanFeature(
                 icon: "bell",
                 title: "Told when you are needed",
-                detail: "A notification when a Mac is waiting on a pairing code or a password prompt."
+                detail: "A notification when a Mac is waiting on a pairing code, a password prompt, or a terminal that has stopped for an answer."
+            ),
+            PlanFeature(
+                icon: "chart.bar",
+                title: "What you have used",
+                detail: "The Sessions tab counts relay time against the day's allowance, so the meter is visible before it runs out."
             ),
             PlanFeature(
                 icon: "clock.arrow.circlepath",

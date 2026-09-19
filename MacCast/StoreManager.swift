@@ -247,6 +247,25 @@ final class StoreManager {
             }
         }
 
+        /// How many Macs this plan pairs with, in the words the plan screens use.
+        ///
+        /// **Stated here and not enforced anywhere yet**, which is the same position the whole gate
+        /// map is in: the app meters relay time and nothing else, and the plan screens describe the
+        /// ladder that is being built rather than the one the code already keeps. It lives beside
+        /// ``tagline`` because that is where the two Macs were first claimed, and because a number
+        /// written into one screen and not the other is the drift this file exists to prevent.
+        ///
+        /// The free plan is the one that makes this awkward, and saying so is more honest than
+        /// leaving it blank: it pairs with as many Macs as the paid plans do today, so the row
+        /// below describes where the limit is going rather than where it is.
+        var macCount: String {
+            switch self {
+            case .relay: return "1 Mac"
+            case .relayPlus: return "2 Macs"
+            case .pro: return "Every Mac"
+            }
+        }
+
         var features: [String] {
             switch self {
             case .relay:
