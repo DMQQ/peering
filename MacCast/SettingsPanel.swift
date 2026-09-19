@@ -66,6 +66,12 @@ struct SettingsPanel: View {
             info("Mac", model.hostName ?? "None")
             info("State", stateDescription)
             info("Path", model.connectionPath?.rawValue ?? "None")
+            // Only when it is worth reading. A session whose picture is going straight to the Mac
+            // has nothing to explain, and a row saying "Straight to 83.1.2.3:52507" beside the
+            // path is a sentence about plumbing on a screen somebody opened to change the bitrate.
+            if !model.usedDirectPath {
+                info("Direct path", model.directPathStatus.summary)
+            }
             info("Video", model.videoStatus)
             if let latency = model.latencyMilliseconds {
                 info("Latency", "\(Int(latency.rounded())) ms")

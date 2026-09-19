@@ -471,10 +471,15 @@ struct VideoKeyMessageTests {
         #expect(decoded.secret == secret)
     }
 
+    /// Not a fact about this file's subject, and here for a reason worth keeping: the version is
+    /// what makes a mixed pair fail at the door rather than somewhere in the middle of a session,
+    /// and every bump has been for a message an older build cannot decode. A test that reads it
+    /// back makes the number something a person has to change deliberately.
     @Test("the two ends of the exchange agree about the protocol version")
     func theVersionWasBumped() {
-        // Version 13 is what makes a mixed pair fail at the door rather than at the first
-        // datagram: a 12 host cannot decode the request and would answer it with silence.
-        #expect(ProtocolInfo.version == 13)
+        // 14 adds the terminal write requests and, on the signalling side, the device proof and
+        // the presence question. A 13 host cannot decode `beginWrite` and the failure would land
+        // in the middle of an edit.
+        #expect(ProtocolInfo.version == 14)
     }
 }

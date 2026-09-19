@@ -167,6 +167,14 @@ extension SessionModel {
             // stop counting a session the relay is still charging for, and the meter would
             // under-report by exactly the sessions that used the app most.
             usedDirectPath = path == .direct
+        case .directPath(let outcome):
+            // The other half of the same fact, and the half that was missing. `path` above says
+            // where the picture *is* arriving, which is only ever answered when it works; this
+            // says what the attempt came to when it does not, which is the sentence somebody
+            // diagnosing a slow session actually needs. Shown rather than logged, because unlike
+            // the success case there is no note in the session's own log to find it in.
+            directPathStatus = outcome
+            append(note: "Direct path: \(outcome.summary)")
         case .remoteNotice(let message):
             remoteNotice = message
         case .clipboard(let text):

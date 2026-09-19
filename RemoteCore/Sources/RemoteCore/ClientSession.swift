@@ -83,6 +83,8 @@ public final class ClientSession: @unchecked Sendable {
         /// session is in until this says otherwise — and the absence of this event means the
         /// ordinary case, not a failure.
         case path(DatagramPath)
+        /// What the attempt at a path straight to the Mac has come to. See ``DirectPath``.
+        case directPath(DirectPath)
     }
 
     /// Which way the picture is arriving, as this end observes it.
@@ -94,6 +96,38 @@ public final class ClientSession: @unchecked Sendable {
     public enum DatagramPath: Sendable, Equatable {
         case relay
         case direct
+    }
+
+    /// What the attempt at a path straight to the Mac has come to.
+    ///
+    /// **The failure cases are the point of this.** Both ends were silent about every way the
+    /// direct path can fail, deliberately: a session that cannot find its peer is a session on the
+    /// relay, which is what every session was before the direct path existed. That was a reasonable
+    /// thing to say and it made the feature unfalsifiable. A user seeing `RELAY` could not tell a
+    /// NAT that drops packets from a lookup that never answered, and neither could anyone reading
+    /// the logs, which is why this exists: the two are different problems with different fixes and
+    /// exactly one sentence distinguishes them.
+    public enum DirectPath: Sendable, Equatable {
+        /// There is nothing to try: no datagram socket, or the session is not on that lane.
+        case notTried
+        /// The relay has not said where the Mac is. The ordinary first answer, and a problem if it
+        /// is still the answer a minute in.
+        case noAddress
+        /// An address came back and probes are going out to it. Nothing has arrived from the Mac at
+        /// that address, so the packets are being dropped on the way.
+        case probing(peer: String)
+        /// The Mac is answering directly and the picture is coming from it.
+        case open(peer: String)
+
+        /// The one line a settings row shows.
+        public var summary: String {
+            switch self {
+            case .notTried: return "Not tried"
+            case .noAddress: return "The relay has not said where the Mac is"
+            case .probing(let peer): return "Knocking on \(peer), nothing back yet"
+            case .open(let peer): return "Straight to \(peer)"
+            }
+        }
     }
 
     public enum VideoEvent: Sendable {
@@ -328,6 +362,9 @@ public final class ClientSession: @unchecked Sendable {
     /// first datagram to arrive is not news, and treating it as such would put a message on screen
     /// at the start of every session.
     private var reportedPath: DatagramPath = .relay
+
+    /// The last thing the direct-path attempt reported, so the same state is not emitted twice.
+    private var reportedDirectPath: DirectPath = .notTried
     /// The other half of that lane: the key, the replay window and the reassembler. Set when
     /// the Mac's answer to ``MessageKind/videoKeyRequest`` arrives, and nil until then — a
     /// datagram that arrives before it cannot be opened, which is why the Mac's first few
@@ -947,6 +984,14 @@ public final class ClientSession: @unchecked Sendable {
     /// How many recent samples the reported figure is drawn from.
     private static let latencyWindow = 5
 
+    /// How many probe attempts go by between two asks at the relay for the peer's address.
+    ///
+    /// Twelve, which is one re-ask per three seconds during the fast phase and one per minute once
+    /// the probing has slowed down, because the attempt counter is what both cadences are counted
+    /// in. Frequent enough to catch a peer whose first datagram was a moment late, rare enough that
+    /// a session nobody can punch through is not a session that keeps opening WebSockets.
+    static let rediscoverEvery = 12
+
     private func startPinging() {
         lock.lock()
         guard pingTask == nil else { lock.unlock(); return }
@@ -1148,19 +1193,6 @@ public final class ClientSession: @unchecked Sendable {
 
         directPathTask?.cancel()
         directPathTask = Task { [weak self] in
-            let address = try? await RelaySignallingConnection.discoverPeer(
-                at: ProtocolInfo.relaySignallingURL,
-                videoToken: relay.videoToken
-            )
-            // No introduction means no direct path, and no retry. The relay answers only once the
-            // Mac has been heard from, and it is heard from continuously while a session is up — so
-            // a session that never gets an answer is one whose Mac is not sending datagrams at all,
-            // and asking again would be asking the same question of the same silence.
-            guard let address, !Task.isCancelled else { return }
-            guard (try? socket.setDirectPeer(host: address.host, port: address.port)) != nil else {
-                return
-            }
-
             let schedule = VideoKeySchedule(secret: secret)
             guard var sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
             else { return }
@@ -1175,8 +1207,31 @@ public final class ClientSession: @unchecked Sendable {
             // the AEAD nonce, and the Mac's replay window is doing its job — so a probe reused byte
             // for byte would be discarded from the second one onward, and the path would never be
             // believed however many were sent.
+            //
+            // **Discovery is repeated on the same cadence, and that is the change worth naming.**
+            // It used to be asked once and the whole attempt abandoned if the answer was no, and
+            // "no" is the *ordinary* first answer, because the relay only knows where a peer is
+            // once that peer has sent it a datagram, which is a few milliseconds behind the asking.
+            // So a session could give up permanently on a peer that was about to introduce itself.
+            // Re-asking costs one small datagram every three seconds for the first few of a session
+            // and one a minute after that, and it is also what re-opens a path whose address moved.
             var attempt = 0
             while !Task.isCancelled {
+                if attempt % Self.rediscoverEvery == 0 {
+                    if let address = try? await RelaySignallingConnection.discoverPeer(
+                        at: ProtocolInfo.relaySignallingURL,
+                        videoToken: relay.videoToken
+                    ) {
+                        // A failure here is not fatal and not retried on its own: an address this
+                        // socket will not take is one the next discovery will replace, and until
+                        // then ``sendDirect`` does nothing rather than sending to the relay.
+                        try? socket.setDirectPeer(host: address.host, port: address.port)
+                        self?.reportDirectPath(.probing(peer: "\(address.host):\(address.port)"))
+                    } else {
+                        self?.reportDirectPath(.noAddress)
+                    }
+                }
+
                 let probe = sealer.seal(kind: .directProbe, payload: Data())
                 if !probe.isEmpty {
                     socket.sendDirect(probe) { _ in }
@@ -1202,7 +1257,13 @@ public final class ClientSession: @unchecked Sendable {
     /// would be an app that appears to keep breaking.
     private func noteDatagramPath(_ source: VideoDatagramSocket.Source) {
         var path: DatagramPath = .relay
-        if case .peer = source { path = .direct }
+        if case .peer(let host, let port) = source {
+            path = .direct
+            // The address the Mac is actually answering from, which is the one that matters: a
+            // NAT that moved mid-session is the ordinary case this design is built around, and
+            // this is the end that finds out.
+            reportDirectPath(.open(peer: "\(host):\(port)"))
+        }
         let changed = lock.withLock { () -> Bool in
             guard reportedPath != path else { return false }
             reportedPath = path
@@ -1213,6 +1274,21 @@ public final class ClientSession: @unchecked Sendable {
         if path == .direct {
             emit(.note("The picture is coming straight from the Mac."))
         }
+    }
+
+    /// Says what the direct-path attempt has come to, once per change.
+    ///
+    /// Deduplicated for the same reason ``noteDatagramPath`` is: this is driven from the probing
+    /// loop, which runs fifty times in the first minute of a session, and a state that is emitted
+    /// on every pass is a state whose observer cannot tell a change from a repeat.
+    private func reportDirectPath(_ outcome: DirectPath) {
+        let changed = lock.withLock { () -> Bool in
+            guard reportedDirectPath != outcome else { return false }
+            reportedDirectPath = outcome
+            return true
+        }
+        guard changed else { return }
+        emit(.directPath(outcome))
     }
 
     private func handleDatagram(_ datagram: Data, from source: VideoDatagramSocket.Source) {

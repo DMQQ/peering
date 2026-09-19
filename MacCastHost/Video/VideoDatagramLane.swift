@@ -39,6 +39,15 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// The task that asks where the client is and then keeps knocking.
     private var probeTask: Task<Void, Never>?
 
+    /// How many probe attempts go by between two asks at the relay for the client's address.
+    ///
+    /// Twelve, which is one re-ask per three seconds while the probing is quick and one per minute
+    /// once it has slowed, because the attempt counter is what both cadences are counted in. The
+    /// same number the client uses, though neither end knows the other's: it is a cadence, not an
+    /// agreement, and the two being equal is a coincidence of the same reasoning rather than a
+    /// contract that would break if one changed.
+    private static let rediscoverEvery = 12
+
     /// - Throws: when the relay's allocation cannot be used — a token that is not the size the
     ///   wire contract fixes it at, or a port that is not a port. The caller refuses the
     ///   request rather than reporting a lane that cannot carry anything.
@@ -79,28 +88,38 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// Both ends knocking within the same moment is the whole of what makes this work, and neither
     /// tells the other it is doing it: each discovers the other's address from the relay and sends.
     ///
-    /// Silent on failure, like the client's half. A Mac that cannot discover its peer, or whose
-    /// probes never arrive, is a Mac whose sessions stay on the relay — which is what every session
-    /// did before this existed.
+    /// **Silent on failure, and that is now the one asymmetry left.** The client half reports what
+    /// its attempt came to, so the phone can say whether the relay never named the Mac or named it
+    /// and the packets went nowhere. This end says nothing either way, which is defensible because
+    /// the phone is where somebody looks, but it does mean a session can only be diagnosed from
+    /// one side of it, and a Mac whose probes are the ones being dropped will look from the phone
+    /// exactly like a Mac that is not probing at all.
     private func beginDirectPath() {
         probeTask?.cancel()
         probeTask = Task { [weak self] in
             guard let self else { return }
             let relay = self.relay
-            let address = try? await RelaySignallingConnection.discoverPeer(
-                at: ProtocolInfo.relaySignallingURL,
-                videoToken: relay.videoToken
-            )
-            // No introduction means the client has not been heard from, and asking again would be
-            // asking the same question of the same silence.
-            guard let address, !Task.isCancelled else { return }
-            try? socket.setDirectPeer(host: address.host, port: address.port)
 
             // Quick while there is any prospect of it working, then slow for the rest of the
             // session: the fast phase is what opens the path, and the slow one is what recovers a
-            // mapping that expired — for one small datagram every few seconds.
+            // mapping that expired, for one small datagram every few seconds.
+            //
+            // **The asking is inside the loop rather than before it**, which is the fix for a
+            // session that could have punched through and did not. The relay only knows where the
+            // client is once the client has sent it a datagram, so "the peer has not been heard
+            // from" is the *ordinary* first answer rather than a verdict, and it used to be taken
+            // as one, permanently, by a `guard ... else { return }` that ran once.
             var attempt = 0
             while !Task.isCancelled {
+                if attempt % Self.rediscoverEvery == 0 {
+                    if let address = try? await RelaySignallingConnection.discoverPeer(
+                        at: ProtocolInfo.relaySignallingURL,
+                        videoToken: relay.videoToken
+                    ) {
+                        try? socket.setDirectPeer(host: address.host, port: address.port)
+                    }
+                }
+
                 let probe = seal(kind: .directProbe, payload: Data())
                 if !probe.isEmpty { socket.sendDirect(probe) { _ in } }
                 attempt += 1

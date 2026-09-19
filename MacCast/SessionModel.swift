@@ -343,6 +343,15 @@ final class SessionModel {
     /// would make the allowance meter under-count. Set from the session's own observation of what
     /// arrives, and false until it says otherwise: every session starts on the relay.
     var usedDirectPath = false
+
+    /// What the attempt at a path straight to the Mac has come to.
+    ///
+    /// **The half of the same fact that ``usedDirectPath`` cannot carry.** That flag is only ever
+    /// true when the direct path worked, so a session that never opened one said nothing about
+    /// why. This says which of the two failures it was: the relay never told this end where the
+    /// Mac is, or it did and the packets went nowhere. Those have different causes and different
+    /// fixes, and until this existed nothing on either end could tell them apart.
+    var directPathStatus: ClientSession.DirectPath = .notTried
     var pairedHostIDs: [String] = []
     /// The quality the app is set to, read straight from the defaults.
     ///
