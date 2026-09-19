@@ -8,11 +8,21 @@
 //! someone who has only just worked out that the relay is the point. Thirty times an hour is
 //! more time than the three hours a month it replaced, and it is spread the way the use is.
 //!
-//! **No database.** Usage lives in a HashMap for the lifetime of the process. A server restart
-//! resets every client's counter, so a relay that restarts often gives away more than the
-//! configured allowance — bounded now by the day rather than by the month, which makes it a
-//! smaller hole than it was. Persisting `usage` is the fix if it ever needs one; the shape of
-//! the map is already what a table would hold.
+//! **The counter is written down**, in an append-only log at `PEERINGD_USAGE_LOG`. It used to
+//! live only in a HashMap for the lifetime of the process, which meant `Restart=always` was an
+//! unlimited relay: a crash loop, a deploy, or an operator's `systemctl restart` handed every
+//! client the full allowance again. What that costs is bandwidth rather than money, and bandwidth
+//! is the thing being sold, so it is worth a file.
+//!
+//! **A log rather than a database**, and the shape of the data is what decides it: one line per
+//! finished session, a few hundred rows, and a question that is only ever "how many seconds has
+//! this client spent in this window". A database buys atomic updates and queries, and neither is
+//! wanted; the only thing it would replace is the full rewrite that compaction does, and at this
+//! size that rewrite is cheaper than the dependency.
+//!
+//! Setting the path is the operator's business, and leaving it unset is legal: the relay runs
+//! with the counter in memory and says so at startup. A default path would be a relay that looks
+//! healthy and silently records nothing, which is worse than one that admits it.
 //!
 //! **Where the plan comes from is `storekit`'s business, not this module's.** A client that sends
 //! the receipt Apple signed for its purchase is metered by the product that receipt names; a client
@@ -34,8 +44,14 @@
 //! mints a key that could be in the set — see `PEERINGD_PAID_KEYS` in the README.
 
 use std::collections::{HashMap, HashSet};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::config::PlanAllowances;
 
@@ -102,6 +118,144 @@ impl Plan {
     }
 }
 
+/// One line of the usage log.
+///
+/// Short field names because they are written a few hundred thousand times over a relay's life
+/// and read only by this file. Serde rather than a hand-rolled format so that a client id
+/// containing a pipe, a comma, a newline or anything else is stored and read back unchanged.
+#[derive(Serialize, Deserialize)]
+struct UsageLine {
+    /// The client's device id.
+    c: String,
+    /// The window the seconds belong to.
+    w: u64,
+    /// Seconds relayed in that window, for that one session.
+    s: u64,
+}
+
+/// How large the log is allowed to grow before it is rewritten down to one line per client.
+///
+/// Four megabytes is on the order of a hundred thousand finished sessions, against a running
+/// total of at most one line per client that has relayed in the current day. The rewrite takes
+/// the same lock an append does, which is why it happens on the thread that has just finished a
+/// session rather than on a timer behind it: there is no background task here that could get out
+/// of step with the file, and nothing to shut down cleanly.
+const COMPACT_BYTES: u64 = 4 * 1024 * 1024;
+
+/// The counter's second home, on disk.
+///
+/// Held open in append mode for the life of the process, so recording a session is one small
+/// write rather than an open, a write and a close.
+struct UsageLog {
+    path: PathBuf,
+    file: File,
+    /// Bytes in the file, so compaction can be decided without asking the filesystem.
+    written: u64,
+}
+
+impl UsageLog {
+    /// Opens the log and reads back what it already held.
+    ///
+    /// The parent directory is created if it is missing, because the likeliest reason a
+    /// configured path does not exist yet is that the operator has just written the line into the
+    /// environment file and not yet made the directory.
+    fn open(path: PathBuf) -> io::Result<(Self, HashMap<String, (u64, u64)>)> {
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            fs::create_dir_all(parent)?;
+        }
+        let usage = Self::replay(&path)?;
+        let file = OpenOptions::new().create(true).append(true).open(&path)?;
+        let written = file.metadata().map(|m| m.len()).unwrap_or(0);
+        Ok((Self { path, file, written }, usage))
+    }
+
+    /// The map the tracker keeps, rebuilt from the file.
+    ///
+    /// **Only the newest window in the file survives**, and that is not a heuristic: nothing ever
+    /// asks for an older one, because ``QuotaTracker::remaining`` filters on the current window
+    /// and ``record`` overwrites an entry whose window has moved on. An entry from yesterday
+    /// would be a number with no reader.
+    ///
+    /// A line that will not parse is skipped rather than made fatal, which is the point of one
+    /// object per line: the failure this is written for is a machine that died mid-append, and
+    /// what it should cost is one session's seconds, not the whole file.
+    fn replay(path: &Path) -> io::Result<HashMap<String, (u64, u64)>> {
+        let text = match fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(HashMap::new()),
+            Err(error) => return Err(error),
+        };
+
+        let mut newest = 0u64;
+        let mut entries = Vec::new();
+        for line in text.lines() {
+            let Ok(entry) = serde_json::from_str::<UsageLine>(line) else { continue };
+            newest = newest.max(entry.w);
+            entries.push(entry);
+        }
+
+        let mut usage: HashMap<String, (u64, u64)> = HashMap::new();
+        for entry in entries.into_iter().filter(|entry| entry.w == newest) {
+            let slot = usage.entry(entry.c).or_insert((newest, 0));
+            slot.1 = slot.1.saturating_add(entry.s);
+        }
+        Ok(usage)
+    }
+
+    /// Adds one finished session, and puts it on the disk before returning.
+    ///
+    /// Synced rather than merely written, and it is worth saying why that is not paranoia: the
+    /// case this file exists for is a relay that stops without warning, and a write still sitting
+    /// in the page cache when the machine goes down is exactly that session being free again.
+    /// The cost is one fsync per finished session, which is nothing beside the session itself.
+    fn append(&mut self, client_id: &str, window: u64, secs: u64) -> io::Result<()> {
+        let mut line = serde_json::to_string(&UsageLine {
+            c: client_id.to_string(),
+            w: window,
+            s: secs,
+        })
+        .map_err(io::Error::other)?;
+        line.push('\n');
+        self.file.write_all(line.as_bytes())?;
+        self.file.sync_data()?;
+        self.written += line.len() as u64;
+        Ok(())
+    }
+
+    fn needs_compaction(&self) -> bool {
+        self.written >= COMPACT_BYTES
+    }
+
+    /// Rewrites the file as one line per client, for the current window only.
+    ///
+    /// Through a temporary file and a rename, so a machine that dies in the middle leaves the old
+    /// log whole rather than a half-written one that replays as nothing. That matters more than it
+    /// looks: the file being replaced is the only record of what has already been spent.
+    fn compact(&mut self, usage: &HashMap<String, (u64, u64)>, window: u64) -> io::Result<()> {
+        let mut body = String::new();
+        for (client_id, (entry_window, secs)) in usage {
+            if *entry_window != window || *secs == 0 {
+                continue;
+            }
+            let line = serde_json::to_string(&UsageLine {
+                c: client_id.clone(),
+                w: window,
+                s: *secs,
+            })
+            .map_err(io::Error::other)?;
+            body.push_str(&line);
+            body.push('\n');
+        }
+
+        let temporary = self.path.with_extension("log.tmp");
+        fs::write(&temporary, body)?;
+        fs::rename(&temporary, &self.path)?;
+        self.file = OpenOptions::new().create(true).append(true).open(&self.path)?;
+        self.written = self.file.metadata().map(|m| m.len()).unwrap_or(0);
+        Ok(())
+    }
+}
+
 pub struct QuotaTracker {
     allowances: PlanAllowances,
     inner: Mutex<Inner>,
@@ -111,17 +265,53 @@ struct Inner {
     /// client_id → (window the usage belongs to, seconds used in that window)
     usage: HashMap<String, (u64, u64)>,
     paid_keys: HashSet<String>,
+    /// Absent when no path was configured or the file would not open. See ``with_usage_log``.
+    log: Option<UsageLog>,
 }
 
 impl QuotaTracker {
+    /// A tracker whose counter lives only as long as the process does.
+    ///
+    /// Used by the tests, and by a deployment that has not configured ``PEERINGD_USAGE_LOG``.
     pub fn new(allowances: PlanAllowances, paid_keys: HashSet<String>) -> Self {
         Self {
             allowances,
             inner: Mutex::new(Inner {
                 usage: HashMap::new(),
                 paid_keys,
+                log: None,
             }),
         }
+    }
+
+    /// A tracker whose counter is kept in a file, or one that explains why it is not.
+    ///
+    /// **Returns a working tracker either way.** A log that will not open is a relay that gives
+    /// away relay time, and refusing to start over it would be a relay that is down instead, which
+    /// is a much worse trade. The error comes back beside the tracker so that `main` can say so at
+    /// startup, where the operator will see it.
+    pub fn with_usage_log(
+        allowances: PlanAllowances,
+        paid_keys: HashSet<String>,
+        path: Option<PathBuf>,
+    ) -> (Self, Option<io::Error>) {
+        let (log, usage, failure) = match path {
+            Some(path) => match UsageLog::open(path) {
+                Ok((log, usage)) => (Some(log), usage, None),
+                Err(error) => (None, HashMap::new(), Some(error)),
+            },
+            None => (None, HashMap::new(), None),
+        };
+
+        let tracker = Self {
+            allowances,
+            inner: Mutex::new(Inner {
+                usage,
+                paid_keys,
+                log,
+            }),
+        };
+        (tracker, failure)
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Inner> {
@@ -182,6 +372,27 @@ impl QuotaTracker {
             *entry = (window, 0);
         }
         entry.1 = entry.1.saturating_add(secs);
+
+        // Destructured rather than reached through `inner`, so the log and the map can be held at
+        // once: compaction is handed the map it is writing down.
+        let Inner { usage, log, .. } = &mut *inner;
+        let Some(log) = log.as_mut() else { return };
+
+        // Logged and carried on with, both here and below. A file that will not take a write is a
+        // relay that over-counts after its next restart, and a relay that stopped splicing because
+        // its state directory filled up would be a far bigger outage than the one being prevented.
+        // The map stays the truth for this run either way, so the client is still metered correctly
+        // until then.
+        if let Err(error) = log.append(client_id, window, secs) {
+            warn!(%error, "could not write to the usage log; usage will not survive a restart");
+            return;
+        }
+
+        if log.needs_compaction() {
+            if let Err(error) = log.compact(usage, window) {
+                warn!(%error, "could not compact the usage log; it will be tried again on the next session");
+            }
+        }
     }
 }
 
@@ -362,6 +573,213 @@ mod tests {
         // Twenty minutes on free, then a subscription: the three hours are three hours from the
         // window, not from the upgrade.
         assert_eq!(q.remaining("phone", None, Plan::Relay), Some(10_200));
+    }
+
+    // MARK: - The log on disk
+
+    /// A path of its own per test, under the system's temporary directory.
+    ///
+    /// Named rather than created by a helper crate, because adding a dependency to test one file's
+    /// behaviour is the wrong way round: this is four lines and it cannot be the reason a build
+    /// fails.
+    fn scratch(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("peeringd-quota-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&path);
+        path.join("usage.log")
+    }
+
+    fn paid(keys: HashSet<String>, path: PathBuf) -> QuotaTracker {
+        QuotaTracker::with_usage_log(
+            PlanAllowances {
+                free_seconds: Some(900),
+                relay_seconds: Some(10_800),
+            },
+            keys,
+            Some(path),
+        )
+        .0
+    }
+
+    #[test]
+    fn usage_survives_a_restart() {
+        let path = scratch("restart");
+
+        let first = paid(HashSet::new(), path.clone());
+        first.record("phone", Duration::from_secs(300));
+        assert_eq!(first.remaining("phone", None, Plan::Free), Some(600));
+
+        // A new tracker over the same file is what a restart is, as far as this module can tell.
+        let second = paid(HashSet::new(), path.clone());
+        assert_eq!(
+            second.remaining("phone", None, Plan::Free),
+            Some(600),
+            "the twenty minutes spent before the restart are still spent"
+        );
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_restart_does_not_double_count_what_it_replays() {
+        let path = scratch("nodouble");
+
+        let first = paid(HashSet::new(), path.clone());
+        first.record("phone", Duration::from_secs(300));
+        first.record("phone", Duration::from_secs(200));
+
+        let second = paid(HashSet::new(), path.clone());
+        assert_eq!(second.remaining("phone", None, Plan::Free), Some(400));
+
+        // And recording again on top of the replay adds to the total rather than replacing it.
+        second.record("phone", Duration::from_secs(100));
+        let third = paid(HashSet::new(), path.clone());
+        assert_eq!(third.remaining("phone", None, Plan::Free), Some(300));
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    /// The property the whole file exists for: the log is the bound on what a restart gives away.
+    #[test]
+    fn an_exhausted_client_is_still_exhausted_after_a_restart() {
+        let path = scratch("exhausted");
+
+        let first = paid(HashSet::new(), path.clone());
+        first.record("phone", Duration::from_secs(1_000));
+
+        let second = paid(HashSet::new(), path.clone());
+        assert_eq!(second.remaining("phone", None, Plan::Free), Some(0));
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_missing_directory_is_created_rather_than_refused() {
+        let path = scratch("mkdir").join("nested").join("usage.log");
+        assert!(!path.parent().unwrap().exists());
+
+        let (tracker, failure) = QuotaTracker::with_usage_log(
+            PlanAllowances {
+                free_seconds: Some(900),
+                relay_seconds: Some(10_800),
+            },
+            HashSet::new(),
+            Some(path.clone()),
+        );
+        assert!(failure.is_none(), "the parent directory should have been made");
+        tracker.record("phone", Duration::from_secs(60));
+        assert_eq!(tracker.remaining("phone", None, Plan::Free), Some(840));
+
+        let _ = fs::remove_dir_all(path.parent().unwrap().parent().unwrap());
+    }
+
+    #[test]
+    fn a_log_that_cannot_be_opened_still_leaves_a_working_relay() {
+        // A log whose parent is a regular file rather than a directory, so neither the directory
+        // can be made nor the file opened. The nearest thing on a filesystem to a state directory
+        // that an operator has pointed at the wrong path.
+        let occupied = scratch("blocked");
+        let directory = occupied.parent().unwrap().to_path_buf();
+        fs::create_dir_all(&directory).unwrap();
+        fs::write(&occupied, b"a file where a directory was expected").unwrap();
+        let blocked = occupied.join("usage.log");
+
+        let (tracker, failure) = QuotaTracker::with_usage_log(
+            PlanAllowances {
+                free_seconds: Some(900),
+                relay_seconds: Some(10_800),
+            },
+            HashSet::new(),
+            Some(blocked),
+        );
+
+        assert!(failure.is_some(), "the failure should be reported to the caller");
+        // And metering still works in memory, which is the point of not making it fatal.
+        tracker.record("phone", Duration::from_secs(300));
+        assert_eq!(tracker.remaining("phone", None, Plan::Free), Some(600));
+
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn a_torn_last_line_costs_one_session_and_not_the_file() {
+        let path = scratch("torn");
+        let tracker = paid(HashSet::new(), path.clone());
+        tracker.record("phone", Duration::from_secs(300));
+        tracker.record("phone", Duration::from_secs(200));
+
+        // What a machine that died mid-append leaves behind.
+        let mut text = fs::read_to_string(&path).unwrap();
+        text.push_str("{\"c\":\"phone\",\"w\":20612,\"s\":");
+        fs::write(&path, text).unwrap();
+
+        let restarted = paid(HashSet::new(), path.clone());
+        assert_eq!(
+            restarted.remaining("phone", None, Plan::Free),
+            Some(400),
+            "the two whole lines still count"
+        );
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn a_client_id_that_would_break_a_delimiter_is_stored_whole() {
+        let path = scratch("awkward");
+        let awkward = "phone|\",\n\"{\"tricky";
+
+        let first = paid(HashSet::new(), path.clone());
+        first.record(awkward, Duration::from_secs(120));
+
+        let second = paid(HashSet::new(), path.clone());
+        assert_eq!(second.remaining(awkward, None, Plan::Free), Some(780));
+        assert_eq!(
+            second.remaining("phone", None, Plan::Free),
+            Some(900),
+            "and it did not land on anybody else's row"
+        );
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn compaction_keeps_the_totals_and_shrinks_the_file() {
+        let path = scratch("compact");
+
+        let (tracker, failure) = QuotaTracker::with_usage_log(
+            PlanAllowances {
+                free_seconds: Some(900),
+                relay_seconds: Some(10_800),
+            },
+            HashSet::new(),
+            Some(path.clone()),
+        );
+        assert!(failure.is_none());
+        for _ in 0..50 {
+            tracker.record("phone", Duration::from_secs(4));
+        }
+
+        let before = fs::metadata(&path).unwrap().len();
+
+        // The rewrite itself, called directly rather than by writing four megabytes through it.
+        {
+            let mut inner = tracker.lock();
+            let Inner { usage, log, .. } = &mut *inner;
+            log.as_mut().unwrap().compact(usage, window_key()).unwrap();
+        }
+
+        assert!(
+            fs::metadata(&path).unwrap().len() < before,
+            "compaction should make the file smaller"
+        );
+
+        let restarted = paid(HashSet::new(), path.clone());
+        assert_eq!(
+            restarted.remaining("phone", None, Plan::Free),
+            Some(700),
+            "and the total it kept is the same one"
+        );
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
     #[test]

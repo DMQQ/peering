@@ -39,7 +39,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // The control relay is plain TCP on purpose, and it is worth being clear that this is not a gap
     // to be closed later: terminating TLS here would mean the relay could read the control channel,
     // and end-to-end confidentiality is the whole property being sold.
-    let quota = Arc::new(QuotaTracker::new(config.plans, config.paid_keys.clone()));
+    // The counter's home, which is a file when one was named and the process's own memory
+    // otherwise. Both are legal and the difference is said out loud below rather than left for an
+    // operator to discover by watching a restart hand everyone their allowance back.
+    let (quota, usage_log_failure) = QuotaTracker::with_usage_log(
+        config.plans,
+        config.paid_keys.clone(),
+        config.usage_log.clone(),
+    );
+    let quota = Arc::new(quota);
+
+    match (&config.usage_log, &usage_log_failure) {
+        (Some(path), None) => {
+            info!(path = %path.display(), "relay usage is persisted; a restart will not reset it")
+        }
+        (Some(path), Some(error)) => warn!(
+            path = %path.display(),
+            %error,
+            "the usage log could not be opened; usage is in memory and a restart will reset it"
+        ),
+        (None, _) => warn!(
+            "PEERINGD_USAGE_LOG is unset; usage is in memory and a restart gives every client a fresh allowance"
+        ),
+    }
 
     // The one thing here that is not about bandwidth: whether a plan is Apple's or the client's.
     // Built once, holds no state that outlives a session, and reaches nowhere — see `storekit`.

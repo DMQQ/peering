@@ -17,10 +17,23 @@ Wants=network-online.target
 Type=simple
 
 # A user of its own. The relay has no reason to be root: it reads a site directory and a
-# certificate, keeps its counters in memory, and writes nothing at all.
+# certificate, and the only thing it writes is the day's relay-time counter.
 User=peeringd
 Group=peeringd
 WorkingDirectory=/opt/peeringd
+
+# The counter's home. systemd creates it owned by the service user and, under the
+# `ProtectSystem=strict` below, it is the one path that stays writable, which is why this is a
+# `StateDirectory` rather than a directory an install step has to make and get the ownership of
+# right. See "Relay time is remembered" in the README.
+StateDirectory=peeringd
+
+# Where the counter goes, spelled after the `StateDirectory` above so that changing the directory
+# changes this too. **Before the `EnvironmentFile` rather than after it**, and the order is the
+# whole of the decision: systemd applies these in the order they appear, so a value in the
+# operator's file wins over this line, where the other way round the file would be quietly
+# overruled by a default.
+Environment=PEERINGD_USAGE_LOG=%S/peeringd/usage.log
 
 # Every setting the relay takes, in one root-owned file — so the unit file can stay in version
 # control without carrying a certificate path or an API key. See the environment table in the
@@ -59,9 +72,10 @@ LockPersonality=true
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 
-# The site is read-only, and so is everything else; nothing here is a writable path because the
-# relay has no state to write. The certificate directory has to be readable, which it is under
-# `ProtectSystem=strict` — that makes the filesystem read-only, it does not hide it.
+# The site is read-only, and so is everything else except the state directory `StateDirectory=`
+# above declares. `ProtectSystem=strict` makes the filesystem read-only, and the state directory
+# is the one hole systemd opens in it for this service. The certificate directory has to be
+# readable, which it is: read-only is not hidden, and the site and the certificate both are.
 ReadOnlyPaths=/opt/peeringd /etc/peeringd /etc/letsencrypt
 
 # Logs go to the journal, where `journalctl -u peeringd` finds them and where a restart is

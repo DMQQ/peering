@@ -99,6 +99,15 @@ pub struct Config {
     /// this crate serve the copy in `site/` with no configuration at all. A directory that is not
     /// there is not an error: the relay says so and carries on without a site.
     pub web_root: PathBuf,
+    /// Where the relay-time counter is written down. `PEERINGD_USAGE_LOG`.
+    ///
+    /// **Unset is the default, and it is the safe default rather than the lazy one.** A default
+    /// path would have to be somewhere the service can write, and the unit this ships with grants
+    /// it no writable path at all, so the choice would be between a relay that starts and records
+    /// nothing and a relay that refuses to start. Neither is a good default. Set this to a file
+    /// inside a state directory the service owns, and startup will say whether it took; leave it
+    /// unset and startup will say, just as plainly, that a restart resets every counter.
+    pub usage_log: Option<PathBuf>,
 }
 
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
@@ -232,6 +241,7 @@ impl Config {
             web_root: get("PEERINGD_WEB_ROOT")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("site")),
+            usage_log: get("PEERINGD_USAGE_LOG").map(PathBuf::from),
         })
     }
 }

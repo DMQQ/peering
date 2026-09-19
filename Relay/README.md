@@ -59,6 +59,38 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_TRUST_CLAIMED_PLANS` | `1` | Whether a client's own statement of its plan is believed when no verifiable receipt arrives. `1` while shipped apps cannot send one; set it to `0` once the logs say nobody needs it. See "Plans" below |
 | `PEERINGD_WEB_ADDR` | `127.0.0.1:8080` | Where the site is served. **Loopback by default** — see below |
 | `PEERINGD_WEB_ROOT` | `site` | Directory the site is read from. Relative paths resolve against the working directory |
+| `PEERINGD_USAGE_LOG` | `/var/lib/peeringd/usage.log` in the shipped unit, unset otherwise | File the relay-time counter is written to. See "Relay time is remembered" below |
+
+### Relay time is remembered
+
+The counter used to live in a `HashMap` for the lifetime of the process, which made `Restart=always`
+an unlimited relay: a crash loop, a deploy, or an operator typing `systemctl restart` handed every
+client the full allowance back. That is bandwidth rather than money, but bandwidth is what the relay
+sells, so it is now written down.
+
+`PEERINGD_USAGE_LOG` names the file. The shipped unit sets it to `/var/lib/peeringd/usage.log` and
+declares `StateDirectory=peeringd`, which is what makes that directory exist, own it as the service
+user, and keep it writable under `ProtectSystem=strict`. A value in `/etc/peeringd/peeringd.env`
+overrides the unit's default.
+
+It is an append-only log rather than a database, and the shape of the data is what decides that: one
+line per finished session, at most one line per client per day, and a question that is only ever
+"how many seconds has this client spent in this window". Each line is a JSON object
+(`{"c":"<device id>","w":<window>,"s":<seconds>}`), which is why a device id containing a pipe or a
+newline is stored and read back unchanged, and why a machine that dies mid-append costs one
+session's seconds rather than the whole file. The file is rewritten compactly, through a temporary
+file and a rename, once it passes four megabytes.
+
+Three things it does not do, worth knowing before relying on it:
+
+- **A crashed machine can still lose the last sessions.** Each record is `fsync`ed, so what has been
+  written is on the disk; a session that ended while the kernel was mid-write is not.
+- **Deleting the file resets everyone.** It is the only copy.
+- **Nothing migrates.** A window that has passed is dropped on the next start, which is correct,
+  because the allowance it counted against has passed too.
+
+If the file cannot be opened the relay starts anyway and says so loudly at startup, with the path
+and the reason. Not persisting usage costs relay time; refusing to start costs the service.
 
 ### Plans, and what the relay does not check
 
