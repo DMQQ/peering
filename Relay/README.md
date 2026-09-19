@@ -70,7 +70,7 @@ sells, so it is now written down.
 
 `PEERINGD_USAGE_LOG` names the file. The shipped unit sets it to `/var/lib/peeringd/usage.log` and
 declares `StateDirectory=peeringd`, which is what makes that directory exist, own it as the service
-user, and keep it writable under `ProtectSystem=strict`. A value in `/etc/peeringd/peeringd.env`
+user, and keep it writable under `ProtectSystem=strict`. A value in `/etc/peeringd.env`
 overrides the unit's default.
 
 It is an append-only log rather than a database, and the shape of the data is what decides that: one
@@ -529,21 +529,37 @@ it — every session shares it, so the firewall rule does not change as sessions
 
 #### Unit, and updating
 
-The unit is in the repository — `deploy/peeringd.service` — so what is running on a box can be
-diffed against what the code expects, rather than reconstructed from a snippet in a README.
+The unit is in the repository, at `deploy/peeringd.service`, so what is running on a box can be
+diffed against what the code expects rather than reconstructed from a snippet in a README. **The
+deploy script installs it**, with the binary, and that is the point: this file used to describe a
+machine that did not exist, and nobody found out until installing it took the relay down.
 
 ```sh
 # Once, on a new machine.
-sudo useradd --system --home /opt/peeringd --shell /usr/sbin/nologin peeringd
-sudo install -o peeringd -g peeringd -d /opt/peeringd /etc/peeringd
 sudo install -m 644 deploy/peeringd.service /etc/systemd/system/peeringd.service
+sudo install -m 600 /dev/null /etc/peeringd.env    # then fill it in from the table above
 sudo systemctl daemon-reload
 sudo systemctl enable --now peeringd
 ```
 
-`Environment=` lines go in `/etc/peeringd/peeringd.env`, which keeps the unit readable and the
-settings greppable. Binding 443 directly is what `AmbientCapabilities=CAP_NET_BIND_SERVICE` in the
-unit is for; shape B does not need it, since nginx owns that port.
+**Three things the instructions above used to say, and should not.** They are written down because
+each one was believed and acted on, and each one stops the service:
+
+- **No `useradd`.** The relay runs as root, and the unit says why. It terminates signalling TLS with
+  the Let's Encrypt certificate, whose key is mode 600 owned by root; a service user would need read
+  access to it, so the choice is between loosening the key and not dropping the privilege. There is
+  no `peeringd` user on any box this runs on.
+- **No `/opt/peeringd`.** There is no such directory, and the unit has no `WorkingDirectory=`. The
+  site root in the environment file is absolute, so nothing depends on the working directory.
+- **`/etc/peeringd.env`, not `/etc/peeringd/peeringd.env`.** A file, not a directory inside one.
+  `EnvironmentFile=` is not tolerant of a missing path: systemd refuses to start the unit and the
+  journal says `Failed to load environment files`. That is worth knowing before editing this line.
+
+`Environment=` lines go in that file, which keeps the unit readable and the settings greppable.
+There is no `AmbientCapabilities=` in the unit: it was there for a listener on 443, which these
+boxes do not have, because nginx owns 443 and proxies to the relay. A setting that is wrong about
+the machine is worse than no setting, and `CapabilityBoundingSet=` beside it would have taken every
+capability away from a process that was otherwise root.
 
 **`enable` is half the command, and it is the half that is easy to skip.** A unit that was
 `start`ed but never `enable`d runs until the machine reboots and then simply does not come back.

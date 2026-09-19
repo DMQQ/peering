@@ -136,6 +136,13 @@ install -m 755 /tmp/peeringd-healthcheck.sh /usr/local/bin/peeringd-healthcheck.
 install -m 644 /tmp/peeringd-healthcheck.service /etc/systemd/system/peeringd-healthcheck.service
 install -m 644 /tmp/peeringd-healthcheck.timer /etc/systemd/system/peeringd-healthcheck.timer
 rm -f /tmp/peeringd-healthcheck.sh /tmp/peeringd-healthcheck.service /tmp/peeringd-healthcheck.timer
+# The unit is backed up beside itself for the same reason the binary is: a unit that does not
+# match the machine is a relay that does not start, and the way out has to be one command rather
+# than a reconstruction from memory. This is not hypothetical. Installing the unit from this
+# repository for the first time took the relay down, and the copy that had been running was gone.
+if [ -f /etc/systemd/system/peeringd.service ]; then
+    cp -p /etc/systemd/system/peeringd.service "/etc/systemd/system/peeringd.service.bak-\$stamp"
+fi
 install -m 644 /tmp/peeringd.service /etc/systemd/system/peeringd.service
 rm -f /tmp/peeringd.service
 # Before the restart below, not after: this is what tells systemd to create the state directory
@@ -146,8 +153,30 @@ systemctl daemon-reload
 systemctl enable --now peeringd-healthcheck.timer >/dev/null 2>&1 || true
 
 systemctl restart peeringd
-sleep 2
-systemctl is-active peeringd
+sleep 3
+
+# **Checked here rather than left to the verification below**, because the two failures are
+# different: a relay that will not start is an outage that needs the previous unit put back, and a
+# relay that starts but does not answer is a thing to look at. This is the first, and the only
+# useful thing to do about it is undo the half of the deploy that caused it while both copies of
+# the unit are still on the disk.
+if systemctl is-active --quiet peeringd; then
+    echo "peeringd is active"
+else
+    echo "!! peeringd did not come back; putting the previous unit back"
+    if [ -f "/etc/systemd/system/peeringd.service.bak-\$stamp" ]; then
+        install -m 644 "/etc/systemd/system/peeringd.service.bak-\$stamp" /etc/systemd/system/peeringd.service
+        systemctl daemon-reload
+        systemctl restart peeringd
+        sleep 3
+        echo "    after rollback: \$(systemctl is-active peeringd)"
+    else
+        echo "    and there was no previous unit to put back"
+    fi
+    echo "    the last thing it said:"
+    journalctl -u peeringd -n 15 --no-pager
+    exit 1
+fi
 REMOTE
 
 echo "==> verifying"
