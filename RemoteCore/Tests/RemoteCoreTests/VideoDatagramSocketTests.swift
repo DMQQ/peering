@@ -198,6 +198,47 @@ struct VideoDatagramSocketTests {
         #expect(port == stranger.port, "the sender's port, not the relay's")
     }
 
+    /// **The receive path is one of the things that establishes where to send**, so the socket has
+    /// to survive being told its peer from inside the callback that reported a datagram.
+    ///
+    /// This is what `VideoDatagramLane.accept` does, and it is the shape that took the Mac down the
+    /// first time a probe ever arrived: the callback runs on the socket's own queue via the read
+    /// source, and a `queue.sync` from there is not a wait but an abort. It could not be caught
+    /// before because the direct path was inert, so nothing ever called into the socket this way.
+    @Test("the peer can be set from inside the callback that reported a datagram")
+    func settingThePeerFromTheReceivePathIsSafe() async throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let socket = try VideoDatagramSocket(
+            host: "127.0.0.1",
+            port: relay.port,
+            token: Self.token,
+            label: "pl.dmq.peering.test.video.reentrant"
+        )
+        defer { socket.cancel() }
+
+        let peer = try LoopbackSocket()
+        defer { peer.closeSocket() }
+
+        let collected = Collected()
+        socket.onDatagram = { datagram, source in
+            collected.add(datagram, source)
+            // The lane's line, in the lane's position: on this queue, inside this callback.
+            try? socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+        }
+        socket.start()
+        _ = relay.receive() // the bind
+
+        let stranger = try LoopbackSocket()
+        defer { stranger.closeSocket() }
+        stranger.send([0x44], to: socket.localPort)
+
+        #expect(await waitUntil { collected.firstFromPeer != nil })
+        // And it took: the socket has somewhere to send now, which is the whole reason the call is
+        // made from here rather than from a timer.
+        #expect(await waitUntil { socket.hasDirectPeer })
+    }
+
     /// The prefix is the relay's addressing and nothing else, so a datagram going straight to the
     /// one endpoint that could want it must not carry it.
     @Test("a direct send leaves the relay's token off")

@@ -468,6 +468,9 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// Named by the caller, because the two ends run the same code and a stack trace should
     /// say which of them it came from.
     private let queue: DispatchQueue
+    /// A marker set on ``queue``, so a call arriving *from* the queue can tell that it is already
+    /// on it. See ``onQueue(_:)``.
+    private let queueMarker = DispatchSpecificKey<Void>()
     private let token: Data
     /// The descriptor, and the address family it was created in. The family is not a property of
     /// the socket so much as a constraint on it: a peer that answers only in the other one cannot
@@ -519,7 +522,26 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     public var receivedFromPeer: Int { counterLock.withLock { _receivedFromPeer } }
 
     /// Whether a peer has been set, which is what makes ``sendDirect(_:completion:)`` meaningful.
-    public var hasDirectPeer: Bool { queue.sync { peerAddress != nil } }
+    public var hasDirectPeer: Bool { onQueue { peerAddress != nil } }
+
+    /// Runs `work` on ``queue``, or right here when the caller is already on it.
+    ///
+    /// **A plain `queue.sync` is a trap on this socket, and not the kind that resolves itself.**
+    /// libdispatch notices that the queue is already owned by the calling thread and aborts the
+    /// process, which is the right thing for it to do and the wrong outcome here, because one of
+    /// the callers that enters this socket from the queue is the receive path itself: a datagram
+    /// that arrived directly is both the thing being read and the thing that establishes where the
+    /// next one is sent.
+    ///
+    /// It went unnoticed because it could not be reached. The direct path was inert for every
+    /// session on every network from the day it shipped until the address format was fixed, so the
+    /// probe that walks this path had never once arrived. The first one that did took the Mac down.
+    private func onQueue<T>(_ work: () throws -> T) rethrows -> T {
+        if DispatchQueue.getSpecific(key: queueMarker) != nil {
+            return try work()
+        }
+        return try queue.sync(execute: work)
+    }
 
     public init(host: String, port: UInt16, token: Data, label: String) throws {
         guard token.count == VideoDatagram.tokenSize else {
@@ -527,6 +549,9 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         }
         self.token = token
         queue = DispatchQueue(label: label)
+        // Set before anything can run on it, so ``onQueue(_:)`` can tell a call made from inside
+        // the queue from one made outside it.
+        queue.setSpecific(key: queueMarker, value: ())
 
         // The relay's family decides the socket's, because the relay is the destination every
         // session has and the peer is the one that might not exist.
@@ -614,16 +639,17 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// other address family, or a host string that does not parse. Both are the same outcome for
     /// the caller: no direct path, and the session stays on the relay, which is what happens to
     /// every connection whose punch fails anyway.
+    ///
+    /// One hop rather than the two this used to make, which is not a tidy-up: the two were
+    /// separate `queue.sync` calls, and both of them abort when the caller is the receive path.
+    /// See ``onQueue(_:)``.
     public func setDirectPeer(host: String, port: UInt16) throws {
-        let resolved = try queue.sync { () -> (address: sockaddr_storage, length: socklen_t) in
+        try onQueue {
             guard let resolved = Self.resolve(
                 host: host, port: port, family: family, numeric: true
             ) else {
                 throw VideoDatagramError.unusablePeerAddress(host)
             }
-            return resolved
-        }
-        queue.sync {
             peerAddress = resolved.address
             peerLength = resolved.length
         }
