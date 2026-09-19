@@ -433,14 +433,30 @@ extension RemoteScreen {
     }
 
     var connectionPathChip: some View {
-        Text(model.connectionPath?.rawValue ?? "None")
+        Text(connectionPathTitle)
             // Its own voice, because it is the one thing in the row that is a readout rather than
             // a control: small, tracked and bold reads as a label at a glance, and nothing about
             // it invites a press.
             .font(.caption2.weight(.bold))
             .tracking(0.5)
             .pillChip()
-            .accessibilityLabel("Connection path")
+            .accessibilityLabel("Connection path, \(connectionPathTitle)")
+    }
+
+    /// The connection path, and — when they are different — the path the picture is taking.
+    ///
+    /// Two facts in one chip, with the second appearing only when it is interesting. On a LAN or a
+    /// typed-in address the picture already goes straight to the Mac, so `DIRECT·P2P` would be two
+    /// spellings of one thing; on the relay the two are genuinely different paths, and the suffix is
+    /// the whole answer to whether the session punched through.
+    ///
+    /// Read from ``SessionModel/usedDirectPath`` and not from the path above it, because those are
+    /// different questions: a session that punched is still relayed — the relay splices its control
+    /// connection and still meters it — and it is the *picture* that went around.
+    private var connectionPathTitle: String {
+        let connection = model.connectionPath?.rawValue ?? "None"
+        guard model.usedDirectPath, model.connectionPath == .relay else { return connection }
+        return "\(connection)·P2P"
     }
 
     /// The stream quality, as a chip that opens the presets.

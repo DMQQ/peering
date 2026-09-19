@@ -1074,6 +1074,16 @@ private struct ActivityTab: View {
                 statusRow("State", value: connectionState)
                 statusRow("Mac", value: model.hostName ?? "None")
                 statusRow("Path", value: model.connectionPath?.rawValue ?? "None")
+                // What the row above does not say. A relayed session can carry its picture two
+                // ways, and which one it got is the difference between a session that found a path
+                // between the two machines and one that went around through a server in Finland —
+                // so on a relayed session this is the row that tells them apart.
+                if model.connectionPath == .relay {
+                    statusRow(
+                        "Picture",
+                        value: model.usedDirectPath ? "Direct (peer to peer)" : "Through the relay"
+                    )
+                }
                 statusRow("Display", value: model.videoStatus)
                 if let tls = model.tlsDescription {
                     statusRow("Transport", value: tls)

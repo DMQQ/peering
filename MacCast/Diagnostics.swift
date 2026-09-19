@@ -42,6 +42,11 @@ enum Diagnostics {
 
         lines.append("State: \(model.phase)")
         lines.append("Path: \(model.connectionPath.map { "\($0)" } ?? "none")")
+        // Recorded beside the path rather than folded into it: a session that found a path between
+        // the two machines still has a relayed connection, because the relay goes on splicing its
+        // control connection and metering it either way. This is the line that says which of the
+        // two carried the picture.
+        lines.append("Picture path: \(model.usedDirectPath ? "direct (peer to peer)" : "relay")")
         lines.append("Last failure: \(model.failureMessage ?? "none")")
         lines.append("Paired Macs: \(model.pairedHostIDs.count)")
         lines.append("Mac terminals open: \(model.terminals.count)")
