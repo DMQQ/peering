@@ -1,3 +1,4 @@
+import ApplicationServices
 import ColorSync
 import CoreFoundation
 import CoreGraphics
@@ -26,7 +27,14 @@ private let spaceLog = Logger(subsystem: "pl.dmq.peering.host", category: "space
 // the names above were rescued from. An explicit handle is also what keeps this working in a
 // command-line probe, where AppKit has not dragged SkyLight in.
 
-private let skyLight: UnsafeMutableRawPointer? = dlopen(
+/// **`nonisolated(unsafe)`, and the promise being made here is a small one.**
+///
+/// `dlopen` hands back a pointer this file only ever reads, `let` binds it once, and `dlsym`
+/// against a handle is documented as thread-safe. What Swift 6 objects to is the *type*: a raw
+/// pointer is not `Sendable`, so a global holding one is shared mutable state as far as it can
+/// tell. Marking the declaration is what keeps that judgement in one place, rather than leaving
+/// it inside `resolve` where every Space call in the app would pass through it.
+private nonisolated(unsafe) let skyLight: UnsafeMutableRawPointer? = dlopen(
     "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",
     RTLD_NOW
 )
@@ -264,9 +272,11 @@ func readDisplaySpaces() -> [ManagedDisplay] {
 /// screen the user is looking at, and a relative switch that always moved the built-in display's
 /// desktops would be wrong every time attention was on a second screen.
 ///
-/// Goes through the window server rather than posting ⌃←/⌃→, which is the difference between a
-/// switch that happens and one that is swallowed: Mission Control's shortcuts are matched by the
-/// window server, and synthetic key events posted at the HID tap do not reach that match.
+/// The move itself goes through ``performSwitch``, like every other one, and that is where the
+/// working route is written down. Briefly: posting ⌃←/⌃→ with `CGEvent` is swallowed before it
+/// reaches the window server's hot key match, so the desktop is jumped to directly and then
+/// stepped onto with a chord posted through the Accessibility subsystem — which is the only
+/// route the window server acts on.
 ///
 /// Relative to the Space the display reports as current, so a switch that raced a user-driven one
 /// moves from where the user actually is rather than from where this process last looked.
@@ -331,13 +341,198 @@ func switchToSpace(display: UInt32, index: Int) -> Bool {
     return performSwitch(display: target, spaceID: destination)
 }
 
-private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
+// MARK: - Making the picture follow the switch
+
+/// `AXUIElementPostKeyboardEvent`, which is the only route by which a simulated ⌃←/⌃→ reaches
+/// the window server's symbolic hot key match.
+///
+/// **The obvious ways do not work, and finding that out is why this file is shaped the way it
+/// is.** A chord posted with `CGEvent` is swallowed at every tap — `.cghidEventTap`,
+/// `.cgSessionEventTap`, `.cgAnnotatedSessionEventTap`, with `.hidSystemState` and
+/// `.combinedSessionState` sources, and addressed straight at the Dock's process with
+/// `postToPid`. All of them leave the display exactly where it was. The window server matches
+/// symbolic hot keys against events that arrived through the Accessibility subsystem, which is
+/// why an assistive tool's keystroke works and a synthesised chord does not.
+///
+/// Resolved by name rather than linked, like the SkyLight calls above and for a different
+/// reason: the SDK declares this `CF_DEPRECATED_MAC(10_0, 10_9)`, and **Swift refuses outright
+/// to import an API deprecated before 10.9**. HIServices still exports it and it still works.
+private typealias PostKeyboardEventFunc = @convention(c) (
+    AXUIElement?, CGCharCode, CGKeyCode, Bool
+) -> AXError
+
+private let postKeyboardEvent: PostKeyboardEventFunc? = {
+    guard let handle = dlopen(
+        "/System/Library/Frameworks/ApplicationServices.framework/Frameworks/HIServices.framework/HIServices",
+        RTLD_LAZY
+    ), let symbol = dlsym(handle, "AXUIElementPostKeyboardEvent") else { return nil }
+    return unsafeBitCast(symbol, to: PostKeyboardEventFunc.self)
+}()
+
+/// Whether a chord posted from here will be acted on.
+///
+/// Both halves have to hold, and the second is the one that bites: without the Accessibility
+/// permission the ask is dropped in silence, and a dropped chord leaves the display on the Space
+/// *beside* the one that was asked for — a wrong desktop, which is worse than a stale picture.
+/// So this route is offered only when the permission is actually held, and every caller falls
+/// back to the direct call when it is not.
+private var canPostSpaceChords: Bool {
+    postKeyboardEvent != nil && AXIsProcessTrusted()
+}
+
+/// The virtual key codes of the one chord this file posts. `59` is the left control key; the
+/// arrows are the codes the rest of the input path already uses.
+private let chordControlKeyCode: CGKeyCode = 59
+private let chordLeftKeyCode: CGKeyCode = 123
+private let chordRightKeyCode: CGKeyCode = 124
+
+/// How long the jump is given before the chord steps off it.
+///
+/// Measured rather than guessed: 150ms still lands cleanly on the desktop asked for, and the
+/// shorter it is the less of the un-recomposited picture there is to see in between. A chord
+/// posted before the window server has taken the jump steps from the Space we were on, and
+/// lands beside the destination rather than on it.
+private let chordApproachDelay = DispatchTimeInterval.milliseconds(150)
+
+/// The gap between the four key events of a chord, and why there is one: a chord whose events
+/// arrive as a single burst is not something a keyboard produces, and it is matched accordingly.
+private let chordKeyGapMilliseconds = 25
+
+/// Posts ⌃←/⌃→, spread over the main queue.
+///
+/// Deliberately not a loop with sleeps between the events. Four Accessibility round trips with
+/// pauses in them, run inline, is a visible stall in the host's window — and this happens while
+/// someone is waiting to see a desktop appear.
+private func postSpaceChord(_ direction: SpaceDirection) {
+    let arrow = direction == .left ? chordLeftKeyCode : chordRightKeyCode
+    let events: [(key: CGKeyCode, down: Bool)] = [
+        (chordControlKeyCode, true),
+        (arrow, true),
+        (arrow, false),
+        (chordControlKeyCode, false),
+    ]
+    for (step, event) in events.enumerated() {
+        let deadline = DispatchTime.now() + .milliseconds(chordKeyGapMilliseconds * step)
+        DispatchQueue.main.asyncAfter(deadline: deadline) {
+            postKeyEvent(event.key, down: event.down)
+        }
+    }
+}
+
+/// One key event, posted system-wide through the Accessibility subsystem.
+///
+/// A named function rather than the call written inline at the loop above, and that is a
+/// concurrency requirement rather than a style one: the scheduled closure is `@Sendable`, and
+/// capturing the resolved function pointer — or the system-wide element — inside it is a data
+/// race as far as Swift 6 is concerned. Calling a function captures nothing, and the element is
+/// made fresh here, which costs nothing.
+private func postKeyEvent(_ key: CGKeyCode, down: Bool) {
+    guard let post = postKeyboardEvent else { return }
+    _ = post(AXUIElementCreateSystemWide(), 0, key, down)
+}
+
+/// The Space to jump to, and the way to step off it onto `spaceID`.
+///
+/// **The neighbour is the adjacent entry in the window server's whole Space list, not the
+/// adjacent desktop.** A fullscreen application's Space sits in that list too, and a chord steps
+/// into and out of those, so taking the neighbouring *desktop* would leave a fullscreen Space
+/// between the jump and the step — and the chord would land on that instead.
+///
+/// `nil` when the chord route cannot be used, which sends the caller back to the direct call:
+/// a Mac without the Accessibility permission, a display with only one Space, and — the case
+/// that matters — a display that is not the one the pointer is on.
+private func chordApproach(
+    display: ManagedDisplay, spaceID: Int32
+) -> (neighbour: Int32, direction: SpaceDirection)? {
+    guard canPostSpaceChords else { return nil }
+    // A chord acts on the display the pointer is on. With one screen that is always this one;
+    // with two, jumping this display and then stepping would move the other one.
+    guard display.displayID == DisplayGeometry.pointerDisplayID() else { return nil }
+
+    let spaces = display.spaces
+    guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else { return nil }
+    // The Space before it, stepping forward; or, for the first Space in the list, the one after
+    // it, stepping back. Both land on the destination in a single step.
+    if index > 0 { return (spaces[index - 1].id, .right) }
+    if index < spaces.count - 1 { return (spaces[index + 1].id, .left) }
+    return nil
+}
+
+/// The direct call on its own: instant, and correct only as the approach to a real transition.
+///
+/// 0 is `kCGErrorSuccess`. Reported rather than assumed: a refused switch is the difference
+/// between a tile that does nothing and a client that knows not to offer it.
+@discardableResult
+private func setCurrentSpace(display: ManagedDisplay, spaceID: Int32) -> Bool {
     guard let connection = cgsConnection, let setCurrent = cgsSetManagedDisplayCurrentSpace else {
         return false
     }
     let cid = connection()
     guard cid > 0 else { return false }
-    // 0 is `kCGErrorSuccess`. Reported rather than assumed: a refused switch is the difference
-    // between a tile that does nothing and a client that knows not to offer it.
     return setCurrent(cid, display.identifier as CFString, UInt64(spaceID)) == 0
+}
+
+/// Moves `display` onto `spaceID`, **and makes the picture follow it.**
+///
+/// **The direct call on its own is not enough, and this is the bug it caused.** Setting the
+/// current Space updates what the window server *considers* current without running the window
+/// show/hide cycle the Dock performs during a real transition. The display keeps compositing the
+/// desktop that was left, with the arriving one's windows drawn over and around it: every desktop
+/// stacked on the last. It failed about half the time and deterministically per transition rather
+/// than at random, and it is **not something this app causes** — it reproduces with the host not
+/// running at all, which is what ruled out the capture stream.
+///
+/// **Nothing repairs it afterwards.** A second call to the setter, a mouse move, hiding and
+/// showing the cursor, a display reconfiguration, and making and destroying a window were all
+/// tried, and all left the stale picture in place. Only a real transition clears it, which is why
+/// someone at the Mac can fix it by hand by switching desktops and clicking around.
+///
+/// So: **jump to the Space beside the destination, then step onto it with a real chord.** The
+/// jump is instant, so a distant desktop is not walked to a slide at a time, and it leaves the
+/// same stale picture it always does; the chord that follows is a genuine transition, and redoing
+/// the composite is exactly what clears the mess. One short slide is the cost, where the switch
+/// used to be instant.
+private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
+    guard let approach = chordApproach(display: display, spaceID: spaceID) else {
+        // The stacked-desktop bug comes straight back the moment the chord route is
+        // unavailable, and it comes back *silently* — the switch still happens, only the
+        // picture stops following it. So say which half is missing. A second screen or a
+        // display with one Space is an ordinary reason to be here and says nothing.
+        if !canPostSpaceChords {
+            spaceLog.notice("""
+                no Space chords: symbol \(postKeyboardEvent != nil, privacy: .public), \
+                accessibility \(AXIsProcessTrusted(), privacy: .public). Switching directly, \
+                which can leave the old desktop composited on screen.
+                """)
+        }
+        return setCurrentSpace(display: display, spaceID: spaceID)
+    }
+    // A neighbour the window server refuses to make current leaves the chord stepping off the
+    // Space we are already on, which lands somewhere nobody asked for. The direct call is what
+    // there is to fall back to.
+    guard setCurrentSpace(display: display, spaceID: approach.neighbour) else {
+        return setCurrentSpace(display: display, spaceID: spaceID)
+    }
+
+    let displayID = display.displayID
+    DispatchQueue.main.asyncAfter(deadline: .now() + chordApproachDelay) {
+        postSpaceChord(approach.direction)
+
+        // A chord that was dropped — the permission withdrawn mid-session, a Space removed
+        // between the two reads — leaves the display sitting on the neighbour. Looked at once
+        // the slide would have finished, and only corrected if that is still where it is: if
+        // the Space has moved anywhere else then somebody else moved it, and putting it back
+        // would be fighting the person using the Mac.
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
+            guard let settled = readDisplays().first(where: { $0.displayID == displayID }),
+                  settled.activeID == approach.neighbour
+            else { return }
+            spaceLog.notice("""
+                chord to space \(spaceID, privacy: .public) did not land; still on \
+                \(approach.neighbour, privacy: .public), so setting it directly
+                """)
+            setCurrentSpace(display: settled, spaceID: spaceID)
+        }
+    }
+    return true
 }

@@ -304,10 +304,13 @@ final class InputInjector: @unchecked Sendable {
             // This used to post Ctrl+←/Ctrl+→, on the theory that the real Spaces shortcut is
             // handled by the window server and needs no target application's cooperation. That
             // part is true; the events simply were not honoured — the window server consumes
-            // symbolic hot keys before an injected chord reaches it, which is why the route was
-            // abandoned for the direct call. Left as an explicit no-op rather than deleted,
-            // because the command still exists on the wire and a future reader deserves to know
-            // which side handles it.
+            // symbolic hot keys before an injected chord reaches it, which is why this side gave
+            // up on chords. **What was missed is that a chord posted through the Accessibility
+            // subsystem is honoured**, and `SpaceReader.performSwitch` posts one for exactly
+            // this reason: the direct call alone leaves the old desktop composited on screen.
+            // A chord here would still be swallowed; the difference is the route, not the keys.
+            // Left as an explicit no-op rather than deleted, because the command still exists on
+            // the wire and a future reader deserves to know which side handles it.
             break
 
         case .joystickMove(let dx, let dy):
