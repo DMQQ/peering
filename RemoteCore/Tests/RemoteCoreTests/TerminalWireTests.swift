@@ -24,6 +24,24 @@ struct TerminalWireTests {
             // The one request that names no path, which the host answers with its home folder.
             .listDirectory(sessionID: id, path: nil),
             .readFile(sessionID: id, path: "/Users/someone/Desktop/notes.txt"),
+            .beginWrite(sessionID: id, path: "/Users/someone/Desktop/notes.txt", totalBytes: 4_096),
+            // An empty file, which is the one transfer that is a request and a last piece with
+            // nothing between them.
+            .beginWrite(sessionID: id, path: "/Users/someone/Desktop/empty.txt", totalBytes: 0),
+            .writeChunk(
+                sessionID: id,
+                path: "/Users/someone/Desktop/notes.txt",
+                // Bytes that are not text, because a chunk boundary may fall inside a character and
+                // the pieces are joined before they are decoded, so nothing here may assume UTF-8.
+                data: Data([0x00, 0x1B, 0xFF, 0x0A]),
+                isLast: false
+            ),
+            .writeChunk(
+                sessionID: id,
+                path: "/Users/someone/Desktop/notes.txt",
+                data: Data(),
+                isLast: true
+            ),
         ]
 
         for request in requests {
@@ -81,6 +99,15 @@ struct TerminalWireTests {
                 sessionID: id,
                 path: "/Users/someone/Desktop",
                 message: "Peering is not allowed to read this."
+            ),
+            .wroteFile(sessionID: id, path: "/Users/someone/Desktop/notes.txt", totalBytes: 4_096),
+            // A write that did not land, which is deliberately a different event from the read
+            // failure above: one clears the panel and the other leaves the editor open on the text
+            // the user still has.
+            .writeFailure(
+                sessionID: id,
+                path: "/Users/someone/Desktop/notes.txt",
+                message: "That file is too large to send to this Mac."
             ),
         ]
 

@@ -153,6 +153,125 @@ extension SessionModel {
         filePreview = nil
     }
 
+    /// How large a file this app will send to the Mac.
+    ///
+    /// Sixty-four megabytes, the same figure the SSH browser refuses above and for the same
+    /// reason: the bytes are read into memory to be sent, and the alternative to refusing is being
+    /// killed by the system partway through, which looks to the user like the app crashing for no
+    /// reason. The Mac refuses the same number back, and holds it in its own terminal manager, so
+    /// neither end is the only one holding the line.
+    static let maximumUploadBytes = 64 * 1_048_576
+
+    /// How much of a file travels in one message.
+    ///
+    /// The control channel caps a message at ``ProtocolInfo/maxControlPayload``, and a `Data` in
+    /// one is base64 inside JSON, so thirty-two kilobytes of file is some forty-three of payload.
+    /// The Mac refuses anything larger rather than trimming it, which makes this a number both
+    /// ends have to agree on and one that is written down in both. Duplicated deliberately: a
+    /// shared constant would have to travel in the package both ends already import, and the
+    /// package is the wrong place for a figure that is really about one function's buffer.
+    static let writeChunkBytes = 32 * 1024
+
+    /// Writes what an editor holds back to the Mac, replacing the file.
+    ///
+    /// **Refuses a file whose read was cut short, and that refusal is the method rather than a
+    /// nicety.** A write replaces the file, and there is no "change these bytes", so saving the
+    /// first 128 KB of something longer would destroy the rest and leave nothing behind to say it
+    /// had happened. The panel does not offer to edit such a file, and this does not extend that
+    /// offer any trust: the guard is here because this is the last place it can be.
+    ///
+    /// Nothing is shown as saved here. The Mac answers with the size it wrote, and the file is
+    /// read back rather than trusted. See the event handling for why.
+    func saveFile(_ text: String, sessionID id: UUID) {
+        guard let preview = filePreview,
+              preview.terminalID == id,
+              !preview.isTruncated
+        else { return }
+
+        let path = preview.path
+        writes[id] = FileWrite(door: .save, path: path)
+        saveFailures.removeValue(forKey: id)
+        let data = Data(text.utf8)
+        Task { @MainActor in await send(data, to: path, sessionID: id) }
+    }
+
+    /// Copies a file the user picked into the folder being browsed.
+    ///
+    /// The destination is the folder on screen and the name is the one the file arrived with,
+    /// which is the only naming rule that needs no explanation. An existing file is replaced,
+    /// because that is what an upload to a folder you are looking at means, and the alternative,
+    /// a silent rename, leaves two files where the user expects one.
+    func uploadFile(_ url: URL, sessionID id: UUID) {
+        guard let folder = browsingPaths[id] else { return }
+
+        let name = url.lastPathComponent
+        let destination = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+        writes[id] = FileWrite(door: .upload, path: destination)
+        uploadFailures.removeValue(forKey: id)
+
+        Task { @MainActor in
+            // Security-scoped, because a file from the picker is outside the app's sandbox and
+            // reading it without this is a permission failure that looks like a missing file.
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+            let bytes: Data
+            do {
+                // Off the main actor: this is a file the user chose from anywhere on the device,
+                // and reading a few tens of megabytes of it on the main actor is a hitch on a
+                // screen that is drawing a terminal.
+                bytes = try await Task.detached { try Data(contentsOf: url) }.value
+            } catch {
+                writes.removeValue(forKey: id)
+                uploadFailures[id] = error.localizedDescription
+                return
+            }
+            guard bytes.count <= Self.maximumUploadBytes else {
+                writes.removeValue(forKey: id)
+                uploadFailures[id] = "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                return
+            }
+            await send(bytes, to: destination, sessionID: id)
+        }
+    }
+
+    /// Sends a file to the Mac in pieces.
+    ///
+    /// The pieces go out one after another on a channel that does not reorder them, and nothing is
+    /// said about the outcome here: the Mac answers with an event, because it has no other
+    /// direction to speak on: the control channel carries both, and a write is acknowledged on
+    /// the same sink a shell's output arrives through.
+    ///
+    /// **Awaited between pieces rather than sent in one loop**, and that is about the screen
+    /// rather than the wire. Encoding a piece and handing it to the connection happens on the main
+    /// actor, so a large upload is thousands of those in a row; yielding between them is not
+    /// concurrency, it is the chance for everything else waiting on the main actor, a redraw
+    /// above all, to run.
+    private func send(_ data: Data, to path: String, sessionID id: UUID) async {
+        session?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: data.count))
+
+        // An empty file is a transfer with nothing in it, and the last piece still has to be sent:
+        // the Mac replaces the file on that message, so a client that stopped after the size would
+        // leave it holding a file it had been told about and never given.
+        guard !data.isEmpty else {
+            session?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
+            return
+        }
+
+        var offset = 0
+        while offset < data.count {
+            let end = min(offset + Self.writeChunkBytes, data.count)
+            session?.sendTerminal(.writeChunk(
+                sessionID: id,
+                path: path,
+                data: data.subdata(in: offset..<end),
+                isLast: end == data.count
+            ))
+            offset = end
+            await Task.yield()
+        }
+    }
+
     func directory(_ path: String?, sessionID id: UUID) -> RemoteDirectory? {
         directories[RemoteDirectoryKey(terminalID: id, path: path)]
     }
@@ -164,6 +283,18 @@ extension SessionModel {
     func browseFailure(_ path: String?, sessionID id: UUID) -> String? {
         browseFailures[RemoteDirectoryKey(terminalID: id, path: path)]
     }
+
+    /// Whether this terminal is in the middle of writing a file to the Mac.
+    ///
+    /// Asked by the panel drawing one terminal rather than read off a single flag, for the reason
+    /// ``writes`` is keyed by terminal at all.
+    func isWritingFile(sessionID id: UUID) -> Bool { writes[id] != nil }
+
+    /// Why the last save through this terminal did not land, if it did not.
+    func saveFailure(sessionID id: UUID) -> String? { saveFailures[id] }
+
+    /// Why the last upload through this terminal did not land, if it did not.
+    func uploadFailure(sessionID id: UUID) -> String? { uploadFailures[id] }
 
     /// Stops waiting on anything this terminal was asked for.
     ///
@@ -181,6 +312,12 @@ extension SessionModel {
         browseFailures = browseFailures.filter { $0.key.terminalID != id }
         browsingPaths.removeValue(forKey: id)
         if filePreview?.terminalID == id { filePreview = nil }
+        // A write made through this shell cannot be finished, because every piece after this one is
+        // refused by the Mac for naming a terminal that is gone, so the panel stops saying it is
+        // waiting for one. The text the editor holds is the panel's own and goes with it.
+        writes.removeValue(forKey: id)
+        saveFailures.removeValue(forKey: id)
+        uploadFailures.removeValue(forKey: id)
     }
 
     func apply(terminal event: TerminalEvent) {
@@ -270,6 +407,41 @@ extension SessionModel {
             preview.totalBytes = totalBytes
             preview.isComplete = isLast
             filePreview = preview
+
+        case .wroteFile(let id, let path, let totalBytes):
+            // Matched on the path as well as the terminal, because the Mac names the file it wrote
+            // and the panel may have moved on since: a save that lands after another file has been
+            // opened must not put its contents under the second one's name.
+            guard let write = writes[id], write.path == path else { break }
+            writes.removeValue(forKey: id)
+            saveFailures.removeValue(forKey: id)
+            uploadFailures.removeValue(forKey: id)
+            switch write.door {
+            case .save:
+                // Read back rather than shown as sent. They are the same bytes unless something went
+                // wrong between here and the disk, and asking again is what turns that "unless" into
+                // something the user can see: this is the same door the file was read through in
+                // the first place, so the panel needs nothing added to it.
+                previewFile(path, sessionID: id)
+            case .upload:
+                // The folder on screen is now out of date by exactly one file, and asking again is
+                // cheaper to get right than patching one entry in.
+                listDirectory((path as NSString).deletingLastPathComponent, sessionID: id)
+            }
+            let written = path.split(separator: "/").last.map(String.init) ?? path
+            append(note: "Wrote \(written) (\(totalBytes.formatted(.byteCount(style: .file))))")
+
+        case .writeFailure(let id, let path, let message):
+            // The panel is left where it was: for a save that is the editor holding the text the
+            // user still has, and for an upload it is the folder they are still looking at. Neither
+            // is cleared the way a folder that would not open clears the browser.
+            guard let write = writes[id], write.path == path else { break }
+            writes.removeValue(forKey: id)
+            switch write.door {
+            case .save: saveFailures[id] = message
+            case .upload: uploadFailures[id] = message
+            }
+            append(note: "Terminal: \(message)")
 
         case .closed(let id):
             let name = terminals.first(where: { $0.id == id })?.name ?? "Terminal"

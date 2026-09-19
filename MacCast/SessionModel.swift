@@ -411,6 +411,40 @@ final class SessionModel {
     /// on screen — opening another replaces it.
     var filePreview: RemoteFilePreview?
 
+    /// A file on its way to the Mac, and which door it came through.
+    struct FileWrite: Equatable {
+        /// Whether the file is an editor's text or one the user picked.
+        ///
+        /// The two are answered differently and are the same operation: a save reads the file back,
+        /// so the editor shows what is on disk rather than what was sent; an upload asks for the
+        /// folder again, so the new file appears in the list. Everything else about them (the
+        /// chunking, the size cap, the refusal, the failure) is shared, which is why they share a
+        /// record rather than two dictionaries that would have to be kept in step.
+        enum Door { case save, upload }
+
+        let door: Door
+        /// The file being written. What the Mac's answer is matched on, since it names the file it
+        /// wrote, and what says which folder to ask for again after an upload.
+        let path: String
+    }
+
+    /// Files on their way to the Mac, by the terminal they are being written through.
+    ///
+    /// By terminal rather than one flag, because two can be in the air at once: a user who starts
+    /// an upload and then switches to another shell and edits a file there has two transfers
+    /// running, and a single flag hands the first answer to arrive to whichever of them asked
+    /// second. The Mac keeps its own half keyed the same way, for the same reason.
+    var writes: [UUID: FileWrite] = [:]
+
+    /// Why a write did not land, by the terminal it was made through, and kept apart by door.
+    ///
+    /// Apart, because the two are fixed differently and say so differently: a save that failed is a
+    /// file to correct, an upload that failed is a file to choose again. Read through
+    /// ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)`` so the panel asks about the
+    /// terminal it is drawing rather than about whichever wrote last.
+    var saveFailures: [UUID: String] = [:]
+    var uploadFailures: [UUID: String] = [:]
+
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
     /// The pin store knows only the ID, so the picker was listing `A1B2C3…` where the user
@@ -736,6 +770,13 @@ final class SessionModel {
         pendingDirectories.removeAll()
         browseFailures.removeAll()
         filePreview = nil
+        // Writes in flight were this connection's, and the Mac on the other end of them is about
+        // to be a different Mac or none at all. The pieces are already gone, so there is nothing to
+        // resume and nothing to cancel, only the panel's state saying it is still waiting for an
+        // answer that cannot come.
+        writes.removeAll()
+        saveFailures.removeAll()
+        uploadFailures.removeAll()
         // Cleared with the rest: a notice describes the Mac of *this* connection, and one
         // left over would caption the next session with something nobody said about it.
         remoteNotice = nil

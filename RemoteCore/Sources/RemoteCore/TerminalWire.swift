@@ -84,6 +84,25 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// A file's contents, for the browser's preview. Read-only, and bounded: see
     /// ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
     case readFile(sessionID: UUID, path: String)
+    /// Opening a file for writing, which replaces whatever was there.
+    ///
+    /// The size is declared before any of the file travels, so a Mac that will not take a file that
+    /// large can say so while the answer is still cheap, and because the write is not committed
+    /// until ``writeChunk(sessionID:path:data:isLast:)`` says the last piece has arrived, so a
+    /// client that stops halfway must not leave a file half replaced.
+    ///
+    /// It carries no contents, which is what makes a save and an upload the same mechanism: an
+    /// editor sending back text it already holds and a phone sending a file it just read both begin
+    /// here, and neither is the host's business to tell apart.
+    case beginWrite(sessionID: UUID, path: String, totalBytes: Int)
+    /// A piece of a file being written.
+    ///
+    /// Chunked because the control channel caps a message at ``ProtocolInfo/maxControlPayload`` and
+    /// a file is not a message. See the note on ``RemoteCommand`` for the same rule on the other
+    /// side of this connection. Pieces arrive in order on a channel that does not reorder them, so
+    /// the host appends rather than seeks, and the one marked last is where the file is either
+    /// replaced or is not.
+    case writeChunk(sessionID: UUID, path: String, data: Data, isLast: Bool)
 }
 
 public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {
@@ -128,5 +147,18 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
     /// Deliberately not ``failed``: that one lands on the terminal's tab, and a folder the Mac
     /// will not open is not a fact about the shell.
     case browseFailure(sessionID: UUID, path: String, message: String)
+    /// A file the client wrote is now on disk, at the size it ended up.
+    ///
+    /// The size is what the Mac counted rather than what the client said it was sending, so the two
+    /// agreeing is the client's evidence that all of it arrived. There is no contents here: what is
+    /// on disk now is a question the client asks with ``TerminalRequest/readFile(sessionID:path:)``,
+    /// which is the same door it read the file through in the first place.
+    case wroteFile(sessionID: UUID, path: String, totalBytes: Int)
+    /// A write that did not happen.
+    ///
+    /// Deliberately not ``browseFailure``, which is a file that could not be *read*; that one
+    /// clears the panel, and the right answer to a save that failed is to leave the editor open on
+    /// the text the user still has and say what went wrong beside it.
+    case writeFailure(sessionID: UUID, path: String, message: String)
     case failed(sessionID: UUID?, message: String)
 }

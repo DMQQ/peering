@@ -40,11 +40,66 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
     }
 
+    /// A file being written, between the request that opened it and the piece that closes it.
+    ///
+    /// Held whole in memory rather than streamed into place, and that is the decision this type
+    /// exists to record: the write lands in one move or it does not land at all. A file written
+    /// piece by piece as it arrives is a file that is half the old contents and half the new for as
+    /// long as the transfer takes, and is the new contents only if nothing goes wrong, which is a
+    /// state nothing on this machine can be in, since the thing being replaced is somebody's script.
+    private final class PendingWrite: @unchecked Sendable {
+        let ownerClientID: String
+        let path: String
+        /// What the client said it was sending. The last piece is refused unless this many bytes
+        /// arrived, so a transfer that stopped early is a failed write rather than a short file.
+        let expected: Int
+        var data = Data()
+
+        init(ownerClientID: String, path: String, expected: Int) {
+            self.ownerClientID = ownerClientID
+            self.path = path
+            self.expected = expected
+        }
+    }
+
     private let lock = NSLock()
     private var sessions: [UUID: Session] = [:]
     private var sinks: [String: Sink] = [:]
+    private var writes: [WriteKey: PendingWrite] = [:]
     private static let maximumHistoryBytes = 512 * 1024
     private static let maximumSessionsPerClient = 10
+
+    /// One terminal's write to one path.
+    ///
+    /// Keyed by both rather than by the path alone, because two phones watching the same Mac are
+    /// two people, and one of them uploading into a folder must not disturb the other's transfer.
+    /// And keyed by the terminal as well as the client, so that closing a shell can abandon exactly
+    /// the transfers that were being made through it and not the ones through the shell beside it.
+    ///
+    /// Keyed by the path rather than by an identifier carried on the wire, because the interesting
+    /// collision is one terminal beginning the same file twice, a user picking a second file, or
+    /// the same one again, which has only one sensible answer: the newer attempt is the one they
+    /// want, and the older is abandoned.
+    private struct WriteKey: Hashable {
+        let sessionID: UUID
+        let path: String
+    }
+
+    /// How large a file this Mac will take from a phone.
+    ///
+    /// The same sixty-four megabytes the phone refuses to send, arrived at from the other end: the
+    /// client's is about its own memory, and this one is about not letting a device that has been
+    /// trusted with a login shell fill this machine's memory with a file it was never going to
+    /// accept. Declared anyway, because a limit that only one end enforces is a limit that holds
+    /// until the day the other end is older.
+    private static let maximumWriteBytes = 64 * 1_048_576
+    /// How much of a file may travel in one message.
+    ///
+    /// The mirror of ``previewChunkBytes``, and the number is the same because the constraint is:
+    /// a `Data` on this channel is base64 in JSON, so thirty-two kilobytes of file is some
+    /// forty-three of payload against a ``ProtocolInfo/maxControlPayload`` of sixty-four. Refused
+    /// rather than trimmed. See ``write(id:path:data:isLast:ownerClientID:sink:)``.
+    private static let writeChunkBytes = 32 * 1024
 
     /// How many entries one listing carries. A folder with more than this is a folder whose next
     /// screenful is worth fetching rather than one to send whole: the listing crosses the same
@@ -131,6 +186,27 @@ final class TerminalSessionManager: @unchecked Sendable {
             }
             read(id: id, path: path, sink: sink)
 
+        case .beginWrite(let id, let path, let totalBytes):
+            guard liveSession(id, ownerClientID: clientID) != nil else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            beginWrite(id: id, path: path, totalBytes: totalBytes, ownerClientID: clientID, sink: sink)
+
+        case .writeChunk(let id, let path, let data, let isLast):
+            guard liveSession(id, ownerClientID: clientID) != nil else {
+                sink(.failed(sessionID: id, message: "That terminal is no longer running."))
+                return
+            }
+            write(
+                id: id,
+                path: path,
+                data: data,
+                isLast: isLast,
+                ownerClientID: clientID,
+                sink: sink
+            )
+
         case .resize(let id, let columns, let rows):
             guard columns > 0, rows > 0,
                   let session = lock.withLock({ sessions[id] }),
@@ -160,7 +236,14 @@ final class TerminalSessionManager: @unchecked Sendable {
     }
 
     func disconnect(clientID: String) {
-        _ = lock.withLock { sinks.removeValue(forKey: clientID) }
+        _ = lock.withLock {
+            // Whatever it was in the middle of writing goes with it. The bytes are in this
+            // process's memory and nowhere else, so an unfinished transfer is not a file waiting
+            // to be resumed; it is a file that was never opened, and holding the pieces would be
+            // holding them for a client that cannot come back and claim them.
+            writes = writes.filter { $0.value.ownerClientID != clientID }
+            return sinks.removeValue(forKey: clientID)
+        }
     }
 
     private func create(ownerClientID: String, sink: @escaping Sink) {
@@ -266,6 +349,10 @@ final class TerminalSessionManager: @unchecked Sendable {
         session.master.readabilityHandler = nil
         if session.isRunning { session.process.terminate() }
         try? session.master.close()
+        // A write made through this shell is a write that cannot be finished, because every piece
+        // after this one is refused at the door for naming a terminal that is gone. Dropped here
+        // rather than left to be refused one chunk at a time.
+        lock.withLock { writes = writes.filter { $0.key.sessionID != id } }
         send(.closed(sessionID: id), to: ownerClientID)
         terminalLog.notice("closed terminal \(id.uuidString, privacy: .public)")
     }
@@ -353,6 +440,206 @@ final class TerminalSessionManager: @unchecked Sendable {
                 sink(.browseFailure(sessionID: id, path: url.path, message: message))
             }
         }
+    }
+
+    /// A file about to be written, and the three ways that is refused before any of it travels.
+    ///
+    /// Nothing on disk is touched here. The file is replaced by the last piece, so a transfer that
+    /// never finishes leaves what was there exactly as it was, which is the whole reason this is
+    /// two requests rather than the client naming a path and starting to send.
+    ///
+    /// Tested on the string that arrived, like the two above it, and for the reason given there:
+    /// a relative path would resolve against this process's working directory rather than against
+    /// the shell's, and there is no authorisation being done either way.
+    private func beginWrite(
+        id: UUID,
+        path: String,
+        totalBytes: Int,
+        ownerClientID: String,
+        sink: @escaping Sink
+    ) {
+        guard path.hasPrefix("/") else {
+            sink(.writeFailure(
+                sessionID: id,
+                path: path,
+                message: "That is not a path this Mac can write to."
+            ))
+            return
+        }
+        guard totalBytes >= 0, totalBytes <= Self.maximumWriteBytes else {
+            sink(.writeFailure(
+                sessionID: id,
+                path: path,
+                message: "That file is too large to send to this Mac (the limit is \(Self.maximumWriteBytes / 1_048_576) MB)."
+            ))
+            return
+        }
+        // Standardised but not resolved: the answer names the path the client sent, so that the
+        // one it is holding when the write lands is the one it still holds. Following the link is
+        // ``replace(at:with:)``'s job, and doing it here as well would mean two answers to which
+        // file this is.
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        let key = WriteKey(sessionID: id, path: url.path)
+        lock.withLock {
+            writes[key] = PendingWrite(ownerClientID: ownerClientID, path: url.path, expected: totalBytes)
+        }
+    }
+
+    /// A piece of a file being written, and on the last one, the write itself.
+    ///
+    /// Answered off the connection's own queue for the reason the listing is: this is disk work on
+    /// a path that may be a network volume, and the queue it arrives on carries every keystroke the
+    /// phone sends.
+    private func write(
+        id: UUID,
+        path: String,
+        data: Data,
+        isLast: Bool,
+        ownerClientID: String,
+        sink: @escaping Sink
+    ) {
+        // Standardised the same way ``beginWrite(id:path:totalBytes:ownerClientID:sink:)`` did, or
+        // a path written two ways would be two different keys and every piece would arrive for a
+        // transfer nobody had opened.
+        let key = WriteKey(sessionID: id, path: URL(fileURLWithPath: path).standardizedFileURL.path)
+        // The size check is against the request as it will be encoded, not against the file: this
+        // channel carries base64 in JSON, so a chunk that looks small is three-quarters again as
+        // large by the time it is a payload, and a message over the cap is not a message the far
+        // end can complain about; it takes the session down. Refused here, where there is still
+        // somebody to tell.
+        guard data.count <= Self.writeChunkBytes else {
+            lock.withLock { _ = writes.removeValue(forKey: key) }
+            sink(.writeFailure(
+                sessionID: id,
+                path: path,
+                message: "That transfer was sent in pieces this Mac cannot accept."
+            ))
+            return
+        }
+
+        /// Three answers rather than two, because most pieces are neither the start nor the end of
+        /// anything: a chunk that is not the last one is accepted and answered with silence, and a
+        /// two-case result would have to spell that as a refusal with nothing in it.
+        enum State {
+            case more
+            case ready(PendingWrite)
+            case refused(String)
+        }
+        let state: State = lock.withLock {
+            guard let pending = writes[key] else {
+                return .refused("That file is no longer being written. Choose it again.")
+            }
+            // A client that sends more than it said it would is not a client to keep guessing
+            // about: the declared size is the only thing that says when a file is whole, and a
+            // transfer that has stopped agreeing with it has no correct end.
+            guard pending.data.count + data.count <= pending.expected else {
+                writes.removeValue(forKey: key)
+                return .refused("That transfer sent more than it said it would.")
+            }
+            pending.data.append(data)
+            guard isLast else { return .more }
+            guard pending.data.count == pending.expected else {
+                writes.removeValue(forKey: key)
+                return .refused("That transfer stopped before the whole file arrived.")
+            }
+            writes.removeValue(forKey: key)
+            return .ready(pending)
+        }
+
+        switch state {
+        case .more:
+            // Nothing is said, and saying nothing is the point: this is one of a few thousand
+            // messages, and an acknowledgement each would double the traffic to report progress
+            // that nothing on screen is showing.
+            break
+        case .refused(let message):
+            sink(.writeFailure(sessionID: id, path: path, message: message))
+        case .ready(let pending):
+            let url = URL(fileURLWithPath: pending.path)
+            DispatchQueue.global(qos: .userInitiated).async {
+                // Answered with the path as it arrived rather than with the standardised one that
+                // was written to. They are the same file, and they are not always the same string:
+                // the client is holding the one it sent, and an answer it cannot match to it is an
+                // answer that leaves an editor spinning.
+                switch Self.replace(at: url, with: pending.data) {
+                case .written(let totalBytes):
+                    sink(.wroteFile(sessionID: id, path: path, totalBytes: totalBytes))
+                case .failure(let message):
+                    sink(.writeFailure(sessionID: id, path: path, message: message))
+                }
+            }
+        }
+    }
+
+    private enum WriteOutcome {
+        case written(Int)
+        case failure(String)
+    }
+
+    /// Puts the bytes where the file was, or says why it could not.
+    ///
+    /// **The mode is read first and put back afterwards, and it has to be.** An atomic write lands
+    /// a new file and renames it over the old one, so the permissions that arrive with it are the
+    /// temporary file's rather than the ones the file had, and a shell script saved through this
+    /// browser would come back not executable. That is a change to somebody's file that nothing on
+    /// the phone asked for and nothing on the screen would have said.
+    ///
+    /// **And the link is followed before any of that.** Read this way round because the browser
+    /// reads the same way: a symbolic link to a text file is a text file to anyone looking at it,
+    /// and a write that landed on the link itself would replace somebody's link with a copy of
+    /// their file, which is a worse outcome than the edit not working.
+    private static func replace(at url: URL, with data: Data) -> WriteOutcome {
+        let target = url.resolvingSymlinksInPath()
+        let existing = try? FileManager.default.attributesOfItem(atPath: target.path)
+
+        if let existing, existing[.type] as? FileAttributeType == .typeDirectory {
+            return .failure("That is a folder, so a file cannot be written over it.")
+        }
+
+        do {
+            try data.write(to: target, options: .atomic)
+        } catch {
+            return .failure(writeMessage(for: error))
+        }
+
+        if let mode = existing?[.posixPermissions] {
+            try? FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: target.path)
+        }
+        return .written(data.count)
+    }
+
+    /// What to tell the phone when the filesystem refuses a write.
+    ///
+    /// Its own function rather than a share of ``browseMessage(for:)``, because the failures worth
+    /// naming are not the same ones: reading a folder is refused by Files and Folders, and writing
+    /// into one is refused by that *and* by the file being somebody else's, which is the case the
+    /// sentence below has to cover without pretending to know which it was.
+    private static func writeMessage(for error: any Error) -> String {
+        let error = error as NSError
+        if error.domain == NSCocoaErrorDomain {
+            switch error.code {
+            case NSFileWriteNoPermissionError, NSFileWriteVolumeReadOnlyError:
+                return "Peering is not allowed to change that file. If it belongs to another user, save it somewhere else."
+            case NSFileWriteOutOfSpaceError:
+                return "There is not enough room on the Mac to save that."
+            case NSFileNoSuchFileError:
+                return "That folder is no longer there."
+            default: break
+            }
+        }
+        if error.domain == NSPOSIXErrorDomain {
+            switch Int32(error.code) {
+            case EPERM, EACCES: return writeMessage(for: NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFileWriteNoPermissionError
+            ))
+            case ENOENT: return "That folder is no longer there."
+            case ENOTDIR: return "Part of that path is not a folder."
+            case ENOSPC: return "There is not enough room on the Mac to save that."
+            default: break
+            }
+        }
+        return error.localizedDescription
     }
 
     /// A preview, in pieces.

@@ -52,12 +52,12 @@ struct FileBrowserPanel: View {
     /// Ask for the current folder again.
     var onReload: () -> Void
 
-    /// Send a file the user picked to the folder on screen. Absent where there is no door for it —
-    /// the Mac's own browser, which cannot yet be written to at all.
+    /// Send a file the user picked to the folder on screen.
     ///
     /// Optional rather than a closure that might do nothing, because the button is drawn from
     /// whether this is here: a control that appears and then silently does nothing is worse than one
-    /// that was never offered.
+    /// that was never offered. Both browsers pass one now; what is left for the `nil` to mean is a
+    /// shell that has ended, where there is nothing left to send a file down.
     var onUpload: ((URL) -> Void)?
 
     /// Whether the current wait has lasted long enough to be explained.
@@ -589,8 +589,11 @@ struct FilePreviewPanel: View {
 
     var onRevealPath: (String) -> Void
     var onClose: () -> Void
-    /// Writes the text given back to the server. Absent where the file cannot be written — the
-    /// Mac's own browser, which has no such door yet.
+    /// Writes the text given back to whichever machine the file is on.
+    ///
+    /// Absent where the file cannot be written at all, which is now only a shell that has ended:
+    /// both browsers can write, and what the `nil` still buys is a pencil that would open an editor
+    /// whose Save could never land.
     var onSave: ((String) -> Void)?
 
     /// The text being edited, or `nil` while the file is only being read.

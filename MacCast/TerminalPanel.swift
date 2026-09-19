@@ -717,8 +717,17 @@ struct TerminalPanel: View {
                 FilePreviewPanel(
                     preview: preview,
                     failure: model.browseFailure(preview.path, sessionID: terminal.id),
+                    isSaving: model.isWritingFile(sessionID: terminal.id),
+                    saveFailure: model.saveFailure(sessionID: terminal.id),
                     onRevealPath: { reveal($0, in: terminal) },
-                    onClose: { model.closePreview() }
+                    onClose: { model.closePreview() },
+                    // A shell that has ended cannot be written through, for the reason it cannot
+                    // be listed through: the Mac refuses every request that names it. Absent
+                    // rather than failing on the tap, so the pencil is not offered over a file
+                    // that the next save would only be refused.
+                    onSave: terminal.isRunning
+                        ? { model.saveFile($0, sessionID: terminal.id) }
+                        : nil
                 )
             } else {
                 FileBrowserPanel(
@@ -729,8 +738,14 @@ struct TerminalPanel: View {
                     // browse request for one — a stopped shell has no directory to change into —
                     // and the panel says that itself rather than asking and spinning at a Mac that
                     // has already answered.
+                    //
+                    // An upload that failed shares the slot, as it does on the SSH browser and for
+                    // the reason recorded there: it is a fact about this folder, the next attempt
+                    // clears it, and a second place for a sentence to appear in a panel this short
+                    // would be a second layout to keep right.
                     failure: terminal.isRunning
-                        ? model.browseFailure(browsingPath, sessionID: terminal.id)
+                        ? (model.uploadFailure(sessionID: terminal.id)
+                            ?? model.browseFailure(browsingPath, sessionID: terminal.id))
                         : "This shell has ended. Open a new terminal to browse your Mac's files.",
                     showsHidden: showsHiddenFiles,
                     // The Mac blocks inside the listing call while macOS puts a Files-and-Folders
@@ -745,7 +760,13 @@ struct TerminalPanel: View {
                     onReload: {
                         guard terminal.isRunning else { return }
                         model.listDirectory(browsingPath, sessionID: terminal.id)
-                    }
+                    },
+                    // Absent while the shell has ended, for the same reason the folder cannot be
+                    // listed then: there is nothing left to send a file down, and an upload button
+                    // that opens a picker and then fails is worse than no button.
+                    onUpload: terminal.isRunning
+                        ? { model.uploadFile($0, sessionID: terminal.id) }
+                        : nil
                 )
             }
             browseControls(terminal)

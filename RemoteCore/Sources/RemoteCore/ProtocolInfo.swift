@@ -48,7 +48,12 @@ public enum ProtocolInfo {
     /// its datagrams with nothing: a 13 client on a 12 host would ask for a key, get silence,
     /// and be left with the picture on the shared stream it was trying to leave. The version
     /// is what turns that into an update message at the door.
-    public static let version: UInt16 = 13
+    /// 14: adds writing to that same channel: `beginWrite` and `writeChunk` requests, and the
+    /// `wroteFile` and `writeFailure` events that answer them. A 13 host cannot decode either
+    /// request, and the failure would land in the middle of an edit: the user picks a file, the
+    /// phone sends it, and what comes back is a dropped session rather than a sentence saying the
+    /// Mac is too old to be written to. Declared incompatible like the rest.
+    public static let version: UInt16 = 14
 
     /// The largest payload a control-channel message may carry.
     ///
