@@ -10,6 +10,12 @@ import AVFoundation
 import XCTest
 @testable import MacCast
 
+/// `@MainActor`, because everything it tests is. The app builds with
+/// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, so `AutoQualityPolicy`, `CanvasGestureRouting`,
+/// `SessionNotifier` and the rest are main-actor types, and a `nonisolated` test method cannot
+/// reach any of them. XCTest already runs these on the main thread, so this says what is already
+/// true rather than moving work onto the main actor to satisfy the compiler.
+@MainActor
 final class MacCastTests: XCTestCase {
 
     func testAutoQualityStartsConservativelyForTheConnectionPath() {
@@ -663,6 +669,7 @@ final class MacCastTests: XCTestCase {
 /// a sale silently, and one that arrives twice is a nag the user has no switch for — both look
 /// exactly like the feature working, from inside the app, until somebody complains. So the
 /// decision is tested here rather than left to the screen that carries it.
+@MainActor
 final class SessionOfferTests: XCTestCase {
     /// Both of the keys the offers are remembered by, cleared before every test.
     ///

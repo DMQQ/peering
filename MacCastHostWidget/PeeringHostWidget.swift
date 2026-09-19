@@ -1,9 +1,17 @@
 import SwiftUI
 import WidgetKit
 
-private enum HostWidgetStore {
+/// `nonisolated`, for the same reason ``SharedStore`` is: a `TimelineProvider`'s methods are not
+/// main-actor, and under this project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` every property
+/// here would otherwise be. The widget's whole job is reading a preference from a process that has
+/// no main actor of the host app's at all.
+private nonisolated enum HostWidgetStore {
     static let suiteName = "group.pl.dmq.peering"
-    static let defaults = UserDefaults(suiteName: suiteName)
+
+    /// `nonisolated(unsafe)` on the only stored property, and it is the only one that needs it.
+    /// `UserDefaults` is not `Sendable` as far as the compiler is concerned, but it is documented
+    /// as thread-safe, and this is a `let` bound once at first use.
+    private nonisolated(unsafe) static let defaults = UserDefaults(suiteName: suiteName)
 
     static var isListening: Bool { defaults?.bool(forKey: "hostWidget.isListening") ?? false }
     static var deviceName: String { defaults?.string(forKey: "hostWidget.deviceName") ?? "This Mac" }

@@ -1,5 +1,12 @@
 import AppKit
-import ApplicationServices
+// `@preconcurrency`, for one symbol: `kAXTrustedCheckOptionPrompt` is an imported global `var`, and
+// Swift 6 will not let any context read a global mutable variable, this class's `@MainActor`
+// included. It is a constant in practice (the framework publishes it once and never writes it), but
+// the Accessibility headers cannot say so, having been written long before any of this.
+//
+// The annotation is on the import rather than at the use site because that is the only place the
+// promise can honestly be made: the property belongs to the module, not to the call.
+@preconcurrency import ApplicationServices
 import CoreGraphics
 import Observation
 import ScreenCaptureKit

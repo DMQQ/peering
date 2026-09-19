@@ -34,9 +34,13 @@ enum IntentHost {
 /// Backed by the app-group list rather than the app's own, because Shortcuts asks for the choices
 /// — to build the picker in the Shortcuts editor, and for Siri to resolve a name — at moments
 /// when the app is not running at all. See ``SharedStore/knownMacs``.
+/// Every `static` property in this file that answers a protocol requirement is a `let` rather than
+/// a `var`. AppIntents declares them as `{ get }`, so a `let` satisfies them exactly, and Swift 6
+/// reads a stored `static var` as mutable state shared with the framework's own threads. None of
+/// these values ever changes, so the distinction costs nothing to make.
 struct MacEntity: AppEntity {
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Mac")
-    static var defaultQuery = MacQuery()
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Mac")
+    static let defaultQuery = MacQuery()
 
     let id: String
     let name: String
@@ -69,8 +73,8 @@ struct MacQuery: EntityQuery {
 /// Backed by the App Group copy for the same reason ``MacEntity`` is: Siri has to turn a spoken
 /// name into a server, and it does that while the app is not running.
 struct ServerEntity: AppEntity {
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Server")
-    static var defaultQuery = ServerQuery()
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Server")
+    static let defaultQuery = ServerQuery()
 
     let id: String
     let name: String
@@ -104,11 +108,11 @@ struct ServerQuery: EntityQuery {
 }
 
 struct ConnectToMacIntent: AppIntent {
-    static var title: LocalizedStringResource = "Connect to a Mac"
-    static var description = IntentDescription(
+    static let title: LocalizedStringResource = "Connect to a Mac"
+    static let description = IntentDescription(
         "Opens Peering and connects to one of the Macs you have paired with."
     )
-    static var openAppWhenRun: Bool = true
+    static let openAppWhenRun = true
 
     /// Optional on purpose. Most people have one Mac, and "connect to my Mac" should not turn
     /// into a question when there is only one answer.
@@ -132,11 +136,11 @@ struct ConnectToMacIntent: AppIntent {
 }
 
 struct DisconnectIntent: AppIntent {
-    static var title: LocalizedStringResource = "Disconnect"
-    static var description = IntentDescription("Ends the current Peering session.")
+    static let title: LocalizedStringResource = "Disconnect"
+    static let description = IntentDescription("Ends the current Peering session.")
     /// No app needed to *stop*: if the app is not running there is no session to end, and
     /// bringing it to the front to say so would be the opposite of what was asked.
-    static var openAppWhenRun: Bool = false
+    static let openAppWhenRun = false
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -149,13 +153,13 @@ struct DisconnectIntent: AppIntent {
 }
 
 struct OpenShellIntent: AppIntent {
-    static var title: LocalizedStringResource = "Open a shell"
-    static var description = IntentDescription(
+    static let title: LocalizedStringResource = "Open a shell"
+    static let description = IntentDescription(
         "Opens Peering and starts an SSH shell on one of your saved servers."
     )
     /// The app, because there is nothing else that could open a socket: a shell is a TCP
     /// connection made in this process, exactly as a session is.
-    static var openAppWhenRun: Bool = true
+    static let openAppWhenRun = true
 
     /// Optional on purpose, and the same reasoning as ``ConnectToMacIntent``'s — most people have
     /// one server they mean, and "open a shell" should not become a question with one answer.
@@ -195,12 +199,12 @@ struct OpenShellIntent: AppIntent {
 }
 
 struct EndShellsIntent: AppIntent {
-    static var title: LocalizedStringResource = "End my shells"
-    static var description = IntentDescription("Ends every SSH shell Peering has open.")
+    static let title: LocalizedStringResource = "End my shells"
+    static let description = IntentDescription("Ends every SSH shell Peering has open.")
     /// No app needed to *stop*, for the reason ``DisconnectIntent`` gives: with the app not
     /// running there are no shells, and bringing it forward to say so would be the opposite of
     /// what was asked.
-    static var openAppWhenRun: Bool = false
+    static let openAppWhenRun = false
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {

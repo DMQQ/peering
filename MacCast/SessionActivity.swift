@@ -1,4 +1,11 @@
-import ActivityKit
+// `@preconcurrency`, and it is load-bearing rather than decorative.
+//
+// ActivityKit's `Activity` is a class Apple does not mark `Sendable`, while its `update` and `end`
+// are `@concurrent`. That combination means every call below sends a non-Sendable reference off
+// the main actor, and Swift 6 rejects all five of them without this. The framework cannot be
+// corrected from here; this is the escape hatch for a dependency that has not been annotated yet,
+// and it keeps the calls compiling without claiming anything about `Activity` that is not true.
+@preconcurrency import ActivityKit
 import Foundation
 import RemoteCore
 import os

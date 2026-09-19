@@ -12,10 +12,18 @@ import Foundation
 /// an ActivityKit type and has no business being in a file that is — but a second shared file
 /// means a second round of adding it to both targets by hand, and that cost gets paid again by
 /// whoever next wonders why a preference is not reaching the widget.
-enum SharedStore {
+/// `nonisolated`, because its readers are not on the main actor. The app writes it from views, but
+/// Siri and Shortcuts read it from `EntityQuery` methods that AppIntents runs off the main actor,
+/// and the widget reads it from a process with no main actor of this app's at all. Under this
+/// target's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` every one of these statics would otherwise
+/// be main-actor isolated, which is a claim none of them can honour.
+nonisolated enum SharedStore {
     static let suiteName = "group.pl.dmq.peering"
 
-    private static let defaults = UserDefaults(suiteName: suiteName)
+    /// `nonisolated(unsafe)` on the one stored property here, and it is the only one that needs it.
+    /// `UserDefaults` is not `Sendable` as far as the compiler is concerned, but it is documented as
+    /// thread-safe, and this value is a `let` bound once at first use.
+    private nonisolated(unsafe) static let defaults = UserDefaults(suiteName: suiteName)
 
     /// The Mac the app last connected to, so the widget has something to name.
     static var lastHostName: String? {
@@ -91,7 +99,12 @@ enum SharedStore {
 /// session's status string, and that string is written for the diagnostics panel — it reads
 /// "H264 1800×1168 · 282 frames · 22 dropped". A Lock Screen is not a log viewer, and a field
 /// that invites that is a field that will eventually be filled with it.
-struct SessionActivityAttributes: ActivityAttributes {
+/// `nonisolated`, for the reason the paragraph above gives from the other direction. ActivityKit
+/// encodes the app's state and decodes it in the widget, and it does both from a `@concurrent`
+/// context. A conformance isolated to the main actor cannot be used there, and the failure is not
+/// one this file could recover from, so the type opts out of the default isolation entirely. It is
+/// plain `Codable` data with no state to protect, which is what makes that free.
+nonisolated struct SessionActivityAttributes: ActivityAttributes {
     /// Everything the Lock Screen is allowed to change. Fixed at request time and never
     /// updated, so nothing that varies may live in the properties above.
     struct ContentState: Codable, Hashable {
