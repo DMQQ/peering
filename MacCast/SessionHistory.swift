@@ -111,7 +111,11 @@ extension SessionModel {
             endedAt: Date(),
             path: historyPath(connectionPath),
             videoBytesReceived: activeSessionBytes,
-            logs: activeSessionLogs
+            logs: activeSessionLogs,
+            // Filed beside the path rather than folded into it: the relay bills this session
+            // either way, so `path` stays what the allowance is counted by. See the note on
+            // ``ClientSessionRecord/usedDirectPath``.
+            usedDirectPath: usedDirectPath
         )
         sessionHistory.insert(record, at: 0)
         if sessionHistory.count > 30 { sessionHistory.removeLast(sessionHistory.count - 30) }

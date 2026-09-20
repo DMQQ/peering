@@ -951,3 +951,70 @@ final class SessionOfferPolicyTests: XCTestCase {
         ))
     }
 }
+
+// MARK: - Session records
+
+/// One finished session, as it is written down and read back.
+@MainActor
+final class ClientSessionRecordTests: XCTestCase {
+    private func encodedWithoutDirectPath() -> Data {
+        // Exactly what this app wrote before `usedDirectPath` existed: every key the type had,
+        // and no key for the new one.
+        let json = """
+        {
+          "id": "3B4E4A5C-0000-4000-8000-000000000001",
+          "hostName": "Studio",
+          "startedAt": 760000000,
+          "endedAt": 760000090,
+          "path": "Relay",
+          "videoBytesReceived": 1024,
+          "logs": []
+        }
+        """
+        return Data(json.utf8)
+    }
+
+    /// **The record has to survive a field being added to it.** These are written to
+    /// `UserDefaults` and read back on the next launch, so a decoder that requires every key would
+    /// throw on the first launch after an update and the whole history would be silently dropped —
+    /// thirty sessions lost to make room for one flag.
+    func testARecordWrittenBeforeThePathWasFiledStillDecodes() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let record = try decoder.decode(
+            ClientSessionRecord.self, from: encodedWithoutDirectPath()
+        )
+
+        XCTAssertEqual(record.hostName, "Studio")
+        XCTAssertEqual(record.path, .relay)
+        XCTAssertFalse(record.usedDirectPath, "an old record has to decode as one that did not punch")
+    }
+
+    /// And the new field round-trips, or filing it would be pointless.
+    func testThePathSurvivesBeingWrittenAndReadBack() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let record = ClientSessionRecord(
+            id: UUID(),
+            hostID: nil,
+            hostName: "Studio",
+            startedAt: Date(timeIntervalSince1970: 760_000_000),
+            endedAt: Date(timeIntervalSince1970: 760_000_090),
+            path: .relay,
+            videoBytesReceived: 0,
+            logs: [],
+            usedDirectPath: true
+        )
+
+        let decoded = try decoder.decode(
+            ClientSessionRecord.self, from: encoder.encode(record)
+        )
+
+        XCTAssertTrue(decoded.usedDirectPath)
+        XCTAssertEqual(decoded.path, .relay, "a punched session is still a relay session to the meter")
+    }
+}
