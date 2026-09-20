@@ -108,8 +108,8 @@ struct OnboardingView: View {
                 from somewhere else, and free includes \(RelayPlan.free.allowanceSpelling) of it \
                 every day.
 
-                Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day. Relay Plus and Pro \
-                remove the limit. Nothing else about the app is limited either way.
+                Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day, and Relay Plus \
+                and Pro remove the limit.
                 """
         )
     ]

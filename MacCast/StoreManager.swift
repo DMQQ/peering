@@ -138,32 +138,70 @@ final class StoreManager {
         await fetchProducts()
     }
 
-    func purchase(_ product: Product) async {
+    /// What a purchase came to, for the screen that started it.
+    ///
+    /// **The screen used to be told nothing.** `purchase` returned `Void`, so the paywall could
+    /// not tell a completed purchase from a cancelled one, a deferred one or a failure, and it
+    /// did what a screen with no answer does: it stayed exactly as it was. A user who had just
+    /// paid was left looking at the same ladder and the same buy button as a user who had not.
+    enum PurchaseOutcome: Sendable, Equatable {
+        /// The App Store took the money and the transaction verified.
+        case purchased
+        /// Sent for approval: Ask to Buy, or a bank check. Neither a failure nor yet a purchase.
+        case pending
+        /// The user backed out, or dismissed the sheet.
+        case cancelled
+        /// Refused by the store, or completed and not verifiable. `purchaseError` carries the
+        /// sentence in both cases.
+        case failed
+    }
+
+    @discardableResult
+    func purchase(_ product: Product) async -> PurchaseOutcome {
         isPurchasing = true
         purchaseError = nil
         defer { isPurchasing = false }
         do {
-            let result = try await product.purchase()
-            switch result {
+            switch try await product.purchase() {
             case .success(let verification):
-                await handleVerification(verification)
-            case .pending, .userCancelled:
-                break
+                guard await handleVerification(verification) else {
+                    // **The one failure that must never be silent.** The money has left the
+                    // account, the app has unlocked nothing, and this used to return without a
+                    // word: the buy button simply came back. The sentence says what to do about
+                    // it, and the button below it is Restore.
+                    purchaseError = "The App Store could not confirm that purchase. If you were charged, use Restore purchases, and get in touch if that does not bring it back."
+                    return .failed
+                }
+                return .purchased
+            case .pending:
+                return .pending
+            case .userCancelled:
+                return .cancelled
             @unknown default:
-                break
+                return .cancelled
             }
         } catch {
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             storeLog.error("purchase failed: \(error, privacy: .public)")
+            return .failed
         }
     }
 
-    func restore() async {
+    /// Whether a plan is live once the App Store has answered.
+    ///
+    /// The answer rather than `Void`, because "restored nothing" and "restored something" are the
+    /// two outcomes the button's own screen has to distinguish, and it has no other way to know:
+    /// the error it used to write goes to a surface that does not exist in the state that tells
+    /// people to restore.
+    @discardableResult
+    func restore() async -> Bool {
         do {
             try await AppStore.sync()
             await refreshEntitlement()
+            return activeTier != nil
         } catch {
             purchaseError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            return false
         }
     }
 
@@ -401,10 +439,23 @@ final class StoreManager {
         activeJWS = activeTier.flatMap { live[$0] }
     }
 
-    private func handleVerification(_ result: VerificationResult<Transaction>) async {
-        guard case .verified(let tx) = result else { return }
-        await tx.finish()
-        await refreshEntitlement()
+    /// Applies a transaction the App Store handed over, and says whether it was one Apple signed.
+    ///
+    /// Deliberately writes no UI state of its own. This is called from the `Transaction.updates`
+    /// loop as well as from a purchase, and an error raised by a renewal arriving in the
+    /// background would sit on `purchaseError` until somebody opened the paywall for an unrelated
+    /// reason and found a complaint about a purchase they did not make.
+    @discardableResult
+    private func handleVerification(_ result: VerificationResult<Transaction>) async -> Bool {
+        switch result {
+        case .verified(let tx):
+            await tx.finish()
+            await refreshEntitlement()
+            return true
+        case .unverified(_, let error):
+            storeLog.error("transaction not verified: \(error, privacy: .public)")
+            return false
+        }
     }
 
     // MARK: - Keychain key

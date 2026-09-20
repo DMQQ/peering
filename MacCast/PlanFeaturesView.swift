@@ -180,6 +180,16 @@ struct PlanFeaturesView: View {
                 detail: "Scan the code a Mac shows to pair without ever being on the same network as it."
             ),
             PlanFeature(
+                icon: "pencil.line",
+                title: "Your Macs, named how you like",
+                detail: "Rename a paired Mac to something you recognise, or forget one you are done with. Both are on the row itself, in the list you connect from."
+            ),
+            PlanFeature(
+                icon: "wifi.exclamationmark",
+                title: "Says so when the network goes",
+                detail: "A session the network has stopped carrying ends and tells you rather than sitting on a frozen picture, so you can reconnect instead of waiting on a screen that will never move again."
+            ),
+            PlanFeature(
                 icon: "faceid",
                 title: "Face ID to open",
                 detail: "Require Face ID each time the app comes back, so a locked phone is the only thing that unlocks the Mac."
@@ -196,13 +206,23 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "macwindow",
                 title: "A display, an app, or one window",
-                detail: "Share the whole screen, a single application, or one window. Switch without reconnecting.",
+                detail: "Every display the Mac is attached to, a single application, or one window. Switch between them without reconnecting.",
                 plan: .pro
             ),
             PlanFeature(
                 icon: "rectangle.3.group",
                 title: "Every desktop you have",
-                detail: "All your Spaces, each drawn as a picture rather than as a number to guess at."
+                detail: "All your Spaces, each drawn as a picture rather than as a number to guess at. Tap one to move the Mac to it."
+            ),
+            PlanFeature(
+                icon: "arrow.up.forward.app",
+                title: "Open an app you forgot to launch",
+                detail: "The list includes applications that are installed but not running. Tap one and the Mac opens it, then it becomes a source like any other."
+            ),
+            PlanFeature(
+                icon: "arrow.triangle.swap",
+                title: "Which path the picture took",
+                detail: "The session's info panel names the path in use and shows the round trip of the lane the picture is on, separately from the control connection's, so a session going straight is not measured by the relay's numbers."
             ),
             PlanFeature(
                 icon: "speedometer",
@@ -212,7 +232,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "speaker.wave.2",
                 title: "Sound from the Mac",
-                detail: "Hear what is playing on the Mac. Captured and sent, and there is no control to unmute it yet, so sessions are silent today.",
+                detail: "Hear what is playing on the Mac, from music you left running to the alert it makes in answer to a key you sent it. One switch in the session panel, and turning it off only drops the sound here.",
                 plan: .pro
             ),
             PlanFeature(
@@ -304,7 +324,22 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "pencil",
                 title: "Read and change a file",
-                detail: "Open a text file, edit it and save it back, with the file's own permissions kept. A file too long to show whole is read but not offered for editing, because saving it would throw the rest away."
+                detail: "Open a text file, edit it and save it back, with the file's own permissions kept. Reading and editing are the same surface, so wrapping behaves the same in both. A file too long to show whole is read but not offered for editing, because saving it would throw the rest away."
+            ),
+            PlanFeature(
+                icon: "photo",
+                title: "A picture is shown as a picture",
+                detail: "What a file is comes from its own bytes rather than its name: an image opens as an image, and an SVG is drawn with scripts off. Something that is neither text nor a picture is refused rather than shown as rubbish."
+            ),
+            PlanFeature(
+                icon: "folder.badge.plus",
+                title: "Make, rename and delete",
+                detail: "A new file or folder, a rename on any row, and a delete that says what it will take with it. On your Mac, deleting moves it to the Bin; on an SSH server it says plainly that it cannot be undone."
+            ),
+            PlanFeature(
+                icon: "play.circle",
+                title: "Run what you are looking at",
+                detail: "An executable row carries a Run button, confirmed by its name and path. What it sends is a line typed into a shell you already have, so a script that prints something prints it where you can see it."
             ),
             PlanFeature(
                 icon: "square.and.arrow.up",
@@ -344,7 +379,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "clock.arrow.circlepath",
                 title: "Session history",
-                detail: "What connected, for how long, over which path, and how much it moved."
+                detail: "What connected, for how long, how much it moved, and whether that session went straight to the Mac or around through the relay."
             ),
             PlanFeature(
                 icon: "mic",

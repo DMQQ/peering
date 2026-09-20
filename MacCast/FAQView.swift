@@ -181,7 +181,7 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "Can I lock the app, or one server?",
-                    answer: "Both. Face ID for the whole app is under Settings, and asks each time the app comes back. Each saved SSH server can separately require Face ID or a six-digit passcode of your own before it will open."
+                    answer: "Both. A lock for the whole app is under Settings, and asks each time the app comes back. Your device passcode is accepted as well as your face, so a phone that stops recognising you cannot lock you out of the app. Each saved SSH server can separately require the same, or a six-digit passcode of your own before it will open."
                 ),
                 QA(
                     question: "What does Peering collect?",
@@ -195,7 +195,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "Is Mac audio sent?",
-                    answer: "The Mac's audio is captured and sent, but the app has no control to unmute it yet, so a session is silent today. There is no setting for it in this version."
+                    answer: "Yes, and you hear it. Whatever the Mac plays comes out of the phone, from the music you left running to the alert it makes in answer to a key you sent it. Sound from the Mac is a switch in the session panel, under Stream, on by default. Turning it off is a tap rather than a teardown: the audio keeps arriving and is dropped here, so turning it back on is instant."
                 ),
                 QA(
                     question: "How does clipboard sharing work?",
@@ -203,11 +203,11 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "Can I transfer files?",
-                    answer: "Yes, from the file browser inside a terminal. You can read a file, download it to the phone, edit a text file and save it back, and send a file from the phone into the folder you are looking at. The limits are worth knowing: text files are read up to 128 KB, and a longer one can be read but not edited or downloaded, because saving would replace the whole file with only the part you were shown. Binary files are not shown. Uploads are capped at 64 MB. The browser cannot yet delete, rename, or create folders."
+                    answer: "Yes, from the file browser inside a terminal. You can read a file, download it to the phone, edit a text file and save it back, make a new file or folder, rename or delete what is listed, and send a file from the phone into the folder you are looking at. Deleting moves the file to the Bin on your own Mac; on an SSH server it is gone, and the confirmation says so. What a file is gets decided by the file itself rather than its name, so a picture opens as a picture and anything that is neither text nor a picture is refused rather than shown as rubbish. The limits are worth knowing: text files are read up to 128 KB, and a longer one can be read but not edited or downloaded, because saving would replace the whole file with only the part you were shown. Uploads are capped at 64 MB."
                 ),
                 QA(
                     question: "Can I open a terminal?",
-                    answer: "Yes, two kinds. One is a shell on the Mac itself, opened inside the session, with tabs you can rename and a key row for the control keys a phone keyboard cannot send. The other is a saved SSH server, which connects straight from the phone and does not involve the Mac at all. Both file browsers can browse, preview, download, edit and upload."
+                    answer: "Yes, two kinds. One is a shell on the Mac itself, opened inside the session, with tabs you can rename and a key row for the control keys a phone keyboard cannot send. The other is a saved SSH server, which connects straight from the phone and does not involve the Mac at all. Both file browsers can browse, preview, download, edit, upload, and make, rename or delete what they list."
                 ),
                 QA(
                     question: "Can I reach my server, or only my Mac?",
@@ -254,6 +254,10 @@ struct FAQView: View {
                     answer: "Picture in Picture keeps the live view over other apps, and the Live Activity keeps the session's state on the Lock Screen. Without those, iOS suspends the app after a short grace period and the session drops. Peering then retries a few times with a growing gap, and picks the session back up if you return."
                 ),
                 QA(
+                    question: "What happens if my phone changes network?",
+                    answer: "The session cannot survive it: the address the Mac was sending to stops existing, and the connection neither fails nor closes, it simply goes quiet. Peering counts that quiet, and ends the session after ten seconds of it without an answer, so you are told and can connect again instead of watching a last frame that never moves. Join the new network, tap the Mac, and you are back."
+                ),
+                QA(
                     question: "Why can't I edit this file?",
                     answer: "Three reasons, and the panel says which. The file was longer than the read limit, so only its beginning is on screen and saving would throw the rest away. Or it is not text in UTF-8, which this editor cannot represent. Or the shell it was opened from has ended, in which case there is nothing left to save through."
                 ),
@@ -265,7 +269,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "What can't Peering do yet?",
-                    answer: "A list rather than a promise. Mac audio is captured but cannot be unmuted, so sessions are silent. The file browser cannot delete, rename, or make folders. There is no dictation button. SSH sign-in is password only: no key files, and no port forwarding. A Mac asleep and off your network cannot be woken. There is no virtual display, so a Mac with its lid shut and no screen attached has nothing to show."
+                    answer: "A list rather than a promise. There is no dictation button. SSH sign-in is password only: no key files, and no port forwarding. A Mac asleep and off your network cannot be woken. There is no virtual display, so a Mac with its lid shut and no screen attached has nothing to show."
                 ),
                 QA(
                     question: "Is any of that coming?",

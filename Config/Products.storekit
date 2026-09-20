@@ -26,14 +26,14 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "3.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6741000001",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited relay time for one Mac.",
+              "description" : "Three hours of relay a day, on one Mac.",
               "displayName" : "Relay",
               "locale" : "en_US"
             }
@@ -51,7 +51,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "6.99",
+          "displayPrice" : "14.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6741000002",
@@ -76,7 +76,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "24.99",
+          "displayPrice" : "39.99",
           "familyShareable" : false,
           "groupNumber" : 3,
           "internalID" : "6741000003",

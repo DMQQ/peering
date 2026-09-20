@@ -128,6 +128,27 @@ struct PaywallView: View {
     /// never had.
     @State private var showsEverythingIncluded = false
 
+    /// The tier this sheet watched somebody buy, so it can say so instead of going on selling.
+    ///
+    /// Deliberately not `store.activeTier`, which is also non-nil for somebody who subscribed last
+    /// month and opened this sheet through the upgrade door: a confirmation shown to them is a
+    /// screen that has stopped offering anything. Only a purchase that happened here, or a plan
+    /// that became active while this sheet was open, sets this.
+    @State private var justBought: StoreManager.Tier?
+
+    /// Between sending a purchase for approval and the App Store answering.
+    ///
+    /// Its own state rather than an error, because it is not one: Ask to Buy and a bank check are
+    /// both "not yet", and the screen used to say nothing at all for them, which from the user's
+    /// side is indistinguishable from the app having dropped the purchase on the floor.
+    @State private var awaitingApproval = false
+
+    /// What a restore came to, when it came to nothing.
+    ///
+    /// The one case the App Store answers with neither a plan nor an error, and the one a person
+    /// taps Restore to find out about. Cleared by the next restore that works.
+    @State private var restoreNote: String?
+
     var body: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
@@ -144,9 +165,20 @@ struct PaywallView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        header
-                        plans
-                        buyButton
+                        // **What the screen becomes once the money has moved.** It used to become
+                        // nothing: the sheet stayed exactly as it was, with the plan just bought
+                        // still on offer and the sentence at the top recomputed from the plan the
+                        // device now has. On the quota door that sentence is the one written for a
+                        // case that should never happen ("the relay is counting this connection
+                        // against a quota your plan does not have"), so a customer's first sight
+                        // of the thing they had just paid for was a warning.
+                        if let tier = justBought {
+                            confirmation(tier)
+                        } else {
+                            header
+                            plans
+                            buyButton
+                        }
                         footer
                     }
                     .padding(.horizontal, 18)
@@ -168,9 +200,55 @@ struct PaywallView: View {
         .sheet(isPresented: $showsEverythingIncluded) {
             PlanFeaturesView()
         }
+        // A purchase sent for approval comes back through `Transaction.updates` rather than
+        // through the call that started it, so this is where it lands. It is also where a
+        // renewal lands, and where a restore that found something lands: all three mean the same
+        // thing on this screen, which is that there is nothing left here to sell.
+        .onChange(of: store.activeTier) { _, tier in
+            guard let tier else { return }
+            awaitingApproval = false
+            justBought = tier
+        }
     }
 
     // MARK: - Sections
+
+    /// What the sheet says to somebody who has just paid.
+    ///
+    /// Three sentences and a way out. The first names what they now have, the second is the tier's
+    /// own tagline rather than new copy about it, and the third is the renewal line the App Store
+    /// requires, which reads differently here than in the fine print at the bottom, because this
+    /// is the one moment somebody is reading it.
+    ///
+    /// `onDismiss` rather than a local flag: the sheet is owned by whatever opened it, and a
+    /// confirmation that closed only itself would leave the reason it was opened still set.
+    private func confirmation(_ tier: StoreManager.Tier) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 46, weight: .light))
+                .foregroundStyle(ColorPalette.accent)
+                .frame(height: 56)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("You are on \(tier.name)")
+                    .font(DisplayFont.display(28))
+                    .tracking(-1)
+
+                Text(tier.tagline)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text("It renews automatically until you cancel, which you can do any time in your App Store settings.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            WelcomePrimaryButton(title: "Done") { onDismiss() }
+                .padding(.top, 4)
+        }
+    }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -273,16 +351,39 @@ struct PaywallView: View {
                         ? "Contacting the App Store…"
                         : "Continue with \(chosen.name) · \(price)"
                 ) {
-                    Task { await store.purchase(product) }
+                    Task {
+                        // Captured before the await, because `chosen` is a live selection: somebody
+                        // tapping another card while the store is answering should not change what
+                        // the confirmation goes on to say they bought.
+                        let buying = chosen
+                        switch await store.purchase(product) {
+                        case .purchased:
+                            justBought = buying
+                        case .pending:
+                            awaitingApproval = true
+                        case .cancelled:
+                            break
+                        case .failed:
+                            // `purchaseError` is set for both the refusal and the unverifiable
+                            // case, and it is rendered directly below.
+                            break
+                        }
+                    }
                 }
                 .disabled(store.isPurchasing)
 
-                if let error = store.purchaseError {
-                    Text(error)
+                // Not an error, so not in the error's colour: nothing has gone wrong, and the
+                // only thing the user needs to know is that waiting is the right thing to do.
+                if awaitingApproval {
+                    Text("Waiting for approval. This plan starts as soon as whoever has to approve it does, and nothing is charged until then.")
                         .font(.caption)
-                        .foregroundStyle(ColorPalette.danger)
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                // The error is not rendered here. It moved to the footer, because the state that
+                // most needs to show one is the state with no products loaded, and that is the
+                // state where this whole view does not exist. See `footer`.
             }
         }
     }
@@ -345,7 +446,17 @@ struct PaywallView: View {
             .buttonStyle(.plain)
 
             Button {
-                Task { await store.restore() }
+                Task {
+                    if await store.restore() {
+                        restoreNote = nil
+                        justBought = store.activeTier
+                    } else if store.purchaseError == nil {
+                        // Nothing found and nothing thrown, which used to be silence: the button
+                        // was tapped, something may or may not have happened, and the screen said
+                        // nothing either way.
+                        restoreNote = "No purchases to restore on this Apple Account."
+                    }
+                }
             } label: {
                 Text("Restore purchases")
                     .font(.footnote)
@@ -353,6 +464,18 @@ struct PaywallView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
+
+            // **Where the error lives now.** It used to be rendered under the buy button, which
+            // only exists once products have loaded, so in the "Prices could not be loaded"
+            // state, whose own copy tells people to restore, a restore that failed had nowhere
+            // to say so. This is below both buttons and always present.
+            if let note = restoreNote ?? store.purchaseError {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(store.purchaseError == nil ? .secondary : ColorPalette.danger)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             // The two links a screen selling an auto-renewable subscription is required to carry,
             // and the reason there is a site at all: the pages are served by the relay, out of
