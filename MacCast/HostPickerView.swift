@@ -1171,15 +1171,38 @@ private struct HomeTab: View {
                     }
                     .disabled(!model.allowsRelay || model.isBusy)
 
-                    if !(model.hostMACAddresses[hostID]?.isEmpty ?? true) {
-                        Button {
-                            model.wakeHost(id: hostID)
-                        } label: {
-                            Label("Wake Mac", systemImage: "power")
+                    // Drawn whatever the Mac's state, which it was not before: the item used to
+                    // be dropped for a Mac with no address on file, and that is the state the
+                    // feature exists for. A Mac this phone has never connected to is one whose
+                    // row was quietly an item shorter than the feature list promises, with
+                    // nothing on screen to say which item or why.
+                    let wakeRefusal = wakeRefusalReason(hostID: hostID, reach: reach)
+                    Button {
+                        model.wakeHost(id: hostID)
+                    } label: {
+                        // "on LAN" is in the name and not only in the footnote below, because
+                        // the packet is a broadcast and a broadcast never leaves the network it
+                        // was sent on. A Mac the relay can see is usually somewhere else, and
+                        // this is the one item in the menu that cannot be used from there.
+                        Label("Wake Mac on LAN", systemImage: "power")
+                    }
+                    // A Mac known to be up has no reason to be woken, and one whose state is
+                    // unknown is exactly the case this is for, so the refusal is never about
+                    // being switched off.
+                    .disabled(wakeRefusal != nil)
+
+                    if let wakeRefusal {
+                        // Said as an item of its own rather than a `Section` footer, because a
+                        // disabled item cannot carry a subtitle and the menu renderer is the
+                        // thing drawing this: a caption it silently drops is the same failure
+                        // as the missing item, one layer further out. This is a `Button` and not
+                        // a bare `Text` for the same reason, buttons being the one thing a menu
+                        // is guaranteed to draw, and it is disabled so that tapping the
+                        // explanation does nothing but close the menu.
+                        Button {} label: {
+                            Text(wakeRefusal)
                         }
-                        // A Mac known to be up has no reason to be woken, and one whose state is
-                        // unknown is exactly the case this is for.
-                        .disabled(reach.isReachable)
+                        .disabled(true)
                     }
                 }
 
@@ -1245,6 +1268,24 @@ private struct HomeTab: View {
             }
             return model.allowsRelay ? "Not nearby · will try relay" : "Not nearby · LAN only"
         }
+    }
+
+    /// Why the wake item cannot be pressed, or `nil` when it can.
+    ///
+    /// **Two refusals, because they are two different facts with two different fixes.** A Mac
+    /// the relay or Bonjour can see is up, so a wake packet would be aimed at something already
+    /// running, and that is a state which passes on its own. A Mac with no address on file is a
+    /// gap in what this phone knows, and the only thing that closes it is a connection: the
+    /// address arrives in the host's hello, so Peering has one for a Mac it has talked to and
+    /// none for a Mac it has not.
+    ///
+    /// The address is asked about first, and deliberately. A Mac that is up with no address
+    /// stored would otherwise show the item enabled the moment it fell asleep, with nothing to
+    /// send, which is the tap that did nothing and taught nobody anything.
+    private func wakeRefusalReason(hostID: String, reach: SessionModel.Reachability) -> String? {
+        if model.hostMACAddresses[hostID]?.isEmpty ?? true { return "No MAC address on file yet." }
+        if reach.isReachable { return "That Mac is already awake." }
+        return nil
     }
 
     /// Whether there is room on this plan for one more paired Mac.

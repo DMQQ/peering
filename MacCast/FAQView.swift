@@ -147,7 +147,7 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "Does my Mac have to be awake?",
-                    answer: "It has to be on to hold a session. A Mac you have paired with can be woken from its row in the Connect tab, which sends a wake-up packet, but that packet goes out on the local network, so it works when you are at home and not when you are away. A sleeping Mac off your network cannot be woken from here."
+                    answer: "It has to be on to hold a session. A Mac you have paired with can be woken from the ⋯ menu on its row in the Connect tab, which offers Wake Mac on LAN. That packet goes out on the local network, so it only reaches a Mac on the same network as your phone, and it needs an address for the Mac, which Peering learns the first time you connect to it. The item is in the menu either way: when it cannot be used it is greyed out and says which of the two is missing, and it is greyed out while the Mac is already awake as well. A sleeping Mac off your network cannot be woken from here."
                 ),
                 QA(
                     question: "How many Macs can I use?",
