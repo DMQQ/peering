@@ -1,3 +1,4 @@
+import MacCastKit
 import SSHCore
 import SwiftUI
 
@@ -13,8 +14,24 @@ struct SSHTab: View {
     /// shell before this screen has ever been built — see ``MacCastApp``.
     @Environment(SSHModel.self) private var model
 
+    /// The session model, for the account rather than the server: the second shell is on Relay
+    /// Plus, and the plan is not ``SSHModel``'s to own.
+    ///
+    /// **A server is not a thing a plan has.** It used to be: SSH servers were a capability, and
+    /// this screen asked it twice, once for the button that adds one and once for every row in the
+    /// list. What is left on a plan is the *concurrency*: one shell at a time on free, on a Mac and
+    /// on a server alike, which is ``PlanCapability/shellTabs`` and is asked where a second shell
+    /// would start, not here. Reading a plan on this screen at all is now the stranger thing: the
+    /// list of machines a user owns is theirs on every plan, and gating it meant the app held the
+    /// user's own saved hosts behind a paywall.
+    @Environment(SessionModel.self) private var session
+
     @State private var isAdding = false
     @State private var editingHost: SSHHost?
+    /// The host whose public key is being shown, from the row's own menu.
+    @State private var showingPublicKey: SSHHost?
+    /// The host whose saved credential is being thrown away, pending an answer.
+    @State private var deletingCredential: SSHHost?
     @State private var password = ""
     @State private var rememberPassword = true
 
@@ -46,21 +63,37 @@ struct SSHTab: View {
         }
         .tint(ColorPalette.accent)
         .sheet(isPresented: $isAdding) {
-            SSHHostEditor(existing: nil, hasStoredPasscode: false) { host, secrets in
+            SSHHostEditor(existing: nil, credential: nil, hasStoredPasscode: false) { host, secrets in
                 model.save(host, passcode: secrets.passcode)
-                if let typed = secrets.password {
-                    model.store(password: typed, for: host, remember: secrets.rememberPassword)
-                }
+                model.apply(secrets.credential, to: host, rememberPassword: secrets.rememberPassword)
             }
         }
         .sheet(item: $editingHost) { host in
-            SSHHostEditor(existing: host, hasStoredPasscode: model.hasPasscode(for: host)) { updated, secrets in
+            SSHHostEditor(
+                existing: host,
+                credential: model.storedCredential(for: host),
+                hasStoredPasscode: model.hasPasscode(for: host)
+            ) { updated, secrets in
                 model.save(updated, passcode: secrets.passcode)
-                if let typed = secrets.password {
-                    model.store(password: typed, for: updated, remember: secrets.rememberPassword)
-                }
+                model.apply(secrets.credential, to: updated, rememberPassword: secrets.rememberPassword)
             }
         }
+        .sheet(item: $showingPublicKey) { host in
+            if case .key(let key) = model.storedCredential(for: host) {
+                SSHPublicKeySheet(host: host, key: key)
+            }
+        }
+        .forgetCredentialPrompt(
+            host: deletingCredential,
+            isPresented: Binding(
+                get: { deletingCredential != nil },
+                set: { if !$0 { deletingCredential = nil } }
+            ),
+            onForget: {
+                if let host = deletingCredential { model.forgetCredential(for: host) }
+                deletingCredential = nil
+            }
+        )
         .sheet(isPresented: isAskingForPassword) {
             if let host = model.pendingPasswordHost {
                 passwordSheet(for: host)
@@ -120,6 +153,13 @@ struct SSHTab: View {
                         }
                     }
 
+                    // **Add a server is free, and it is one button again.** It was two: the same
+                    // row with a plus on one plan and a padlock on the other, which is the shape
+                    // this app has stopped drawing. The server list is now the same list on every
+                    // plan, because what a plan restricts is the second shell open at once and not
+                    // the machines the user has saved (see ``SSHModel``). This is also the one action
+                    // that makes the whole surface exist: a free user who never sees "Add a server"
+                    // never finds out Peering speaks SSH at all.
                     Button {
                         isAdding = true
                     } label: {
@@ -187,7 +227,15 @@ struct SSHTab: View {
         HStack(spacing: 10) {
             // Through the gate rather than straight to `open`, so a locked server asks first. The
             // whole of that decision lives on the model, because this row is not the only way in.
-            Button { model.requestOpen(host) } label: {
+            // That gate is the server's own passcode lock and has nothing to do with a plan.
+            //
+            // The plan used to be asked here too, and the answer was a padlock on a row the user
+            // had already saved: a machine they added themselves, shown to them as something they
+            // could not reach. No plan gates a server now. What a plan runs out of is shells, so
+            // how many can be open at once is asked where one is opened.
+            Button {
+                model.requestOpen(host)
+            } label: {
                 HStack(spacing: 12) {
                     IconTile(symbol: "server.rack")
 
@@ -204,7 +252,9 @@ struct SSHTab: View {
 
                     // No chevron: both of these rows *do* something rather than lead somewhere. A
                     // server row opens a shell on it, and an open-shell row comes back to the one
-                    // already running, and neither is a place a chevron could point at.
+                    // already running, and neither is a place a chevron could point at. The badge
+                    // that used to sit at this end of the row is gone with the gate: a server is
+                    // free on every plan, so the row is an ordinary row and this is its full width.
                     Spacer(minLength: 8)
                 }
                 .contentShape(Rectangle())
@@ -237,9 +287,41 @@ struct SSHTab: View {
     /// working — which is the worst possible moment to be told to press and hold.
     private func rowMenu(_ host: SSHHost) -> some View {
         Menu {
-            // The second shell, which the plain tap deliberately does not give you.
-            Button("New shell", systemImage: "plus.rectangle.on.rectangle") { openAnother(host) }
+            // The second shell, which the plain tap deliberately does not give you. Still in the
+            // menu on a plan that runs one shell, rather than missing from where it was: a menu
+            // item that has disappeared is a menu the user thinks has changed under them.
+            //
+            // It keeps its own glyph and its own words and the tap opens the plans, which is the
+            // app's rule for a gated control everywhere else. What it cannot do is wear the plan
+            // badge the other gated controls wear, because a menu row is a line of the system's own
+            // menu rather than a view this app lays out. So the one control in the app whose locked
+            // form is invisible is also the one whose locked form cannot be drawn, and it is
+            // written out rather than routed through ``PlanLocked`` for that reason: what is left
+            // of the gate is the action, and a badge that cannot be drawn is not worth four lines
+            // of a nested button.
+            Button("New shell", systemImage: "plus.rectangle.on.rectangle") {
+                if session.storeManager.access.includes(.shellTabs) {
+                    openAnother(host)
+                } else {
+                    session.paywallReason = .feature(.shellTabs)
+                }
+            }
             Button("Edit…", systemImage: "pencil") { editingHost = host }
+
+            // The way to the public half from the list, and it is here as well as in the editor on
+            // purpose. A key the user cannot get at is a key they cannot install, and the moment
+            // they need the line is the moment they are sitting at the server wondering why it
+            // will not take them — which is not the moment to be told to open an edit sheet.
+            if case .key = model.storedCredential(for: host) {
+                Button("Public key…", systemImage: "doc.on.doc") { showingPublicKey = host }
+            }
+
+            if model.hasStoredCredential(for: host) {
+                Button("Forget how to sign in", systemImage: "key.slash", role: .destructive) {
+                    deletingCredential = host
+                }
+                .menuDanger()
+            }
 
             if model.isKeyKnown(for: host) {
                 // The only route past a changed key. Named for what it does rather than for the
@@ -363,8 +445,8 @@ struct SSHTab: View {
     /// the one deliberate way past a lock: see ``SSHModel/requestOpen(_:)``. The user is asking for
     /// a second tab on a machine they are already signed in to.
     private func openAnother(_ host: SSHHost) {
-        if let stored = model.storedPassword(for: host) {
-            model.open(host, password: stored, remember: false)
+        if let stored = model.storedCredential(for: host) {
+            model.open(host, credential: stored, remember: false)
         } else {
             model.pendingPasswordHost = host
         }
@@ -426,7 +508,7 @@ struct SSHTab: View {
 
     private func commitPassword(for host: SSHHost) {
         guard !password.isEmpty else { return }
-        model.open(host, password: password, remember: rememberPassword)
+        model.open(host, credential: .password(password), remember: rememberPassword)
         password = ""
         model.pendingPasswordHost = nil
     }
@@ -481,5 +563,27 @@ struct SSHTab: View {
         .interactiveDismissDisabled()
         .presentationDetents([.height(420)])
         .preferredColorScheme(.dark)
+    }
+}
+
+/// Confirming that a saved secret should be thrown away.
+///
+/// An alert rather than a dialog, for the reason ``TerminalEndPrompt`` records at length: a
+/// presentation that cannot be placed wrongly beats one that could be placed better. This is also
+/// the app's only control that destroys a key, and a key thrown away is one the user has to go back
+/// to the machine that made it to get again — so it is asked about, never done on the tap.
+extension View {
+    func forgetCredentialPrompt(
+        host: SSHHost?,
+        isPresented: Binding<Bool>,
+        onForget: @escaping () -> Void
+    ) -> some View {
+        alert("Forget how to sign in?", isPresented: isPresented) {
+            // Cancel first and given the role, so Escape and a stray return land on keeping it.
+            Button("Keep it", role: .cancel) { }
+            Button("Forget", role: .destructive, action: onForget)
+        } message: {
+            Text("\(host?.displayName ?? "This server") will ask for a password the next time you open a shell. Nothing on the server itself is touched, and any key already in `authorized_keys` stays there.")
+        }
     }
 }

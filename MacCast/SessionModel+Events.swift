@@ -33,6 +33,18 @@ extension SessionModel {
             // not only about where it landed.
             let previous = self.phase
             if previous == .ready, phase != .ready {
+                // Read before `finishSessionHistory()` and before the teardown below, both of
+                // which take a piece of it: the live session out of the meter, and the path out of
+                // `connectionPath`. What is recorded is only that a session on the relay ended
+                // without the user ending it. See ``relaySessionDropped`` for what the relay's
+                // next refusal does with it.
+                //
+                // A drop over the LAN is deliberately not recorded: the relay is not metering a
+                // local session and cannot have cut one, so a refusal that followed would be the
+                // other situation entirely.
+                if !userEndedSession, connectionPath == .relay {
+                    relaySessionDropped = true
+                }
                 finishSessionHistory()
             }
             self.phase = phase
@@ -51,6 +63,10 @@ extension SessionModel {
                 videoStatus = "Disconnected"
             }
             if phase == .ready {
+                // A session that came up is not a session that was cut, whatever the last one
+                // did. Cleared here so a drop that was followed by a working reconnect cannot
+                // label a refusal an hour later as the relay having cut something.
+                relaySessionDropped = false
                 // Restarted on every fresh arrival rather than only the first: a reconnect
                 // emits `.ready` again, and elapsed time that kept counting through it would
                 // be describing a session that no longer exists.
@@ -215,8 +231,10 @@ extension SessionModel {
             switch event {
             case .config(let config):
                 audioPlayer = RemoteAudioPlayer(config: config)
-                // A fresh player per stream, so the preference has to be handed to each one.
-                audioPlayer?.isMuted = hostAudioMuted
+                // A fresh player per stream, so the preference has to be handed to each one, and
+                // the plan with it. See ``SessionModel/playsHostAudio``: a free user's audio is
+                // still sent, and this is the line that stops it being played.
+                audioPlayer?.isMuted = !playsHostAudio
             case .frame(let frame):
                 audioPlayer?.enqueue(frame)
             }
@@ -230,9 +248,37 @@ extension SessionModel {
                 // well succeed on a retry against a relay that has been updated, so it stays a
                 // note rather than a paywall in front of somebody who has already paid.
                 append(note: "Relay quota reached. Your subscription is active; please try again later.")
+            } else if relaySessionDropped {
+                // **The mid-session cut, which the user has had no explanation for until now.**
+                // The relay ends a session the moment its allowance is spent, and it ends it by
+                // dropping the connection: there is nowhere to tell the two ends why, because
+                // everything past the token is a TLS session the relay cannot write into. So what
+                // the user saw was their Mac vanish, then a reconnect that failed, and nothing at
+                // all about money. This is the sheet that says it, and it opens on the plans.
+                //
+                // Not the paywall itself, which is the other door and the wrong one here: that
+                // screen's question is "which of these is worth it", and the only question this
+                // moment raises is "what just happened to the session I was using". Being sold to
+                // in the same breath as being told is how a wall turns into a con.
+                spentAllowance = storeManager.relayPlan
+                relaySessionDropped = false
+                // Suppress the reconnect ladder: there is nothing to reconnect to.
+                userEndedSession = true
+                stopReconnecting()
+            } else if spentAllowance != nil {
+                // **A later refusal from the same ladder, and it has nothing to add.** The
+                // explanation is already on screen, and the one thing this must not do is put the
+                // purchase screen over it, the user has just been told why their session ended,
+                // and a sale arriving on top of that is the app talking over itself. The ladder
+                // re-arms on a failed attempt by design (see the `isResuming` branch in
+                // ``apply(_:)-swift.enum.case``), so this is the second and third refusal of the
+                // same cut rather than a new one.
+                userEndedSession = true
+                stopReconnecting()
             } else {
-                // Free, or on Relay with the day's three hours spent. Both are a wall the plans
-                // above can remove, and the paywall says which one was hit — see `Reason.detail`.
+                // Free, or on Relay with the day's three hours spent, and the user tapped Connect
+                // into it. A wall they walked into rather than one that took a session away, which
+                // is the whole of why this branch is the paywall and the one above is not.
                 paywallReason = .quotaExhausted
                 // Suppress the reconnect ladder: there is nothing to reconnect to.
                 userEndedSession = true

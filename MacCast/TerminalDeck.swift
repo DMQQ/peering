@@ -1,5 +1,6 @@
 import SSHCore
 import SwiftUI
+import MacCastKit
 
 /// Everything a shell can be told to do without typing it, in one row.
 ///
@@ -24,6 +25,12 @@ struct TerminalDeck: View {
     let commands: [SSHQuickCommand]
     let run: (SSHQuickCommand) -> Void
     let remove: (SSHQuickCommand) -> Void
+    /// What the button at the head of the row does: open the editor.
+    ///
+    /// **One closure rather than two, because there is one button.** The button that makes a
+    /// command and the button that sells the plan to make one are the same button in the same
+    /// place, so what the caller hands over is what it does when it is live, and the gate between
+    /// that and the plans is ``PlanLocked``'s.
     let edit: () -> Void
 
     /// Bytes to send to the shell, as a string of them.
@@ -53,16 +60,25 @@ struct TerminalDeck: View {
 
                 // Drawn even when there is nothing saved. A control that appears only once you
                 // already have one teaches nothing the first time it is needed, and this is the
-                // only way to make the first one.
-                Button(action: edit) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(ColorPalette.ink)
-                        .frame(width: 46, height: 40)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                // only way to make the first one, and it is drawn on the plans that do not
+                // include making one as well: the same slider glyph in the same 46 points,
+                // dimmed, with the plan's name beside it. That is how somebody finds out the
+                // feature is there to want, and the glyph is what tells them which feature it is.
+                PlanLocked(
+                    capability: .macros,
+                    title: commands.isEmpty ? "Add a quick command" : "Edit quick commands",
+                    diameter: 40
+                ) {
+                    Button(action: edit) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(ColorPalette.ink)
+                            .frame(width: 46, height: 40)
+                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.88))
+                    .accessibilityLabel(commands.isEmpty ? "Add a quick command" : "Edit quick commands")
                 }
-                .buttonStyle(RailButtonStyle(scale: 0.88))
-                .accessibilityLabel(commands.isEmpty ? "Add a quick command" : "Edit quick commands")
 
                 divider
 

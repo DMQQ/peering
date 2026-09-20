@@ -1,22 +1,28 @@
+import MacCastKit
 import SwiftUI
 
 /// One thing the app does, and the plan it needs if it needs one.
 ///
-/// `plan` is `nil` for everything the free plan includes, which is most of the app. Where it is
-/// set, the row draws a badge and the plan named there is what the paywall's own card for that
-/// tier claims, in the same words. The two screens are one tap apart, so a feature that is free
-/// here and paid there is not a difference of opinion, it is a page contradicting itself.
+/// `capability` is `nil` for everything the free plan includes, which is most of the app. Where it
+/// is set, the row draws a badge, and the badge is **read off the capability**, not typed onto
+/// the row, because the badge on this row and the badge drawn beside the control it describes are
+/// the same fact seen from two screens. ``PlanCapability`` is where that fact lives; the two screens
+/// are one tap apart and a feature that is free here and gated there is not a difference of opinion,
+/// it is a page contradicting itself.
 ///
-/// **The badge is a statement about the product, not about the code.** Nothing on this screen is
-/// enforced: the only thing the app meters today is relay time, and a user who never subscribes
-/// can still open a terminal. Filling this in is the first half of gating them and not the whole
-/// of it, and the copy below is written so that it stays true until the second half lands.
+/// **The badges are the map, and so are the gates.** Every line below that wears a plan name is a
+/// control that is gated on that plan, and every line with no badge is something the app does not
+/// gate at all. That is checkable against the build rather than against an intention, and
+/// `MacCastKitTests.PlanAccessTests` is where the map those two read is itself held still.
 struct PlanFeature: Identifiable {
     let id = UUID()
     let icon: String
     let title: String
     let detail: String
-    var plan: StoreManager.Tier?
+    var capability: PlanCapability?
+
+    /// The plan name on the badge, or `nil` for a row every plan includes.
+    var planName: String? { capability?.minimumPlan.name }
 }
 
 struct PlanFeatureGroup: Identifiable {
@@ -64,7 +70,7 @@ struct PlanFeaturesView: View {
                         // rather than implied by what is missing from the cards above.
                         Controls.card(
                             "What a plan changes",
-                            footer: "Connecting over your own network is unlimited on every plan, including the free one. Relay time is the only thing metered."
+                            footer: "Connecting over your own network is unlimited on every plan, including the free one, and every paid plan pairs with every Mac you own. Free pairs with one. Relay time is the only thing metered."
                         ) {
                             VStack(spacing: 0) {
                                 ForEach(Array(StoreManager.Tier.allCases.enumerated()), id: \.element.id) { index, tier in
@@ -107,8 +113,8 @@ struct PlanFeaturesView: View {
                         .font(.subheadline.weight(.medium))
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if let plan = feature.plan {
-                        Text(plan.name.uppercased())
+                    if let plan = feature.planName {
+                        Text(plan.uppercased())
                             .font(.system(size: 9, weight: .bold))
                             .tracking(0.6)
                             .foregroundStyle(ColorPalette.accent)
@@ -135,12 +141,7 @@ struct PlanFeaturesView: View {
     /// two facts about each, and splitting them into two tables makes the middle row look like two
     /// separate choices rather than one worse one.
     private func summary(for tier: StoreManager.Tier) -> String {
-        let allowance: String
-        switch tier {
-        case .relay: allowance = "3 hours a day"
-        case .relayPlus, .pro: allowance = "No limit"
-        }
-        return "\(allowance) · \(tier.macCount)"
+        "\(tier.plan.allowanceSpelling.capitalized) · \(StoreManager.Tier.macCount)"
     }
 
     /// The inventory.
@@ -197,8 +198,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "power",
                 title: "Wake a sleeping Mac",
-                detail: "Send a wake-up packet, then connect. It reaches a Mac on your own network, not one across the internet.",
-                plan: .pro
+                detail: "Send a wake-up packet, then connect. It reaches a Mac on your own network, not one across the internet."
             ),
         ]),
 
@@ -206,8 +206,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "macwindow",
                 title: "A display, an app, or one window",
-                detail: "Every display the Mac is attached to, a single application, or one window. Switch between them without reconnecting.",
-                plan: .pro
+                detail: "Every display the Mac is attached to, a single application, or one window. Switch between them without reconnecting."
             ),
             PlanFeature(
                 icon: "rectangle.3.group",
@@ -225,6 +224,12 @@ struct PlanFeaturesView: View {
                 detail: "The session's info panel names the path in use and shows the round trip of the lane the picture is on, separately from the control connection's, so a session going straight is not measured by the relay's numbers."
             ),
             PlanFeature(
+                icon: "sparkles.tv",
+                title: "The sharpest picture over the relay",
+                detail: "A relayed session climbs to 20 Mbps, five times what it reaches without this. On your own network nothing is capped on any plan, because those bytes are not going through anything of ours.",
+                capability: .highBitrate
+            ),
+            PlanFeature(
                 icon: "speedometer",
                 title: "Picture matched to the network",
                 detail: "The bitrate follows what the connection can carry, so a weak link degrades instead of stalling. You can also pin it to Low, Medium or High yourself."
@@ -233,19 +238,18 @@ struct PlanFeaturesView: View {
                 icon: "speaker.wave.2",
                 title: "Sound from the Mac",
                 detail: "Hear what is playing on the Mac, from music you left running to the alert it makes in answer to a key you sent it. One switch in the session panel, and turning it off only drops the sound here.",
-                plan: .pro
+                capability: .macSound
             ),
             PlanFeature(
                 icon: "pip",
                 title: "Picture in Picture",
                 detail: "Keep the Mac's screen floating over other apps while you do something else.",
-                plan: .pro
+                capability: .pictureInPicture
             ),
             PlanFeature(
                 icon: "moon.fill",
                 title: "Privacy mode",
-                detail: "Dim the Mac's own displays while you work, so nobody standing there watches along.",
-                plan: .pro
+                detail: "Dim the Mac's own displays while you work, so nobody standing there watches along."
             ),
             PlanFeature(
                 icon: "camera",
@@ -289,13 +293,13 @@ struct PlanFeaturesView: View {
                 icon: "wand.and.stars",
                 title: "Macros",
                 detail: "Save a sequence and fire it with one tap, for the things you type every time.",
-                plan: .pro
+                capability: .macros
             ),
             PlanFeature(
                 icon: "text.badge.plus",
                 title: "Snippets and quick commands",
                 detail: "The commands you keep one tap away, above the keyboard, in every terminal.",
-                plan: .pro
+                capability: .macros
             ),
         ]),
 
@@ -303,14 +307,30 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "terminal",
                 title: "A shell on your Mac",
-                detail: "Open a terminal inside the session, with tabs you can name, and the control keys a phone keyboard cannot send.",
-                plan: .relayPlus
+                detail: "Open a terminal inside the session, with the control keys a phone keyboard cannot send. It runs on the Mac rather than here, and it keeps going when you disconnect."
+            ),
+            // **The row that says what the concurrency costs, and the one that was missing.** It
+            // used to be implied by the line above, which said "with tabs you can name" and wore no
+            // badge, so the list promised tabs and the plans document sold them, and the one screen
+            // a reader checks before paying was the one that got it wrong. It is its own row now,
+            // for the same reason it is its own row on the cards: one shell is free, the second one
+            // at the same time is not, and that is a sentence no single line can hold.
+            PlanFeature(
+                icon: "rectangle.stack",
+                title: "Several shells at once",
+                detail: "One shell at a time is in every plan, on your Mac and on any server you have added. This is naming a tab and keeping several open, each with its own scrollback and its own directory.",
+                capability: .shellTabs
             ),
             PlanFeature(
                 icon: "clock.arrow.circlepath",
                 title: "Commands you ran before",
                 detail: "The last commands sent to a shell, one tap from the input field. A command the shell did not recognise is dropped from the list."
             ),
+            // **Free, and it was the one row that read as a hostage.** A server is a machine the
+            // user typed in themselves and named themselves, and the row that said it needed Relay
+            // Plus was the app asking to be paid for a list of their own hosts. What a plan runs
+            // out of is shells at once, which is the row above this one, so this line carries no
+            // capability and wears no badge.
             PlanFeature(
                 icon: "server.rack",
                 title: "SSH servers",
@@ -344,12 +364,14 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "square.and.arrow.up",
                 title: "Take a file off the machine",
-                detail: "Download what you are looking at to the phone and hand it to Files, or to anything else in the share sheet."
+                detail: "Download what you are looking at to the phone and hand it to Files, or to anything else in the share sheet.",
+                capability: .fileTransfer
             ),
             PlanFeature(
                 icon: "arrow.up.to.line",
                 title: "Send a file to it",
-                detail: "Pick a file from the phone and put it in the folder you are looking at, up to 64 MB."
+                detail: "Pick a file from the phone and put it in the folder you are looking at, up to 64 MB.",
+                capability: .fileTransfer
             ),
         ]),
 
@@ -357,14 +379,12 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "bolt.horizontal.circle",
                 title: "Live Activity",
-                detail: "The session's state and duration on the Lock Screen and in the Dynamic Island.",
-                plan: .relayPlus
+                detail: "The session's state and duration on the Lock Screen and in the Dynamic Island."
             ),
             PlanFeature(
                 icon: "square.grid.2x2",
                 title: "Home Screen widget",
-                detail: "One tap to open Peering on the Mac you used last.",
-                plan: .relayPlus
+                detail: "One tap to open Peering on the Mac you used last."
             ),
             PlanFeature(
                 icon: "bell",

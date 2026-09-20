@@ -973,16 +973,30 @@ struct MacroBar: View {
                     .foregroundStyle(.white.opacity(0.2))
                     .padding(.horizontal, 2)
 
-                Button {
-                    showingMacroEditor = true
-                } label: {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 34, height: 34)
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                // **The line between what is paid here and what is not is making one, not using
+                // one.** The chips to the left are the keyboard: ⌘C, esc, ⏎ and the control keys a
+                // phone keyboard cannot send, and they are free on every plan along with the rest
+                // of the pointer and the keyboard. What Pro adds is the editor behind this button:
+                // a macro you save, a snippet you keep, a command you fire instead of typing it.
+                // Gating the built-in keys instead would be charging for the keyboard.
+                //
+                // The button keeps its slider on a plan that does not include the editor, dimmed,
+                // with the badge beside it. The rail is a row of glyphs and this is one of them:
+                // taking the glyph away leaves a row that cannot say which of the buttons in it
+                // edits macros, and the seller of the feature is the last button that should stop
+                // saying what it does.
+                PlanLocked(capability: .macros, title: "Edit macros", diameter: 34) {
+                    Button {
+                        showingMacroEditor = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 13, weight: .medium))
+                            .frame(width: 34, height: 34)
+                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.86))
+                    .accessibilityLabel("Edit macros")
                 }
-                .buttonStyle(RailButtonStyle(scale: 0.86))
-                .accessibilityLabel("Edit macros")
             }
             .padding(.horizontal, 2)
         }

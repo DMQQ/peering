@@ -46,13 +46,14 @@ final class SSHTerminal: Identifiable {
     /// the record is about, and a shell is exactly one record by construction.
     @ObservationIgnored fileprivate var isRecorded = false
 
-    /// The password this shell was opened with, so a second shell on the same machine does not
-    /// ask for it again.
+    /// What this shell was opened with, so a second shell on the same machine does not ask again.
     ///
-    /// In memory, and only for as long as the shell is. The keychain is where a password is
-    /// *kept*; this is not keeping one, it is remembering what was just typed — and it is marked
-    /// unobserved because nothing on screen reads it, so a change to it should never redraw.
-    @ObservationIgnored let password: String
+    /// In memory, and only for as long as the shell is. The keychain is where a credential is
+    /// *kept*; this is not keeping one, it is remembering what was just typed or just chosen — and
+    /// it is marked unobserved because nothing on screen reads it, so a change to it should never
+    /// redraw. A key held here is the same key the keychain holds, which is not a second copy of a
+    /// secret so much as the same one read once.
+    @ObservationIgnored let credential: SSHCredential
 
     private(set) var phase: Phase = .connecting
     /// Raw bytes, not a string.
@@ -77,10 +78,15 @@ final class SSHTerminal: Identifiable {
         return true
     }
 
-    init(host: SSHHost, session: SSHSession, password: String, startedAt: Date = Date()) {
+    init(
+        host: SSHHost,
+        session: SSHSession,
+        credential: SSHCredential,
+        startedAt: Date = Date()
+    ) {
         self.host = host
         self.session = session
-        self.password = password
+        self.credential = credential
         self.startedAt = startedAt
     }
 
@@ -261,24 +267,72 @@ final class SSHModel {
         passcodes.remove(for: host.id)
     }
 
-    /// Whether a password is already stored, so the connect flow knows to ask.
-    func hasStoredPassword(for host: SSHHost) -> Bool {
+    /// Whether anything at all is already stored, so the connect flow knows to ask.
+    ///
+    /// Asks about a credential rather than about a password, which is the difference a key makes:
+    /// a host that logs in with one must not be sent to a password sheet, and that would be exactly
+    /// what a `hasStoredPassword` returning `false` for a key would do.
+    func hasStoredCredential(for host: SSHHost) -> Bool {
         credentials.hasCredential(for: host.id)
     }
 
-    /// The stored password, or nil when there is none.
+    /// What this host signs in with, or nil when nothing is stored.
     ///
-    /// v1 only stores passwords — ``SSHCredential`` is an enum precisely so that adding keys later
-    /// is a case and a line rather than a migration, and this is the one place that will have to
-    /// grow when it does.
-    func storedPassword(for host: SSHHost) -> String? {
-        guard case .password(let value) = credentials.credential(for: host.id) else { return nil }
-        return value
+    /// The one place the app reads the store, and it hands back the whole credential rather than a
+    /// password: everything downstream — the session, a second shell, the row that says which kind
+    /// is saved — wants "the credential", and unwrapping it here into a string would put the enum
+    /// back in the caller's hands at every one of those places.
+    func storedCredential(for host: SSHHost) -> SSHCredential? {
+        credentials.credential(for: host.id)
+    }
+
+    /// What kind of credential this host is set up with, in the words the list uses.
+    func credentialKind(for host: SSHHost) -> String? {
+        switch storedCredential(for: host) {
+        case .password: return "Password saved"
+        case .key: return "Key saved"
+        case nil: return nil
+        }
     }
 
     func store(password: String, for host: SSHHost, remember: Bool) {
         guard remember else { return }
         credentials.save(.password(password), for: host.id)
+    }
+
+    /// Carries out what the editor decided about the secret, and nothing when it decided nothing.
+    ///
+    /// The three cases are three different writes, and the difference matters more than it looks:
+    /// `.unchanged` must not write at all, because a keychain write on every edit is a write that
+    /// can land on top of a key something else changed in the meantime. This is the only place the
+    /// app acts on ``SSHSecretChange``, so it is the only place that has to get that right.
+    func apply(_ change: SSHSecretChange, to host: SSHHost, rememberPassword: Bool) {
+        switch change {
+        case .unchanged:
+            break
+        case .use(.password(let password)):
+            store(password: password, for: host, remember: rememberPassword)
+        case .use(.key(let key)):
+            store(key: key, for: host)
+        case .forget:
+            forgetCredential(for: host)
+        }
+    }
+
+    /// Saves a key for this host, replacing whatever was there.
+    ///
+    /// Replacing rather than coexisting is the whole point of ``SSHCredential`` being an enum: a
+    /// host that has just been given a key must not still be holding the password it was using,
+    /// because the app would have no way to say which of the two it was about to present.
+    @discardableResult
+    func store(key: SSHKeyPair, for host: SSHHost) -> Bool {
+        credentials.save(.key(key), for: host.id)
+    }
+
+    /// Forgets whatever this host signs in with, leaving it to ask next time.
+    @discardableResult
+    func forgetCredential(for host: SSHHost) -> Bool {
+        credentials.remove(for: host.id)
     }
 
     /// Forgets a server's pinned key, so the next connection asks about it as a first sight.
@@ -421,18 +475,19 @@ final class SSHModel {
 
     /// Opens a shell. Returns once the connection is *starting*; the tab reports the rest.
     @discardableResult
-    func open(_ host: SSHHost, password: String, remember: Bool) -> SSHTerminal {
+    func open(_ host: SSHHost, credential: SSHCredential, remember: Bool) -> SSHTerminal {
         if remember {
-            credentials.save(.password(password), for: host.id)
+            credentials.save(credential, for: host.id)
         }
 
-        let session = SSHSession(host: host, password: password, knownHosts: knownHosts) { [weak self] prompt in
+        let session = SSHSession(host: host, credential: credential, knownHosts: knownHosts) { [weak self] prompt in
             await self?.ask(about: prompt) ?? false
         }
 
-        let terminal = SSHTerminal(host: host, session: session, password: password)
+        let terminal = SSHTerminal(host: host, session: session, credential: credential)
         terminals.append(terminal)
         selectedTerminalID = terminal.id
+        hostSessions[host.id, default: []].append(session)
 
         // The row is stamped only once a shell actually opened. Doing it here would record an
         // attempt, and the list is meant to say what worked.
@@ -442,6 +497,11 @@ final class SSHModel {
                 case .connected:
                     terminal.setPhase(.live)
                     self?.markConnected(host)
+                    // After `.live` and in a task of its own, so the shell is usable the moment it
+                    // opens rather than once every listener has bound.
+                    if let self {
+                        Task { await self.startEnabledForwards(on: host) }
+                    }
                 case .output(let data):
                     terminal.append(data)
                 case .failed(let error):
@@ -449,9 +509,11 @@ final class SSHModel {
                     terminal.setPhase(.ended(reason))
                     self?.clearPendingBrowsing(for: terminal.id)
                     self?.record(terminal, outcome: .failed(reason))
+                    await self?.endForwards(for: terminal)
                 case .closed:
                     if case .ended = terminal.phase {} else { terminal.setPhase(.ended(nil)) }
                     self?.clearPendingBrowsing(for: terminal.id)
+                    await self?.endForwards(for: terminal)
                     // `.closed` arrives whether the shell was live or had already failed, which is
                     // what lets one case cover both the user closing a session and the server
                     // hanging up on it. A failed attempt never gets here as `.connected`, because
@@ -472,8 +534,8 @@ final class SSHModel {
     /// and the connection log both arrive at it too, and a password prompt is the same question
     /// whichever of the three asked for the shell.
     func connect(_ host: SSHHost) {
-        if let password = storedPassword(for: host) {
-            open(host, password: password, remember: false)
+        if let credential = storedCredential(for: host) {
+            open(host, credential: credential, remember: false)
         } else {
             pendingPasswordHost = host
         }
@@ -502,6 +564,27 @@ final class SSHModel {
         if selectedTerminalID == terminal.id {
             selectedTerminalID = terminals.last?.id
         }
+        // Ended here as well as on the session's own `.closed`, because a listener that outlived
+        // the shell it belonged to would be a port still open on the phone with nothing behind it,
+        // and "nothing behind it" here means every connection through it hangs until it times out.
+        Task { await self.endForwards(for: terminal) }
+    }
+
+    /// Ends a shell's forwards if it was the last shell on that machine.
+    ///
+    /// The "last one" test is the whole of it. Two shells on one server share one set of forwards,
+    /// so a rule that stopped them whenever any shell ended would have the second tab kill the
+    /// first tab's tunnels.
+    private func endForwards(for terminal: SSHTerminal) async {
+        let hostID = terminal.host.id
+        hostSessions[hostID]?.removeAll { $0 === terminal.session }
+        let stillOpen = hostSessions[hostID]?.contains { session in
+            terminals.contains { $0.session === session }
+        } ?? false
+        guard !stillOpen else { return }
+
+        await stopForwards(on: hostID)
+        hostSessions.removeValue(forKey: hostID)
     }
 
     func send(_ data: Data, to terminal: SSHTerminal) {
@@ -524,6 +607,117 @@ final class SSHModel {
         var updated = host
         updated.lastConnectedAt = Date()
         save(updated)
+    }
+
+    // MARK: - Port forwards
+
+    /// The tunnels each host is carrying, keyed by host and then by forward.
+    ///
+    /// Keyed by *host* rather than hung off a shell, and the two-shells case is why. A server that
+    /// carries a forward on 8080 carries it once: two shells on the same machine each starting
+    /// their own listener would be one bind that works and one that fails with "address already in
+    /// use", shown to a user who did nothing but open a second tab. The forwards belong to the
+    /// machine, and the connection that happens to be carrying them is an implementation detail the
+    /// screens do not show.
+    private(set) var forwardStates: [UUID: [UUID: SSHForwardState]] = [:]
+
+    /// The live forwarder for each host, made when that host first carries anything.
+    ///
+    /// Not observable: nothing on screen reads the forwarder itself, and the only thing it has to
+    /// say is in ``forwardStates``, which is.
+    @ObservationIgnored private var forwarders: [UUID: SSHForwarder] = [:]
+    /// Which sessions are open per host, so a forward's dialer can find one without holding it.
+    ///
+    /// The dialer needs a session *now*, not the one that happened to exist when the forwarder was
+    /// made, and this is the lookup that makes that possible without the forwarder retaining a
+    /// connection that the user may have closed.
+    @ObservationIgnored private var hostSessions: [UUID: [SSHSession]] = [:]
+
+    func forwardState(_ forward: SSHPortForward, on host: SSHHost) -> SSHForwardState {
+        forwardStates[host.id]?[forward.id] ?? .stopped
+    }
+
+    /// Whether any of a host's forwards is up, which is what lights the port button.
+    func hasRunningForward(on host: SSHHost) -> Bool {
+        (forwardStates[host.id]?.values.contains { $0.isRunning }) ?? false
+    }
+
+    /// Whether any of them is broken, so the button can say so without being opened.
+    func hasBrokenForward(on host: SSHHost) -> Bool {
+        (forwardStates[host.id]?.values.contains { state in
+            if case .failed = state { return true }
+            return false
+        }) ?? false
+    }
+
+    /// The forwarder for a host, made on first use.
+    ///
+    /// The dialer resolves the session when it is *called* rather than when it is made, which is
+    /// what lets one forwarder outlive the shell that started it: the second shell on the same
+    /// machine picks up the same listening sockets and its channels go out over its own
+    /// connection. Holding the session directly instead would pin the first shell open for as long
+    /// as its forwards ran, which is precisely backwards.
+    private func forwarder(for host: SSHHost) -> SSHForwarder {
+        if let existing = forwarders[host.id] { return existing }
+
+        let id = host.id
+        let forwarder = SSHForwarder { [weak self] remoteHost, remotePort, localPort in
+            guard let session = await self?.currentSession(for: id) else {
+                throw SSHSessionError.notConnected
+            }
+            return try await session.openDirectChannel(to: remoteHost, port: remotePort, from: localPort)
+        }
+
+        forwarders[host.id] = forwarder
+        // The states are pushed rather than polled, because the thing they change for is a
+        // connection the *server* refused, which happens whenever some other app on the phone
+        // decides to use the port and never at a moment this screen caused.
+        Task { @MainActor [weak self] in
+            for await states in forwarder.changes {
+                self?.forwardStates[id] = states
+            }
+        }
+        return forwarder
+    }
+
+    @MainActor
+    private func currentSession(for hostID: UUID) -> SSHSession? {
+        hostSessions[hostID]?.first { session in
+            terminals.contains { $0.session === session && isLive($0) }
+        }
+    }
+
+    /// Starts every forward this server is set to carry.
+    ///
+    /// Automatic rather than a button per tunnel, and that is the decision OpenSSH's own config
+    /// makes: the user wrote the forward down on the server, so opening a shell is the intent. What
+    /// it is not is silent. A forward that could not open lands in ``forwardStates`` as a failure
+    /// and the toolbar's button changes to say so, which is the difference between an automatic
+    /// thing and a hidden one.
+    func startEnabledForwards(on host: SSHHost) async {
+        let forwarder = forwarder(for: host)
+        for forward in host.forwards where forward.isEnabled {
+            // A forward already listening is left alone. This runs once per shell that opens, and
+            // the second shell on a machine must not tear down and rebuild the first one's tunnels.
+            guard await forwarder.state(of: forward.id) == .stopped else { continue }
+            try? await forwarder.start(forward)
+        }
+    }
+
+    func start(_ forward: SSHPortForward, on host: SSHHost) async {
+        // The throw is deliberately dropped: a bind that failed is already written into the
+        // forward's own state with the same sentence, and a second copy travelling up through a
+        // screen is a second place to keep it spelled the same.
+        try? await forwarder(for: host).start(forward)
+    }
+
+    func stop(_ forward: SSHPortForward, on host: SSHHost) async {
+        await forwarder(for: host).stop(forward.id)
+    }
+
+    /// Ends every tunnel on a host. What the last shell on that host closing does.
+    private func stopForwards(on hostID: UUID) async {
+        await forwarders[hostID]?.stopAll()
     }
 
     // MARK: - Browsing
@@ -894,10 +1088,12 @@ final class SSHModel {
 
     /// Opens a shell because something other than a tap asked for one.
     ///
-    /// Three answers rather than one, because an intent cannot ask a question and a password is
+    /// Three answers rather than one, because an intent cannot ask a question and a credential is
     /// the one thing it might need that is not in the request. With a shell already open it goes
-    /// there; with a stored password it connects; with neither it hands the user to the screen
-    /// that *can* ask — which is the only honest thing a voice command can do about a secret.
+    /// there; with a stored credential it connects; with neither it hands the user to the screen
+    /// that *can* ask — which is the only honest thing a voice command can do about a secret. A
+    /// stored key is a stored credential here, which is what stops a shortcut to a key-only server
+    /// opening a password sheet the server would refuse.
     func openShellFromIntent(_ host: SSHHost) {
         // The list rather than whichever shell was last being looked at. An intent asked for *this*
         // server, and everything below either lands on its shell or puts a question on screen — and
@@ -910,16 +1106,16 @@ final class SSHModel {
 
     /// Opens another shell on a machine that already has one.
     ///
-    /// The password comes from the shell that is open rather than from the keychain, because the
+    /// The credential comes from the shell that is open rather than from the keychain, because the
     /// common case is a user who did *not* ask to have it remembered: they are looking at a
     /// working session and want a second one, and being asked to type it again would make the
     /// second tab cost more than the first. Nothing is stored anywhere — this is the one that was
-    /// just typed, still in memory because its session is.
+    /// just typed or just chosen, still in memory because its session is.
     @discardableResult
     func openAnotherShell(on terminal: SSHTerminal) -> SSHTerminal {
         // Deliberately not through ``requestOpen(_:)``, and so deliberately not past a lock either
         // — see there. This is the second shell on a machine the user is already looking at.
-        open(terminal.host, password: terminal.password, remember: false)
+        open(terminal.host, credential: terminal.credential, remember: false)
     }
 
     /// Ends every shell. For the intent, which has no way to say *which* one.
@@ -929,6 +1125,13 @@ final class SSHModel {
         }
         terminals.removeAll()
         selectedTerminalID = nil
+        // Every host, because the loop above dropped every shell at once and there is no "last one"
+        // left to work out per machine.
+        let hosts = forwarders.keys
+        Task { @MainActor in
+            for host in hosts { await self.stopForwards(on: host) }
+        }
+        hostSessions.removeAll()
     }
 
     // MARK: - The first-sight question
@@ -967,6 +1170,12 @@ final class SSHModel {
         // happened rather than on the shell's own line: see ``browseMessage(_:)``.
         case .browse(let reason):
             return reason
+        // Nor is a forward that failed: the shell is still perfectly usable, and the sentence
+        // belongs on the forward's own row in the ports sheet rather than here. Reaching this at
+        // all would mean a forward error had escaped into the shell's event loop, which it cannot
+        // do; the case is here so the switch stays exhaustive as the error type grows.
+        case .forward(let reason):
+            return SSHForwarder.describe(reason)
         }
     }
 }

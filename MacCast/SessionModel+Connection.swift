@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -122,6 +123,10 @@ extension SessionModel {
         videoPoll = nil
         renderer.reset()
         connectionPath = nil
+        // An end this app chose is not a session the relay cut. Cleared here as well as on a
+        // session coming up, because this path sets the phase directly and so never passes
+        // through the drop handling in ``apply(_:)-swift.enum.case`` that would clear it.
+        relaySessionDropped = false
         latchedModifiers = []
         phase = .disconnected
 
@@ -362,6 +367,20 @@ extension SessionModel {
     func enteringBackground() {
         SessionActivity.shared.enteringBackground()
 
+        // **The plan, pushed into the singleton before it is asked to float anything.** PiP is on
+        // the Relay plan and above, and the picture is drawn by an object that owns no store, so
+        // this is the one place the app both knows the plan and is about to leave the screen, and
+        // it is where the two are put together. Written on every backgrounding rather than once,
+        // because an entitlement can arrive or lapse while the app runs, and a stale flag here is
+        // either a locked feature starting anyway or a paid one refusing to.
+        //
+        // The switch's own preference is read here rather than kept on the model: it is written by
+        // a toggle in a view and read by ``SessionPiP``, and a third copy would be a third place
+        // for it to disagree.
+        let pipIncluded = storeManager.access.includes(.pictureInPicture)
+        SessionPiP.shared.autoStart = pipIncluded
+            && (UserDefaults.standard.object(forKey: PreferenceKeys.pipAutoStart) as? Bool ?? true)
+
         // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
         // That flag is set, and the picture does float when it is started by hand — but iOS
         // never takes the hint. Automatic PiP is gated on the system considering the app to be
@@ -371,7 +390,10 @@ extension SessionModel {
         // Asking at the one moment it is wanted costs nothing and does not depend on that
         // judgement — and the moment matters: this runs as the app leaves the screen, which is
         // when `startPictureInPicture` still has a view hierarchy to lift the layer out of.
-        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession)
+        //
+        // `false` for a plan without it, which reads in ``SessionPiP`` as "no session up" and is
+        // the honest answer to the question it is really asking: there is nothing here to float.
+        SessionPiP.shared.backgrounding(sessionIsUp: phase.holdsSession && pipIncluded)
 
         // Also keep the process alive when the reconnect ladder is running. A LAN session that
         // drops moves to `.failed` immediately — before `enteringBackground()` — so

@@ -4,44 +4,86 @@ import SSHCore
 import SwiftUI
 import UIKit
 
+/// The app's five places, in the order the bar shows them.
+///
+/// A whole file's business rather than the picker's alone, which is why it sits outside it: the bar
+/// draws itself from this list, and a nested type would be private to the picker. It is still
+/// `private`, so the list of the app's screens does not leave this file.
+///
+/// The bar reads its titles and glyphs from here rather than from a second list beside it, so the
+/// two cannot come apart: a sixth screen means a sixth case, and the switch in
+/// ``HostPickerView/content(for:)`` does not compile until that case has somewhere to go.
+private enum Screen: CaseIterable, Identifiable {
+    case connect, servers, sessions, faq, settings
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .connect: "Connect"
+        case .servers: "Servers"
+        case .sessions: "Sessions"
+        case .faq: "FAQ"
+        case .settings: "Settings"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .connect: "macbook.and.iphone"
+        case .servers: "server.rack"
+        case .sessions: "clock.fill"
+        case .faq: "questionmark.circle.fill"
+        case .settings: "gearshape.fill"
+        }
+    }
+}
+
 /// Root navigation for connection, sessions, help, and settings.
 struct HostPickerView: View {
     @Binding var acknowledgedFailure: String?
-
-    private enum Screen: Hashable {
-        case connect, sessions, servers, faq, settings
-    }
 
     @Environment(SSHModel.self) private var servers
     @State private var screen: Screen = .connect
 
     var body: some View {
-        TabView(selection: $screen) {
-            HomeTab(acknowledgedFailure: $acknowledgedFailure)
-                .tabItem { Label("Connect", systemImage: "macbook.and.iphone") }
-                .tag(Screen.connect)
-
-            SSHTab()
-                .tabItem { Label("Servers", systemImage: "server.rack") }
-                .tag(Screen.servers)
-
-            ActivityTab()
-                .tabItem { Label("Sessions", systemImage: "clock.fill") }
-                .tag(Screen.sessions)
-
-            NavigationStack {
-                FAQView()
+        // The window's bottom safe area, which the bar needs and cannot measure for itself: it is
+        // placed as a safe area *inset*, so by the time it is laid out it is already below the
+        // line it would be measuring. Read here, one level up, where the window's own insets are
+        // still the answer. See ``RootTabBar/bottomSafeArea``.
+        GeometryReader { geometry in
+            TabView(selection: $screen) {
+                ForEach(Screen.allCases) { item in
+                    content(for: item)
+                        // On each screen rather than on the tab view, which is where the
+                        // documentation puts it and, more to the point, the only place it works:
+                        // on the tab view the bar is made invisible but is not taken away, and its
+                        // five items stay in the accessibility tree as unnamed buttons sitting
+                        // over this bar.
+                        .toolbar(.hidden, for: .tabBar)
+                        .tag(item)
+                }
             }
-            .tabItem { Label("FAQ", systemImage: "questionmark.circle.fill") }
-            .tag(Screen.faq)
-
-            SettingsTab()
-                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
-                .tag(Screen.settings)
+            // iOS's bar is hidden rather than kept and drawn over. It has a fixed number of
+            // columns, and a sixth tab does not widen it — it folds the last two into a "More"
+            // table, which is the thing this change exists to avoid. Hiding it also hands back the
+            // bottom safe area it was holding, which is why the custom bar has to be installed as
+            // an inset: the screens underneath are all scroll views, and one that ran under the
+            // bar would have its last row covered by glass.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // The bar goes while a shell is up. That screen asks for every point it can get —
+                // a terminal is read from the bottom up, and the line the cursor is on is the one
+                // nearest the bar — so it hides the bar it used to have, and a bar drawn here does
+                // not answer to `.toolbar(.hidden, for: .tabBar)`. The question is asked of the
+                // model, which is where the answer lives: the shell screen is the Servers tab's
+                // own root, so nothing about the hierarchy changes when it opens.
+                if servers.selectedTerminal == nil {
+                    RootTabBar(screen: $screen, bottomSafeArea: geometry.safeAreaInsets.bottom)
+                }
+            }
         }
         .tint(ColorPalette.accent)
         .preferredColorScheme(.dark)
-        .onAppear { configureTabBar() }
         // `initial: true`, because "open a shell on prod" usually launches the app rather than
         // arriving at one already open — so the flag is already up by the time this view first
         // appears, and a plain `onChange` would sit there waiting for it to change.
@@ -53,19 +95,241 @@ struct HostPickerView: View {
         }
     }
 
-    private func configureTabBar() {
-        let bg = UIColor(red: 0.04, green: 0.04, blue: 0.045, alpha: 1)
-        let appearance = UITabBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = bg
-        let item = UITabBarItemAppearance()
-        item.normal.iconColor = UIColor.white.withAlphaComponent(0.4)
-        item.normal.titleTextAttributes = [.foregroundColor: UIColor.white.withAlphaComponent(0.4)]
-        item.selected.iconColor = UIColor.white
-        item.selected.titleTextAttributes = [.foregroundColor: UIColor.white]
-        appearance.stackedLayoutAppearance = item
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
+    /// The screen behind each tab.
+    ///
+    /// One switch rather than five `.tabItem`s, because the bar is drawn here now and a `.tabItem`
+    /// would be a label for a bar that is no longer on screen: two descriptions of the same five
+    /// things, one of which nothing reads.
+    @ViewBuilder
+    private func content(for item: Screen) -> some View {
+        switch item {
+        case .connect: HomeTab(acknowledgedFailure: $acknowledgedFailure)
+        case .servers: SSHTab()
+        case .sessions: ActivityTab()
+        case .faq: NavigationStack { FAQView() }
+        case .settings: SettingsTab()
+        }
+    }
+}
+
+// MARK: - Tab bar
+
+/// Every measurement the tab bar is built from, all of them taken off the bar it replaces.
+///
+/// Measured rather than chosen, and measured on the device the app is built against, because the
+/// whole point of the numbers is that the two bars are the same bar to look at: a capsule two
+/// points out of place is a bar that has been replaced, and the eye finds that without being told
+/// what to look for. The one exception is ``minimumItemWidth``, which is a reading from a narrower
+/// phone rather than from this one.
+private enum RootTabBarMetrics {
+    /// The capsule's height, top edge to bottom edge.
+    static let height: CGFloat = 64
+    /// From the screen's edge to the capsule's, on both sides. The bar floats.
+    static let screenInset: CGFloat = 21
+    /// From the screen's *bottom* edge to the capsule's. See ``RootTabBar/bottomSafeArea``: this is
+    /// measured from the screen and not from the safe area, which is a different number on every
+    /// device that has a home indicator and the same number on the ones that do not.
+    static let bottomGap: CGFloat = 21
+    /// Inside the capsule, before the first tab and after the last. Nine points is what the system
+    /// leaves there, and it is what makes five tabs of 68.4 points fill a 360-point capsule.
+    static let sidePadding: CGFloat = 9
+    /// How narrow a tab is allowed to get before the bar starts scrolling instead of sharing.
+    ///
+    /// This is the width the system's bar gives five tabs on a 375-point phone, which is the
+    /// narrowest screen the app runs on: the point below which it is no longer reproducing
+    /// anything, and a label is on its way to being truncated. Six tabs on a 402-point phone divide
+    /// into 57 points each, which is under it, so six is where this bar scrolls and the system's
+    /// would have folded two away.
+    static let minimumItemWidth: CGFloat = 63
+    /// The glyph, at the size the system draws a tab bar's.
+    ///
+    /// 23 rather than the 25 a `UITabBarItem` is documented at, because the number wanted is the
+    /// one that draws the same *ink*: a symbol at 25 sets a glyph 21 points tall, and the system's
+    /// is 19.3, which is what 23 draws.
+    static let glyphSize: CGFloat = 23
+    /// The label's size, which is the system's too, and smaller than any text style in the app.
+    static let labelSize: CGFloat = 10
+    /// Between the glyph and the label under it.
+    static let labelGap: CGFloat = 2
+    /// How far the glyph and its label sit below the middle of the capsule.
+    ///
+    /// The system's item is not centred in its own bar, and a stack that is centred in the capsule
+    /// lands about two points high: measured off the bar being replaced, the glyph's ink starts
+    /// 15.9 points below the capsule's top edge and the label's ends 13.8 above its bottom, which
+    /// are not the same number. This is that difference, and it is a nudge rather than a layout
+    /// because the two are the same stack placed a little lower.
+    static let contentDrop: CGFloat = 2
+    /// An item under a finger.
+    static let pressedOpacity: CGFloat = 0.6
+    /// An item that is not the current one.
+    ///
+    /// **Not the 40% the tab bar's appearance used to ask for**, because it never got it: the
+    /// appearance was set in `onAppear`, which runs after iOS has already built the bar, and iOS 26
+    /// draws its own glass capsule whatever it is told. What the old bar actually showed is this,
+    /// and matching what was on screen is the whole point of the number.
+    static let restingInk: CGFloat = 0.95
+}
+
+/// The app's own tab bar, drawn here so that it can scroll sideways.
+///
+/// **Why the system's bar is not used.** A `TabView`'s bar belongs to iOS, and iOS's bar has a
+/// fixed number of columns: a sixth tab does not widen it, it moves what does not fit into a "More"
+/// list, which is a table of names rather than a row of places. Session tabs are what this is for,
+/// and six is the ordinary number of them, so the bar has to be one that grows.
+///
+/// This one is a copy of the bar it replaces. Same capsule, same height, same distance from the
+/// screen's bottom edge, same glass over the same backdrop, glyph over label at the same sizes and
+/// the same gaps. At five tabs nothing has moved, and the difference only appears at six: this bar
+/// keeps its columns and scrolls, where the system's would have folded two of them away.
+///
+/// Three things the system's bar did are given up, and each is worth naming rather than
+/// discovering later:
+///
+/// - **The tab bar's rotor.** VoiceOver offers a `UITabBar`'s items as a group with a "2 of 5"
+///   position announced for each. There is no SwiftUI trait for a tab bar, so the group is rebuilt
+///   by hand — a container, one element per tab, the position spoken as the element's value — and
+///   the rotor itself is the one piece that cannot be rebuilt, because setting it is a UIKit trait
+///   and this is not a UIKit view.
+/// - **Tapping the current tab to scroll its screen to the top.** `UITabBarController` does that,
+///   and it is the only gesture a bar of this shape offers that is not a tab change. There is
+///   nothing here to hang it on: the screens are five separate views with their own scroll views,
+///   and this bar can see none of them. Tapping the tab you are already on does nothing.
+/// - **The highlighted plate behind the current tab.** iOS 26's bar marks the selection with a
+///   lighter plate under it, which is a second selection marker this bar does not need: the tint
+///   is the marker here, and two of them for one state is one too many. What is lost with the
+///   plate is the item's *shape* being visible at rest, which is the thing the plate did that the
+///   tint does not — see ``RootTabBarMetrics/restingInk`` for what is left in its place.
+private struct RootTabBar: View {
+    @Binding var screen: Screen
+
+    /// The window's bottom safe area, handed in by the caller.
+    ///
+    /// The bar is installed as a bottom safe area *inset*, which puts its bottom edge on the safe
+    /// area's own line — and the bar it is copying is not there. iOS 26's capsule hangs into the
+    /// home-indicator strip, a fixed distance from the *screen's* bottom edge: 21 points on an
+    /// iPhone 17 Pro, whose safe area is 34, and 22 on a phone with a home button, whose safe area
+    /// is nothing at all. So the number that has to be subtracted is the safe area, and a view
+    /// inside a safe area inset is laid out below the safe area it would be trying to measure.
+    let bottomSafeArea: CGFloat
+
+    /// Where the bar is scrolled to, in points from the start of its content.
+    ///
+    /// Only ever read when the selection changes, to answer one question: is the tab that was just
+    /// chosen already on screen. Without it a `scrollTo` would re-centre every tab that is tapped,
+    /// and a bar that shifts sideways under a finger that tapped something in the middle of it
+    /// reads as a bar that moved on its own.
+    @State private var scrollOffset: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollViewReader { scroller in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ForEach(Screen.allCases) { item in
+                            tab(item, width: itemWidth(in: geometry.size.width))
+                                .id(item)
+                        }
+                    }
+                    .padding(.horizontal, RootTabBarMetrics.sidePadding)
+                }
+                // A name for the bar itself, so the UI tests can reach a tab without matching every
+                // "Servers" and "Connect" on the screen behind it. The bar is one scroll view here
+                // and was one tab bar to UIKit, and this is what stands in for `app.tabBars`.
+                .accessibilityIdentifier("RootTabBar")
+                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, offset in
+                    scrollOffset = offset
+                }
+                .onChange(of: screen) { _, item in
+                    reveal(item, in: geometry.size.width, with: scroller)
+                }
+            }
+        }
+        .frame(height: RootTabBarMetrics.height)
+        // The glass, the shape, and the clipping of the content to it: the same three lines the
+        // rest of the app's glass panels are built from, and the clip is what keeps a tab from
+        // showing beside the capsule's curve once the tabs are wider than the bar.
+        .glassEffect(.regular, in: Capsule())
+        .clipShape(Capsule())
+        .padding(.horizontal, RootTabBarMetrics.screenInset)
+        .padding(.bottom, RootTabBarMetrics.bottomGap - bottomSafeArea)
+    }
+
+    /// One tab: the glyph, the name under it, and the whole column as the target.
+    private func tab(_ item: Screen, width: CGFloat) -> some View {
+        Button {
+            screen = item
+        } label: {
+            VStack(spacing: RootTabBarMetrics.labelGap) {
+                Image(systemName: item.symbol)
+                    .font(.system(size: RootTabBarMetrics.glyphSize))
+                Text(item.title)
+                    .font(.system(size: RootTabBarMetrics.labelSize))
+            }
+            .foregroundStyle(
+                item == screen ? ColorPalette.accent : ColorPalette.ink.opacity(RootTabBarMetrics.restingInk)
+            )
+            .offset(y: RootTabBarMetrics.contentDrop)
+            .frame(width: width, height: RootTabBarMetrics.height)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(TabButtonStyle())
+        // One element, named, and marked when it is the current one. A system bar says all three by
+        // being a tab bar; this one has to say them out loud, and the position is the half of that
+        // which is not a label or a trait: VoiceOver's "2 of 5" comes from the tab bar container
+        // iOS would have built, and a custom bar has no container to inherit it from.
+        .accessibilityLabel(item.title)
+        .accessibilityValue(position(of: item))
+        .accessibilityAddTraits(item == screen ? .isSelected : [])
+    }
+
+    /// How wide one tab is.
+    ///
+    /// The system's bar divides what is left of the capsule by the number of tabs, and that is
+    /// kept while it stays above ``RootTabBarMetrics/minimumItemWidth``, so five tabs land exactly
+    /// where the old bar's did. Past it the tabs hold their width and the bar scrolls, because the
+    /// alternative is tabs that keep shrinking until the names on them do not fit.
+    private func itemWidth(in capsuleWidth: CGFloat) -> CGFloat {
+        let shared = (capsuleWidth - RootTabBarMetrics.sidePadding * 2)
+            / CGFloat(Screen.allCases.count)
+        return max(RootTabBarMetrics.minimumItemWidth, shared)
+    }
+
+    /// Brings a tab into view when it is off the end of the bar, and leaves the bar alone when it
+    /// is not. Reached only by a selection made from somewhere other than a tap: the Servers tab
+    /// moves itself when Siri asks for a shell, and with six or more tabs that tab may be past the
+    /// edge. A tap cannot get here, because a tab that was tapped was on screen to be tapped.
+    private func reveal(_ item: Screen, in capsuleWidth: CGFloat, with scroller: ScrollViewProxy) {
+        guard let index = Screen.allCases.firstIndex(of: item) else { return }
+        let width = itemWidth(in: capsuleWidth)
+        let leading = RootTabBarMetrics.sidePadding + CGFloat(index) * width
+        let trailing = leading + width
+
+        // Off the start of the bar or off the end of it, and pushed back on from the side it went
+        // off. Everything between the two is already visible, and the bar is left where it is.
+        let isPastLeadingEdge = leading < scrollOffset
+        guard isPastLeadingEdge || trailing > scrollOffset + capsuleWidth else { return }
+        withAnimation(Motion.tap) {
+            scroller.scrollTo(item, anchor: isPastLeadingEdge ? .leading : .trailing)
+        }
+    }
+
+    /// Where this tab is in the bar, for the one announcement the system's container used to make.
+    private func position(of item: Screen) -> String {
+        guard let index = Screen.allCases.firstIndex(of: item) else { return "" }
+        return "\(index + 1) of \(Screen.allCases.count)"
+    }
+}
+
+/// A tab under a finger.
+///
+/// The system's bar dims the item it is pressed on, and that is the one piece of its feedback a bar
+/// drawn here gets to keep: the long-press large content viewer and the plate that marks the
+/// current tab are iOS drawing its own control, and neither comes with one that is not.
+private struct TabButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? RootTabBarMetrics.pressedOpacity : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -625,9 +889,38 @@ private struct HomeTab: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(model.hosts) { host in
-                        Button { model.connect(to: .discovered(host)) } label: { hostRow(host) }
+                        // **A Mac this device has never paired with is a pairing, and a pairing
+                        // past the first is `extraMacs`.** A Mac already in the trusted list is
+                        // not: that is a reconnect, and it stays free on every plan along with
+                        // every other thing about connecting to a Mac you own. The two are
+                        // told apart by the pin store, which is what decides whether the tap
+                        // below is about to write a second pairing or to resume an existing one.
+                        let isNewPairing = !model.pairedHostIDs.contains(host.id)
+                        // And compatible, so the badge never stands on a row that could not have
+                        // connected anyway: a Mac running an older protocol shows UPDATE and stays
+                        // untappable, because "buy Relay" is not the answer to it.
+                        let locked = isNewPairing && !canPairAnotherMac && isCompatible(host)
+
+                        // The row is the control, so the locked form is the row itself with the
+                        // plan's name over its trailing edge. It keeps its name, its ID and its
+                        // tile: on this list the tile and the name are how a user finds the Mac
+                        // they are trying to reach, and a row that had been replaced by a badge
+                        // would be a Mac that had disappeared from a list of Macs.
+                        PlanLocked(
+                            capability: .extraMacs,
+                            title: host.name,
+                            placement: .trailing,
+                            diameter: 26,
+                            isIncluded: !locked
+                        ) {
+                            Button {
+                                model.connect(to: .discovered(host))
+                            } label: {
+                                hostRow(host)
+                            }
                             .buttonStyle(.plain)
                             .disabled(model.isBusy || !isCompatible(host))
+                        }
                     }
                 }
                 Text(model.browseStatus).font(.caption).foregroundStyle(.secondary)
@@ -646,39 +939,63 @@ private struct HomeTab: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionLabel("Another network", systemImage: "globe")
 
-            Button { showsRemotePairing = true } label: {
-                HStack(spacing: 12) {
-                    IconTile(symbol: "number")
+            // **The second way to pair a Mac, and it counts the same.** The pin store is the
+            // one list of paired Macs, so a Mac paired by an ID typed from another network is
+            // on it exactly like one picked out of Nearby, which is why the limit is asked
+            // here as well. The limit is what is locked, not the row: the first Mac is free on
+            // every plan, so ``canPairAnotherMac`` is the question and the map alone would take
+            // away the free one.
+            //
+            // The row itself is the control, so the locked form is this row dimmed with the plan's
+            // name over its trailing edge, and the tap opens the plans rather than a sheet that
+            // would be refused at the end of it.
+            PlanLocked(
+                capability: .extraMacs,
+                title: "Pair with a Mac elsewhere",
+                placement: .trailing,
+                diameter: 26,
+                isIncluded: canPairAnotherMac
+            ) {
+                Button {
+                    showsRemotePairing = true
+                } label: {
+                    HStack(spacing: 12) {
+                        IconTile(symbol: "number")
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        // Two short lines rather than three long ones. The old title said the
-                        // whole thing — "a Mac that is not on your network" — and the sentence
-                        // under it said it again with the device ID in it, which made a section
-                        // about one button the tallest thing on the screen.
-                        Text("Pair with a Mac elsewhere")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(ColorPalette.ink)
-                            .multilineTextAlignment(.leading)
-                        Text("Type or scan the device ID shown on it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .multilineTextAlignment(.leading)
+                        VStack(alignment: .leading, spacing: 3) {
+                            // Two short lines rather than three long ones. The old title said the
+                            // whole thing — "a Mac that is not on your network" — and the sentence
+                            // under it said it again with the device ID in it, which made a section
+                            // about one button the tallest thing on the screen.
+                            Text("Pair with a Mac elsewhere")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(ColorPalette.ink)
+                                .multilineTextAlignment(.leading)
+                            Text(canPairAnotherMac
+                                 ? "Type or scan the device ID shown on it."
+                                 : "One Mac is free. \(PlanCapability.extraMacs.minimumPlan.name) pairs with every Mac you own.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .multilineTextAlignment(.leading)
+                        }
+
+                        // The spacer stays and the chevron that followed it does not: the row still
+                        // has to reach the far edge for its tap target, and the pairing sheet it
+                        // opens is something you come back from rather than somewhere the row
+                        // leads. It is also the room the badge lands in when the plan is out of
+                        // Macs.
+                        Spacer(minLength: 8)
                     }
-
-                    // The spacer stays and the chevron that followed it does not: the row still has
-                    // to reach the far edge for its tap target, and the pairing sheet it opens is
-                    // something you come back from rather than somewhere the row leads.
-                    Spacer(minLength: 8)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .rowSurface()
+                    .contentShape(Rectangle())
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 9)
-                .rowSurface()
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .disabled(model.isBusy)
+                .opacity(model.isBusy ? 0.5 : 1)
             }
-            .buttonStyle(.plain)
-            .disabled(model.isBusy)
-            .opacity(model.isBusy ? 0.5 : 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -925,6 +1242,16 @@ private struct HomeTab: View {
         }
     }
 
+    /// Whether there is room on this plan for one more paired Mac.
+    ///
+    /// Free pairs with one and every paid plan pairs with every Mac you own, which makes this a
+    /// question about the *list* rather than about the tap: the first pairing is free on every
+    /// plan, and what costs is the second. Asked here rather than stored, so the two places that
+    /// pair a Mac (this list and the row below it) answer the same way.
+    private var canPairAnotherMac: Bool {
+        model.storeManager.access.includes(.extraMacs) || model.pairedHostIDs.isEmpty
+    }
+
     private func hostRow(_ host: DiscoveredHost) -> some View {
         HStack(spacing: 12) {
             IconTile(symbol: "macbook")
@@ -954,6 +1281,12 @@ private struct HomeTab: View {
             // connects to it, so the row leads nowhere a chevron could honestly point at, and the
             // branch it lived in made the badge and the arrow two states of one slot rather than
             // one fact and one affordance.
+            //
+            // The protocol badge is the only thing left in that slot, and the plan badge is not
+            // drawn here at all: it goes over the row's trailing edge from the outside (see the
+            // ``PlanLocked`` around this row), so that the two badges are never the same slot
+            // competing for one fact. A Mac that cannot be talked to shows UPDATE and is not
+            // locked, which is the same rule as before and is now structural rather than decided.
             if let version = host.protocolVersion, version != ProtocolInfo.version {
                 Text("UPDATE")
                     .font(.caption2.weight(.semibold))
@@ -1835,37 +2168,50 @@ private struct SettingsTab: View {
         }
     }
 
+    /// The floating window, in the Settings tab.
+    ///
+    /// The same two controls as the session panel's, and the same plan behind them. On a plan that
+    /// does not include it, the switch is still the switch, dimmed and inert with the plan's name
+    /// beside it, and the rows that only make sense once the feature works (the manual start and
+    /// the diagnostic it produces) are the ones that are not drawn. The footer carries the sentence
+    /// about which plan adds it.
     private var pipSection: some View {
         Controls.card(
             "Picture in Picture",
-            footer: "Peering can keep a live view of your Mac floating over other apps."
+            footer: model.storeManager.access.includes(.pictureInPicture)
+                ? "Peering can keep a live view of your Mac floating over other apps."
+                : "It is part of \(PlanCapability.pictureInPicture.minimumPlan.name), with sound from the Mac and files that move both ways."
         ) {
-            Controls.toggle("Float automatically", systemImage: "pip", isOn: $pipAutoStart)
-                .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
-
-            Controls.divider
-
-            Controls.row("Try it now", systemImage: "pip.enter") {
-                Button("Start") { SessionPiP.shared.start() }
-                    .font(.subheadline.weight(.medium))
-                    .disabled(!SessionPiP.isSupported || !model.phase.holdsSession)
+            PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
+                Controls.toggle("Float automatically", systemImage: "pip", isOn: $pipAutoStart)
+                    .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
             }
 
-            if let attempt = SessionPiP.shared.lastAttempt {
+            if model.storeManager.access.includes(.pictureInPicture) {
                 Controls.divider
-                Controls.row("Last attempt", systemImage: "clock.arrow.circlepath") {
-                    Text(attempt)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+
+                Controls.row("Try it now", systemImage: "pip.enter") {
+                    Button("Start") { SessionPiP.shared.start() }
+                        .font(.subheadline.weight(.medium))
+                        .disabled(!SessionPiP.isSupported || !model.phase.holdsSession)
                 }
-                if let refusal = SessionPiP.shared.lastRefusal {
-                    Text(refusal)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+
+                if let attempt = SessionPiP.shared.lastAttempt {
+                    Controls.divider
+                    Controls.row("Last attempt", systemImage: "clock.arrow.circlepath") {
+                        Text(attempt)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    if let refusal = SessionPiP.shared.lastRefusal {
+                        Text(refusal)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .textSelection(.enabled)
+                    }
                 }
             }
         }

@@ -25,6 +25,21 @@
 //  — which is what produces the log entry. If macOS Remote Login is ever turned on, the app will
 //  instead sit waiting for a password that this test never gives it.
 //
+//  **One blocker, where there were two.** The scheme still has no `Testables`. The other one went
+//  away when SSH servers stopped being a Relay Plus capability: a fresh simulator account is on the
+//  free plan, and "Add a server" is now drawn as itself on every plan, so the tap this test opens
+//  with reaches the editor instead of the paywall. What a free account is short of in this walk is
+//  the *second* shell, and this test opens one shell on one server, which is what the free plan
+//  runs. So the plan is no longer in the way of the flow below the fold; the scheme is.
+//
+//  **What it would take, and what it must not take.** A launch argument that declares a plan is the
+//  obvious affordance and it is the wrong one: `StoreManager.activeTier` also decides what the app
+//  claims to the relay, and the relay still believes a claim that arrives without a receipt, so an
+//  argument that grants a plan locally would be a way to spend somebody's Pro allowance from a
+//  debug build. The workable shapes are a StoreKit configuration carrying an active subscription,
+//  which Xcode can serve to the app it launches, or a purchase performed in the test against the
+//  local store. Either one is a decision about how UI tests get an account, not a line in this file.
+//
 
 import XCTest
 
@@ -37,6 +52,16 @@ final class SSHLockFlowTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// A tab on the app's own bar.
+    ///
+    /// It used to be `app.tabBars.buttons[...]`, and that query is gone with the tab bar it named:
+    /// the root bar is drawn by the app now so that it can scroll, and it is a scroll view rather
+    /// than a `UITabBar`. Named rather than a bare `app.buttons["Servers"]`, which would also match
+    /// the navigation bar's back button on the screen this test comes back to.
+    private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
+        app.scrollViews["RootTabBar"].buttons[name]
+    }
+
     @MainActor
     func testLockingAServerWithAPasscode() throws {
         let app = XCUIApplication()
@@ -45,7 +70,7 @@ final class SSHLockFlowTests: XCTestCase {
         app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
         app.launch()
 
-        app.tabBars.buttons["Servers"].tap()
+        tab("Servers", in: app).tap()
         capture(app, "1-servers-tab")
 
         app.buttons["Add a server"].tap()
@@ -123,6 +148,10 @@ final class SSHLockFlowTests: XCTestCase {
         XCTAssertTrue(connect.waitForExistence(timeout: 5), "the sign-in sheet had nothing to tap")
         connect.tap()
 
+        // TEMP TAB BAR CHECK
+        Thread.sleep(forTimeInterval: 8)
+        capture(app, "9-shell-screen")
+
         // The shell screen, and then the refusal. `New shell` is the toolbar item only that screen
         // has, so waiting on it is waiting for the sign-in sheet to have gone somewhere real.
         XCTAssertTrue(app.buttons["New shell"].waitForExistence(timeout: 15),
@@ -138,7 +167,7 @@ final class SSHLockFlowTests: XCTestCase {
         // phone has connected to. The shell cannot reach anything, and a connection that failed is
         // written to that list like any other. That row is the half of this feature a simulator has
         // no other way to see, because seeing it with a *successful* connection needs a server.
-        app.tabBars.buttons["Sessions"].tap()
+        tab("Sessions", in: app).tap()
 
         let failure = app.staticTexts
             .matching(NSPredicate(format: "label BEGINSWITH %@", "Failed ·"))

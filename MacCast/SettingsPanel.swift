@@ -178,21 +178,41 @@ struct SettingsPanel: View {
             // Written straight through to the player, which turns the mixer down rather than
             // tearing the engine apart. See ``RemoteAudioPlayer/isMuted`` for why one sound is
             // the reason this exists.
-            Toggle(isOn: Binding(
-                get: { !model.hostAudioMuted },
-                set: { model.hostAudioMuted = $0 }
-            )) {
-                Text("Sound from the Mac")
-                    .font(.subheadline.weight(.medium))
+            //
+            // **The switch is the switch on every plan.** It is dimmed and inert without the
+            // capability, with the plan's name beside it, and the tap opens the plans: what the
+            // row is for has not changed, so the row is not drawn differently. It used to be a
+            // padlock in the switch's place with the words kept, which left a row saying "Sound
+            // from the Mac" and a control that could have been anything. A hidden row was never
+            // the answer either, and is still not: that is the app deciding for the user that they
+            // are not interested.
+            PlanLocked(capability: .macSound, title: "Sound from the Mac") {
+                Toggle(isOn: Binding(
+                    get: { !model.hostAudioMuted },
+                    set: { model.hostAudioMuted = $0 }
+                )) {
+                    Text("Sound from the Mac")
+                        .font(.subheadline.weight(.medium))
+                }
+                .tint(ColorPalette.accent)
             }
-            .tint(ColorPalette.accent)
 
-            Text(model.hostAudioMuted
-                 ? "The Mac's audio is still sent, and dropped here without being played."
-                 : "Whatever the Mac plays comes out of this phone, including the sounds it makes in answer to what you send it.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            if model.storeManager.access.includes(.macSound) {
+                Text(model.hostAudioMuted
+                     ? "The Mac's audio is still sent, and dropped here without being played."
+                     : "Whatever the Mac plays comes out of this phone, including the sounds it makes in answer to what you send it.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                // The plan-aware sentence stays, and it is the *only* thing the locked state adds
+                // to the row: the control is already the control, so what is left to say is which
+                // plan turns it on and what else comes with it.
+                Text("Whatever the Mac plays would come out of this phone. It is part of \(PlanCapability.macSound.minimumPlan.name), along with Picture in Picture and files that move both ways.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             HStack(spacing: 10) {
                 Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
@@ -299,55 +319,71 @@ struct SettingsPanel: View {
     }
 
     /// The floating window, and whether it arrives on its own.
+    ///
+    /// The switch is drawn on every plan, as itself: dimmed and inert without the capability, with
+    /// the plan's name beside it. What is *not* drawn on a plan that does not include it is the
+    /// manual start and the diagnostic below, which are the two things that would be lying: what
+    /// iOS said the last time it was asked is a sentence about a feature the user cannot use yet,
+    /// and it would be the loudest thing in a card that has nothing to report.
     private var picture: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Picture")
-            Toggle(isOn: $pipAutoStart) {
-                Text("Float automatically")
-                    .font(.subheadline.weight(.medium))
+
+            PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
+                Toggle(isOn: $pipAutoStart) {
+                    Text("Float automatically")
+                        .font(.subheadline.weight(.medium))
+                }
+                .tint(ColorPalette.accent)
+                // Pushed straight through rather than read on the next attach: the setting has to
+                // take effect on the controller that is already running.
+                .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
             }
-            .tint(ColorPalette.accent)
-            // Pushed straight through rather than read on the next attach: the setting has to
-            // take effect on the controller that is already running.
-            .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
 
-            // The manual start, which used to be a dot in the status bar and did not earn one:
-            // iOS floats the picture by itself on the way out, so the button started something
-            // that had already happened. What it is actually for is trying it *without* leaving,
-            // and for getting a refusal in writing — which is a diagnostic, and this is where the
-            // switch it explains lives.
-            Button {
-                SessionPiP.shared.start()
-            } label: {
-                Label("Try it now", systemImage: "pip")
-                    .font(.subheadline.weight(.medium))
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(!SessionPiP.isSupported)
+            if model.storeManager.access.includes(.pictureInPicture) {
+                // The manual start, which used to be a dot in the status bar and did not earn one:
+                // iOS floats the picture by itself on the way out, so the button started something
+                // that had already happened. What it is actually for is trying it *without* leaving,
+                // and for getting a refusal in writing, which is a diagnostic, and this is where the
+                // switch it explains lives.
+                Button {
+                    SessionPiP.shared.start()
+                } label: {
+                    Label("Try it now", systemImage: "pip")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(!SessionPiP.isSupported)
 
-            Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
+                Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            // What iOS said the last time it was asked. It used to sit in the session's status
-            // bar, where it was a line of AVKit's own words in the middle of the picture — read
-            // by nobody, and in the way of the controls. Here it is next to the button that asks
-            // the question, which is the only place it means anything.
-            if let attempt = SessionPiP.shared.lastAttempt {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Last attempt: \(attempt)")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    if let why = SessionPiP.shared.lastRefusal {
-                        Text(why)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .textSelection(.enabled)
+                // What iOS said the last time it was asked. It used to sit in the session's status
+                // bar, where it was a line of AVKit's own words in the middle of the picture, read
+                // by nobody, and in the way of the controls. Here it is next to the button that asks
+                // the question, which is the only place it means anything.
+                if let attempt = SessionPiP.shared.lastAttempt {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Last attempt: \(attempt)")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        if let why = SessionPiP.shared.lastRefusal {
+                            Text(why)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .textSelection(.enabled)
+                        }
                     }
                 }
+            } else {
+                Text("Leaving the app would keep the Mac's screen floating over whatever is next, and iOS has a switch of its own for it under Settings, General, Picture in Picture. Both of them are part of \(PlanCapability.pictureInPicture.minimumPlan.name).")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

@@ -1,3 +1,4 @@
+import MacCastKit
 import StoreKit
 import SwiftUI
 import UIKit
@@ -43,9 +44,33 @@ struct OnboardingView: View {
     /// that is on screen — see ``pageView(_:at:)``. Off-screen pages answer `true` regardless, so
     /// that the page being swiped away never empties itself in front of the user on its way out.
     @State private var contentVisible = false
-    /// The plan the last page is pointed at, and the one the buy button is pointed at with it.
-    /// Opens on the recommended tier, for the same reason the paywall does.
-    @State private var chosen: StoreManager.Tier = .pro
+    /// The plan the last page is pointed at, or `nil` for the free one.
+    ///
+    /// **Opens on free, and that is the whole of what was wrong with this page.** It used to open
+    /// on the dearest rung, so the last thing a five-page introduction said was "Continue with Pro,
+    /// $99.99/yr", and the way out of it was a grey word above the button. The tour has just
+    /// described an app the user has not used yet; asking first for a year of the top plan and
+    /// treating free as a refusal is what made the page read as a pitch rather than a choice. The
+    /// baseline is a row of its own now, and the row it opens on.
+    @State private var chosen: StoreManager.Tier?
+
+    /// How often this page offers to bill, which it does not ask about.
+    ///
+    /// The yearly, and it is not a silent default: the price on every row and on the button says
+    /// "/ year", and the App Store's own sheet states the period and the amount again before
+    /// anything is charged. The tour is five swipes long and is trying to get out of the way, so
+    /// the period switch lives on the paywall, which is the screen whose whole job is the
+    /// comparison.
+    private static let onboardingPeriod = BillingPeriod.yearly
+
+    /// What the free row says, built from the number the relay actually meters.
+    ///
+    /// Read off ``RelayPlan`` for the reason every other allowance claim in the app is: "half an
+    /// hour" typed onto a screen beside a server configured for fifteen minutes is the drift that
+    /// turns a promise into a support email.
+    private static var freeLine: String {
+        "\(RelayPlan.free.allowanceSpelling.capitalized) of relay a day, on one Mac"
+    }
 
     /// Six lines of subheadline on a 402-point-wide screen: the *floor* under a page's body, and
     /// not the height of it. See ``pageView(_:at:)`` for what the block above it is holding still.
@@ -103,13 +128,17 @@ struct OnboardingView: View {
         Page(
             content: .plans,
             title: "Choose your plan",
+            // One sentence, and the rows do the rest.
+            //
+            // **It used to be two paragraphs explaining the ladder**, over three rows that also
+            // explained the ladder, in different words. The page was saying everything twice and
+            // still leaving the reader to work out that the rows were steps rather than three
+            // separate offers. What is left here is the one thing no row can say, which is that
+            // the free plan is a real plan and not a trial.
             body: """
-                Connecting over your own network stays free. The relay is what reaches your Mac \
-                from somewhere else, and free includes \(RelayPlan.free.allowanceSpelling) of it \
-                every day.
-
-                Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day, and Relay Plus \
-                and Pro remove the limit.
+                Peering is free on your own network, for as long as you like. A plan is what \
+                reaches your Mac when you are somewhere else, and every one of them includes \
+                everything free has.
                 """
         )
     ]
@@ -379,10 +408,34 @@ struct OnboardingView: View {
             .padding(.horizontal, 24)
         } else {
             VStack(spacing: 8) {
+                // Free first, because it is the floor the other three are measured from rather than
+                // a fourth thing on offer. Without it the page listed three products and left the
+                // reader to work out what they were an upgrade *from*, which is the sentence the
+                // rows above used to try to say in prose.
+                PlanChoice(
+                    name: "Free",
+                    line: Self.freeLine,
+                    price: nil,
+                    recommended: false,
+                    selected: chosen == nil,
+                    select: { chosen = nil }
+                )
+
                 ForEach(StoreManager.Tier.allCases) { tier in
                     PlanChoice(
-                        tier: tier,
-                        price: store.priceLabel(for: tier),
+                        name: tier.name,
+                        // One line each, opening with the relay allowance on all three so the rows
+                        // read as a ladder. A tagline that led with something else made the three
+                        // cards three unrelated claims, and the reader had to reconstruct the
+                        // order from them.
+                        line: tier.tagline,
+                        // The yearly, always, on this page: it is four rows in a swipe rather than
+                        // the comparison screen, and a period switch here would be a second
+                        // decision inside the one screen that is trying to be finished with. The
+                        // paywall is one tap away for anyone who wants the monthly, and both prices
+                        // are on the App Store's own sheet either way.
+                        price: store.priceLabel(for: tier, period: Self.onboardingPeriod),
+                        recommended: tier.isRecommended,
                         selected: chosen == tier,
                         select: { chosen = tier }
                     )
@@ -434,36 +487,18 @@ struct OnboardingView: View {
         }
     }
 
-    /// The same pair of buttons the landing ends on, at the same distance from the bottom of the
-    /// display — see ``WelcomeActions``. The padding here is the landing's padding; the two
-    /// screens are a swipe apart and a button that moves between them reads as a mistake.
+    /// The button the landing ends on, at the same distance from the bottom of the display. The
+    /// padding here is the landing's padding; the two screens are a swipe apart and a button that
+    /// moves between them reads as a mistake.
     ///
-    /// The free plan's way out is above the primary button and its row is reserved on all five
-    /// pages, and those are two halves of one decision. Reserved, because it used to arrive by
-    /// taking room from underneath: the primary button — the one control the whole flow is built
-    /// around — climbed the screen on the last page, and climbed away from the place the landing
-    /// had left it. Above, because the room it takes then comes out of the stage at the top of the
-    /// screen instead of out of the button's own distance from the bottom, which is the one number
-    /// this view and the landing agree on.
+    /// **The free way out used to be a second button above this one**, and it is gone because the
+    /// free plan is a row on the last page now. That takes the reservation hack with it: the row
+    /// had to hold its space on all five pages at zero opacity, or the primary button climbed the
+    /// screen on the last one and climbed away from where the landing had left it. With one control
+    /// in this stack the button sits at the landing's distance on every page, which is the number
+    /// the two screens agree on, and it no longer costs the page above it any room to say so.
     private var actions: some View {
         VStack(spacing: 2) {
-            // The way past the only page in the introduction that asks for money, and it says what
-            // happens rather than what is being declined. "Not now" is a refusal to be nagged at;
-            // this is a choice between the two ways to carry on, and only one of them is on the
-            // other side of an App Store sheet.
-            //
-            // Nothing to decline, or already paid: the row still takes its room at zero opacity,
-            // because the room is the point — see the note above. Disabled as well as invisible, so
-            // that the page being left never swallows a tap meant for the button beneath it.
-            Button("Continue with the free plan", action: onFinish)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .buttonStyle(RailButtonStyle(scale: 0.98))
-                .padding(.bottom, 4)
-                .opacity(showsPlans ? 1 : 0)
-                .disabled(!showsPlans)
-                .accessibilityHidden(!showsPlans)
-
             WelcomePrimaryButton(
                 title: primaryTitle,
                 action: primaryAction
@@ -487,17 +522,25 @@ struct OnboardingView: View {
     /// tier is, and this is the moment the money is decided, so it is the last place the number
     /// can be read before it is spent.
     private var primaryTitle: String {
-        guard showsPlans,
-              let price = store.compactPriceLabel(for: chosen)
-        else { return isLast ? "Get started" : "Next" }
+        guard showsPlans else { return isLast ? "Get started" : "Next" }
+
+        // Free chosen, which is how the page opens. The button then says what it does rather than
+        // naming a price: it is the way into the app, and the three purchases above it are the
+        // other way in.
+        guard let chosen else { return "Start using Peering" }
+
+        guard let price = store.compactPriceLabel(for: chosen, period: Self.onboardingPeriod)
+        else { return "Continue" }
 
         if store.isPurchasing { return "Contacting the App Store…" }
         return "Continue with \(chosen.name) · \(price)"
     }
 
     private func primaryAction() {
-        guard showsPlans,
-              let product = store.product(for: chosen)
+        // No tier chosen is the free plan, and the free plan is not a purchase: it is the button
+        // that finishes the introduction.
+        guard showsPlans, let chosen,
+              let product = store.product(for: chosen, period: Self.onboardingPeriod)
         else {
             advance()
             return
@@ -692,9 +735,19 @@ private struct PhoneStage<Screen: View>: View {
 /// The row's subject is a tier rather than a product, so it is drawn whether or not the store has
 /// answered and only the price waits on the answer — a list that appears in pieces as the products
 /// arrive is a list that looks like it is still loading after it has finished.
+/// One rung of the ladder on the last page, the free one included.
+///
+/// Takes the four strings rather than a ``StoreManager/Tier``, because the free plan has no tier:
+/// it is the floor the other three are measured from and it is not for sale, so it has no product,
+/// no price and no badge. A row that took a tier and special-cased free inside itself would put
+/// that branch in the one place a reader checks when asking what the free plan includes.
 private struct PlanChoice: View {
-    let tier: StoreManager.Tier
+    let name: String
+    /// What the rung is, in one line, on the axis the ladder is built on.
+    let line: String
+    /// `nil` for the free row, which has no price rather than a price of zero.
     let price: String?
+    let recommended: Bool
     let selected: Bool
     let select: () -> Void
 
@@ -703,11 +756,11 @@ private struct PlanChoice: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        Text(tier.name)
+                        Text(name)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(ColorPalette.ink)
 
-                        if tier.isRecommended {
+                        if recommended {
                             Text("BEST VALUE")
                                 .font(.system(size: 8, weight: .bold))
                                 .tracking(0.6)
@@ -718,7 +771,7 @@ private struct PlanChoice: View {
                         }
                     }
 
-                    Text(tier.tagline)
+                    Text(line)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -727,13 +780,20 @@ private struct PlanChoice: View {
 
                 Spacer(minLength: 8)
 
-                // Three dots rather than a dash, for the reason the paywall's copy of this line
-                // gives: a dash sitting where a price goes reads as a minus sign.
-                Text(price ?? "···")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                // Left out entirely on the free row rather than printed as a zero: the rows to the
+                // right are prices, and "Free" beside them is the absence of one. Every checkmark
+                // still lands on the same edge, because the spacer above is what pushes them there.
+                //
+                // Three dots rather than a dash for a price the store has not answered with, for
+                // the reason the paywall's copy of this line gives: a dash sitting where a price
+                // goes reads as a minus sign.
+                if let price {
+                    Text(price)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(ColorPalette.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
 
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 17))

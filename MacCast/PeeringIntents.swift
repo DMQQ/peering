@@ -187,11 +187,12 @@ struct OpenShellIntent: AppIntent {
         }
 
         model.openShellFromIntent(host)
-        // Says what it did, not what it hopes: with no saved password the app is about to ask for
-        // one, and a dialog claiming a shell is open would be wrong for as long as it takes to
-        // type it.
+        // Says what it did, not what it hopes: with nothing saved the app is about to ask for a
+        // password, and a dialog claiming a shell is open would be wrong for as long as it takes
+        // to type it. A saved key counts, and both sentences below are about the same thing: the
+        // difference is whether the app has to stop and ask before it can open anything.
         return .result(
-            dialog: model.hasStoredPassword(for: host)
+            dialog: model.hasStoredCredential(for: host)
                 ? "Opening a shell on \(host.displayName)."
                 : "Opening \(host.displayName). Peering needs your password."
         )

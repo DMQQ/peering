@@ -34,13 +34,23 @@ final class FAQFlowTests: XCTestCase {
     private let question = "Do I need an account?"
     private let phrase = "There is no sign-up"
 
+    /// A tab on the app's own bar.
+    ///
+    /// It used to be `app.tabBars.buttons[...]`, and that query is gone with the tab bar it named:
+    /// the root bar is drawn by the app now so that it can scroll, and it is a scroll view rather
+    /// than a `UITabBar`. Named rather than a bare `app.buttons["FAQ"]`, which would also match any
+    /// control with that name on the screen behind the bar.
+    private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
+        app.scrollViews["RootTabBar"].buttons[name]
+    }
+
     @MainActor
     func testAnswersAreClosedUntilAsked() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
         app.launch()
 
-        app.tabBars.buttons["FAQ"].tap()
+        tab("FAQ", in: app).tap()
 
         let answer = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS %@", phrase)
@@ -73,7 +83,7 @@ final class FAQFlowTests: XCTestCase {
         app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
         app.launch()
 
-        app.tabBars.buttons["FAQ"].tap()
+        tab("FAQ", in: app).tap()
         XCTAssertTrue(app.buttons["Do I need an account?"].waitForExistence(timeout: 5))
 
         for section in [

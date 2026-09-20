@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SSHCore
 import SwiftUI
@@ -35,6 +36,29 @@ struct SSHTerminalScreen: View {
     /// receiving output, and the screen is only showing something else. The one thing the browser
     /// does to the shell is change its directory, and only when a folder is opened.
     @State private var isBrowsing = false
+
+    /// Whether the port forwards are being shown.
+    ///
+    /// Held here rather than on the model, unlike the password sheet's host, because this one is
+    /// about the connection this screen is showing rather than about the server: the question
+    /// "which shell's forwards" has one answer while this screen is up, and it is this one.
+    @State private var isShowingForwards = false
+
+    /// The port button's glyph, which carries the state without the sheet being opened.
+    ///
+    /// A running forward has to look different from a stopped one from here, because the whole of
+    /// what the user needs to know at a glance is whether traffic is going through a tunnel: the
+    /// sheet is where the detail is, and a user who has to open a sheet to find out whether their
+    /// port is open is a user who will not bother.
+    private var portsSymbol: String {
+        if model.hasBrokenForward(on: terminal.host) { return "exclamationmark.triangle" }
+        return model.hasRunningForward(on: terminal.host) ? "point.3.connected.trianglepath.dotted" : "point.3.filled.connected.trianglepath.dotted"
+    }
+
+    private var portsTint: Color {
+        if model.hasBrokenForward(on: terminal.host) { return ColorPalette.caution }
+        return model.hasRunningForward(on: terminal.host) ? ColorPalette.accent : .secondary
+    }
     /// Whether dotfiles are listed. Filtered here rather than by the server, so that both of this
     /// app's browsers answer the question the same way.
     @State private var showsHiddenFiles = false
@@ -74,6 +98,10 @@ struct SSHTerminalScreen: View {
                     commands: quickCommands.all,
                     run: { model.run($0, on: terminal) },
                     remove: { quickCommands.delete($0) },
+                    // The same split as the Mac's terminals: the saved commands stay and can be
+                    // run, and what Pro adds is making one. Both callers hand the deck the same
+                    // button for the same reason, so the two strips cannot come to different
+                    // conclusions about the same user. The gate is the deck's own.
                     edit: { isEditingQuickCommands = true },
                     send: { model.send(Data($0.utf8), to: terminal) },
                     isEnabled: canType
@@ -122,10 +150,28 @@ struct SSHTerminalScreen: View {
             // looking for a tab. `TerminalPanel` has put a `+` in this exact spot for the Mac's
             // own terminals all along.
             ToolbarItem(placement: .topBarTrailing) {
-                Button("New shell", systemImage: "plus") {
-                    model.openAnotherShell(on: terminal)
+                // The same button in the same place on every plan. A second shell from inside the
+                // first is the one anyone would look for, so it is the last place to hide the fact
+                // that several are possible: on a plan that runs one shell at a time the plus is
+                // still a plus, dimmed, with the plan's name beside it, and the tap opens the plans
+                // rather than a shell.
+                PlanLocked(capability: .shellTabs, title: "New shell", diameter: 20) {
+                    Button("New shell", systemImage: "plus") {
+                        model.openAnotherShell(on: terminal)
+                    }
+                    .accessibilityHint("Opens another shell on \(terminal.host.displayName)")
                 }
-                .accessibilityHint("Opens another shell on \(terminal.host.displayName)")
+            }
+            // Only on a server that carries forwards, because on any other server it would be a
+            // button opening a sheet whose only content is a sentence saying there is nothing here.
+            if !terminal.host.forwards.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Ports", systemImage: portsSymbol) {
+                        isShowingForwards = true
+                    }
+                    .tint(portsTint)
+                    .accessibilityHint("Shows the port forwards this shell is carrying")
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 // The question this raises is asked from the tab strip at the top of the panel,
@@ -142,6 +188,9 @@ struct SSHTerminalScreen: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .onAppear { inputFocused = true }
+        .sheet(isPresented: $isShowingForwards) {
+            SSHForwardsSheet(host: terminal.host, model: model)
+        }
         // Switching shells while the browser is open looks at the same folder in the other shell.
         // The folder is where the user is looking, not something a shell owns, and a browser left
         // pointing at a folder the new shell has never been asked about would spin at nothing.
@@ -409,6 +458,9 @@ struct SSHTerminalScreen: View {
                     onRevealPath: { reveal($0) },
                     onClose: { model.closePreview() },
                     onSave: { model.saveFile($0, sessionID: terminal.id) }
+                    // Both directions of the transfer are one capability and the panel's own gate,
+                    // so the two browsers answer this the same way and neither can be the one that
+                    // forgot.
                 )
             } else {
                 FileBrowserPanel(
@@ -440,6 +492,10 @@ struct SSHTerminalScreen: View {
                     onUpload: canType
                         ? { model.uploadFile($0, sessionID: terminal.id) }
                         : nil,
+                    // Two different reasons for a transfer not to be on offer, and the panel draws
+                    // them differently: an account without file transfer gets the button dimmed
+                    // with the plan's name beside it, which is the panel's own gate now, and the
+                    // `nil` above is about a shell that has ended.
                     // And absent for the same reason: a run types a command into the shell, so a
                     // shell that has ended is one with nothing to type into.
                     onRun: canType ? { run($0) } : nil,

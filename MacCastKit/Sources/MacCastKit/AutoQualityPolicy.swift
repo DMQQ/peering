@@ -26,6 +26,17 @@ public struct AutoQualityPolicy: Sendable {
             }
         }
 
+        /// Where this rung sits in the ladder, for the one comparison a ceiling needs. A number
+        /// rather than a `Comparable` conformance: the only question ever asked of two of these is
+        /// "is one above the other", and a type that can be sorted invites sorting it.
+        var rank: Int {
+            switch self {
+            case .low: return 0
+            case .medium: return 1
+            case .high: return 2
+            }
+        }
+
         var lower: Tier {
             switch self {
             case .high: return .medium
@@ -45,10 +56,17 @@ public struct AutoQualityPolicy: Sendable {
 
     public private(set) var tier: Tier
     private let path: Path
+    /// The fastest this session may go, which is the plan's answer rather than the network's.
+    private let ceiling: Tier
     private var healthySamples = 0
 
-    public init(path: Path) {
+    /// - Parameter ceiling: how far the picture may climb on *this* session. The direct path is
+    ///   never capped by a caller that passes `.high`, which is what every plan gets when the two
+    ///   devices are on one network: nobody's bandwidth is being spent there, so there is nothing
+    ///   to sell. A relayed session is capped by the plan, because those bytes are the operator's.
+    public init(path: Path, ceiling: Tier = .high) {
         self.path = path
+        self.ceiling = ceiling
         tier = path == .relay ? .medium : .high
     }
 
@@ -77,8 +95,13 @@ public struct AutoQualityPolicy: Sendable {
     }
 
     private mutating func change(to proposed: Tier) -> Tier? {
-        guard proposed != tier else { return nil }
-        tier = proposed
-        return proposed
+        // **Clamped on the way up and never on the way down.** A plan's ceiling is about how sharp
+        // the picture may get; it is not a floor under how bad the connection is allowed to become,
+        // and a session that has gone bad has to be free to fall below it. Clamped rather than
+        // refused so that a plan which cannot reach the top still climbs as far as it can.
+        let capped = proposed.rank > ceiling.rank ? ceiling : proposed
+        guard capped != tier else { return nil }
+        tier = capped
+        return capped
     }
 }

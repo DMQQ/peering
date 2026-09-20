@@ -8,19 +8,92 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 
 ## 1. Where the plans stand
 
+**Superseded on 20 September.** Everything below this line in section 1 is the older shape, kept
+because the reasoning in it still holds in places. The live ladder is:
+
 | | Free | Relay | Relay Plus | Pro |
 |---|---|---|---|---|
-| Price | £0 | **£3.99/mo** | **£6.99/mo** | **£24.99/yr** |
-| **Decided by the owner** | 30 min relay/day · 1 Mac · terminals with **one shell at a time** | 3 h/day | unlimited relay | unlimited, every Mac, power tools |
-| **Still proposed by me, not settled** | — | features identical to free | terminals get tabs, widgets, audio, PiP, more Macs | macros, snippets, privacy mode |
+| Monthly | $0 | **$3.99** | **$7.99** | **$12.99** |
+| Yearly | $0 | **$29.99** | **$59.99** | **$99.99** |
+| Relay per 24h | 30 min | 3 h | unlimited | unlimited |
+| Paired Macs | 1 | every | every | every |
+| Sound, Picture in Picture | | yes | yes | yes |
+| Moving files both ways | | yes | yes | yes |
+| Several shells at once | | | yes | yes |
+| Macros, snippets, quick commands | | | | yes |
+| The sharpest picture over the relay | | | | yes |
 
-Prices here are the UK storefront. The **live prices are set in App Store Connect** and have not moved yet — `Config/Products.storekit` (the local test config) has them, the published site still shows $4.99 / $14.99 / $79.99.
+The picture row is the newest and the only one in the map about *how much* rather than *whether*.
+Automatic quality starts at 20 Mbps on a direct path and 8 on a relay, and climbs; a relayed
+session without this stops climbing at 8, and one with it reaches 20. The direct path is uncapped
+on every plan, so a free user on their own network sees the same picture they always did.
 
-**The shape in one sentence:** *Relay = more time, Plus = more things, Pro = no limits and every Mac.*
+**Every tier is sold monthly and yearly**, at about eight months of the monthly to the year. That
+is the change that mattered most: the ladder used to sell the middle rung monthly and the top one
+yearly, so Relay Plus cost $179.88 a year and Pro cost $39.99, and the paywall was comparing two
+periods rather than two plans.
 
----
+**The shape in one sentence:** *Relay is the remote working set, Plus is the clock going away, Pro
+is the toolbox and the funder.*
+
+**The gates are still not built.** The app meters relay time and nothing else, so every row in the
+table above is a claim rather than a check. What the screens now say, the app and the site say
+together, which is the drift that was fixed on 20 September; enforcement is the next piece of work.
+
+### Where the numbers came from
+
+Measured against the field rather than chosen. Screens 5 is $3.99/mo and $29.99/yr with no
+permanent free tier and no audio at all; Splashtop charges $23.99/yr just to leave the LAN and
+$99/yr for its Pro tier; RealVNC Essentials is $8.25/mo; Astropad Workbench, the closest product to
+this one, gives 20 minutes a day free and charges $99.99/yr. Pro at $99.99/yr sits level with
+Astropad and below Splashtop Pro, and the free tier here gives 30 minutes a day rather than 20.
+
+### What moved, and why
+
+- **Sound, Picture in Picture, moving files and the Mac count moved down to the entry rung.** The
+  entry rung used to differ from free in exactly one number, three hours against half an hour,
+  which made it the hardest thing on the ladder to sell. These four are what the field charges for:
+  file transfer is the single most consistent paywall in remote desktop, audio is off entirely on
+  TeamViewer's free tier and Performance-tier at Splashtop, and device count is the field's
+  favourite axis.
+- **Privacy mode, widgets and Live Activity moved down to free.** Nobody in the field gates widgets
+  or Siri, Jump includes privacy mode in its free plan, Screens ships Curtain Mode and Apple's own
+  ARD has it. Gating them cost enforcement work (the widget extension cannot read StoreKit) and
+  bought nothing.
+- **Wake on LAN stayed free**, against the field, because it is the one gate that would contradict
+  the free tier's own headline: the packet only goes out on the local network, and on your own
+  network this app is meant to be complete.
+- **Terminal tabs and SSH servers stayed on Relay Plus.** This is the one row that goes against the
+  direction of travel in the terminal category, where tabs are table stakes free at Termius, Moshi
+  and Prompt. The compromise is that one shell is free and only the concurrency is paid, which
+  reads as fair where hiding the terminal would read as stingy.
+
+  **Half of this was reversed on 20 September and the other half was not.** SSH servers are free on
+  every plan: the owner's question was "why block SSH for free", and the answer on inspection was
+  that nothing about it costs the service anything, because the connection is between the user's own
+  phone and their own machine. What looked like a feature was a *list* (hosts the user typed in and
+  named and put in their own Keychain) sold back to them, which is the one shape of gate that reads
+  as a hostage rather than as a price. **Tabs stayed on Relay Plus**, because a second shell at the
+  same time costs a login on the far end and is the concurrency limit the free tier is supposed to
+  have. The row above is now "Several shells at once" and carries that on its own.
 
 ## 2. Every feature the app has, and where it goes
+
+> **Superseded, 20 September, and wrong in five places.** The tables below were the proposal; the
+> agreed map is the table in section 1 and the capability map that now enforces it,
+> `MacCastKit/Sources/MacCastKit/PlanAccess.swift`. Where they disagree, the code is right:
+>
+> - **Paired Macs** are one on free and every Mac on all three paid plans, not 1 / 1 / 3 / every.
+> - **Sound from the Mac and Picture in Picture** are Relay, not free on every plan.
+> - **SSH servers** are free, and the table below is right about that by accident. This bullet said
+>   Relay Plus for part of 20 September; the same day put them back, and the capability has left
+>   `PlanAccess.swift` altogether. The row below is what free includes and it stays as written.
+> - **Macros, snippets and quick commands** are Pro, not free.
+> - **Upload and download** exist and are Relay. This table says they were never built, which was
+>   true when it was written and has not been since.
+>
+> Kept rather than deleted because the reasoning behind each row is still the reasoning that was
+> argued about, and a note saying "this changed" is more use than a table quietly rounded off.
 
 ### Connection
 
@@ -116,9 +189,22 @@ they are pure polish, nobody needs them to use the app, and they are visible to 
   level as the relay's plan field, and it is the right trade at this size. The real fix, when it
   matters, is verifying Apple's signed transaction offline (see §5).
 
-**How a locked feature should appear:** visible, with a lock, and one tap to the paywall. Never
-hidden. A feature a user cannot see cannot make them want it, and hiding the terminal from a
-free user just means they never learn it exists.
+**How a locked feature should appear:** visible, drawn as itself, and one tap to the paywall. Never
+hidden. A feature a user cannot see cannot make them want it, and hiding the terminal from a free
+user just means they never learn it exists.
+
+**Extended on 20 September, because "with a lock" was read too literally twice.** The control is
+drawn as itself, in its normal shape and with its normal icon, dimmed, with a small plan-name badge
+(RELAY, PLUS or PRO) beside it, and the tap opens the paywall. Never a padlock, and never a badge in
+the control's place. The first attempt drew a padlock the size of the control it replaced, which
+answered "what was that button" with nothing; the second kept the words and swapped only the icon,
+so "Add a server" ended in a padlock where the plus had been, which is the same failure in a smaller
+place. Both are the reason the rule is now about the *whole* control rather than about the words
+alone. The code that draws it is `PlanLocked` in the app's `SharedControls.swift`, and every gate in
+the app goes through it except one: the "New shell" item in a server row's menu, which is a line of
+a system menu rather than a view the app lays out, and so cannot wear a badge. It keeps its own name
+and its own glyph and its tap opens the paywall, which is as much of the rule as a menu row can
+hold.
 
 ---
 

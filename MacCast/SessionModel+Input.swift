@@ -213,6 +213,18 @@ extension SessionModel {
     /// Whether the app is choosing the rate, or the person watching is.
     var isAutomaticQuality: Bool { streamQuality == .auto }
 
+    /// The fastest the picture may go on this session, which is the plan's answer and the path's.
+    ///
+    /// **Uncapped on the direct path, for every plan.** Two devices on one network are not spending
+    /// anybody's bandwidth but their own, so there is nothing there to sell and capping it would
+    /// make the one demonstration most people see first worse for no reason. A relayed session is
+    /// the operator's link, and 20 Mbps down it is five times the bandwidth of 8, which is what
+    /// ``PlanCapability/highBitrate`` is about.
+    var videoCeiling: AutoQualityPolicy.Tier {
+        guard autoQualityPath == .relay else { return .high }
+        return storeManager.access.includes(.highBitrate) ? .high : .medium
+    }
+
     /// Switches between the app choosing the rate and the person watching choosing it.
     ///
     /// Turning manual on does not mean "high": it means "let me choose", and the level it lands
@@ -230,15 +242,23 @@ extension SessionModel {
     /// session starts where this one was left. It is written even when there is no session to
     /// tell, which is the case the Settings tab exists for.
     func setStreamQuality(_ quality: StreamQuality) {
+        // **The one rung a plan can be short of, and only while the bytes are being carried.**
+        // Asking for it opens the plans rather than being quietly capped, because a picture that
+        // silently stayed soft is a setting that reads as broken. High on a session going straight
+        // between the two devices is not gated at all: see ``videoCeiling``.
+        if quality == .high, videoCeiling == .medium {
+            paywallReason = .feature(.highBitrate)
+            return
+        }
         streamQuality = quality
         UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKeys.streamQuality)
         if let bitrateKbps = quality.bitrateKbps {
             // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to
             // return to.
             lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
+            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
         } else {
-            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
+            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
             lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
             send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
         }
@@ -274,12 +294,12 @@ extension SessionModel {
         let quality = SessionModel.storedQuality
         streamQuality = quality
 
-        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
+        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
         lastAutoDroppedFrames = 0
 
         if let bitrateKbps = quality.bitrateKbps {
             lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: bitrateKbps))
+            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
         } else {
             send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
         }

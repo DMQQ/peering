@@ -14,6 +14,32 @@ import SwiftUI
 /// buys, one above the other, so the question the screen asks is "which of these is worth it"
 /// rather than "how much is this one". The order is the argument, which is why the cards are in
 /// `Tier.allCases` order and never in the order the store answered in.
+extension View {
+    /// Presents the purchase sheet for whatever reason the model is currently carrying.
+    ///
+    /// **Attached in more than one place, and it has to be, which is the whole reason this is a
+    /// modifier rather than a `.sheet` written out where it is needed.** A sheet can only be
+    /// presented by a view that is not already presenting one. This app puts locks inside sheets:
+    /// the terminal is a sheet, and its deck, its quick commands and the file browser all carry one.
+    /// A paywall presented from the root while the terminal is up is a presentation UIKit refuses
+    /// in silence, and the failure looks exactly like the app ignoring the tap.
+    ///
+    /// So every sheet that can hold a lock attaches this as well, and the copy nearest the top of
+    /// the stack is the one that gets to present. Two bindings over one `paywallReason` is not the
+    /// race it looks like: both read the same value, both set it to `nil` on the way down, and only
+    /// one of them is ever in a position to open.
+    func presentsPaywall(_ model: SessionModel) -> some View {
+        sheet(isPresented: Binding(
+            get: { model.paywallReason != nil },
+            set: { if !$0 { model.paywallReason = nil } }
+        )) {
+            PaywallView(reason: model.paywallReason ?? .upgrade) { model.paywallReason = nil }
+                .environment(model.storeManager)
+                .preferredColorScheme(.dark)
+        }
+    }
+}
+
 struct PaywallView: View {
     /// Which door the user came through, because the sentence at the top is not the same.
     ///
@@ -26,12 +52,12 @@ struct PaywallView: View {
     /// who has spent half an hour, and a Relay subscriber who has spent their three hours. Telling
     /// the second one that their *free* allowance is gone reads as the app having forgotten they
     /// paid, which is worse than saying nothing.
-    /// Five doors now, and the two newest are the ones the app opens by itself. The other three are
-    /// somewhere the user went; these two are the app deciding that a moment has arrived — the first
-    /// session anyone has ever finished, and an allowance that is nearly spent. Which is why the
-    /// condition for ending each of them is written down in ``SessionModel/offerSubscriptionIfDue(after:)``
-    /// rather than here: a screen that could decide to show itself would be a screen that shows
-    /// itself.
+    /// Six doors now, and the two the app opens by itself are the ones that are not the user's
+    /// doing. Of the other four, three are somewhere the user went; the newest is a control they
+    /// pressed that did nothing, which is the one door opened by somebody who was not asking to buy
+    /// anything. Which is why the condition for ending each of the two automatic ones is written
+    /// down in ``SessionModel/offerSubscriptionIfDue(after:)`` rather than here: a screen that could
+    /// decide to show itself would be a screen that shows itself.
     enum Reason {
         case quotaExhausted
         case upgrade
@@ -45,6 +71,18 @@ struct PaywallView: View {
         /// the sheet is up, and a figure that moved would be a second source for a number the
         /// sentence above it has already committed to.
         case runningLow(remaining: TimeInterval)
+        /// A feature the user just reached for, on a plan that does not include it.
+        ///
+        /// **The one door opened by a control that did nothing.** Every other reason here is either
+        /// a wall the relay put up or something the app decided to say; this one is a badge beside
+        /// the thing under the user's thumb, and the sheet has to open by naming it. Without that, the
+        /// answer to a tap that did nothing is a purchase screen out of nowhere, which reads as the
+        /// app having ignored the tap and then tried to sell something.
+        ///
+        /// It carries the capability rather than a string, because the feature's name, the plan
+        /// that unlocks it and the badge on the row that sells it are one fact, and this file is
+        /// not allowed to become the second copy of it. See ``PlanCapability``.
+        case feature(PlanCapability)
 
         var title: String {
             switch self {
@@ -52,6 +90,11 @@ struct PaywallView: View {
             case .upgrade: return "Connect from anywhere"
             case .firstSession: return "Take it with you"
             case .runningLow: return "Running low on relay time"
+            // Names the thing that was pressed, because that is the whole difference between this
+            // door and the others: the user did not tap a button marked Subscribe, they tapped the
+            // feature. "Unlock" rather than "X is part of Relay", which reads as a plural subject
+            // with a singular verb on the one capability that is three features in a row.
+            case .feature(let capability): return "Unlock \(capability.name)"
             }
         }
 
@@ -59,6 +102,21 @@ struct PaywallView: View {
         /// hit is described in terms of what they actually had.
         func detail(for plan: RelayPlan) -> String {
             switch self {
+            case .feature(let capability):
+                // The plan that unlocks it is named rather than the plan the user is on, because
+                // that is the question the tap asked. Their own plan appears only to say what it
+                // does not do, and it appears as "the free plan" rather than as "Free": the one
+                // name is a label on a card and the other is a phrase in a sentence, and a
+                // purchase screen that says "It is not in Free" reads as a translation.
+                let unlocking = capability.minimumPlan
+                guard plan < unlocking else {
+                    // Unreachable as the app is wired: a gate asks ``PlanAccess``, and a plan that
+                    // includes a capability never draws the lock that opens this door. True rather
+                    // than blank, like the two other unreachable branches below.
+                    return "\(Self.whatItIs(capability)) Your plan already includes it."
+                }
+                let current = plan == .free ? "the free plan" : plan.name
+                return "\(Self.whatItIs(capability)) It is not in \(current). \(unlocking.name) includes it, and the cards below are what else comes with that."
             case .quotaExhausted:
                 switch plan {
                 case .free:
@@ -74,7 +132,9 @@ struct PaywallView: View {
             case .upgrade:
                 // The ladder in one sentence, with the two numbers read off the same place the
                 // meter reads them from. The cards below say the rest.
-                return "The relay reaches your Mac when it is on another network. Peering includes \(RelayPlan.free.allowanceSpelling) of relay every day; Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
+                // The two rungs are named rather than pointed at. "The plans above it" reads as a
+                // direction, and the cards it means are *below* this sentence on the screen.
+                return "The relay reaches your Mac when it is on another network. Peering includes \(RelayPlan.free.allowanceSpelling) of relay every day; Relay raises that to \(RelayPlan.relay.allowanceSpelling), and Relay Plus and Pro remove the limit."
             case .firstSession:
                 // Opened by the app, so it opens by naming the moment. Without that first clause
                 // this is a purchase screen that has appeared out of nowhere a second after the
@@ -111,6 +171,41 @@ struct PaywallView: View {
                 }
             }
         }
+
+        /// What one gated feature is, in a sentence, for the door opened by a locked control.
+        ///
+        /// **Here and not on ``PlanCapability``**, which carries the name and the plan and nothing
+        /// else. What a feature *is* is a sentence written for a reader, and the map is a fact
+        /// about the product: a package that shipped the sales copy would be a package that has to
+        /// be edited to reword it, and the test that guards the map would be guarding prose. The
+        /// two are kept together by the capability being one value, so the sentence here and the
+        /// badge on the row that sells it cannot come apart.
+        ///
+        /// Every one of these follows the line the "Everything included" list uses, because the two
+        /// are read by the same person minutes apart and a feature described one way on the card
+        /// and another way on the sheet is the drift the map exists to stop.
+        private static func whatItIs(_ capability: PlanCapability) -> String {
+            switch capability {
+            case .extraMacs:
+                return "One Mac is free, and this is the second one and every one after it."
+            case .macSound:
+                return "Whatever the Mac is playing comes out of this phone, from the music you left running to the alert it makes in answer to a key you sent it."
+            case .pictureInPicture:
+                return "Keeps the Mac's screen floating over other apps while you do something else, and iOS can float it by itself on your way out of the app."
+            case .fileTransfer:
+                return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 64 MB."
+            case .shellTabs:
+                return "One shell at a time is free, on your Mac and on any server you have added. This is naming a tab, and keeping several open at once."
+            case .macros:
+                return "Saves a sequence and fires it with one tap, keeps the commands you type most as chips over the terminal keyboard, and has the same list waiting in every shell."
+            case .highBitrate:
+                // The direct path is named, because it is the half of the answer nobody expects
+                // and the half that keeps this from reading as a cap on the app. It also happens
+                // to be true: a session going straight between the two devices is not capped on
+                // any plan, so what is being sold is the picture on the way round.
+                return "The picture climbs to 20 Mbps on a relayed session, which is five times what it reaches there without this. On your own network it is uncapped on every plan already, because the bytes are not going through anything of ours."
+            }
+        }
     }
 
     @Environment(StoreManager.self) private var store
@@ -123,6 +218,13 @@ struct PaywallView: View {
     /// the badge and the ladder are for — a screen that has an opinion and then makes the user pick
     /// before it will say it is a screen that has not decided either.
     @State private var chosen: StoreManager.Tier = .pro
+
+    /// How often the user wants to be billed.
+    ///
+    /// Opens on the yearly, which is the better value and the one the monthly exists to make look
+    /// like the better value. It is a choice rather than a default the screen hides: the switch
+    /// says what it is doing, and every price below it moves when it moves.
+    @State private var period: BillingPeriod = .yearly
     /// Whether the full feature list is up. A sheet rather than a push: this view is already
     /// presented as one, and a navigation stack here would give the paywall a back button it has
     /// never had.
@@ -177,13 +279,29 @@ struct PaywallView: View {
                         } else {
                             header
                             plans
-                            buyButton
                         }
                         footer
                     }
                     .padding(.horizontal, 18)
                     .padding(.vertical, 24)
                     .frame(minHeight: geometry.size.height, alignment: .center)
+                }
+                // **The button that pays does not scroll away.** Three cards with their feature
+                // lists are taller than a phone, so the price and the way to accept it used to sit
+                // below the fold: the screen asked for money and then made the reader go and find
+                // the button. Pinned to the bottom instead, over the cards, which is also the one
+                // place the price can be read at the moment the things it is being weighed against
+                // are on screen. The material is what stops the text underneath reading as part of
+                // it, and the inset collapses to nothing while the store is still loading, so the
+                // empty state has no bar across it.
+                .safeAreaInset(edge: .bottom) {
+                    if justBought == nil {
+                        buyButton
+                            .padding(.horizontal, 18)
+                            .padding(.top, 10)
+                            .padding(.bottom, 12)
+                            .background(.ultraThinMaterial)
+                    }
                 }
             }
 
@@ -319,10 +437,19 @@ struct PaywallView: View {
             }
         } else {
             VStack(spacing: 10) {
+                periodPicker
+
                 ForEach(StoreManager.Tier.allCases) { tier in
                     PlanCard(
                         tier: tier,
-                        price: store.priceLabel(for: tier),
+                        price: store.priceLabel(for: tier, period: period),
+                        // Only on the yearly, and only under the yearly price: it is the same money
+                        // already divided by twelve, so it belongs directly beneath the sum it
+                        // explains. Beside the monthly price it would be the yearly arguing for
+                        // itself, which is the switch's job rather than the card's.
+                        note: period == .yearly
+                            ? store.effectiveMonthlyPrice(for: tier).map { "\($0) a month" }
+                            : nil,
                         selected: chosen == tier,
                         select: { chosen = tier }
                     )
@@ -335,6 +462,59 @@ struct PaywallView: View {
         }
     }
 
+    /// The monthly/yearly switch, and the reason the three cards above it can be compared at all.
+    ///
+    /// Above the cards rather than under them, because it changes what every price below it means.
+    /// A switch that moves the numbers it sits beneath is a switch whose effect is discovered
+    /// rather than seen, and on a screen whose whole job is a comparison that is the wrong way
+    /// round.
+    ///
+    /// The yearly carries the saving and the monthly carries nothing, because being the smaller
+    /// commitment is the monthly's own argument. The number is the smallest saving across the three
+    /// plans rather than any one plan's, since it is printed once and applies to all of them: the
+    /// three land within a couple of points of each other, and the smallest is the one that is true
+    /// whichever card is selected.
+    private var periodPicker: some View {
+        HStack(spacing: 4) {
+            ForEach(BillingPeriod.allCases) { option in
+                Button {
+                    period = option
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(option == .monthly ? "Monthly" : "Yearly")
+                            .font(.subheadline.weight(.medium))
+
+                        if option == .yearly, let saving = store.smallestYearlySaving {
+                            Text("SAVE \(saving)%")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.6)
+                                .foregroundStyle(ColorPalette.accent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(ColorPalette.accent.opacity(0.18), in: Capsule())
+                        }
+                    }
+                    .foregroundStyle(period == option ? ColorPalette.ink : ColorPalette.ink.opacity(0.55))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background {
+                        // Always there and only its opacity moving, for the reason the card's ring
+                        // is: a control that changes size when it is picked moves what is under the
+                        // finger that picked it.
+                        Capsule()
+                            .fill(ColorPalette.accent.opacity(period == option ? 0.22 : 0))
+                    }
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(period == option ? [.isSelected] : [])
+            }
+        }
+        .padding(3)
+        .background(ColorPalette.ink.opacity(0.05), in: Capsule())
+        .animation(Motion.tap, value: period)
+    }
+
     /// The one button that buys, pointed at whichever card is selected.
     ///
     /// One button under three cards rather than one per card. Three buy buttons is three chances to
@@ -343,8 +523,8 @@ struct PaywallView: View {
     /// place the number can be read before it is spent.
     @ViewBuilder
     private var buyButton: some View {
-        if let product = store.product(for: chosen),
-           let price = store.compactPriceLabel(for: chosen) {
+        if let product = store.product(for: chosen, period: period),
+           let price = store.compactPriceLabel(for: chosen, period: period) {
             VStack(alignment: .leading, spacing: 10) {
                 WelcomePrimaryButton(
                     title: store.isPurchasing
@@ -493,9 +673,11 @@ struct PaywallView: View {
             // and beyond the requirement it is the one sentence here that answers the question
             // somebody about to pay is actually asking.
             //
-            // Both periods are named because the ladder now has both: a sentence that said "every
-            // month" would be a false statement about the tier the screen is recommending.
-            Text("Subscriptions renew automatically until cancelled, the monthly plans every month and Pro every year. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
+            // Every period is named because every tier is now sold at both, and the sentence has to
+            // be true whichever card and whichever switch position the user is looking at. "The
+            // plan you chose" rather than a list, because the list is the switch's job and a
+            // sentence that enumerated it would go stale the day a period is added.
+            Text("\(period == .monthly ? "This subscription renews every month" : "This subscription renews every year") until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -518,6 +700,129 @@ struct PaywallView: View {
         )
         .ignoresSafeArea()
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - The session the relay ended
+
+/// What the app says when the relay ends a session because the day's allowance is spent.
+///
+/// **The one ending that has nothing on screen to explain it.** Every other way a session stops
+/// says so somewhere: the Mac locked, the network went, the user tapped End. This one is a socket
+/// closing. The relay ends a session the moment its window is spent, and it has nowhere to say
+/// why: everything past the session token is a TLS connection it cannot write into, and the
+/// signalling socket is a different connection that may already be closed. What the user sees is
+/// their Mac vanishing, then a reconnect that is refused, and nothing anywhere about money.
+///
+/// **A sheet rather than an alert**, because there is something worth reaching on the other side of
+/// it: the plans, one tap away, which is the only thing that can be done about the state the user
+/// is in. An alert with the same two buttons would read as a failure report; this reads as an
+/// explanation that ends in an offer, which is what it is.
+///
+/// **And it closes plainly.** Two buttons, either of which dismisses, plus the swipe every sheet
+/// has. The session is over either way, so there is nothing an unclosable modal could protect,
+/// and a screen with no way out is both the thing App Review rejects and a poor way to treat
+/// somebody who has just lost their connection.
+struct AllowanceSpentView: View {
+    /// The plan that was running when the relay cut the session, taken then rather than read now.
+    /// See ``SessionModel/spentAllowance``.
+    let plan: RelayPlan
+    let onDismiss: () -> Void
+
+    @Environment(StoreManager.self) private var store
+
+    /// The plans, opened over this sheet rather than in place of it.
+    ///
+    /// Presented from inside here rather than by closing this and setting the session's
+    /// ``SessionModel/paywallReason``, which is how every other door opens it. Two sheets on one
+    /// view cannot cross in the same update (the dismissal and the presentation race), and a
+    /// nested sheet is the shape that does not. It also leaves the explanation where it was:
+    /// skipping the prices comes back to the sentence saying what happened, rather than to the
+    /// picker with nothing on it about the session that just ended.
+    @State private var showsPlans = false
+
+    var body: some View {
+        ZStack {
+            ColorPalette.backdrop.ignoresSafeArea()
+            RadialGradient(
+                colors: [.white.opacity(0.07), .clear],
+                center: .top,
+                startRadius: 0,
+                endRadius: 460
+            )
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: 16) {
+                Image(systemName: "clock.badge.exclamationmark")
+                    .font(.system(size: 46, weight: .light))
+                    .foregroundStyle(ColorPalette.ink)
+                    .frame(height: 56)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(title)
+                        .font(DisplayFont.display(28))
+                        .tracking(-1)
+
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                WelcomePrimaryButton(title: "See the plans") { showsPlans = true }
+                    .padding(.top, 4)
+
+                Button("Not now") { onDismiss() }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .sheet(isPresented: $showsPlans) {
+            PaywallView(reason: .upgrade, onDismiss: { showsPlans = false })
+                .environment(store)
+                .preferredColorScheme(.dark)
+        }
+    }
+
+    /// The headline, which names the allowance rather than the app's disappointment.
+    ///
+    /// "You have run out of relay time" is true of a figure the user has never seen. The allowance
+    /// is a number the app has been drawing on the Sessions tab all along, and saying which one it
+    /// was is the difference between a limit and a bug.
+    private var title: String {
+        switch plan {
+        case .free: return "Your free relay time is used up"
+        case .relay: return "Your relay time is used up"
+        case .plus, .pro:
+            // Unreachable as the app is wired: an unmetered plan is never cut for quota, and
+            // ``SessionModel/apply(_:)-swift.enum.case`` writes a note rather than this for one.
+            // True rather than blank, like the paywall's own unreachable branches.
+            return "The relay stopped the session"
+        }
+    }
+
+    /// What happened, which allowance it was, and the one thing that is still free.
+    ///
+    /// The last sentence matters more than it looks. The reader's next move is to try again, or to
+    /// conclude the app has stopped working; the thing that ends that is being told that the
+    /// connection over their own network is unlimited and untouched by any of this, which it is on
+    /// every plan including the free one.
+    private var detail: String {
+        let stillFree = "Connecting over your own network is unlimited on every plan and still works."
+        switch plan {
+        case .free:
+            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day the free plan includes is spent. The relay will not carry another one from this iPhone until the window turns over. \(stillFree)"
+        case .relay:
+            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day Relay includes are spent. Relay Plus and Pro remove the daily limit. \(stillFree)"
+        case .plus, .pro:
+            return "Your plan has no daily allowance, so the relay refusing one means it read this device as free. Try again, and get in touch if it keeps happening. \(stillFree)"
+        }
     }
 }
 
@@ -544,6 +849,12 @@ enum Legal {
 private struct PlanCard: View {
     let tier: StoreManager.Tier
     let price: String?
+    /// A second line under the price, which the yearly uses to say what it works out at monthly.
+    ///
+    /// Under the price rather than beside the name, because it is not another fact about the plan:
+    /// it is the same money as the line above it, divided differently, and the two have to be read
+    /// together or the second one is just a smaller number in a second currency.
+    let note: String?
     let selected: Bool
     let select: () -> Void
 
@@ -567,13 +878,22 @@ private struct PlanCard: View {
 
                     Spacer(minLength: 8)
 
-                    // Three dots rather than a dash for a price the store has not answered with.
-                    // A dash in a price column reads as a minus sign, and this is the one place on
-                    // the screen where a mark that could be arithmetic is worth avoiding.
-                    Text(price ?? "···")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(ColorPalette.ink)
-                        .multilineTextAlignment(.trailing)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        // Three dots rather than a dash for a price the store has not answered
+                        // with. A dash in a price column reads as a minus sign, and this is the one
+                        // place on the screen where a mark that could be arithmetic is worth
+                        // avoiding.
+                        Text(price ?? "···")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(ColorPalette.ink)
+                            .multilineTextAlignment(.trailing)
+
+                        if let note {
+                            Text(note)
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(ColorPalette.accent)
+                        }
+                    }
                 }
 
                 Text(tier.tagline)

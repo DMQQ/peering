@@ -233,13 +233,27 @@ struct ContentView: View {
         // Presented from the top level rather than from whichever screen asked for it, so the
         // paywall is the same screen with the same animation however the user got here — and so
         // that opening it does not depend on the screen underneath still being on display.
+        //
+        // Not the only place it is attached: a lock that lives inside a sheet needs a presenter
+        // inside that sheet, because a sheet cannot be presented over itself. See
+        // ``SwiftUI/View/presentsPaywall(_:)``.
+        .presentsPaywall(model)
+        // The other sheet, and a different one on purpose. A session the relay ended for spent
+        // allowance is not a wall the user walked into, so it does not open the purchase screen:
+        // it opens an explanation with the plans one tap away. See ``AllowanceSpentView``.
+        //
+        // Its own presentation rather than a branch inside the one above, because they are two
+        // different screens with two different doors and only one of them is selling anything.
         .sheet(isPresented: Binding(
-            get: { model.paywallReason != nil },
-            set: { if !$0 { model.paywallReason = nil } }
+            get: { model.spentAllowance != nil },
+            set: { if !$0 { model.dismissSpentAllowance() } }
         )) {
-            PaywallView(reason: model.paywallReason ?? .upgrade) { model.paywallReason = nil }
-                .environment(model.storeManager)
-                .preferredColorScheme(.dark)
+            AllowanceSpentView(
+                plan: model.spentAllowance ?? .free,
+                onDismiss: { model.dismissSpentAllowance() }
+            )
+            .environment(model.storeManager)
+            .preferredColorScheme(.dark)
         }
     }
 

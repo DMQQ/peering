@@ -292,8 +292,21 @@ final class SessionModel {
     var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
-            audioPlayer?.isMuted = hostAudioMuted
+            audioPlayer?.isMuted = !playsHostAudio
         }
+    }
+
+    /// Whether the Mac's audio comes out of this phone, which is the switch **and** the plan.
+    ///
+    /// Two conditions rather than one because they are two different refusals and only one of them
+    /// is the user's. The switch is what somebody chose; ``StoreManager/access`` is what they
+    /// bought, and the sound of the Mac is on the Relay plan and above. A gate drawn on the switch
+    /// is not enough on its own: the audio keeps arriving over a connection the user already has,
+    /// so a free user who never touches anything would still hear it unless the player is told.
+    /// That is why this is asked in the one place the player is configured rather than only where
+    /// the switch is drawn.
+    var playsHostAudio: Bool {
+        !hostAudioMuted && storeManager.access.includes(.macSound)
     }
 
     // MARK: - Terminals
@@ -584,10 +597,56 @@ final class SessionModel {
     ///
     /// The reason travels with the flag rather than beside it, so the screen that shows the paywall
     /// never has to guess which door the user came through — and so a second door cannot be added
-    /// without saying what it is. There are five now: the relay refusing a connection, the Sessions
-    /// tab's relay card, a row in Settings, and the two the app opens by itself — see
+    /// without saying what it is. There are six now: the relay refusing a connection, the Sessions
+    /// tab's relay card, a row in Settings, a locked control the user just pressed (see
+    /// ``PaywallView/Reason/feature(_:)``), and the two the app opens by itself, which are
     /// ``offerSubscriptionIfDue(after:)``.
     var paywallReason: PaywallView.Reason?
+
+    /// The plan whose allowance ran out under a live session, or `nil` when no session was cut.
+    ///
+    /// **The one case where a session ends and nothing on screen says why.** The relay stops
+    /// splicing a connection the moment the window's allowance is spent, and it has no way to say
+    /// so: what it drops is a socket, and this end sees a control connection that closed like any
+    /// other. So the app does what it does about every drop (it reconnects), and the reconnect is
+    /// refused with `quotaExceeded`, which is the first moment the reason exists on this side at
+    /// all. See ``relaySessionDropped`` for the half of that the refusal cannot carry, and
+    /// ``SessionModel/apply(_:)-swift.enum.case`` for where the two are put together.
+    ///
+    /// A value rather than a flag, and carrying the plan that was running when it happened, for the
+    /// reason ``PaywallView/Reason/runningLow(remaining:)`` carries a figure: the sheet names the
+    /// allowance the user was on, and a plan read when the sheet draws is a second source for
+    /// something the sentence has already committed to.
+    var spentAllowance: RelayPlan?
+
+    /// Whether a relay session has dropped since the last time the relay refused a connection.
+    ///
+    /// The half of the mid-session case that the refusal cannot carry. `quotaExceeded` arrives in
+    /// two situations that look identical from this side: somebody tapped Connect with the day's
+    /// allowance already gone, and the relay has just cut a session that was running. They are two
+    /// different things to say and only one of them is a wall the user walked into, so the
+    /// difference has to be recorded before the refusal (a session was up a moment ago) and read
+    /// when it arrives.
+    var relaySessionDropped = false
+
+    /// Closes the explanation, and puts the app back where a session that has ended belongs.
+    ///
+    /// **Closing is not enough on its own, and the reason is buried in the reconnect ladder.** A
+    /// session the relay cut is torn down as a *failed reconnect*, and a failed attempt during a
+    /// resume is swallowed rather than shown. That is deliberate: it is what stops a race with the
+    /// teardown of the session that just ended from flashing a failure card. The cost is that the
+    /// phase can be left sitting on a connecting state with nothing behind it, so dismissing this
+    /// sheet without ending the session would hand the user back a card that says "Connecting"
+    /// about a connection that is never going to be made.
+    ///
+    /// Ending it is what returns the picker. A session that is up is left alone: this sheet can
+    /// only be up for one that has ended.
+    func dismissSpentAllowance() {
+        spentAllowance = nil
+        if phase.holdsSession, phase != .ready {
+            disconnect()
+        }
+    }
 
     // MARK: - Collaborators
 

@@ -123,6 +123,12 @@ struct TerminalPanel: View {
                             commands: quickCommands.all,
                             run: { model.sendTerminalInput($0.command, to: terminal.id) },
                             remove: { quickCommands.delete($0) },
+                            // Making a command is Pro; running one the user already has, and the
+                            // keys beside it, are not. The chips stay either way, so a plan that
+                            // lapses takes away the editor and not the shortcuts somebody has
+                            // been using every day. Which of the two the button opens is the
+                            // deck's own gate (see ``TerminalDeck``, where the button is drawn
+                            // once and the plan decides whether it is live).
                             edit: { isEditingQuickCommands = true },
                             send: { self.send($0, to: terminal.id) },
                             isEnabled: terminal.isRunning
@@ -161,10 +167,29 @@ struct TerminalPanel: View {
                     // One button and no menu. A new terminal is always a shell with no name:
                     // it is named by the first command run in it, or by hand on the tab, and
                     // neither of those is a question worth asking before the shell exists.
-                    Button { model.createTerminal() } label: {
-                        Image(systemName: "plus")
+                    //
+                    // **One button, drawn once, in both states.** The first shell is free on
+                    // every plan, so this is only the paid thing once there is a shell to be
+                    // concurrent with. That is the question ``SessionModel/canOpenAnotherShell``
+                    // answers, and it is also what ``SessionModel/createTerminal()`` refuses on,
+                    // so the button and the request cannot come apart.
+                    //
+                    // On a plan that has run out of shells the plus is still a plus, dimmed, with
+                    // the plan's name beside it rather than a padlock in its place. This button is
+                    // how somebody finds out the app can keep several shells open at all, and a
+                    // padlock where the plus was is the one drawing that answers "what does this
+                    // button do" with nothing.
+                    PlanLocked(
+                        capability: .shellTabs,
+                        title: "New terminal",
+                        diameter: 20,
+                        isIncluded: model.canOpenAnotherShell
+                    ) {
+                        Button { model.createTerminal() } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel("New terminal")
                     }
-                    .accessibilityLabel("New terminal")
                 }
                 // The keyboard's own bar, which is where iOS puts a dismiss key and therefore
                 // where the hand looks for one. It also puts it a keyboard's height away from
@@ -729,6 +754,10 @@ struct TerminalPanel: View {
                     onSave: terminal.isRunning
                         ? { model.saveFile($0, sessionID: terminal.id) }
                         : nil
+                    // Reading and editing a file stay free; handing it to the phone does not, and
+                    // the panel gates the share button itself. See
+                    // ``PlanCapability/fileTransfer`` for where the line is drawn and why it is
+                    // drawn there rather than around the whole browser.
                 )
             } else {
                 FileBrowserPanel(
@@ -768,6 +797,11 @@ struct TerminalPanel: View {
                     onUpload: terminal.isRunning
                         ? { model.uploadFile($0, sessionID: terminal.id) }
                         : nil,
+                    // The other direction is the same capability and the panel's own gate, so a
+                    // plan that moves files both ways or a plan that does not move them at all
+                    // needs no value passed down. The `nil` above stays a fact about this session
+                    // rather than about the account: a shell that has ended draws no upload button
+                    // at all, where a plan without file transfer draws one that cannot be pressed.
                     // And absent for the same reason: a run button types a command into a shell, so
                     // a shell that has ended is one with nothing to type into.
                     onRun: terminal.isRunning ? { run($0, in: terminal) } : nil,

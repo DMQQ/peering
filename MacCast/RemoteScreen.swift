@@ -249,6 +249,11 @@ struct RemoteScreen: View {
         .sheet(isPresented: $showsTerminals) {
             TerminalPanel()
                 .presentationDetents([.large])
+                // The locks inside this sheet need a presenter inside this sheet: the deck's
+                // macro editor, the quick commands, and both directions of the file browser are
+                // gated, and every one of them is drawn on top of the terminal. A paywall asked
+                // for from here and presented from the root is a tap that does nothing.
+                .presentsPaywall(model)
         }
         // Nothing here is a sheet any more. Both of these are panels now, so the whole session —
         // what to share, what the connection is doing, the keys — lives in one visual language on

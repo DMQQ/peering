@@ -1,6 +1,7 @@
 import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
+import MacCastKit
 
 // `childPath` moved to `RemoteCore`, alongside `ShellPath.quoted`, when the SSH browser turned
 // out to need the same join for a different reason: resolving a symbolic link means naming the
@@ -374,12 +375,26 @@ struct FileBrowserPanel: View {
             }
 
             if onUpload != nil {
-                Button { showsImporter = true } label: {
-                    chrome("arrow.up.to.line")
+                // **The button rather than the row, and it keeps the button's shape.** Sending a
+                // file to a Mac is the single most consistent paywall in remote desktop, and a free
+                // user who never sees the control never finds out the app can do it. What they see
+                // instead is the same arrow in the same circle, dimmed, with the plan's name beside
+                // it: an arrow is what says which of these circular controls sends a file up, and
+                // a badge in its place would say only that something here costs money. Tapping it
+                // opens the plans rather than doing nothing, because a control that answers a
+                // press with silence reads as broken.
+                PlanLocked(
+                    capability: .fileTransfer,
+                    title: "Upload a file to this folder",
+                    diameter: 32
+                ) {
+                    Button { showsImporter = true } label: {
+                        chrome("arrow.up.to.line")
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.9))
+                    .disabled(isChanging)
+                    .accessibilityLabel("Upload a file to this folder")
                 }
-                .buttonStyle(RailButtonStyle(scale: 0.9))
-                .disabled(isChanging)
-                .accessibilityLabel("Upload a file to this folder")
             }
         }
         .padding(.horizontal, 16)
@@ -1034,15 +1049,27 @@ struct FilePreviewPanel: View {
                 // Absent rather than disabled when the file was cut short: a greyed control invites
                 // a tap and explains nothing, and the size line above already says why.
                 if let shareURL {
-                    ShareLink(item: shareURL) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 30, height: 30)
-                            .contentShape(Rectangle())
+                    // The share button keeps its arrow when the plan does not move files, and it is
+                    // drawn even though the copy is already on the phone: what is being sold is
+                    // handing it on, and the button the user can see is the whole of how they find
+                    // out the app can do it at all. Dimmed, with the plan's name beside it, the
+                    // arrow still says what the tap would do where a badge in its place said
+                    // nothing, and tapping it opens the plans.
+                    PlanLocked(
+                        capability: .fileTransfer,
+                        title: "Download to this phone",
+                        diameter: 26
+                    ) {
+                        ShareLink(item: shareURL) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 30, height: 30)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Download to this phone")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Download to this phone")
                 }
 
                 if canEdit {

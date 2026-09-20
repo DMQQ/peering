@@ -9,9 +9,35 @@ import SwiftUI
 extension SessionModel {
     func refreshTerminals() { session?.sendTerminal(.list) }
 
+    /// Whether one more shell is allowed right now.
+    ///
+    /// **A fact about the plan and about how many are already running**, which is why it is not
+    /// asked of ``StoreManager/access`` at each of the three places a shell can be started. The
+    /// free plan runs one shell at a time and ``PlanCapability/shellTabs`` is the second one, so
+    /// the question is never "is this paid" on its own: the first shell is free on every plan, and
+    /// the badge belongs beside the button only once there is one to be concurrent with.
+    ///
+    /// Asked by the button that draws the badge and by the guard that refuses the request, for the
+    /// reason every gate in this app is written once: a gated button over a request that would have
+    /// gone through hides a feature from somebody entitled to it, and the other way round is a
+    /// badge that opens anyway.
+    ///
+    /// Counting *running* shells rather than tabs, because a shell that has ended is not something
+    /// the relay is carrying and refusing to open the next one over it would strand a user who has
+    /// closed everything they had.
+    var canOpenAnotherShell: Bool {
+        storeManager.access.includes(.shellTabs) || !terminals.contains { $0.isRunning }
+    }
+
     /// Opens a shell. It has no name to start with — the Mac numbers it, and the first command
     /// typed into it is what it ends up being called.
     func createTerminal() {
+        // **The concurrency gate, and the reason it is enforced here rather than only on the
+        // button.** Three things ask for a shell: the terminal's own `+`, the SSH tab's menu, and a
+        // Run from the file browser. A check drawn on one of them would be a check the other two
+        // walk past, which is the shape of gate that ends up on a review as a promise the app does
+        // not keep.
+        guard canOpenAnotherShell else { return }
         session?.sendTerminal(.create)
     }
 
@@ -21,7 +47,24 @@ extension SessionModel {
     /// the user has been typing into, and a file that prints for a minute or waits on a prompt
     /// should not take it over — nor should running one quietly change the directory it was in.
     /// The cost is one round trip between the tap and the output, which is what ``pendingRun`` is.
+    ///
+    /// **On a plan that runs one shell, this types into the one in hand instead.** Running what the
+    /// browser lists is part of the browser and is free on every plan, so refusing the run would
+    /// break a promise to sell a tab; and opening the tab anyway would be the app granting itself,
+    /// silently, exactly what it draws a badge beside when the user asks. What is left is the
+    /// sentence the feature is described with: a line typed into a shell you already have.
     func runInNewTerminal(_ command: String) {
+        guard canOpenAnotherShell else {
+            // `selectedTerminalID` is the shell on screen, which is the one the browser is open
+            // over: the browser follows the selected tab, so it cannot be pointing at another.
+            // A running shell as the fallback, for the case where the selection is one that has
+            // ended and the Mac has not said so yet: a command sent into a dead tab would be a
+            // Run that silently did nothing.
+            let target = terminals.first { $0.id == selectedTerminalID && $0.isRunning }?.id
+                ?? terminals.last(where: { $0.isRunning })?.id
+            if let target { sendTerminalInput(command, to: target) }
+            return
+        }
         pendingRun = command
         createTerminal()
     }
