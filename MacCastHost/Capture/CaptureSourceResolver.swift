@@ -500,7 +500,51 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     // MARK: - Descriptors
 
     private static func descriptors(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
-        displays(from: content) + applications(from: content) + windows(from: content)
+        // One icon encode per process for the whole catalogue, shared between an application's
+        // own row and the rows of every window it owns. Without the sharing, an application
+        // with six windows open pays for the same PNG seven times on every rebuild — and the
+        // catalogue is rebuilt on every application launch and quit.
+        var icons = ApplicationIcons()
+        let displayRows = displays(from: content)
+        let applicationRows = applications(from: content, icons: &icons)
+        let windowRows = windows(from: content, icons: &icons)
+        return displayRows + applicationRows + windowRows
+    }
+
+    /// The icons of the processes in one enumeration, encoded once each.
+    ///
+    /// Keyed by process rather than by bundle identifier because that is the identity both
+    /// `SCRunningApplication` and `SCWindow.owningApplication` hand out, so it is the one
+    /// lookup that needs no second source of truth to agree with.
+    ///
+    /// A plain struct and not the lock-guarded cache the Space previews use: this one is a
+    /// local of a single synchronous pass, so the lock would guard an audience of one.
+    private struct ApplicationIcons {
+        private var byProcess: [pid_t: Data?] = [:]
+
+        /// The icon for one process, encoded on first ask.
+        ///
+        /// `nil` is a real answer — a process may have no icon at all — so it is remembered as
+        /// one rather than looked for again on every window that process owns.
+        mutating func icon(for processID: pid_t) -> Data? {
+            if let cached = byProcess.index(forKey: processID) {
+                return byProcess[cached].value
+            }
+            let data = ScreenCaptureSourceResolver.applicationIcon(for: processID)
+            byProcess[processID] = data
+            return data
+        }
+    }
+
+    /// An application's icon, preferring the running application's own.
+    ///
+    /// `NSRunningApplication.icon` can briefly be nil while an app is launching. The bundle
+    /// icon is available earlier and is the same artwork users recognize in Finder.
+    private static func applicationIcon(for processID: pid_t) -> Data? {
+        guard let running = NSRunningApplication(processIdentifier: processID) else { return nil }
+        if let data = iconPNGData(for: running) { return data }
+        guard let bundleURL = running.bundleURL else { return nil }
+        return iconPNGData(for: NSWorkspace.shared.icon(forFile: bundleURL.path))
     }
 
     private static func displays(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
@@ -523,7 +567,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
     }
 
-    private static func applications(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
+    private static func applications(
+        from content: SCShareableContent,
+        icons: inout ApplicationIcons
+    ) -> [CaptureSourceDescriptor] {
         var seenBundleIDs = Set<String>()
         var seenNames = Set<String>()
         var result: [CaptureSourceDescriptor] = []
@@ -553,13 +600,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
 
             let scale = backingScale(for: bounds)
-            // `NSRunningApplication.icon` can briefly be nil while an app is launching. The
-            // bundle icon is available earlier and is the same artwork users recognize in Finder.
-            let iconData: Data? = {
-                if let running, let data = iconPNGData(for: running) { return data }
-                guard let bundleURL = running?.bundleURL else { return nil }
-                return iconPNGData(for: NSWorkspace.shared.icon(forFile: bundleURL.path))
-            }()
+            let iconData = icons.icon(for: application.processID)
 
             result.append(CaptureSourceDescriptor(
                 kind: .application,
@@ -600,28 +641,40 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         return "Application \(processID)"
     }
 
-    private static func windows(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
-        content.windows.compactMap { window in
+    private static func windows(
+        from content: SCShareableContent,
+        icons: inout ApplicationIcons
+    ) -> [CaptureSourceDescriptor] {
+        var result: [CaptureSourceDescriptor] = []
+
+        for window in content.windows {
             guard let application = window.owningApplication, let bounds = unionFrame(of: [window]) else {
-                return nil
+                continue
             }
             let running = NSRunningApplication(processIdentifier: application.processID)
-            guard running?.activationPolicy == .regular else { return nil }
+            guard running?.activationPolicy == .regular else { continue }
 
             // A window with no title is usually a panel or a splash sheet. Naming it after
             // its application is more use than an empty cell in the picker.
             let title = window.title.flatMap { $0.isEmpty ? nil : $0 } ?? application.applicationName
             let scale = backingScale(for: bounds)
 
-            return CaptureSourceDescriptor(
+            result.append(CaptureSourceDescriptor(
                 kind: .window,
                 title: title,
                 subtitle: application.applicationName,
                 bundleIdentifier: running?.bundleIdentifier,
+                // The owning application's icon. A window has no icon of its own, and the
+                // generic window glyph this row used to fall back to sat beside the
+                // application's *name* — leaving the user to read which application a picture
+                // belongs to, which is the one job an icon is there to do without reading.
+                iconPNGData: icons.icon(for: application.processID),
                 source: .window(window.windowID),
                 pixelSize: CGSize(width: bounds.width * scale, height: bounds.height * scale)
-            )
+            ))
         }
+
+        return result
     }
 
     /// Enumerates top-level GUI application bundles, excluding Apple's sealed system apps.

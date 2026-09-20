@@ -193,7 +193,12 @@ struct CaptureProbe {
         log("\(descriptors.count) capture sources")
         for descriptor in descriptors {
             let size = "\(Int(descriptor.pixelSize.width))×\(Int(descriptor.pixelSize.height))"
-            log("  \(descriptor.id.padding(toLength: 24, withPad: " ", startingAt: 0)) \(size.padding(toLength: 12, withPad: " ", startingAt: 0)) \(descriptor.title)")
+            // The icon is printed because its absence is invisible everywhere else: `nil` is a
+            // valid, well-formed descriptor, and the client draws it as a generic symbol — so a
+            // row that lost its icon and a row that was never meant to have one look identical
+            // in the picker, and identical in the protocol. Only here do they differ.
+            let icon = descriptor.iconPNGData.map { "\($0.count) B" } ?? "none"
+            log("  \(descriptor.id.padding(toLength: 24, withPad: " ", startingAt: 0)) \(size.padding(toLength: 12, withPad: " ", startingAt: 0)) \(icon.padding(toLength: 7, withPad: " ", startingAt: 0)) \(descriptor.title)")
         }
     }
 
