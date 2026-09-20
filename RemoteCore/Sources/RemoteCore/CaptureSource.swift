@@ -327,7 +327,17 @@ public struct SpacePreview: Codable, Sendable, Equatable, Identifiable {
 /// half-updated list would show entries it cannot select.
 public struct CaptureCatalog: Codable, Sendable, Equatable {
     /// Keeps catalogue size predictable even on developer machines with huge app folders.
-    public static let maximumInstalledApplicationCount = 80
+    ///
+    /// **Once 80, and that stopped being enough the day the system domain was searched.** Apple's
+    /// own applications live under `/System/Applications` and in the App cryptex, so a machine that
+    /// listed 26 third-party apps now lists around ninety with Apple's among them. The list is
+    /// applied with `prefix`, so the overflow was dropped by alphabet rather than by anything
+    /// meaningful — the last few titles simply were not there, with nothing said.
+    ///
+    /// Raised rather than removed, because the bound is real: every entry carries an icon of up to
+    /// ``maximumIconByteCount``, and the catalogue is rebuilt whenever an application launches or
+    /// quits. The host logs when this bites, so a truncation is never silent again.
+    public static let maximumInstalledApplicationCount = 250
     public let displays: [CaptureSourceDescriptor]
     public let applications: [CaptureSourceDescriptor]
     public let windows: [CaptureSourceDescriptor]

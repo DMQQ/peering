@@ -201,11 +201,23 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
         )
 
+        // Said out loud when it happens. The cap is applied with `prefix` inside the catalogue, so
+        // a machine with more applications than the limit loses the tail of an alphabetical list
+        // with no sign anywhere — which reads as the picker being broken rather than as a bound
+        // being reached.
+        let offered = installed.filter { !runningBundleIDs.contains($0.bundleIdentifier) }
+        if offered.count > CaptureCatalog.maximumInstalledApplicationCount {
+            resolverLog.notice("""
+                \(offered.count, privacy: .public) installed applications found, \
+                \(CaptureCatalog.maximumInstalledApplicationCount, privacy: .public) sent
+                """)
+        }
+
         return CaptureCatalog(
             displays: descriptors.filter { $0.kind == .display },
             applications: descriptors.filter { $0.kind == .application },
             windows: descriptors.filter { $0.kind == .window },
-            installedApplications: installed.filter { !runningBundleIDs.contains($0.bundleIdentifier) },
+            installedApplications: offered,
             spaceInfo: spaceInfo
         )
     }
@@ -580,11 +592,23 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // ScreenCaptureKit includes agents, menu extras, and system surfaces. Only a
             // regular Dock application is meaningful in an app switcher.
             guard running?.activationPolicy == .regular else { continue }
-            // System processes in /System/ sometimes slip through the activation-policy
-            // check on certain macOS versions (Wallpaper, Control Center, WindowManager…).
-            // A bundle that lives on the sealed system volume is never something the user
-            // would want to capture by name.
-            if let bundlePath = running?.bundleURL?.path, bundlePath.hasPrefix("/System/") {
+            // A short list of the system's own surfaces, by identifier, where this used to be a
+            // path check.
+            //
+            // **The path check excluded every Apple application.** It skipped anything under
+            // `/System/`, on the reasoning that a bundle on the sealed system volume is never
+            // something a user would capture by name. That reasoning has been wrong since Apple
+            // moved its own apps there: Terminal is `/System/Applications/Utilities/Terminal.app`,
+            // and Safari is inside the App cryptex, reached through a symlink in `/Applications`
+            // that an enumerator will not follow. Both disappeared from the picker, and so did
+            // Finder, which sits in `CoreServices` beside the very agents the check was written for.
+            //
+            // These three are what it was really aimed at. Each reports a regular activation policy
+            // on some macOS versions and owns surfaces that are not windows a person means to
+            // capture. Named rather than matched by path, because the path they share is also
+            // where Finder lives.
+            if let bundleIdentifier = running?.bundleIdentifier,
+               Self.systemSurfaces.contains(bundleIdentifier) {
                 continue
             }
 
@@ -679,10 +703,27 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     /// Enumerates top-level GUI application bundles, excluding Apple's sealed system apps.
     /// Package descendants are skipped so helper tools inside an app never become rows.
+    /// The system's own surfaces: regular by activation policy, and not applications.
+    ///
+    /// See the note at the call site for why this is a list of identifiers rather than a check on
+    /// where a bundle lives.
+    private static let systemSurfaces: Set<String> = [
+        "com.apple.controlcenter",
+        "com.apple.wallpaper.agent",
+        "com.apple.WindowManager",
+    ]
+
     private static func installedApplications() -> [InstalledApplicationDescriptor] {
+        // **The system domain is where Apple's own applications are.** This searched only
+        // `/Applications` and `~/Applications`, and most of Apple's apps are not there any more:
+        // Terminal and its neighbours are under `/System/Applications`, and Safari is in the App
+        // cryptex, which the system domain resolves to and a symlink in `/Applications` does not
+        // lead an enumerator to. So the list was missing Safari, Terminal, Mail, Photos and the
+        // rest, which read as the app being broken rather than as a search that looked in the
+        // wrong two places.
         let roots = FileManager.default.urls(
             for: .applicationDirectory,
-            in: [.localDomainMask, .userDomainMask]
+            in: [.localDomainMask, .userDomainMask, .systemDomainMask]
         )
         var byBundleIdentifier: [String: InstalledApplicationDescriptor] = [:]
 
