@@ -71,13 +71,15 @@
       <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
            product, the Mac it reaches and the phone it reaches from.
 
-           assets/app-mac.png is a placeholder until a capture of the host app replaces it, cut to
-           16:10, which is the proportion of the display the frame draws. Anything else letterboxes. -->
+           app-mac.png is a capture of the host window's content, with the window's own title bar
+           and traffic lights cropped off because the frame draws the machine and not the window.
+           It is 16:10, the proportion of the display the frame draws; anything else is clipped by
+           the screen rather than shown whole. -->
       <div class="stage">
         <div class="mac" aria-label="The Peering host app on a Mac">
           <div class="mac-lid">
             <div class="mac-screen">
-              <img src="/assets/app-mac.png" alt="Peering on Mac: the host app, with its sidebar and the Connect pane." width="1600" height="1000">
+              <img src="/assets/app-mac.png" alt="Peering on Mac: the host app with a phone connected, showing the Mac's screen streaming live." width="1600" height="1000">
             </div>
             <div class="mac-camera" aria-hidden="true"></div>
           </div>
