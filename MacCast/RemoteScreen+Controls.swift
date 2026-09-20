@@ -3,6 +3,22 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
+/// One of the edits that acts on the Mac rather than navigating it.
+///
+/// Data rather than eight hand-written buttons, because two layouts draw this set now: the
+/// landscape rail as a column, and the portrait dock as a grid behind a swipe. Written out twice,
+/// the two copies would disagree about what a chord does the first time either was touched.
+struct QuickAction: Identifiable {
+    /// The chord, which is also the identity. No two of these send the same keys, so the chord is
+    /// the only name the list needs.
+    let chord: String
+    let label: String
+    let accessibilityLabel: String
+    let action: () -> Void
+
+    var id: String { chord }
+}
+
 /// The controls themselves.
 ///
 /// An extension rather than a file of its own type: state and its gestures have to
@@ -152,30 +168,50 @@ extension RemoteScreen {
     /// close an app with unsaved work.
     @ViewBuilder
     var landscapeQuickActions: some View {
-        ShortcutRailButton(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
-            sendKey(keyCode: 8, modifiers: [.command])
+        ForEach(quickActions) { quickAction in
+            ShortcutRailButton(
+                chord: quickAction.chord,
+                label: quickAction.label,
+                accessibilityLabel: quickAction.accessibilityLabel,
+                action: quickAction.action
+            )
         }
-        ShortcutRailButton(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
-            sendKey(keyCode: 9, modifiers: [.command])
-        }
-        ShortcutRailButton(chord: "⌃C", label: "Stop", accessibilityLabel: "Control C") {
-            sendKey(keyCode: 8, modifiers: [.control])
-        }
-        ShortcutRailButton(chord: "⌘Z", label: "Undo", accessibilityLabel: "Undo") {
-            sendKey(keyCode: 6, modifiers: [.command])
-        }
-        ShortcutRailButton(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
-            sendKey(keyCode: 7, modifiers: [.command])
-        }
-        ShortcutRailButton(chord: "⌘S", label: "Save", accessibilityLabel: "Save") {
-            sendKey(keyCode: 1, modifiers: [.command])
-        }
-        ShortcutRailButton(chord: "⌘W", label: "Close", accessibilityLabel: "Close window") {
-            sendKey(keyCode: 13, modifiers: [.command])
-        }
-        ShortcutRailButton(chord: "⌘Q", label: "Quit", accessibilityLabel: "Quit active application") {
-            confirmsQuitApplication = true
-        }
+    }
+
+    /// The same set as data, because two layouts draw it now.
+    ///
+    /// These were eight hand-written buttons in the rail, and the portrait dock needs the same
+    /// eight in a grid. Written out twice, the two copies would disagree about what a chord does
+    /// the first time either was touched, which is exactly the drift the one `RailButton` was
+    /// built to stop. The order is the rail's, and it is an order rather than a set: copy, paste
+    /// and terminal interrupt come first because the rail scrolls them into view first.
+    var quickActions: [QuickAction] {
+        [
+            QuickAction(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
+                sendKey(keyCode: 8, modifiers: [.command])
+            },
+            QuickAction(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
+                sendKey(keyCode: 9, modifiers: [.command])
+            },
+            QuickAction(chord: "⌃C", label: "Stop", accessibilityLabel: "Control C") {
+                sendKey(keyCode: 8, modifiers: [.control])
+            },
+            QuickAction(chord: "⌘Z", label: "Undo", accessibilityLabel: "Undo") {
+                sendKey(keyCode: 6, modifiers: [.command])
+            },
+            QuickAction(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
+                sendKey(keyCode: 7, modifiers: [.command])
+            },
+            QuickAction(chord: "⌘S", label: "Save", accessibilityLabel: "Save") {
+                sendKey(keyCode: 1, modifiers: [.command])
+            },
+            QuickAction(chord: "⌘W", label: "Close", accessibilityLabel: "Close window") {
+                sendKey(keyCode: 13, modifiers: [.command])
+            },
+            QuickAction(chord: "⌘Q", label: "Quit", accessibilityLabel: "Quit active application") {
+                confirmsQuitApplication = true
+            },
+        ]
     }
 
     /// The navigation keys, below the fold on the rail.
@@ -185,11 +221,12 @@ extension RemoteScreen {
     /// for continuously. They are what the rail's scrolling is for.
     @ViewBuilder
     var navigationButtons: some View {
-        RailButton(icon: "chevron.up", label: "Up") { sendKey(keyCode: 126) }
-        RailButton(icon: "chevron.down", label: "Down") { sendKey(keyCode: 125) }
-        RailButton(icon: "chevron.left", label: "Left") { sendKey(keyCode: 123) }
-        RailButton(icon: "chevron.right", label: "Right") { sendKey(keyCode: 124) }
-        RailButton(icon: "delete.backward", label: "Delete") { sendKey(keyCode: 51) }
+        // Drawn from ``DockControl`` rather than written out here, because the portrait dock ranks
+        // these five alongside its other controls and would otherwise be a second definition of
+        // them, free to drift from this one.
+        ForEach(DockControl.navigation) { control in
+            dockControlView(control)
+        }
     }
 
     /// How tall a landscape rail may grow before its buttons scroll.
@@ -247,7 +284,9 @@ extension RemoteScreen {
             //
             // The *open* dock is reserved rather than the shut one, so that opening it while a
             // panel is up does not push the panel's own first row off the top of the display.
-            reserved = ChromeMetrics.dockExpandedHeight
+            // ``ChromeMetrics/dockStandingHeight`` rather than the card's height, because the
+            // dots under the card are part of what is standing on the picture.
+            reserved = ChromeMetrics.dockStandingHeight
                 + ChromeMetrics.panelGap
                 + ChromeMetrics.edgeInset * 2
                 + Self.statusBarHeight

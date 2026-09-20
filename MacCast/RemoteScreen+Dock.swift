@@ -2,6 +2,75 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
+/// Which sheet of the portrait dock is showing.
+///
+/// The dock had one page and it was the first one. Landscape reaches twenty-one controls across
+/// two rails that scroll; portrait had fifteen cells and no scroller, so the eight edits the
+/// landscape rail keeps below its fold, copy, paste, stop, undo, cut, save, close and quit, were
+/// absent from the portrait screen with nothing on it to say they existed. A second page is what
+/// they were missing, and it is the dock's own grid rather than a different kind of control: the
+/// same five columns, the same button, a swipe away.
+enum DockPage: String, CaseIterable, Identifiable, Hashable {
+    /// The controls the dock has always had.
+    case controls
+    /// The edits landscape reaches by scrolling its trailing rail.
+    case edits
+
+    var id: String { rawValue }
+
+    /// What the page is called when it is spoken rather than seen.
+    var spokenName: String {
+        switch self {
+        case .controls: "Dock controls"
+        case .edits: "Editing shortcuts"
+        }
+    }
+}
+
+/// The buttons the dock's first page can hold, named so that a ranking can move them about.
+///
+/// They were written into rows by hand, and the rows were what said where each one sat. Ranking
+/// them by use means the position has to come from somewhere else: each button is named here, and
+/// the page is drawn from whatever order the ranking hands back.
+///
+/// The order of the cases is the order they are drawn in before anything has been used, so it is
+/// the curated order the dock shipped with rather than an alphabetical accident.
+enum DockControl: String, CaseIterable, Identifiable {
+    // The controls that open something.
+    case mode, sources, keys, shortcuts
+    case desktops, escape, tab, settings
+    // The five that move about the Mac, which the landscape rail keeps below its fold.
+    case up, down, left, right, delete
+
+    var id: String { rawValue }
+
+    /// The navigation keys as a group, for the rail that still draws them as one.
+    static let navigation: [DockControl] = [.up, .down, .left, .right, .delete]
+}
+
+/// How often each dock button has been pressed, which is what the ranking is made of.
+///
+/// Counted on the device and kept there. The app promises no analytics, and this is a convenience
+/// for one screen rather than telemetry: a small integer per button, in the standard defaults,
+/// never leaving the phone.
+///
+/// Counts only ever go up. Letting them decay would make the order drift for reasons the user
+/// cannot see, which is worse than an order that is merely stale, and a single button used hard
+/// once and never again is the price of that.
+enum DockUsage {
+    private static let key = "Peering.dockUsage"
+
+    static func counts() -> [String: Int] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: Int] ?? [:]
+    }
+
+    static func record(_ id: String) {
+        var current = counts()
+        current[id, default: 0] += 1
+        UserDefaults.standard.set(current, forKey: key)
+    }
+}
+
 /// The portrait dock and the shortcuts panel.
 ///
 /// An extension rather than a file of its own type: state and its gestures have to
@@ -120,14 +189,32 @@ extension RemoteScreen {
         }
     }
 
-    /// How tall the dock stands at the moment.
+    /// How tall the dock stands at the moment, card and dots together.
     ///
     /// The one piece of portrait chrome whose height changes, and the pointer above it is placed
     /// from it rather than from a second number that would have to be kept in step. Read from the
-    /// same two constants the dock is built from, so opening it lifts the pointer by exactly the
-    /// row that appeared.
+    /// same constants the dock is built from, so opening it lifts the pointer by exactly the row
+    /// that appeared.
+    ///
+    /// The dots are included because they are standing on the picture too: a pointer placed from
+    /// the card alone would be lifted by a gap short, and would overlap the dots it was meant to
+    /// clear.
     var dockHeight: CGFloat {
+        dockCardHeight + ChromeMetrics.dockDotsGap + ChromeMetrics.dockPageDotsHeight
+    }
+
+    /// How tall the glass card is: the pager, the chevron, and the padding around them.
+    var dockCardHeight: CGFloat {
         dockExpanded ? ChromeMetrics.dockExpandedHeight : ChromeMetrics.dockCollapsedHeight
+    }
+
+    /// How tall the dock's rows are right now, without the dots or the padding around them.
+    ///
+    /// The pager is given exactly this, so a page is the rows and nothing else. Handed the whole
+    /// dock it would scroll into the dots' strip as well, and a page would settle with its last
+    /// line of buttons a strip short of where it belongs.
+    var dockGridHeight: CGFloat {
+        dockExpanded ? ChromeMetrics.dockExpandedGridHeight : ChromeMetrics.buttonHeight
     }
 
     /// The same controls as the landscape rails, in a bar that opens like the status pill does.
@@ -143,53 +230,207 @@ extension RemoteScreen {
     /// row whose buttons sat half a button to the left of the ones above it is the sort of thing
     /// nobody can name and everybody can see.
     func portraitDock(width: CGFloat) -> some View {
-        ZStack(alignment: .top) {
-            if dockExpanded {
-                VStack(spacing: ChromeMetrics.buttonGap) {
+        VStack(spacing: ChromeMetrics.dockDotsGap) {
+            HStack(spacing: 0) {
+                // The buttons page and the chevron does not. Fixed at the trailing edge it
+                // stays under the thumb that just pressed it, and it is reachable from either
+                // page, which it was not while it was the first page's last column: opening
+                // or shutting the dock meant swiping back to that page first.
+                ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
-                        modeButton
-                        sourcesButton
-                        keysButton
-                        shortcutsButton
-                        dockToggle
+                        ForEach(DockPage.allCases) { page in
+                            dockGrid(page, expanded: dockExpanded)
+                                .containerRelativeFrame(.horizontal)
+                                .id(page)
+                        }
                     }
-                    HStack(spacing: 0) {
-                        desktopsSlot
-                        escapeButton
-                        tabButton
-                        settingsButton
-                        // Keep the fifth column so this row stays aligned with the one above.
-                        emptyDockSlot
-                    }
-                    // The keys the landscape rail keeps below its fold, which portrait had no
-                    // equivalent for at all. Five of them and five columns, so each lands in a
-                    // column of its own and the row needs no empty cell to stay in step — which
-                    // is the whole reason five is the number (see ``ChromeMetrics/dockColumns``).
-                    HStack(spacing: 0) {
-                        navigationButtons
-                    }
+                    .scrollTargetLayout()
                 }
-            } else {
+                // Paging rather than free scrolling, so a page is either wholly here or wholly
+                // gone. A dock resting half way between its two pages is a column of buttons
+                // half off the edge of the glass, and a thumb aiming at one has no way to
+                // know which half of it will be under the finger when the swipe settles.
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $dockPage)
+
+                dockToggle
+                    .frame(width: ChromeMetrics.dockToggleWidth)
+            }
+            // One row shut, three open. The pager is the whole of the dock in both states and
+            // this is the only measurement that differs between them, so a swipe means the
+            // same thing either way.
+            .frame(height: dockGridHeight)
+            .padding(.vertical, ChromeMetrics.railPadding)
+            .padding(.horizontal, ChromeMetrics.railSidePadding)
+            // The height as well as the width, and it is the bar's own number rather than a copy
+            // of it: ``dockHeight`` is what the pointer above is placed from, and until this was
+            // pinned it was also a number the bar could disagree with. A content-sized bar is
+            // only as tall as its contents, and the moment any cell in it is flexible in height
+            // the column hands the bar whatever it has going spare, which it did, over the
+            // picture, for the whole of the joystick's room. Fixed, the two readings of "how
+            // tall is the dock" cannot drift.
+            //
+            // The glass stops at this frame and the dots are outside it. That is the whole reason
+            // the card is one row thick standing shut: with the dots drawn inside, the material
+            // had to cover them too, and a bar of buttons ended up two rows tall.
+            .frame(width: width, height: dockCardHeight)
+            .clipShape(dockShape)
+            .glassEffect(.regular, in: dockShape)
+
+            dockPageDots
+        }
+        .frame(width: width, height: dockHeight)
+    }
+
+    /// The first page, ranked: the controls used most, first.
+    var rankedControls: [DockControl] {
+        ranked(DockControl.allCases, id: \.id)
+    }
+
+    /// The second page, ranked the same way, and against itself alone.
+    var rankedEdits: [QuickAction] {
+        ranked(quickActions, id: \.id)
+    }
+
+    /// A list of buttons in the order the dock should draw them.
+    ///
+    /// The two pages rank separately, so the controls and the edits never trade places with each
+    /// other: the dock keeps saying which page is which, and only the order within each one moves.
+    ///
+    /// Read from the snapshot taken when the screen was built, never from the store on every draw.
+    /// Recording a press must not reorder the dock under the finger that made it, and a dock that
+    /// rearranges itself as it is used is one nobody can learn.
+    ///
+    /// Ties keep the order they are handed over in, which is the order the dock shipped with. So a
+    /// fresh install draws exactly what it always did, and drifts from there.
+    func ranked<Item>(_ items: [Item], id: (Item) -> String) -> [Item] {
+        items.enumerated()
+            .sorted { left, right in
+                let leftCount = dockUsage[id(left.element)] ?? 0
+                let rightCount = dockUsage[id(right.element)] ?? 0
+                guard leftCount == rightCount else { return leftCount > rightCount }
+                return left.offset < right.offset
+            }
+            .map(\.element)
+    }
+
+    /// One page of the dock: five columns, and as many rows as the dock is standing at.
+    ///
+    /// The rows used to be written out one button at a time, and that is what said where each one
+    /// sat. A page whose contents can change has to be a list instead, so the position is decided
+    /// here from whatever order the ranking hands back.
+    ///
+    /// One row shut and three open, so a swipe means the same thing in both states. Both pages are
+    /// the same width and their rows are the same height, so a swipe slides the grid sideways
+    /// rather than redrawing it, and a button on the second page lands on a row line the first page
+    /// already drew. That is what keeps the dock one object rather than two bars.
+    ///
+    /// The empty cells that pad the last row are the same size as a full one, for the reason the
+    /// hand-written rows carried them: a row that dropped a column would divide its width between
+    /// what was left and put every button in it under the gap between the two above.
+    @ViewBuilder
+    func dockRows<Item: Identifiable, Content: View>(
+        _ items: [Item],
+        expanded: Bool,
+        @ViewBuilder item: @escaping (Item) -> Content
+    ) -> some View {
+        let columns = ChromeMetrics.dockColumns
+        let rows = expanded ? ChromeMetrics.dockExpandedRows : 1
+        VStack(spacing: ChromeMetrics.buttonGap) {
+            ForEach(0..<rows, id: \.self) { row in
                 HStack(spacing: 0) {
-                    modeButton
-                    sourcesButton
-                    keysButton
-                    shortcutsButton
-                    dockToggle
+                    ForEach(0..<columns, id: \.self) { column in
+                        let index = row * columns + column
+                        if index < items.count {
+                            item(items[index])
+                                // Counted on the way past, which is the whole of how the ranking
+                                // is learned. The snapshot the order was read from is not touched,
+                                // so this cannot move the button that was just pressed.
+                                .simultaneousGesture(TapGesture().onEnded {
+                                    DockUsage.record("\(items[index].id)")
+                                })
+                        } else {
+                            emptyDockSlot
+                        }
+                    }
                 }
             }
         }
-        .padding(.vertical, ChromeMetrics.railPadding)
-        .padding(.horizontal, ChromeMetrics.railSidePadding)
-        // The height as well as the width, and it is the bar's own number rather than a copy of
-        // it: ``dockHeight`` is what the pointer above is placed from, and until this was pinned
-        // it was also a number the bar could disagree with. A content-sized bar is only as tall as
-        // its contents, and the moment any cell in it is flexible in height the column hands the
-        // bar whatever it has going spare — which it did, over the picture, for the whole of the
-        // joystick's room. Fixed, the two readings of "how tall is the dock" cannot drift.
-        .frame(width: width, height: dockHeight)
-        .clipShape(dockShape)
-        .glassEffect(.regular, in: dockShape)
+    }
+
+    /// One page, whichever it is.
+    @ViewBuilder
+    func dockGrid(_ page: DockPage, expanded: Bool) -> some View {
+        switch page {
+        case .controls:
+            dockRows(rankedControls, expanded: expanded) { dockControlView($0) }
+        case .edits:
+            dockRows(rankedEdits, expanded: expanded) { edit in
+                ShortcutRailButton(
+                    chord: edit.chord,
+                    label: edit.label,
+                    accessibilityLabel: edit.accessibilityLabel,
+                    action: edit.action
+                )
+            }
+        }
+    }
+
+    /// One control on the first page, addressable by itself so the ranking can place it.
+    ///
+    /// The navigation keys are drawn from here rather than as the one `@ViewBuilder` the landscape
+    /// rail still uses, because a ranking cannot move something it cannot name. They remain a group
+    /// in that rail, which is a column with the height for all five.
+    @ViewBuilder
+    func dockControlView(_ control: DockControl) -> some View {
+        switch control {
+        case .mode: modeButton
+        case .sources: sourcesButton
+        case .keys: keysButton
+        case .shortcuts: shortcutsButton
+        case .desktops: desktopsSlot
+        case .escape: escapeButton
+        case .tab: tabButton
+        case .settings: settingsButton
+        case .up: RailButton(icon: "chevron.up", label: "Up") { sendKey(keyCode: 126) }
+        case .down: RailButton(icon: "chevron.down", label: "Down") { sendKey(keyCode: 125) }
+        case .left: RailButton(icon: "chevron.left", label: "Left") { sendKey(keyCode: 123) }
+        case .right: RailButton(icon: "chevron.right", label: "Right") { sendKey(keyCode: 124) }
+        case .delete: RailButton(icon: "delete.backward", label: "Delete") { sendKey(keyCode: 51) }
+        }
+    }
+
+    /// Which page the dock is on, and the way to the other one.
+    ///
+    /// Pressable as well as drawn. Dots that only report are dots that tell the user where they
+    /// are and then make them swipe to prove it, and on a bar this wide they are the smaller
+    /// target of the two, so they are the ones with a reason to be tappable.
+    ///
+    /// Bare marks, with a shadow rather than a backing. They sit over the picture, so they need
+    /// something to hold them apart from whatever is behind them, and a shadow does that without
+    /// putting a second pane of glass under a bar that is already made of it. A capsule holding
+    /// two five-point dots is more glass than indicator, which is the wrong way round.
+    var dockPageDots: some View {
+        HStack(spacing: 0) {
+            ForEach(DockPage.allCases) { page in
+                Button {
+                    withAnimation(Motion.settle) { dockPage = page }
+                } label: {
+                    Circle()
+                        .fill(page == dockPage ? Color.primary : Color.secondary.opacity(0.6))
+                        .frame(width: 5, height: 5)
+                        .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
+                        // The full height of the strip, so a mark this small still has a tap
+                        // target a thumb can find without aiming.
+                        .frame(width: 16, height: ChromeMetrics.dockPageDotsHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(page.spokenName)
+                .accessibilityAddTraits(page == dockPage ? [.isSelected] : [])
+            }
+        }
+        .frame(height: ChromeMetrics.dockPageDotsHeight)
     }
 
     /// The dock's outline, in whichever state it is in — see ``pillShape``, which this is a
@@ -207,18 +448,19 @@ extension RemoteScreen {
 
     /// The dock's own chevron: the one thing in the row that is not a control for the Mac.
     ///
-    /// The buttons fill their rows between them, so there is no gap left to tap — an expanding
-    /// bar of solid controls has nowhere to put the gesture unless it is given a cell of its
-    /// own. It is wordless because it says nothing about the Mac; it only says there is more
-    /// bar.
+    /// Fixed at the trailing edge, outside the pager, so the buttons move under it rather than
+    /// with it. Two things come of that: it stays under the thumb that just pressed it, and it
+    /// can be pressed from either page, where as a cell of the first page it could only be
+    /// reached by swiping back to that page first.
     ///
-    /// A whole column, not the narrow slot it began as. The grid it sits in is five even cells,
-    /// and a chevron on a column of its own is what lets the row below it be five keys rather
-    /// than four keys and a gap. The extra width costs nothing the row was using: it is the
-    /// tap target for the one control here that has no caption to aim at.
+    /// It is wordless because it says nothing about the Mac; it only says there is more bar.
     var dockToggle: some View {
         Button {
             withAnimation(Motion.morph) { dockExpanded.toggle() }
+            // Shutting the dock puts it back on its first page, so opening it again starts where
+            // it always has. Left where paging abandoned it, the controls the dock is mostly for
+            // would be one swipe behind a page of edits the user never chose as their home.
+            if !dockExpanded { dockPage = .controls }
         } label: {
             Image(systemName: dockExpanded ? "chevron.up" : "chevron.down")
                 .font(.system(size: 13, weight: .semibold))

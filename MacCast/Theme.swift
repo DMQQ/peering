@@ -82,16 +82,49 @@ enum ChromeMetrics {
     static let dockColumns = 5
     static let dockExpandedRows = 3
 
-    /// How tall the portrait dock stands, shut and open.
+    /// How wide the dock's chevron is. Fixed, while the buttons beside it page.
+    ///
+    /// Narrower than a grid column, because it holds a glyph and no caption: it is the one control
+    /// in the dock with nothing to aim at, so it is sized as a thumb target rather than as a cell.
+    /// The columns give up the difference, which is why the dock's buttons are a little narrower
+    /// than they were when the chevron held a column of its own.
+    static let dockToggleWidth: CGFloat = 52
+
+    /// How tall the dock's glass card stands, shut and open.
+    ///
+    /// **The card alone, and that is the correction.** The page dots used to be a row inside it,
+    /// which made a dock standing at one row of buttons two rows thick. They are drawn under the
+    /// card now, so the glass is exactly as thick as its buttons: 70 points shut rather than 82.
     ///
     /// Derived from the buttons rather than chosen, for the reason the rail heights already were:
-    /// the number and the thing it has to contain cannot drift apart if there is only one of
-    /// them. The open dock is the same buttons in more rows, so it is the shut one plus a row
-    /// and a gap for each row past the first.
+    /// the number and the thing it has to contain cannot drift apart if there is only one of them.
     static let dockCollapsedHeight = buttonHeight + railPadding * 2
-    static let dockExpandedHeight = buttonHeight * CGFloat(dockExpandedRows)
+
+    /// The open dock's three rows of buttons.
+    ///
+    /// Split out because the pager is given exactly this much: a pager handed the whole card would
+    /// take the padding with it and page its pages by the wrong amount.
+    static let dockExpandedGridHeight = buttonHeight * CGFloat(dockExpandedRows)
         + buttonGap * CGFloat(dockExpandedRows - 1)
-        + railPadding * 2
+
+    static let dockExpandedHeight = dockExpandedGridHeight + railPadding * 2
+
+    /// The strip the page dots sit in, drawn under the card rather than in it.
+    ///
+    /// Both states carry it. A shut dock pages as well, and the dots are the only thing on screen
+    /// that says so: without them the swipe is invisible until somebody happens to try it, which
+    /// is a control with one page as far as anybody can tell.
+    static let dockPageDotsHeight: CGFloat = 10
+
+    /// From the card's bottom edge to the dots under it.
+    static let dockDotsGap: CGFloat = 6
+
+    /// How tall the open dock stands altogether, card and dots together.
+    ///
+    /// What a panel above it has to stay clear of, and the reason it is not simply the card's
+    /// height: a panel sized against the card would cover the dots, and they are how the current
+    /// page is known rather than decoration.
+    static let dockStandingHeight = dockExpandedHeight + dockDotsGap + dockPageDotsHeight
 
     /// The portrait dock's corner in each of its two states, on the same reasoning as the status
     /// pill's — see ``pillCollapsedRadius``. One row is a stadium; two rows keep a softened edge

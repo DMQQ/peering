@@ -69,8 +69,21 @@ struct RemoteScreen: View {
     @State var openPanel: Panel?
     @State var statusBarExpanded = true
     /// Whether the portrait dock has opened onto the controls that did not earn a permanent
-    /// place in it. Portrait's alone — the landscape rails have the height to show them all.
+    /// place in it. Portrait's alone: the landscape rails have the height to show them all.
     @State var dockExpanded = false
+    /// Which page of the open dock is showing.
+    ///
+    /// Optional because that is what `scrollPosition(id:)` binds to: a pager that has not settled
+    /// reports nothing, and a plainer binding would have to name a page it has not drawn. Put
+    /// back to the first page whenever the dock shuts, so opening it always starts where it
+    /// always has.
+    @State var dockPage: DockPage? = .controls
+    /// The press counts the dock's ranking is read from, taken once when the screen is built.
+    ///
+    /// A snapshot rather than the store itself, and deliberately: the store is written to on every
+    /// press, so reading it live would reorder the dock the instant a button was used and move
+    /// that button out from under the finger that pressed it.
+    @State var dockUsage: [String: Int] = DockUsage.counts()
     /// The pending auto-collapse, so expanding by hand can cancel the one already in flight.
     @State var statusBarCollapseTask: Task<Void, Never>?
     /// `⌘Q` sits in the always-available landscape actions. Unlike copy or paste it can discard
