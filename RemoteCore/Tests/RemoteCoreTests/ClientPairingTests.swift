@@ -318,6 +318,21 @@ private final class MacLink: @unchecked Sendable {
         send(Frame(kind: kind, payload: payload))
     }
 
+    /// Hangs up from this end, the way a Mac that restarted or changed network would.
+    ///
+    /// **The difference from `ClientSession.disconnect()` is the whole reason this exists.** The
+    /// client's own teardown closes its sockets as *cancelled*, and a cancelled socket must not be
+    /// dialled again; a socket this end closed arrives as a transport failure, which is what the
+    /// video reconnect is armed by. A test that could only close sockets from the client's side
+    /// could not tell those two apart.
+    ///
+    /// The reason is written before the cancel, because `end` keeps the first one and the
+    /// cancellation path names itself as the client's doing.
+    func hangUp() {
+        lock.withLock { if failureReason == nil { failureReason = "this Mac hung up" } }
+        connection.cancel()
+    }
+
     /// The host's hello, which is the frame the pin decision turns on.
     func sendHello(serverID: String, alreadyPaired: Bool) {
         send(.serverHello, ServerHello(
@@ -517,7 +532,13 @@ private let transportSentences: Set<String> = [
 /// several at once reliably: running three of these in parallel failed about one test in three with
 /// `errSecItemNotFound` out of `SecKeyCreateRandomKey`, on a machine where the app itself has never
 /// had trouble creating the one key it needs. Sequential runs do not, which is worth the two seconds.
-@Suite("The client's pairing decision", .serialized, .timeLimit(.minutes(1)), .enabled(if: keychainIsUsable))
+/// **The whole of what a client does against a Mac that answers it.** Every test in this file mints
+/// a TLS identity of its own in the Keychain, and `.serialized` on this suite is what keeps that on
+/// one thread: two suites minting keys at the same time make `SecKeyCreateRandomKey` fail with
+/// `errSecItemNotFound` often enough to be a test run out of every two, which reads as the client
+/// failing when nothing is wrong with it. The trait applies to everything nested below, which is why
+/// the video socket's own tests are nested rather than written beside this suite.
+@Suite("The client against a scripted Mac", .serialized, .timeLimit(.minutes(1)), .enabled(if: keychainIsUsable))
 struct ClientPairingTests {
     /// Ending an attempt is the terminal event for that attempt. The transport's cancellation
     /// races the suspended `connect` call as it unwinds; if the latter is allowed to report its
@@ -861,4 +882,139 @@ struct ClientPairingTests {
             #expect(session.serverKey == macIdentity.publicKeyBytes)
         }
     }
+
+    /// The video socket's own life, which shares this file because the scripted Mac does.
+    ///
+    /// **What it covers is the half of a session that can go without the session going with it.** On
+    /// a direct connection the picture travels a socket of its own, and for a long time nothing
+    /// re-dialled it: `openVideoIfNeeded()` had one caller, `becomeReady()`, which runs once, so the
+    /// first drop was also the last frame. The control channel stayed healthy throughout, which is
+    /// what made the failure read as "paused" rather than as "disconnected", and left the phone
+    /// showing a frozen picture it could still tap on.
+    ///
+    /// The scripted Mac here is the real thing in the one respect that matters: it is a Mac that
+    /// hung up, not a client that decided to stop dialling. See the enclosing suite for why these
+    /// are nested rather than written beside it.
+    @Suite("Reconnecting the video socket")
+    struct VideoReconnect {
+        /// A paired session that is being sent a picture, with the scripted Mac behind it.
+        ///
+        /// Everything is torn down on the way out, pin store included, so a test here is the few lines
+        /// that are about the rule and nothing else. What is handed over is the Mac (to close a socket
+        /// or take the next one), the session (to send commands), its log, and the video link itself.
+        private func withLiveVideo(
+            _ body: (ScriptedMac, ClientSession, SessionLog, MacLink) async throws -> Void
+        ) async throws {
+            let pins = TestPins()
+            defer { pins.destroy() }
+
+            try await withTestEnds { client, macIdentity in
+                let hostID = "paired-mac"
+                #expect(
+                    pins.store.record(hostID: hostID, publicKey: macIdentity.publicKeyBytes),
+                    "the pin could not be stored"
+                )
+
+                let mac = try ScriptedMac(identity: macIdentity)
+                await mac.start()
+                defer { mac.stop() }
+
+                let log = SessionLog()
+                let session = ClientSession(
+                    identity: client,
+                    clientID: "phone-1",
+                    clientName: "Test iPhone",
+                    pins: pins.store,
+                    onEvent: { log.record($0) }
+                )
+                defer { session.disconnect() }
+
+                await session.connect(to: .address(host: "127.0.0.1", port: mac.port), timeout: 10)
+                let control = try #require(await mac.nextConnection(), "the client never connected")
+                _ = try await greet(control, serverID: hostID, alreadyPaired: true)
+                let ready = await log.wait { $0.isReady }
+                #expect(ready, "the session did not get past the pin check")
+
+                // The second connection is the video one, and the client is the end that opens it:
+                // a video socket is authorized by the control session that reached ready above.
+                let video = try #require(
+                    await mac.nextConnection(),
+                    "the session became ready and never opened a video connection"
+                )
+                let role = try await video.expect(.connectionRole)
+                #expect(role.payload == Data([ConnectionRole.video.rawValue]))
+
+                try await body(mac, session, log, video)
+            }
+        }
+
+        @Test func aDroppedVideoSocketIsDialledAgain() async throws {
+            try await withLiveVideo { mac, _, log, video in
+                // The Mac hangs up mid-session, which is what a rebuilt host, a restarted capture
+                // pipeline or a network that moved under the socket all look like from here. Nothing
+                // about the control channel changes, and that is the point: this is the picture going
+                // away on a session that is otherwise fine.
+                video.hangUp()
+
+                let replacement = try #require(
+                    await mac.nextConnection(within: 5),
+                    "the video socket was dropped and never dialled again"
+                )
+                let replacementRole = try await replacement.expect(.connectionRole)
+                #expect(
+                    replacementRole.payload == Data([ConnectionRole.video.rawValue]),
+                    "the client dialled again and asked for the wrong connection role"
+                )
+
+                // And the client's own account of it agrees: the channel opened a second time rather
+                // than the session being told the picture had ended for good.
+                let reopened = await log.wait {
+                    $0.notes.filter { $0.hasPrefix("Video channel open") }.count == 2
+                }
+                #expect(reopened, "the session never reported the channel opening again: \(log.notes)")
+            }
+        }
+
+        /// **The half of the rule that keeps the pause meaningful.** A video socket is what makes the
+        /// Mac capture, so a client that has asked for no picture and then loses its socket must not
+        /// dial another one: the Mac would start capturing again for a phone that told it to stop,
+        /// which is the whole of what the pause is for.
+        ///
+        /// The window is two seconds and the first two rungs are half a second and one, so a leak would
+        /// have dialled twice inside it.
+        @Test func aPausedSessionDoesNotDialForAPictureItRefused() async throws {
+            try await withLiveVideo { mac, session, _, video in
+                session.send(.setVideoEnabled(false))
+                video.hangUp()
+
+                let dialled = await mac.nextConnection(within: 2)
+                #expect(
+                    dialled == nil,
+                    "the client dialled again for a picture it had just asked not to be sent"
+                )
+            }
+        }
+
+        /// And the other half, which is what stops a pause being a one way door: the resume has to open
+        /// a socket, because the command itself travels on the control channel and the Mac has no video
+        /// connection left to resume on.
+        @Test func askingForThePictureAgainOpensASocket() async throws {
+            try await withLiveVideo { mac, session, _, video in
+                session.send(.setVideoEnabled(false))
+                video.hangUp()
+                // Waited out first, so that what follows is evidence about the resume rather than
+                // about a ladder that was still running.
+                #expect(await mac.nextConnection(within: 2) == nil)
+
+                session.send(.setVideoEnabled(true))
+                let reopened = try #require(
+                    await mac.nextConnection(within: 5),
+                    "the picture was asked for again and no socket was opened for it"
+                )
+                let role = try await reopened.expect(.connectionRole)
+                #expect(role.payload == Data([ConnectionRole.video.rawValue]))
+            }
+        }
+    }
+
 }

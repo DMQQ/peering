@@ -395,6 +395,20 @@ public final class ClientSession: @unchecked Sendable {
     /// The asynchronous open for `video`, so ending the session also ends a socket that is
     /// still resolving or handshaking rather than only one that has reached `.ready`.
     private var videoConnectTask: Task<Void, Never>?
+    /// The wait before the next attempt at `video`, when one is armed.
+    ///
+    /// A video socket is a lane of its own and can go without the session going with it, so
+    /// something has to put it back. This is that something, and ``VideoReconnectLadder`` is when.
+    private var videoReconnectTask: Task<Void, Never>?
+    /// How many attempts the picture has cost so far. See ``VideoReconnectLadder``.
+    private var videoReconnectLadder = VideoReconnectLadder()
+    /// Whether this client wants a picture at all, as opposed to wanting one on a working socket.
+    ///
+    /// Set from the one command that says otherwise, `.setVideoEnabled`, on its way out. It is
+    /// read by the reconnect above and by nothing else, and it is here rather than in the app
+    /// because the decision it feeds is the transport's: a client that asked the Mac to stop
+    /// capturing must not open the socket that would make it start again.
+    private var wantsPicture = true
     private var relayProxy: RelayControlProxy?
     /// Changes whenever a control attempt begins or ends. Work resumed from an `await` must
     /// still carry this value before it is allowed to install a relay proxy or send a hello.
@@ -585,6 +599,7 @@ public final class ClientSession: @unchecked Sendable {
         directPathTask?.cancel()
         lanePingTask?.cancel()
         videoConnectTask?.cancel()
+        videoReconnectTask?.cancel()
         video?.cancel()
         videoDatagrams?.cancel()
         control?.cancel()
@@ -1188,7 +1203,27 @@ public final class ClientSession: @unchecked Sendable {
     /// dropped even when the queue is saturated — holds in one place instead of in each view.
     public func send(_ command: RemoteCommand) {
         guard isReady else { return }
+        // The picture's on/off switch is the one command this layer has an opinion about. Every
+        // other command is something the Mac does; this one is something that happens to the
+        // video socket, and the reconnect has to know which way it was asked for or a paused
+        // client would dial a socket that makes the Mac start capturing again. Recorded here
+        // rather than at the call site so that the two can never be sent apart.
+        if case .setVideoEnabled(let enabled) = command { notePictureRequested(enabled) }
         coalescer.enqueue(command)
+    }
+
+    /// Records that the client asked for a picture, or for silence, and answers the one case the
+    /// command cannot answer by itself.
+    ///
+    /// **A resume needs a socket to travel on.** The Mac answers this command on the connection it
+    /// arrived on, and that connection is the control channel, so a resume for a session whose
+    /// video socket died during the pause reaches the Mac and changes nothing: the Mac has no
+    /// video connection for this client to resume *on*. Opening one here is what makes a pause
+    /// something the user can come back from rather than something they have to reconnect to
+    /// escape.
+    private func notePictureRequested(_ wanted: Bool) {
+        lock.withLock { wantsPicture = wanted }
+        if wanted { openVideoIfNeeded() }
     }
 
     /// Switches what the Mac is capturing. Sent as an ordinary command so it rides the same
@@ -1329,36 +1364,65 @@ public final class ClientSession: @unchecked Sendable {
     // MARK: - Video
 
     /// Opens the second socket. Safe to call repeatedly; only the first call does anything.
+    ///
+    /// Called in three places, and they are the same act: when a session becomes ready, when a
+    /// client that had asked for no picture asks for one again, and by the reconnect whenever a
+    /// video socket closes. The guard below is what makes repeating it harmless.
     public func openVideoIfNeeded() {
         lock.lock()
         let alreadyOpen = video != nil
-        guard !alreadyOpen, state == .ready, let serverKey = _serverKey,
+        // **A relayed session has no second socket to open**, and this is the only place that can
+        // hold that check and the install in one go. Its control connection *is* its video
+        // connection, spliced through the relay, and the loopback this would dial is a one-shot
+        // listener that has already been consumed. Dialling it again fails, and the failure arrives
+        // as "the video connection ended" on a session that is streaming perfectly well, which is
+        // the paused overlay over a working picture. See ``usesRelayedSingleStream``.
+        guard !alreadyOpen, !usesRelayedSingleStream, wantsPicture, state == .ready,
+              let serverKey = _serverKey,
               let hello = _serverHello, let endpoint = control?.remoteEndpoint
         else {
             lock.unlock()
             return
         }
+        // An attempt made now is the attempt the ladder was waiting to make, so the wait goes with
+        // it. The rung itself is not given back: a socket that opens and dies again is a failure
+        // the ladder has to count, or a host that accepts and immediately drops every video socket
+        // would be dialled every half second for as long as the session lasted.
+        let pending = videoReconnectTask
+        videoReconnectTask = nil
         let connection = ClientConnection(label: "pl.dmq.peering.client.video")
         video = connection
         lock.unlock()
+        pending?.cancel()
 
         // The dedicated video connection, which is the lane the fallback is a fallback *from*.
         connection.onFrame = { [weak self] frame in self?.handleVideoFrame(frame, from: .primary) }
         connection.onClose = { [weak self, weak connection] failure in
             guard let self, let connection else { return }
-            let connectTask = self.lock.withLock { () -> Task<Void, Never>? in
-                guard self.video === connection else { return nil }
+            let (connectTask, generation, wasCurrent) = self.lock.withLock {
+                () -> (Task<Void, Never>?, UInt64, Bool) in
+                guard self.video === connection else {
+                    // A socket that something else replaced. Its close says nothing about the
+                    // session, and arming a reconnect over the socket that replaced it would be
+                    // dialling over a picture that is already there.
+                    return (nil, self.connectGeneration, false)
+                }
                 self.video = nil
                 let task = self.videoConnectTask
                 self.videoConnectTask = nil
-                return task
+                return (task, self.connectGeneration, true)
             }
             connectTask?.cancel()
             // A cancellation is our own doing — either the session is over or the socket was
             // replaced — and reporting it would put "video connection ended" on screen after
             // a deliberate disconnect.
             guard failure != .cancelled else { return }
+            // Both of these belong to the socket that was actually carrying the picture. A socket
+            // a newer one replaced says nothing about the session, and reporting its end would put
+            // "the picture has stopped" over a picture that is already flowing again.
+            guard wasCurrent else { return }
             self.emit(.video(.ended(failure.errorDescription ?? "video connection ended")))
+            self.scheduleVideoReconnect(generation: generation)
         }
 
         emit(.video(.connecting))
@@ -1383,7 +1447,13 @@ public final class ClientSession: @unchecked Sendable {
             }
 
             guard !Task.isCancelled,
-                  self.lock.withLock({ self.video === connection })
+                  // **Asked again after the handshake, because a pause can arrive during one.**
+                  // The role byte below is what makes the Mac attach and start capturing, so a
+                  // socket that sends it for a client that has just asked for no picture spends
+                  // exactly the battery the pause was asked for, on a picture nobody is being
+                  // sent. Before the byte this is not yet a video connection to the Mac, so
+                  // dropping it here costs nothing and needs no second command to undo.
+                  self.lock.withLock({ self.video === connection && self.wantsPicture })
             else {
                 connection.cancel()
                 return
@@ -1402,6 +1472,62 @@ public final class ClientSession: @unchecked Sendable {
                 task.cancel()
             }
         }
+    }
+
+    /// Arms the next attempt at the video socket, if there is one left to make.
+    ///
+    /// Called when a video socket that was carrying the picture closes for a reason that was not
+    /// our own. **Everything this must refuse is in the guard**, and each one is a case where
+    /// dialling would be wrong rather than merely useless: a session that has ended or moved on
+    /// (the generation), one that is still connecting, a relayed session, which has no second
+    /// socket to dial because the control stream is the video stream, and a client that has asked
+    /// the Mac for no picture at all.
+    ///
+    /// **The task carries the generation it was armed under and re-reads it after the wait**, which
+    /// is the rule this file applies to everything resumed from an `await`. A new control attempt
+    /// bumps that number, so a wait that began before one cannot open a socket after it.
+    private func scheduleVideoReconnect(generation: UInt64) {
+        lock.lock()
+        // `video == nil` is in here because a socket that was replaced between the close and this
+        // call is a socket there is nothing to dial for, and a rung spent refusing to dial it is a
+        // rung the next real failure does not get.
+        guard videoReconnectTask == nil, video == nil, state == .ready, wantsPicture,
+              !usesRelayedSingleStream
+        else {
+            lock.unlock()
+            return
+        }
+        guard let delay = videoReconnectLadder.next() else {
+            lock.unlock()
+            // Said out loud once, and it is the only thing that says it: the alternative is a
+            // frozen frame with a status line describing a socket that was healthy when it was
+            // last looked at. The session itself stays up, because the shells, the clipboard and
+            // the assertion that keeps the Mac awake are all still working on it, which is the
+            // same bargain the pause makes.
+            emit(.video(.ended("The video channel did not come back.")))
+            return
+        }
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            // The generation is re-read here and not merely at the arm above, because this is the
+            // wait that can outlive what it was armed for. Whether the client still wants a picture
+            // is deliberately *not* re-read: `openVideoIfNeeded` refuses to open one either way,
+            // and a second copy of that rule is a second copy to keep in step.
+            let stillOurs = self.lock.withLock { () -> Bool in
+                self.videoReconnectTask = nil
+                return self.state == .ready && self.connectGeneration == generation
+            }
+            guard stillOurs else { return }
+            self.openVideoIfNeeded()
+        }
+        // Assigned while the lock is still held, and that is load bearing rather than tidy. The
+        // task above may begin running the moment it is created, and its first act under the lock
+        // is to clear this slot; if the assignment happened outside the lock instead, the body
+        // could clear a slot that had just been filled, and every later arm would be refused
+        // because a task that is no longer running would look like one that is.
+        videoReconnectTask = task
+        lock.unlock()
     }
 
     /// Opens the relay's video datagram lane and asks the Mac for the key that opens it.
@@ -1853,6 +1979,17 @@ public final class ClientSession: @unchecked Sendable {
                 sessionLog.error("could not decode a video config")
                 return
             }
+            // The picture is back, which is the only thing that counts as a recovery. A socket
+            // that connected and said nothing is the failure the ladder exists for, so this is
+            // deliberately not cleared where the connection opens. See ``VideoReconnectLadder``.
+            //
+            // From the preferred lane only, because the ladder is about the socket that lane
+            // carries: a picture arriving over the control channel says this session is being
+            // served, not that the socket the ladder exists for has come back, and resetting on it
+            // would let a socket that opens and dies draw a fresh ladder every time.
+            if transport == .primary {
+                lock.withLock { videoReconnectLadder.reset() }
+            }
             emit(.video(.config(config)))
             // A described stream is what the datagram lane waits for. See
             // ``wantsVideoDatagrams``: the description has just arrived over the control
@@ -1945,6 +2082,14 @@ public final class ClientSession: @unchecked Sendable {
         // of two different Macs' pasteboards. See ``ClipboardTransfer/reassembler()``.
         clipboardChunks = ClipboardTransfer.reassembler()
         announcedTransport = .primary
+        // And so does the count of attempts the picture has cost: it describes a session's worth of
+        // bad luck, and a new session starts with a whole ladder. The armed wait, if there is one,
+        // is cancelled by the teardown paths, which have already been handed it.
+        videoReconnectLadder.reset()
+        // A new session starts wanting a picture, which is also what the app's own flag does when a
+        // session ends. Left standing, a session that had been paused and then reused would open no
+        // video socket for the whole of its second life, and nothing would say why.
+        wantsPicture = true
         // The datagram lane's state is the same kind of thing: a replay window and a partial
         // picture describe a link, and both belong to the session that opened it. The socket
         // itself is cancelled by the teardown paths, which have already been handed it.
@@ -2106,11 +2251,13 @@ public final class ClientSession: @unchecked Sendable {
         let control = self.control
         let video = self.video
         let videoConnect = self.videoConnectTask
+        let videoReconnect = self.videoReconnectTask
         let relayProxy = self.relayProxy
         let datagrams = self.videoDatagrams
         self.control = nil
         self.video = nil
         self.videoConnectTask = nil
+        self.videoReconnectTask = nil
         self.relayProxy = nil
         self.videoDatagrams = nil
         self.relaySession = nil
@@ -2130,6 +2277,7 @@ public final class ClientSession: @unchecked Sendable {
 
         videoWatch?.cancel()
         videoConnect?.cancel()
+        videoReconnect?.cancel()
         coalescer.flush()
         video?.cancel()
         datagrams?.cancel()
@@ -2162,11 +2310,13 @@ public final class ClientSession: @unchecked Sendable {
         _phase = .failed(message)
         let video = self.video
         let videoConnect = self.videoConnectTask
+        let videoReconnect = self.videoReconnectTask
         let control = self.control
         let relayProxy = self.relayProxy
         let datagrams = self.videoDatagrams
         self.video = nil
         self.videoConnectTask = nil
+        self.videoReconnectTask = nil
         self.control = nil
         self.relayProxy = nil
         self.videoDatagrams = nil
@@ -2181,6 +2331,7 @@ public final class ClientSession: @unchecked Sendable {
 
         videoWatch?.cancel()
         videoConnect?.cancel()
+        videoReconnect?.cancel()
         sessionLog.error("session failed: \(message, privacy: .public)")
         emit(.phase(.failed(message)))
         // The video socket carries no handshake of its own and is authorized only by this

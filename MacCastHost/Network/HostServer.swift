@@ -347,8 +347,22 @@ final class HostServer: @unchecked Sendable {
     /// is a Mac that has removed itself from the network. Nothing else here would ever notice:
     /// the connection stays open, `isAuthorized` stays true, and the 18-minute phantom that
     /// prompted this had its last real frame long before it was looked at.
+    ///
+    /// **Video connections are not its business, and reading the two limits below as though they
+    /// covered everything is the bug this guard fixes.** A video connection is silent by design:
+    /// on a direct session it carries frames out and only the role frame in, so nothing on it is
+    /// ever heard again and `silence` runs away from the moment it opens. It is also never
+    /// `isAuthorized`, for the reasons ``HostSession/isVideoConnection`` sets out, so the shorter
+    /// handshake limit applied to it and closed the picture thirty seconds into every session.
+    /// The half-open handshakes this limit exists for are connections that never presented a role;
+    /// these presented one, and the only thing that ends them is the control session they belong
+    /// to.
+    ///
+    /// **Skipping them leaves nothing behind.** The control session they belong to is still reaped
+    /// on its own limit, and its end sweeps the video connections for its key, so a phone that
+    /// vanishes without a FIN still loses its picture socket, at sixty seconds rather than thirty.
     private func reapSilentSessions() {
-        for session in controlSessions {
+        for session in controlSessions where !session.isVideoConnection {
             let limit = session.isAuthorized ? Self.silenceLimit : Self.handshakeSilenceLimit
             guard session.silence > limit else { continue }
             if session.isAuthorized {
@@ -488,7 +502,23 @@ final class HostServer: @unchecked Sendable {
             // And the streams authorized by it end with it. "Stop sharing" has to actually
             // stop: a video connection that outlived its control session would keep
             // delivering the screen to a client the host believes is gone.
-            closeVideoConnections(for: session.peerPublicKey)
+            //
+            // **And only when nothing else holds this key**, which is a narrower question than
+            // "is this a control session" and the one that matters here. A phone whose network
+            // moved dials again while the old socket's close is still on its way, or is still
+            // waiting out the sixty seconds a silent connection is given; the replacement can
+            // therefore be authorized, and have its video connection attached, before this fires.
+            // Sweeping by key then cancels the picture that had just come back, and the client is
+            // left dialling into a host that keeps closing the answer.
+            //
+            // A video connection's own end needs no sweeping at all: the entry it left in
+            // `videoConnections` goes with its close handler.
+            let keyIsStillServed = controlSessions.contains {
+                $0.isAuthorized && $0.peerPublicKey == session.peerPublicKey
+            }
+            if !session.isVideoConnection, !keyIsStillServed {
+                closeVideoConnections(for: session.peerPublicKey)
+            }
             // Last one out puts the Mac back on the network.
             self.updateAdvertisement()
             if let relayBridge {

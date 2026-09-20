@@ -243,6 +243,23 @@ final class HostSession: @unchecked Sendable {
         return false
     }
 
+    /// Whether this connection asked for the video role and was handed to the video pipeline.
+    ///
+    /// **Set because `isAuthorized` cannot say it, and `state` cannot either.** A video
+    /// connection reaches neither: it is authorized *by association* (the server checks that an
+    /// authorized control session exists for the same peer key) and its state is parked at
+    /// `.failed` on the first frame, which is what stops the control state machine from trying to
+    /// read a role frame as a hello. So both of the questions the server asks about a session
+    /// answer "no" for the one connection that is working exactly as intended.
+    ///
+    /// The server's silence reaper is the reader. Its 30-second limit is for a connection that
+    /// never finished a *handshake*, and a video connection never had one to finish: on a direct
+    /// session it is also one-directional, carrying frames out and only ever the role frame in,
+    /// so `silence` on one of these climbs from the moment it opens and always crosses the limit.
+    /// Left in the reaper's path, every video connection is closed about half a minute in, which
+    /// is a picture that stops half a minute into every session.
+    private(set) var isVideoConnection = false
+
     // MARK: - Messages to the client
 
     /// The last catalogue this session sent, so an identical one is not sent twice.
@@ -319,6 +336,7 @@ final class HostSession: @unchecked Sendable {
             // accepted here and handed to the video pipeline, which verifies that an
             // authenticated control session exists for the same peer key.
             state = .failed
+            isVideoConnection = true
             onVideoConnection?(connection)
         }
     }
