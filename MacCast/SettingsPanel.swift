@@ -170,6 +170,30 @@ struct SettingsPanel: View {
 
             quality
 
+            // The Mac's audio, which this app has always carried and, until now, had no way to
+            // unmute. Its own row rather than part of the quality picker: what the picture costs
+            // and what you hear are two decisions, and this is the one somebody reaches for in
+            // the middle of a session, when the Mac starts making a noise.
+            //
+            // Written straight through to the player, which turns the mixer down rather than
+            // tearing the engine apart. See ``RemoteAudioPlayer/isMuted`` for why one sound is
+            // the reason this exists.
+            Toggle(isOn: Binding(
+                get: { !model.hostAudioMuted },
+                set: { model.hostAudioMuted = $0 }
+            )) {
+                Text("Sound from the Mac")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+
+            Text(model.hostAudioMuted
+                 ? "The Mac's audio is still sent, and dropped here without being played."
+                 : "Whatever the Mac plays comes out of this phone, including the sounds it makes in answer to what you send it.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
             HStack(spacing: 10) {
                 Image(systemName: hevcSupported ? "checkmark.seal.fill" : "xmark.seal")
                     .font(.system(size: 15, weight: .medium))

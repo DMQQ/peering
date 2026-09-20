@@ -57,13 +57,18 @@
 	  moment the phone was locked or another app was opened, and what made the Live Activity
 	  only ever live for the thirty seconds of grace.
 
-	  `audio` is the honest-ish one: the app plays silence for exactly as long as there is a
-	  session to keep. It is also what Picture in Picture needs in order to start on its own
-	  when the app goes to the background.
+	  `audio` rather than the half-dozen modes a remote desktop would like to claim, and it is
+	  claimed for the two things the app really does with it. The Mac's sound is played here for
+	  as long as a session is up (see `RemoteAudioPlayer`) and Picture in Picture will not start
+	  without it, which is the mode Apple's own guidance names for PiP.
 
-	  This is a real cost. It keeps the radio and the CPU awake for the whole time the app is
-	  backgrounded with a session up, and it is the specific thing Apple rejects apps for.
-	  Both are fine for a personal, sideloaded tool and neither would be for anything shipped.
+	  This entry used to be a trick: the app played a second of generated silence on a loop to
+	  stay awake, and the comment beside it said so. That is gone. There is no manufactured audio
+	  anywhere in the bundle, so there is nothing for a reviewer to find except an audio feature.
+
+	  The cost is real and worth naming: with a session up and the app off screen, the radio and
+	  the CPU stay awake for as long as sound is playing, which is the price of hearing the Mac
+	  and of the picture floating over other apps.
 
 	  Note this lives here and not in an INFOPLIST_KEY_ build setting: that mechanism silently
 	  ignores array-valued keys, `UIBackgroundModes` among them. It compiles, it builds, and
