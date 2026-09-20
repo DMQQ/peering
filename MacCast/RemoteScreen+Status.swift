@@ -161,6 +161,7 @@ extension RemoteScreen {
                         }
                         connectionPathChip
                         qualityChip
+                        soundButton
                         fillChip
                         // Lock and display dimming live in the dot beside the pill, leaving this
                         // row to describe and control the stream itself.
@@ -506,6 +507,41 @@ extension RemoteScreen {
     }
 
 
+
+    /// Whether the Mac's sound comes out of this phone.
+    ///
+    /// **The control the preference's own comment has claimed since it was written.** It says the
+    /// switch is "one tap away, in the session panel, under Stream" — and there was no such
+    /// control. The only one was in Settings, and Settings cannot be opened while a session is
+    /// running, which is the only moment anybody wants to silence a Mac: the sound is the Mac
+    /// talking back, and it is noticed mid-session or not at all. So the switch existed, worked,
+    /// and was unreachable from the one place it was described.
+    ///
+    /// An icon rather than a word. This row already carries the path, the quality and the fit,
+    /// and it is the row whose last growth pushed the terminal dot off the screen entirely — a
+    /// fourth word would be that again. The glyph says it on its own, and the two states are as
+    /// far apart as a speaker with waves and a speaker with a stroke through it.
+    ///
+    /// Gated like every other paid control, and drawn as itself when it is: the Mac's sound is on
+    /// Relay and above, and hiding the control would hide the reason to move up a rung.
+    var soundButton: some View {
+        PlanLocked(
+            capability: .macSound,
+            title: "Sound from the Mac",
+            diameter: 26,
+            isIncluded: model.storeManager.access.includes(.macSound)
+        ) {
+            Button {
+                withAnimation(Motion.settle) { model.hostAudioMuted.toggle() }
+            } label: {
+                Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
+                    .pillChip()
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.9))
+            .menuInk()
+            .accessibilityLabel(model.hostAudioMuted ? "Unmute the Mac" : "Mute the Mac")
+        }
+    }
 
     /// How the picture fits the screen — a menu, because "Fit" and "Fill" are not a sentence.
     ///

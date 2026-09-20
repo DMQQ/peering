@@ -121,6 +121,8 @@ extension SessionModel {
         // See ``backgroundTimeExpired()``.
         for session in sessions { session.endSession() }
         renderer.detach()
+        // Nothing is open any more, which is the widget's business as much as the card's.
+        publishOpenMacs()
         // An end this app chose is not a session the relay cut. Cleared here as well as on a
         // session coming up, because this path sets the phase directly and so never passes
         // through the drop handling in ``apply(_:)-swift.enum.case`` that would clear it.

@@ -174,6 +174,9 @@ final class SessionModel {
             path: MacSession.activityPath(session.connectionPath),
             sessionCount: openSessions.count
         )
+        // The widget's idea of which Mac is in hand, which is the same fact and a different
+        // reader. See ``publishOpenMacs()``.
+        publishOpenMacs()
     }
 
     /// The Macs that are open, in the order they were opened.
@@ -691,6 +694,31 @@ final class SessionModel {
         WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
     }
 
+    /// Hands the widget the live picture: which Macs are open, and which one is on screen.
+    ///
+    /// **Pushed rather than pulled**, like ``publishKnownMacs()`` and for the same reason — the
+    /// widget is a separate process with no way to ask, so the only moment this can be written is
+    /// when the app changes something. The moments are the ones where ``sessions`` or
+    /// ``activeSessionID`` moves, plus the handshake: a Mac's ID is not known at all until it has
+    /// answered, so a connection written down at `connect` time would be an empty string until
+    /// the first `.ready`.
+    ///
+    /// The name is written here too, and writing it is what makes "the Mac you used last" mean
+    /// the Mac you were *looking at*. Both the connect and the handshake write it today, so with
+    /// one Mac it has never mattered; with several it would offer the Mac connected to first
+    /// rather than the one in hand.
+    func publishOpenMacs() {
+        SharedStore.connectedMacIDs = openSessions.compactMap(\.hostID)
+        SharedStore.activeMacID = activeSession?.hostID
+        if let name = activeSession?.hostName {
+            SharedStore.lastHostName = name
+            UserDefaults.standard.set(name, forKey: Self.lastHostNameKey)
+        }
+        // Only the quick-connect widget: this is its list, and reloading every timeline on a
+        // switch would reload a widget that draws none of it.
+        WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
+    }
+
     /// Set when the device's own identity could not be loaded. Everything else is moot in
     /// that case: without a client certificate there is nothing for the Mac to pin.
     var identityFailure: String?
@@ -1084,6 +1112,7 @@ final class SessionModel {
         sessions.removeAll { !$0.isLive }
         sessions.append(session)
         activeSessionID = session.id
+        publishOpenMacs()
 
         // Whether a missing picture could be a network blocking video, which is a question
         // about *where* this Mac is and not one the session can answer for itself. A Mac found

@@ -33,7 +33,9 @@ private struct QuickConnectProvider: TimelineProvider {
         QuickConnectEntry(
             date: Date(),
             hostName: "Your Mac",
-            macs: [.init(id: "placeholder", name: "Your Mac")]
+            macs: [.init(id: "placeholder", name: "Your Mac")],
+            connectedMacIDs: [],
+            activeMacID: nil
         )
     }
 
@@ -49,7 +51,9 @@ private struct QuickConnectProvider: TimelineProvider {
         QuickConnectEntry(
             date: Date(),
             hostName: SharedStore.lastHostName,
-            macs: SharedStore.knownMacs
+            macs: SharedStore.knownMacs,
+            connectedMacIDs: SharedStore.connectedMacIDs,
+            activeMacID: SharedStore.activeMacID
         )
     }
 }
@@ -58,6 +62,14 @@ private struct QuickConnectEntry: TimelineEntry {
     let date: Date
     let hostName: String?
     let macs: [SharedStore.KnownMac]
+
+    /// Which of them the app is connected to, and which one it is showing.
+    ///
+    /// **The difference between "you have paired this" and "this is open"**, which is what
+    /// somebody glancing at a home screen is actually asking. Read from the shared container, so
+    /// the widget never has to ask the app anything: it is written whenever either changes.
+    let connectedMacIDs: [String]
+    let activeMacID: String?
 }
 
 private struct QuickConnectEntryView: View {
@@ -126,9 +138,18 @@ private struct QuickConnectEntryView: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .lineLimit(1)
                             Spacer(minLength: 0)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.tertiary)
+                            // A mark for a Mac that is open, and a filled one for the Mac on
+                            // screen. Drawn in the trailing slot the chevron used to take, so a
+                            // widget with nothing connected looks exactly as it always did.
+                            if entry.connectedMacIDs.contains(mac.id) {
+                                Circle()
+                                    .fill(entry.activeMacID == mac.id ? Color.green : Color.green.opacity(0.35))
+                                    .frame(width: 7, height: 7)
+                            } else {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
                     }
                 }

@@ -59,6 +59,9 @@ extension MacSession {
                 // A handshake that reached `.ready` has just established or confirmed a pin, and
                 // that is one of the few moments the paired list can have changed.
                 model.publishKnownMacs()
+                // And the same moment is when this Mac's own ID becomes known at all, which is
+                // what the widget's list is keyed by. See ``SessionModel/publishOpenMacs()``.
+                model.publishOpenMacs()
                 applyInitialQuality()
                 wire?.sendTerminal(.list)
             }

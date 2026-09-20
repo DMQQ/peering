@@ -25,10 +25,37 @@ nonisolated enum SharedStore {
     /// thread-safe, and this value is a `let` bound once at first use.
     private nonisolated(unsafe) static let defaults = UserDefaults(suiteName: suiteName)
 
-    /// The Mac the app last connected to, so the widget has something to name.
+    /// The Mac the app last *looked at*, so the widget has something to name.
+    ///
+    /// **Last looked at rather than last connected to**, which is the same thing until there is
+    /// more than one Mac open and stops being it the moment there is. A user who connected to
+    /// Studio this morning and has been working on Attic since would find the widget's small tile
+    /// offering them Studio, which is the Mac they are least likely to want. It is written from
+    /// the connect, from the handshake, and from every switch — see
+    /// ``SessionModel/activateSession(_:)``.
     static var lastHostName: String? {
         get { defaults?.string(forKey: "lastHostName") }
         set { defaults?.set(newValue, forKey: "lastHostName") }
+    }
+
+    /// The Macs that are open right now, so the widget can mark them.
+    ///
+    /// Empty when nothing is connected, which is the state the widget drew before this existed:
+    /// a list of paired Macs and one of them named as the last used. What it adds is the
+    /// difference between "you have paired this" and "you are connected to this", which is the
+    /// question somebody glancing at a home screen is actually asking.
+    static var connectedMacIDs: [String] {
+        get { defaults?.stringArray(forKey: "connectedMacIDs") ?? [] }
+        set { defaults?.set(newValue, forKey: "connectedMacIDs") }
+    }
+
+    /// Which of them the app is showing.
+    ///
+    /// `nil` with Macs open is a real state rather than a missing value: the app is between
+    /// sessions, or the Mac it was showing has just ended. The widget draws no mark for it.
+    static var activeMacID: String? {
+        get { defaults?.string(forKey: "activeMacID") }
+        set { defaults?.set(newValue, forKey: "activeMacID") }
     }
 
     /// One Mac the phone knows about, as the widget needs it: enough to name it and enough to
