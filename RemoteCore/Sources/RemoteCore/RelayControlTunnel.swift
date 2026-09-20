@@ -163,7 +163,11 @@ private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
 }
 
 /// Backpressured, bidirectional byte copying. All state lives on `queue`.
-private final class RelayByteSplice: @unchecked Sendable {
+///
+/// Internal rather than private so a test can drive it over loopback: the pipelined pump is
+/// concurrent code, and the ways it can go wrong — a direction that stops reading, two reads
+/// outstanding at once, a buffer dropped when the window is full — are not visible by reading it.
+final class RelayByteSplice: @unchecked Sendable {
     private let local: NWConnection
     private let relay: NWConnection
     private let token: Data
@@ -174,6 +178,8 @@ private final class RelayByteSplice: @unchecked Sendable {
     private var tokenSent = false
     private var pumping = false
     private var stopped = false
+    /// The two directions, once both sockets are ready. Empty until then.
+    private var legs: [Leg] = []
 
     init(
         local: NWConnection,
@@ -219,13 +225,40 @@ private final class RelayByteSplice: @unchecked Sendable {
         }
     }
 
+    /// One direction of the splice: where it reads, where it writes, and what is in flight.
+    ///
+    /// A type of its own because the two directions share nothing but the queue, and because the
+    /// stop-and-wait bug this replaces was easiest to write when that state was implicit in the
+    /// call chain.
+    private struct Leg {
+        let source: NWConnection
+        let destination: NWConnection
+        /// Bytes handed to the destination and not yet reported as sent.
+        var inFlightBytes = 0
+        /// Whether a read is already outstanding. Only one may be.
+        var reading = false
+    }
+
+    /// How much one direction may have in flight before it stops reading.
+    ///
+    /// **The bound is what makes the pipeline safe rather than the pipeline itself.** The far end
+    /// can be slower than the near one, and a splice that reads as fast as it can turns a slow
+    /// receiver into an out-of-memory sender. Two of the largest buffers this reads at a time is
+    /// enough to keep the pipe full across a round trip and small enough that the queue is not
+    /// pretending to be a buffer.
+    private static let maxInFlightBytes = 512 * 1024
+    private static let readSize = 256 * 1024
+
     private func advance() {
         guard !stopped, localReady, relayReady else { return }
         guard !tokenSent else {
             guard !pumping else { return }
             pumping = true
-            pump(from: local, to: relay)
-            pump(from: relay, to: local)
+            legs = [
+                Leg(source: local, destination: relay),
+                Leg(source: relay, destination: local),
+            ]
+            for index in legs.indices { pump(index) }
             return
         }
         tokenSent = true
@@ -235,23 +268,45 @@ private final class RelayByteSplice: @unchecked Sendable {
         })
     }
 
-    private func pump(from source: NWConnection, to destination: NWConnection) {
-        source.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) {
+    /// Keeps one direction reading and writing at the same time.
+    ///
+    /// **The read is re-armed here, not inside the send's completion**, and that one line is the
+    /// whole of the change. It used to be re-armed only after the previous buffer had been reported
+    /// sent, so a direction carried one buffer at a time and the near socket sat undrained while
+    /// each was in flight — a scheduling round trip added to every chunk, in both directions, for
+    /// the life of the connection, on the channel that carries input. On a path whose round trip is
+    /// already tens of milliseconds that is not a small share of it.
+    ///
+    /// Reading stops when the window is full, and a send completion starts it again — which is the
+    /// only thing that would otherwise leave a direction stalled.
+    private func pump(_ index: Int) {
+        guard !stopped, legs.indices.contains(index) else { return }
+        legs[index].reading = true
+        let leg = legs[index]
+        leg.source.receive(minimumIncompleteLength: 1, maximumLength: Self.readSize) {
             [weak self] data, _, isComplete, error in
             guard let self, !self.stopped else { return }
+            self.legs[index].reading = false
+
             if let data, !data.isEmpty {
-                destination.send(content: data, completion: .contentProcessed { [weak self] sendError in
+                self.legs[index].inFlightBytes += data.count
+                leg.destination.send(content: data, completion: .contentProcessed { [weak self] sendError in
                     guard let self else { return }
-                    if sendError == nil, !isComplete, error == nil {
-                        self.pump(from: source, to: destination)
-                    } else {
-                        self.stop()
-                    }
+                    self.legs[index].inFlightBytes -= data.count
+                    if sendError != nil { self.stop(); return }
+                    // Only reaches a direction that stopped reading because the window was full.
+                    // One that is still reading has a read outstanding and must not be given a
+                    // second one.
+                    if !self.legs[index].reading { self.pump(index) }
                 })
+                if self.legs[index].inFlightBytes < Self.maxInFlightBytes {
+                    self.pump(index)
+                }
                 return
             }
+
             if isComplete || error != nil { self.stop(); return }
-            self.pump(from: source, to: destination)
+            self.pump(index)
         }
     }
 
