@@ -8,16 +8,22 @@ import Network
 /// is what routers expect) and also port 7 as a fallback.
 enum WakeOnLAN {
     /// Parses a colon-separated MAC address string and sends the magic packet.
-    /// Silently does nothing on a malformed address.
-    static func send(to macString: String) {
+    ///
+    /// Answers whether a packet went out. It used to answer nothing, which left the caller with
+    /// no way to tell a malformed address from a Mac that simply did not wake, and the caller
+    /// was the one place a person could be told either. Nothing acknowledges a magic packet, so
+    /// this is the only fact available: it was sent, or it was not.
+    @discardableResult
+    static func send(to macString: String) -> Bool {
         let fields = macString.split(separator: ":", omittingEmptySubsequences: false)
         guard fields.count == 6,
               fields.allSatisfy({ $0.count == 2 }),
               fields.allSatisfy({ $0.allSatisfy(\.isHexDigit) })
-        else { return }
+        else { return false }
         let bytes = fields.compactMap { UInt8($0, radix: 16) }
-        guard bytes.count == 6 else { return }
+        guard bytes.count == 6 else { return false }
         send(mac: bytes)
+        return true
     }
 
     private static func send(mac: [UInt8]) {

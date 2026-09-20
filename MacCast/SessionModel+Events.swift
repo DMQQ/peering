@@ -17,6 +17,12 @@ extension SessionModel {
             // own terminal failure, if it comes to one, is allowed through.
             if case .failed = phase, isResuming {
                 isResuming = false
+                // **The attempt is over, so it stops counting as one in flight.** `resumeIfNeeded`
+                // refuses to start while `session` is set, on the reasoning that a session object
+                // means an attempt is already underway, true from the moment `connect(to:)`
+                // assigns it, and false from the moment the attempt fails, which is the state
+                // this branch exists in. See the note on the same assignment below.
+                session = nil
                 scheduleReconnect()
                 return
             }
@@ -84,6 +90,22 @@ extension SessionModel {
             // and the card has to go up saying "reconnecting" rather than be taken down and
             // brought back a moment later as though nothing had happened.
             if !phase.holdsSession, !userEnded {
+                // **Released here, or the ladder cannot take a single step.**
+                //
+                // `resumeIfNeeded` opens with `guard session == nil, !phase.holdsSession`, and the
+                // first half of that is the record of an attempt being in flight. Only
+                // `disconnect()` and `connect(to:)` used to clear it, and neither runs when a
+                // session drops on its own: the phase went to `.failed` with the dead session
+                // still held here. The ladder armed itself, its first tick called `resumeIfNeeded`,
+                // the guard saw a session and called `stopReconnecting`, and nothing ever re-armed
+                // it. The five attempts the app documents never happened once, which is the
+                // opposite of what the failure card said at the time.
+                //
+                // The object is finished with by now. `ClientSession.fail` cancels the control
+                // connection, the video socket, the datagram lane and the relay proxy before it
+                // emits this phase, so what is being let go of here is a reference to something
+                // that has already let go of everything else.
+                session = nil
                 scheduleReconnect()
             }
             // Held open for as long as there is a session, so the socket outlives the app being

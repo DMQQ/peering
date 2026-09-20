@@ -279,13 +279,17 @@ final class SessionModel {
 
     /// Whether the Mac's own audio is played here, or dropped.
     ///
-    /// Off by default, which is a decision rather than a default. What arrives on this channel is
-    /// everything the Mac plays — music, a call, a video — and also every system sound it makes
-    /// in response to what this phone sends it: the alert for a chord that leads nowhere, the
-    /// trudge of a failed drop. Those are the Mac talking back to a command the user just gave,
-    /// played into their ear a round trip later, and they are the reason this switch exists
-    /// rather than a volume to turn up.
-    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? true {
+    /// **On by default, and it used to be off.** What arrives on this channel is everything the
+    /// Mac plays (music, a call, a video) and also every system sound it makes in response to
+    /// what this phone sends it: the alert for a chord that leads nowhere, the trudge of a failed
+    /// drop. Those are the Mac talking back to a command the user just gave, played into their
+    /// ear a round trip later, which is why this started off.
+    ///
+    /// It ships on for the reason the switch exists at all: the sound is most of what makes a
+    /// remote session feel like the machine rather than a picture of it, and a feature nobody
+    /// knows to turn on is a feature nobody has. The alert is the exception and the switch is one
+    /// tap away, in the session panel, under Stream.
+    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
             audioPlayer?.isMuted = hostAudioMuted
@@ -301,7 +305,7 @@ final class SessionModel {
     /// Stored rather than computed from the defaults, because the panel has to redraw when it
     /// changes and a computed property reading `UserDefaults` is a change nothing observes.
     var terminalHistory: [String] =
-        UserDefaults.standard.stringArray(forKey: "Peering.terminalHistory") ?? []
+        UserDefaults.standard.stringArray(forKey: PreferenceKeys.terminalHistory) ?? []
 
     /// The command last sent, and when — so the shell's answer can be read against it.
     ///
@@ -465,9 +469,6 @@ final class SessionModel {
 
     func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
 
-    /// Whether this Mac is showing a name the user chose rather than the one it reports.
-    func isRenamed(hostID: String) -> Bool { customHostNames[hostID] != nil }
-
     /// Names a Mac, or puts its own name back if the new one is empty.
     func rename(hostID: String, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -570,7 +571,8 @@ final class SessionModel {
     /// Kept as a number rather than an index so the label and the arithmetic read the same, and
     /// persisted because it is a property of the hand, not of the session — someone who has
     /// found the speed they like wants it next time.
-    var pointerSpeed: Double = UserDefaults.standard.object(forKey: "Peering.pointerSpeed") as? Double ?? 1
+    var pointerSpeed: Double =
+        UserDefaults.standard.object(forKey: PreferenceKeys.pointerSpeed) as? Double ?? 1
 
     var showKeyboard = false
     var typedPreview = ""
@@ -926,13 +928,25 @@ final class SessionModel {
 
     // MARK: - Wake-on-LAN
 
-    /// Sends a Wake-on-LAN magic packet for the given host ID, using the MAC addresses it last
-    /// reported. Does nothing if no MAC addresses are stored for this host.
+    /// Sends a Wake-on-LAN magic packet for the given host ID, and says what came of it.
+    ///
+    /// **Said out loud, because nothing else can be.** A magic packet is a UDP broadcast that no
+    /// one acknowledges: there is no answer to wait for, and the two outcomes a user can see are
+    /// the Mac appearing in the list a few seconds later or not. That is indistinguishable from
+    /// a row that did nothing at all, which is what this was: it sent the packet, said nothing,
+    /// and left somebody tapping again. The sentence also carries the limit that matters, that
+    /// a broadcast does not leave the network it was sent on, because the row is offered for
+    /// Macs the relay can see and those are usually somewhere else.
     func wakeHost(id: String) {
-        guard let macs = hostMACAddresses[id], !macs.isEmpty else { return }
-        for mac in macs {
-            WakeOnLAN.send(to: mac)
+        let addresses = hostMACAddresses[id] ?? []
+        let sent = addresses.filter { WakeOnLAN.send(to: $0) }.count
+        guard sent > 0 else {
+            append(note: addresses.isEmpty
+                ? "No hardware address is on file for that Mac, so there is nothing to send a wake packet to."
+                : "That Mac's stored hardware address could not be read, so no wake packet was sent.")
+            return
         }
+        append(note: "Wake packet sent to \(sent) hardware address\(sent == 1 ? "" : "es"). It can only reach a Mac on this network.")
     }
 
     var pendingHostID: String?
@@ -1001,11 +1015,9 @@ final class SessionModel {
 
     // MARK: - Input
 
-    static let customMacrosKey = "Peering.customMacros"
-
     /// User-defined macros, persisted across launches. Shown after the built-in defaults.
     var customMacros: [Macro] = {
-        guard let data = UserDefaults.standard.data(forKey: "Peering.customMacros"),
+        guard let data = UserDefaults.standard.data(forKey: PreferenceKeys.customMacros),
               let decoded = try? JSONDecoder().decode([Macro].self, from: data) else {
             return []
         }

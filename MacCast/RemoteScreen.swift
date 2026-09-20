@@ -14,14 +14,14 @@ struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
 
     /// Persisted because observe mode's no-input promise must survive a relaunch.
-    @AppStorage("Peering.interactionMode") var interactionMode: InteractionMode = .control
+    @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
     /// Whether the picture is scaled up to reach the screen's edges.
     ///
     /// Persisted because it is a property of the *source*, not of the moment: a window captured
     /// on its own is usually a different shape from the screen, and someone who has just filled
     /// it will want the next one filled too.
-    @AppStorage("Peering.scalesToFill") var scalesToFill = false
+    @AppStorage(PreferenceKeys.scalesToFill) var scalesToFill = false
 
     @State var zoom: CGFloat = 1
     @State var pan: CGSize = .zero
