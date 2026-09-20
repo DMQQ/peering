@@ -38,6 +38,8 @@ final class VideoDatagramLane: @unchecked Sendable {
 
     /// The task that asks where the client is and then keeps knocking.
     private var probeTask: Task<Void, Never>?
+    /// Once the lane has failed or been cancelled, no later race may install a fresh probe task.
+    private var stopped = false
 
     /// How many probe attempts go by between two asks at the relay for the client's address.
     ///
@@ -67,8 +69,9 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// Opens the socket and binds, so the relay knows where this Mac's datagrams come from
     /// before the first of them is sent. See ``VideoDatagramSocket/start()``.
     func start() {
-        socket.onFailure = { error in
+        socket.onFailure = { [weak self] error in
             videoLog.error("the video datagram socket failed: \(error.localizedDescription, privacy: .public)")
+            self?.stopProbing()
         }
         socket.onDatagram = { [weak self] datagram, source in
             self?.accept(datagram, from: source)
@@ -95,8 +98,7 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// one side of it, and a Mac whose probes are the ones being dropped will look from the phone
     /// exactly like a Mac that is not probing at all.
     private func beginDirectPath() {
-        probeTask?.cancel()
-        probeTask = Task { [weak self] in
+        let task = Task { [weak self] in
             guard let self else { return }
             let relay = self.relay
 
@@ -127,6 +129,16 @@ final class VideoDatagramLane: @unchecked Sendable {
                 try? await Task.sleep(for: interval)
             }
         }
+        let previous = lock.withLock { () -> Task<Void, Never>? in
+            guard !stopped else {
+                task.cancel()
+                return nil
+            }
+            let previous = probeTask
+            probeTask = task
+            return previous
+        }
+        previous?.cancel()
     }
 
     /// Takes a datagram that arrived straight from the client, and sends the picture back the same
@@ -186,9 +198,18 @@ final class VideoDatagramLane: @unchecked Sendable {
     }
 
     func cancel() {
-        probeTask?.cancel()
-        probeTask = nil
+        stopProbing()
         socket.cancel()
+    }
+
+    private func stopProbing() {
+        let task = lock.withLock { () -> Task<Void, Never>? in
+            stopped = true
+            let task = probeTask
+            probeTask = nil
+            return task
+        }
+        task?.cancel()
     }
 
     var sentDatagrams: Int { socket.sentDatagrams }

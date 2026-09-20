@@ -519,6 +519,46 @@ private let transportSentences: Set<String> = [
 /// had trouble creating the one key it needs. Sequential runs do not, which is worth the two seconds.
 @Suite("The client's pairing decision", .serialized, .timeLimit(.minutes(1)), .enabled(if: keychainIsUsable))
 struct ClientPairingTests {
+    /// Ending an attempt is the terminal event for that attempt. The transport's cancellation
+    /// races the suspended `connect` call as it unwinds; if the latter is allowed to report its
+    /// error afterwards, a user-requested disconnect turns into a failure card and can arm the
+    /// reconnect ladder again.
+    @Test func disconnectWhileConnectingCannotFailAfterwards() async throws {
+        let pins = TestPins()
+        defer { pins.destroy() }
+
+        try await withTestEnds { client, macIdentity in
+            let mac = try ScriptedMac(identity: macIdentity)
+            await mac.start()
+            defer { mac.stop() }
+
+            let log = SessionLog()
+            let session = ClientSession(
+                identity: client,
+                clientID: "phone-1",
+                clientName: "Test iPhone",
+                pins: pins.store,
+                onEvent: { log.record($0) }
+            )
+
+            let attempt = Task {
+                await session.connect(
+                    to: .address(host: "127.0.0.1", port: mac.port),
+                    timeout: 10
+                )
+            }
+            let began = await log.wait { $0.phases.contains(.connecting) }
+            #expect(began, "the connection attempt never began")
+
+            session.disconnect()
+            await attempt.value
+
+            #expect(session.phase == .disconnected)
+            #expect(log.phases.last == .disconnected)
+            #expect(log.failure == nil, "the cancelled attempt reported a later failure")
+        }
+    }
+
     /// **The regression, and the most valuable assertion in this file.** A Mac that is not there
     /// must not be reported as a Mac whose identity changed.
     ///

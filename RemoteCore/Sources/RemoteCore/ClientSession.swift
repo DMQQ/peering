@@ -385,7 +385,13 @@ public final class ClientSession: @unchecked Sendable {
     private var _phase: Phase = .idle
     private var control: ClientConnection?
     private var video: ClientConnection?
+    /// The asynchronous open for `video`, so ending the session also ends a socket that is
+    /// still resolving or handshaking rather than only one that has reached `.ready`.
+    private var videoConnectTask: Task<Void, Never>?
     private var relayProxy: RelayControlProxy?
+    /// Changes whenever a control attempt begins or ends. Work resumed from an `await` must
+    /// still carry this value before it is allowed to install a relay proxy or send a hello.
+    private var connectGeneration: UInt64 = 0
     private var usesRelayedSingleStream = false
     private var _serverHello: ServerHello?
     private var _catalog: CaptureCatalog?
@@ -559,6 +565,14 @@ public final class ClientSession: @unchecked Sendable {
 
     deinit {
         pingTask?.cancel()
+        videoWatchTask?.cancel()
+        directPathTask?.cancel()
+        lanePingTask?.cancel()
+        videoConnectTask?.cancel()
+        video?.cancel()
+        videoDatagrams?.cancel()
+        control?.cancel()
+        relayProxy?.cancel()
         coalescer.stop()
     }
 
@@ -593,7 +607,7 @@ public final class ClientSession: @unchecked Sendable {
     /// a ``Phase/failed(_:)`` event, and a caller that also had to catch would have two
     /// places to render the same message — which is how one of them ends up stale.
     public func connect(to target: Target, timeout: TimeInterval = 10) async {
-        guard beginConnecting() else {
+        guard let generation = beginConnecting() else {
             emit(.phase(.failed(Failure.busy.errorDescription ?? "busy")))
             return
         }
@@ -619,7 +633,15 @@ public final class ClientSession: @unchecked Sendable {
         let connection = ClientConnection(label: "pl.dmq.peering.client.control")
         connection.onFrame = { [weak self] frame in self?.handle(frame) }
         connection.onClose = { [weak self] failure in self?.controlClosed(failure) }
-        lock.withLock { control = connection }
+        let installed = lock.withLock { () -> Bool in
+            guard connectGeneration == generation else { return false }
+            control = connection
+            return true
+        }
+        guard installed else {
+            connection.cancel()
+            return
+        }
 
         do {
             switch target {
@@ -647,6 +669,7 @@ public final class ClientSession: @unchecked Sendable {
                 }
                 try await openRelayTunnel(
                     to: connection,
+                    generation: generation,
                     hostID: hostID,
                     entitlement: entitlement,
                     pinnedServerKey: pin,
@@ -659,6 +682,7 @@ public final class ClientSession: @unchecked Sendable {
                 // for what licenses that, and why the ID is not the secret in this exchange.
                 try await openRelayTunnel(
                     to: connection,
+                    generation: generation,
                     hostID: hostID,
                     entitlement: entitlement,
                     pinnedServerKey: pinned,
@@ -666,6 +690,13 @@ public final class ClientSession: @unchecked Sendable {
                 )
             }
         } catch {
+            // `disconnect()` invalidates the generation before cancelling whatever resources
+            // already exist. An older dial returning afterwards is finished, not a new failure
+            // belonging to the next session.
+            if error is ConnectAttemptEnded || !isCurrentAttempt(connection, generation: generation) {
+                connection.cancel()
+                return
+            }
             if let e = error as? RelaySignallingError,
                case .refused(let code, _) = e, code == "quotaExceeded" {
                 emit(.relayQuotaExceeded)
@@ -685,6 +716,11 @@ public final class ClientSession: @unchecked Sendable {
             // the network's sentence for anything the transport threw, which is the division the
             // two of them already agreed on.
             fail(Failure.describe(error))
+            return
+        }
+
+        guard isCurrentAttempt(connection, generation: generation) else {
+            connection.cancel()
             return
         }
 
@@ -722,6 +758,7 @@ public final class ClientSession: @unchecked Sendable {
     /// which is the part that has to be right.
     private func openRelayTunnel(
         to connection: ClientConnection,
+        generation: UInt64,
         hostID: String,
         entitlement: RelayEntitlement,
         pinnedServerKey: Data?,
@@ -739,36 +776,71 @@ public final class ClientSession: @unchecked Sendable {
             entitlement: entitlement,
             clientProof: clientProof
         )
+        try requireCurrentAttempt(connection, generation: generation)
+
         let proxy = RelayControlProxy(session: allocation)
-        let endpoint = try await proxy.start()
-        lock.withLock {
+        let endpoint: NWEndpoint
+        do {
+            endpoint = try await proxy.start()
+        } catch {
+            proxy.cancel()
+            throw error
+        }
+
+        let installed = lock.withLock { () -> Bool in
+            guard connectGeneration == generation, control === connection else { return false }
             relayProxy = proxy
             usesRelayedSingleStream = true
             // Kept because the relay told this end where the Mac's video datagrams
             // will come from and what to bind with, and there is no second chance to
             // ask: the signalling socket is closed the moment the session is returned.
             relaySession = allocation
+            return true
         }
+        guard installed else {
+            proxy.cancel()
+            throw ConnectAttemptEnded()
+        }
+
         try await connection.connect(
             to: endpoint,
             identity: identity,
             pinnedServerKey: pinnedServerKey,
             timeout: timeout
         )
+        try requireCurrentAttempt(connection, generation: generation)
     }
 
     /// Claims the session for one connect attempt. Returns `false` if it is already in use,
     /// so a double tap on "Connect" cannot leave two handshakes racing on one object.
-    private func beginConnecting() -> Bool {
+    private func beginConnecting() -> UInt64? {
         lock.lock()
         defer { lock.unlock() }
         switch state {
         case .idle, .failed:
+            connectGeneration &+= 1
             state = .idle
             _phase = .connecting
-            return true
+            return connectGeneration
         default:
-            return false
+            return nil
+        }
+    }
+
+    /// Private sentinel used only to distinguish an obsolete async continuation from a real
+    /// network failure. It deliberately carries no user-facing text.
+    private struct ConnectAttemptEnded: Error {}
+
+    private func isCurrentAttempt(_ connection: ClientConnection, generation: UInt64) -> Bool {
+        lock.withLock { connectGeneration == generation && control === connection }
+    }
+
+    private func requireCurrentAttempt(
+        _ connection: ClientConnection,
+        generation: UInt64
+    ) throws {
+        guard isCurrentAttempt(connection, generation: generation) else {
+            throw ConnectAttemptEnded()
         }
     }
 
@@ -1216,9 +1288,16 @@ public final class ClientSession: @unchecked Sendable {
 
         // The dedicated video connection, which is the lane the fallback is a fallback *from*.
         connection.onFrame = { [weak self] frame in self?.handleVideoFrame(frame, from: .primary) }
-        connection.onClose = { [weak self] failure in
-            guard let self else { return }
-            self.lock.withLock { if self.video === connection { self.video = nil } }
+        connection.onClose = { [weak self, weak connection] failure in
+            guard let self, let connection else { return }
+            let connectTask = self.lock.withLock { () -> Task<Void, Never>? in
+                guard self.video === connection else { return nil }
+                self.video = nil
+                let task = self.videoConnectTask
+                self.videoConnectTask = nil
+                return task
+            }
+            connectTask?.cancel()
             // A cancellation is our own doing — either the session is over or the socket was
             // replaced — and reporting it would put "video connection ended" on screen after
             // a deliberate disconnect.
@@ -1228,8 +1307,8 @@ public final class ClientSession: @unchecked Sendable {
 
         emit(.video(.connecting))
 
-        Task { [weak self] in
-            guard let self else { return }
+        let task = Task { [weak self, weak connection] in
+            guard let self, let connection else { return }
             do {
                 // Now that the Mac's identity is known, the pin is enforced *in* the TLS
                 // verify block on this socket too, not merely checked afterwards.
@@ -1240,9 +1319,17 @@ public final class ClientSession: @unchecked Sendable {
                     timeout: 10
                 )
             } catch {
+                guard !Task.isCancelled else { return }
                 self.emit(.video(.ended(
                     (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 )))
+                return
+            }
+
+            guard !Task.isCancelled,
+                  self.lock.withLock({ self.video === connection })
+            else {
+                connection.cancel()
                 return
             }
 
@@ -1251,6 +1338,13 @@ public final class ClientSession: @unchecked Sendable {
                 payload: Data([ConnectionRole.video.rawValue])
             ))
             self.emit(.note("Video channel open; waiting for the Mac to start streaming."))
+        }
+        lock.withLock {
+            if video === connection {
+                videoConnectTask = task
+            } else {
+                task.cancel()
+            }
         }
     }
 
@@ -1301,9 +1395,10 @@ public final class ClientSession: @unchecked Sendable {
         socket.onDatagram = { [weak self] datagram, source in
             self?.handleDatagram(datagram, from: source)
         }
-        socket.onFailure = { [weak self] error in
+        socket.onFailure = { [weak self, weak socket] error in
             sessionLog.error("the video datagram socket failed: \(error.localizedDescription, privacy: .public)")
-            self?.emit(.note("The relay's video path stopped responding."))
+            guard let self, let socket else { return }
+            self.videoDatagramSocketFailed(socket)
         }
         // The bind and the keepalive that repeats it. A NAT binding that expires is a session
         // that stops receiving video without anything on either end reporting a problem.
@@ -1313,6 +1408,29 @@ public final class ClientSession: @unchecked Sendable {
         // The request carries nothing: the question is whether this session may use the relay's
         // datagram path, and both ends can already see everything needed to answer that.
         connection()?.send(Frame(kind: .videoKeyRequest))
+    }
+
+    /// Retires only the failed video lane. The control session remains usable and its chunked
+    /// transport is the fallback, but work whose only purpose was this socket must not outlive it.
+    private func videoDatagramSocketFailed(_ socket: VideoDatagramSocket) {
+        let tasks = lock.withLock { () -> (Task<Void, Never>?, Task<Void, Never>?)? in
+            guard videoDatagrams === socket else { return nil }
+            videoDatagrams = nil
+            wantsVideoDatagrams = false
+            videoOpener = nil
+            videoSealer = nil
+            reportedPath = .relay
+            let direct = directPathTask
+            let ping = lanePingTask
+            directPathTask = nil
+            lanePingTask = nil
+            return (direct, ping)
+        }
+        guard let tasks else { return }
+        tasks.0?.cancel()
+        tasks.1?.cancel()
+        socket.cancel()
+        emit(.note("The relay's video path stopped responding."))
     }
 
     /// The Mac's answer to ``MessageKind/videoKeyRequest``: the session's video secret.
@@ -1353,18 +1471,23 @@ public final class ClientSession: @unchecked Sendable {
         }) else { return }
         let (socket, relay) = pair
 
-        directPathTask?.cancel()
-
         // Built once, here, and kept in the session: see ``videoSealer`` for why there can only
         // ever be one of these for a direction.
         let schedule = VideoKeySchedule(secret: secret)
         guard let sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
         else { return }
-        lock.withLock { videoSealer = sealer }
+        let laneStillExists = lock.withLock { () -> Bool in
+            guard videoDatagrams === socket else { return false }
+            videoSealer = sealer
+            return true
+        }
+        guard laneStillExists else { return }
 
-        startLanePinging(socket)
-
-        directPathTask = Task { [weak self] in
+        let pingTask = makeLanePingTask(socket)
+        let directTask = Task { [weak self] in
+            guard let self,
+                  self.lock.withLock({ self.videoDatagrams === socket })
+            else { return }
 
             // Quick while there is any prospect of it working, then slow for the rest of the
             // session. The fast phase is what gets a session onto the direct path within a beat of
@@ -1399,17 +1522,17 @@ public final class ClientSession: @unchecked Sendable {
                         let peer = "\(address.host):\(address.port)"
                         do {
                             try socket.setDirectPeer(host: address.host, port: address.port)
-                            self?.reportDirectPath(.probing(peer: peer))
+                            self.reportDirectPath(.probing(peer: peer))
                         } catch {
-                            self?.reportDirectPath(.addressUnusable(peer: peer))
+                            self.reportDirectPath(.addressUnusable(peer: peer))
                         }
                     } else {
-                        self?.reportDirectPath(.noAddress)
+                        self.reportDirectPath(.noAddress)
                     }
                 }
 
-                if let probe = self?.sealOnVideoLane(kind: .directProbe, payload: Data()),
-                   !probe.isEmpty {
+                let probe = self.sealOnVideoLane(kind: .directProbe, payload: Data())
+                if !probe.isEmpty {
                     socket.sendDirect(probe) { _ in }
                 }
                 attempt += 1
@@ -1417,6 +1540,21 @@ public final class ClientSession: @unchecked Sendable {
                 try? await Task.sleep(for: interval)
             }
         }
+
+        let previous = lock.withLock { () -> (Task<Void, Never>?, Task<Void, Never>?)? in
+            guard videoDatagrams === socket else { return nil }
+            let previous = (directPathTask, lanePingTask)
+            directPathTask = directTask
+            lanePingTask = pingTask
+            return previous
+        }
+        guard let previous else {
+            directTask.cancel()
+            pingTask.cancel()
+            return
+        }
+        previous.0?.cancel()
+        previous.1?.cancel()
     }
 
     /// Measures the lane the picture is on, once a second, for as long as it exists.
@@ -1431,9 +1569,8 @@ public final class ClientSession: @unchecked Sendable {
     /// It seals through ``sealOnVideoLane(kind:payload:)`` rather than a sealer of its own. A
     /// second sealer would repeat nonces, and the reply says which path it came back on, so the
     /// figure can be labelled rather than guessed at.
-    private func startLanePinging(_ socket: VideoDatagramSocket) {
-        lanePingTask?.cancel()
-        lanePingTask = Task { [weak self] in
+    private func makeLanePingTask(_ socket: VideoDatagramSocket) -> Task<Void, Never> {
+        Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.pingInterval)
                 guard !Task.isCancelled, let self else { return }
@@ -1856,6 +1993,7 @@ public final class ClientSession: @unchecked Sendable {
         lock.unlock()
 
         if deliberate {
+            guard !wasFailed else { return }
             emit(.phase(.disconnected))
             return
         }
@@ -1869,12 +2007,15 @@ public final class ClientSession: @unchecked Sendable {
     /// Ends the session, deliberately. The pin survives; only the sockets go.
     public func disconnect() {
         lock.lock()
+        connectGeneration &+= 1
         let control = self.control
         let video = self.video
+        let videoConnect = self.videoConnectTask
         let relayProxy = self.relayProxy
         let datagrams = self.videoDatagrams
         self.control = nil
         self.video = nil
+        self.videoConnectTask = nil
         self.relayProxy = nil
         self.videoDatagrams = nil
         self.relaySession = nil
@@ -1893,6 +2034,7 @@ public final class ClientSession: @unchecked Sendable {
         lock.unlock()
 
         videoWatch?.cancel()
+        videoConnect?.cancel()
         coalescer.flush()
         video?.cancel()
         datagrams?.cancel()
@@ -1920,12 +2062,17 @@ public final class ClientSession: @unchecked Sendable {
             lock.unlock()
             return
         }
+        connectGeneration &+= 1
         state = .failed
         _phase = .failed(message)
         let video = self.video
+        let videoConnect = self.videoConnectTask
+        let control = self.control
         let relayProxy = self.relayProxy
         let datagrams = self.videoDatagrams
         self.video = nil
+        self.videoConnectTask = nil
+        self.control = nil
         self.relayProxy = nil
         self.videoDatagrams = nil
         self.relaySession = nil
@@ -1938,6 +2085,7 @@ public final class ClientSession: @unchecked Sendable {
         lock.unlock()
 
         videoWatch?.cancel()
+        videoConnect?.cancel()
         sessionLog.error("session failed: \(message, privacy: .public)")
         emit(.phase(.failed(message)))
         // The video socket carries no handshake of its own and is authorized only by this
@@ -1946,7 +2094,7 @@ public final class ClientSession: @unchecked Sendable {
         video?.cancel()
         datagrams?.cancel()
         relayProxy?.cancel()
-        connection()?.cancel()
+        control?.cancel()
     }
 
     // MARK: - Helpers

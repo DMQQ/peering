@@ -64,29 +64,37 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         clientProof: RelayDeviceProof? = nil
     ) async throws -> RelaySession {
         let connection = RelaySignallingConnection(url: url)
-        defer { connection.cancel() }
-        try await connection.send(.connectToHost(
-            hostID: hostID,
-            clientID: clientID,
-            protocolVersion: ProtocolInfo.version,
-            apiKey: entitlement.apiKey,
-            plan: entitlement.plan,
-            jwsRepresentation: entitlement.jwsRepresentation,
-            clientProof: clientProof
-        ))
+        return try await withTaskCancellationHandler {
+            defer { connection.cancel() }
+            try await connection.send(.connectToHost(
+                hostID: hostID,
+                clientID: clientID,
+                protocolVersion: ProtocolInfo.version,
+                apiKey: entitlement.apiKey,
+                plan: entitlement.plan,
+                jwsRepresentation: entitlement.jwsRepresentation,
+                clientProof: clientProof
+            ))
 
-        while true {
-            switch try await connection.receive() {
-            case .sessionReady(let session): return session
-            case .hostOffline(let id): throw RelaySignallingError.hostOffline(id)
-            case .error(let code, let message): throw RelaySignallingError.refused(code: code, message: message)
-            case .pong, .registered: continue
-            // Never sent unsolicited, and never in answer to a session request. Ignored rather
-            // than refused: this conversation is over the moment `sessionReady` arrives, and a
-            // message from a relay with more to say than this client asked for is not a reason to
-            // lose the session it has just handed over.
-            case .peerAddress, .hostPresence: continue
+            while true {
+                try Task.checkCancellation()
+                switch try await connection.receive() {
+                case .sessionReady(let session): return session
+                case .hostOffline(let id): throw RelaySignallingError.hostOffline(id)
+                case .error(let code, let message): throw RelaySignallingError.refused(code: code, message: message)
+                case .pong, .registered: continue
+                // Never sent unsolicited, and never in answer to a session request. Ignored rather
+                // than refused: this conversation is over the moment `sessionReady` arrives, and a
+                // message from a relay with more to say than this client asked for is not a reason to
+                // lose the session it has just handed over.
+                case .peerAddress, .hostPresence: continue
+                }
             }
+        } onCancel: {
+            // `URLSessionWebSocketTask.receive()` is waiting on Foundation rather than on a Swift
+            // suspension point that cancellation necessarily resumes. Close the socket explicitly
+            // so ending a Mac's connect task also wakes that receive and runs the defer above.
+            connection.cancel()
         }
     }
 
@@ -108,35 +116,41 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         guard !hostIDs.isEmpty else { return [:] }
 
         let connection = RelaySignallingConnection(url: url)
-        defer { connection.cancel() }
+        return await withTaskCancellationHandler {
+            defer { connection.cancel() }
 
-        var presence: [String: Bool] = [:]
-        do {
-            for hostID in hostIDs {
-                try await connection.send(.hostPresence(hostID: hostID))
-            }
-
-            // Bounded by the number of questions asked plus room for the `pong` or `registered`
-            // that can arrive alongside them, so a relay that answers with something unexpected
-            // cannot spin here. An older relay does not know the message at all and answers with
-            // an error, which leaves the whole list unknown: the honest outcome, and exactly what
-            // the screen drew before this existed.
-            var outstanding = Set(hostIDs)
-            for _ in 0..<(hostIDs.count * 2 + 4) where !outstanding.isEmpty {
-                switch try await connection.receive() {
-                case .hostPresence(let id, let online):
-                    presence[id] = online
-                    outstanding.remove(id)
-                case .error:
-                    return presence
-                default:
-                    continue
+            var presence: [String: Bool] = [:]
+            do {
+                for hostID in hostIDs {
+                    try Task.checkCancellation()
+                    try await connection.send(.hostPresence(hostID: hostID))
                 }
+
+                // Bounded by the number of questions asked plus room for the `pong` or `registered`
+                // that can arrive alongside them, so a relay that answers with something unexpected
+                // cannot spin here. An older relay does not know the message at all and answers with
+                // an error, which leaves the whole list unknown: the honest outcome, and exactly what
+                // the screen drew before this existed.
+                var outstanding = Set(hostIDs)
+                for _ in 0..<(hostIDs.count * 2 + 4) where !outstanding.isEmpty {
+                    try Task.checkCancellation()
+                    switch try await connection.receive() {
+                    case .hostPresence(let id, let online):
+                        presence[id] = online
+                        outstanding.remove(id)
+                    case .error:
+                        return presence
+                    default:
+                        continue
+                    }
+                }
+            } catch {
+                return presence
             }
-        } catch {
             return presence
+        } onCancel: {
+            connection.cancel()
         }
-        return presence
     }
 
     /// Asks the relay where the other end of this session is, until it answers or gives up.
@@ -157,28 +171,33 @@ public final class RelaySignallingConnection: @unchecked Sendable {
         interval: Duration = .milliseconds(150)
     ) async throws -> RelayPeerAddress? {
         let connection = RelaySignallingConnection(url: url)
-        defer { connection.cancel() }
-        try await connection.send(.requestPeerAddress(videoToken: videoToken))
+        return try await withTaskCancellationHandler {
+            defer { connection.cancel() }
+            try await connection.send(.requestPeerAddress(videoToken: videoToken))
 
-        for attempt in 0..<max(1, attempts) {
-            // Read before sleeping, so the first answer — which is often already waiting — is
-            // returned without a delay that exists only to space out the retries.
-            switch try await connection.receive() {
-            case .peerAddress(let address): return address
-            case .error(let code, _) where code == "peerAddressUnknown":
-                guard attempt < attempts - 1 else { return nil }
-                try await Task.sleep(for: interval)
-            case .error(let code, let message):
-                throw RelaySignallingError.refused(code: code, message: message)
-            case .pong, .registered: continue
-            // A presence answer this conversation did not ask for. Ignored rather than refused,
-            // for the reason the peer address above it is: a relay with more to say than this
-            // client asked is not a reason to give up on the direct path.
-            case .hostPresence: continue
-            case .sessionReady, .hostOffline:
-                throw RelaySignallingError.unexpectedResponse
+            for attempt in 0..<max(1, attempts) {
+                try Task.checkCancellation()
+                // Read before sleeping, so the first answer — which is often already waiting — is
+                // returned without a delay that exists only to space out the retries.
+                switch try await connection.receive() {
+                case .peerAddress(let address): return address
+                case .error(let code, _) where code == "peerAddressUnknown":
+                    guard attempt < attempts - 1 else { return nil }
+                    try await Task.sleep(for: interval)
+                case .error(let code, let message):
+                    throw RelaySignallingError.refused(code: code, message: message)
+                case .pong, .registered: continue
+                // A presence answer this conversation did not ask for. Ignored rather than refused,
+                // for the reason the peer address above it is: a relay with more to say than this
+                // client asked is not a reason to give up on the direct path.
+                case .hostPresence: continue
+                case .sessionReady, .hostOffline:
+                    throw RelaySignallingError.unexpectedResponse
+                }
             }
+            return nil
+        } onCancel: {
+            connection.cancel()
         }
-        return nil
     }
 }

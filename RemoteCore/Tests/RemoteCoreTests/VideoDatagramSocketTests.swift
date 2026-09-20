@@ -20,18 +20,18 @@ private final class LoopbackSocket: @unchecked Sendable {
         // A local rather than `fd` throughout: a closure that captured `self` here would be reading
         // a property before the other one had been initialised, which Swift refuses — and rightly,
         // since the whole point of the object is that the two agree.
-        let descriptor = socket(AF_INET, SOCK_DGRAM, 0)
+        let descriptor = socket(AF_INET6, SOCK_DGRAM, 0)
         guard descriptor >= 0 else { throw Failure.unavailable(errno) }
 
-        var address = sockaddr_in()
-        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_port = 0
-        address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+        var address = sockaddr_in6()
+        address.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+        address.sin6_family = sa_family_t(AF_INET6)
+        address.sin6_port = 0
+        address.sin6_addr = in6addr_loopback
 
         let bound = withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in6>.size))
             }
         }
         guard bound == 0 else {
@@ -40,14 +40,14 @@ private final class LoopbackSocket: @unchecked Sendable {
             throw Failure.unavailable(code)
         }
 
-        var actual = sockaddr_in()
-        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        var actual = sockaddr_in6()
+        var length = socklen_t(MemoryLayout<sockaddr_in6>.size)
         _ = withUnsafeMutablePointer(to: &actual) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
                 getsockname(descriptor, $0, &length)
             }
         }
-        port = UInt16(bigEndian: actual.sin_port)
+        port = UInt16(bigEndian: actual.sin6_port)
 
         // A deadline rather than a blocking read with none: every wait here is for something that
         // either happens in milliseconds on loopback or never happens at all, and a test that hangs
@@ -70,15 +70,15 @@ private final class LoopbackSocket: @unchecked Sendable {
     }
 
     func send(_ bytes: [UInt8], to destination: UInt16) {
-        var address = sockaddr_in()
-        address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-        address.sin_family = sa_family_t(AF_INET)
-        address.sin_port = destination.bigEndian
-        address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+        var address = sockaddr_in6()
+        address.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+        address.sin6_family = sa_family_t(AF_INET6)
+        address.sin6_port = destination.bigEndian
+        address.sin6_addr = in6addr_loopback
 
         _ = withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                sendto(fd, bytes, bytes.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                sendto(fd, bytes, bytes.count, 0, $0, socklen_t(MemoryLayout<sockaddr_in6>.size))
             }
         }
     }
@@ -96,19 +96,19 @@ private final class LoopbackSocket: @unchecked Sendable {
 /// Used as the public lifecycle observation: once `VideoDatagramSocket.cancel()` returns, the
 /// descriptor it owned must no longer hold its local port.
 private func canBindLoopback(port: UInt16) -> Bool {
-    let descriptor = socket(AF_INET, SOCK_DGRAM, 0)
+    let descriptor = socket(AF_INET6, SOCK_DGRAM, 0)
     guard descriptor >= 0 else { return false }
     defer { Darwin.close(descriptor) }
 
-    var address = sockaddr_in()
-    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
-    address.sin_family = sa_family_t(AF_INET)
-    address.sin_port = port.bigEndian
-    address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+    var address = sockaddr_in6()
+    address.sin6_len = UInt8(MemoryLayout<sockaddr_in6>.size)
+    address.sin6_family = sa_family_t(AF_INET6)
+    address.sin6_port = port.bigEndian
+    address.sin6_addr = in6addr_loopback
 
     return withUnsafePointer(to: &address) { pointer in
         pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-            bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+            bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in6>.size)) == 0
         }
     }
 }
@@ -149,7 +149,7 @@ struct VideoDatagramSocketTests {
         relayingTo relay: LoopbackSocket
     ) throws -> (VideoDatagramSocket, Collected) {
         let socket = try VideoDatagramSocket(
-            host: "127.0.0.1",
+            host: "::1",
             port: relay.port,
             token: Self.token,
             label: "pl.dmq.peering.test.video"
@@ -240,7 +240,7 @@ struct VideoDatagramSocketTests {
             Issue.record("expected the sender's own address")
             return
         }
-        #expect(host == "127.0.0.1")
+        #expect(host == "::1")
         #expect(port == stranger.port, "the sender's port, not the relay's")
     }
 
@@ -256,7 +256,7 @@ struct VideoDatagramSocketTests {
         let relay = try LoopbackSocket()
         defer { relay.closeSocket() }
         let socket = try VideoDatagramSocket(
-            host: "127.0.0.1",
+            host: "::1",
             port: relay.port,
             token: Self.token,
             label: "pl.dmq.peering.test.video.reentrant"
@@ -270,7 +270,7 @@ struct VideoDatagramSocketTests {
         socket.onDatagram = { datagram, source in
             collected.add(datagram, source)
             // The lane's line, in the lane's position: on this queue, inside this callback.
-            try? socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+            try? socket.setDirectPeer(host: "::1", port: peer.port)
         }
         socket.start()
         _ = relay.receive() // the bind
@@ -298,7 +298,7 @@ struct VideoDatagramSocketTests {
 
         let peer = try LoopbackSocket()
         defer { peer.closeSocket() }
-        try socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+        try socket.setDirectPeer(host: "::1", port: peer.port)
 
         let sealed = Self.token + Data([0x01, 0x02, 0x03])
         socket.sendDirect([sealed]) { _ in }
@@ -325,7 +325,7 @@ struct VideoDatagramSocketTests {
 
         let peer = try LoopbackSocket()
         defer { peer.closeSocket() }
-        try socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+        try socket.setDirectPeer(host: "::1", port: peer.port)
 
         // The peer speaks once, which is the whole of what makes the direct path live.
         peer.send([0x01], to: socket.localPort)
@@ -354,7 +354,7 @@ struct VideoDatagramSocketTests {
         let peer = try LoopbackSocket()
         defer { peer.closeSocket() }
         #expect(socket.localPort != 0, "the local port is what the peer is given to aim at")
-        try socket.setDirectPeer(host: "127.0.0.1", port: peer.port)
+        try socket.setDirectPeer(host: "::1", port: peer.port)
 
         // Both frames carry the relay's token, because that is the shape ``VideoDatagramSealer``
         // produces and the only shape this socket is ever handed. What changes with the
