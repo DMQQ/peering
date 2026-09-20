@@ -18,7 +18,7 @@ import PackageDescription
 // iOS 18 rather than RemoteCore's 17: Citadel gates `withPTY` and its TTY output behind
 // `@available(macOS 15.0, *)`, and a trailing `*` does not raise the iOS floor — so the
 // `AsyncThrowingStream.makeStream()` calls inside it are checked against whatever iOS floor this
-// manifest declares. Declaring 17 is a coin flip; declaring 18 is not. The app itself is at 26.5.
+// manifest declares. Declaring 17 is a coin flip; declaring 18 is not. The app itself is at 18.0.
 let package = Package(
     name: "SSHCore",
     platforms: [.iOS(.v18), .macOS(.v15)],

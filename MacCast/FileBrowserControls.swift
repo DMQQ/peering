@@ -51,7 +51,7 @@ struct TerminalModeButton: View {
             .lineLimit(1)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .glassSurface(in: RoundedRectangle(cornerRadius: 8, style: .continuous), interactive: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.88))
         .accessibilityLabel(isBrowsing ? "Shell" : "Files")

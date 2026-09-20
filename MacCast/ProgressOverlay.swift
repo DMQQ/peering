@@ -15,7 +15,7 @@ struct ProgressOverlay: View {
                 }
             }
             .padding(24)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .glassSurface(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
     }
 }

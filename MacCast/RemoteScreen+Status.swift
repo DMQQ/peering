@@ -304,7 +304,7 @@ extension RemoteScreen {
         // from the first frame of the spring, so without this the expanded panel hangs below a
         // background that has not caught up to it yet.
         .clipShape(pillShape)
-        .glassEffect(.regular, in: pillShape)
+        .glassSurface(in: pillShape)
     }
 
     /// What the two dots add to the pill's width: a dot and a gap on each side.
@@ -346,7 +346,7 @@ extension RemoteScreen {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(model.privacyModeEnabled ? ColorPalette.accent : ColorPalette.ink)
                 .frame(width: 48, height: 48)
-                .glassEffect(.regular, in: Circle())
+                .glassSurface(in: Circle())
         }
         .contentShape(Rectangle())
         .buttonStyle(RailButtonStyle(scale: 0.92))
@@ -412,7 +412,7 @@ extension RemoteScreen {
                 // which is why it is now `allowsHitTesting(false)`. The interactive glass is
                 // fine in a button; the clipboard row uses it in buttons that work. Plain is
                 // chosen here only so that one press gets one answer rather than two.
-                .glassEffect(.regular, in: Circle())
+                .glassSurface(in: Circle())
                 .opacity(enabled ? 1 : 0.4)
                 .overlay(alignment: .topTrailing) {
                     if let badge {

@@ -79,7 +79,7 @@ struct TerminalDeck: View {
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(ColorPalette.ink)
                             .frame(width: 46, height: 40)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.88))
                     .accessibilityLabel(commands.isEmpty ? "Add a quick command" : "Edit quick commands")
@@ -191,7 +191,7 @@ struct TerminalKeyChip: View {
                 .padding(.horizontal, 9)
                 .frame(minWidth: 46)
                 .frame(height: height)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.88))
         .accessibilityLabel(label)

@@ -124,7 +124,7 @@ struct DesktopsPanel: View {
                 }
             }
             .padding(Self.panelInset)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .padding(.horizontal, Self.panelMargin)
             .reportChromeFrame(.panel, into: $chromeFrames)
             .transition(.move(edge: .bottom).combined(with: .opacity))

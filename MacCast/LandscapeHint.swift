@@ -51,7 +51,7 @@ struct LandscapeHint: View {
         }
         .padding(22)
         .frame(maxWidth: 290)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .glassSurface(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .contentShape(Rectangle())
         // The whole card dismisses, not just a button on it. It is three seconds of the user's
         // time and it has already said what it has to say; making them find a target to be rid of

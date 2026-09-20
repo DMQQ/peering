@@ -250,6 +250,19 @@ enum ColorPalette {
     /// a pure #000 next to a video's own blacks makes the picture look inset.
     static let backdrop = Color(red: 0.04, green: 0.04, blue: 0.045)
 
+    /// The wash under a frosted surface below iOS 26: what keeps the chrome the same object over a
+    /// white document and over a black editor.
+    ///
+    /// **Heavy on purpose.** The material underneath it adapts to what is behind it, which is the
+    /// one thing the chrome cannot do, because here the backdrop is a picture that can be anything.
+    /// Over a blank document a thin frost lands within a few points of ``ink`` and the rail's
+    /// nine-point captions stop reading, which is the failure ``accent`` is documented against. A
+    /// wash this opaque closes that range, at the cost of letting the picture show through less.
+    ///
+    /// This is the single number to turn if the fallback reads wrong on a device. Everything else
+    /// about it follows from the shapes the call sites already pass.
+    static let glassTint = backdrop.opacity(0.70)
+
     /// How loudly to print a measurement. See `reading(_:)`.
     ///
     /// Brightness where an accent colour would have been a traffic light. A latency reading is
@@ -601,6 +614,52 @@ extension View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(.white.opacity(0.07))
             }
+    }
+
+    /// The chrome that floats over the picture: Liquid Glass on iOS 26, a tinted frost before it.
+    ///
+    /// **This is the app's only iOS 26 API, and so it is the whole reason the floor was 26.**
+    /// Panels, pills and buttons called `glassEffect` directly in twenty-five places, which turned
+    /// a deployment target that should have been about APIs into one about a single modifier's
+    /// appearance. Behind this, moving the floor is one build setting rather than twenty-five
+    /// edits.
+    ///
+    /// The two branches are not the same material and do not pretend to be. Glass samples what is
+    /// behind it and adapts to it; a `Material` blurs it and stays put. The fallback therefore
+    /// carries ``ColorPalette/glassTint`` over the frost, because these panels sit on a picture
+    /// that can be anything, and an unmodified frost over a white document turns a caption into a
+    /// smudge. The hairline is the trick ``cardBackground()`` already uses: it is the difference
+    /// between a rectangle drawn on the background and a panel sitting in front of it.
+    ///
+    /// What the fallback cannot reproduce is `interactive`. Glass takes the shape of the press and
+    /// a material does not, so the eleven buttons that ask for it lose that below 26. The
+    /// parameter stays explicit because the two are not interchangeable even on 26: the session
+    /// status dot chooses plain deliberately, so that one press gets one answer rather than two.
+    @ViewBuilder
+    func glassSurface<S: InsettableShape>(in shape: S, interactive: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        } else {
+            background {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .overlay(shape.fill(ColorPalette.glassTint))
+                    .overlay {
+                        shape.strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.20), .white.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                    }
+                    // Pinned inside the background, where the only thing it can reach is the
+                    // material. On the view it would flip the *content's* colours as well, which
+                    // is a far larger change than making the frost predictable.
+                    .environment(\.colorScheme, .dark)
+            }
+        }
     }
 }
 

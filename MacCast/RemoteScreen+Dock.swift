@@ -127,7 +127,7 @@ extension RemoteScreen {
             arrowStrip
         }
         .padding(10)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 10)
         .reportChromeFrame(.panel, into: $chromeFrames)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -169,9 +169,9 @@ extension RemoteScreen {
                                 .font(.system(size: 14, weight: .medium))
                                 .padding(.horizontal, 12)
                                 .frame(height: 34)
-                                .glassEffect(
-                                    .regular.interactive(),
-                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .glassSurface(
+                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous),
+                                    interactive: true
                                 )
                         }
                         .buttonStyle(RailButtonStyle(scale: 0.86))
@@ -287,7 +287,7 @@ extension RemoteScreen {
             // had to cover them too, and a bar of buttons ended up two rows tall.
             .frame(width: width, height: dockCardHeight)
             .clipShape(dockShape)
-            .glassEffect(.regular, in: dockShape)
+            .glassSurface(in: dockShape)
 
             dockPageDots
         }

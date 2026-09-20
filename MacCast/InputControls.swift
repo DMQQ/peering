@@ -59,7 +59,7 @@ struct JoystickView: View {
         ZStack {
             Circle()
                 .fill(.clear)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .glassSurface(in: Circle(), interactive: true)
                 .frame(width: radius * 2, height: radius * 2)
 
             Circle()
@@ -357,7 +357,7 @@ struct QuickKeyButton: View {
                 // Round, like every other standalone control here. A key beside the pointer is the
                 // same kind of object as the joystick next to it, not the same kind as a rail
                 // button that happens to be alone.
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassSurface(in: Capsule(), interactive: true)
         }
         .buttonStyle(RailButtonStyle())
         .accessibilityLabel(label)
@@ -479,9 +479,9 @@ struct ControlRail<Content: View>: View {
         // than it is wide, so it is the only one where that shows. The other panels keep
         // `cornerRadius`: they are wider than they are tall, and a semicircular end would eat
         // their content rather than frame it.
-        .glassEffect(.regular, in: Capsule())
+        .glassSurface(in: Capsule())
         // Clipped to that same capsule, and this is not the same thing as shaping the glass.
-        // `glassEffect(in:)` only draws the background in a capsule; the content is still bounded
+        // `glassSurface(in:)` only draws the background in a capsule; the content is still bounded
         // by the rail's *rectangle*, so a button scrolling past the end of a short rail shows
         // through the transparent curve beside it and the caption appears to float outside its own
         // panel. The padding above keeps buttons clear of the curve at rest; this is what keeps
@@ -606,10 +606,7 @@ struct ScrollWheelView: View {
         }
         .padding(.vertical, ChromeMetrics.panelPadding)
         .frame(width: ChromeMetrics.panelWidth, height: ChromeMetrics.wheelHeight)
-        .glassEffect(
-            .regular,
-            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
-        )
+        .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         // The detent, which is the whole of what a wheel has that a slider does not: a tick in the
         // hand at the moment the notch goes out, so the count is available without looking, and —
         // the part that matters for precision — so that a scroll the hand made is a scroll the
@@ -900,7 +897,7 @@ struct ModifierBar: View {
                         .frame(width: 38, height: 34)
                         .foregroundStyle(isOn ? ColorPalette.ink : Color.primary)
                         .background(isOn ? ColorPalette.selectedFill : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
                 }
                 .buttonStyle(RailButtonStyle(scale: 0.86))
                 .accessibilityLabel(key.title)
@@ -972,7 +969,7 @@ struct MacroBar: View {
                             .font(.system(size: 14, weight: .medium))
                             .padding(.horizontal, 12)
                             .frame(height: 34)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
@@ -1002,7 +999,7 @@ struct MacroBar: View {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 13, weight: .medium))
                             .frame(width: 34, height: 34)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                     .accessibilityLabel("Edit macros")
@@ -1030,7 +1027,7 @@ private struct ClipboardButton: View {
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 10)
                 .frame(height: 34)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.86))
     }

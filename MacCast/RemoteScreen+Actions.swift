@@ -141,7 +141,7 @@ extension RemoteScreen {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 40, height: 32)
-                .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.86))
     }

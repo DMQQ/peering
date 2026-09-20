@@ -358,10 +358,7 @@ struct RemoteScreen: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .glassEffect(
-            .regular,
-            in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous)
-        )
+        .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, ChromeMetrics.edgeInset)
     }

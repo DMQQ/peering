@@ -94,5 +94,8 @@ never produced a number, for the same reason.
 
 The version numbers were bumped to `202609200` and verified from a real archive. If a
 `202609200` iPhone build has already been uploaded today, the next one needs `202609201`: the
-scheme is date-based, one number per day. The iOS deployment target is 26.0 (Liquid Glass needs
-26; 26.5 was stricter than anything in the app uses).
+scheme is date-based, one number per day. The iOS deployment target is 18.0. It was 26 because
+`glassEffect` was the app's only iOS 26 API and every panel called it directly; that call now sits
+behind `glassSurface(in:interactive:)` in `Theme.swift`, which falls back to a tinted material
+below 26. The floor is a build setting again rather than a property of the design, and the Mac
+host went the same way at 15.0 so it can ship universal.

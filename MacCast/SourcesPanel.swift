@@ -46,7 +46,7 @@ struct SourcesPanel: View {
             }
         }
         .padding(10)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 10)
         .reportChromeFrame(.panel, into: $chromeFrames)
         .transition(.move(edge: .bottom).combined(with: .opacity))

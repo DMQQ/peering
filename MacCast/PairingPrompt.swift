@@ -101,7 +101,7 @@ struct PairingPrompt: View {
                 }
             }
             .padding(26)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .glassSurface(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .padding(28)
         }
         .onAppear { codeFieldFocused = true }
