@@ -201,14 +201,20 @@ extension MacSession {
 
     /// How large a file this app will send to the Mac.
     ///
-    /// Sixty-four megabytes, and **the reason is now the Mac's memory rather than this phone's.**
-    /// It used to be the phone's: the file was read into memory to be sent, so the alternative to
-    /// refusing was being killed by the system partway through, which looks to the user like the
-    /// app crashing for no reason. The file is read piece by piece now, so this end's cost is one
-    /// piece whatever the size. What has not changed is the far end: the Mac assembles the whole
-    /// file in its terminal manager before it writes anything, and it refuses the same figure, so
-    /// neither end is the only one holding the line.
-    static let maximumUploadBytes = 64 * 1_048_576
+    /// Two gigabytes, and **the number is no longer about anybody's memory.** It used to be
+    /// sixty-four megabytes on each end for the same shape of reason: this phone read the whole file
+    /// in to send it and the Mac collected the pieces in memory to write it, so the figure was the
+    /// most either was willing to hold on somebody else's behalf, and past it the honest answer was
+    /// no. Both ends stream now, so what is left to bound is the disk the file lands on and the wait
+    /// the user is in for.
+    ///
+    /// It is still a ceiling rather than no ceiling: there is no way to stop a transfer once it has
+    /// started, and a mis-tap on a folder of raw footage should not commit somebody to an hour of
+    /// it. Declared on both ends, because a limit that only one end enforces is a limit that holds
+    /// until the day the other end is older. **The two figures have to move together**: a Mac left
+    /// at the old one refuses an upload this end would happily send, and the refusal arrives after
+    /// the bytes do.
+    static let maximumUploadBytes = 2 * 1_073_741_824
 
     /// How much of a file travels in one message.
     ///
@@ -278,7 +284,7 @@ extension MacSession {
             }
             guard size <= Self.maximumUploadBytes else {
                 writes.removeValue(forKey: id)
-                uploadFailures[id] = "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                uploadFailures[id] = "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))))."
                 return
             }
             await send(contentsOf: url, totalBytes: size, to: destination, sessionID: id)
