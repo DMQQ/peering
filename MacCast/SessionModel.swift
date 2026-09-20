@@ -151,8 +151,16 @@ final class SessionModel {
         // at the moment it stops being looked at, and asking it afterwards would leave both
         // streaming for however long the handover takes.
         activeSession?.setPicturePaused(true)
+        let left = activeSession
         activeSessionID = id
         session.setPicturePaused(false)
+
+        // **The sound follows the tab.** A player built for the Mac on screen goes on playing
+        // after the user has looked away unless it is told, and the Mac being arrived at is silent
+        // until it is. Neither is a stream starting or stopping: this is one line on each player,
+        // and the Mac behind keeps sending. See ``MacSession/shouldPlayAudio``.
+        left?.refreshAudioMuteState()
+        session.refreshAudioMuteState()
     }
 
     /// The Macs that are open, in the order they were opened.
@@ -486,7 +494,10 @@ final class SessionModel {
     var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
-            audioPlayer?.isMuted = !playsHostAudio
+            // Every Mac, not the one on screen: the switch is the user's answer about the Mac's
+            // sound in general, and a Mac behind the one being looked at is exactly the one that
+            // would keep playing unnoticed. See ``MacSession/shouldPlayAudio``.
+            for session in sessions { session.refreshAudioMuteState() }
         }
     }
 

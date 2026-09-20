@@ -244,10 +244,11 @@ extension MacSession {
             switch event {
             case .config(let config):
                 audioPlayer = RemoteAudioPlayer(config: config)
-                // A fresh player per stream, so the preference has to be handed to each one, and
-                // the plan with it. See ``SessionModel/playsHostAudio``: a free user's audio is
-                // still sent, and this is the line that stops it being played.
-                audioPlayer?.isMuted = !model.playsHostAudio
+                // A fresh player per stream, so the preference has to be handed to each one, the
+                // plan with it, and the question of whether this is the Mac on screen. See
+                // ``shouldPlayAudio``: a free user's audio is still sent and a background Mac's
+                // audio is still sent, and this is the line that stops either being played.
+                refreshAudioMuteState()
             case .frame(let frame):
                 audioPlayer?.enqueue(frame)
             }

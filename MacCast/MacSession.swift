@@ -321,6 +321,32 @@ final class MacSession {
     var lastBandwidthSampleBytes: Int64 = 0
     var activeSessionLogs: [String] = []
 
+    /// Whether this is the Mac the user is looking at.
+    var isActive: Bool { model.activeSessionID == id }
+
+    /// Whether this Mac's sound should be coming out of the phone.
+    ///
+    /// **Two conditions, and the second is the one several Macs added.** The switch and the plan
+    /// decide whether the Mac's audio is played at all — see ``SessionModel/playsHostAudio`` — and
+    /// being the Mac on screen decides whether it is *this* Mac's audio. Without the second, two
+    /// Macs open at once are two audio engines decoding into one pair of ears, playing over each
+    /// other, and the user has no control that separates them.
+    ///
+    /// The price is the decision the plan already took: a Mac behind the one on screen is silent,
+    /// so a call left running on it cannot be heard. Audible background audio would be a second
+    /// feature, with a second player and a way to say which Mac it belongs to, and it is not this.
+    var shouldPlayAudio: Bool { isActive && model.playsHostAudio }
+
+    /// Applies the answer above to the player this Mac has, if it has one.
+    ///
+    /// Called when a config arrives and again when the active Mac changes, because the two are
+    /// different moments: a Mac can be switched to long after its player was built, and a player
+    /// built for the Mac on screen goes on playing after the user has looked away unless it is
+    /// told. Nothing here starts or stops a stream; it is the mute line and nothing else.
+    func refreshAudioMuteState() {
+        audioPlayer?.isMuted = !shouldPlayAudio
+    }
+
     // MARK: - Clipboard
 
     /// The most recently received host clipboard text. `nil` until the first pull.
