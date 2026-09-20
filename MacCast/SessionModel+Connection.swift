@@ -103,8 +103,8 @@ extension SessionModel {
         // apart — and the card that outlives a non-deliberate end needs both to say what was
         // lost. After the lines beneath them they are simply nil.
         let wasStartedAt = sessionStartedAt
-        let wasPath = Self.activityPath(connectionPath)
-        finishSessionHistory()
+        let wasPath = MacSession.activityPath(connectionPath)
+        activeSession?.finishSessionHistory()
 
         // Recorded before anything moves. `ClientSession` announces the end itself, and by
         // the time that event is applied the phase below has already been set — so this flag
@@ -117,10 +117,10 @@ extension SessionModel {
             stopReconnecting()
         }
         sessionStartedAt = nil
-        session?.disconnect()
-        session = nil
-        videoPoll?.cancel()
-        videoPoll = nil
+        activeSession?.wire?.disconnect()
+        activeSession?.wire = nil
+        activeSession?.videoPoll?.cancel()
+        activeSession?.videoPoll = nil
         renderer.reset()
         connectionPath = nil
         // An end this app chose is not a session the relay cut. Cleared here as well as on a
@@ -321,7 +321,7 @@ extension SessionModel {
             SessionActivity.shared.sessionDropped(
                 hostName: hostName ?? "the Mac",
                 startedAt: nil,
-                path: Self.activityPath(connectionPath)
+                path: MacSession.activityPath(connectionPath)
             )
             return
         }
@@ -440,7 +440,7 @@ extension SessionModel {
             SessionActivity.shared.sessionDropped(
                 hostName: hostName ?? "the Mac",
                 startedAt: nil,
-                path: Self.activityPath(connectionPath)
+                path: MacSession.activityPath(connectionPath)
             )
         }
     }

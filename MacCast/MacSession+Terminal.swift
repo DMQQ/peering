@@ -6,8 +6,8 @@ import SwiftUI
 ///
 /// An extension on the model rather than a type of its own: this state is the
 /// model's, and splitting the *type* would mean either exposing it or copying it.
-extension SessionModel {
-    func refreshTerminals() { session?.sendTerminal(.list) }
+extension MacSession {
+    func refreshTerminals() { wire?.sendTerminal(.list) }
 
     /// Whether one more shell is allowed right now.
     ///
@@ -26,7 +26,7 @@ extension SessionModel {
     /// the relay is carrying and refusing to open the next one over it would strand a user who has
     /// closed everything they had.
     var canOpenAnotherShell: Bool {
-        storeManager.access.includes(.shellTabs) || !terminals.contains { $0.isRunning }
+        model.storeManager.access.includes(.shellTabs) || !terminals.contains { $0.isRunning }
     }
 
     /// Opens a shell. It has no name to start with — the Mac numbers it, and the first command
@@ -38,7 +38,7 @@ extension SessionModel {
         // walk past, which is the shape of gate that ends up on a review as a promise the app does
         // not keep.
         guard canOpenAnotherShell else { return }
-        session?.sendTerminal(.create)
+        wire?.sendTerminal(.create)
     }
 
     /// Opens a shell and runs a command in it.
@@ -81,7 +81,7 @@ extension SessionModel {
         if !name.isEmpty, let index = terminals.firstIndex(where: { $0.id == id }) {
             terminals[index].name = name
         }
-        session?.sendTerminal(.rename(sessionID: id, name: name))
+        wire?.sendTerminal(.rename(sessionID: id, name: name))
     }
 
     /// Which terminal the panel is showing.
@@ -96,15 +96,15 @@ extension SessionModel {
     func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
         let suffix = appendReturn ? "\r" : ""
         guard let data = (text + suffix).data(using: .utf8) else { return }
-        session?.sendTerminal(.input(sessionID: id, data: data))
+        wire?.sendTerminal(.input(sessionID: id, data: data))
         // The command names the terminal it ran in. Whether that name is taken is the Mac's
         // call — a name typed by hand outranks one earned this way.
-        session?.sendTerminal(.retitle(sessionID: id, command: text))
+        wire?.sendTerminal(.retitle(sessionID: id, command: text))
         if let index = terminals.firstIndex(where: { $0.id == id }) {
             terminals[index].attention = nil
             terminals[index].failure = nil
         }
-        rememberTerminalCommand(text)
+        model.rememberTerminalCommand(text)
         lastSentCommand = text
         lastSentAt = Date()
     }
@@ -127,39 +127,17 @@ extension SessionModel {
               Date().timeIntervalSince(sentAt) < 5
         else { return }
 
-        terminalHistory.removeAll { $0 == command }
-        UserDefaults.standard.set(terminalHistory, forKey: PreferenceKeys.terminalHistory)
+        model.removeFromTerminalHistory(command)
         lastSentCommand = nil
         lastSentAt = nil
     }
 
-    /// Adds a command to the list the panel offers, and writes it down.
-    ///
-    /// Newest first and de-duplicated, so a command run twice moves to the top rather than
-    /// appearing twice — the list is for finding the one you want, and a log of repeats makes
-    /// that harder. Capped, because this is a convenience and not a history file: the Mac's own
-    /// shell keeps the real one.
-    func rememberTerminalCommand(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        var history = terminalHistory
-        history.removeAll { $0 == trimmed }
-        history.insert(trimmed, at: 0)
-        if history.count > Self.terminalHistoryLimit {
-            history.removeLast(history.count - Self.terminalHistoryLimit)
-        }
-        terminalHistory = history
-        UserDefaults.standard.set(history, forKey: PreferenceKeys.terminalHistory)
-    }
-
-    static let terminalHistoryLimit = 30
-
     func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
-        session?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
+        wire?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
     }
 
     func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
-        session?.sendTerminal(.resize(
+        wire?.sendTerminal(.resize(
             sessionID: id,
             columns: UInt16(clamping: columns),
             rows: UInt16(clamping: rows)
@@ -167,7 +145,7 @@ extension SessionModel {
     }
 
     func closeTerminal(_ id: UUID) {
-        session?.sendTerminal(.close(sessionID: id))
+        wire?.sendTerminal(.close(sessionID: id))
     }
 
     // MARK: - Browsing
@@ -208,13 +186,13 @@ extension SessionModel {
         let key = RemoteDirectoryKey(terminalID: id, path: path)
         pendingDirectories.insert(key)
         browseFailures.removeValue(forKey: key)
-        session?.sendTerminal(.listDirectory(sessionID: id, path: path))
+        wire?.sendTerminal(.listDirectory(sessionID: id, path: path))
     }
 
     /// Asks the Mac to read a file, replacing whatever was being previewed.
     func previewFile(_ path: String, sessionID id: UUID) {
         filePreview = RemoteFilePreview(terminalID: id, path: path)
-        session?.sendTerminal(.readFile(sessionID: id, path: path))
+        wire?.sendTerminal(.readFile(sessionID: id, path: path))
     }
 
     func closePreview() {
@@ -316,20 +294,20 @@ extension SessionModel {
     /// concurrency, it is the chance for everything else waiting on the main actor, a redraw
     /// above all, to run.
     private func send(_ data: Data, to path: String, sessionID id: UUID) async {
-        session?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: data.count))
+        wire?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: data.count))
 
         // An empty file is a transfer with nothing in it, and the last piece still has to be sent:
         // the Mac replaces the file on that message, so a client that stopped after the size would
         // leave it holding a file it had been told about and never given.
         guard !data.isEmpty else {
-            session?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
+            wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
             return
         }
 
         var offset = 0
         while offset < data.count {
             let end = min(offset + Self.writeChunkBytes, data.count)
-            session?.sendTerminal(.writeChunk(
+            wire?.sendTerminal(.writeChunk(
                 sessionID: id,
                 path: path,
                 data: data.subdata(in: offset..<end),
@@ -389,7 +367,7 @@ extension SessionModel {
 
         changes[id] = FileChange(operation: operation, path: path)
         changeFailures.removeValue(forKey: id)
-        session?.sendTerminal(.changeFile(sessionID: id, operation: operation))
+        wire?.sendTerminal(.changeFile(sessionID: id, operation: operation))
     }
 
     /// What a change that landed leaves behind.
@@ -558,7 +536,7 @@ extension SessionModel {
             }
             selectedTerminalID = id
             append(note: message)
-            notifier.terminalNeedsAttention(message, sessionID: id)
+            model.notifier.terminalNeedsAttention(message, sessionID: id)
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].isRunning = false

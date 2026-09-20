@@ -83,6 +83,65 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
     }
 }
 
+/// The relay's allowance, counted over every session at once.
+///
+/// **A rule and not app state, which is why it is here.** The relay charges every connection a
+/// client ID opens to one counter, so what is left is a sum over the finished records *and* over
+/// every live session — and getting that sum wrong is invisible until a user is cut off early or
+/// told they have more time than they do. The app used to add the one session it considered live,
+/// which was right while there could only be one and is wrong the moment there are two.
+public enum RelayAllowance {
+    /// Seconds the relay is charging for in the window that began at `windowStart`.
+    ///
+    /// Only relayed sessions, live or finished. A session over the LAN spends nothing, and one
+    /// that punched a direct path for its picture still spends the allowance — the relay splices
+    /// the control channel either way, which is what ``ClientSessionRecord/usedDirectPath`` is
+    /// filed beside the path rather than folded into it for.
+    public static func secondsUsed(
+        records: [ClientSessionRecord],
+        windowStart: Date,
+        liveRelaySeconds: [TimeInterval]
+    ) -> TimeInterval {
+        records
+            .filter { $0.path == .relay && $0.startedAt >= windowStart }
+            .reduce(0) { $0 + $1.duration }
+            + liveRelaySeconds.reduce(0, +)
+    }
+
+    /// Seconds of the allowance left, or `nil` on a plan that has none to spend.
+    public static func secondsRemaining(
+        allowance: TimeInterval?,
+        records: [ClientSessionRecord],
+        windowStart: Date,
+        liveRelaySeconds: [TimeInterval]
+    ) -> TimeInterval? {
+        guard let allowance else { return nil }
+        return max(0, allowance - secondsUsed(
+            records: records,
+            windowStart: windowStart,
+            liveRelaySeconds: liveRelaySeconds
+        ))
+    }
+
+    /// Which 24-hour window the relay is counting in: epoch seconds divided into days.
+    ///
+    /// The relay's own arithmetic rather than a calendar's — `Relay/src/quota.rs` divides exactly
+    /// this way — so the meter, the bar and the server's own counter all turn over at the same
+    /// instant.
+    public static func windowNumber(at moment: Date) -> Double {
+        (moment.timeIntervalSince1970 / 86_400).rounded(.down)
+    }
+
+    /// The start of the window the relay is counting against.
+    ///
+    /// Deliberately not `startOfDay`, which is the same thing only in UTC. The relay has no
+    /// calendar and does not know what time zone the phone is in, so a bar drawn against local
+    /// midnight would show a fresh allowance while the relay was still refusing connections.
+    public static func windowStart(windowNumber: Double) -> Date {
+        Date(timeIntervalSince1970: windowNumber * 86_400)
+    }
+}
+
 /// Relay time, spelled the way the app says it.
 ///
 /// One spelling for the two screens that print it — the meter in the Sessions tab and the sentence

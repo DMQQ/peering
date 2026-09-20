@@ -83,25 +83,20 @@ struct Macro: Identifiable, Hashable, Codable {
 @Observable
 @MainActor
 final class SessionModel {
-    enum ConnectionPath: String, Sendable {
-        case lan = "LAN"
-        case relay = "RELAY"
-        case direct = "DIRECT"
-    }
-
-    /// The same three cases in the card's spelling.
+    /// Which way a session's control connection is carried.
     ///
-    /// Mapped rather than shared because the raw values differ on purpose: this one is shouted
-    /// at a diagnostics panel, and the card's is set in a chip beside a sentence. A single enum
-    /// serving both would have to be named for one of them.
-    static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
-        switch path {
-        case .lan: return .lan
-        case .relay: return .relay
-        case .direct: return .direct
-        case nil: return nil
-        }
-    }
+    /// **Declared on ``MacSession`` and merely named here**, because the answer is a property of
+    /// one connection rather than of the app: one Mac can be on this network while another is on
+    /// the other side of the country. The name is kept so that every screen that says one of the
+    /// three cases out loud goes on saying the same thing.
+    typealias ConnectionPath = MacSession.ConnectionPath
+
+    /// A file on its way to one Mac, and the change asked for on one Mac.
+    ///
+    /// Named here as well as there for the same reason ``ConnectionPath`` is: they are the shapes
+    /// the panels pass around, and the panels are talking about a Mac rather than being one.
+    typealias FileWrite = MacSession.FileWrite
+    typealias FileChange = MacSession.FileChange
 
     /// A preset for the picture's bitrate, or the app's own choice of one.
     ///
@@ -113,9 +108,38 @@ final class SessionModel {
     /// still read the same.
     typealias StreamQuality = MacCastKit.StreamQuality
 
+    // MARK: - The sessions
+
+    /// Every Mac that has been connected to in this launch.
+    ///
+    /// **The container this whole stage exists for, and today it can only ever hold one.**
+    /// ``connect(to:)`` replaces the list with the session it is starting, which is exactly what
+    /// the app did when there was a single `session` property and no list at all. What has changed
+    /// is where the per-Mac state lives: it is on these objects now, so a second one has somewhere
+    /// to go. See ``MacSession``.
+    private(set) var sessions: [MacSession] = []
+
+    /// Which session the screens are about, and the one input goes to.
+    ///
+    /// Assigned beside ``sessions`` for now, and never a choice. Stage 3 is what turns it into
+    /// one, by hanging a tab strip off it and sending `setVideoEnabled` on the way past.
+    var activeSessionID: UUID?
+
+    /// The session the app is showing, or `nil` when there is not one.
+    ///
+    /// Every per-Mac property below reads and writes through this, which is what keeps the
+    /// screens compiling while the state underneath them moves.
+    var activeSession: MacSession? {
+        guard let activeSessionID else { return nil }
+        return sessions.first { $0.id == activeSessionID }
+    }
+
     // MARK: - Connection state
 
-    var phase: ClientSession.Phase = .idle
+    var phase: ClientSession.Phase {
+        get { activeSession?.phase ?? .idle }
+        set { activeSession?.phase = newValue }
+    }
     var hosts: [DiscoveredHost] = []
 
     /// Whether each paired Mac is registered with the relay, by host ID.
@@ -164,72 +188,165 @@ final class SessionModel {
         }
     }
     var browseStatus = "Looking for Macs on this network…"
-    var hostName: String?
     var tlsDescription: String?
+
+    var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
+    var pairedHostIDs: [String] = []
+
+    // MARK: - The active session's state
+
+    // **Forwarders, and deliberately all of them.** Every property below is a per-Mac fact that
+    // now lives on ``MacSession``: the getter reads it off the session the app is showing, and the
+    // setter writes it there. They exist so that no screen had to change when the state underneath
+    // it moved, which is the acceptance test for this stage — the seam is proved by being
+    // invisible. Stage 5 is what removes the ones whose screens have learned to ask a particular
+    // session rather than "the" session.
+    //
+    // The doc comments that were on these properties are on the stored ones in ``MacSession``.
+
+    /// What the Mac calls itself, or what it was dialled as before the handshake.
+    var hostName: String? {
+        get { activeSession?.hostName }
+        set { activeSession?.hostName = newValue }
+    }
+
+    /// The Mac's own device ID, once the handshake has said what it is.
+    var currentHostID: String? {
+        get { activeSession?.hostID }
+        set { activeSession?.hostID = newValue }
+    }
+
     /// Round trip of the control channel, which goes through the relay in every session.
-    var latencyMilliseconds: Double?
+    var latencyMilliseconds: Double? {
+        get { activeSession?.latencyMilliseconds }
+        set { activeSession?.latencyMilliseconds = newValue }
+    }
+
     /// Round trip of the lane the picture is arriving on, and whether that lane is the direct one.
-    ///
-    /// **The figure worth showing, and the reason it exists separately.** ``latencyMilliseconds``
-    /// is the relay's even when the picture found a path of its own, because the control
-    /// connection carries input and always goes the long way. `nil` until a datagram lane exists,
-    /// which is most sessions at their start and some for their whole life.
-    var pathLatencyMilliseconds: Double?
-    var pathLatencyIsDirect = false
+    var pathLatencyMilliseconds: Double? {
+        get { activeSession?.pathLatencyMilliseconds }
+        set { activeSession?.pathLatencyMilliseconds = newValue }
+    }
+    var pathLatencyIsDirect: Bool {
+        get { activeSession?.pathLatencyIsDirect ?? false }
+        set { activeSession?.pathLatencyIsDirect = newValue }
+    }
 
     /// The one number the status chip shows.
-    ///
-    /// The picture's round trip when there is a lane to measure it on, and the control channel's
-    /// otherwise — which is not a fallback but the honest answer in that case: with no datagram
-    /// lane the picture is on the control channel, so its round trip is the picture's.
-    var shownLatency: Double? { pathLatencyMilliseconds ?? latencyMilliseconds }
-    var catalog: CaptureCatalog?
-    var notes: [String] = []
-    var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
-    var activeSessionHistoryID: UUID?
-    var activeSessionHistoryStartedAt: Date?
-    var activeSessionBytes: Int64 = 0
-    var lastBandwidthSampleBytes: Int64 = 0
-    var activeSessionLogs: [String] = []
-    var videoStatus = "No video stream"
-    /// The frames per second arriving, as measured by the last two polls — see
-    /// ``updateFrameRate(from:)``. Zero until there have been two samples to compare.
-    var videoFramesPerSecond: Double = 0
+    var shownLatency: Double? { activeSession?.shownLatency }
+
+    var catalog: CaptureCatalog? {
+        get { activeSession?.catalog }
+        set { activeSession?.catalog = newValue }
+    }
+
+    /// This session's notes, newest last. See ``MacSession/notes``.
+    var notes: [String] {
+        get { activeSession?.notes ?? [] }
+        set { activeSession?.notes = newValue }
+    }
+
+    var activeSessionHistoryID: UUID? {
+        get { activeSession?.activeSessionHistoryID }
+        set { activeSession?.activeSessionHistoryID = newValue }
+    }
+    var activeSessionHistoryStartedAt: Date? {
+        get { activeSession?.activeSessionHistoryStartedAt }
+        set { activeSession?.activeSessionHistoryStartedAt = newValue }
+    }
+    var activeSessionBytes: Int64 {
+        get { activeSession?.activeSessionBytes ?? 0 }
+        set { activeSession?.activeSessionBytes = newValue }
+    }
+    var lastBandwidthSampleBytes: Int64 {
+        get { activeSession?.lastBandwidthSampleBytes ?? 0 }
+        set { activeSession?.lastBandwidthSampleBytes = newValue }
+    }
+    var activeSessionLogs: [String] {
+        get { activeSession?.activeSessionLogs ?? [] }
+        set { activeSession?.activeSessionLogs = newValue }
+    }
+
+    var videoStatus: String {
+        get { activeSession?.videoStatus ?? "No video stream" }
+        set { activeSession?.videoStatus = newValue }
+    }
+    /// The frames per second arriving, as measured by the last two polls.
+    var videoFramesPerSecond: Double {
+        get { activeSession?.videoFramesPerSecond ?? 0 }
+        set { activeSession?.videoFramesPerSecond = newValue }
+    }
     /// The frame count and the moment it was read, for the difference above.
-    var lastFrameSample: (count: Int, at: Date)?
+    var lastFrameSample: (count: Int, at: Date)? {
+        get { activeSession?.lastFrameSample }
+        set { activeSession?.lastFrameSample = newValue }
+    }
     /// True while the video channel is delivering frames (not ended/absent).
-    var isVideoStreaming = false
+    var isVideoStreaming: Bool {
+        get { activeSession?.isVideoStreaming ?? false }
+        set { activeSession?.isVideoStreaming = newValue }
+    }
     /// Which channel the picture is arriving on. `.control` means the Mac's network is not
     /// letting video through and the session has fallen back — see ``VideoFallbackPolicy``.
-    var videoTransport: VideoTransport = .primary
-    var connectionPath: ConnectionPath?
+    var videoTransport: VideoTransport {
+        get { activeSession?.videoTransport ?? .primary }
+        set { activeSession?.videoTransport = newValue }
+    }
+
+    /// Which way this session's control connection is carried. See ``MacSession/connectionPath``.
+    var connectionPath: ConnectionPath? {
+        get { activeSession?.connectionPath }
+        set { activeSession?.connectionPath = newValue }
+    }
 
     /// Whether the picture is being carried straight between the two ends rather than around
     /// through the relay.
-    ///
-    /// Separate from ``connectionPath`` on purpose — the relay still splices the control connection
-    /// and still meters the session, so the two are genuinely different facts and collapsing them
-    /// would make the allowance meter under-count. Set from the session's own observation of what
-    /// arrives, and false until it says otherwise: every session starts on the relay.
-    var usedDirectPath = false
+    var usedDirectPath: Bool {
+        get { activeSession?.usedDirectPath ?? false }
+        set { activeSession?.usedDirectPath = newValue }
+    }
 
     /// What the attempt at a path straight to the Mac has come to.
-    ///
-    /// **The half of the same fact that ``usedDirectPath`` cannot carry.** That flag is only ever
-    /// true when the direct path worked, so a session that never opened one said nothing about
-    /// why. This says which of the two failures it was: the relay never told this end where the
-    /// Mac is, or it did and the packets went nowhere. Those have different causes and different
-    /// fixes, and until this existed nothing on either end could tell them apart.
-    var directPathStatus: ClientSession.DirectPath = .notTried
-    /// What the relay's datagram lane carried in the last session that had one.
-    ///
-    /// Kept after the session ends rather than cleared, like ``directPathStatus`` beside it and
-    /// for the same reason: Settings cannot be opened while a session runs, so the only moment
-    /// anybody can read this is just after one, which is exactly when it is worth reading. A
-    /// session with no datagram lane, on the LAN or on the relay's control channel, leaves it
-    /// `nil` rather than zeroed.
-    var datagramCounts: ClientSession.DatagramCounts?
-    var pairedHostIDs: [String] = []
+    var directPathStatus: ClientSession.DirectPath {
+        get { activeSession?.directPathStatus ?? .notTried }
+        set { activeSession?.directPathStatus = newValue }
+    }
+
+    /// What the relay's datagram lane carried, kept after the session ends.
+    var datagramCounts: ClientSession.DatagramCounts? {
+        get { activeSession?.datagramCounts }
+        set { activeSession?.datagramCounts = newValue }
+    }
+
+    /// The picture the stream is showing now, or `nil` before the Mac has described one.
+    var picture: PictureIdentity? {
+        get { activeSession?.picture }
+        set { activeSession?.picture = newValue }
+    }
+
+    /// Something the Mac wants said about the picture, or `nil`.
+    var remoteNotice: NoticePayload? {
+        get { activeSession?.remoteNotice }
+        set { activeSession?.remoteNotice = newValue }
+    }
+
+    /// When the session that is up now came up, for the elapsed-time readout.
+    var sessionStartedAt: Date? {
+        get { activeSession?.sessionStartedAt }
+        set { activeSession?.sessionStartedAt = newValue }
+    }
+
+    /// Which capture source this session is showing.
+    var activeSourceID: String? {
+        get { activeSession?.activeSourceID }
+        set { activeSession?.activeSourceID = newValue }
+    }
+
+    /// Optimistic state for the current session's physical-display privacy command.
+    var privacyModeEnabled: Bool {
+        get { activeSession?.privacyModeEnabled ?? false }
+        set { activeSession?.privacyModeEnabled = newValue }
+    }
     /// The quality the app is set to, read straight from the defaults.
     ///
     /// **The rule itself is ``MacCastKit/StreamQuality/stored(in:)``**, because it is a decoding
@@ -252,17 +369,33 @@ final class SessionModel {
     /// value is automatic, which is right: there is no manual level to come back to, and the
     /// policy's current tier stands in — see ``setAutomaticQuality(_:)``.
     var lastManualQuality: StreamQuality? = .storedManualLevel()
-    var autoQualityPolicy = AutoQualityPolicy(path: .lan)
-    var lastAutoDroppedFrames = 0
-    /// Optimistic state for the current session's physical-display privacy command. The host
-    /// always restores brightness when the last client disconnects.
-    var privacyModeEnabled = false
+
+    /// Writes a quality choice down, and nothing else.
+    ///
+    /// **The one place the preference is stored**, used by both doors into it: a live session,
+    /// which also tells its Mac, and the Settings tab, which cannot reach one because that tab is
+    /// unreachable while a session runs — see ``MacSession/setStreamQuality(_:)`` and
+    /// ``MacSession/applyInitialQuality()``, which read this back through ``storedQuality`` on
+    /// every arrival so that a change made there is not lost.
+    func rememberQualityChoice(_ quality: StreamQuality) {
+        streamQuality = quality
+        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKeys.streamQuality)
+        // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to return to.
+        if quality.bitrateKbps != nil { lastManualQuality = quality }
+    }
 
     // MARK: - Clipboard
     /// The most recently received host clipboard text. `nil` until the first pull.
-    var hostClipboard: String?
+    var hostClipboard: String? {
+        get { activeSession?.hostClipboard }
+        set { activeSession?.hostClipboard = newValue }
+    }
+
     /// Whether a clipboard pull is in flight.
-    var clipboardPulling = false
+    var clipboardPulling: Bool {
+        get { activeSession?.clipboardPulling ?? false }
+        set { activeSession?.clipboardPulling = newValue }
+    }
 
     // MARK: - Wake-on-LAN
     /// Hardware MAC addresses reported by the host's ServerHello. Stored by host ID.
@@ -275,7 +408,16 @@ final class SessionModel {
     }()
 
     // MARK: - Audio
-    var audioPlayer: RemoteAudioPlayer?
+
+    /// The player for the Mac's audio, one per session.
+    ///
+    /// One object per Mac, and the rule that only the active one plays, which is Stage 5's work:
+    /// two Macs' worth of sound arriving at one phone would be two things playing at once, and
+    /// only one of them is the Mac the user is looking at.
+    var audioPlayer: RemoteAudioPlayer? {
+        get { activeSession?.audioPlayer }
+        set { activeSession?.audioPlayer = newValue }
+    }
 
     /// Whether the Mac's own audio is played here, or dropped.
     ///
@@ -310,120 +452,82 @@ final class SessionModel {
     }
 
     // MARK: - Terminals
-    var terminals: [RemoteTerminal] = []
-    var selectedTerminalID: UUID?
 
-    /// The commands sent from this phone, newest first.
-    ///
-    /// Stored rather than computed from the defaults, because the panel has to redraw when it
-    /// changes and a computed property reading `UserDefaults` is a change nothing observes.
-    var terminalHistory: [String] =
-        UserDefaults.standard.stringArray(forKey: PreferenceKeys.terminalHistory) ?? []
+    var terminals: [RemoteTerminal] {
+        get { activeSession?.terminals ?? [] }
+        set { activeSession?.terminals = newValue }
+    }
 
-    /// The command last sent, and when — so the shell's answer can be read against it.
-    ///
-    /// A PTY gives a byte stream with no marker for where one command's output starts, so the
-    /// only thing that ties a message to a command is that it arrived right after one.
-    var lastSentCommand: String?
-    var lastSentAt: Date?
+    var selectedTerminalID: UUID? {
+        get { activeSession?.selectedTerminalID }
+        set { activeSession?.selectedTerminalID = newValue }
+    }
 
     // MARK: - File browsing
 
-    /// Every folder the Mac has listed, keyed by the terminal it was listed for and the path it
-    /// was listed at. See ``RemoteDirectoryKey``.
-    ///
-    /// Held rather than asked for per appearance, and that is most of what makes browsing feel like
-    /// a file manager instead of a series of waits: stepping into a folder and back out of it is
-    /// instant, and a folder already in hand is shown while its next copy is on the way.
-    var directories: [RemoteDirectoryKey: RemoteDirectory] = [:]
+    /// Every folder the active Mac has listed, keyed by the terminal and the path.
+    var directories: [RemoteDirectoryKey: RemoteDirectory] {
+        get { activeSession?.directories ?? [:] }
+        set { activeSession?.directories = newValue }
+    }
 
-    /// Which folder each terminal's browser is showing, and no entry for a browser that has not
-    /// opened yet or one still waiting on the Mac's home folder to resolve to a path.
-    ///
-    /// In the model rather than in the panel because the panel is rebuilt every time it opens —
-    /// the same reason the clipboard history is here — and because resolving "home" into a path is
-    /// something only the Mac can answer.
-    var browsingPaths: [UUID: String] = [:]
+    /// Which folder each terminal's browser is showing.
+    var browsingPaths: [UUID: String] {
+        get { activeSession?.browsingPaths ?? [:] }
+        set { activeSession?.browsingPaths = newValue }
+    }
 
     /// Folders asked for and not yet answered — what a spinner on the panel is reading.
-    var pendingDirectories: Set<RemoteDirectoryKey> = []
+    var pendingDirectories: Set<RemoteDirectoryKey> {
+        get { activeSession?.pendingDirectories ?? [] }
+        set { activeSession?.pendingDirectories = newValue }
+    }
 
     /// Why a folder could not be listed, until it lists.
-    var browseFailures: [RemoteDirectoryKey: String] = [:]
+    var browseFailures: [RemoteDirectoryKey: String] {
+        get { activeSession?.browseFailures ?? [:] }
+        set { activeSession?.browseFailures = newValue }
+    }
 
-    /// The file being shown, and how much of it has arrived. One at a time because only one can be
-    /// on screen — opening another replaces it.
-    var filePreview: RemoteFilePreview?
+    /// The file being shown, and how much of it has arrived.
+    var filePreview: RemoteFilePreview? {
+        get { activeSession?.filePreview }
+        set { activeSession?.filePreview = newValue }
+    }
 
     /// A command waiting for the shell that will run it.
-    ///
-    /// Running a file opens a terminal of its own, and a terminal has no id until the Mac answers
-    /// that it made one — so the command cannot be sent when the button is tapped, only remembered
-    /// until ``SessionModel/apply(terminal:)`` sees the shell arrive. One at a time, because the
-    /// second tap in the moment before the first shell exists means to run the second file, not
-    /// both, and a queue would be a promise about ordering that nothing here needs to make.
-    var pendingRun: String?
-
-    /// A file on its way to the Mac, and which door it came through.
-    struct FileWrite: Equatable {
-        /// Whether the file is an editor's text or one the user picked.
-        ///
-        /// The two are answered differently and are the same operation: a save reads the file back,
-        /// so the editor shows what is on disk rather than what was sent; an upload asks for the
-        /// folder again, so the new file appears in the list. Everything else about them (the
-        /// chunking, the size cap, the refusal, the failure) is shared, which is why they share a
-        /// record rather than two dictionaries that would have to be kept in step.
-        enum Door { case save, upload }
-
-        let door: Door
-        /// The file being written. What the Mac's answer is matched on, since it names the file it
-        /// wrote, and what says which folder to ask for again after an upload.
-        let path: String
+    var pendingRun: String? {
+        get { activeSession?.pendingRun }
+        set { activeSession?.pendingRun = newValue }
     }
 
     /// Files on their way to the Mac, by the terminal they are being written through.
-    ///
-    /// By terminal rather than one flag, because two can be in the air at once: a user who starts
-    /// an upload and then switches to another shell and edits a file there has two transfers
-    /// running, and a single flag hands the first answer to arrive to whichever of them asked
-    /// second. The Mac keeps its own half keyed the same way, for the same reason.
-    var writes: [UUID: FileWrite] = [:]
+    var writes: [UUID: FileWrite] {
+        get { activeSession?.writes ?? [:] }
+        set { activeSession?.writes = newValue }
+    }
 
     /// Why a write did not land, by the terminal it was made through, and kept apart by door.
-    ///
-    /// Apart, because the two are fixed differently and say so differently: a save that failed is a
-    /// file to correct, an upload that failed is a file to choose again. Read through
-    /// ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)`` so the panel asks about the
-    /// terminal it is drawing rather than about whichever wrote last.
-    var saveFailures: [UUID: String] = [:]
-    var uploadFailures: [UUID: String] = [:]
-
-    /// Something being made, renamed or removed on the Mac, and which folder to ask about after.
-    struct FileChange: Equatable {
-        /// What is being asked for. Held rather than only the path, because the answer says what
-        /// happened but not what was *asked*, and the path a rename moves is built from both.
-        let operation: RemoteFileOperation
-        /// The path the request named — the file's own path for a rename, not the one it becomes.
-        /// What the Mac's answer is matched on, since it echoes back what it was sent.
-        let path: String
+    var saveFailures: [UUID: String] {
+        get { activeSession?.saveFailures ?? [:] }
+        set { activeSession?.saveFailures = newValue }
+    }
+    var uploadFailures: [UUID: String] {
+        get { activeSession?.uploadFailures ?? [:] }
+        set { activeSession?.uploadFailures = newValue }
     }
 
     /// Changes in the air, by the terminal they were asked through.
-    ///
-    /// One per terminal, and deliberately: the Mac answers a change by naming the path it was
-    /// given, so two operations through one shell would be two answers matched against one
-    /// remembered request. The entry is also what disables the controls, so the second tap that
-    /// would cause that cannot be made.
-    var changes: [UUID: FileChange] = [:]
+    var changes: [UUID: FileChange] {
+        get { activeSession?.changes ?? [:] }
+        set { activeSession?.changes = newValue }
+    }
 
     /// Why a change did not happen, by the terminal it was asked through.
-    ///
-    /// Deliberately not in ``uploadFailures`` or ``browseFailures``, and the reason is what the
-    /// panel does with each of them: a browse failure replaces the list with a full-panel state,
-    /// which is right for a folder that could not be read and wrong for a rename that could not
-    /// land — the user would lose the folder they are looking at, along with the row they were
-    /// about to try again on. This one is drawn above the list, which stays where it is.
-    var changeFailures: [UUID: String] = [:]
+    var changeFailures: [UUID: String] {
+        get { activeSession?.changeFailures ?? [:] }
+        set { activeSession?.changeFailures = newValue }
+    }
 
     /// What each trusted Mac is called, by the ID its pin is keyed by.
     ///
@@ -431,8 +535,6 @@ final class SessionModel {
     /// expects the name of their Mac. The handshake is the only moment the client is told both,
     /// so it is the only moment this can be recorded.
     var hostNames: [String: String] = [:]
-    /// The server ID of the currently (or most recently) connected Mac.
-    var currentHostID: String?
 
     /// The ID a first pairing was dialled by, while one is in flight or has just failed.
     ///
@@ -513,14 +615,6 @@ final class SessionModel {
         WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
     }
 
-    /// When the session that is up now came up, for the elapsed-time readout. `nil` whenever
-    /// there is no ready session.
-    ///
-    /// A `Date` and not a counter: the view formats it with `Text(_:style:.timer)`, which the
-    /// system advances on its own. A `Timer` here would wake the main actor once a second to
-    /// update a number that the screen can already count by itself.
-    var sessionStartedAt: Date?
-
     /// Set when the device's own identity could not be loaded. Everything else is moot in
     /// that case: without a client certificate there is nothing for the Mac to pin.
     var identityFailure: String?
@@ -561,24 +655,7 @@ final class SessionModel {
     ) ?? .unicode
     var isObserving = false
     var latchedModifiers: Modifiers = []
-    var activeSourceID: String?
 
-    /// The picture the stream is showing now, or `nil` before the Mac has described one.
-    ///
-    /// Here rather than in the screen because this is the only end of the session that sees a
-    /// ``VideoStreamConfig``, and the picture is only ever described by one. What the screen
-    /// needs out of it is a single question, "is this still the picture my zoom was chosen for",
-    /// so the answer travels as a value and the zoom itself stays where it is: the screen's own
-    /// state. See ``PictureIdentity/change(to:)`` for how the question is answered.
-    var picture: PictureIdentity?
-
-    /// Something the Mac wants said about the picture, or `nil`.
-    ///
-    /// Kept apart from `videoStatus`, which describes the *stream*. This describes the Mac
-    /// behind a perfectly healthy stream: the frames are arriving on time and every one of
-    /// them is black, because the screen they are of is asleep. From the phone those two look
-    /// identical, and only the Mac knows which it is.
-    var remoteNotice: NoticePayload?
     /// What the joystick multiplies the pointer's travel by.
     ///
     /// Kept as a number rather than an index so the label and the arithmetic read the same, and
@@ -665,8 +742,20 @@ final class SessionModel {
     var browseFailed = false
     var identity: SelfSignedIdentity?
     var device = DeviceIdentity(id: "", name: "")
-    var session: ClientSession?
-    var videoPoll: Task<Void, Never>?
+    /// The wire for the Mac the app is showing.
+    ///
+    /// A forwarder like the rest: the connection belongs to a session, and the app's screens
+    /// ask for "the" one because there is only ever one to ask about.
+    var session: ClientSession? {
+        get { activeSession?.wire }
+        set { activeSession?.wire = newValue }
+    }
+
+    /// The half-second poll that reads the renderer's counters.
+    var videoPoll: Task<Void, Never>? {
+        get { activeSession?.videoPoll }
+        set { activeSession?.videoPoll = newValue }
+    }
 
     /// The offer that is waiting for the screen change to finish. See
     /// ``SessionModel/offerSubscriptionIfDue(after:)``.
@@ -738,38 +827,6 @@ final class SessionModel {
         // reads its own defaults, and the widget can only see the shared container.
         UserDefaults.standard.set(target.displayName, forKey: Self.lastHostNameKey)
         SharedStore.lastHostName = target.displayName
-        // Cleared for every new session, whatever the target. A punched path belongs to the session
-        // that proved it: the NAT mapping behind it can be gone by the next one, and a stale `true`
-        // would have the app reporting a direct path it is not using — on the one screen somebody
-        // would look at to find out why a connection is slow.
-        usedDirectPath = false
-        switch target {
-        case .discovered(let host):
-            connectionPath = .lan
-            remotePairingHostID = nil
-            UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
-        case .relay(let hostID, _, _):
-            connectionPath = .relay
-            remotePairingHostID = nil
-            UserDefaults.standard.set(hostID, forKey: Self.lastHostIDKey)
-        case .relayPairing(let hostID, _, _):
-            connectionPath = .relay
-            remotePairingHostID = hostID
-            // Same reasoning as the literal address below: nothing here has been proven to be
-            // this Mac yet, so nothing is remembered as "the last Mac". The handshake writes
-            // the ID it actually reached, and that is the first moment it is worth keeping —
-            // a half-typed ID left here would be dialled again by the reconnect ladder.
-            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
-        case .address:
-            connectionPath = .direct
-            remotePairingHostID = nil
-            // The handshake will replace this with the server's real ID. Keeping the ID of a
-            // different Mac during that window could make an automatic retry dial the relay for
-            // the wrong machine.
-            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
-        }
-        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath)
-        lastAutoDroppedFrames = 0
         // A widget is not a live view and is not told anything. Without this it goes on showing
         // the previous Mac until the system next feels like refreshing it, which on a widget
         // that changes twice a year could be tomorrow.
@@ -784,58 +841,71 @@ final class SessionModel {
         // over it leaves the first connection running with nothing holding it, so the peer sees
         // it drop mid-handshake — which reads on the Mac as a clean disconnect and, with a retry
         // following it, is a loop rather than a session.
-        session?.disconnect()
-        session = nil
+        //
+        // Let go of rather than kept: the object below replaces it in ``sessions``, and the
+        // events the old connection is still emitting have nothing left to land on. That is the
+        // wanted behaviour — they describe a Mac nobody is looking at any more.
+        activeSession?.wire?.disconnect()
         // The user has just asked to reach a Mac, which is the first moment the question
         // "tell you when it needs you?" means anything.
         notifier.prepareForFirstConnect()
 
-        hostName = target.displayName
-        activeSourceID = nil
-        // The picture belongs to the session that is ending, like everything else below it. Left
-        // behind, the next session's first config would be compared against a picture from
-        // another Mac and read as a source change before the user had seen anything at all.
-        picture = nil
-        catalog = nil
-        notes.removeAll()
-        terminals.removeAll()
-        selectedTerminalID = nil
-        // The listings and the preview describe the Mac of the session that is ending — folder
-        // names from one Mac shown against another would be worse than a wait.
-        directories.removeAll()
-        browsingPaths.removeAll()
-        pendingDirectories.removeAll()
-        browseFailures.removeAll()
-        filePreview = nil
-        // Writes in flight were this connection's, and the Mac on the other end of them is about
-        // to be a different Mac or none at all. The pieces are already gone, so there is nothing to
-        // resume and nothing to cancel, only the panel's state saying it is still waiting for an
-        // answer that cannot come.
-        writes.removeAll()
-        saveFailures.removeAll()
-        uploadFailures.removeAll()
-        // The same reasoning for changes, and one more consequence: a change left in flight keeps
-        // the controls disabled, so a browser that reconnected to the same Mac would come back with
-        // its New Folder button refusing to do anything until the tab was closed and reopened.
-        changes.removeAll()
-        changeFailures.removeAll()
-        // Cleared with the rest: a notice describes the Mac of *this* connection, and one
-        // left over would caption the next session with something nobody said about it.
-        remoteNotice = nil
-        videoStatus = "No video stream"
-        isVideoStreaming = false
-        // A lane belongs to the session that chose it. Left standing, the next connection
-        // would caption its first second as a fallback it has not made.
-        videoTransport = .primary
-        privacyModeEnabled = false
+        // **The new session, and the whole of what this stage moved.** Every per-Mac fact below
+        // is set on it rather than on the model, and the screens go on reading them through the
+        // forwarders because there is exactly one of these and it is the active one.
+        let session = MacSession(model: self, renderer: renderer)
 
-        let session = ClientSession(
+        // Cleared for every new session, whatever the target. A punched path belongs to the session
+        // that proved it: the NAT mapping behind it can be gone by the next one, and a stale `true`
+        // would have the app reporting a direct path it is not using — on the one screen somebody
+        // would look at to find out why a connection is slow.
+        session.usedDirectPath = false
+        switch target {
+        case .discovered(let host):
+            session.connectionPath = .lan
+            remotePairingHostID = nil
+            UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
+        case .relay(let hostID, _, _):
+            session.connectionPath = .relay
+            remotePairingHostID = nil
+            UserDefaults.standard.set(hostID, forKey: Self.lastHostIDKey)
+        case .relayPairing(let hostID, _, _):
+            session.connectionPath = .relay
+            remotePairingHostID = hostID
+            // Same reasoning as the literal address below: nothing here has been proven to be
+            // this Mac yet, so nothing is remembered as "the last Mac". The handshake writes
+            // the ID it actually reached, and that is the first moment it is worth keeping —
+            // a half-typed ID left here would be dialled again by the reconnect ladder.
+            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
+        case .address:
+            session.connectionPath = .direct
+            remotePairingHostID = nil
+            // The handshake will replace this with the server's real ID. Keeping the ID of a
+            // different Mac during that window could make an automatic retry dial the relay for
+            // the wrong machine.
+            UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
+        }
+        // Fresh for the path this session just chose: the policy's tier is tuned per path, and
+        // the previous session's drops are not this one's to react to.
+        session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
+        session.lastAutoDroppedFrames = 0
+
+        session.hostName = target.displayName
+        // Nothing else has to be cleared: everything below this line was this connection's, and
+        // this connection is new. That is the whole of what the per-Mac state bought —
+        // ``disconnect()`` clears for the same reason on the way out.
+
+        // **Bound once, outside the closure.** A `weak` reference is a mutable variable, and
+        // reading it from a closure that outlives this one is a data race the compiler is right
+        // to flag — and the renderer is read from the network queue, where no actor is going to
+        // help. It is a `let` of a `Sendable` type, so it is reachable from there.
+        let renderer = self.renderer
+        let wire = ClientSession(
             identity: identity,
             clientID: device.id,
             clientName: device.name,
             pins: pins,
-            onEvent: { [weak self] event in
-                guard let self else { return }
+            onEvent: { [weak session] event in
                 // **The video pipeline is the one event family that must not detour through
                 // the main actor**, and for `.config` that is a correctness rule rather than
                 // the performance one it is for `.frame`. At 60 Hz, hopping frames to the
@@ -851,24 +921,26 @@ final class SessionModel {
                 // encoder's next keyframe up to two seconds later. The renderer has its own
                 // serial queue, so both calls belong here, where their order is whatever the
                 // wire said it was.
-                //
-                // Reachable from here because `renderer` is a `let` of a `Sendable` type: an
-                // immutable property cannot race, so the actor boundary does not apply to
-                // reading it.
                 switch event {
                 case .video(.frame(let frame)):
-                    self.renderer.enqueue(frame)
+                    renderer.enqueue(frame)
                     return
                 case .video(.config(let config)):
-                    self.renderer.reset()
-                    self.renderer.configure(config)
+                    renderer.reset()
+                    renderer.configure(config)
                 default:
                     break
                 }
-                Task { @MainActor in self.apply(event) }
+                Task { @MainActor in session?.apply(event) }
             }
         )
-        self.session = session
+        session.wire = wire
+        // **The container, and it can only ever hold one.** The list is replaced rather than
+        // appended to, which is what makes this stage invisible: the app had a single session
+        // property, and it still behaves as though it has one. Stage 4 changes these two lines.
+        sessions = [session]
+        activeSessionID = session.id
+
         // Whether a missing picture could be a network blocking video, which is a question
         // about *where* this Mac is and not one the session can answer for itself. A Mac found
         // over Bonjour is on this network, where the answer is a different problem entirely;
@@ -878,10 +950,10 @@ final class SessionModel {
         // for it there is a reduction in rate rather than a move — which is also the honest
         // response to a channel that stalled while carrying input. The move is what it becomes
         // on any path where video has a transport of its own.
-        session.videoFallbackEnabled = connectionPath != .lan
-        startVideoPolling()
+        wire.videoFallbackEnabled = session.connectionPath != .lan
+        session.startVideoPolling()
 
-        Task { await session.connect(to: target) }
+        Task { await wire.connect(to: target) }
     }
 
     // MARK: - Clipboard
@@ -1086,6 +1158,157 @@ final class SessionModel {
     /// All macros — built-in first, then custom.
     var allMacros: [Macro] { Macro.defaults + customMacros }
 
+    // MARK: - Commands to the active Mac
+
+    // **Forwarders, like the properties above and for the same reason.** A command belongs to a
+    // session; the panels have one Mac in hand and ask the app for it. Every method here means
+    // "whatever Mac is on screen", which is the only answer that exists until there can be more
+    // than one — see ``activeSession``. Where a command names a terminal, the ID came from the
+    // Mac that made it and is unique across Macs, which is what will let Stage 4 route it to the
+    // right one rather than to the one on screen.
+
+    /// The commands sent from this phone, newest first.
+    ///
+    /// **App-wide, not per Mac**, which is a decision rather than an oversight: the Mac's own
+    /// shell keeps the real history, and this is the shortlist the panel offers, so a command
+    /// typed on one Mac is a command the user is likely to want on the other.
+    ///
+    /// Stored rather than computed from the defaults, because the panel has to redraw when it
+    /// changes and a computed property reading `UserDefaults` is a change nothing observes.
+    var terminalHistory: [String] =
+        UserDefaults.standard.stringArray(forKey: PreferenceKeys.terminalHistory) ?? []
+
+    static let terminalHistoryLimit = 30
+
+    /// Adds a command to the list the panel offers, and writes it down.
+    ///
+    /// Newest first and de-duplicated, so a command run twice moves to the top rather than
+    /// appearing twice — the list is for finding the one you want, and a log of repeats makes
+    /// that harder. Capped, because this is a convenience and not a history file: the Mac's own
+    /// shell keeps the real one.
+    func rememberTerminalCommand(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var history = terminalHistory
+        history.removeAll { $0 == trimmed }
+        history.insert(trimmed, at: 0)
+        if history.count > Self.terminalHistoryLimit {
+            history.removeLast(history.count - Self.terminalHistoryLimit)
+        }
+        terminalHistory = history
+        forgetTerminalHistoryIfStored(history)
+    }
+
+    /// Takes one command back out, for the shell that said it did not exist.
+    func removeFromTerminalHistory(_ command: String) {
+        var history = terminalHistory
+        history.removeAll { $0 == command }
+        terminalHistory = history
+        forgetTerminalHistoryIfStored(history)
+    }
+
+    private func forgetTerminalHistoryIfStored(_ history: [String]) {
+        UserDefaults.standard.set(history, forKey: PreferenceKeys.terminalHistory)
+    }
+
+    /// Files a note against the Mac on screen. See ``MacSession/append(note:)``.
+    ///
+    /// With no session up there is nowhere for one to go, which is right: a note describes what a
+    /// Mac did, and there is no Mac to have done it.
+    func append(note: String) { activeSession?.append(note: note) }
+
+    func refreshTerminals() { activeSession?.refreshTerminals() }
+
+    /// Whether one more shell is allowed right now. See ``MacSession/canOpenAnotherShell``.
+    var canOpenAnotherShell: Bool { activeSession?.canOpenAnotherShell ?? true }
+
+    func createTerminal() { activeSession?.createTerminal() }
+
+    func runInNewTerminal(_ command: String) { activeSession?.runInNewTerminal(command) }
+
+    func renameTerminal(_ id: UUID, to name: String) { activeSession?.renameTerminal(id, to: name) }
+
+    func selectTerminal(_ id: UUID) { activeSession?.selectTerminal(id) }
+
+    func sendTerminalInput(_ text: String, to id: UUID, appendReturn: Bool = true) {
+        activeSession?.sendTerminalInput(text, to: id, appendReturn: appendReturn)
+    }
+
+    func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {
+        activeSession?.sendTerminalBytes(bytes, to: id)
+    }
+
+    func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
+        activeSession?.resizeTerminal(id, columns: columns, rows: rows)
+    }
+
+    func closeTerminal(_ id: UUID) { activeSession?.closeTerminal(id) }
+
+    // MARK: - The active Mac's file browser
+
+    func browsingPath(for id: UUID) -> String? { activeSession?.browsingPath(for: id) }
+
+    func setBrowsingPath(_ path: String?, for id: UUID) {
+        activeSession?.setBrowsingPath(path, for: id)
+    }
+
+    func listDirectory(_ path: String?, sessionID id: UUID) {
+        activeSession?.listDirectory(path, sessionID: id)
+    }
+
+    func previewFile(_ path: String, sessionID id: UUID) {
+        activeSession?.previewFile(path, sessionID: id)
+    }
+
+    func closePreview() { activeSession?.closePreview() }
+
+    func saveFile(_ text: String, sessionID id: UUID) {
+        activeSession?.saveFile(text, sessionID: id)
+    }
+
+    func uploadFile(_ url: URL, sessionID id: UUID) {
+        activeSession?.uploadFile(url, sessionID: id)
+    }
+
+    func createEntry(_ name: String, kind: RemoteEntryKind, in folder: String, sessionID id: UUID) {
+        activeSession?.createEntry(name, kind: kind, in: folder, sessionID: id)
+    }
+
+    func renameEntry(_ entry: RemoteDirectoryEntry, to name: String, in folder: String, sessionID id: UUID) {
+        activeSession?.renameEntry(entry, to: name, in: folder, sessionID: id)
+    }
+
+    func deleteEntry(_ entry: RemoteDirectoryEntry, in folder: String, sessionID id: UUID) {
+        activeSession?.deleteEntry(entry, in: folder, sessionID: id)
+    }
+
+    func directory(_ path: String?, sessionID id: UUID) -> RemoteDirectory? {
+        activeSession?.directory(path, sessionID: id)
+    }
+
+    func isLoadingDirectory(_ path: String?, sessionID id: UUID) -> Bool {
+        activeSession?.isLoadingDirectory(path, sessionID: id) ?? false
+    }
+
+    func browseFailure(_ path: String?, sessionID id: UUID) -> String? {
+        activeSession?.browseFailure(path, sessionID: id)
+    }
+
+    func isChangingFile(sessionID id: UUID) -> Bool {
+        activeSession?.isChangingFile(sessionID: id) ?? false
+    }
+
+    func changeFailure(sessionID id: UUID) -> String? { activeSession?.changeFailure(sessionID: id) }
+
+    func isWritingFile(sessionID id: UUID) -> Bool {
+        activeSession?.isWritingFile(sessionID: id) ?? false
+    }
+
+    func saveFailure(sessionID id: UUID) -> String? { activeSession?.saveFailure(sessionID: id) }
+
+    func uploadFailure(sessionID id: UUID) -> String? { activeSession?.uploadFailure(sessionID: id) }
+
+    /// Which path the rate policy is tuned for, read off the active session.
     var autoQualityPath: AutoQualityPolicy.Path {
         switch connectionPath {
         case .lan: return .lan
@@ -1094,57 +1317,19 @@ final class SessionModel {
         }
     }
 
-    var activeSourceTitle: String? {
-        guard let activeSourceID,
-              let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })
-        else { return nil }
-        return descriptor.title
-    }
+    var activeSourceTitle: String? { activeSession?.activeSourceTitle }
 
     /// The size of the captured content in pixels, if it is known.
-    ///
-    /// The catalog is preferred over the video config: the catalog describes the source
-    /// before any picture arrives, so the canvas can be laid out correctly while the Mac is
-    /// still switching capture sources.
-    var capturePixelSize: CGSize? {
-        if let activeSourceID,
-           let descriptor = catalog?.all.first(where: { $0.id == activeSourceID }),
-           descriptor.pixelSize.width > 0, descriptor.pixelSize.height > 0 {
-            return descriptor.pixelSize
-        }
-        let snapshot = renderer.currentSnapshot
-        if snapshot.hasConfig, snapshot.pixelWidth > 0, snapshot.pixelHeight > 0 {
-            return CGSize(width: snapshot.pixelWidth, height: snapshot.pixelHeight)
-        }
-        if let first = catalog?.displays.first { return first.pixelSize }
-        return nil
+    var capturePixelSize: CGSize? { activeSession?.capturePixelSize }
+
+    /// The captured content's size in the Mac's *points*.
+    var capturePointSize: CGSize {
+        activeSession?.capturePointSize ?? CGSize(width: 1512, height: 982)
     }
 
     /// The picture a video config describes, named as far as this end can name it.
-    ///
-    /// The catalogue is the only thing in the session that says what a source *is*, so it is
-    /// also the only place the answer to "can this one change size on its own" comes from. A
-    /// source with no catalogue entry behind it is left as unknown rather than guessed at, which
-    /// ``PictureIdentity/contentMovesOnItsOwn`` reads as "free to move". See
-    /// ``PictureIdentity/change(to:)`` for what that buys.
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
-        // The rule is ``MacCastKit/PictureIdentity/forStream(_:activeSourceID:catalog:)``; this
-        // reads the two things it needs off the model, which is the only part of it a test cannot
-        // supply for itself.
         PictureIdentity.forStream(config, activeSourceID: activeSourceID, catalog: catalog)
-    }
-
-    /// The captured content's size in the Mac's *points*, which is the space
-    /// ``RemoteCommand/joystickMove(dx:dy:)`` and ``RemoteCommand/scroll(dx:dy:)`` are in.
-    ///
-    /// Derived by halving the pixel size, i.e. assuming a 2× backing store. That is the only
-    /// figure available: the protocol carries pixels, and the point-to-pixel scale of the
-    /// captured surface is not part of it. It is an estimate, and it is used only to scale a
-    /// relative nudge — being wrong by a factor of two changes how fast the cursor travels,
-    /// not where it lands.
-    var capturePointSize: CGSize {
-        guard let pixels = capturePixelSize else { return CGSize(width: 1512, height: 982) }
-        return CGSize(width: pixels.width / 2, height: pixels.height / 2)
     }
 }
 

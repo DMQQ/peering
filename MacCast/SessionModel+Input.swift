@@ -211,127 +211,45 @@ extension SessionModel {
     // MARK: - Geometry
 
     /// Whether the app is choosing the rate, or the person watching is.
-    var isAutomaticQuality: Bool { streamQuality == .auto }
+    var isAutomaticQuality: Bool {
+        activeSession?.isAutomaticQuality ?? (streamQuality == .auto)
+    }
 
-    /// The fastest the picture may go on this session, which is the plan's answer and the path's.
-    ///
-    /// **Uncapped on the direct path, for every plan.** Two devices on one network are not spending
-    /// anybody's bandwidth but their own, so there is nothing there to sell and capping it would
-    /// make the one demonstration most people see first worse for no reason. A relayed session is
-    /// the operator's link, and 20 Mbps down it is five times the bandwidth of 8, which is what
-    /// ``PlanCapability/highBitrate`` is about.
+    /// The fastest the picture may go on the active session, which is the plan's answer and the
+    /// path's. See ``MacSession/videoCeiling``.
     var videoCeiling: AutoQualityPolicy.Tier {
-        guard autoQualityPath == .relay else { return .high }
-        return storeManager.access.includes(.highBitrate) ? .high : .medium
+        activeSession?.videoCeiling ?? .high
     }
 
     /// Switches between the app choosing the rate and the person watching choosing it.
     ///
-    /// Turning manual on does not mean "high": it means "let me choose", and the level it lands
-    /// on is the one picked last — or, the first time, the rate the policy had already settled
-    /// on. Landing anywhere else would be a jump in the picture at the exact moment someone
-    /// asked for control of it.
+    /// **The one door the Settings tab uses**, and that tab is unreachable while a session is
+    /// running — so the no-session branch below is not an edge case, it is the case that tab
+    /// exists for. It writes the choice down and nothing more; the next session reads it back
+    /// through ``storedQuality`` when it arrives.
     func setAutomaticQuality(_ automatic: Bool) {
-        setStreamQuality(automatic ? .auto : (lastManualQuality ?? StreamQuality(autoQualityPolicy.tier)))
+        guard let activeSession else {
+            rememberQualityChoice(automatic ? .auto : (lastManualQuality ?? streamQuality))
+            return
+        }
+        activeSession.setAutomaticQuality(automatic)
     }
 
-    /// Sets the preset, tells the Mac, and remembers it.
+    /// Sets the preset, tells the active Mac, and remembers it.
     ///
     /// The save is what makes the Settings tab's row and this one the same setting rather than
     /// two: whichever is used, the stored token ends up saying the same thing, so the next
     /// session starts where this one was left. It is written even when there is no session to
     /// tell, which is the case the Settings tab exists for.
     func setStreamQuality(_ quality: StreamQuality) {
-        // **The one rung a plan can be short of, and only while the bytes are being carried.**
-        // Asking for it opens the plans rather than being quietly capped, because a picture that
-        // silently stayed soft is a setting that reads as broken. High on a session going straight
-        // between the two devices is not gated at all: see ``videoCeiling``.
-        if quality == .high, videoCeiling == .medium {
-            paywallReason = .feature(.highBitrate)
+        guard let activeSession else {
+            // No Mac to tell, and nothing to gate either: with no session there is no relay
+            // carrying the bytes, which is the only thing ``MacSession/videoCeiling`` sells
+            // against. The choice is simply remembered for whenever one arrives.
+            rememberQualityChoice(quality)
             return
         }
-        streamQuality = quality
-        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKeys.streamQuality)
-        if let bitrateKbps = quality.bitrateKbps {
-            // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to
-            // return to.
-            lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
-        } else {
-            autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
-            lastAutoDroppedFrames = renderer.currentSnapshot.framesDropped
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-        }
-    }
-
-    /// Hands the Mac the quality the app is set to, when a session arrives.
-    ///
-    /// **Every arrival, and not only an automatic one.** It used to return early unless the
-    /// preset was ``StreamQuality/auto``, which left a manual level unsent after a reconnect —
-    /// and the Mac does not keep the figure across one: it clears `requestedBitrateKbps` when
-    /// the video peer closes and falls back to its own preferred rate, which is the top one. So
-    /// a phone reading "Low" could be watching a 20 Mbps stream, and the speed chip would have
-    /// been describing a setting that had stopped taking. Sending on each arrival costs one
-    /// message and makes the chip honest.
-    ///
-    /// The policy is rebuilt here rather than only in the automatic branch for the same reason:
-    /// it is what the rate falls back to if the user hands control back mid-session, and a
-    /// session that started manual would otherwise carry the previous session's tier into it.
-    ///
-    /// **The stored token is read here rather than ``streamQuality`` being trusted.** That
-    /// property is seeded once, when the model is built — and the model is built once, for the
-    /// life of the process (``MacCastApp``). The Settings tab writes the preference and cannot
-    /// reach this object at all, because that tab is unreachable while a session runs, which is
-    /// the whole reason it writes a preference instead of sending a command. So between a change
-    /// made there and the connect that follows, the two disagree, and the property is the stale
-    /// one. Reading the token is what closes the loop; this arrival is the only moment they can
-    /// be brought back together.
-    ///
-    /// Assigned rather than handed to ``setStreamQuality(_:)``, which would write the token back
-    /// on every arrival — the tab's `@AppStorage` observes that key, so the write would be a
-    /// pointless invalidation per session, and the two surfaces would be writing to each other.
-    func applyInitialQuality() {
-        let quality = SessionModel.storedQuality
-        streamQuality = quality
-
-        autoQualityPolicy = AutoQualityPolicy(path: autoQualityPath, ceiling: videoCeiling)
-        lastAutoDroppedFrames = 0
-
-        if let bitrateKbps = quality.bitrateKbps {
-            lastManualQuality = quality
-            send(.setStreamQuality(fps: 0, bitrateKbps: min(bitrateKbps, videoCeiling.bitrateKbps)))
-        } else {
-            send(.setStreamQuality(fps: 0, bitrateKbps: autoQualityPolicy.tier.bitrateKbps))
-        }
-    }
-
-    func updateAutoQuality(from snapshot: VideoRenderer.Snapshot) {
-        guard streamQuality == .auto, let latencyMilliseconds else {
-            lastAutoDroppedFrames = snapshot.framesDropped
-            return
-        }
-
-        // On the control channel the host is holding the rate down on purpose, and the client
-        // asking for more would be asking it to break its own ceiling — see
-        // ``VideoCoordinator/effectiveBitrateKbps``. This end stops driving the number and
-        // lets the cap stand until the picture moves back. The measurement is still taken, so
-        // the policy starts from a clean window rather than from a stale one.
-        guard videoTransport == .primary else {
-            lastAutoDroppedFrames = snapshot.framesDropped
-            return
-        }
-
-        let newDrops = snapshot.framesDropped >= lastAutoDroppedFrames
-            ? snapshot.framesDropped - lastAutoDroppedFrames
-            : 0
-        lastAutoDroppedFrames = snapshot.framesDropped
-
-        guard let tier = autoQualityPolicy.observe(
-            latencyMilliseconds: latencyMilliseconds,
-            newDroppedFrames: newDrops
-        ) else { return }
-        send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
-        append(note: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps")
+        activeSession.setStreamQuality(quality)
     }
 
 }
