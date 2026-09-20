@@ -109,11 +109,18 @@ extension RemoteScreen {
     }
 
     func sendJoystickClick() {
+        // Anchor the cursor before clicking. Touch input always sends mouseMove(to:)
+        // immediately before a press, so the host cursor and the drawn arrow agree.
+        // Joystick input is relative, so they can drift — physical mouse movement,
+        // edge-clamping, or a first tap before any movement. Sending the position
+        // here makes a joystick tap behave identically to a touch tap.
+        model.send(.mouseMove(to: remoteCursor))
         model.send(.mouseDown(button: .left))
         model.send(.mouseUp(button: .left))
     }
 
     func sendJoystickRightClick() {
+        model.send(.mouseMove(to: remoteCursor))
         model.send(.mouseDown(button: .right))
         model.send(.mouseUp(button: .right))
     }
