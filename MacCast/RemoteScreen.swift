@@ -71,13 +71,12 @@ struct RemoteScreen: View {
     /// Whether the portrait dock has opened onto the controls that did not earn a permanent
     /// place in it. Portrait's alone: the landscape rails have the height to show them all.
     @State var dockExpanded = false
-    /// Which page of the open dock is showing.
+    /// Which sheet of the dock is showing, by ``DockSheet/id``.
     ///
     /// Optional because that is what `scrollPosition(id:)` binds to: a pager that has not settled
-    /// reports nothing, and a plainer binding would have to name a page it has not drawn. Put
-    /// back to the first page whenever the dock shuts, so opening it always starts where it
-    /// always has.
-    @State var dockPage: DockPage? = .controls
+    /// reports nothing, and a plainer binding would have to name a sheet it has not drawn. Nothing
+    /// until it is swiped means the first sheet, which is where the pager already sits.
+    @State var dockPage: String?
     /// The press counts the dock's ranking is read from, taken once when the screen is built.
     ///
     /// A snapshot rather than the store itself, and deliberately: the store is written to on every

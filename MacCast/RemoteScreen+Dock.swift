@@ -2,27 +2,39 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-/// Which sheet of the portrait dock is showing.
+/// One screenful of the dock: as many buttons as it has cells for.
 ///
-/// The dock had one page and it was the first one. Landscape reaches twenty-one controls across
-/// two rails that scroll; portrait had fifteen cells and no scroller, so the eight edits the
-/// landscape rail keeps below its fold, copy, paste, stop, undo, cut, save, close and quit, were
-/// absent from the portrait screen with nothing on it to say they existed. A second page is what
-/// they were missing, and it is the dock's own grid rather than a different kind of control: the
-/// same five columns, the same button, a swipe away.
-enum DockPage: String, CaseIterable, Identifiable, Hashable {
-    /// The controls the dock has always had.
-    case controls
-    /// The edits landscape reaches by scrolling its trailing rail.
-    case edits
+/// The dock stands at one row or at three, so the same list is cut into a different number of
+/// these depending on which. Shut, the thirteen controls are three sheets and the eight edits are
+/// two; open, each set is a single sheet, because fifteen cells hold the lot.
+///
+/// **That is the correction.** There were two fixed pages, one per set, and a swipe moved between
+/// them. Shut, that meant page one showed five of the thirteen controls while the open page one
+/// showed all thirteen, so the same gesture did a different amount of work depending on whether
+/// the chevron had been pressed. A sheet is a screenful in both states, and a swipe is always the
+/// next one.
+///
+/// The sets stay apart. Controls come first and edits after, so a sheet never mixes them, and the
+/// dock keeps saying which is which.
+struct DockSheet: Identifiable {
+    let id: String
+    /// One of these is empty. Two arrays rather than an enum of the two, because either is handed
+    /// straight to the same row builder and an enum would mean matching on every draw.
+    let controls: [DockControl]
+    let edits: [QuickAction]
 
-    var id: String { rawValue }
-
-    /// What the page is called when it is spoken rather than seen.
+    /// What this sheet holds, for the one announcement a barred dot cannot make on its own.
     var spokenName: String {
-        switch self {
-        case .controls: "Dock controls"
-        case .edits: "Editing shortcuts"
+        controls.isEmpty ? "Editing shortcuts" : "Dock controls"
+    }
+}
+
+private extension Array {
+    /// The array cut into runs of at most `size`, in order, with no empty run.
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return isEmpty ? [] : [self] }
+        return stride(from: 0, to: count, by: size).map {
+            Array(self[$0 ..< Swift.min($0 + size, count)])
         }
     }
 }
@@ -232,24 +244,24 @@ extension RemoteScreen {
     func portraitDock(width: CGFloat) -> some View {
         VStack(spacing: ChromeMetrics.dockDotsGap) {
             HStack(spacing: 0) {
-                // The buttons page and the chevron does not. Fixed at the trailing edge it
-                // stays under the thumb that just pressed it, and it is reachable from either
-                // page, which it was not while it was the first page's last column: opening
-                // or shutting the dock meant swiping back to that page first.
+                // The sheets page and the chevron does not. Fixed at the trailing edge it
+                // stays under the thumb that just pressed it, and it is reachable from any
+                // sheet, which it was not while it was a cell of the first one: opening or
+                // shutting the dock meant swiping back to that sheet first.
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 0) {
-                        ForEach(DockPage.allCases) { page in
-                            dockGrid(page, expanded: dockExpanded)
+                        ForEach(dockSheets) { sheet in
+                            dockSheetView(sheet, expanded: dockExpanded)
                                 .containerRelativeFrame(.horizontal)
-                                .id(page)
+                                .id(sheet.id)
                         }
                     }
                     .scrollTargetLayout()
                 }
-                // Paging rather than free scrolling, so a page is either wholly here or wholly
-                // gone. A dock resting half way between its two pages is a column of buttons
-                // half off the edge of the glass, and a thumb aiming at one has no way to
-                // know which half of it will be under the finger when the swipe settles.
+                // Paging rather than free scrolling, so a sheet is either wholly here or wholly
+                // gone. A dock resting half way between two sheets is a column of buttons half
+                // off the edge of the glass, and a thumb aiming at one has no way to know which
+                // half of it will be under the finger when the swipe settles.
                 .scrollTargetBehavior(.paging)
                 .scrollPosition(id: $dockPage)
 
@@ -282,20 +294,20 @@ extension RemoteScreen {
         .frame(width: width, height: dockHeight)
     }
 
-    /// The first page, ranked: the controls used most, first.
+    /// The controls, ranked: the ones used most, first.
     var rankedControls: [DockControl] {
         ranked(DockControl.allCases, id: \.id)
     }
 
-    /// The second page, ranked the same way, and against itself alone.
+    /// The edits, ranked the same way and against themselves alone.
     var rankedEdits: [QuickAction] {
         ranked(quickActions, id: \.id)
     }
 
     /// A list of buttons in the order the dock should draw them.
     ///
-    /// The two pages rank separately, so the controls and the edits never trade places with each
-    /// other: the dock keeps saying which page is which, and only the order within each one moves.
+    /// The two sets rank separately, so the controls and the edits never trade places with each
+    /// other: the dock keeps saying which set is which, and only the order within each one moves.
     ///
     /// Read from the snapshot taken when the screen was built, never from the store on every draw.
     /// Recording a press must not reorder the dock under the finger that made it, and a dock that
@@ -358,14 +370,30 @@ extension RemoteScreen {
         }
     }
 
-    /// One page, whichever it is.
+    /// Every sheet of the dock, in the order they are swiped through.
+    ///
+    /// Controls first and edits after, each cut into runs of as many buttons as the dock has cells
+    /// for. Shut that is five, so the thirteen controls are three sheets and the eight edits two;
+    /// open it is fifteen, so each set is one sheet. The dots follow from this rather than being a
+    /// fixed pair, which is the point: what a swipe moves by is the same in both states.
+    var dockSheets: [DockSheet] {
+        let capacity = ChromeMetrics.dockColumns * (dockExpanded ? ChromeMetrics.dockExpandedRows : 1)
+        let controls = rankedControls.chunked(into: capacity).enumerated().map { index, chunk in
+            DockSheet(id: "controls-\(index)", controls: chunk, edits: [])
+        }
+        let edits = rankedEdits.chunked(into: capacity).enumerated().map { index, chunk in
+            DockSheet(id: "edits-\(index)", controls: [], edits: chunk)
+        }
+        return controls + edits
+    }
+
+    /// One sheet, whichever it is.
     @ViewBuilder
-    func dockGrid(_ page: DockPage, expanded: Bool) -> some View {
-        switch page {
-        case .controls:
-            dockRows(rankedControls, expanded: expanded) { dockControlView($0) }
-        case .edits:
-            dockRows(rankedEdits, expanded: expanded) { edit in
+    func dockSheetView(_ sheet: DockSheet, expanded: Bool) -> some View {
+        if sheet.edits.isEmpty {
+            dockRows(sheet.controls, expanded: expanded) { dockControlView($0) }
+        } else {
+            dockRows(sheet.edits, expanded: expanded) { edit in
                 ShortcutRailButton(
                     chord: edit.chord,
                     label: edit.label,
@@ -400,7 +428,11 @@ extension RemoteScreen {
         }
     }
 
-    /// Which page the dock is on, and the way to the other one.
+    /// Which sheet the dock is on, and the way to any of the others.
+    ///
+    /// One dot per sheet, so the count changes with the dock: five standing shut, two open. That
+    /// is honest rather than tidy, and it is the same thing the swipe does, which is the property
+    /// worth keeping.
     ///
     /// Pressable as well as drawn. Dots that only report are dots that tell the user where they
     /// are and then make them swipe to prove it, and on a bar this wide they are the smaller
@@ -408,16 +440,19 @@ extension RemoteScreen {
     ///
     /// Bare marks, with a shadow rather than a backing. They sit over the picture, so they need
     /// something to hold them apart from whatever is behind them, and a shadow does that without
-    /// putting a second pane of glass under a bar that is already made of it. A capsule holding
-    /// two five-point dots is more glass than indicator, which is the wrong way round.
+    /// putting a second pane of glass under a bar that is already made of it. A capsule holding a
+    /// couple of five-point dots is more glass than indicator, which is the wrong way round.
     var dockPageDots: some View {
-        HStack(spacing: 0) {
-            ForEach(DockPage.allCases) { page in
+        let sheets = dockSheets
+        // Nothing yet means the first sheet, which is where the pager sits before it is touched.
+        let current = dockPage ?? sheets.first?.id
+        return HStack(spacing: 0) {
+            ForEach(Array(sheets.enumerated()), id: \.element.id) { index, sheet in
                 Button {
-                    withAnimation(Motion.settle) { dockPage = page }
+                    withAnimation(Motion.settle) { dockPage = sheet.id }
                 } label: {
                     Circle()
-                        .fill(page == dockPage ? Color.primary : Color.secondary.opacity(0.6))
+                        .fill(sheet.id == current ? Color.primary : Color.secondary.opacity(0.6))
                         .frame(width: 5, height: 5)
                         .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
                         // The full height of the strip, so a mark this small still has a tap
@@ -426,8 +461,8 @@ extension RemoteScreen {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(page.spokenName)
-                .accessibilityAddTraits(page == dockPage ? [.isSelected] : [])
+                .accessibilityLabel("\(sheet.spokenName), \(index + 1) of \(sheets.count)")
+                .accessibilityAddTraits(sheet.id == current ? [.isSelected] : [])
             }
         }
         .frame(height: ChromeMetrics.dockPageDotsHeight)
@@ -457,10 +492,12 @@ extension RemoteScreen {
     var dockToggle: some View {
         Button {
             withAnimation(Motion.morph) { dockExpanded.toggle() }
-            // Shutting the dock puts it back on its first page, so opening it again starts where
-            // it always has. Left where paging abandoned it, the controls the dock is mostly for
-            // would be one swipe behind a page of edits the user never chose as their home.
-            if !dockExpanded { dockPage = .controls }
+            // Expanding and shutting change how many sheets there are, so the one that was showing
+            // may be gone afterwards. Where it survives it is kept, which is what stops a press on
+            // the chevron from throwing away the user's place; where it does not, the dock goes
+            // back to its first sheet rather than to no sheet at all.
+            let ids = dockSheets.map(\.id)
+            if !ids.contains(dockPage ?? "") { dockPage = ids.first }
         } label: {
             Image(systemName: dockExpanded ? "chevron.up" : "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
