@@ -38,7 +38,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.relay.monthly",
+          "productID" : "pl.dmq.peering.iap.relay.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Relay Monthly",
           "subscriptionGroupID" : "21840001",
@@ -63,7 +63,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.relay.year",
+          "productID" : "pl.dmq.peering.iap.relay.year",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Relay Yearly",
           "subscriptionGroupID" : "21840001",
@@ -88,7 +88,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.plus.monthly",
+          "productID" : "pl.dmq.peering.iap.plus.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Relay Plus Monthly",
           "subscriptionGroupID" : "21840001",
@@ -113,7 +113,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.plus.year",
+          "productID" : "pl.dmq.peering.iap.plus.year",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Relay Plus Yearly",
           "subscriptionGroupID" : "21840001",
@@ -138,7 +138,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.pro.monthly",
+          "productID" : "pl.dmq.peering.iap.pro.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Peering Pro Monthly",
           "subscriptionGroupID" : "21840001",
@@ -163,7 +163,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "pl.dmq.peering.pro.year",
+          "productID" : "pl.dmq.peering.iap.pro.year",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Peering Pro Yearly",
           "subscriptionGroupID" : "21840001",

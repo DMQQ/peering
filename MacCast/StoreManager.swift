@@ -75,7 +75,7 @@ final class StoreManager {
     /// `nonisolated` because ``Tier`` and ``BillingPeriod`` are not main-actor types and could not
     /// otherwise build an identifier: those are strings that never change, and the actor that owns
     /// the purchase machinery has no business owning them.
-    nonisolated static let productIDStem = "pl.dmq.peering"
+    nonisolated static let productIDStem = "pl.dmq.peering.iap"
 
     /// Everything that means paid, in one place.
     ///
