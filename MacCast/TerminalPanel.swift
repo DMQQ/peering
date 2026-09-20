@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SSHCore
 import SwiftUI

@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -104,7 +105,7 @@ extension SessionModel {
 
     func setKeyboardMode(_ mode: KeyboardMode) {
         keyboardMode = mode
-        UserDefaults.standard.set(mode.rawValue, forKey: PreferenceKey.keyboardMode)
+        UserDefaults.standard.set(mode.rawValue, forKey: PreferenceKeys.keyboardMode)
     }
 
     /// Latches a modifier on or off.
@@ -230,7 +231,7 @@ extension SessionModel {
     /// tell, which is the case the Settings tab exists for.
     func setStreamQuality(_ quality: StreamQuality) {
         streamQuality = quality
-        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKey.streamQuality)
+        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKeys.streamQuality)
         if let bitrateKbps = quality.bitrateKbps {
             // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to
             // return to.

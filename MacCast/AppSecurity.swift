@@ -1,4 +1,5 @@
 import LocalAuthentication
+import MacCastKit
 import SwiftUI
 
 /// The one gate protecting every way into the app: a row tap, widget, URL, or Shortcut.
@@ -99,7 +100,7 @@ enum DeviceAuthentication {
 /// Face ID is up should be allowed to finish behind the gate.
 struct SecuredRootView<Content: View>: View {
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage(PreferenceKey.requireBiometricUnlock) private var isProtectionEnabled = false
+    @AppStorage(PreferenceKeys.requireBiometricUnlock) private var isProtectionEnabled = false
 
     @State private var isUnlocked = false
     @State private var isAuthenticating = false

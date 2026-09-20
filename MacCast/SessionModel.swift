@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import Observation
 import RemoteCore
 import SwiftUI
@@ -74,47 +75,6 @@ struct Macro: Identifiable, Hashable, Codable {
     ]
 }
 
-struct RemoteTerminal: Identifiable, Equatable {
-    let id: UUID
-    var name: String
-    var isRunning: Bool
-    var output = Data()
-    /// Set while the Mac is waiting on an answer — a password, or a yes or no.
-    var attention: TerminalAttentionKind?
-    /// The last thing this terminal was asked to do that did not work, until it speaks again.
-    var failure: String?
-
-    /// What the tab is saying about it.
-    ///
-    /// One value rather than four flags read in four places, because the tab can only be one
-    /// colour and the order they are weighed in is most of the design: something waiting on the
-    /// user outranks something broken, which outranks a shell that has ended, which outranks one
-    /// that has not said anything yet.
-    var state: TerminalState {
-        if let attention { return .attention(attention) }
-        if let failure { return .failed(failure) }
-        if !isRunning { return .stopped }
-        return output.isEmpty ? .starting : .running
-    }
-
-    var visibleOutput: String {
-        TerminalTextSanitizer.render(output)
-    }
-}
-
-/// What a terminal's tab is saying about it. See ``RemoteTerminal/state``.
-enum TerminalState: Equatable {
-    /// Opened, and the Mac has not answered yet — the login shell is still coming up.
-    case starting
-    case running
-    /// Waiting on the user: a password prompt or a confirmation.
-    case attention(TerminalAttentionKind)
-    /// Something asked of it did not work, or its shell ended with a status.
-    case failed(String)
-    /// The shell has ended. Not a failure — an exit is a thing shells do.
-    case stopped
-}
-
 /// Everything the UI binds to.
 ///
 /// One owner of the session, the identity and the renderer, so there is exactly one place
@@ -145,120 +105,13 @@ final class SessionModel {
 
     /// A preset for the picture's bitrate, or the app's own choice of one.
     ///
-    /// **The raw value is a storage token and not the word on screen**, which costs a `RawValue`
-    /// written out by hand and buys the setting being safe to persist. It used to be
-    /// `enum StreamQuality: String` with `"Auto"`, `"Low"`, `"Med"`, `"High"`, and the chip
-    /// printed `rawValue` directly — fine while nothing stored it. `@AppStorage` persists the raw
-    /// value, so that spelling would have keyed a saved preference on UI copy: "Med" is an
-    /// abbreviation chosen for a chip that shares a row with four other controls, and the day
-    /// somebody reconsiders it, every stored preference fails to decode and silently resets to
-    /// automatic. The token is `init?(rawValue:)`-decoded rather than force-read so that an
-    /// unknown one is distinguishable from a real answer — the same shape, for the same reason,
-    /// as ``InteractionMode``.
-    enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
-        typealias RawValue = String
-
-        case auto, low, medium, high
-
-        init?(rawValue: String) {
-            switch rawValue {
-            case "auto": self = .auto
-            case "low": self = .low
-            case "medium": self = .medium
-            case "high": self = .high
-            default: return nil
-            }
-        }
-
-        var rawValue: String {
-            switch self {
-            case .auto: return "auto"
-            case .low: return "low"
-            case .medium: return "medium"
-            case .high: return "high"
-            }
-        }
-
-        /// The three rates that can be picked by hand, in order.
-        ///
-        /// `auto` is not the fourth rung of this ladder, it is the other answer to the same
-        /// question — let the app choose the rate, or choose it yourself. ``SettingsPanel``
-        /// shows it that way, as one mode and then three levels, and it asks for this list
-        /// rather than spelling the three out so that adding a case here cannot leave the
-        /// picker behind.
-        static let manualCases: [StreamQuality] = allCases.filter { $0 != .auto }
-
-        /// The same three numbers as ``AutoQualityPolicy/Tier``, and the same source for them:
-        /// `Low` here is exactly what the host caps a stream at when the picture is on the
-        /// control channel, so a preset that named a different figure would read on screen as
-        /// a setting that does not take.
-        var bitrateKbps: Int? {
-            switch self {
-            case .auto: return nil
-            case .low: return VideoQualityTier.low.rawValue
-            case .medium: return VideoQualityTier.medium.rawValue
-            case .high: return VideoQualityTier.high.rawValue
-            }
-        }
-
-        /// What the status chip prints, abbreviated for the row it sits in.
-        ///
-        /// This is what ``rawValue`` used to be, and it is the only reason the two were ever the
-        /// same string. The chip shares its row with the path, the fit and the camera, so the
-        /// names are clipped to fit it — see ``title`` and ``menuTitle`` for the roomier
-        /// spellings.
-        var chipTitle: String {
-            switch self {
-            case .auto: return "Auto"
-            case .low: return "Low"
-            case .medium: return "Med"
-            case .high: return "High"
-            }
-        }
-
-        /// The name spelled out, for somewhere with more room than the status chip.
-        ///
-        /// ``chipTitle`` is what the chip prints, abbreviated to "Auto" and "Med" because that
-        /// chip shares a row with four other controls. A settings row has the width of the
-        /// panel and no such excuse.
-        var title: String {
-            switch self {
-            case .auto: return "Automatic"
-            case .low: return "Low"
-            case .medium: return "Medium"
-            case .high: return "High"
-            }
-        }
-
-        /// The name and what it costs, for a menu that has to say what is being given up.
-        ///
-        /// The figure is the whole point of it: "Low" and "Medium" mean nothing to somebody who
-        /// has not already learned this app's ladder, and the choice being made is how much of
-        /// the connection to spend on the picture. Shared by the status chip's menu
-        /// (``RemoteScreen``) and the Settings tab, so the two cannot come to describe the same
-        /// four presets differently.
-        var menuTitle: String {
-            switch self {
-            case .auto: return "Auto, follows the network"
-            case .low: return "Low, 2 Mbps"
-            case .medium: return "Medium, 8 Mbps"
-            case .high: return "High, 20 Mbps"
-            }
-        }
-
-        /// The preset that names a given automatic tier.
-        ///
-        /// For handing the rate over: whatever the policy had settled on is where a manual
-        /// choice should start, and the two enums share their numbers through
-        /// ``bitrateKbps`` but not their cases.
-        init(_ tier: AutoQualityPolicy.Tier) {
-            switch tier {
-            case .low: self = .low
-            case .medium: self = .medium
-            case .high: self = .high
-            }
-        }
-    }
+    /// **Declared in ``MacCastKit`` and merely named here.** It is storage policy rather than
+    /// app state — the cases, the token each one is stored as, and the words the chip and the
+    /// menu print — and all of it can be checked without an app bundle, which is why it lives
+    /// where `swift test` can reach it. The nesting is kept so that every
+    /// `SessionModel.StreamQuality` in the app, and `@AppStorage`'s own decoding of the token,
+    /// still read the same.
+    typealias StreamQuality = MacCastKit.StreamQuality
 
     // MARK: - Connection state
 
@@ -352,17 +205,21 @@ final class SessionModel {
     /// Mac is, or it did and the packets went nowhere. Those have different causes and different
     /// fixes, and until this existed nothing on either end could tell them apart.
     var directPathStatus: ClientSession.DirectPath = .notTried
+    /// What the relay's datagram lane carried in the last session that had one.
+    ///
+    /// Kept after the session ends rather than cleared, like ``directPathStatus`` beside it and
+    /// for the same reason: Settings cannot be opened while a session runs, so the only moment
+    /// anybody can read this is just after one, which is exactly when it is worth reading. A
+    /// session with no datagram lane, on the LAN or on the relay's control channel, leaves it
+    /// `nil` rather than zeroed.
+    var datagramCounts: ClientSession.DatagramCounts?
     var pairedHostIDs: [String] = []
     /// The quality the app is set to, read straight from the defaults.
     ///
-    /// Failable decoding on purpose: an absent or unrecognised token means "nothing has been
-    /// stored yet", which is ``StreamQuality/auto`` — the behaviour the app had before the
-    /// setting existed. A force-read would make a token from a future version read as a choice
-    /// somebody made.
-    static var storedQuality: StreamQuality {
-        UserDefaults.standard.string(forKey: PreferenceKey.streamQuality)
-            .flatMap(StreamQuality.init(rawValue:)) ?? .auto
-    }
+    /// **The rule itself is ``MacCastKit/StreamQuality/stored(in:)``**, because it is a decoding
+    /// rule rather than app state and there is a test for it that runs without an app bundle. This
+    /// is the name the app knows it by.
+    static var storedQuality: StreamQuality { .stored() }
 
     /// The bitrate preset. Stored rather than computed from the defaults, because every surface
     /// showing it has to redraw when it changes and a computed property reading `UserDefaults` is
@@ -378,8 +235,7 @@ final class SessionModel {
     /// saved rather than to whatever the policy happens to be sitting on. `nil` when the stored
     /// value is automatic, which is right: there is no manual level to come back to, and the
     /// policy's current tier stands in — see ``setAutomaticQuality(_:)``.
-    var lastManualQuality: StreamQuality? =
-        SessionModel.storedQuality.bitrateKbps == nil ? nil : SessionModel.storedQuality
+    var lastManualQuality: StreamQuality? = .storedManualLevel()
     var autoQualityPolicy = AutoQualityPolicy(path: .lan)
     var lastAutoDroppedFrames = 0
     /// Optimistic state for the current session's physical-display privacy command. The host
@@ -413,9 +269,9 @@ final class SessionModel {
     /// trudge of a failed drop. Those are the Mac talking back to a command the user just gave,
     /// played into their ear a round trip later, and they are the reason this switch exists
     /// rather than a volume to turn up.
-    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKey.hostAudioMuted) as? Bool ?? true {
+    var hostAudioMuted = UserDefaults.standard.object(forKey: PreferenceKeys.hostAudioMuted) as? Bool ?? true {
         didSet {
-            UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKey.hostAudioMuted)
+            UserDefaults.standard.set(hostAudioMuted, forKey: PreferenceKeys.hostAudioMuted)
             audioPlayer?.isMuted = hostAudioMuted
         }
     }
@@ -671,11 +527,20 @@ final class SessionModel {
     }
     static let manualPortKey = "Peering.manualPort"
     var keyboardMode: KeyboardMode = KeyboardMode(
-        rawValue: UserDefaults.standard.string(forKey: PreferenceKey.keyboardMode) ?? "unicode"
+        rawValue: UserDefaults.standard.string(forKey: PreferenceKeys.keyboardMode) ?? "unicode"
     ) ?? .unicode
     var isObserving = false
     var latchedModifiers: Modifiers = []
     var activeSourceID: String?
+
+    /// The picture the stream is showing now, or `nil` before the Mac has described one.
+    ///
+    /// Here rather than in the screen because this is the only end of the session that sees a
+    /// ``VideoStreamConfig``, and the picture is only ever described by one. What the screen
+    /// needs out of it is a single question, "is this still the picture my zoom was chosen for",
+    /// so the answer travels as a value and the zoom itself stays where it is: the screen's own
+    /// state. See ``PictureIdentity/change(to:)`` for how the question is answered.
+    var picture: PictureIdentity?
 
     /// Something the Mac wants said about the picture, or `nil`.
     ///
@@ -850,6 +715,10 @@ final class SessionModel {
 
         hostName = target.displayName
         activeSourceID = nil
+        // The picture belongs to the session that is ending, like everything else below it. Left
+        // behind, the next session's first config would be compared against a picture from
+        // another Mac and read as a source change before the user had seen anything at all.
+        picture = nil
         catalog = nil
         notes.removeAll()
         terminals.removeAll()
@@ -1073,7 +942,7 @@ final class SessionModel {
     /// distinguishable from off. The default is on, which is the behaviour the app had before
     /// the setting existed, and `bool(forKey:)` would report that default as `false`.
     var allowsRelay: Bool {
-        UserDefaults.standard.object(forKey: PreferenceKey.allowRelay) as? Bool ?? true
+        UserDefaults.standard.object(forKey: PreferenceKeys.allowRelay) as? Bool ?? true
     }
 
     static let lastHostNameKey = "Peering.lastHostName"
@@ -1162,6 +1031,20 @@ final class SessionModel {
         }
         if let first = catalog?.displays.first { return first.pixelSize }
         return nil
+    }
+
+    /// The picture a video config describes, named as far as this end can name it.
+    ///
+    /// The catalogue is the only thing in the session that says what a source *is*, so it is
+    /// also the only place the answer to "can this one change size on its own" comes from. A
+    /// source with no catalogue entry behind it is left as unknown rather than guessed at, which
+    /// ``PictureIdentity/contentMovesOnItsOwn`` reads as "free to move". See
+    /// ``PictureIdentity/change(to:)`` for what that buys.
+    func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
+        // The rule is ``MacCastKit/PictureIdentity/forStream(_:activeSourceID:catalog:)``; this
+        // reads the two things it needs off the model, which is the only part of it a test cannot
+        // supply for itself.
+        PictureIdentity.forStream(config, activeSourceID: activeSourceID, catalog: catalog)
     }
 
     /// The captured content's size in the Mac's *points*, which is the space

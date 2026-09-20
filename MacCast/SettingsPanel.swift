@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import VideoToolbox
@@ -21,12 +22,12 @@ struct SettingsPanel: View {
 
     /// Read here as well as in the screen that obeys it. Same key, one name for it in
     /// ``PreferenceKey`` — two spellings would be a switch that does nothing for one of them.
-    @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+    @AppStorage(PreferenceKeys.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
     /// Read here as well as in ``SessionPiP``, under the same key — see ``PreferenceKey``.
-    @AppStorage(PreferenceKey.pipAutoStart) private var pipAutoStart = true
+    @AppStorage(PreferenceKeys.pipAutoStart) private var pipAutoStart = true
     /// Read here to say what it does in words, and in ``SessionModel`` to obey it. The default
     /// matches the model's: on, which is how the app behaved before the switch existed.
-    @AppStorage(PreferenceKey.allowRelay) private var allowsRelay = true
+    @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {

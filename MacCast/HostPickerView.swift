@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SSHCore
 import SwiftUI
@@ -142,8 +143,8 @@ private struct HomeTab: View {
 
     @Binding var acknowledgedFailure: String?
 
-    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = true
-    @AppStorage(PreferenceKey.requireBiometricUnlock) private var requiresBiometricUnlock = false
+    @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
+    @AppStorage(PreferenceKeys.requireBiometricUnlock) private var requiresBiometricUnlock = false
 
     /// How often the Connect tab asks the relay which paired Macs are up.
     ///
@@ -1095,9 +1096,8 @@ private struct ActivityTab: View {
                     VStack(alignment: .leading, spacing: 20) {
                         TabScreenHeader(
                             "Sessions",
-                            detail: "Connection status, recent sessions, and relay use."
+                            detail: "Recent sessions and relay use."
                         )
-                        connectionStatusCard
                         relayCard
                         recentConnectionsCard
                     }
@@ -1331,7 +1331,7 @@ private struct ActivityTab: View {
     /// `nil` is an unmetered plan, which draws no bar at all — the unlimited branch is above.
     private var relayAllowanceIsLow: Bool {
         guard let fraction = model.relayAllowanceRemainingFraction else { return false }
-        return fraction <= SessionModel.lowRelayAllowanceFraction
+        return fraction <= SessionOfferPolicy.lowRelayAllowanceFraction
     }
 
     /// Opens the paywall saying the thing that is true of this card right now.
@@ -1541,6 +1541,13 @@ private struct ActivityTab: View {
 private struct SessionHistoryDetail: View {
     let session: ClientSessionRecord
 
+    /// Whether the last copy landed, so the button can say so for a moment.
+    ///
+    /// The same shape the Settings screen uses for its diagnostics copy, and for the same
+    /// reason: a button that gives no feedback after a tap reads as a button that did nothing,
+    /// and the only way to check a paste is to go somewhere else and paste it.
+    @State private var copied = false
+
     var body: some View {
         ZStack {
             AppBackdrop()
@@ -1588,10 +1595,51 @@ private struct SessionHistoryDetail: View {
         }
         .navigationTitle(session.hostName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // In the bar rather than in the card, because the card scrolls: a control that
+            // belongs to the whole screen should not be somewhere you have to scroll to find,
+            // and a session with sixty log lines puts the bottom of the card a long way down.
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    UIPasteboard.general.string = logText
+                    copied = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        copied = false
+                    }
+                } label: {
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                }
+                .accessibilityLabel(copied ? "Copied" : "Copy session log")
+            }
+        }
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    /// Everything this screen knows, as text, for pasting into a message.
+    ///
+    /// The rows and the log together rather than the log alone. A line saying which transport
+    /// carried the picture means nothing without the session it belongs to, and whoever reads
+    /// this is looking at a pasted paragraph with none of the context this screen has around
+    /// it. The version is here for the same reason: "the two apps must match" is the first
+    /// thing anybody asks about a failure, and it costs one line to answer it in advance.
+    private var logText: String {
+        var lines = [
+            "Peering session · \(session.hostName)",
+            "App version: \(ProtocolInfo.version)",
+            "Path: \(session.path.rawValue)",
+            "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))",
+            "Duration: \(durationLabel)",
+            "Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))",
+            "",
+        ]
+        lines += session.logs.isEmpty
+            ? ["No diagnostic events were recorded for this session."]
+            : session.logs
+        return lines.joined(separator: "\n")
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {
@@ -1616,15 +1664,15 @@ private struct SessionHistoryDetail: View {
 
 private struct SettingsTab: View {
     @Environment(SessionModel.self) private var model
-    @AppStorage(PreferenceKey.requireBiometricUnlock) private var requiresBiometricUnlock = false
-    @AppStorage(PreferenceKey.allowRelay) private var allowsRelay = true
-    @AppStorage(PreferenceKey.pipAutoStart) private var pipAutoStart = true
-    @AppStorage(PreferenceKey.liveActivities) private var liveActivitiesEnabled = true
-    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = true
-    @AppStorage(PreferenceKey.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+    @AppStorage(PreferenceKeys.requireBiometricUnlock) private var requiresBiometricUnlock = false
+    @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
+    @AppStorage(PreferenceKeys.pipAutoStart) private var pipAutoStart = true
+    @AppStorage(PreferenceKeys.liveActivities) private var liveActivitiesEnabled = true
+    @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
+    @AppStorage(PreferenceKeys.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
     @AppStorage("Peering.interactionMode") private var interactionMode: InteractionMode = .control
     @AppStorage("Peering.scalesToFill") private var scalesToFill = false
-    @AppStorage(PreferenceKey.streamQuality) private var streamQuality: SessionModel.StreamQuality = .auto
+    @AppStorage(PreferenceKeys.streamQuality) private var streamQuality: SessionModel.StreamQuality = .auto
     @State private var deviceNameDraft = ""
     /// Whether the copy has just happened, so the row can say so and then stop saying so.
     @State private var copiedDiagnostics = false

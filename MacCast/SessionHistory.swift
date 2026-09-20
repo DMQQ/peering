@@ -1,68 +1,5 @@
 import Foundation
-
-/// One completed connection, kept on this iPhone so Activity can explain what happened later.
-struct ClientSessionRecord: Codable, Identifiable, Equatable {
-    enum Path: String, Codable {
-        case lan = "LAN"
-        case relay = "Relay"
-        case direct = "Direct"
-    }
-
-    let id: UUID
-    let hostID: String?
-    let hostName: String
-    let startedAt: Date
-    let endedAt: Date
-    let path: Path
-    let videoBytesReceived: Int64
-    let logs: [String]
-
-    var duration: TimeInterval { max(0, endedAt.timeIntervalSince(startedAt)) }
-}
-
-/// Relay time, spelled the way the app says it.
-///
-/// One spelling for the two screens that print it — the meter in the Sessions tab and the sentence
-/// at the top of the paywall. "2h 41m left" on the card and "161 minutes left" on the sheet are the
-/// same number disagreeing with itself, which is the drift the shared things in this app exist to
-/// prevent; and the two are read within seconds of each other by anyone who taps through.
-enum RelayTime {
-    /// A duration as hours and minutes, minutes and seconds, or seconds — whichever reads.
-    ///
-    /// The hours form drops the seconds deliberately. Past an hour they are noise, and a figure that
-    /// ticks is one the eye goes back to; "2h 41m" is a level, and a level is what a reader deciding
-    /// whether to stay connected needs. Below an hour they are the whole of the useful figure,
-    /// because that is the range in which the session is about to be cut off rather than merely
-    /// running long.
-    static func label(_ seconds: TimeInterval) -> String {
-        let total = Int(max(0, seconds).rounded(.down))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 {
-            return minutes == 0 ? "\(hours)h" : "\(hours)h \(minutes)m"
-        }
-        if minutes > 0 {
-            return "\(minutes)m \(total % 60)s"
-        }
-        return "\(total)s"
-    }
-}
-
-enum SessionHistoryStore {
-    private static let key = "Peering.sessionHistory"
-    private static let limit = 30
-
-    static func load() -> [ClientSessionRecord] {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([ClientSessionRecord].self, from: data)) ?? []
-    }
-
-    static func save(_ records: [ClientSessionRecord]) {
-        let kept = Array(records.prefix(limit))
-        guard let data = try? JSONEncoder().encode(kept) else { return }
-        UserDefaults.standard.set(data, forKey: key)
-    }
-}
+import MacCastKit
 
 extension SessionModel {
     /// The client's half of the relay's allowance, and it has to agree with the other half.
@@ -205,3 +142,4 @@ extension SessionModel {
         }
     }
 }
+

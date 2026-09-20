@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import RemoteCore
 import UIKit
 import UserNotifications

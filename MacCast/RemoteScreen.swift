@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -33,18 +34,36 @@ struct RemoteScreen: View {
     /// Persisted, because it is a working style rather than a moment: someone moving between a
     /// Mac's desktops wants the panel out of the way after each one, and someone picking their way
     /// through several sources in a row wants it to stay put.
-    @AppStorage(PreferenceKey.hidesPanelAfterSelect) var hidesPanelAfterSelect = true
+    @AppStorage(PreferenceKeys.hidesPanelAfterSelect) var hidesPanelAfterSelect = true
 
-    /// The turn-your-phone card, and the timer that takes it away again — see
-    /// ``presentLandscapeHint()``.
+    /// Whether the turn-your-phone card is on screen right now, and the timer that takes it away
+    /// again. See ``presentLandscapeHint()``.
     ///
-    /// No "has it been shown" flag is needed. `ContentView` swaps this whole view out whenever the
-    /// phase leaves the remote screens, so the state below is built fresh at the start of every
-    /// session and cannot survive into the next one.
+    /// This is the card's own state, and it is meant to die with the view: `ContentView` swaps
+    /// this whole view out whenever the phase leaves the remote screens, so it is built fresh at
+    /// the start of every session. Whether the card has *ever* been shown is a different question,
+    /// with a different lifetime, and it is answered by ``hasSeenLandscapeHint`` below.
     @State var showsLandscapeHint = false
     @State var landscapeHintTask: Task<Void, Never>?
+
+    /// Whether the turn-your-phone card has been shown, ever.
+    ///
+    /// Persisted, because "once" has to mean once for the install rather than once for the
+    /// session, and nothing in this view outlives a session. Written in exactly one place,
+    /// ``presentLandscapeHint()``, at the moment the card goes up.
+    @AppStorage(PreferenceKeys.hasSeenLandscapeHint) var hasSeenLandscapeHint = false
+
     /// Set when iOS refused a rotation, which means Rotation Lock is on. Lasts as long as the
     /// session does, because the condition it describes does too.
+    ///
+    /// This variant is deliberately not gated by ``hasSeenLandscapeHint``, and it does not need to
+    /// be. It is a reply to something the user just did, not an unsolicited hint; it can only be
+    /// set by pressing the Rotate button, and that button only ever exists on a card that is
+    /// already on screen. It is also the one thing in the app that can explain why the phone will
+    /// not turn: an app cannot read Rotation Lock, so a refusal is the whole of the evidence, and
+    /// whoever pressed Rotate is exactly the person who needs to hear it. Gating it on the
+    /// once-only flag would take that answer away at the moment it became useful, leaving a user
+    /// who asked for help with a card that vanishes instead of replying.
     @State var rotationRefused = false
 
     @State var openPanel: Panel?
@@ -85,14 +104,28 @@ struct RemoteScreen: View {
         case settings
     }
 
-    /// Shows the turn-your-phone card, once, to a session that came up in portrait.
+    /// Shows the turn-your-phone card to a session that came up in portrait, once in the life of
+    /// the install.
     ///
-    /// Portrait is not a failure — the dock and the joystick are built for it — but a Mac's
-    /// screen is wide, and side-on is where the picture gets the whole display. Most people work
-    /// that out on their own within a few seconds; the card spends three of them saying so and
-    /// then gets out of the way, which is why it is timed rather than something to dismiss.
+    /// Portrait is not a failure, the dock and the joystick are built for it, but a Mac's screen is
+    /// wide and side-on is where the picture gets the whole display. Most people work that out on
+    /// their own within a few seconds; the card spends three of them saying so and then gets out
+    /// of the way, which is why it is timed. That is also why it is not a reminder: it has said its
+    /// one sentence, and a user who has read it and stayed upright has answered it. Coming back on
+    /// the next session, and the one after that, is the annoyance this flag exists to end.
+    ///
+    /// The flag is written before the card is drawn, never when it goes away. It leaves by the
+    /// phone being turned and by the timer running out far more often than by the tap, and neither
+    /// of those runs a dismissal: a flag written only by the tap would bring the card back for
+    /// almost everyone who did as it asked.
     func presentLandscapeHint() {
-        guard !deviceIsLandscape, !showsLandscapeHint else { return }
+        // The landscape half of this guard is load-bearing for the flag. Nothing is marked when a
+        // session comes up sideways, because the card was never on screen then, and a phone whose
+        // first sessions are all landscape has had no hint to remember. The one it is owed is
+        // still owed, and it is drawn the first time a session comes up in portrait.
+        guard !deviceIsLandscape, !hasSeenLandscapeHint else { return }
+        hasSeenLandscapeHint = true
+
         withAnimation(Motion.settle) { showsLandscapeHint = true }
 
         landscapeHintTask?.cancel()
@@ -231,6 +264,33 @@ struct RemoteScreen: View {
         }
         .onChange(of: interactionMode, initial: true) { _, mode in
             model.setObserveOnly(mode == .observe)
+        }
+        // A zoom and a pan are chosen for one picture, and they mean nothing against another: a
+        // magnification picked over a 1512×982 display leaves a 580×384 window cropped and
+        // panned to a corner of a rectangle that is no longer there. The picture becomes a
+        // different one in exactly one place, and the model watches for it there. See
+        // ``PictureIdentity/Change``, which is where a new source is told apart from the same
+        // stream described again. What to do about each is this view's business, because the
+        // zoom and the pan are this view's state.
+        //
+        // Not `initial: true`, and that matters: the first picture of a session has no previous
+        // zoom to invalidate, and the state it would be comparing against was built at its
+        // default anyway.
+        .onChange(of: model.picture) { previous, current in
+            guard let previous, let current else { return }
+            switch previous.change(to: current) {
+            case .unchanged:
+                break
+            case .resized:
+                // The magnification is kept. It is a multiple of the fit, so it still says what
+                // it said before the window grew. The offset is not: it is measured in points of
+                // a canvas whose picture has just changed shape, and left alone it can sit
+                // outside the range the new picture allows. At rest there is no range at all,
+                // so nothing the user can drag would bring it back.
+                pan = clampedPan(pan)
+            case .replaced:
+                resetPicture()
+            }
         }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }

@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import UIKit
 
@@ -47,6 +48,13 @@ enum Diagnostics {
         // control connection and metering it either way. This is the line that says which of the
         // two carried the picture.
         lines.append("Picture path: \(model.usedDirectPath ? "direct (peer to peer)" : "relay")")
+        // Only for a session that had a datagram lane, and from the last one rather than the
+        // live one, because Settings cannot be opened while a session is running. These are the
+        // four figures that tell a lane the network is dropping from one this end is refusing,
+        // and they are worth nothing once the counters have been reset by the next session.
+        if let counts = model.datagramCounts {
+            lines.append("Video datagrams: \(counts.summary)")
+        }
         lines.append("Last failure: \(model.failureMessage ?? "none")")
         lines.append("Paired Macs: \(model.pairedHostIDs.count)")
         lines.append("Mac terminals open: \(model.terminals.count)")

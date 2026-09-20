@@ -1,4 +1,5 @@
 import Foundation
+import MacCastKit
 import Observation
 import RemoteCore
 import SSHCore

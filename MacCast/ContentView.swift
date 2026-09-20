@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -14,7 +15,7 @@ struct ContentView: View {
     /// `phase` answers "is there a session"; this answers "has this person been here before" —
     /// and the two are unrelated, which is why they are two branches rather than one condition
     /// with an `&&` in it.
-    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = false
+    @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
     private var isRemoteScreen: Bool {
         switch model.phase {

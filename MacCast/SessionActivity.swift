@@ -7,6 +7,7 @@
 // and it keeps the calls compiling without claiming anything about `Activity` that is not true.
 @preconcurrency import ActivityKit
 import Foundation
+import MacCastKit
 import RemoteCore
 import os
 
@@ -24,7 +25,7 @@ final class SessionActivity {
     private var activity: Activity<SessionActivityAttributes>?
 
     private var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: PreferenceKey.liveActivities) as? Bool ?? true
+        UserDefaults.standard.object(forKey: PreferenceKeys.liveActivities) as? Bool ?? true
     }
 
     private init() {}

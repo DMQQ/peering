@@ -235,62 +235,6 @@ enum ColorPalette {
     }
 }
 
-/// The keys the app persists its own settings under.
-///
-/// Named in one place when two views read one — the screen that obeys a setting and the panel that
-/// offers it. Two spellings of the same key is a switch that silently does nothing for one of them,
-/// which is the sort of bug that survives a lot of testing.
-enum PreferenceKey {
-    /// Whether picking something from a floating panel puts the panel away.
-    static let hidesPanelAfterSelect = "Peering.hidesPanelAfterSelect"
-    /// Whether iOS floats the picture on its own when the app goes away.
-    static let pipAutoStart = "Peering.pipAutoStart"
-    /// Whether the first-run introduction has been seen and dismissed.
-    ///
-    /// Set by both of its exits — finishing the tour and skipping it — because "I have seen it"
-    /// and "I do not want to see it" are the same instruction here, and a flow that only
-    /// remembered one of them would come back to someone who had already said no.
-    static let hasSeenWelcome = "Peering.hasSeenWelcome"
-    /// Whether a Mac may be reached through the relay, or only over the local network.
-    ///
-    /// Read in two places that have to agree — ``SessionModel``, which decides whether to dial
-    /// it, and ``SettingsPanel``/``FAQView``, which say so in words. One spelling.
-    static let allowRelay = "Peering.allowRelay"
-    /// Whether opening Peering requires the device owner's biometric authentication.
-    static let requireBiometricUnlock = "Peering.requireBiometricUnlock"
-    /// Whether the Mac's own audio is played on the phone, or dropped silently.
-    ///
-    /// Persisted because it is a decision about the Mac being controlled rather than about this
-    /// session: someone who does not want to hear what the Mac is playing does not want to hear
-    /// it next time either.
-    static let hostAudioMuted = "Peering.hostAudioMuted"
-    /// Whether Live Activities are shown during a session (Lock Screen and Dynamic Island).
-    static let liveActivities = "Peering.liveActivities"
-    /// The input protocol selected for the on-screen keyboard.
-    static let keyboardMode = "Peering.keyboardMode"
-    /// The bitrate preset a session runs at.
-    ///
-    /// Persisted because it is a decision about the picture rather than about one session — the
-    /// same reasoning as ``hostAudioMuted``. It is also the only way the Settings tab can offer
-    /// the setting at all: that tab is unreachable while connected (``ContentView`` swaps the
-    /// whole tab bar for the remote screen), so it can write a preference and never a command.
-    /// The session adopts this when it arrives — see ``SessionModel/applyInitialQuality()``.
-    static let streamQuality = "Peering.streamQuality"
-    /// Whether the one-time offer that follows a user's first finished session has been made.
-    ///
-    /// A flag rather than `sessionHistory.count == 1`. The history keeps the last thirty records
-    /// and prunes the rest, so its count answers "how much is stored"; this answers "what has
-    /// already been said", which is the only question the offer has.
-    static let offeredAfterFirstSession = "Peering.offeredAfterFirstSession"
-    /// Which 24-hour window the "running low" offer was last made in, as the window's own number.
-    ///
-    /// The relay counts its allowance in epoch seconds divided into days — see `Relay/src/quota.rs`
-    /// — and this stores the bucket that came out rather than a moment. The only question ever
-    /// asked of it is whether it is the bucket we are in now, and two spellings of one instant is
-    /// how a comparison starts disagreeing with itself.
-    static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"
-}
-
 /// The shared backdrop for every root tab: near-black with one soft light from above.
 struct AppBackdrop: View {
     var body: some View {
@@ -626,3 +570,4 @@ extension View {
             }
     }
 }
+

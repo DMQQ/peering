@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
+		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
 		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
 		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
@@ -154,6 +156,7 @@
 			files = (
 				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
 				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
+				D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +165,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */,
+				D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -271,6 +275,7 @@
 			packageProductDependencies = (
 				C2C039EC30574AB600ABF943 /* RemoteCore */,
 				D4C0FF02305B000100ABF943 /* SSHCore */,
+				D4C0FFA2305B000100ABF943 /* MacCastKit */,
 			);
 			productName = MacCast;
 			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
@@ -295,6 +300,7 @@
 			name = MacCastTests;
 			packageProductDependencies = (
 				C2C039EE30574AB600ABF943 /* RemoteCore */,
+				D4C0FFA3305B000100ABF943 /* MacCastKit */,
 			);
 			productName = MacCastTests;
 			productReference = C2C039CE30574AB600ABF943 /* MacCastTests.xctest */;
@@ -437,6 +443,7 @@
 			packageReferences = (
 				C2C039EB30574AB600ABF943 /* XCLocalSwiftPackageReference "RemoteCore" */,
 				D4C0FF01305B000100ABF943 /* XCLocalSwiftPackageReference "SSHCore" */,
+				D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */,
 				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
 				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
@@ -1099,6 +1106,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = SSHCore;
 		};
+		D4C0FFA1305B000100ABF943 /* XCLocalSwiftPackageReference "MacCastKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MacCastKit;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1144,6 +1155,14 @@
 		D4C0FF02305B000100ABF943 /* SSHCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SSHCore;
+		};
+		D4C0FFA2305B000100ABF943 /* MacCastKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MacCastKit;
+		};
+		D4C0FFA3305B000100ABF943 /* MacCastKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MacCastKit;
 		};
 		C2C039FC30574AB600ABF943 /* X509 */ = {
 			isa = XCSwiftPackageProductDependency;

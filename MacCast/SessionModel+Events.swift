@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -149,6 +150,8 @@ extension SessionModel {
             apply(video: event)
         case .latency(let milliseconds):
             latencyMilliseconds = milliseconds
+        case .datagramCounts(let counts):
+            datagramCounts = counts
         case .note(let message):
             append(note: message)
         case .path(let path):
@@ -261,6 +264,12 @@ extension SessionModel {
             // Only the labels belong on the main actor.
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
             isVideoStreaming = true
+            // The one place the picture on screen can turn out to be a different picture. This is
+            // published rather than acted on: the zoom and the pan that have to answer to it live
+            // in the screen, and ``PictureIdentity`` is the whole of what the screen needs to
+            // decide. It is a value, so a config that describes the stream it already described
+            // (a change of lane, a re-attach) leaves it equal and costs nothing.
+            picture = pictureIdentity(of: config)
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.

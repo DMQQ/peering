@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -165,7 +166,9 @@ extension RemoteScreen {
                         // row to describe and control the stream itself.
                         if zoom > 1.01 {
                             Button {
-                                zoom = 1; pan = .zero
+                                // The same reset the screen does for itself when the source
+                                // changes, from the one definition of where the picture rests.
+                                resetPicture()
                             } label: {
                                 Text("\(Int((zoom * 100).rounded()))%")
                                     .monospacedDigit()

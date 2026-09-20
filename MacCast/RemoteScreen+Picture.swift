@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -126,6 +127,27 @@ extension RemoteScreen {
     /// — and gives every step of the pinch somewhere to go from there.
     var effectiveZoom: CGFloat {
         scalesToFill ? fillZoom * zoom : zoom
+    }
+
+    /// Puts the picture back where a phone that has just opened a source expects it: at the
+    /// default zoom, and centred.
+    ///
+    /// **One is the app's default, and it is not the same thing as "not scaled".** `effectiveZoom`
+    /// is `scalesToFill ? fillZoom * zoom : zoom`, so at 1 the picture is exactly as the fit draws
+    /// it: the whole screen in Fit, the screen's edges in Fill. The zoom is a multiple *of* the
+    /// fit, which is why the reset is this number and not a smaller one.
+    ///
+    /// The percentage chip in the status pill resets through here as well, and the two have to be
+    /// the same number: a reset that landed somewhere else would leave the chip reading 100% over
+    /// a picture that was scaled.
+    ///
+    /// Not animated, and it cannot be: the zoom reaches the picture as a layer transform with Core
+    /// Animation's implicit animations switched off (see ``VideoLayerView/updateUIView(_:context:)``),
+    /// and the frames behind it are being replaced at the same moment, so an animation would spend
+    /// its length drawing the new source at the old source's scale.
+    func resetPicture() {
+        zoom = 1
+        pan = .zero
     }
 
 }

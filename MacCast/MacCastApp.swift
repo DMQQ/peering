@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -34,7 +35,7 @@ struct MacCastApp: App {
     @State private var servers = SSHModel()
     /// The commands both terminals keep one tap away, owned here because both read them.
     @State private var quickCommands = QuickCommands()
-    @AppStorage(PreferenceKey.hasSeenWelcome) private var hasSeenWelcome = false
+    @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
     @Environment(\.scenePhase) private var scenePhase
 

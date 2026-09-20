@@ -3,8 +3,8 @@ import CoreGraphics
 /// The part of simultaneous pinch/pan arbitration that does not depend on UIKit's recognizer.
 /// Keeping this decision visible makes the release-order race reproducible without synthesizing
 /// private UIKit touch events.
-enum CanvasGestureRouting {
-    enum PinchPhase {
+public enum CanvasGestureRouting {
+    public enum PinchPhase {
         case began
         case changed
         case ended
@@ -12,14 +12,14 @@ enum CanvasGestureRouting {
         case failed
     }
 
-    static func pinchScale(for phase: PinchPhase, scale: CGFloat) -> CGFloat? {
+    public static func pinchScale(for phase: PinchPhase, scale: CGFloat) -> CGFloat? {
         // The recognizer's scale is reset after every callback, so only a real began/changed
         // sample may change the canvas. Terminal callbacks can carry the last stale scale.
         guard phase == .began || phase == .changed, scale != 1 else { return nil }
         return scale
     }
 
-    static func shouldDeliverTwoFingerPan(
+    public static func shouldDeliverTwoFingerPan(
         whilePinching: Bool,
         suppressingAfterPinch: Bool
     ) -> Bool {
@@ -28,7 +28,7 @@ enum CanvasGestureRouting {
 
     /// The simultaneous pan owns shared finger movement while pinch owns scale. This keeps one
     /// centroid delta from being applied twice by the two recognizers.
-    static func pinchPanTranslation(
+    public static func pinchPanTranslation(
         translation: CGPoint,
         suppressingAfterPinch: Bool
     ) -> CGPoint? {
@@ -36,12 +36,12 @@ enum CanvasGestureRouting {
         return translation
     }
 
-    struct TwoFingerPanDecision {
-        var resetsRecognizerTranslation: Bool
-        var translation: CGPoint?
+    public struct TwoFingerPanDecision {
+        public var resetsRecognizerTranslation: Bool
+        public var translation: CGPoint?
     }
 
-    static func twoFingerPan(
+    public static func twoFingerPan(
         translation: CGPoint,
         whilePinching: Bool
     ) -> TwoFingerPanDecision {

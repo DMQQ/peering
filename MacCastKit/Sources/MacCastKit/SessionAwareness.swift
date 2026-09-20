@@ -7,24 +7,24 @@ import RemoteCore
 /// about which events are worth interrupting the user for, so what notifies — and, more
 /// often, what deliberately does not — can be read and tested without an app bundle, an
 /// authorization prompt or a live session.
-enum SessionAwareness {
+public enum SessionAwareness {
     /// One per thing worth saying. The identifier is fixed per kind rather than per event, so
     /// a second banner of a kind replaces the first instead of stacking behind it, and so the
     /// app can take one back by name the moment it stops being true.
-    enum Kind: String, CaseIterable, Sendable {
+    public enum Kind: String, CaseIterable, Sendable {
         case connectionEnded
         case awaitingPairingCode
         case connected
 
-        var identifier: String { "pl.dmq.peering.session.\(rawValue)" }
+        public var identifier: String { "pl.dmq.peering.session.\(rawValue)" }
     }
 
-    struct Notification: Equatable, Sendable {
-        let kind: Kind
-        let title: String
-        let body: String
+    public struct Notification: Equatable, Sendable {
+        public let kind: Kind
+        public let title: String
+        public let body: String
 
-        var identifier: String { kind.identifier }
+        public var identifier: String { kind.identifier }
     }
 
     /// The banner for one transition, or `nil` for the transitions that deserve none.
@@ -36,7 +36,7 @@ enum SessionAwareness {
     /// `deliberate` is the user's own doing, and it cannot be read off the phases: a session
     /// the user ended and one that dropped are both `.disconnected` from here. Only the
     /// caller, which watched the button, knows which of the two it was.
-    static func notification(
+    public static func notification(
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
         hostName: String,
