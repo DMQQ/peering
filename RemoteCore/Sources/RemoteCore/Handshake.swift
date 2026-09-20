@@ -14,11 +14,31 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// only — the host decides, because only the host knows its own pin store.
     public var wantsPairing: Bool
 
-    public init(clientID: String, clientName: String, protocolVersion: UInt16, wantsPairing: Bool) {
+    /// Whether this client can read a picture on the clipboard, in both directions.
+    /// See ``ServerHello/supportsClipboardImages``, which is the same fact the other way round.
+    ///
+    /// **It has to be declared, because the protocol version does not distinguish the two cases.**
+    /// Both this build and the one before it speak version 16, and a Mac cannot tell them apart at
+    /// the door. What it *can* do is send a picture only to a client that has said it can read
+    /// one. A client that has not said so is a client whose pasteboard carries text, which is
+    /// exactly what it carried before any of this existed.
+    ///
+    /// Optional and additive: a client built before this field sends a hello that decodes with it
+    /// `nil`, which reads as no.
+    public var supportsClipboardImages: Bool?
+
+    public init(
+        clientID: String,
+        clientName: String,
+        protocolVersion: UInt16,
+        wantsPairing: Bool,
+        supportsClipboardImages: Bool? = nil
+    ) {
         self.clientID = clientID
         self.clientName = clientName
         self.protocolVersion = protocolVersion
         self.wantsPairing = wantsPairing
+        self.supportsClipboardImages = supportsClipboardImages
     }
 }
 
@@ -57,13 +77,28 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// the question.
     public var supportsVideoPause: Bool?
 
+    /// Whether this Mac can carry a picture on the clipboard, in both directions.
+    /// See ``RemoteCommand/pushClipboardImage(png:)``.
+    ///
+    /// **A capability for the same reason the one above is, and the reason is starker here.** The
+    /// command that pushes a picture is one an older Mac cannot decode, and the failure would
+    /// land in the middle of a session: a user copies a screenshot, taps push, and the session
+    /// dies rather than saying the Mac is too old. Gated, an un-updated Mac simply keeps carrying
+    /// text, which is what it did before, and the app can say so.
+    ///
+    /// It covers *both* directions rather than one. A Mac that can receive a picture can send
+    /// one, since it is the same encoder and the same pasteboard code, so a second flag would be
+    /// two names for one fact and a way for them to disagree.
+    public var supportsClipboardImages: Bool?
+
     public init(
         serverID: String,
         hostName: String,
         protocolVersion: UInt16,
         alreadyPaired: Bool,
         macAddresses: [String]? = nil,
-        supportsVideoPause: Bool? = nil
+        supportsVideoPause: Bool? = nil,
+        supportsClipboardImages: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -71,6 +106,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.alreadyPaired = alreadyPaired
         self.macAddresses = macAddresses
         self.supportsVideoPause = supportsVideoPause
+        self.supportsClipboardImages = supportsClipboardImages
     }
 }
 
@@ -143,12 +179,72 @@ public struct NoticePayload: Codable, Sendable, Equatable {
     }
 }
 
-/// Clipboard text sent from host → client (or carried inside a ``RemoteCommand/pushClipboard``).
+/// What is on a pasteboard, in the one shape both directions carry it in.
+///
+/// **Text and a picture are the same message with a different payload**, rather than two messages
+/// that happen to be adjacent. That is not tidiness: the two ends of this protocol have to agree
+/// about *when* a pasteboard changed and about which one of them is allowed to act on it, and
+/// those rules are identical for a line of text and for a screenshot. What differs is only how the
+/// contents travel, and that is the business of ``ClipboardTransfer``.
 public struct ClipboardPayload: Codable, Sendable, Equatable {
-    public var text: String
+    /// Which thing is on the pasteboard.
+    ///
+    /// **A field rather than "whichever of the two is set".** Nothing about the payload's shape
+    /// would stop both being present, and the two ends would then disagree about which one wins
+    /// depending on the order each happened to check them in. A payload that says what it is
+    /// cannot be read two ways.
+    public enum Kind: String, Codable, Sendable {
+        case text
+        case image
+    }
 
-    public init(text: String) {
+    public var kind: Kind
+    /// The text, for a `.text` payload.
+    public var text: String?
+    /// The picture, for an `.image` payload, as **PNG in both directions**.
+    ///
+    /// One format rather than the type the pasteboard happened to hold, which is what makes this
+    /// readable without a second exchange: macOS puts a screenshot on the pasteboard as TIFF and a
+    /// browser puts a copied image there as often as not the same, and iOS reads neither. PNG is
+    /// the format both ends can produce and both can read, and it is lossless, so a picture copied
+    /// across does not degrade each time it is copied again.
+    public var image: Data?
+
+    public init(kind: Kind, text: String? = nil, image: Data? = nil) {
+        self.kind = kind
         self.text = text
+        self.image = image
+    }
+
+    public static func text(_ text: String) -> ClipboardPayload {
+        ClipboardPayload(kind: .text, text: text)
+    }
+
+    public static func image(_ png: Data) -> ClipboardPayload {
+        ClipboardPayload(kind: .image, image: png)
+    }
+
+    /// The picture, if there is one and it is within the size both ends promise to carry.
+    ///
+    /// The check belongs here rather than at the point of use because it is the same question at
+    /// both ends and the answer has to be the same one. See ``ClipboardLimits/maxImageBytes``.
+    public var carriedImage: Data? {
+        guard kind == .image, let image, image.count <= ClipboardLimits.maxImageBytes else { return nil }
+        return image
+    }
+
+    /// Reads a payload written before there was a kind.
+    ///
+    /// **The synthesised decoder would refuse an older Mac's clipboard**, which is the entire
+    /// text of the feature for anybody whose Mac has not updated: the payload it sends is
+    /// `{"text": "..."}` with no `kind` in it, the decode would fail, and a line of text that
+    /// used to arrive would silently stop. Absent means text, because text is the only thing that
+    /// could have been sent.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .text
+        text = try container.decodeIfPresent(String.self, forKey: .text)
+        image = try container.decodeIfPresent(Data.self, forKey: .image)
     }
 }
 

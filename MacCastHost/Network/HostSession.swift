@@ -3,6 +3,11 @@ import Foundation
 import Network
 import RemoteCore
 import Security
+import os
+
+/// The session's own log, file-private like every other one in the host. See ``AGENTS.md`` on
+/// `/usr/bin/log`: zsh's builtin shadows it and the queries silently return nothing.
+private let sessionLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
 
 /// Drives one connection from its first frame to a usable session.
 ///
@@ -106,9 +111,12 @@ final class HostSession: @unchecked Sendable {
     var onVideoEnabled: (@Sendable (Bool) -> Void)?
 
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
-    var onRequestClipboard: (@Sendable () -> String?)?
+    ///
+    /// A payload rather than a string, because the pasteboard may be holding a picture and only
+    /// this end can find that out. See ``ClipboardPayload``.
+    var onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     /// Called when the client pushes its clipboard to the host.
-    var onReceiveClipboard: (@Sendable (String) -> Void)?
+    var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
 
@@ -121,6 +129,18 @@ final class HostSession: @unchecked Sendable {
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.
     private var announced = false
+
+    /// Pieces of one oversized payload from the client, put back as they arrive.
+    ///
+    /// **The only assembler this end has**, unlike the client's two: a picture's chunks travel host
+    /// to client and never the other way, so the only thing a client ever cuts up for the host is a
+    /// command with a screenshot in it. See ``ClipboardTransfer/reassembler()``.
+    private var clipboardChunks = ClipboardTransfer.reassembler()
+    /// Which clipboard payload is being cut up on the way out, so the client can tell two apart.
+    private var clipboardFrameID: UInt32 = 0
+    /// What the client said about reading a picture, off its hello. `nil` is a client built before
+    /// the field existed, which is a no. See ``ClipboardImages/mayReceive(clientDeclared:)``.
+    private var clientSupportsClipboardImages: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     ///
@@ -325,6 +345,10 @@ final class HostSession: @unchecked Sendable {
         clientID = hello.clientID
         clientName = hello.clientName
         peerPublicKey = presentedKey
+        // Read here and not assumed, so that a client too old to read a picture is never sent one.
+        // The two ends speak the same protocol version either way, so this flag is the only thing
+        // that tells them apart. See ``ClipboardImages/mayReceive(clientDeclared:)``.
+        clientSupportsClipboardImages = hello.supportsClipboardImages
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -356,7 +380,11 @@ final class HostSession: @unchecked Sendable {
             // rather than anything about the user, and a client that sends the pause command to
             // a Mac that has not said this gets a decode failure in the middle of a session
             // instead of the honest degradation the flag exists for.
-            supportsVideoPause: true
+            supportsVideoPause: true,
+            // Declared on the same terms and for the same reason, and it covers both directions:
+            // this Mac can put a picture on the phone's pasteboard and can take one off it, so a
+            // client that sees this may send the command and may expect the answer.
+            supportsClipboardImages: true
         ))
 
         if alreadyPaired {
@@ -478,20 +506,34 @@ final class HostSession: @unchecked Sendable {
 
     // MARK: - Authenticated commands
 
-    private func handleCommand(_ frame: Frame) throws {
+    /// - Parameter assembled: whether this frame was put back together from chunks on this end.
+    ///
+    ///   **The control channel's payload cap is not the limit such a frame was held to, and
+    ///   applying it here would refuse exactly what chunking exists to allow.** A picture on the
+    ///   clipboard is megabytes of JSON, so it is cut up by the client and put back by
+    ///   ``handleChunkedPayload(_:)`` before it arrives here. The cap above still protects the
+    ///   direct path, which is where it was always doing its work: a client claiming a 60 MB
+    ///   command in one frame. A reassembled one was bounded instead by
+    ///   ``ClipboardLimits/maxReassembledBytes``, as it was put together.
+    private func handleCommand(_ frame: Frame, assembled: Bool = false) throws {
         switch frame.kind {
         case .command:
-            guard frame.payload.count <= Self.maxControlPayload else {
+            guard assembled || frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.command, SessionError.protocolMismatch(client: 0, host: 0))
             }
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
             switch command {
             case .requestClipboard:
-                if let text = onRequestClipboard?() {
-                    send(MessageKind.clipboardContent, ClipboardPayload(text: text))
+                // Only if there is something to send. An empty pasteboard gets silence, which is
+                // what it has always got: the client's pull is left outstanding and the next one
+                // replaces it.
+                if let payload = onRequestClipboard?() {
+                    sendClipboard(payload)
                 }
             case .pushClipboard(let text):
-                onReceiveClipboard?(text)
+                onReceiveClipboard?(.text(text))
+            case .pushClipboardImage(let png):
+                onReceiveClipboard?(.image(png))
             case .setVideoEnabled(let enabled):
                 // Routed here rather than through `onCommand`, because the decision is about a
                 // *connection* and which one it is comes from this session's key rather than
@@ -500,6 +542,13 @@ final class HostSession: @unchecked Sendable {
             default:
                 onCommand?(command)
             }
+
+        case .videoChunk:
+            // The client cutting up something too large for one control message, which today means
+            // a picture on the clipboard and nothing else. Put back together and handed to this
+            // same function, so nothing below here knows the difference between a command that
+            // fitted and one that did not. See ``ClipboardTransfer``.
+            try handleChunkedPayload(frame)
 
         case .ping:
             // The payload is handed back rather than understood: it is the number the client timed
@@ -542,6 +591,45 @@ final class HostSession: @unchecked Sendable {
     func sendTerminalEvent(_ event: TerminalEvent) {
         guard isAuthorized else { return }
         send(.terminalEvent, event)
+    }
+
+    /// Sends the clipboard, cut up if it is too large for one control message.
+    ///
+    /// A text payload is one frame and always was; a picture is however many it takes. The client's
+    /// assembler puts them back without either end having to know which of the two happened, which
+    /// is the point of doing the cutting below the payload rather than above it.
+    ///
+    /// **A picture is not sent to a client that has not said it can read one.** Nothing is sent in
+    /// its place: the alternative is to send the pasteboard's *text* where a picture is what the
+    /// user copied, and the wrong thing pasted is worse than nothing pasted. A client that has not
+    /// said so is a client whose clipboard carries text, which is what it did before any of this.
+    private func sendClipboard(_ payload: ClipboardPayload) {
+        guard isAuthorized else { return }
+        if payload.kind == .image, !ClipboardImages.mayReceive(clientDeclared: clientSupportsClipboardImages) {
+            sessionLog.notice("not sending a clipboard picture to a client that cannot read one")
+            return
+        }
+        guard let encoded = try? MessageCodec.encode(payload) else { return }
+        clipboardFrameID &+= 1
+        for frame in ClipboardTransfer.frames(
+            kind: .clipboardContent,
+            payload: encoded,
+            frameID: clipboardFrameID
+        ) {
+            connection.send(frame)
+        }
+    }
+
+    /// A payload the client cut up, put back together.
+    ///
+    /// **A malformed piece costs the payload and not the session**, which is the opposite of what
+    /// the direct path does with a malformed command, and the difference is who is at fault. A
+    /// command sent whole and decoded wrongly is a bug or an attack and the session should not
+    /// continue; a piece that does not fit its neighbours is a transfer that failed, and the worst
+    /// thing that can happen if it is ignored is that the user copies the picture again.
+    private func handleChunkedPayload(_ frame: Frame) throws {
+        guard let whole = try? clipboardChunks.ingest(frame) else { return }
+        try handleCommand(whole, assembled: true)
     }
 
     // MARK: - Helpers

@@ -139,9 +139,12 @@ public final class ClientSession: @unchecked Sendable {
         /// none. Unlike ``note(_:)`` this is not a diagnostic to log: it is a caption for the
         /// picture, and it stays up until the Mac says otherwise.
         case remoteNotice(NoticePayload?)
-        /// The host's current clipboard text, delivered after a ``RemoteCommand/requestClipboard``
-        /// or pushed when the Mac's pasteboard changes.
-        case clipboard(String)
+        /// What is on the host's pasteboard, delivered after a
+        /// ``RemoteCommand/requestClipboard`` or pushed when the Mac's pasteboard changes.
+        ///
+        /// A payload rather than a string, because a pasteboard holds a picture as readily as a
+        /// line of text and the two are the same message. See ``ClipboardPayload``.
+        case clipboard(ClipboardPayload)
         /// An audio stream event from the video channel.
         case audio(AudioEvent)
         /// A reconnectable shell session event from the authenticated control channel.
@@ -429,6 +432,15 @@ public final class ClientSession: @unchecked Sendable {
     /// Chunks in from the control channel, pictures out. Only ever fed from the control lane:
     /// the preferred transport carries whole frames, which need no reassembly.
     private var videoChunks = VideoChunkReassembler()
+    /// Chunks in from the control channel for the clipboard, kept apart from the lane above.
+    ///
+    /// **Two assemblers and not one, because both lanes arrive as the same frame kind.** They
+    /// number their frames from one each, so a shared assembler would read the other lane's next
+    /// frame as a reason to throw away what it was holding, and the effect would be a screenshot
+    /// that never finishes arriving whenever the picture happened to be moving.
+    private var clipboardChunks = ClipboardTransfer.reassembler()
+    /// Which clipboard frame is being cut up on the way out, so the far end can tell two apart.
+    private var clipboardFrameID: UInt32 = 0
     private var _videoFallbackEnabled = true
     /// The lane the UI has already been told about, so a repeated request is not a repeated note.
     private var announcedTransport: VideoTransport = .primary
@@ -742,7 +754,11 @@ public final class ClientSession: @unchecked Sendable {
             clientID: clientID,
             clientName: clientName,
             protocolVersion: ProtocolInfo.version,
-            wantsPairing: !knowsHost
+            wantsPairing: !knowsHost,
+            // Declared on every connection, because what it buys is the *Mac's* restraint: a
+            // picture it sends to a client that has not said this arrives at one that cannot read
+            // it, and the pieces land in that client's picture lane. See ``ClipboardImages``.
+            supportsClipboardImages: true
         ))
 
         lock.withLock { state = .awaitingServerHello }
@@ -1133,14 +1149,20 @@ public final class ClientSession: @unchecked Sendable {
             fail(payload?.message ?? "The Mac reported an error.")
 
         case .clipboardContent:
-            if let payload = try? MessageCodec.decode(ClipboardPayload.self, from: frame.payload) {
-                emit(.clipboard(payload.text))
-            }
+            handleClipboardContent(frame)
 
         case .terminalEvent:
             if let event = try? MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
                 emit(.terminal(event))
             }
+
+        // **The clipboard's chunks, before the picture's.** Both arrive as the same frame kind on
+        // this one connection, so which lane a chunk belongs to is the kind byte inside it, and
+        // this is the only place that question is asked. The order of these two cases is what
+        // makes it matter: without the guard the clipboard's pieces would be fed to the picture's
+        // assembler, which would spend a screenshot's worth of frames finding nothing it wanted.
+        case .videoChunk where VideoChunk.innerKind(of: frame) == .clipboardContent:
+            handleClipboardChunk(frame)
 
         case .videoConfig, .videoFrame, .videoChunk, .audioConfig, .audioFrame:
             // Everything this connection delivers is the control lane, including whole frames
@@ -1176,6 +1198,36 @@ public final class ClientSession: @unchecked Sendable {
     public func sendTerminal(_ request: TerminalRequest) {
         guard isReady else { return }
         connection()?.send(.terminalRequest, request)
+    }
+
+    /// Puts a picture on the Mac's pasteboard.
+    ///
+    /// **A command, and cut up, and both of those are invisible from here.** The picture is JSON
+    /// inside an ordinary ``RemoteCommand``, and anything larger than one control message is split
+    /// by ``ClipboardTransfer`` and put back by the Mac's command handler. Neither end has to know
+    /// which of the two happened, and the same is true of the text path beside it, which never
+    /// needed to know either.
+    ///
+    /// **Sent on the control channel rather than through the coalescer**, which is where terminal
+    /// bytes go and for the same reason: this is not a gesture. A hundred-odd frames handed over
+    /// in a loop is one message as far as the Mac is concerned, and the transport keeps them in
+    /// the order they were given to it, so a picture cannot be overtaken by the keystrokes typed
+    /// after it.
+    ///
+    /// - Returns: `false` for a picture over the limit both ends carry, which nothing is sent for.
+    ///   The caller is expected to have refused it in front of the user already.
+    @discardableResult
+    public func pushClipboardImage(_ png: Data) -> Bool {
+        guard png.count <= ClipboardLimits.maxImageBytes else { return false }
+        guard isReady, let connection = connection() else { return false }
+        guard let payload = try? MessageCodec.encode(RemoteCommand.pushClipboardImage(png: png)) else {
+            return false
+        }
+        clipboardFrameID &+= 1
+        let frames = ClipboardTransfer.frames(kind: .command, payload: payload, frameID: clipboardFrameID)
+        guard !frames.isEmpty else { return false }
+        for frame in frames { connection.send(frame) }
+        return true
     }
 
     private func sendNow(_ command: RemoteCommand) {
@@ -1735,6 +1787,41 @@ public final class ClientSession: @unchecked Sendable {
     /// while the fallback is in force is the only evidence that the path works again, and it
     /// is what the client's decision to go back is made of — see
     /// ``VideoFallbackPolicy/notePrimaryPicture()``.
+    /// One piece of a clipboard payload, from the control channel.
+    ///
+    /// A malformed piece costs the payload and nothing else, which is the same bargain the
+    /// picture's assembler makes: the next frame starts the assembly over, and a screenshotted
+    /// clipboard is not worth a session.
+    private func handleClipboardChunk(_ frame: Frame) {
+        let reassembled = lock.withLock { () -> Frame? in
+            do {
+                return try clipboardChunks.ingest(frame)
+            } catch {
+                sessionLog.error(
+                    "dropping a malformed clipboard chunk: \(String(describing: error), privacy: .public)"
+                )
+                return nil
+            }
+        }
+        guard let reassembled else { return }
+        handleClipboardContent(reassembled)
+    }
+
+    /// A whole clipboard payload, however it arrived.
+    ///
+    /// Decoded leniently, like a notice and unlike a command. The clipboard is a convenience riding
+    /// a session that is about a picture, and a payload this build cannot read costs the clipboard
+    /// and not the connection. It is also what makes the two ends compatible in the direction that
+    /// matters: a Mac newer than this build sends a picture, this build reads no picture out of it,
+    /// and the user is told nothing rather than disconnected.
+    private func handleClipboardContent(_ frame: Frame) {
+        guard let payload = try? MessageCodec.decode(ClipboardPayload.self, from: frame.payload) else {
+            sessionLog.error("could not decode a clipboard payload")
+            return
+        }
+        emit(.clipboard(payload))
+    }
+
     private func handleVideoFrame(_ frame: Frame, from transport: VideoTransport) {
         // Chunked payloads are what the fallback looks like on the wire, and they are put back
         // together into exactly the frame they were cut from. One level only: a chunk of a
@@ -1849,6 +1936,10 @@ public final class ClientSession: @unchecked Sendable {
         lastControlReplyAt = nil
         readyAt = nil
         videoChunks = VideoChunkReassembler()
+        // Half a picture describes nothing about a session that has not started yet, and the same
+        // is true of half a screenshot: a payload put back across two sessions is a payload made
+        // of two different Macs' pasteboards. See ``ClipboardTransfer/reassembler()``.
+        clipboardChunks = ClipboardTransfer.reassembler()
         announcedTransport = .primary
         // The datagram lane's state is the same kind of thing: a replay window and a partial
         // picture describe a link, and both belong to the session that opened it. The socket

@@ -136,9 +136,27 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Locks the active macOS session. Unlocking remains a local action at the Mac.
     case lockScreen
     /// Asks the host to read its pasteboard and reply with a ``MessageKind/clipboardContent`` frame.
+    ///
+    /// The host decides what is on its pasteboard, including whether it is text or a picture, so
+    /// this one command asks for both. See ``ClipboardPayload``.
     case requestClipboard
     /// Pushes text from the phone's clipboard to the host pasteboard.
     case pushClipboard(text: String)
+    /// Pushes a picture from the phone's clipboard to the host pasteboard.
+    ///
+    /// **PNG, always**, whatever the pasteboard was holding. See ``ClipboardPayload/image``.
+    ///
+    /// A separate case rather than a wider ``pushClipboard(text:)``, because widening the existing
+    /// one would change the shape of a command that every session with a clipboard sends, so a Mac
+    /// that has not updated would fail to decode an ordinary copied line of text. This one is sent
+    /// only to a Mac that has said it can take it, see
+    /// ``ServerHello/supportsClipboardImages``, and a Mac that has not is a Mac whose clipboard
+    /// keeps carrying text.
+    ///
+    /// The payload is over the control channel's limit for anything larger than a thumbnail, so it
+    /// travels cut into pieces by ``ClipboardTransfer``. That is invisible from here: this is
+    /// ordinary JSON and the chunking is the transport's business.
+    case pushClipboardImage(png: Data)
 
     public var coalescing: Coalescing {
         switch self {
@@ -149,7 +167,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
              .setVideoEnabled, .refreshSpacePreviews, .setPrivacyMode, .lockScreen,
-             .requestClipboard, .pushClipboard:
+             .requestClipboard, .pushClipboard, .pushClipboardImage:
             return .none
         }
     }
@@ -159,7 +177,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     public var isCritical: Bool {
         switch self {
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication,
-             .setPrivacyMode, .lockScreen, .pushClipboard, .setVideoEnabled:
+             .setPrivacyMode, .lockScreen, .pushClipboard, .pushClipboardImage, .setVideoEnabled:
             return true
         default:
             return false
@@ -175,7 +193,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
              .refreshSpacePreviews, .setPrivacyMode, .lockScreen, .requestClipboard,
-             .pushClipboard:
+             .pushClipboard, .pushClipboardImage:
             return false
         }
     }

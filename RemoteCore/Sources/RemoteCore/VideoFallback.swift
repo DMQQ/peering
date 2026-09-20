@@ -123,6 +123,18 @@ public enum VideoChunk {
     /// inside the session's own timeouts. What it stops is a peer claiming 65535 chunks and
     /// having them buffered.
     public static let maxReassembledPayload = 4 * 1024 * 1024
+
+    /// The kind of frame a chunk belongs to, or `nil` for a payload too short to hold one.
+    ///
+    /// **The one thing a receiver needs before it can route a chunk**, because the two lanes that
+    /// use these frames share a connection: the picture's chunks and the clipboard's arrive as the
+    /// same kind and are told apart only by the byte inside. Asked before the reassembler, which
+    /// would otherwise spend a whole payload finding out.
+    public static func innerKind(of frame: Frame) -> MessageKind? {
+        let payload = frame.payload
+        guard payload.count >= headerSize else { return nil }
+        return MessageKind(rawValue: payload[payload.startIndex])
+    }
 }
 
 public enum VideoChunkEncoder {
@@ -182,7 +194,22 @@ public struct VideoChunkReassembler {
     private var parts: [Int: Data] = [:]
     private var bytes = 0
 
-    public init() {}
+    /// The most that will be buffered for one frame.
+    ///
+    /// A parameter rather than the constant, because the guard is really a question about *what is
+    /// being reassembled* and there are now two answers. For a picture the figure above is far
+    /// above anything a stream produces and exists only to stop a peer claiming 65535 chunks. For
+    /// a clipboard payload the largest legitimate thing is a photograph, which is megabytes rather
+    /// than kilobytes, and the same guard would refuse the case it exists to protect. See
+    /// ``ClipboardLimits``.
+    ///
+    /// The default is the video figure, so a caller that does not think about this gets exactly
+    /// what it got before.
+    private let maxReassembled: Int
+
+    public init(maxReassembled: Int = VideoChunk.maxReassembledPayload) {
+        self.maxReassembled = maxReassembled
+    }
 
     /// - Returns: the whole frame, once every chunk of it has arrived.
     /// - Throws: ``VideoChunkError`` for a frame that is malformed rather than merely early.
@@ -227,8 +254,8 @@ public struct VideoChunkReassembler {
             parts[index] = body
             bytes += body.count
         }
-        guard bytes <= VideoChunk.maxReassembledPayload, parts.count == expected else {
-            if bytes > VideoChunk.maxReassembledPayload { clear() }
+        guard bytes <= maxReassembled, parts.count == expected else {
+            if bytes > maxReassembled { clear() }
             return nil
         }
 

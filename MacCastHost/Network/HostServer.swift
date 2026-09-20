@@ -65,8 +65,8 @@ final class HostServer: @unchecked Sendable {
     private var _onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
     private var _onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
     private var _onVideoEnabled: (@Sendable (Data?, Bool) -> Void)?
-    private var _onRequestClipboard: (@Sendable () -> String?)?
-    private var _onReceiveClipboard: (@Sendable (String) -> Void)?
+    private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
+    private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
     var onEvent: (@Sendable (HostEvent) -> Void)? {
         get { callbackLock.withLock { _onEvent } }
@@ -121,13 +121,13 @@ final class HostServer: @unchecked Sendable {
     }
 
     /// Called when any client requests the host clipboard. Return `nil` to send nothing.
-    var onRequestClipboard: (@Sendable () -> String?)? {
+    var onRequestClipboard: (@Sendable () -> ClipboardPayload?)? {
         get { callbackLock.withLock { _onRequestClipboard } }
         set { callbackLock.withLock { _onRequestClipboard = newValue } }
     }
 
     /// Called when any client pushes its clipboard to the host.
-    var onReceiveClipboard: (@Sendable (String) -> Void)? {
+    var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)? {
         get { callbackLock.withLock { _onReceiveClipboard } }
         set { callbackLock.withLock { _onReceiveClipboard = newValue } }
     }
@@ -400,8 +400,8 @@ final class HostServer: @unchecked Sendable {
         session.onRequestClipboard = { [weak self] in
             self?.onRequestClipboard?()
         }
-        session.onReceiveClipboard = { [weak self] text in
-            self?.onReceiveClipboard?(text)
+        session.onReceiveClipboard = { [weak self] payload in
+            self?.onReceiveClipboard?(payload)
         }
         session.onVideoTransportRequest = { [weak self, weak session] request in
             guard let self, let session else { return }

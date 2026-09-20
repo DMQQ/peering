@@ -666,12 +666,15 @@ final class HostModel {
             input.perform(command)
         }
 
+        // **The reading is asked of the pasteboard rather than of one type on it**, because only
+        // this end can find out whether what was copied is a picture or a line of text, and the
+        // answer decides how it travels. Both callbacks hop to the main thread: `NSPasteboard` is
+        // not safe from anywhere else, and the session's own queue is not it.
         server.onRequestClipboard = {
-            DispatchQueue.main.sync { NSPasteboard.general.string(forType: .string) }
+            DispatchQueue.main.sync { ClipboardPasteboard.read() }
         }
-        server.onReceiveClipboard = { text in
-            DispatchQueue.main.async { NSPasteboard.general.declareTypes([.string], owner: nil)
-                NSPasteboard.general.setString(text, forType: .string) }
+        server.onReceiveClipboard = { payload in
+            DispatchQueue.main.async { ClipboardPasteboard.write(payload) }
         }
 
         self.server = server
@@ -1541,6 +1544,12 @@ final class HostModel {
             switch LidCloseSleepControl.restoreSleepSilently() {
             case .done:
                 UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
+                // Re-read after the change, the way ``setKeepRunningWithLidClosed(_:)`` does and
+                // for the same reason: the reading above was taken before this ran, and it is the
+                // reading the menu draws. Assumed instead of read, a Mac this function has just
+                // put back under the setting reports itself as not under it for the rest of the
+                // session, which is the one line the menu must never get wrong.
+                lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
                 record("Sleep was still disabled by Peering from a previous run; this Mac sleeps on a closed lid again")
             case .failed(let message):
                 lidCloseFailure = message
@@ -1555,6 +1564,10 @@ final class HostModel {
             switch await LidCloseSleepControl.setSleepDisabled(true) {
             case .done:
                 UserDefaults.standard.set(true, forKey: Self.sleepDisabledByThisAppKey)
+                // The path this whole reading exists for: without it, every launch that re-applies
+                // the setting leaves the cached reading at the `.off` that made the re-apply
+                // necessary, and the menu says "not in force" over a Mac that is.
+                lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
                 record("Lid-close sleep prevention re-applied; it had been cleared on this Mac since the last run")
             case .failed(let message):
                 lidCloseFailure = message

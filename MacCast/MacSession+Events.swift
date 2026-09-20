@@ -188,6 +188,9 @@ extension MacSession {
             // What this Mac can be asked for, recorded once at the door rather than guessed at
             // each time a picture needs stopping. See ``PicturePause/mayAsk(hostDeclared:)``.
             hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
+            // The same shape for the clipboard, and the same three states on the flag. See
+            // ``ClipboardImages``, which both ends read.
+            hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.
@@ -250,12 +253,19 @@ extension MacSession {
             append(note: "Direct path: \(outcome.summary)")
         case .remoteNotice(let message):
             remoteNotice = message
-        case .clipboard(let text):
-            hostClipboard = text
+        case .clipboard(let payload):
+            hostClipboard = payload
             clipboardPulling = false
-            // Every pull is filed, so the next one does not overwrite the last one anywhere but
-            // on the phone's own pasteboard.
-            model.rememberClipboard(text)
+            // Every pull of *text* is filed, so the next one does not overwrite the last one
+            // anywhere but on the phone's own pasteboard.
+            //
+            // **Pictures are not filed, and that is a decision rather than an omission.** The
+            // history is written to `UserDefaults` and read back at launch, so an entry costs its
+            // own size in the app's stored state for as long as it is kept: twelve screenshots
+            // would be a hundred megabytes of PNG in a plist, which is both a launch cost and the
+            // kind of thing a phone runs out of room for. What a picture history would need is a
+            // file store and its own eviction, which is a feature rather than a line here.
+            if let text = payload.text { model.rememberClipboard(text) }
         case .audio(let event):
             switch event {
             case .config(let config):

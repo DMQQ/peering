@@ -314,6 +314,15 @@ final class MacSession: Identifiable {
     /// the command means a dropped session on one of those rather than a picture that stops.
     var hostSupportsVideoPause = false
 
+    /// What this Mac said about carrying a picture on the clipboard. See
+    /// ``ClipboardImages/maySend(toHostDeclared:)``.
+    ///
+    /// Read off the handshake and never assumed, for the same reason and with a starker cost: the
+    /// command that pushes a picture is one a Mac this old does not understand at all, and an
+    /// unknown command is a decode failure in the middle of a session rather than a copy that
+    /// quietly does nothing.
+    var hostSupportsClipboardImages = false
+
     /// Whether the picture is stopped because this client asked for it to be.
     ///
     /// **Not the same as the picture being stopped.** A Mac whose screen is asleep, a stream that
@@ -379,8 +388,11 @@ final class MacSession: Identifiable {
 
     // MARK: - Clipboard
 
-    /// The most recently received host clipboard text. `nil` until the first pull.
-    var hostClipboard: String?
+    /// The most recently received host clipboard. `nil` until the first pull.
+    ///
+    /// A payload rather than a string, so that a screenshot copied on the Mac arrives as readily
+    /// as a line of text. See ``ClipboardPayload``.
+    var hostClipboard: ClipboardPayload?
 
     /// Whether a clipboard pull is in flight.
     var clipboardPulling = false
