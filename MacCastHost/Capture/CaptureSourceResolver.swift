@@ -234,9 +234,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         do {
             // Desktop windows are excluded because capturing "the desktop" behind every
             // window is not something a user ever asks for, and it makes the window list
-            // enormous. On-screen only, because an off-screen window composites to nothing
-            // and offering it would produce a stream of empty black frames.
-            fresh = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            // enormous. Do not restrict this to windows on the current desktop: that turns
+            // the source picker into a list of whichever Space happens to be visible on the
+            // Mac, hiding ordinary windows on other Spaces (and all but one of a multi-window
+            // application). The geometry checks below still reject degenerate surfaces that
+            // cannot produce a useful capture.
+            fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         } catch {
             throw CaptureError.from(error)
         }
@@ -612,7 +615,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 continue
             }
 
-            let owned = content.windows.filter { $0.owningApplication?.processID == application.processID }
+            let owned = content.windows.filter {
+                $0.owningApplication?.processID == application.processID && isUserFacingWindow($0)
+            }
             guard let bounds = unionFrame(of: owned) else { continue }
 
             let title = name(for: application, processID: application.processID)
@@ -672,6 +677,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         var result: [CaptureSourceDescriptor] = []
 
         for window in content.windows {
+            guard isUserFacingWindow(window) else { continue }
             guard let application = window.owningApplication, let bounds = unionFrame(of: [window]) else {
                 continue
             }
@@ -698,7 +704,31 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             ))
         }
 
-        return result
+        return result.sorted { lhs, rhs in
+            let applicationOrder = (lhs.subtitle ?? "").localizedStandardCompare(rhs.subtitle ?? "")
+            if applicationOrder != .orderedSame { return applicationOrder == .orderedAscending }
+
+            let titleOrder = lhs.title.localizedStandardCompare(rhs.title)
+            if titleOrder != .orderedSame { return titleOrder == .orderedAscending }
+            return lhs.id < rhs.id
+        }
+    }
+
+    /// A user-selectable top-level window rather than a menu, shadow, desktop surface, or
+    /// hidden bookkeeping surface an application keeps around for later. Off-screen windows
+    /// with a title stay eligible: those are the ordinary windows on the user's other Spaces,
+    /// which is exactly why the catalogue asks ScreenCaptureKit for more than the current Space.
+    /// An untitled window is kept only while ScreenCaptureKit says it is visible or active, so
+    /// applications that intentionally omit a title are still usable without filling the picker
+    /// with their dormant helper surfaces.
+    private static func isUserFacingWindow(_ window: SCWindow) -> Bool {
+        guard window.windowLayer == 0,
+              window.frame.width >= 1,
+              window.frame.height >= 1
+        else { return false }
+
+        let hasTitle = window.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        return hasTitle || window.isOnScreen || window.isActive
     }
 
     /// Enumerates top-level GUI application bundles, excluding Apple's sealed system apps.
@@ -832,9 +862,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 throw CaptureError.sourceUnavailable("That application is no longer running.")
             }
             let owned = content.windows.filter {
-                $0.owningApplication?.processID == pid
-                && $0.frame.width >= 1
-                && $0.frame.height >= 1
+                $0.owningApplication?.processID == pid && Self.isUserFacingWindow($0)
             }
             guard !owned.isEmpty else {
                 throw CaptureError.sourceUnavailable("That application has no windows on any display.")
