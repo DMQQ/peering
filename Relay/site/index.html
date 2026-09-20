@@ -124,7 +124,8 @@
     <div class="wrap">
       <h2>What it does</h2>
       <p class="section-lede">
-        Everything below travels over one encrypted connection between your two devices.
+        All of it, listed rather than summarised. Neither end needs an account, and nothing
+        in the middle can read what passes between them.
       </p>
 
       <div class="grid">
@@ -132,6 +133,18 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3.2v5.4c0 4.3-2.9 7.9-7 9.4-4.1-1.5-7-5.1-7-9.4V6.2z"/><path d="M12 10.4v3.2"/><circle cx="12" cy="8.9" r="1.1"/></svg>
           <h3>Encrypted, device to device</h3>
           <p>Each device makes its own key and keeps it in its own Keychain. There is no account and nothing stored on a server.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 8.4V6.6a2.2 2.2 0 012.2-2.2h1.8"/><path d="M15.6 4.4h1.8a2.2 2.2 0 012.2 2.2v1.8"/><path d="M19.6 15.6v1.8a2.2 2.2 0 01-2.2 2.2h-1.8"/><path d="M8.4 19.6H6.6a2.2 2.2 0 01-2.2-2.2v-1.8"/><path d="M9.4 10.2v1.6M14.6 10.2v1.6"/><path d="M9.8 14.8a3.6 3.6 0 004.4 0"/></svg>
+          <h3>Locked behind your face</h3>
+          <p>Ask for Face ID every time the app comes back, and a locked phone is the only thing that unlocks the Mac. Any single SSH server can carry its own lock too, with a passcode of your own.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M16.2 17.6l4.2-4.2a1.3 1.3 0 00-1.8-1.8l-4.2 4.2-.5 2.3z"/></svg>
+          <h3>Your Macs, named how you like</h3>
+          <p>Rename a Mac to something you recognise and forget one you are done with, from the row itself. Starting a session with a second Mac ends the first.</p>
         </div>
 
         <div class="card feature">
@@ -147,15 +160,63 @@
         </div>
 
         <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="7.4" width="5.4" height="9.2" rx="1.6"/><rect x="15.2" y="7.4" width="5.4" height="9.2" rx="1.6"/><path d="M8.8 12h6.4"/><path d="M11.2 9.8L8.8 12l2.4 2.2"/><path d="M12.8 14.2L15.2 12l-2.4-2.2"/></svg>
+          <h3>See which way it went</h3>
+          <p>No guessing about which path you got: the session screen says LAN, RELAY or DIRECT·P2P, and the info panel shows the round trip of the lane the picture is on, counted apart from the control connection.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 8.8a12 12 0 0116.4 0"/><path d="M6.8 12.1a7.6 7.6 0 0110.4 0"/><path d="M9.9 15.4a3.2 3.2 0 014.2 0"/><path d="M4.4 4l15.2 16"/></svg>
+          <h3>Says so when the network goes</h3>
+          <p>Change network mid-session and the connection does not fail, it goes quiet, which is how a screen ends up looking alive while nothing moves. Peering counts that quiet and ends the session after ten seconds, so you are told and can connect again.</p>
+        </div>
+
+        <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.6l12.2 8.1-5.2 1.1-2.3 5z"/><path d="M4.5 19.5h6"/></svg>
           <h3>You actually drive it</h3>
           <p>Pointer, keyboard, joystick, scroll wheel and macros. Control &amp; zoom puts your fingers on the Mac.</p>
         </div>
 
         <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2.6"/><path d="M8.2 9.6h7.6M8.2 13h4.4"/><path d="M15.4 16.6l1.8-1.8-1.8-1.8"/></svg>
+          <h3>Observe, or take over</h3>
+          <p>Control mode sends your touches to the Mac. Observe mode shows the screen and sends nothing at all, for when you only want to watch something run.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 9.4V6.6a2 2 0 012-2h11.4a2 2 0 012 2v2.8"/><path d="M4.6 14.6v2.8a2 2 0 002 2h11.4a2 2 0 002-2v-2.8"/><path d="M9.4 12h5.2M12 9.4L14.6 12 12 14.6"/></svg>
+          <h3>Zoom, fit, or fill</h3>
+          <p>Pinch to zoom in on a toolbar, or let the Mac's screen fill the phone's and keep the edges you care about in view.</p>
+        </div>
+
+        <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><path d="M3.4 8.6h17.2"/><path d="M12 8.6v10.8"/></svg>
           <h3>A screen, an app, or one window</h3>
-          <p>Share any of them, and switch between them without reconnecting.</p>
+          <p>Every display the Mac is attached to, one running app, or a single window. Share any of them, and switch between them without reconnecting.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="14.2" height="10.6" rx="2"/><path d="M6.6 13.4l3-3 2.4 2.4 2.2-1.8 2.8 2.6"/><path d="M17.8 19.6h-6.4"/><path d="M14.8 17.4l2.4 2.2 3.4-3.6"/></svg>
+          <h3>Open an app you forgot to launch</h3>
+          <p>The list is live and includes applications that are installed but not running. Tap one and the Mac opens it, then it is a source like any other.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 17.4a9.6 9.6 0 1115.6 0"/><path d="M12 13.4l4.2-3.8"/><circle cx="12" cy="15.4" r="1.6"/></svg>
+          <h3>A picture that gives way rather than stalls</h3>
+          <p>The bitrate follows what the connection can actually carry, stepping down when latency rises and back up when it settles. Pin it yourself to Low, Medium or High if you would rather decide.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
+          <h3>Sound from the Mac</h3>
+          <p>Whatever the Mac is playing comes out of the phone, so you hear what the machine is doing rather than watching it do it silently. One switch in the session panel, and turning it off drops the sound here without disturbing the stream.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 8.6a2.2 2.2 0 012.2-2.2h1.6l1.4-2h6.4l1.4 2h1.6a2.2 2.2 0 012.2 2.2v8.2a2.2 2.2 0 01-2.2 2.2H5.8a2.2 2.2 0 01-2.2-2.2z"/><circle cx="12" cy="12.6" r="3.4"/></svg>
+          <h3>Save what you are looking at</h3>
+          <p>Take a screenshot of the session and hand it to the share sheet, without a trip through the Photos app first.</p>
         </div>
 
         <div class="card feature">
@@ -184,8 +245,26 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
-          <h3>Browse and edit a server's files</h3>
-          <p>Walk the folders, open a config or a script, change it and save it. Upload from your phone, and save a copy down to Files.</p>
+          <h3>Files, on either machine</h3>
+          <p>Walk the folders of your Mac or of any server you have added, open a config or a script, change it and save it. Send a file up from your phone, or save one down to Files.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="13.2" rx="2.2"/><path d="M6.6 15.4l3.4-3.4 2.6 2.6 2.2-1.8 2.8 2.6"/><circle cx="8.2" cy="9.4" r="1.2"/></svg>
+          <h3>A picture opens as a picture</h3>
+          <p>What a file is comes from its own bytes rather than from its name: an image is drawn as an image, and an SVG is rendered with scripts off. Anything that is neither text nor a picture is refused rather than shown as rubbish.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.4a2 2 0 012-2h3.4l2 2.4h7.4a2 2 0 012 2v7.4a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M12 11.6v4.4M9.8 13.8h4.4"/></svg>
+          <h3>Make, rename, delete</h3>
+          <p>A new file or folder, a rename on any row, and a delete that says what it will take with it. On your own Mac that goes to the Bin; on a server it is gone, and the confirmation says so.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M10.2 8.6l5.4 3.4-5.4 3.4z"/></svg>
+          <h3>Run what you are looking at</h3>
+          <p>An executable row carries a Run button, confirmed by its name and path. What it sends is a line typed into a shell you already have, so a script that prints something prints it where you can read it.</p>
         </div>
 
         <div class="card feature">
@@ -198,6 +277,30 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
           <h3>One clipboard</h3>
           <p>Copy on the iPhone and paste on the Mac, or the other way round. Every pull is kept, so the last few things you copied are still there.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
+          <h3>The commands you type every time</h3>
+          <p>A row of chips above the keyboard holding the commands and snippets you reach for, in every terminal. Nothing fires until you tap it.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2a5.6 5.6 0 015.6 5.6c0 4 1.4 5.4 1.4 5.4H5s1.4-1.4 1.4-5.4A5.6 5.6 0 0112 4.2z"/><path d="M10.2 18.6a2 2 0 003.6 0"/></svg>
+          <h3>Told when you are needed</h3>
+          <p>A notification when a Mac is waiting on a pairing code, an SSH server is asking for a password, or a shell has stopped for an answer you have not given.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9.2" y="3.6" width="5.6" height="10.4" rx="2.8"/><path d="M5.8 11.6a6.2 6.2 0 0012.4 0"/><path d="M12 17.8v2.6"/><path d="M9.4 20.4h5.2"/></svg>
+          <h3>Siri and Shortcuts</h3>
+          <p>Ask Siri to connect to a Mac, open a shell on one of your servers, or end what is still open, without unlocking the phone and finding the app first.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="11.6" rx="2.2"/><path d="M8.6 20.2h6.8"/><path d="M12 17v3.2"/><path d="M7.2 9.6h4.4"/></svg>
+          <h3>The Mac end is an app too</h3>
+          <p>It sits in the menu bar, can open at login so a restart does not quietly end your remote access, and shows the two permissions it needs with a button to the right System Settings pane.</p>
         </div>
 
         <div class="card feature">
@@ -376,9 +479,20 @@
         <details>
           <summary>Can I transfer files?</summary>
           <p>
-            On the servers you add over SSH, yes: walk their folders, open a file, change it and
-            save it, upload one from your phone, and save a copy down to Files. Your Mac's own
-            files can be browsed and read, but not written to yet.
+            Yes, on your Mac and on any server you add over SSH. Walk the folders, open a file,
+            change it and save it, upload one from your phone, and save a copy down to Files. You
+            can also make a file or a folder, rename one, and delete one: on your own Mac that
+            moves it to the Bin, while on a server it is gone and the confirmation says so.
+          </p>
+        </details>
+        <details>
+          <summary>What happens if my phone changes network?</summary>
+          <p>
+            The session cannot survive it, and the honest reason is that the address the Mac was
+            sending to stops existing. The connection does not fail or close, it goes quiet, which
+            is why an app that only waits for an error sits on the last frame forever. Peering
+            counts the quiet and ends the session after ten seconds of it, so you are told and can
+            connect again. Join the new network, tap the Mac, and you are back.
           </p>
         </details>
         <details>

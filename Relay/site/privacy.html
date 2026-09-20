@@ -30,7 +30,7 @@
   <div class="wrap doc-inner">
 
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated 18 September 2026</p>
+    <p class="updated">Last updated 20 September 2026</p>
 
     <div class="card callout">
       <strong>The short version.</strong> Peering has no accounts and collects nothing. There is
@@ -78,8 +78,15 @@
       </li>
     </ul>
     <p>
-      Deleting the app removes all of this. Nothing above is sent to us, because there is nowhere
-      for it to be sent.
+      Deleting the app removes all of this, with one exception worth stating rather than leaving
+      to be discovered: iOS keeps an app's Keychain items when the app itself is deleted. Yours
+      held your device identity and any SSH password you asked to be remembered. They go when you
+      remove them in the app, or when you erase the device.
+    </p>
+    <p>
+      Nothing above is sent to us, because there is nowhere for it to be sent: there is no account
+      and no server of ours that holds your data. The relay is the one thing of ours your devices
+      talk to, and what it handles is the next section.
     </p>
 
     <h2>3. What the relay handles</h2>
@@ -94,7 +101,16 @@
       <li>your Mac's device ID and its name;</li>
       <li>your iPhone's device ID;</li>
       <li>the protocol version your apps are speaking;</li>
-      <li>which plan your app says it is on, so the right allowance can be applied;</li>
+      <li>when you have a paid plan, the receipt Apple signed for that purchase. It names the
+        product, the transaction and the date it was bought. It is checked against Apple's own
+        root certificate on the way in and then kept only for the length of that connection: never
+        written to a log, a file or a database, and never sent anywhere;</li>
+      <li>the public half of your device's key, when the app signs its request. That signature is
+        what your relay allowance is counted against, so that reinstalling the app does not hand
+        out a fresh one. It is a public key: it proves an identity and reveals nothing about the
+        session that identity carries;</li>
+      <li>which plan your app says it is on. It is sent on every connection, and it grants
+        nothing: a connection with no verified receipt gets the free allowance whatever it claims;</li>
       <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
       <li>the relay access key, for connections made with a paid plan;</li>
       <li>the IP address of each device, which any server necessarily sees, and which it hands to
@@ -108,10 +124,30 @@
       the relay. This is a property of how it is built, not a promise about how it is operated.
     </p>
     <p>
-      <strong>The relay writes nothing to a database.</strong> Sessions and usage counters are
-      held in memory for as long as the process runs and vanish when it restarts. The server keeps
-      ordinary operational logs, which record that a session was allocated and the device IDs and
-      Mac name above, and never any content. Those logs stay on the server and follow whatever
+      <strong>What the relay writes down, and where.</strong> There is no database and no account,
+      and nothing in this section is connected to who you are. Two files are written, both on the
+      relay's own machine, and both hold device identifiers rather than names or addresses:
+    </p>
+    <ul>
+      <li>
+        <strong>Relay time.</strong> One line per charge, and a charge is taken every fifteen
+        seconds of an active session: the identifier your relay time is counted against, which
+        24-hour window it belongs to, and how many seconds. That identifier is your device's public
+        key when your app signed its request, and the device ID your app announced when it did not.
+        This is what stops a restart from handing everybody a fresh allowance. Lines for a window
+        that has passed are dropped the next time the relay starts.
+      </li>
+      <li>
+        <strong>A Mac's public key.</strong> When a Mac registers with the relay it signs its
+        registration with the key this app generated for it, and the relay keeps the public half
+        beside the device ID. It is what stops one device claiming to be another. It is a public
+        key: it proves an identity and reveals nothing about the session that identity carries.
+      </li>
+    </ul>
+    <p>
+      Beside those, the server keeps ordinary operational logs, which record that a session was
+      allocated, the device IDs and Mac name above, which plan was applied and whether Apple
+      signed for it, and never any content. Those logs stay on the server and follow whatever
       retention the machine's logging is configured with.
     </p>
 
@@ -133,11 +169,18 @@
       covered by <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>.
     </p>
     <p>
-      When a paid plan is active, the app tells the relay which plan it is on, and the relay
-      applies that plan's allowance instead of the free one. It also sends a relay access key: a
-      random identifier generated on your device, not tied to your Apple Account or your identity,
-      and stored in your device's Keychain. It is what the relay would use to recognise a device
-      that has been given unlimited access directly.
+      When a paid plan is active, the app tells the relay what it bought, and the relay applies
+      that plan's allowance instead of the free one. What travels is the receipt Apple signed for
+      the purchase. It is verified against Apple's own root certificate and then forgotten: held
+      for the length of that one connection, never logged, never stored, never sent on. If it
+      cannot be verified, the connection is metered at the free allowance and nothing else
+      happens: no purchase information is retained either way.
+    </p>
+    <p>
+      The app also sends a relay access key: a random identifier generated on your device, not
+      tied to your Apple Account or your identity, and stored in your device's Keychain. It is
+      what the relay would use to recognise a device that has been given unlimited access
+      directly.
     </p>
 
     <h2>6. This website</h2>
@@ -154,8 +197,10 @@
       export or delete the personal data held about you, to object to its processing, and to
       complain to your national data protection authority. Because Peering has no account and no
       database of users, in practice there is almost nothing for us to act on: the data described
-      in section 2 is on your devices, under your control, and deleting the app removes it. The one
-      exception is the relay's operational logs, which are described in section 3. Write to
+      in section 2 is on your devices, under your control, and deleting the app removes it apart
+      from the Keychain items named there. What a server does hold is described in section 3: relay
+      time against a device identifier, a Mac's public key, and the operational logs. None of it
+      names you, and a deletion request is a request to drop those lines. Write to
       <a href="mailto:support@getpeering.app">support@getpeering.app</a> and we will answer within 30 days.
     </p>
 
