@@ -594,7 +594,7 @@ fn an_unproven_client_is_metered_by_what_it_claims_until_it_is_not() {
 /// A relay with a verifier pinned to the test chain's root, and a free allowance that is already
 /// spent, so the plan in the answer is the only thing that can decide whether a client connects.
 async fn relay(verifier: StoreKitVerifier) -> u16 {
-    let registry = Arc::new(Registry::new());
+    let registry = Arc::new(Registry::new(usize::MAX));
     let signal = TcpListener::bind("127.0.0.1:0").await.expect("should bind");
     let port = signal.local_addr().expect("should have an address").port();
 
@@ -616,6 +616,13 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
             session_ttl: Duration::from_secs(60),
             quota,
             receipts: Arc::new(verifier),
+            // No ceiling in these tests, and no timeouts short enough to interfere with them: they
+            // are about what the relay does with a session, not about what it refuses. Both have
+            // their own tests.
+            max_sessions: usize::MAX,
+            max_connections: 1 << 20,
+            handshake_timeout: Duration::from_secs(10),
+            idle_timeout: Duration::from_secs(90),
         },
         None,
     ));
@@ -689,6 +696,9 @@ async fn ask(port: u16, plan: &str, jws: Option<String>) -> ServerMessage {
             api_key: None,
             plan: Some(plan.into()),
             jws_representation: jws,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -759,6 +769,9 @@ async fn a_receipt_does_not_make_a_mac_appear() {
             api_key: None,
             plan: Some("pro".into()),
             jws_representation: Some(receipt),
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -793,6 +806,9 @@ async fn a_receipt_repeated_on_one_socket_is_answered_the_same_way() {
                 api_key: None,
                 plan: Some("free".into()),
                 jws_representation: Some(receipt.clone()),
+                public_key: None,
+                proof: None,
+                proof_time: None,
             },
         )
         .await;
