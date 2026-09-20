@@ -424,6 +424,25 @@ extension SessionModel {
 
     // MARK: - Backgrounding
 
+    /// Tells the object that floats the picture whether the plan includes it, and answers the
+    /// same question for the caller.
+    ///
+    /// **One writer, called wherever the answer can change**: when the App Store's entitlement
+    /// first lands, whenever it changes under a running app, and as the app leaves the screen.
+    /// See ``SessionPiP/isOnPlan`` for why that value is pushed into the singleton rather than
+    /// read inside it.
+    ///
+    /// It exists as a function rather than as a line at each of those sites because the three of
+    /// them are the same question, and the one that is easy to leave out is the launch: a
+    /// subscriber whose controller was armed before the App Store answered would be armed with
+    /// the wrong answer for the rest of the session.
+    @discardableResult
+    func applyPictureInPicturePlan() -> Bool {
+        let included = storeManager.access.includes(.pictureInPicture)
+        SessionPiP.shared.isOnPlan = included
+        return included
+    }
+
     /// The reprieve iOS grants a backgrounded app, and what happens when it runs out.
     ///
     /// There is no background mode a remote desktop can honestly claim — the app is not playing
@@ -437,17 +456,15 @@ extension SessionModel {
 
         // **The plan, pushed into the singleton before it is asked to float anything.** PiP is on
         // the Relay plan and above, and the picture is drawn by an object that owns no store, so
-        // this is the one place the app both knows the plan and is about to leave the screen, and
-        // it is where the two are put together. Written on every backgrounding rather than once,
-        // because an entitlement can arrive or lapse while the app runs, and a stale flag here is
-        // either a locked feature starting anyway or a paid one refusing to.
+        // this is where the app tells that object what it is allowed to arm. Written on every
+        // backgrounding rather than once, because an entitlement can arrive or lapse while the
+        // app runs, and a stale answer here is either a locked feature starting anyway or a paid
+        // one refusing to.
         //
-        // The switch's own preference is read here rather than kept on the model: it is written by
-        // a toggle in a view and read by ``SessionPiP``, and a third copy would be a third place
-        // for it to disagree.
-        let pipIncluded = storeManager.access.includes(.pictureInPicture)
-        SessionPiP.shared.autoStart = pipIncluded
-            && (UserDefaults.standard.object(forKey: PreferenceKeys.pipAutoStart) as? Bool ?? true)
+        // The switch's own preference is not pushed from here. It belongs to ``SessionPiP``,
+        // which reads it from the defaults and has it written by the two toggles that draw it,
+        // and a third copy would be a third place for it to disagree.
+        let pipIncluded = applyPictureInPicturePlan()
 
         // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
         // That flag is set, and the picture does float when it is started by hand — but iOS

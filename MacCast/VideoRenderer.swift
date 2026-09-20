@@ -437,19 +437,52 @@ final class VideoHostView: UIView {
 final class SessionPiP: NSObject {
     static let shared = SessionPiP()
 
-    /// Whether iOS should float the picture on its own when the app goes away.
+    /// Whether the user wants iOS to float the picture on its own when the app goes away.
     ///
     /// Our own switch, because the system's is buried. Settings → General → Picture in
     /// Picture → "Start PiP Automatically" is two levels into Settings and reads as a setting
-    /// for watching video rather than for driving a Mac — which is why it went unfound for most
+    /// for watching video rather than for driving a Mac, which is why it went unfound for most
     /// of a day's debugging.
     ///
     /// It is a preference *and* a hint. Turning it off does not stop the button, and turning it
     /// on cannot make iOS start something the system-wide setting forbids: both have to allow
     /// it, and this one only speaks for the app.
+    ///
+    /// **Half of the answer.** This is the switch, which is drawn on every plan so that a
+    /// subscriber can see what they are buying and an owner can see what they have. Whether the
+    /// arming it asks for is allowed to happen is ``isOnPlan``, and the two are put together in
+    /// ``applyAutoStart()``.
     var autoStart =
         UserDefaults.standard.object(forKey: PreferenceKeys.pipAutoStart) as? Bool ?? true {
-        didSet { controller?.canStartPictureInPictureAutomaticallyFromInline = autoStart }
+        didSet { applyAutoStart() }
+    }
+
+    /// Whether the plan the user is on includes Picture in Picture.
+    ///
+    /// **Pushed in rather than read here.** This object owns no store, deliberately: it is the
+    /// singleton the session's view hierarchy talks to, and a plan read inside it would be a
+    /// second copy of an entitlement nothing keeps in step with the first. The app tells it
+    /// instead, from ``SessionModel/applyPictureInPicturePlan()``, at every moment the answer
+    /// can change.
+    ///
+    /// **False until something says otherwise, and that is the direction to fail in.** A push
+    /// that never arrives costs a paying subscriber the automatic start on a picture they can
+    /// still float by hand; the other default would hand a paid feature to somebody who has not
+    /// bought it. The automatic start is also the one plan-dependent thing in this app that
+    /// fires without a control being touched: leaving the app is a gesture rather than a tap,
+    /// so there is no later moment at which a gate could ask.
+    var isOnPlan = false {
+        didSet { applyAutoStart() }
+    }
+
+    /// The two halves together, written onto the controller that is actually armed.
+    ///
+    /// Called from both properties above and from ``attach(_:)``, because the controller is
+    /// replaced for every session and either input can change while one is on screen. What iOS
+    /// reads is this combination and never the preference on its own: a switch that is on over
+    /// a plan that does not include it is not permission.
+    private func applyAutoStart() {
+        controller?.canStartPictureInPictureAutomaticallyFromInline = autoStart && isOnPlan
     }
 
     /// What the last attempt did, for the screen.
@@ -526,10 +559,6 @@ final class SessionPiP: NSObject {
             playbackDelegate: self
         )
         let controller = AVPictureInPictureController(contentSource: source)
-        // The whole point of it: going to another app floats the picture rather than ending
-        // the session. Starting it by hand would mean the gesture that matters — leaving the
-        // app — is the one that does not trigger it.
-        controller.canStartPictureInPictureAutomaticallyFromInline = autoStart
         // Takes the fast-forward, the forward-skip and the scrubber out of the window's
         // controls, which is what they should be: this is a live picture of a Mac, and there is
         // nothing ahead of it to skip to. "Certain user operations" is the header's own
@@ -543,6 +572,12 @@ final class SessionPiP: NSObject {
         // Set for the failure callback: without a delegate, a refusal to start is silent.
         controller.delegate = self
         self.controller = controller
+        // **The whole point of it**: going to another app floats the picture rather than ending
+        // the session. Starting it by hand would mean the gesture that matters, leaving the app,
+        // is the one that does not trigger it. Last rather than first because it is the call
+        // that writes to the controller, and it writes the switch and the plan together rather
+        // than the switch alone.
+        applyAutoStart()
     }
 
     var isActive: Bool { controller?.isPictureInPictureActive ?? false }

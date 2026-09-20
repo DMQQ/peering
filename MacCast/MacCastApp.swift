@@ -75,6 +75,19 @@ struct MacCastApp: App {
                         model.startBrowsing()
                     }
                 }
+                // The plan, into the object that floats the picture, as soon as the App Store
+                // answers and again whenever the answer changes under a running app: a
+                // subscription bought, renewed or lapsed while this process is up.
+                //
+                // **PiP is the one paid capability that cannot wait for a tap.** Every other
+                // gate in the app is asked by a control the user is looking at; this one is
+                // armed in advance and spends itself when the app is *left*, which is a gesture
+                // rather than a press and has no moment at which a gate could ask. So the
+                // answer is pushed in on every change instead, and the object that holds the
+                // controller keeps the last one. See ``SessionPiP/isOnPlan``.
+                .onChange(of: model.storeManager.access) { _, _ in
+                    model.applyPictureInPicturePlan()
+                }
                 // The banners are for a user who is somewhere else. Coming back to the front
                 // is the moment they stop being the current news: the screen says the same
                 // thing, and the banner sitting behind it is a claim about the past — a
