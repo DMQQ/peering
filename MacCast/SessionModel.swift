@@ -166,7 +166,23 @@ final class SessionModel {
     var browseStatus = "Looking for Macs on this network…"
     var hostName: String?
     var tlsDescription: String?
+    /// Round trip of the control channel, which goes through the relay in every session.
     var latencyMilliseconds: Double?
+    /// Round trip of the lane the picture is arriving on, and whether that lane is the direct one.
+    ///
+    /// **The figure worth showing, and the reason it exists separately.** ``latencyMilliseconds``
+    /// is the relay's even when the picture found a path of its own, because the control
+    /// connection carries input and always goes the long way. `nil` until a datagram lane exists,
+    /// which is most sessions at their start and some for their whole life.
+    var pathLatencyMilliseconds: Double?
+    var pathLatencyIsDirect = false
+
+    /// The one number the status chip shows.
+    ///
+    /// The picture's round trip when there is a lane to measure it on, and the control channel's
+    /// otherwise — which is not a fallback but the honest answer in that case: with no datagram
+    /// lane the picture is on the control channel, so its round trip is the picture's.
+    var shownLatency: Double? { pathLatencyMilliseconds ?? latencyMilliseconds }
     var catalog: CaptureCatalog?
     var notes: [String] = []
     var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()

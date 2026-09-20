@@ -142,16 +142,31 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// that it worked: it learns by the picture starting to arrive directly, which is the same fact
     /// observed from the other side and needs no message to establish.
     private func accept(_ datagram: Data, from source: VideoDatagramSocket.Source) {
-        guard case .peer(let host, let port) = source else { return }
-
-        let opened = lock.withLock { () -> Bool in
+        let frame = lock.withLock { () -> Frame? in
             // Mutated in place rather than through a copy: the replay window *is* the state, and a
             // probe replayed from a capture would otherwise be accepted as a fresh one.
             var opener = probeOpener
             defer { probeOpener = opener }
-            return (try? opener.open(datagram)) != nil
+            return try? opener.open(datagram)
         }
-        guard opened else { return }
+        guard let frame else { return }
+
+        // A ping asks to be timed, and a reply is the only thing that can answer it. Sealed
+        // through the lane's one sealer — the counter inside is the AEAD nonce, so a sealer of its
+        // own here would reuse one — and sent back the way the question came, because a question
+        // that arrived through the relay is a question about the relay's path.
+        if frame.kind == .ping {
+            let pong = seal(kind: .pong, payload: frame.payload)
+            guard !pong.isEmpty else { return }
+            if case .peer = source {
+                socket.sendDirect(pong) { _ in }
+            } else {
+                socket.send(pong) { _ in }
+            }
+            return
+        }
+
+        guard case .peer(let host, let port) = source else { return }
 
         // Every probe, not just the first: a NAT mapping that moves mid-session is the ordinary case
         // this whole design is built around, and the address that just worked is the address to use.

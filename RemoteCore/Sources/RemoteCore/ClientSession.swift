@@ -104,9 +104,26 @@ public final class ClientSession: @unchecked Sendable {
         case host(ServerHello)
         case catalog(CaptureCatalog)
         case video(VideoEvent)
-        /// Round-trip time of a control ping, in milliseconds. The control channel is the
-        /// one whose latency the user feels, so this is the number worth showing.
+        /// Round-trip time of a control ping, in milliseconds.
+        ///
+        /// **Not the picture's round trip.** The control connection goes through the relay in
+        /// every session, punched or not, so on a session whose video found a path of its own this
+        /// figure is the relay's and describes a path the picture is not taking. It stays because
+        /// it is still the truth about the control channel, which is what carries input — but see
+        /// ``pathLatency(milliseconds:fromPeer:)`` for the one to show.
         case latency(milliseconds: Double)
+
+        /// Round-trip time on the lane the picture is arriving on, in milliseconds.
+        ///
+        /// `fromPeer` says which path answered: the one the two ends opened between themselves, or
+        /// the relay's datagram lane. The reply carries it because the path is a property of where
+        /// the datagram came *from*, not of anything either end decided.
+        ///
+        /// Absent when there is no datagram lane at all, which is most sessions at their start and
+        /// some for their whole life. A reader with no path figure falls back to
+        /// ``latency(milliseconds:)``, which is then the honest answer: the picture is on the
+        /// control channel, so the control channel's round trip is its round trip.
+        case pathLatency(milliseconds: Double, fromPeer: Bool)
         /// What the relay's datagram lane has carried, every couple of seconds while one is open.
         ///
         /// Four numbers because a lane fails in four distinguishable ways and they need
@@ -418,6 +435,25 @@ public final class ClientSession: @unchecked Sendable {
     /// datagram that arrives before it cannot be opened, which is why the Mac's first few
     /// frames after a grant are wasted rather than late.
     private var videoOpener: VideoDatagramOpener?
+
+    /// Seals what this end puts on the datagram lane: the probes, and the lane's own pings.
+    ///
+    /// **One instance for the whole session, and that is a safety property rather than tidiness.**
+    /// The sealer's counter *is* the ChaChaPoly nonce, and the nonce is the whole of its entropy:
+    /// two sealers built from one secret for one direction would encrypt under the same key with
+    /// the same nonces, which is the one failure an AEAD does not survive. Everything that seals
+    /// onto this lane therefore goes through this one value, under the session's lock.
+    private var videoSealer: VideoDatagramSealer?
+
+    /// The pings in flight on the datagram lane, and the window they are measured into.
+    ///
+    /// Separate from the control lane's, because they measure different paths and a session can
+    /// have both at once: the control connection goes through the relay in every session, punched
+    /// or not, so its round trip is not the one the picture is travelling.
+    private var pathPingLedger = PingLedger()
+    private var pathLatency = LatencyWindow(length: ClientSession.latencyWindow)
+    private var lanePingTask: Task<Void, Never>?
+
     /// How many datagrams did not authenticate, and whether the user has been told.
     ///
     /// Counted rather than merely logged because the interesting case is the *rate*: one is a
@@ -1271,10 +1307,17 @@ public final class ClientSession: @unchecked Sendable {
         let (socket, relay) = pair
 
         directPathTask?.cancel()
+
+        // Built once, here, and kept in the session: see ``videoSealer`` for why there can only
+        // ever be one of these for a direction.
+        let schedule = VideoKeySchedule(secret: secret)
+        guard let sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
+        else { return }
+        lock.withLock { videoSealer = sealer }
+
+        startLanePinging(socket)
+
         directPathTask = Task { [weak self] in
-            let schedule = VideoKeySchedule(secret: secret)
-            guard var sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
-            else { return }
 
             // Quick while there is any prospect of it working, then slow for the rest of the
             // session. The fast phase is what gets a session onto the direct path within a beat of
@@ -1318,8 +1361,8 @@ public final class ClientSession: @unchecked Sendable {
                     }
                 }
 
-                let probe = sealer.seal(kind: .directProbe, payload: Data())
-                if !probe.isEmpty {
+                if let probe = self?.sealOnVideoLane(kind: .directProbe, payload: Data()),
+                   !probe.isEmpty {
                     socket.sendDirect(probe) { _ in }
                 }
                 attempt += 1
@@ -1327,6 +1370,66 @@ public final class ClientSession: @unchecked Sendable {
                 try? await Task.sleep(for: interval)
             }
         }
+    }
+
+    /// Measures the lane the picture is on, once a second, for as long as it exists.
+    ///
+    /// **This is the number worth showing, and the control lane's is not.** The control connection
+    /// goes through the relay in *every* session, punched or not, so its round trip is the relay's
+    /// even when the picture is travelling straight between the two ends — which is where "it is
+    /// pretty high" came from. This measures the datagrams' own path, and ``VideoDatagramSocket/send``
+    /// sends by whichever of the two is currently the better one, which is the same rule the
+    /// picture follows.
+    ///
+    /// It seals through ``sealOnVideoLane(kind:payload:)`` rather than a sealer of its own. A
+    /// second sealer would repeat nonces, and the reply says which path it came back on, so the
+    /// figure can be labelled rather than guessed at.
+    private func startLanePinging(_ socket: VideoDatagramSocket) {
+        lanePingTask?.cancel()
+        lanePingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.pingInterval)
+                guard !Task.isCancelled, let self else { return }
+                let ping = self.lock.withLock {
+                    self.pathPingLedger.record(now: DispatchTime.now().uptimeNanoseconds)
+                }
+                let payload = (try? MessageCodec.encode(PingPayload(sequence: ping.sequence))) ?? Data()
+                let sealed = self.sealOnVideoLane(kind: .ping, payload: payload)
+                if !sealed.isEmpty { socket.send(sealed) { _ in } }
+            }
+        }
+    }
+
+    /// Seals one message onto the datagram lane, through the session's single sealer.
+    ///
+    /// Must be the only way anything seals on this lane. The counter inside is the AEAD nonce, so a
+    /// second sealer built from the same secret would encrypt under the same key with nonces that
+    /// had already been used.
+    private func sealOnVideoLane(kind: MessageKind, payload: Data) -> [Data] {
+        lock.withLock {
+            guard var sealer = videoSealer else { return [] }
+            defer { videoSealer = sealer }
+            return sealer.seal(kind: kind, payload: payload)
+        }
+    }
+
+    /// Times a lane ping's reply against the ping it answers.
+    ///
+    /// Matched by number for the same reason the control lane's is: a reply that crossed the next
+    /// ping has to be measured against the question it answers, not against the newest one.
+    private func notePathLatency(_ frame: Frame, from source: VideoDatagramSocket.Source) {
+        let now = DispatchTime.now()
+        let reported = lock.withLock { () -> Double? in
+            let sequence = (try? MessageCodec.decode(PingPayload.self, from: frame.payload))?.sequence
+            guard let ping = pathPingLedger.answered(sequence: sequence) else { return nil }
+            pathLatency.add(
+                Double(now.uptimeNanoseconds - ping.sentAtNanoseconds) / 1_000_000,
+                at: Self.monotonicNow()
+            )
+            return pathLatency.reported
+        }
+        guard let reported else { return }
+        emit(.pathLatency(milliseconds: reported, fromPeer: source != .relay))
     }
 
     /// One datagram from the relay, opened and fed into the same path a whole frame takes.
@@ -1405,6 +1508,13 @@ public final class ClientSession: @unchecked Sendable {
             // arrived from is now what the Mac sends to. There is nothing in it to render, and a
             // real frame has never been seen under this kind.
             guard frame.kind != .directProbe else { return }
+            // A lane ping's reply, which is timed here rather than passed on: everything else the
+            // opener produces is a piece of the picture, and the renderer would try to read this
+            // as one.
+            guard frame.kind != .pong else {
+                notePathLatency(frame, from: source)
+                return
+            }
             lock.withLock { picturesFromPeer += 1 }
             handleVideoFrame(frame, from: .primary)
 
@@ -1558,8 +1668,16 @@ public final class ClientSession: @unchecked Sendable {
         // itself is cancelled by the teardown paths, which have already been handed it.
         wantsVideoDatagrams = false
         videoOpener = nil
+        // Dropped with the lane it belongs to. The sealer in particular: a new session mints a new
+        // secret, so keeping this one would have the next session sealing under a key the Mac no
+        // longer holds.
+        videoSealer = nil
+        pathPingLedger = PingLedger()
+        pathLatency = LatencyWindow(length: ClientSession.latencyWindow)
         datagramFailures = 0
         reportedDatagramFailure = false
+        lanePingTask?.cancel()
+        lanePingTask = nil
         return task
     }
 

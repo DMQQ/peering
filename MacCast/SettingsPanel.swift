@@ -74,8 +74,19 @@ struct SettingsPanel: View {
                 info("Direct path", model.directPathStatus.summary)
             }
             info("Video", model.videoStatus)
+            // Two rows, because these are two different paths and only one of them is the
+            // picture's. The control connection goes through the relay in every session, punched
+            // or not, so its round trip is the relay's even when the video went straight between
+            // the two ends — and one row labelled "Latency" showing that is what made a punched
+            // session look slower than it is.
+            if let path = model.pathLatencyMilliseconds {
+                info(
+                    model.pathLatencyIsDirect ? "Latency · direct" : "Latency · relay",
+                    "\(Int(path.rounded())) ms"
+                )
+            }
             if let latency = model.latencyMilliseconds {
-                info("Latency", "\(Int(latency.rounded())) ms")
+                info("Latency · control", "\(Int(latency.rounded())) ms")
             }
             info("This device", model.thisDeviceDescription)
             Button(role: .destructive) { confirmLock = true } label: {

@@ -150,6 +150,9 @@ extension SessionModel {
             apply(video: event)
         case .latency(let milliseconds):
             latencyMilliseconds = milliseconds
+        case .pathLatency(let milliseconds, let fromPeer):
+            pathLatencyMilliseconds = milliseconds
+            pathLatencyIsDirect = fromPeer
         case .datagramCounts(let counts):
             datagramCounts = counts
         case .note(let message):

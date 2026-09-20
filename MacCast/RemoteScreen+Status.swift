@@ -151,7 +151,7 @@ extension RemoteScreen {
                     // height for two short strings. They fit together on a portrait phone with
                     // the chips a little tighter, and the pill is a line shorter for it.
                     HStack(spacing: 7) {
-                        if let latency = model.latencyMilliseconds {
+                        if let latency = model.shownLatency {
                             Text(String(format: "%3d ms", Int(latency.rounded())))
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(ColorPalette.reading(latency))
@@ -248,7 +248,7 @@ extension RemoteScreen {
                                 .lineLimit(1)
                             // No spacer, for the reason Row 1 has none: the collapsed pill
                             // should be the width of what it says.
-                            if let latency = model.latencyMilliseconds {
+                            if let latency = model.shownLatency {
                                 Text(String(format: "%3d ms", Int(latency.rounded())))
                                     .font(.caption2.monospacedDigit())
                                     .foregroundStyle(ColorPalette.reading(latency))

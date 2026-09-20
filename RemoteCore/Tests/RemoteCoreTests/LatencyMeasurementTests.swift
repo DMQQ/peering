@@ -150,3 +150,85 @@ struct LatencyWindowTests {
         #expect(window.reported == 42.5)
     }
 }
+
+/// A lane ping as it actually travels: sealed by one end, opened by the other.
+///
+/// The number is the whole point of the change, so it is worth checking that it survives the
+/// sealing rather than only that the ledger can match one it was handed directly.
+@Suite("A ping on the datagram lane")
+struct LanePingWireTests {
+    private let token = Data((0..<16).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ 1) })
+
+    private func schedule() -> VideoKeySchedule {
+        VideoKeySchedule(secret: Data(repeating: 9, count: VideoKeySchedule.secretSize))
+    }
+
+    /// What the relay does between the two ends, which is the one part of the contract written in
+    /// another repository.
+    private func forwarded(_ datagrams: [Data]) -> [Data] {
+        datagrams.map { Data($0.dropFirst(VideoDatagram.tokenSize)) }
+    }
+
+    @Test func aSealedPingOpensAsAPingCarryingItsNumber() throws {
+        var sealer = try schedule().sealer(token: token, direction: .clientToHost)
+        var opener = schedule().opener(direction: .clientToHost)
+
+        let datagrams = sealer.seal(
+            kind: .ping, payload: try MessageCodec.encode(PingPayload(sequence: 42))
+        )
+        #expect(datagrams.count == 1)
+
+        var opened: Frame?
+        for datagram in forwarded(datagrams) { opened = try opener.open(datagram) }
+
+        let frame = try #require(opened)
+        #expect(frame.kind == .ping)
+        let decoded = try MessageCodec.decode(PingPayload.self, from: frame.payload)
+        #expect(decoded.sequence == 42)
+    }
+
+    /// The Mac's half of it: the payload it does not read is the payload it hands back, and the
+    /// number has to come out the other end unchanged for the client to be able to time anything.
+    @Test func theEchoedPongCarriesTheSameNumberBack() throws {
+        let schedule = schedule()
+        var toHost = try schedule.sealer(token: token, direction: .clientToHost)
+        var atHost = schedule.opener(direction: .clientToHost)
+        var fromHost = try schedule.sealer(token: token, direction: .hostToClient)
+        var atClient = schedule.opener(direction: .hostToClient)
+
+        var ping: Frame?
+        for datagram in forwarded(toHost.seal(
+            kind: .ping, payload: try MessageCodec.encode(PingPayload(sequence: 7))
+        )) { ping = try atHost.open(datagram) }
+
+        let question = try #require(ping)
+        #expect(question.kind == .ping)
+
+        var pong: Frame?
+        for datagram in forwarded(fromHost.seal(kind: .pong, payload: question.payload)) {
+            pong = try atClient.open(datagram)
+        }
+
+        let reply = try #require(pong)
+        #expect(reply.kind == .pong)
+        let decoded = try MessageCodec.decode(PingPayload.self, from: reply.payload)
+        #expect(decoded.sequence == 7)
+    }
+
+    /// A ping and a pong share the lane with the picture, and the opener that puts pictures back
+    /// together must not read either as one. This is the assertion behind the guard in
+    /// `handleDatagram`: a pong that reached the renderer would be a frame with no video in it.
+    @Test func aPongIsNotAPieceOfAPicture() throws {
+        var sealer = try schedule().sealer(token: token, direction: .hostToClient)
+        var opener = schedule().opener(direction: .hostToClient)
+
+        var opened: Frame?
+        for datagram in forwarded(sealer.seal(
+            kind: .pong, payload: try MessageCodec.encode(PingPayload(sequence: 1))
+        )) { opened = try opener.open(datagram) }
+
+        let frame = try #require(opened)
+        #expect(frame.kind != .videoFrame)
+        #expect(frame.kind != .videoChunk)
+    }
+}
