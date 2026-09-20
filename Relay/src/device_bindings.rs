@@ -1,18 +1,25 @@
-//! Which public key each device ID has proved itself with.
+//! Which public key each device ID was last proved with.
 //!
-//! **First use binds, and everything after it must match.** There is no enrolment step here and no
-//! authority: a device ID belongs to whoever proved it first, and the proof is a signature with the
-//! key that device already had. What makes first-use safe enough is that the ID is a UUID which is
-//! only broadcast on the network the Mac itself advertises on, and that the Mac registers within
-//! seconds of starting. A stranger has to arrive before a machine that is already running, on the
-//! same network as the person they are attacking.
+//! **What this is for.** A Mac proves its device ID with a signature, and this records the key that
+//! proof was made with. The one thing it enforces is that a registration offering *no* proof cannot
+//! claim an ID that has been proved before: "I cannot sign for this" is a different statement from
+//! "I am an older build", and only one of them is innocent.
 //!
-//! **The binding is what makes a proofless registration refusable**, and that is the part worth
-//! being precise about. On its own, requiring a proof would break every Mac in the field on the day
-//! it shipped, so the relay cannot demand one yet. But it can refuse a registration that has no
-//! proof for an ID that somebody has *already* proved: at that point "I cannot sign for this" is a
-//! different statement from "I am an older build", and only one of them is innocent. So the
-//! protection arrives per device as devices update, with no flag to flip and no cutover.
+//! **What this used to be, and why it changed.** A device ID used to belong to whoever proved it
+//! *first*, and every later registration with a different key was refused permanently, on the
+//! reasoning that the ID is only broadcast on the Mac's own network and that the Mac registers
+//! within seconds of starting. Both halves of that are false. The ID travels in the pairing QR
+//! code, so it reaches whatever the user shows it to, and a Mac that is asleep or switched off is
+//! not registering at all, which gives a stranger all the time in the world to arrive first with a
+//! key of their own. The device is then the one refused, for ever, until an operator edits this
+//! file: a public ID was enough to take a Mac off the relay permanently.
+//!
+//! So a **proved** registration now always wins. If the key differs from the one on file, the
+//! binding moves to it and the change is logged loudly, because a Mac whose key has genuinely
+//! changed and an attacker who has just taken the ID look identical here and only a human can tell
+//! them apart. The protection against being *impersonated* does not live in this file and never
+//! did: it is the pin, which the phone holds and checks against the key the Mac presents during
+//! the TLS handshake. A registration this file lets through still cannot be connected to.
 
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
@@ -39,7 +46,13 @@ pub enum Binding {
     Bound,
     /// The key matches what this ID was bound to.
     Matched,
-    /// The ID is bound to a different key, or to none and this registration offers no proof.
+    /// This ID was bound to a different key and now belongs to this one.
+    ///
+    /// Worth its own case rather than folded into ``Bound``: it is the one outcome an operator has
+    /// to be able to find in a journal, because it is either a device that re-minted its identity
+    /// or somebody who has taken an ID they do not own, and nothing here can tell those apart.
+    Rebound,
+    /// The ID is bound and this registration offers no proof, so it cannot be what it claims.
     Refused(&'static str),
 }
 
@@ -91,9 +104,10 @@ impl DeviceBindings {
 
     /// Reads back who was bound to what.
     ///
-    /// **The first line for an ID wins**, not the last, because the file is a record of first use
-    /// and a later line for the same ID would only ever exist if a bug wrote one. Taking the last
-    /// instead would quietly turn a bind-once store into a bind-anytime one.
+    /// **The last line for an ID wins**, which is the opposite of what this did while a binding was
+    /// permanent. It has to be: a re-bind writes a new line, and replaying the first one would put
+    /// the store back into the state the re-bind had just replaced, so a Mac that re-minted its
+    /// key would work until the relay restarted and then be refused again by its own history.
     fn replay(path: &PathBuf) -> io::Result<HashMap<String, String>> {
         let text = match fs::read_to_string(path) {
             Ok(text) => text,
@@ -104,26 +118,27 @@ impl DeviceBindings {
         let mut bindings = HashMap::new();
         for line in text.lines() {
             let Ok(entry) = serde_json::from_str::<BindingLine>(line) else { continue };
-            bindings.entry(entry.d).or_insert(entry.k);
+            bindings.insert(entry.d, entry.k);
         }
         Ok(bindings)
     }
 
-    /// Decides what to do with a registration, and records it if it is the first.
+    /// Decides what to do with a registration, and records what it decided.
     ///
     /// `proof` is the hex public key the registration proved control of, or `None` when it offered
-    /// no proof at all. The two refusals it can return are deliberately different sentences: one is
-    /// an attacker, the other is a build that predates this, and an operator reading a log needs to
-    /// be able to tell them apart while the fleet updates.
+    /// no proof at all. See the module comment for why a proved registration always wins, and why
+    /// that is not the same as trusting it: the phone's pin is what decides whether the device
+    /// behind this ID is the one it paired with.
     pub fn check_and_bind(&self, device_id: &str, proof: Option<&str>) -> Binding {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
 
         match (inner.get(device_id), proof) {
             (Some(bound), Some(present)) if bound == present => Binding::Matched,
-            (Some(_), Some(_)) => Binding::Refused(
-                "that device id is bound to a different key; a device that loses its key must be \
-                 unbound by the operator",
-            ),
+            (Some(_), Some(present)) => {
+                inner.insert(device_id.to_string(), present.to_string());
+                self.record(device_id, present);
+                Binding::Rebound
+            }
             (Some(_), None) => Binding::Refused(
                 "that device id has proved itself before and this registration does not",
             ),
@@ -185,16 +200,39 @@ mod tests {
         assert_eq!(bindings.check_and_bind("mac", Some("04aa")), Binding::Matched);
     }
 
-    /// The attack this exists for: somebody who knows the ID but not the key.
+    /// **The lockout this used to be.** A device ID is public (it travels in the pairing QR code),
+    /// so a stranger who registers it first with a key of their own used to make the real Mac
+    /// unreachable for ever: every later registration from the Mac was refused, and only an
+    /// operator editing the bindings file could undo it. A proved registration now takes the ID
+    /// back, and the change is reported so a human can look at it.
     #[test]
-    fn a_different_key_cannot_take_a_bound_id() {
+    fn a_different_key_takes_the_id_back_rather_than_locking_the_device_out() {
         let (bindings, _) = DeviceBindings::new(None);
-        bindings.check_and_bind("mac", Some("04aa"));
-        assert!(matches!(
+        assert_eq!(bindings.check_and_bind("mac", Some("04aa")), Binding::Bound);
+
+        assert_eq!(bindings.check_and_bind("mac", Some("04bb")), Binding::Rebound);
+        assert_eq!(
             bindings.check_and_bind("mac", Some("04bb")),
-            Binding::Refused(_)
-        ));
-        assert_eq!(bindings.len(), 1, "and the real binding is untouched");
+            Binding::Matched,
+            "and the new key is the one on file"
+        );
+        assert_eq!(bindings.len(), 1, "one id, one binding, never two");
+    }
+
+    /// And it survives a restart, which is the part replaying the *first* line got wrong: the Mac
+    /// would work until the relay restarted and then be refused by its own history.
+    #[test]
+    fn a_rebound_key_is_what_survives_a_restart() {
+        let path = scratch("rebound");
+        let (first, _) = DeviceBindings::new(Some(path.clone()));
+        first.check_and_bind("mac", Some("04aa"));
+        first.check_and_bind("mac", Some("04bb"));
+
+        let (second, _) = DeviceBindings::new(Some(path.clone()));
+        assert_eq!(second.check_and_bind("mac", Some("04bb")), Binding::Matched);
+        assert_eq!(second.check_and_bind("mac", Some("04aa")), Binding::Rebound);
+
+        let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 
     /// The one that makes this safe to ship before every Mac has updated: an older build that
@@ -235,10 +273,9 @@ mod tests {
             Binding::Matched,
             "the restart did not forget who owns the id"
         );
-        assert!(matches!(
-            second.check_and_bind("mac", Some("04bb")),
-            Binding::Refused(_)
-        ));
+        // And a different key still takes the id back after the restart, rather than being
+        // refused by a file that remembers the key it replaced. See the rebound test above.
+        assert_eq!(second.check_and_bind("mac", Some("04bb")), Binding::Rebound);
 
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
@@ -272,10 +309,10 @@ mod tests {
         let (bindings, failure) = DeviceBindings::new(Some(occupied.join("devices.jsonl")));
         assert!(failure.is_some(), "the caller should be told");
         assert_eq!(bindings.check_and_bind("mac", Some("04aa")), Binding::Bound);
-        assert!(matches!(
-            bindings.check_and_bind("mac", Some("04bb")),
-            Binding::Refused(_)
-        ));
+        // In memory it behaves exactly as it would with a file, which is the point: a store that
+        // cannot be written is a store that forgets on restart, not one that refuses registrations.
+        assert_eq!(bindings.check_and_bind("mac", Some("04bb")), Binding::Rebound);
+        assert_eq!(bindings.check_and_bind("mac", Some("04bb")), Binding::Matched);
 
         let _ = fs::remove_dir_all(directory);
     }

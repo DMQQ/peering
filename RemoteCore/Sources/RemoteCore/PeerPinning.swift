@@ -42,14 +42,22 @@ public enum SPKI {
 /// host and client keeps two independent trust stores.
 public final class PinStore: @unchecked Sendable {
     private let lock = NSLock()
-    private let service: String
-    private let account: String
+    private let storage: any PinStorage
     private var pins: [String: Data]
 
     public init(service: String, account: String = "paired-clients") {
-        self.service = service
-        self.account = account
-        pins = Self.read(service: service, account: account)
+        self.storage = KeychainPinStorage(service: service, account: account)
+        pins = Self.read(storage)
+    }
+
+    /// The same store over something other than the Keychain, for tests.
+    ///
+    /// Internal rather than public: nothing that ships should be able to point a trust store at a
+    /// file, and the reason this exists at all is that the store's rules about *failure* had no way
+    /// to be exercised while the only door in was the real Keychain.
+    init(storage: any PinStorage) {
+        self.storage = storage
+        pins = Self.read(storage)
     }
 
     public var peerIDs: [String] {
@@ -78,7 +86,7 @@ public final class PinStore: @unchecked Sendable {
         lock.withLock {
             let previous = pins[peerID]
             pins[peerID] = publicKey
-            guard Self.write(pins, service: service, account: account) else {
+            guard Self.write(pins, to: storage) else {
                 if let previous { pins[peerID] = previous } else { pins.removeValue(forKey: peerID) }
                 return false
             }
@@ -90,7 +98,7 @@ public final class PinStore: @unchecked Sendable {
     public func remove(peerID: String) -> Bool {
         lock.withLock {
             let previous = pins.removeValue(forKey: peerID)
-            guard Self.write(pins, service: service, account: account) else {
+            guard Self.write(pins, to: storage) else {
                 pins[peerID] = previous
                 return false
             }
@@ -102,11 +110,58 @@ public final class PinStore: @unchecked Sendable {
     public func removeAll() -> Bool {
         lock.withLock {
             pins.removeAll()
-            return Self.write(pins, service: service, account: account)
+            return Self.write(pins, to: storage)
         }
     }
 
-    private static func read(service: String, account: String) -> [String: Data] {
+    /// The pins as stored, or an empty store.
+    ///
+    /// **Empty is the answer to every failure here, and that is a decision rather than a shrug.**
+    /// The caller cannot act on the difference between "nothing stored" and "could not read", and
+    /// the alternative (refusing to start, or holding no store at all) would leave a user unable
+    /// to connect to a Mac they are already paired with. What it costs is a re-pairing, and the log
+    /// line below is what makes the difference visible to whoever reads it.
+    private static func read(_ storage: any PinStorage) -> [String: Data] {
+        guard let data = storage.read() else { return [:] }
+        guard let decoded = try? JSONDecoder().decode([String: Data].self, from: data) else {
+            pinLog.error("pin store exists but could not be decoded; treating as empty")
+            return [:]
+        }
+        return decoded
+    }
+
+    private static func write(_ pins: [String: Data], to storage: any PinStorage) -> Bool {
+        guard let data = try? JSONEncoder().encode(pins) else {
+            pinLog.error("could not encode pins")
+            return false
+        }
+        return storage.write(data)
+    }
+}
+
+/// Where a pin store keeps its bytes.
+///
+/// **One implementation ships and it is the Keychain.** This exists because two of the store's rules
+/// are about what happens when storage *fails*, and neither could be exercised while the only way
+/// into the store was the real Keychain: that a write which does not land must not leave the
+/// in-memory copy claiming a pairing the next launch will not find, and that a read which cannot be
+/// decoded is treated as an empty store rather than as whatever the bytes happened to say. Those are
+/// the rules that decide whether a user is told they are paired when they are not.
+public protocol PinStorage: Sendable {
+    /// The stored bytes, or `nil` when there is nothing to read or nothing readable. A failure and
+    /// an empty store are deliberately the same answer; see the note in ``PinStore/read(_:)``.
+    func read() -> Data?
+    /// Whether the bytes are now stored. `false` is a failure the caller must not ignore.
+    func write(_ data: Data) -> Bool
+}
+
+/// The Keychain, which is what ships. See ``PinStore`` for why the store is here rather than in a
+/// file the user owns.
+struct KeychainPinStorage: PinStorage {
+    let service: String
+    let account: String
+
+    func read() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -117,32 +172,20 @@ public final class PinStore: @unchecked Sendable {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
-        // errSecItemNotFound is the ordinary first-run case. Any other failure means the
-        // store exists but is unreachable — and since an unreadable store is
-        // indistinguishable from an empty one, every paired peer would silently be treated
-        // as a stranger and asked to pair again. That is worth a loud log line.
+        // errSecItemNotFound is the ordinary first-run case. Any other failure means the store
+        // exists but is unreachable, and since an unreadable store is indistinguishable from an
+        // empty one, every paired peer would silently be treated as a stranger and asked to pair
+        // again. That is worth a loud log line.
         guard status == errSecSuccess else {
             if status != errSecItemNotFound {
                 pinLog.error("could not read pins: OSStatus \(status, privacy: .public)")
             }
-            return [:]
+            return nil
         }
-
-        guard let data = item as? Data,
-              let decoded = try? JSONDecoder().decode([String: Data].self, from: data)
-        else {
-            pinLog.error("pin store exists but could not be decoded; treating as empty")
-            return [:]
-        }
-        return decoded
+        return item as? Data
     }
 
-    private static func write(_ pins: [String: Data], service: String, account: String) -> Bool {
-        guard let data = try? JSONEncoder().encode(pins) else {
-            pinLog.error("could not encode pins")
-            return false
-        }
-
+    func write(_ data: Data) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

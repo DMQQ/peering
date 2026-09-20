@@ -92,6 +92,19 @@ pub enum ClientMessage {
         plan: Option<String>,
         #[serde(default, deserialize_with = "optional_text")]
         jws_representation: Option<String>,
+        /// The client's proof that it is the device whose ID it announces: the same three fields
+        /// the Mac sends when it registers, over a different string. `signalling` checks it, and
+        /// what it buys is that relay time is metered against a key rather than against an ID the
+        /// app can lose by being reinstalled. See `device_proof::client_payload`.
+        ///
+        /// Optional, and absent from every build before this one: a client that offers no proof is
+        /// metered by its announced id, exactly as it was.
+        #[serde(default, deserialize_with = "optional_text")]
+        public_key: Option<String>,
+        #[serde(default, deserialize_with = "optional_text")]
+        proof: Option<String>,
+        #[serde(default)]
+        proof_time: Option<u64>,
     },
 
     /// Keeps the signalling connection alive through idle NAT timeouts.
@@ -340,6 +353,9 @@ mod tests {
                 api_key: None,
                 plan: None,
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             }
         );
     }
@@ -357,6 +373,9 @@ mod tests {
                 api_key: None,
                 plan: Some("pro".into()),
                 jws_representation: None,
+                public_key: None,
+                proof: None,
+                proof_time: None,
             }
         );
     }
@@ -415,6 +434,9 @@ mod tests {
             api_key: None,
             plan: Some("relay".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(
@@ -457,6 +479,9 @@ mod tests {
             api_key: None,
             plan: None,
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         };
         let json = serde_json::to_string(&message).expect("should encode");
         assert_eq!(

@@ -55,13 +55,19 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// relay documents at length, including when it ends. Both are optional and both are read
     /// leniently: an unrecognised or absent plan, and any receipt that does not verify, mean the
     /// free allowance rather than a refusal to connect.
+    /// **`clientProof` is what the allowance is keyed on when it is present.** Without it the relay
+    /// meters the announced client ID, which is a string in the app's own storage and starts over
+    /// when the app is reinstalled. With it the relay meters the key, which is in the Keychain and
+    /// does not. Optional on the wire, so a build that predates this is metered the old way rather
+    /// than refused. See ``RelayDeviceProof/makeClientProof(clientID:identity:now:)``.
     case connectToHost(
         hostID: String,
         clientID: String,
         protocolVersion: UInt16,
         apiKey: String? = nil,
         plan: String? = nil,
-        jwsRepresentation: String? = nil
+        jwsRepresentation: String? = nil,
+        clientProof: RelayDeviceProof? = nil
     )
     /// Ask the relay where the other end of this session is.
     ///
@@ -90,6 +96,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
+        // Both messages carry a proof under these three names. They are over different strings,
+        // which the relay tells apart by the payload's version tag rather than by the field name.
         case publicKey, proof, proofTime
         case deviceID = "deviceId"
         case hostID = "hostId"
@@ -118,13 +126,23 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             let protocolVersion,
             let apiKey,
             let plan,
-            let jwsRepresentation
+            let jwsRepresentation,
+            let clientProof
         ):
             try container.encode("connectToHost", forKey: .type)
             try container.encode(hostID, forKey: .hostID)
             try container.encode(clientID, forKey: .clientID)
             try container.encode(protocolVersion, forKey: .protocolVersion)
             if let apiKey { try container.encode(apiKey, forKey: .apiKey) }
+            // Three fields or none, the same shape and the same names the host registration uses.
+            // What is signed is not the same, and the relay keeps the two payloads apart by their
+            // version tag rather than by the field names: this one is over
+            // ``RelayDeviceProof/clientPayload(clientID:proofTime:)``.
+            if let clientProof {
+                try container.encode(clientProof.publicKey, forKey: .publicKey)
+                try container.encode(clientProof.signature, forKey: .proof)
+                try container.encode(clientProof.proofTime, forKey: .proofTime)
+            }
             // Left out rather than sent as null when there is nothing to say: the relay's own
             // spelling of "no plan" and "no receipt" is the field being absent, and both ends
             // agreeing on one spelling is one fewer case to get wrong.
@@ -284,8 +302,22 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         }
     }
 
+    /// Sixteen bytes, spelled as thirty-two hex digits.
+    ///
+    /// **Both guards are load-bearing, and one of them used to be wrong.** This asked for
+    /// `utf8.count == 32` and then walked the string sixteen times, two *characters* at a time. A
+    /// string of thirty-two bytes can be fewer than thirty-two characters (one four-byte emoji
+    /// standing in for one of the digits is enough), and the walk then asked for an index past
+    /// the end and took the process down with it. A trap, reachable from whatever the relay
+    /// sends, in a function whose entire job is to refuse things.
+    ///
+    /// So the count is in characters, which is the unit the loop actually moves in, and every
+    /// character has to be an ASCII hex digit before the loop starts. That second guard is not
+    /// only about non-hex input: `UInt8(_:radix:)` accepts a leading `+`, so without it a token
+    /// of sixteen `+1`s would decode to sixteen one-bytes and be handed on as if the relay had
+    /// sent it.
     private static func token(_ hex: String) -> Data? {
-        guard hex.utf8.count == 32 else { return nil }
+        guard hex.count == 32, hex.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
         var bytes = [UInt8]()
         bytes.reserveCapacity(16)
         var index = hex.startIndex

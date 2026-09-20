@@ -57,6 +57,66 @@ struct RelayProtocolTests {
             "peeringd-host-registration-v1\n8B88D893-55BD-4F68-AF3F-E81D885A50A7\n1760000000")
     }
 
+    /// **The client's payload, pinned to the relay's spelling of it.** The two are written in two
+    /// languages and neither can see the other, so this literal is the contract: `client_payload`
+    /// in the relay's `device_proof.rs` has to produce exactly this string, tag and newlines and
+    /// all, or every proof fails to verify and reads, from the relay, exactly like a client that
+    /// sent none.
+    @Test("the client payload is the string the relay builds")
+    func clientPayloadMatchesTheRelay() {
+        let payload = RelayDeviceProof.clientPayload(
+            clientID: "A1B2",
+            proofTime: 1_760_000_000
+        )
+
+        #expect(String(decoding: payload, as: UTF8.self) ==
+            "peeringd-client-registration-v1\nA1B2\n1760000000")
+    }
+
+    /// And the two domains are different strings, which is the whole reason the tag is there: a
+    /// registration signed for a Mac must not be presentable as one from a phone, and the fields
+    /// have the same names on the wire.
+    @Test("a host registration and a client registration are different strings")
+    func theTwoProofDomainsDiffer() {
+        let host = RelayDeviceProof.payload(deviceID: "A1B2", proofTime: 1_760_000_000)
+        let client = RelayDeviceProof.clientPayload(clientID: "A1B2", proofTime: 1_760_000_000)
+
+        #expect(host != client)
+    }
+
+    /// The connect request carries the proof under the same three field names the Mac's
+    /// registration uses, and leaves all three out when there is none: the relay's spelling of
+    /// "no proof" is the fields being absent.
+    @Test("a connection request carries the client's proof, or nothing")
+    func connectRequestCarriesTheClientProof() throws {
+        let proved = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
+            hostID: "mac-1",
+            clientID: "phone-1",
+            protocolVersion: 16,
+            clientProof: RelayDeviceProof(
+                publicKey: "04aa",
+                signature: "3045",
+                proofTime: 1_760_000_000
+            )
+        ))
+        let text = String(decoding: proved, as: UTF8.self)
+
+        #expect(text.contains("\"publicKey\":\"04aa\""))
+        #expect(text.contains("\"proof\":\"3045\""))
+        #expect(text.contains("\"proofTime\":1760000000"))
+
+        let unproved = try RelayMessageCodec.encode(RelayClientMessage.connectToHost(
+            hostID: "mac-1",
+            clientID: "phone-1",
+            protocolVersion: 16
+        ))
+        let plain = String(decoding: unproved, as: UTF8.self)
+
+        #expect(!plain.contains("publicKey"))
+        #expect(!plain.contains("\"proof\""))
+        #expect(!plain.contains("proofTime"))
+    }
+
     /// A device id cannot contain a newline and a time cannot contain anything but digits, so no
     /// two different registrations can sign the same bytes. That is what makes the delimiter safe
     /// rather than clever.
@@ -197,6 +257,49 @@ struct RelayProtocolTests {
         let text = String(decoding: encoded, as: UTF8.self)
 
         #expect(text.contains("\"videoToken\":\"00" + String(repeating: "ab", count: 15) + "\""))
+    }
+
+    /// **The token decoder's length check has to be in the units the loop moves in.** It asked for
+    /// thirty-two *bytes* and then walked thirty-two *characters*, so a string that was thirty-two
+    /// bytes but fewer characters made the sixteenth step ask for an index past the end. That is a
+    /// trap, not a thrown error, and it is reachable from whatever the relay sends: this test would
+    /// have crashed the suite rather than failed it.
+    @Test("a token of thirty-two bytes but fewer characters is refused, not crashed on")
+    func tokenWithMultibyteCharactersIsRefused() throws {
+        // Twenty-eight digits and one four-byte character: thirty-two bytes, twenty-nine
+        // characters, which is exactly the shape that used to walk off the end.
+        let token = String(repeating: "a", count: 28) + "💥"
+        #expect(token.utf8.count == 32)
+        #expect(token.count == 29)
+
+        let json = """
+            {"type":"sessionReady","controlHost":"relay.getpeering.app","controlPort":20190,\
+            "videoHost":"relay.getpeering.app","videoPort":30190,"controlToken":"\(token)",\
+            "videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}
+            """
+
+        #expect(throws: RelayProtocolError.invalidToken) {
+            try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+        }
+    }
+
+    /// A token that is the right length and the wrong alphabet. `UInt8(_:radix:)` accepts a
+    /// leading `+`, so sixteen `+1` pairs would otherwise decode to sixteen one-bytes and be
+    /// handed on as though the relay had sent them.
+    @Test("a token of plus signs is refused rather than parsed as numbers")
+    func tokenWithSignsIsRefused() throws {
+        let token = String(repeating: "+1", count: 16)
+        #expect(token.count == 32)
+
+        let json = """
+            {"type":"sessionReady","controlHost":"relay.getpeering.app","controlPort":20190,\
+            "videoHost":"relay.getpeering.app","videoPort":30190,"controlToken":"\(token)",\
+            "videoToken":"fffefdfcfbfaf9f8f7f6f5f4f3f2f1f0"}
+            """
+
+        #expect(throws: RelayProtocolError.invalidToken) {
+            try RelayMessageCodec.decode(RelayServerMessage.self, from: Data(json.utf8))
+        }
     }
 
     @Test("an address from the relay decodes into the peer's host and port")

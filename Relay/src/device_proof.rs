@@ -53,6 +53,23 @@ pub fn payload(device_id: &str, proof_time: u64) -> String {
     format!("peeringd-host-registration-v1\n{device_id}\n{proof_time}")
 }
 
+/// The bytes a *client* signs when it asks for a session.
+///
+/// **A separate domain, and the tag is the whole of what separates them.** Both proofs are made
+/// with the same key by the same device, and the two messages carry their three fields under the
+/// same names, so the only thing that stops a signature over one from being presented as the other
+/// is this string: a host registration signed by a phone must not be replayable as a client
+/// registration for the same id, and vice versa. The version tag is first for the reason it is in
+/// the host payload, so a later scheme is a different string rather than a silently incompatible
+/// one.
+///
+/// What it is for is metering rather than access: the relay charges relay time against the client
+/// id a phone announces, and that id is stored where reinstalling the app destroys it. A key is
+/// not.
+pub fn client_payload(client_id: &str, proof_time: u64) -> String {
+    format!("peeringd-client-registration-v1\n{client_id}\n{proof_time}")
+}
+
 /// Whether a signature is genuinely this device's.
 ///
 /// The public key is checked to be a point on P-256 as part of verifying, so a garbage key is a
@@ -136,6 +153,34 @@ mod tests {
             &sign(&signing, &signed),
             attempted.as_bytes()
         ));
+    }
+
+    /// **The property the two domains exist for.** The same key signs both messages, and the fields
+    /// have the same names on the wire, so the only thing keeping a host registration from being
+    /// presented as a client one (or the reverse) is the version tag at the front of the string.
+    #[test]
+    fn a_host_registration_is_not_a_client_registration() {
+        let signing = key(7);
+        let signature = sign(&signing, &payload("A1B2", 1_760_000_000));
+        let as_client = client_payload("A1B2", 1_760_000_000);
+
+        assert!(
+            !verifies(&uncompressed(&signing), &signature, as_client.as_bytes()),
+            "a signature over the host payload must not authorise a client registration"
+        );
+    }
+
+    /// And the client payload itself is versioned and unambiguous, for the reason the host one is.
+    #[test]
+    fn the_client_payload_is_pinned_and_separates_its_fields() {
+        assert_eq!(
+            client_payload("A1B2", 1_760_000_000),
+            "peeringd-client-registration-v1\nA1B2\n1760000000"
+        );
+        // A newline cannot appear in a device id, so no two inputs can collide.
+        let one = client_payload("a\n1", 2);
+        let two = client_payload("a", 1);
+        assert_ne!(one, two);
     }
 
     #[test]

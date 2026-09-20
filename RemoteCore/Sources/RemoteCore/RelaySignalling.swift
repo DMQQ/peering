@@ -52,11 +52,16 @@ public final class RelaySignallingConnection: @unchecked Sendable {
     /// `entitlement` is what this device has bought and what it can prove — see ``RelayEntitlement``.
     /// The relay decides the allowance from the receipt when there is one that verifies and from
     /// the claimed plan when there is not, so an empty entitlement is the free allowance.
+    /// `clientProof` is this device signing for the ID it is announcing, which is what the relay
+    /// meters relay time against when it is present: the announced ID lives in the app's storage
+    /// and starts over on a reinstall, and the key it was signed with does not. See
+    /// ``RelayDeviceProof/makeClientProof(clientID:identity:now:)``.
     public static func requestSession(
         at url: URL,
         hostID: String,
         clientID: String,
-        entitlement: RelayEntitlement = RelayEntitlement()
+        entitlement: RelayEntitlement = RelayEntitlement(),
+        clientProof: RelayDeviceProof? = nil
     ) async throws -> RelaySession {
         let connection = RelaySignallingConnection(url: url)
         defer { connection.cancel() }
@@ -66,7 +71,8 @@ public final class RelaySignallingConnection: @unchecked Sendable {
             protocolVersion: ProtocolInfo.version,
             apiKey: entitlement.apiKey,
             plan: entitlement.plan,
-            jwsRepresentation: entitlement.jwsRepresentation
+            jwsRepresentation: entitlement.jwsRepresentation,
+            clientProof: clientProof
         ))
 
         while true {

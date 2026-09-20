@@ -295,11 +295,22 @@ public final class ClientSession: @unchecked Sendable {
 
     public enum Failure: LocalizedError, Sendable {
         case busy
-        case notReady
         case protocolMismatch(client: UInt16, host: UInt16)
         case commitmentMismatch
         case noServerKey
+        /// **The Mac answered, and it is not the one this device paired with.**
+        ///
+        /// Either an impostor, or a Mac that was reset and paired again since, which is why the
+        /// sentence below carries the way out as well as the diagnosis.
         case pinMismatch(hostID: String)
+        /// Dialled by device ID with nothing in the pin store to back the claim.
+        ///
+        /// Deliberately *not* ``pinMismatch``, though the two used to share a case and therefore
+        /// a sentence. A mismatch means a key was compared and failed; this means there was no key
+        /// to compare, and telling somebody their Mac's identity changed when this iPhone has
+        /// simply never met it is a diagnosis of the wrong fault. Reachable through the relay,
+        /// where a device ID is enough to dial with.
+        case noPinOnFile(hostID: String)
         /// The Mac that answered through the relay is not the one whose ID was dialled.
         ///
         /// A routing check, and nothing more. The relay routes by device ID, so a Mac that
@@ -328,8 +339,6 @@ public final class ClientSession: @unchecked Sendable {
             switch self {
             case .busy:
                 return "This session is already connecting or connected."
-            case .notReady:
-                return "The session is not connected."
             case .protocolMismatch(let client, let host):
                 return "This Mac speaks protocol v\(host) and this app speaks v\(client). Update whichever is older."
             case .commitmentMismatch:
@@ -339,7 +348,14 @@ public final class ClientSession: @unchecked Sendable {
             case .noServerKey:
                 return "The Mac's certificate did not expose a public key, so it cannot be pinned."
             case .pinMismatch(let hostID):
-                return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the stored pin."
+                // The advice is part of the sentence rather than a second screen, because the
+                // only way forward is to forget this Mac and pair again, and somebody reading
+                // this is one tap from doing it. "pinned" is the word ``HostPickerView`` looks
+                // for to give this its own title; that coupling is noted there.
+                return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the key this iPhone pinned for it. If the Mac was reset, forget it here and pair again."
+            case .noPinOnFile(let hostID):
+                // Never a key comparison: there is nothing on file for this ID at all.
+                return "This iPhone has no pairing on file for that Mac (\(hostID)). Pair with it again, or forget it here and start over."
             case .hostIDMismatch(let dialled, let answered):
                 return "A different Mac answered: \(answered), not \(dialled). Check that the code you scanned or typed came from the Mac you meant."
             case .unexpected(let kind, let expected):
@@ -627,7 +643,7 @@ public final class ClientSession: @unchecked Sendable {
                 // device claims to know, with nothing in the pin store to back the claim, is
                 // refused here rather than at the far end.
                 guard let pin = pins.pin(for: hostID) else {
-                    throw Failure.pinMismatch(hostID: hostID)
+                    throw Failure.noPinOnFile(hostID: hostID)
                 }
                 try await openRelayTunnel(
                     to: connection,
@@ -654,13 +670,21 @@ public final class ClientSession: @unchecked Sendable {
                case .refused(let code, _) = e, code == "quotaExceeded" {
                 emit(.relayQuotaExceeded)
             }
-            let isRelaySetupFailure = error is RelaySignallingError || error is RelayTunnelError
-            let message = (pinned != nil && !isRelaySetupFailure)
-                // A pin was in force and TLS refused, which is the one failure worth naming
-                // precisely: it is either an impostor or a Mac that was reset.
-                ? "The Mac at \(target.displayName) did not present the key this device has pinned for it. If it was reset, forget it here and pair again."
-                : Failure.describe(error)
-            fail(message)
+            // **What this used to decide, and why the decision is gone.** It asked whether a pin
+            // was *in force* (`pinned != nil`) and whether the failure had come from the relay's
+            // own types, and on that basis announced that the Mac's identity had changed. Every
+            // paired Mac has a pin, and every failure from the transport arrives as
+            // `Failure.transport`, which is neither relay type, so a Mac that was simply asleep
+            // produced "did not present the key this device has pinned for it", with the advice
+            // to forget it and pair again. The whole `NetworkFailureText` table, written so that
+            // these failures say what they were, was bypassed for exactly the Macs people
+            // actually connect to, and the advice it gave destroyed a working pairing.
+            //
+            // The rule is now the one the sentence needs: an identity failure says so because it
+            // *is* one. `Failure.describe` hands back the app's own wording for a `Failure` and
+            // the network's sentence for anything the transport threw, which is the division the
+            // two of them already agreed on.
+            fail(Failure.describe(error))
             return
         }
 
@@ -703,11 +727,17 @@ public final class ClientSession: @unchecked Sendable {
         pinnedServerKey: Data?,
         timeout: TimeInterval
     ) async throws {
+        // **Signed here, because this is where the key and the ID are both in hand.** A failure to
+        // sign is not a failure to connect: the relay falls back to metering the announced ID,
+        // which is what every build before this one did and what a device with an unreadable
+        // identity would get anyway.
+        let clientProof = try? RelayDeviceProof.makeClientProof(clientID: clientID, identity: identity)
         let allocation = try await RelaySignallingConnection.requestSession(
             at: ProtocolInfo.relaySignallingURL,
             hostID: hostID,
             clientID: clientID,
-            entitlement: entitlement
+            entitlement: entitlement,
+            clientProof: clientProof
         )
         let proxy = RelayControlProxy(session: allocation)
         let endpoint = try await proxy.start()
@@ -1873,7 +1903,23 @@ public final class ClientSession: @unchecked Sendable {
 
     private func fail(_ message: String) {
         lock.lock()
-        let alreadyFailed = state == .failed
+        // **The first failure is the one that counts, and nothing here may contradict it.**
+        //
+        // A connection that fails is reported twice: once by the transport's own close handler and
+        // once by the `catch` in `connect` that was waiting on it. Both come through here, and the
+        // second used to overwrite `_phase` while returning before it emitted anything, so the
+        // property and the event stream could hold two different sentences about the same moment
+        // and which one a reader saw depended on which it asked. That is the seam the shipped
+        // identity-failure bug lived in: the app draws its card from the event and its status line
+        // from the property, and they disagreed.
+        //
+        // The first report wins because it is the one that was emitted, and the user has been told
+        // it. Returning here rather than after the teardown below is deliberate for the same
+        // reason: a second `fail` has nothing left to tear down.
+        guard state != .failed else {
+            lock.unlock()
+            return
+        }
         state = .failed
         _phase = .failed(message)
         let video = self.video
@@ -1892,7 +1938,6 @@ public final class ClientSession: @unchecked Sendable {
         lock.unlock()
 
         videoWatch?.cancel()
-        guard !alreadyFailed else { return }
         sessionLog.error("session failed: \(message, privacy: .public)")
         emit(.phase(.failed(message)))
         // The video socket carries no handshake of its own and is authorized only by this

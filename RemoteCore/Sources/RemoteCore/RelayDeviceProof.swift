@@ -44,7 +44,7 @@ public struct RelayDeviceProof: Sendable, Equatable {
         Data("peeringd-host-registration-v1\n\(deviceID)\n\(proofTime)".utf8)
     }
 
-    /// Signs a registration with this device's identity.
+    /// Signs a host registration with this device's identity.
     ///
     /// `now` is a parameter rather than read here so that a test can pin the string it produces,
     /// which is the only way the two ends' spellings can be compared at all.
@@ -53,14 +53,62 @@ public struct RelayDeviceProof: Sendable, Equatable {
         identity: SelfSignedIdentity,
         now: Date = Date()
     ) throws -> RelayDeviceProof {
-        let proofTime = UInt64(max(0, now.timeIntervalSince1970))
-        let message = payload(deviceID: deviceID, proofTime: proofTime)
-        let signature = try identity.signature(for: message)
+        try make(identity: identity, over: payload(deviceID: deviceID, proofTime: stamp(now)), now: now)
+    }
 
-        return RelayDeviceProof(
+    /// The bytes a phone signs to be metered under its own key rather than under its ID.
+    /// Mirrors `device_proof::client_payload` in the relay.
+    ///
+    /// **A second domain rather than the same one**, and the separator in the tag is the whole of
+    /// the reason. A device signs both of these with the same key, and a client signing
+    /// `peeringd-host-registration-v1\n...` must not produce something a relay would accept as a
+    /// host registration for the same ID, or the two proofs would be interchangeable and one of
+    /// them would be worth less than it looks.
+    public static func clientPayload(clientID: String, proofTime: UInt64) -> Data {
+        Data("peeringd-client-registration-v1\n\(clientID)\n\(proofTime)".utf8)
+    }
+
+    /// Signs a session request with this device's identity.
+    ///
+    /// **What this is for, because it is not about the plan.** The relay meters relay time against
+    /// the client ID a phone announces, and that ID lives in the app's own storage: deleting and
+    /// reinstalling the app mints a new one and hands out the free allowance again. The key does
+    /// not move, because it is in the Keychain and iOS keeps those. So a phone that signs here is
+    /// metered under a key that survives a reinstall, and the announced ID becomes a name in a log
+    /// line rather than the thing an allowance hangs from.
+    ///
+    /// It is not a proof of anything else: the same key is pinned on the Mac, which is what decides
+    /// whether a session may be driven, and this changes nothing about that.
+    public static func makeClientProof(
+        clientID: String,
+        identity: SelfSignedIdentity,
+        now: Date = Date()
+    ) throws -> RelayDeviceProof {
+        try make(identity: identity, over: clientPayload(clientID: clientID, proofTime: stamp(now)), now: now)
+    }
+
+    /// The seconds a signature covers, from the caller's clock.
+    ///
+    /// Clamped at zero rather than allowed to trap: a device whose clock is set before 1970 is a
+    /// device with a broken clock, and the relay refuses a stale proof with a sentence rather than
+    /// a crash on this end.
+    private static func stamp(_ now: Date) -> UInt64 {
+        UInt64(max(0, now.timeIntervalSince1970))
+    }
+
+    /// Signs one of the two payloads with this device's identity.
+    ///
+    /// The one place a proof is built, so that both of them are the same shape: hex of the key, hex
+    /// of the DER signature, and the time the signature covers.
+    private static func make(
+        identity: SelfSignedIdentity,
+        over message: Data,
+        now: Date
+    ) throws -> RelayDeviceProof {
+        RelayDeviceProof(
             publicKey: hex(identity.publicKeyBytes),
-            signature: hex(signature),
-            proofTime: proofTime
+            signature: hex(try identity.signature(for: message)),
+            proofTime: stamp(now)
         )
     }
 

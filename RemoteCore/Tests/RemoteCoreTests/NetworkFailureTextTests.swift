@@ -54,6 +54,51 @@ struct NetworkFailureTextTests {
         #expect(text == "The Mac sent a message this app does not recognise. Update whichever end is older.")
     }
 
+    /// **The regression, and it was not in this table.** A Mac that was asleep used to produce the
+    /// identity sentence: the connect path asked whether a pin was *in force*, which is true of
+    /// every paired Mac, rather than whether the failure was about the pin. So the table below was
+    /// bypassed for exactly the Macs people actually connect to, and the advice that came out of it
+    /// was "forget it here and pair again", which destroys a working pairing over a sleeping Mac.
+    ///
+    /// What is asserted is the property that made that possible: no ordinary transport failure says
+    /// anything about pinned keys. The branch that used to overrule this is gone rather than
+    /// narrowed, which is why this is the whole of the guard.
+    @Test func noTransportFailureReadsAsAnIdentityChange() {
+        let failures: [NWError] = [
+            .posix(.ECONNRESET), .posix(.ECONNREFUSED), .posix(.ETIMEDOUT),
+            .posix(.EHOSTDOWN), .posix(.EHOSTUNREACH), .posix(.EPIPE),
+        ]
+
+        for failure in failures {
+            let text = NetworkFailureText.describe(failure)
+            #expect(!text.contains("pinned"), "\(failure) reads as an identity change")
+            #expect(!text.contains("pair again"), "\(failure) tells the user to break a pairing")
+        }
+    }
+
+    /// A real mismatch says what it is and what to do about it, because the only way forward is to
+    /// pair again and the person reading this is one tap from doing it.
+    @Test func aPinMismatchNamesTheIdentityAndTheWayOut() {
+        let text = NetworkFailureText.describe(
+            ClientSession.Failure.pinMismatch(hostID: "mac-1")
+        )
+
+        #expect(text.contains("not the Mac you paired with"))
+        #expect(text.contains("pair again"))
+    }
+
+    /// Dialling a device ID with nothing on file for it is a different fault with a different
+    /// sentence. It shared a case with the mismatch above, and therefore shared its words, which
+    /// told somebody their Mac's identity had changed when this phone had never met it.
+    @Test func havingNoPinOnFileIsNotAMismatch() {
+        let text = NetworkFailureText.describe(
+            ClientSession.Failure.noPinOnFile(hostID: "mac-1")
+        )
+
+        #expect(text.contains("no pairing on file"))
+        #expect(!text.contains("pinned"))
+    }
+
     /// And nothing at all to say still has to be said without an enum name in it, which is the
     /// case this used to get wrong: `"\(error)"` on any error at all.
     @Test func anOpaqueErrorIsStillASentence() {
