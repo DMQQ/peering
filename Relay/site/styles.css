@@ -151,17 +151,18 @@ a { color: inherit; }
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  /* Tuned to be a sheen rather than a beacon: dim over the last four tenths of the turn, hottest
-     at the leading edge, and nothing at all behind it. The white is the point of it. A ring that
-     was accent blue all the way round would read as a selected card. */
+  /* Tuned to be a sheen rather than a beacon: dim over the last four tenths of the turn, brightest
+     at the leading edge, and nothing at all behind it. **The same white the hairline above is
+     drawn in, and no hue of its own**, because a card is not a control and a border that changed
+     colour under the pointer would read as a selection. It is the hairline's own material, lit. */
   background: conic-gradient(
     from var(--shine),
     transparent 0turn,
     transparent 0.45turn,
-    rgba(10, 132, 255, 0.18) 0.68turn,
-    rgba(10, 132, 255, 0.55) 0.86turn,
-    rgba(10, 132, 255, 1) 0.96turn,
-    rgba(255, 255, 255, 1) 0.995turn,
+    rgba(255, 255, 255, 0.10) 0.68turn,
+    rgba(255, 255, 255, 0.30) 0.86turn,
+    rgba(255, 255, 255, 0.62) 0.96turn,
+    rgba(255, 255, 255, 0.85) 0.995turn,
     transparent 1turn
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
