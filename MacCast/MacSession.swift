@@ -23,7 +23,7 @@ private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session"
 /// model and its life ends with the model's. See ``SessionModel/connect(to:)``.
 @Observable
 @MainActor
-final class MacSession {
+final class MacSession: Identifiable {
     /// Which way the control connection is being carried.
     ///
     /// **Declared in ``MacCastKit`` and merely named here**, like ``StreamQuality``: the cases

@@ -109,6 +109,14 @@ extension SessionModel {
         // the time that event is applied the phases below have already been set — so this flag
         // is the only evidence left that the user, and not the network, ended it.
         userEndedSession = deliberate
+        // **And it is consumed by the first transition to read it, which is a hazard once there
+        // is more than one Mac here.** The loop below ends every session, and each one answers
+        // with its own `.disconnected`; the first of those clears the flag, so every Mac after it
+        // is read as having *dropped* and arms its own reconnect ladder. With one Mac this is
+        // invisible, which is why it has never shown up — see the note on
+        // ``SessionModel/endSession(_:)``. The honest fix is one flag per session rather than one
+        // per app; it is left here rather than done because the ladder's arithmetic is being
+        // reworked, and two hands in it at once is how this gets worse.
         // Only a deliberate one. A drop, and the end iOS forces on a backgrounded app, are the
         // two cases where coming back to the app should find the session restored.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
@@ -154,6 +162,59 @@ extension SessionModel {
                 startedAt: wasStartedAt,
                 path: wasPath
             )
+        }
+    }
+
+    /// Ends one Mac's session, and hands the picture over if it was the one on screen.
+    ///
+    /// **The handover is the whole of it.** Every other per-Mac value ends with its own session,
+    /// but the picture, the sound, the floating window and the Live Activity are singular and
+    /// belong to whichever Mac is being looked at — so ending that Mac has to give them to the
+    /// next one rather than leave them pointed at a session that has stopped. Leaving the pointer
+    /// where it was is the failure that matters: the screens read through
+    /// ``SessionModel/activeSession``, so they would go on drawing a Mac that is gone, and the
+    /// strip would show a selection with no tab to match it.
+    ///
+    /// Ending a Mac that is *not* on screen needs none of that, and is the cheap case: its own
+    /// state goes with it and nothing the user is looking at changes.
+    func endSession(_ id: UUID) {
+        guard let session = sessions.first(where: { $0.id == id }) else { return }
+
+        // **The flag has to be set before the teardown, and this is not optional.** `wire`
+        // announces its own end, and by the time that arrives the phases below are already where
+        // they are — so this is the only evidence left that the user, and not the network, ended
+        // the session. Without it the transition reads a deliberate end as a drop and puts the
+        // Mac straight back on its reconnect ladder.
+        //
+        // Read and cleared by the *first* transition to arrive, which is why ``disconnect()`` has
+        // the same shape and the same caveat: ending several Macs in one moment shares one flag,
+        // and the ones after the first can be caught by it. See the note on that method.
+        userEndedSession = true
+
+        // Cleared before the teardown, so what follows reads as a switch *out of* a session
+        // rather than a switch into one. ``activateSession(_:)`` is a no-op for the Mac already on
+        // screen, and the Mac being ended is still that until this line runs.
+        let wasActive = activeSessionID == id
+        if wasActive { activeSessionID = nil }
+
+        session.endSession()
+
+        guard wasActive else {
+            publishOpenMacs()
+            return
+        }
+
+        if let next = openSessions.first {
+            activateSession(next.id)
+        } else {
+            // Nothing left to hand to, so the app is back where ``disconnect(deliberate:)``
+            // leaves it, for the same reason: these are one of each for the whole app, and a Mac
+            // nobody is connected to must not be left owning any of them.
+            renderer.detach()
+            SessionAudio.shared.end()
+            SessionPiP.shared.detach()
+            SessionActivity.shared.sessionEnded()
+            publishOpenMacs()
         }
     }
 

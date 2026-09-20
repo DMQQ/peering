@@ -12,6 +12,15 @@ import UIKit
 extension RemoteScreen {
     // MARK: - Controls
 
+    /// Whether the strip of Macs is drawn at all.
+    ///
+    /// **One Mac is nearly everybody, and their screen does not change at all.** A strip with a
+    /// single tab on it is a row of chrome that tells somebody with one Mac nothing they did not
+    /// already know, and it takes a line off the picture to do it. The `+` that opens a second Mac
+    /// lives on that strip, so this costs a one-Mac user the discovery of the feature — which is
+    /// what the picker is for, and the picker is a screen they already know how to reach.
+    var hasSeveralMacs: Bool { model.openSessions.count > 1 }
+
     @ViewBuilder
     func sessionChrome(isLandscape: Bool, available: CGSize) -> some View {
         if isLandscape {
@@ -62,7 +71,14 @@ extension RemoteScreen {
                 // Under the pill rather than beside it, in both orientations: the pill is about
                 // the connection the user is watching and the strip is about the others, and
                 // stacking them is what lets the strip disappear without moving the pill.
-                SessionTabs(chromeFrames: $chromeFrames)
+                //
+                // **And in landscape it disappears with the pill**, which is the gesture the pill
+                // already teaches: a tap on it opens the session's own readouts, and the strip of
+                // the other Macs is part of the same question. Portrait keeps it standing, because
+                // the dock below it stands — see the other call site.
+                if hasSeveralMacs, statusBarExpanded {
+                    SessionTabs(chromeFrames: $chromeFrames)
+                }
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
@@ -113,6 +129,15 @@ extension RemoteScreen {
                 // An alignment pins the bottom edge whatever the content does.
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
+            // On the stack itself rather than on the strip, because the strip is not always
+            // there and this is the thing that has to notice. A strip that has gone without its
+            // region being taken back leaves a band across the top of the picture that swallows
+            // every touch aimed at the Mac. See ``chromeFramePresence(_:into:when:)``.
+            .chromeFramePresence(
+                .sessionTabs,
+                into: $chromeFrames,
+                when: hasSeveralMacs && statusBarExpanded
+            )
         } else {
             // Two layers, and the order between them is the whole of the arrangement. The pointer
             // is on the screen's own centre, which is the middle of the picture — so it is drawn
@@ -138,8 +163,14 @@ extension RemoteScreen {
 
                 VStack(spacing: 0) {
                     statusBar
-                    SessionTabs(chromeFrames: $chromeFrames)
-                        .padding(.top, 6)
+                    // Standing permanently here, where landscape's collapses with the pill: this
+                    // is the orientation the dock sits at the bottom of, and a bar of Macs that
+                    // came and went while the dock stayed would be the one piece of chrome on the
+                    // screen with a mind of its own.
+                    if hasSeveralMacs {
+                        SessionTabs(chromeFrames: $chromeFrames)
+                            .padding(.top, 6)
+                    }
                     Spacer(minLength: 0)
                     // Above the dock, for the same reason as in landscape: below it there is
                     // nothing left to push it into.
@@ -162,6 +193,10 @@ extension RemoteScreen {
                 // blocked for touches, over a control that is no longer there to receive them.
                 chromeFrames[.wheel] = nil
             }
+            // The same hazard from the strip's side, and answered the same way: this branch is
+            // the one that is here while the strip is not, so this is where its region is let go
+            // of when the last Mac but one is closed. See ``chromeFramePresence(_:into:when:)``.
+            .chromeFramePresence(.sessionTabs, into: $chromeFrames, when: hasSeveralMacs)
             .animation(Motion.settle, value: interactionMode)
         }
     }

@@ -282,27 +282,9 @@ struct TerminalPanel: View {
     /// the tab itself — so the strip has to hold names of any length and stay readable while
     /// they change under it.
     private var tabStrip: some View {
-        HStack(alignment: .top, spacing: 0) {
-            ScrollViewReader { reader in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 2) {
-                        ForEach(model.terminals) { terminal in
-                            tab(terminal).id(terminal.id)
-                        }
-                    }
-                    .padding(.leading, 8)
-                    .padding(.trailing, 4)
-                    .padding(.top, 8)
-                }
-                // A new terminal arrives at the far end of the strip, and a terminal that wants you
-                // is somewhere you were not looking. Both are worth being shown rather than hunted
-                // for, and both are things this selection is what changes.
-                .onChange(of: model.selectedTerminalID) { _, id in
-                    guard let id else { return }
-                    withAnimation(Motion.settle) { reader.scrollTo(id, anchor: .center) }
-                }
-            }
-
+        TabStrip(items: model.terminals, selection: model.selectedTerminalID) { terminal, isSelected in
+            chip(terminal, isSelected: isSelected)
+        } accessory: {
             // The switch to the Mac's folders, pinned outside the scroller so that it is in the
             // same place however many terminals are open — see ``TerminalModeButton`` for why it
             // is on this row rather than in the navigation bar it used to sit in.
@@ -321,10 +303,6 @@ struct TerminalPanel: View {
                     .padding(.trailing, 8)
             }
         }
-        // The seam the row stands on, across the whole panel and behind the tabs rather than
-        // among them: drawn inside the scrolled stack it was only as wide as the tabs were and
-        // slid along with them, which is a rule drawn on the tabs and not the edge under them.
-        .background(alignment: .bottom) { hairline }
     }
 
     /// Closing a terminal, with a question when there is something to lose.
@@ -341,79 +319,47 @@ struct TerminalPanel: View {
         }
     }
 
-    private func tab(_ terminal: RemoteTerminal) -> some View {
-        let isSelected = model.selectedTerminalID == terminal.id
+    private func chip(_ terminal: RemoteTerminal, isSelected: Bool) -> some View {
         let state = terminal.state
         let isRenaming = renamingID == terminal.id
-        return VStack(spacing: 0) {
-            HStack(spacing: 7) {
-                mark(for: state)
+        // No cross while a name is being typed. The field is what the tab is for then, and a
+        // control that ends the shell sitting beside a field somebody is typing into is a mis-tap
+        // waiting for a thumb that is already moving.
+        let onClose: (() -> Void)? = isRenaming ? nil : { requestClose(terminal) }
 
-                if isRenaming {
-                    renameField(terminal)
-                } else {
-                    Text(terminal.name)
-                        // Monospaced, because most of the time this is a command, and the strip is
-                        // read by shape the way a command is.
-                        .font(.system(
-                            size: 12.5,
-                            weight: isSelected ? .semibold : .regular,
-                            design: .monospaced
-                        ))
-                        .foregroundStyle(nameColour(for: state, isSelected: isSelected))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                // The cross is back on the tab, where the SSH terminal puts it.
-                //
-                // It lived outside the scroller for a while, on the good argument that a control
-                // which destroys something should not move about — a row of names of different
-                // lengths is a row of crosses at different distances. What that traded away turned
-                // out to cost more: the fixed button closes whichever terminal is *selected*, so
-                // the cross you are pointing at and the terminal you are closing are two different
-                // things, and a close that has to be found reads as no close at all. It is the
-                // same fault the SSH tab had. The long press still closes any tab by name.
-                if !isRenaming {
-                    Button { requestClose(terminal) } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22, height: 32)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close \(terminal.name)")
-                }
+        return TabChip(
+            isSelected: isSelected,
+            onSelect: { model.selectTerminal(terminal.id) },
+            onClose: onClose,
+            // The cross is on the tab, where the SSH terminal puts it.
+            //
+            // It lived outside the scroller for a while, on the good argument that a control
+            // which destroys something should not move about — a row of names of different
+            // lengths is a row of crosses at different distances. What that traded away turned out
+            // to cost more: the fixed button closes whichever terminal is *selected*, so the cross
+            // you are pointing at and the terminal you are closing are two different things, and a
+            // close that has to be found reads as no close at all. The long press still closes any
+            // tab by name.
+            closeLabel: "Close \(terminal.name)"
+        ) {
+            mark(for: state)
+        } name: {
+            if isRenaming {
+                renameField(terminal)
+            } else {
+                TabName(
+                    text: terminal.name,
+                    isSelected: isSelected,
+                    colour: nameColour(for: state, isSelected: isSelected)
+                )
             }
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            .frame(
-                minWidth: 88,
-                // Capped, because the name is a command and commands are long. Uncapped while a
-                // name is being typed, since the field has a width of its own to be given.
-                maxWidth: isRenaming ? nil : 190,
-                alignment: .leading
-            )
-
-            // The rule, under the tab rather than around it, and clear of its ends so it reads as
-            // sitting on the seam rather than as the tab being boxed in. Ink rather than the
-            // accent: blue is this app's "something here wants you" — a lock, a question, a
-            // failure — and a tab would wear the same blue for two different reasons.
-            Capsule()
-                .fill(isSelected ? ColorPalette.ink : Color.clear)
-                .frame(height: 2)
-                .padding(.horizontal, 9)
-                .padding(.bottom, 5)
         }
-        .contentShape(Rectangle())
         // Selecting and renaming share the tab, and a double tap on it is what renames.
         //
         // Simultaneous rather than a pair of counted taps. Counted, the single tap has to wait
         // out the double-tap window before it fires, and a tab strip that takes a third of a
         // second to answer a thumb is worse than one where the second tap of a double selects
         // again — which is idempotent, and therefore free.
-        .onTapGesture { model.selectTerminal(terminal.id) }
         .simultaneousGesture(TapGesture(count: 2).onEnded { beginRename(terminal) })
         // And on a long press, because a double tap is a desktop habit with nothing on screen
         // to announce it.

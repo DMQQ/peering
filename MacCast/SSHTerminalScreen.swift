@@ -339,63 +339,37 @@ struct SSHTerminalScreen: View {
     /// on this row that is not a shell is the one that must not be somewhere else every time the
     /// row changes length. See ``TerminalModeButton`` for why it is on this row at all.
     private var tabStrip: some View {
-        HStack(spacing: 0) {
-            tabs
-
+        // The selection is the shell this screen *is*, not the model's idea of the current one.
+        // Each shell gets a screen of its own, so the strip is only ever drawn by the screen being
+        // looked at, and the one it should mark is the one it belongs to.
+        TabStrip(items: model.openShells, selection: terminal.id) { open, isSelected in
+            chip(open, isSelected: isSelected)
+        } accessory: {
             TerminalModeButton(isBrowsing: isBrowsing) { toggleBrowsing() }
-                .padding(.trailing, 10)
+                .padding(.top, 11)
+                .padding(.trailing, 8)
         }
-        // The seam, drawn behind the whole row: under the chip as well, which is what keeps the
-        // chip sitting on the strip rather than beside it.
-        .background(alignment: .bottom) { hairline }
     }
 
-    private var tabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 2) {
-                ForEach(model.openShells) { open in
-                    let isSelected = open.id == terminal.id
-                    // Two buttons side by side rather than one wrapping the other, because a tap
-                    // on the close had to not also mean "switch to this tab". Without the close,
-                    // the only way out of a shell was the toolbar — and with several shells to the
-                    // *same* host open, ending one just showed another identical one, so the
-                    // button read as broken.
-                    HStack(spacing: 2) {
-                        Button {
-                            model.selectedTerminalID = open.id
-                        } label: {
-                            HStack(spacing: 6) {
-                                Circle()
-                                    .fill(statusTint(open))
-                                    .frame(width: 6, height: 6)
-                                Text(open.title)
-                                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                                    .foregroundStyle(isSelected ? ColorPalette.ink : .secondary)
-                                    .lineLimit(1)
-                            }
-                            .padding(.leading, 12)
-                            .padding(.trailing, 4)
-                            .padding(.vertical, 9)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            model.requestClose(open)
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 22, height: 34)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("End \(open.title)")
-                    }
-                    .background(isSelected ? Color.white.opacity(0.08) : .clear)
-                }
-            }
-            .padding(.horizontal, 6)
+    private func chip(_ open: SSHTerminal, isSelected: Bool) -> some View {
+        TabChip(
+            isSelected: isSelected,
+            onSelect: { model.selectedTerminalID = open.id },
+            onClose: { model.requestClose(open) },
+            // The close is on the tab. Without it the only way out of a shell was the toolbar —
+            // and with several shells to the *same* host open, ending one just showed another
+            // identical one, so the button read as broken.
+            closeLabel: "End \(open.title)"
+        ) {
+            Circle()
+                .fill(statusTint(open))
+                .frame(width: 6, height: 6)
+        } name: {
+            TabName(
+                text: open.title,
+                isSelected: isSelected,
+                colour: isSelected ? ColorPalette.ink : Color.secondary
+            )
         }
     }
 
