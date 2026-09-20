@@ -116,7 +116,7 @@ struct PaywallView: View {
                     return "\(Self.whatItIs(capability)) Your plan already includes it."
                 }
                 let current = plan == .free ? "the free plan" : plan.name
-                return "\(Self.whatItIs(capability)) It is not in \(current). \(unlocking.name) includes it, and the cards below are what else comes with that."
+                return "\(Self.whatItIs(capability)) It is not in \(current). \(unlocking.name) adds it."
             case .quotaExhausted:
                 switch plan {
                 case .free:
@@ -127,14 +127,14 @@ struct PaywallView: View {
                     // Unreachable as the app is wired: an unlimited plan is never metered, so the
                     // relay cannot refuse one for quota. Saying what a plan with no allowance is
                     // out of would be nonsense, so this says the true thing instead.
-                    return "The relay is counting this connection against a quota your plan does not have. Try again, and get in touch if it keeps happening."
+                    return "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening."
                 }
             case .upgrade:
                 // The ladder in one sentence, with the two numbers read off the same place the
                 // meter reads them from. The cards below say the rest.
                 // The two rungs are named rather than pointed at. "The plans above it" reads as a
                 // direction, and the cards it means are *below* this sentence on the screen.
-                return "The relay reaches your Mac when it is on another network. Peering includes \(RelayPlan.free.allowanceSpelling) of relay every day; Relay raises that to \(RelayPlan.relay.allowanceSpelling), and Relay Plus and Pro remove the limit."
+                return "Reaching a Mac on another network runs on the relay, which is metered. Free includes \(RelayPlan.free.allowanceSpelling) a day, Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
             case .firstSession:
                 // Opened by the app, so it opens by naming the moment. Without that first clause
                 // this is a purchase screen that has appeared out of nowhere a second after the
@@ -142,7 +142,7 @@ struct PaywallView: View {
                 let moment = "That was your first session. Relay is the part of Peering that reaches your Mac when this iPhone is not on the same network."
                 switch plan {
                 case .free:
-                    return "\(moment) \(RelayPlan.free.allowanceSpelling.capitalized) a day comes with the app; Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
+                    return "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
                 case .relay:
                     // Somebody who subscribed on the last page of the introduction, before they had
                     // ever connected. Selling them the relay again would be the app having forgotten
@@ -160,9 +160,9 @@ struct PaywallView: View {
                 let left = RelayTime.label(remaining)
                 switch plan {
                 case .free:
-                    return "\(left) left of today's free relay time. When it runs out the relay stops working until tomorrow. Relay raises that to \(RelayPlan.relay.allowanceSpelling) a day, and the plans above it remove the limit."
+                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Relay raises it to \(RelayPlan.relay.allowanceSpelling) a day."
                 case .relay:
-                    return "\(left) left of today's relay time. When it runs out the relay stops working until tomorrow. The plans above remove the daily limit."
+                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. The plans above remove the limit."
                 case .plus, .pro:
                     // Unreachable as the app is wired: an unmetered plan has no remaining figure to
                     // be low, so ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for one and
@@ -187,27 +187,27 @@ struct PaywallView: View {
         private static func whatItIs(_ capability: PlanCapability) -> String {
             switch capability {
             case .extraMacs:
-                return "One Mac is free, and this is the second one and every one after it."
+                return "Free pairs with one Mac. This is every Mac after it."
             case .concurrentSessions:
-                return "One Mac at a time is free. This is holding several open at once, so switching between them is a tap rather than a reconnection."
+                return "One Mac at a time is free. This keeps them all open, so switching is a tap rather than a reconnection."
             case .macSound:
                 return "Whatever the Mac is playing comes out of this phone, from the music you left running to the alert it makes in answer to a key you sent it."
             case .pictureInPicture:
-                return "Keeps the Mac's screen floating over other apps while you do something else, and iOS can float it by itself on your way out of the app."
+                return "The Mac's screen floats over your other apps, and iOS floats it by itself when you leave."
             case .clipboardHistory:
-                return "Keeps the last twelve things that crossed between the two machines, so what you copied on the Mac is still there when you think of it on the phone. Copying and pasting themselves are on every plan."
+                return "The last twelve things that crossed between the two, still there when you think of them. Copying and pasting are on every plan."
             case .fileTransfer:
                 return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB."
             case .shellTabs:
-                return "One shell at a time is free, on your Mac and on any server you have added. This is naming a tab, and keeping several open at once."
+                return "One shell at a time is free, on your Mac and on any server. This is naming tabs and keeping several open."
             case .macros:
-                return "Saves a sequence and fires it with one tap, keeps the commands you type most as chips over the terminal keyboard, and has the same list waiting in every shell."
+                return "Save a sequence and fire it with a tap. The commands you type most wait as chips above the terminal keyboard, in every shell."
             case .highBitrate:
                 // The direct path is named, because it is the half of the answer nobody expects
                 // and the half that keeps this from reading as a cap on the app. It also happens
                 // to be true: a session going straight between the two devices is not capped on
                 // any plan, so what is being sold is the picture on the way round.
-                return "The picture climbs to 20 Mbps on a relayed session, which is five times what it reaches there without this. On your own network it is uncapped on every plan already, because the bytes are not going through anything of ours."
+                return "A sharper picture when the session is relayed. On your own network it is already uncapped on every plan."
             }
         }
     }
@@ -592,7 +592,7 @@ struct PaywallView: View {
             Text("Prices could not be loaded")
                 .font(.subheadline.weight(.semibold))
 
-            Text("The App Store returned no products for this app. If you have subscribed before, restoring should bring it back. Otherwise this is usually temporary.")
+            Text("The App Store returned no products for this app. If you have subscribed before, restoring should bring it back. Otherwise it is usually temporary.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -818,14 +818,14 @@ struct AllowanceSpentView: View {
     /// connection over their own network is unlimited and untouched by any of this, which it is on
     /// every plan including the free one.
     private var detail: String {
-        let stillFree = "Connecting over your own network is unlimited on every plan and still works."
+        let stillFree = "Your own network is unlimited on every plan, and still works."
         switch plan {
         case .free:
-            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day the free plan includes are spent. The relay will not carry another one from this iPhone until the window turns over. \(stillFree)"
+            return "That session went over the relay, and free's \(plan.allowanceSpelling) a day are spent. Another relayed session is refused until the allowance comes back. \(stillFree)"
         case .relay:
-            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day Relay includes are spent. Relay Plus and Pro remove the daily limit. \(stillFree)"
+            return "That session went over the relay, and Relay's \(plan.allowanceSpelling) a day are spent. Relay Plus and Pro remove the limit. \(stillFree)"
         case .plus, .pro:
-            return "Your plan has no daily allowance, so the relay refusing one means it read this device as free. Try again, and get in touch if it keeps happening. \(stillFree)"
+            return "Your plan has no daily limit, so the relay counting this one means it read the device as free. Try again, and tell us if it keeps happening. \(stillFree)"
         }
     }
 }
