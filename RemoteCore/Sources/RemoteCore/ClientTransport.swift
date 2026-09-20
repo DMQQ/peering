@@ -473,6 +473,11 @@ public final class ClientConnection: @unchecked Sendable {
         let pending = readyContinuation
         readyContinuation = nil
         let handler = _onClose
+        // A finished transport must not keep its callbacks (or the object graph behind them)
+        // alive. In particular, a callback is allowed to mention its owning session.
+        _onFrame = nil
+        _onClose = nil
+        connection = nil
         lock.unlock()
 
         pending?.resume(throwing: failure)
@@ -552,10 +557,24 @@ public final class CommandCoalescer: @unchecked Sendable {
 
     deinit { timer?.cancel() }
 
-    /// Starts the trailing-edge timer. Idempotent, so it can be called on every reconnect.
+    /// Arms the trailing-edge timer, if there is anything for it to send.
+    ///
+    /// **A timer with an empty queue is a wake-up that does nothing**, sixty times a second, for
+    /// the whole life of a session. It used to be started when the connection came up and stopped
+    /// only when the session was destroyed, so an idle session — the common case, a Mac left open
+    /// on a desk — held the CPU awake at 60 Hz for nothing. With several sessions open at once
+    /// that is multiplied by the number of Macs, none of which is doing anything.
+    ///
+    /// So the rule is now the obvious one: the timer exists while there is something waiting to
+    /// be sent, and not otherwise. ``enqueue(_:)`` arms it, ``flush()`` disarms it once the queue
+    /// comes back empty, and this refuses to arm an empty one — which is what makes the call on
+    /// connect harmless rather than the thing that reintroduces the bug.
+    ///
+    /// Idempotent, so it can be called on every reconnect and on every enqueue.
     public func start() {
         lock.lock()
         guard timer == nil else { lock.unlock(); return }
+        guard !pending.isEmpty else { lock.unlock(); return }
         let source = DispatchSource.makeTimerSource(queue: queue)
         // A little leeway: this is a stream of cursor positions, and waking the CPU at an
         // exact 16.6 ms boundary costs power for a frame the eye cannot distinguish.
@@ -574,6 +593,17 @@ public final class CommandCoalescer: @unchecked Sendable {
         source?.cancel()
     }
 
+    /// Whether the trailing-edge timer is running.
+    ///
+    /// Exposed for the test that holds ``start()``'s rule down, which is a rule about a wake-up
+    /// that does not happen and therefore cannot be observed from outside: an idle session that
+    /// arms a timer every 16.6 ms looks exactly like one that does not, on screen and on the wire.
+    public var isArmed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return timer != nil
+    }
+
     public func enqueue(_ command: RemoteCommand) {
         lock.lock()
         insert(command)
@@ -581,18 +611,27 @@ public final class CommandCoalescer: @unchecked Sendable {
         // be merged or delayed at all. Otherwise the timer will pick it up.
         let due = command.coalescing == .none || now() - lastFlush >= interval
         let batch = due ? drain() : []
+        let waiting = !pending.isEmpty
         lock.unlock()
 
         for item in batch { sink(item) }
+        // Armed *after* the leading edge, so a command that went out immediately does not start a
+        // timer to look for something that is no longer there.
+        if waiting { start() }
     }
 
     /// Sends whatever is pending. Called by the timer, and by a caller that needs the queue
     /// drained before some out-of-band action.
+    ///
+    /// Disarms the timer when the queue comes back empty, which is the other half of the rule
+    /// above: an idle session should not be waking the CPU at all.
     public func flush() {
         lock.lock()
         let batch = drain()
+        let idle = pending.isEmpty
         lock.unlock()
         for item in batch { sink(item) }
+        if idle { stop() }
     }
 
     // MARK: - Queue handling (call with `lock` held)
