@@ -123,7 +123,7 @@ struct FolderUploadTests {
 
     @Test("while it is going, the line says where it is and what it is on")
     func runningLine() {
-        let upload = FolderUpload(root: "/dest", entries: [
+        let upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("a.txt", outcome: .done),
             entry("b.txt"),
             entry("c.txt"),
@@ -136,7 +136,7 @@ struct FolderUploadTests {
     func foldersAreNotCounted() {
         // The user picked a folder of three files. "Sent 3 of 3" is the sentence that answers what
         // they asked; "Sent 4 of 5" because the protocol needed two folders made first is not.
-        var upload = FolderUpload(root: "/dest", entries: [
+        var upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("photos", isFolder: true, outcome: .done),
             entry("a.txt", outcome: .done),
             entry("b.txt", outcome: .done),
@@ -154,7 +154,7 @@ struct FolderUploadTests {
         // A folder is the shape the files need, not something the user chose to send. Whether it
         // was made or was already there is not a fact about the transfer. A folder that genuinely
         // could not be made is still visible: every file inside it fails and is named.
-        var upload = FolderUpload(root: "/dest", entries: [
+        var upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("photos", isFolder: true, outcome: .failed("Something with that name is already there.")),
             entry("a.txt", outcome: .done),
         ])
@@ -167,7 +167,7 @@ struct FolderUploadTests {
 
     @Test("the failures are named, up to a few")
     func failuresAreNamed() {
-        var upload = FolderUpload(root: "/dest", entries: [
+        var upload = FolderUpload(root: "/dest", listingFolder: "/parent", entries: [
             entry("a.txt", outcome: .done),
             entry("b.txt", outcome: .failed("Not allowed to write that.")),
             entry("c.txt", outcome: .skipped("A link to somewhere else, which is not copied.")),

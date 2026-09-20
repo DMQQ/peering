@@ -73,6 +73,18 @@ struct FileBrowserPanel: View {
     /// shell that has ended, where there is nothing left to send a file down.
     var onUpload: ((URL) -> Void)?
 
+    /// Several things at once: what a drop carries, and what a multi-item pick gives.
+    ///
+    /// **A second hook rather than a wider ``onUpload``, because the browsers differ in what they
+    /// can take.** The Mac's browser sends a run of entries and can be handed anything; the SFTP
+    /// one sends a file at a time and has nowhere to put a second. A caller that has nowhere to put
+    /// them leaves this `nil`, and the picker stays single-item rather than offering a selection it
+    /// would silently drop the extras of.
+    ///
+    /// Where it is set, it is what the picker and the drop both call, and ``onUpload`` is left for
+    /// the single-item path.
+    var onUploadItems: (([URL]) -> Void)?
+
     /// Run an executable file, which is offered as a button on the row itself.
     ///
     /// Optional in the same way ``onUpload`` is, and absent for the same kind of reason: a shell
@@ -245,13 +257,34 @@ struct FileBrowserPanel: View {
         // Only the thing being uploaded, not the whole Finder tree: this is one file into one
         // folder, and a picker that offers everything is a picker that makes the user work out
         // which of the options they have already found is the one that sends it.
+        //
+        // **Multi-select only where the caller can take more than one.** Choosing several is an
+        // offer to send several, and a picker that allowed the selection while the browser could
+        // only send the first would be the app quietly discarding what the user just chose.
         .fileImporter(
             isPresented: $showsImporter,
             allowedContentTypes: [.item],
-            allowsMultipleSelection: false
+            allowsMultipleSelection: onUploadItems != nil
         ) { result in
-            guard case .success(let urls) = result, let url = urls.first else { return }
-            onUpload?(url)
+            guard case .success(let urls) = result, !urls.isEmpty else { return }
+            if let onUploadItems {
+                onUploadItems(urls)
+            } else if let url = urls.first {
+                onUpload?(url)
+            }
+        }
+        // **The drop, which is the whole of what an iPad adds here.** A file or a folder dragged
+        // in from Files is the same thing the picker hands back and is treated the same way: the
+        // security scope, the folder-or-file decision and the run are all the caller's, and there
+        // is nothing about arriving by drag that changes what has to happen to it.
+        //
+        // Only where a caller can take several, for the reason the picker is single-item without
+        // one: a drop carrying four items into a browser that can send one is three silent
+        // disappearances.
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let onUploadItems, !urls.isEmpty else { return false }
+            onUploadItems(urls)
+            return true
         }
         // Keyed to the wait itself, so the clock starts when a request goes out and the flag is
         // cleared the moment one comes back — including a wait that ends in a failure, which has
@@ -400,7 +433,12 @@ struct FileBrowserPanel: View {
                 // press with silence reads as broken.
                 PlanLocked(
                     capability: .fileTransfer,
-                    title: "Upload a file to this folder",
+                    // Named for what it will actually take. "Upload a file" was right when that was
+                    // all it did, and a folder the user has is a folder they may well want here: a
+                    // control that says file and accepts a folder under-promises, and the one that
+                    // says folder and refuses is worse. Both browsers send a file either way, so
+                    // the wider word costs nothing on the one that cannot take more.
+                    title: "Send a file or a folder here",
                     diameter: 32
                 ) {
                     Button { showsImporter = true } label: {
@@ -408,7 +446,7 @@ struct FileBrowserPanel: View {
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.9))
                     .disabled(isChanging)
-                    .accessibilityLabel("Upload a file to this folder")
+                    .accessibilityLabel("Send a file or a folder here")
                 }
             }
         }

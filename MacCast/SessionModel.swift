@@ -1517,6 +1517,11 @@ final class SessionModel {
         activeSession?.uploadFile(url, sessionID: id)
     }
 
+    /// Sends one or more things, folders and all, in one run.
+    func uploadItems(_ urls: [URL], sessionID id: UUID) {
+        activeSession?.uploadItems(urls, sessionID: id)
+    }
+
     /// What a folder being sent through this shell is doing, or what the last one came to.
     func folderProgress(sessionID id: UUID) -> String? {
         activeSession?.folderProgress(sessionID: id)

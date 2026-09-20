@@ -270,7 +270,7 @@ extension MacSession {
         // whatever size the filesystem reports for it, and reading it as bytes fails, so the user
         // got an unexplained sentence from a tap that looked like every other one. There is no
         // second button and no menu to choose between them: what the user picked is what decides.
-        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+        if Self.isDirectory(url) {
             uploadFolder(url, sessionID: id)
             return
         }
@@ -398,9 +398,93 @@ extension MacSession {
             let rootEntry = FolderUploadEntry(
                 path: root, name: name, isFolder: true, source: nil, bytes: 0
             )
-            folderUploads[id] = FolderUpload(root: root, entries: [rootEntry] + children)
+            folderUploads[id] = FolderUpload(
+                root: root,
+                listingFolder: folder,
+                entries: [rootEntry] + children
+            )
             advanceFolderUpload(sessionID: id)
         }
+    }
+
+    /// Sends whatever the user picked or dropped, in one run.
+    ///
+    /// **One run rather than one upload each, and that is what makes a drop work at all.** The
+    /// protocol answers through one shell, so this side holds one write in the air per terminal; a
+    /// second upload arriving while the first is still going is refused by that guard, and a drop
+    /// of five files would have silently delivered one of them.
+    ///
+    /// **A single file keeps the path it always had.** Sending one file into a folder is the
+    /// ordinary case, its feedback is the row appearing in the list, and routing it through the run
+    /// machinery would put a progress line over the panel for something that is over before it can
+    /// be read. Anything else, including a single folder, is a run.
+    func uploadItems(_ urls: [URL], sessionID id: UUID) {
+        guard let folder = browsingPaths[id], !urls.isEmpty else { return }
+
+        if urls.count == 1, !Self.isDirectory(urls[0]) {
+            uploadFile(urls[0], sessionID: id)
+            return
+        }
+
+        uploadFailures.removeValue(forKey: id)
+
+        Task { @MainActor in
+            // Security-scoped once for the lot: this is one user gesture and one sandbox grant.
+            let scoped = urls.map { $0.startAccessingSecurityScopedResource() }
+            defer {
+                for (url, held) in zip(urls, scoped) where held {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            var entries: [FolderUploadEntry] = []
+            var failure: String?
+            do {
+                for url in urls {
+                    let name = url.lastPathComponent
+                    if Self.isDirectory(url) {
+                        // A folder in the drop is a folder to make and fill, exactly as it would be
+                        // if it had been picked on its own.
+                        let target = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+                        entries.append(FolderUploadEntry(
+                            path: target, name: name, isFolder: true, source: nil, bytes: 0
+                        ))
+                        // Off the main actor: walking a folder is a stat per file in it.
+                        let children = try await Task.detached {
+                            try FolderWalk.entries(of: url, at: target)
+                        }.value
+                        entries.append(contentsOf: children)
+                    } else {
+                        let target = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+                        let bytes = (try? await Task.detached {
+                            try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                        }.value) ?? 0
+                        entries.append(FolderUploadEntry(
+                            path: target, name: name, isFolder: false, source: url, bytes: bytes
+                        ))
+                    }
+                }
+            } catch {
+                failure = error.localizedDescription
+            }
+
+            if let failure, entries.isEmpty {
+                uploadFailures[id] = failure
+                return
+            }
+            guard !entries.isEmpty else { return }
+
+            folderUploads[id] = FolderUpload(root: folder, listingFolder: folder, entries: entries)
+            advanceFolderUpload(sessionID: id)
+        }
+    }
+
+    /// Whether something the user picked is a folder, asked of the filesystem.
+    ///
+    /// One stat on the main actor, which is small enough to be worth the simpler call sites: the
+    /// alternative is threading an answer back from a detached task for every drop.
+    static func isDirectory(_ url: URL) -> Bool {
+        (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
     }
 
     /// Sends the next thing in a folder, or finishes.
@@ -490,7 +574,7 @@ extension MacSession {
         var stopped = upload
         stopped.isRunning = false
         folderUploads[id] = stopped
-        listDirectory((upload.root as NSString).deletingLastPathComponent, sessionID: id)
+        listDirectory(upload.listingFolder, sessionID: id)
 
         let name = upload.root.split(separator: "/").last.map(String.init) ?? upload.root
         append(note: "\(name): \(upload.line())")

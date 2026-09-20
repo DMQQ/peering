@@ -747,6 +747,11 @@ struct TerminalPanel: View {
                     onUpload: terminal.isRunning
                         ? { model.uploadFile($0, sessionID: terminal.id) }
                         : nil,
+                    // Everything the picker or a drop can hand over, folders and all, as one run.
+                    // See ``MacSession/uploadItems(_:sessionID:)``.
+                    onUploadItems: terminal.isRunning
+                        ? { model.uploadItems($0, sessionID: terminal.id) }
+                        : nil,
                     // The other direction is the same capability and the panel's own gate, so a
                     // plan that moves files both ways or a plan that does not move them at all
                     // needs no value passed down. The `nil` above stays a fact about this session

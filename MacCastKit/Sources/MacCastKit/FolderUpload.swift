@@ -64,6 +64,14 @@ public struct FolderUploadEntry: Identifiable, Equatable, Sendable {
 public struct FolderUpload: Equatable {
     /// The folder on the Mac all of this goes inside.
     public let root: String
+    /// The folder to ask the Mac for again when the run finishes.
+    ///
+    /// **Not the same as ``root``, and the difference is what the user is looking at.** A folder
+    /// being sent creates a new one, so the list that has to change is the folder holding it; a
+    /// handful of dropped files land in the folder already on screen, and that is the list that
+    /// changes. Both are "the folder the user was in when they started", which is why this is
+    /// supplied rather than worked out.
+    public let listingFolder: String
     /// Everything to be made or sent, in the order it has to happen.
     public var entries: [FolderUploadEntry]
     /// The next entry to send. Everything before it has an outcome.
@@ -77,8 +85,9 @@ public struct FolderUpload: Equatable {
     /// shown until they go somewhere else is the line below.
     public var isRunning = true
 
-    public init(root: String, entries: [FolderUploadEntry]) {
+    public init(root: String, listingFolder: String, entries: [FolderUploadEntry]) {
         self.root = root
+        self.listingFolder = listingFolder
         self.entries = entries
     }
 
