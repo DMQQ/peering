@@ -250,10 +250,21 @@ a { color: inherit; }
 
 .glow { position: absolute; inset: 0; pointer-events: none; }
 
-.hero-grid {
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: clamp(32px, 6vw, 72px);
+/* The copy is centred and the devices sit under it. They used to be two columns, which is a better
+   shape for one device and an impossible one for two: a Mac and a phone side by side need more width
+   than half a 1080-point page, and the half they would not fit in is the half the screenshots would
+   have been shrunk into. The devices are the widest thing on the page now, so they get the whole of
+   it and the words sit over them at their own measure. */
+.hero-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
@@ -264,30 +275,31 @@ a { color: inherit; }
 }
 
 .hero h1 {
-  font-size: clamp(46px, 7vw, 76px);
+  font-size: clamp(52px, 8vw, 88px);
   letter-spacing: -0.03em;
 }
 
 .lede {
   font-family: var(--display);
-  font-size: clamp(21px, 2.6vw, 27px);
+  font-size: clamp(22px, 2.8vw, 30px);
   color: var(--ink-70);
-  margin-top: 10px;
+  margin-top: 12px;
   letter-spacing: -0.01em;
 }
 
 .hero .body {
-  margin-top: 22px;
-  max-width: 34em;
+  margin-top: 24px;
+  max-width: 32em;
   color: var(--ink-55);
-  font-size: 17px;
+  font-size: 17.5px;
 }
 
 .cta-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 12px;
-  margin-top: 30px;
+  margin-top: 32px;
 }
 
 .fine {
@@ -297,24 +309,82 @@ a { color: inherit; }
   max-width: 40em;
 }
 
+/* ---------- Devices ---------- */
+
+/* Both devices are drawn rather than rendered, and drawn the same way: a body that is nearly black,
+   one machined highlight along its edge, and a screen cut into it. A device seen face on in a dark
+   room is the highlight and very little else, which is why the body is as dark as a body and no
+   darker: flat black would take the edge away and leave the screens floating.
+
+   Every number here is a fraction of the screen it surrounds rather than a number of points, so the
+   two keep their proportions at any size and stay the same devices as the ones the app's own tour
+   draws. The bench is `PhoneStage` in MacCast/OnboardingView.swift: same bezel over screen, same
+   body and screen corners, same island, same two-colour body and same one-point rim. A frame that
+   matched it in one place and not the other would be two claims about one product.
+
+   The body used to be white at 18% fading to 5%, which over this backdrop is not a device. It is a
+   bright band, and a bright band is what the eye measures when it decides how thick the bezel is.
+   That, and not the ten points, is what was making the phone read as a mount. */
+
+.stage {
+  /* The two devices are sized together because they are one composition. The Mac's display is the
+     unit and the phone is a fraction of it, so the pair keeps its balance at every width instead of
+     drifting apart as the viewport changes. The fraction is not the true one. An honest 14-inch
+     laptop beside an honest iPhone makes the phone 107px wide, and a screenshot nobody can read is
+     not a screenshot. It is the fraction that keeps the phone legible, which is what the picture is
+     for. */
+  --display: min(640px, 62vw);
+  --screen: calc(var(--display) * 0.46);
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-top: clamp(44px, 5.5vw, 76px);
+}
+
+/* Body, and the light along its edge. The rim is a mask rather than a border so the gradient
+   survives the corner radius, and it is drawn inside the body rather than around it so the
+   highlight is the last thing on the device and not a ring floating off it. */
+.phone,
+.mac-lid {
+  position: relative;
+  background: linear-gradient(180deg, #202023, #101012);
+}
+
+.phone::after,
+.mac-lid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0.08));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 /* ---------- Phone ---------- */
 
-/* Drawn rather than a rendered frame: the border, the radius and the island are the whole of what
-   a device shot needs, and an image of a phone would have to be re-cut for every screenshot. */
 .phone {
-  position: relative;
-  justify-self: center;
-  width: min(310px, 78vw);
-  padding: 10px;
-  border-radius: 46px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
-  box-shadow:
-    0 40px 90px rgba(0, 0, 0, 0.65),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  --bezel: calc(var(--screen) * 10 / 290);
+  --body-w: calc(var(--screen) + var(--bezel) * 2);
+  /* The screenshot's own proportions. A frame that did not match them would letterbox or crop every
+     image put inside it, which is the one thing a frame must not do. */
+  --screen-h: calc(var(--screen) * 1311 / 603);
+
+  flex: none;
+  width: var(--body-w);
+  padding: var(--bezel);
+  border-radius: calc(var(--body-w) * 0.148);
+  box-shadow: 0 34px 74px rgba(0, 0, 0, 0.62);
+  z-index: 2;
 }
 
 .phone-screen {
-  border-radius: 37px;
+  border-radius: calc(var(--screen) * 0.128);
   overflow: hidden;
   background: #000;
   aspect-ratio: 603 / 1311;
@@ -326,15 +396,111 @@ a { color: inherit; }
   height: auto;
 }
 
+/* Part of the phone rather than part of the picture, so it is drawn here rather than expected in
+   every screenshot. A screenshot of this app already has one, its own is black on a black
+   backdrop, and the two land in the same place on the same device. */
 .phone-island {
   position: absolute;
-  top: 22px;
+  top: calc(var(--bezel) + var(--screen-h) * 0.019);
   left: 50%;
   transform: translateX(-50%);
-  width: 30%;
-  height: 24px;
+  width: calc(var(--screen) * 0.30);
+  height: calc(var(--screen-h) * 0.038);
   border-radius: 999px;
   background: #000;
+}
+
+/* ---------- Mac ---------- */
+
+/* An open MacBook, drawn in the same three parts a MacBook has: a lid with a screen in it, a hinge,
+   and a base wider than the lid with the scoop in its front edge. The display is 16:10, which is
+   what a Mac's screen is; a screenshot of the host app should be cut to that or the frame will
+   letterbox it. */
+.mac {
+  --bezel: calc(var(--display) * 0.017);
+  --lid-w: calc(var(--display) + var(--bezel) * 2);
+  --lid-h: calc(var(--display) * 0.625 + var(--bezel) * 2);
+  --base-h: calc(var(--lid-w) * 0.030);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+
+.mac-lid {
+  width: var(--lid-w);
+  padding: var(--bezel);
+  border-radius: calc(var(--lid-w) * 0.030) calc(var(--lid-w) * 0.030)
+                 calc(var(--lid-w) * 0.009) calc(var(--lid-w) * 0.009);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+.mac-screen {
+  border-radius: calc(var(--display) * 0.009);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 10;
+}
+
+.mac-screen img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mac-camera {
+  position: absolute;
+  top: calc(var(--bezel) * 0.5);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max(3px, calc(var(--display) * 0.006));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.mac-base {
+  position: relative;
+  width: calc(var(--lid-w) * 1.055);
+  height: var(--base-h);
+  border-radius: 0 0 calc(var(--base-h) * 0.36) calc(var(--base-h) * 0.36);
+  background: linear-gradient(180deg, #1c1c1f, #0b0b0d);
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.62);
+}
+
+/* The lit hinge where the base meets the lid, so the two read as one machine rather than as a
+   screen standing on a bar. */
+.mac-base::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.20), transparent);
+}
+
+/* The scoop in the front edge, which is the one detail that says MacBook rather than laptop. */
+.mac-base::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--lid-w) * 0.15);
+  height: calc(var(--base-h) * 0.55);
+  border-radius: 0 0 999px 999px;
+  background: #060607;
+}
+
+/* The phone stands in front of the Mac's right rather than beside it, which is how the two sit on a
+   desk and what stops the pair reading as two pictures that happened to land next to each other. The
+   Mac is lifted a little for the same reason: of the two, the near one is the low one. */
+.stage .phone {
+  margin-left: calc(var(--display) * -0.14);
+}
+
+.stage .mac {
+  margin-bottom: calc(var(--display) * 0.035);
 }
 
 /* ---------- Sections ---------- */
@@ -344,16 +510,19 @@ a { color: inherit; }
   position: relative;
 }
 
+/* Larger than they were, and the lede has moved with them rather than staying where it was: a
+   section heading at 54 points with eighteens underneath is a title and a caption, and the caption
+   is the thing being read. */
 .section h2 {
-  font-size: clamp(31px, 4.4vw, 46px);
-  max-width: 18em;
+  font-size: clamp(34px, 5.1vw, 54px);
+  max-width: 16em;
 }
 
 .section-lede {
-  margin-top: 16px;
+  margin-top: 18px;
   color: var(--ink-55);
-  font-size: 18px;
-  max-width: 44em;
+  font-size: 19px;
+  max-width: 42em;
 }
 
 /* ---------- Steps ---------- */
@@ -398,6 +567,11 @@ a { color: inherit; }
   font-size: 15px;
   color: var(--ink-55);
 }
+
+/* A card that had one paragraph of three sentences and now has two. The break has to be visible or
+   it has not been made: at eight points the second paragraph sits as close to the first as the
+   heading does, and the card reads as one block with a stray indent. */
+.step p + p, .feature p + p { margin-top: 12px; }
 
 /* ---------- Features ---------- */
 
@@ -518,31 +692,174 @@ a { color: inherit; }
 
 /* ---------- Pricing ---------- */
 
+/* One table rather than four cards, and the table is the point. A card can only list what its own
+   plan has, which is why every card past the first opened with "everything free has" and then
+   stopped: a reader who wanted to know what Relay adds to Free had to hold two lists in their head
+   and diff them, and the two lists did not always agree. A row here is a question, and it is asked
+   once and answered four times.
+
+   The first column sticks, because on a phone this table is wider than the screen and a tick with
+   no row beside it answers nothing. */
+/* No scroll container here by default, which is what lets the header row stick to the viewport
+   rather than to a box inside the page. A narrow page cannot have it that way: see the table block
+   in the narrow-width section, where the wrapper becomes one. */
+.plans-wrap { margin-top: 44px; }
+
 .plans {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-top: 40px;
-  /* Deliberately not `align-items: start`. The four cards are one comparison, and four rectangles
-     of four different heights read as four things that happened to land next to each other — the
-     eye gets a ragged bottom edge where it wants a table. They stretch to the tallest instead, and
-     because every card has the same three header lines the bullets all start at the same height
-     too — so the empty space lands at the bottom of the short ones, where nobody is looking. */
+  width: 100%;
+  /* Below this the four price columns stop being readable side by side, which is the one thing the
+     table is for; the wrapper scrolls instead. */
+  min-width: 860px;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  /* Fixed rather than automatic, so the four price columns are the same width as each other at
+     every viewport. Left to itself the browser gives the column holding "every Mac you own" more
+     room than the one holding a tick, and four unequal columns stop reading as a comparison. */
+  table-layout: fixed;
 }
 
-.plan { padding: 26px 22px 28px; }
+.plans .corner { width: 30%; }
+.plans thead th.plan-col { width: 17.5%; }
 
-.plan h3 { font-family: var(--text); font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--ink-70); }
+.plans th,
+.plans td {
+  font-weight: 400;
+  text-align: left;
+  vertical-align: middle;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
 
-.plan-price {
+/* Visible to a screen reader and not to the eye: the ticks are drawn, so without this a row of
+   cells reads as a row of nothing. */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The answers. */
+.plans .yes,
+.plans .no-cell,
+.plans .val { text-align: center; }
+
+.plans .yes::before {
+  content: "";
+  display: block;
+  width: 11px;
+  height: 6px;
+  margin: 0 auto;
+  border-left: 1.8px solid var(--ink-70);
+  border-bottom: 1.8px solid var(--ink-70);
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.plans .no-cell .no {
+  display: block;
+  font-size: 17px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.20);
+}
+
+.plans .val {
+  font-size: 14.5px;
+  color: var(--ink-70);
+}
+
+/* Everything here that has to cover what scrolls behind it paints the page's own light rather
+   than a flat colour. That light is a gradient fixed to the viewport (see `body::before`), so a
+   cell painting #0a0a0c would cut a rectangle out of it wherever the two overlapped. Fixed
+   attachment paints the same gradient in the same place, and there is no seam. */
+.plans tbody th[scope="row"],
+.plans .corner,
+.plans .group-row th,
+.plans thead th.plan-col {
+  background-color: var(--backdrop);
+  background-image: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* The question in each row, flush to the page's own left edge so the price columns slide
+   underneath it rather than through it. */
+.plans tbody th[scope="row"],
+.plans .corner {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 0;
+  padding-right: 32px;
+  font-size: 15px;
+  color: var(--ink-70);
+}
+
+/* A group of rows. Named in the display face rather than as a tracked all-caps kicker: this is a
+   label inside a table, and the page does not use eyebrows above headings anywhere else. */
+.plans .group-row th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding: 38px 28px 10px 0;
+  font-family: var(--display);
+  font-size: 18px;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+/* The four plans, as a header row rather than as four card tops. Centred, because a name sitting
+   to the left of a column of ticks reads as belonging to the column before it.
+   The header sticks, and on a phone it has to: the table is wider than the screen, so three of the
+   four columns are off it at any moment, and a tick whose plan name has scrolled off the top
+   answers nothing. Sticking by column means a name travels sideways with its own ticks and never
+   with anyone else's. */
+.plans thead .corner,
+.plans thead th.plan-col,
+.plans .group-row td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.plans thead th.plan-col {
+  position: sticky;
+  /* Under the bar, which is 64px and is itself sticky. */
+  top: 64px;
+  z-index: 2;
+  text-align: center;
+  vertical-align: bottom;
+  /* The top is the badge's room. Every column takes it rather than only the one with a badge, so
+     all four names land on the same line. */
+  padding: 34px 14px 20px;
+}
+
+.plans thead .corner {
+  position: sticky;
+  top: 64px;
+  left: 0;
+  z-index: 3;
+}
+
+.plans .plan-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-70);
+}
+
+.plans .plan-price {
+  display: block;
   font-family: var(--display);
   font-size: 30px;
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-.plan-price span {
+.plans .plan-price span {
   font-family: var(--text);
   font-size: 13.5px;
   font-weight: 400;
@@ -550,50 +867,21 @@ a { color: inherit; }
   letter-spacing: 0;
 }
 
-.plan-note { font-size: 13.5px; color: var(--ink-50); margin-top: 4px; }
-
-.plan ul {
-  list-style: none;
-  margin: 18px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 9px;
+.plans .plan-note {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-50);
+  margin-top: 3px;
 }
 
-.plan li {
-  position: relative;
-  padding-left: 22px;
-  font-size: 14.5px;
-  color: var(--ink-55);
-}
-
-.plan li::before {
-  content: "";
+.plans .plan-badge {
   position: absolute;
-  left: 0;
-  top: 8px;
-  width: 9px;
-  height: 5px;
-  border-left: 1.6px solid var(--ink-50);
-  border-bottom: 1.6px solid var(--ink-50);
-  transform: rotate(-45deg);
-}
-
-.plan-best {
-  background: var(--surface-raised);
-}
-
-.plan-best::before {
-  background: linear-gradient(180deg, var(--accent), rgba(10, 132, 255, 0.35));
-}
-
-.plan-badge {
-  position: absolute;
-  top: -11px;
-  left: 22px;
-  padding: 4px 10px;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 9px;
   border-radius: 999px;
-  /* A deeper blue than the accent, and only here. White on the accent itself is 3.6:1 — legible
+  /* A deeper blue than the accent, and only here. White on the accent itself is 3.6:1: legible
      as a large shape and not as eleven-point type, which is what this is. */
   background: #0a63c9;
   color: #fff;
@@ -602,7 +890,29 @@ a { color: inherit; }
   letter-spacing: 0.01em;
 }
 
-.plan-best li::before { border-color: var(--accent); }
+/* The Pro column, lifted out of the table the way the badge inside it is lifted out of the type.
+   The lift runs the whole height of the column, which is why a group row is one cell spanning four
+   columns and a bare cell for the fifth: a single cell across all five would cut the tint in two. */
+.plans .col-pro {
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 1px solid rgba(10, 132, 255, 0.45);
+  border-right: 1px solid rgba(10, 132, 255, 0.45);
+}
+
+.plans thead .col-pro {
+  border-top: 1px solid rgba(10, 132, 255, 0.45);
+  border-radius: 14px 14px 0 0;
+  /* The same lift as the body of the column, over the same light rather than over a flat dark. */
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05)),
+    radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: scroll, fixed;
+}
+
+.plans tbody tr:last-child .col-pro {
+  border-bottom: 1px solid rgba(10, 132, 255, 0.45);
+  border-radius: 0 0 14px 14px;
+}
 
 /* ---------- FAQ ---------- */
 
@@ -762,11 +1072,45 @@ a { color: inherit; }
 
 /* ---------- Narrow ---------- */
 
+@media (max-width: 960px) {
+  /* Four plans and a label do not fit across a narrow page, so this is where the table stops
+     trying. It becomes its own scroll box: the wrapper scrolls both ways, the header row pins to the
+     top of that box and the row labels pin to its left, so a tick is never without the row it
+     answers and never without the plan it belongs to. The box is bounded because a sticky header
+     needs something to stick inside, and it is capped at most of the viewport so the table does not
+     become a page of its own.
+
+     This is the only place the page asks the reader to scroll something other than the page, and it
+     is confined to the widths where the alternative is a table two thirds off the screen. */
+  .plans-wrap {
+    max-height: 78vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid rgba(255, 255, 255, 0.10);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  }
+
+  .plans thead th.plan-col,
+  .plans thead .corner { top: 0; }
+
+  /* Narrower columns, so that the label column plus a whole plan column is what a phone shows.
+     At the desk width a label of 30% reads best; on a 390-point screen the same 30% is 258 of the
+     342 points available and the plan beside it arrives as three letters and a dollar sign. */
+  .plans { min-width: 760px; }
+  .plans .corner { width: 26%; }
+  .plans thead th.plan-col { width: 18.5%; }
+}
+
 @media (max-width: 900px) {
-  .hero-grid { grid-template-columns: 1fr; }
-  .phone { width: min(280px, 64vw); margin-top: 8px; }
+  /* The pair is sized off the display, so a narrower page shrinks both together and the phone
+     eventually becomes a thumbnail. The phone's fraction goes up instead, which costs the Mac some
+     width and buys the screenshot inside it the room to still be a screenshot. */
+  .stage {
+    --display: min(640px, 58vw);
+    --screen: calc(var(--display) * 0.44);
+  }
+  .stage .phone { margin-left: calc(var(--display) * -0.10); }
   .steps, .grid, .privacy-notes { grid-template-columns: 1fr; }
-  .plans { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 720px) {
@@ -790,8 +1134,6 @@ a { color: inherit; }
 
   .bar-cta { display: none; }
   .menu { display: block; }
-  .plans { grid-template-columns: 1fr; }
-  .plan-badge { position: static; display: inline-block; margin-bottom: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
