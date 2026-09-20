@@ -174,17 +174,36 @@ final class MacSession: Identifiable {
     /// also cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
     var connectTask: Task<Void, Never>?
 
+    /// Whether the *user* asked for this session to end, read and cleared by the transition that
+    /// follows.
+    ///
+    /// **Per Mac, where this was one flag on the container, and that was a bug rather than a
+    /// tidiness.** A dropped link and a deliberate end arrive as the same phase, so intent has to
+    /// be carried across rather than worked out afterwards; it is then read and cleared by the
+    /// first transition to see it. Ending one Mac is one transition and one flag, which is why one
+    /// shared flag went unnoticed for so long. `disconnect()` ends every Mac at once, and each one
+    /// answers with its own transition: the first consumed the flag, and every Mac after it was
+    /// read as having *dropped*, so its reconnect ladder armed, `isReconnecting` stuck true, and
+    /// the Mac stayed in the strip as a tab that never came back.
+    ///
+    /// The banner is untouched by this. Whether the end was the user's or iOS's is still decided
+    /// once by the caller and handed to every session that ends, so the Macs cannot disagree about
+    /// it; what is per-session is the record of the decision, because the ladder reads it later and
+    /// there is no later left for a single record to serve two Macs.
+    var userEndedDeliberately = false
+
     /// Takes this Mac's connection apart, and leaves the object for its last figures to be read.
     ///
-    /// **Not a disconnect of its own**, which is the only subtle thing about it: whether the end
-    /// was the user's or iOS's is decided once by the caller and said once in the banner, and a
-    /// per-session copy of that decision is how two Macs would come to disagree about it.
+    /// **Not a disconnect of its own**: whether the end was the user's or iOS's is decided once by
+    /// the caller and said once in the banner. What it takes is the caller's answer, kept for the
+    /// transition that follows. See ``userEndedDeliberately``.
     ///
     /// The record is filed first, because everything it describes — the path, the name, the
     /// bytes — is cleared below. The player is released rather than kept: its `deinit` stops the
     /// engine, and holding one past its session leaves an audio engine running for a Mac nobody
     /// is connected to.
-    func endSession() {
+    func endSession(deliberate: Bool) {
+        userEndedDeliberately = deliberate
         finishSessionHistory()
         connectTask?.cancel()
         connectTask = nil

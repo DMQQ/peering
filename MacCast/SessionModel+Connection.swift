@@ -82,7 +82,10 @@ extension SessionModel {
         // Declining ends the session from the Mac's side too, and that arrives as a
         // `.disconnected` like any other — with the model's phase still on `.confirming`.
         // Without this the user's own "no" comes back to them as a lost connection.
-        if !accepted { userEndedSession = true }
+        //
+        // The *session* object and not the wire: `session` here is the `ClientSession` the frame
+        // goes out on, and what this records is about the Mac it belongs to.
+        if !accepted { activeSession?.userEndedDeliberately = true }
         session?.confirmPairing(accepted: accepted)
     }
 
@@ -105,18 +108,6 @@ extension SessionModel {
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
 
-        // Recorded before anything moves. `ClientSession` announces the end itself, and by
-        // the time that event is applied the phases below have already been set — so this flag
-        // is the only evidence left that the user, and not the network, ended it.
-        userEndedSession = deliberate
-        // **And it is consumed by the first transition to read it, which is a hazard once there
-        // is more than one Mac here.** The loop below ends every session, and each one answers
-        // with its own `.disconnected`; the first of those clears the flag, so every Mac after it
-        // is read as having *dropped* and arms its own reconnect ladder. With one Mac this is
-        // invisible, which is why it has never shown up — see the note on
-        // ``SessionModel/endSession(_:)``. The honest fix is one flag per session rather than one
-        // per app; it is left here rather than done because the ladder's arithmetic is being
-        // reworked, and two hands in it at once is how this gets worse.
         // Only a deliberate one. A drop, and the end iOS forces on a backgrounded app, are the
         // two cases where coming back to the app should find the session restored.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
@@ -127,7 +118,12 @@ extension SessionModel {
         // for the whole process and every session is about to be suspended with it, so ending
         // one and leaving the rest to be killed unobserved is the worst of the three outcomes.
         // See ``backgroundTimeExpired()``.
-        for session in sessions { session.endSession() }
+        // **The answer is handed to each Mac rather than kept in one place for them to share.**
+        // Each one answers with its own transition afterwards, and a single record of "the user
+        // meant this" is consumed by whichever answers first: the rest would be read as having
+        // dropped and would arm a ladder that can never finish, leaving them in the strip as tabs
+        // that never come back. See ``MacSession/userEndedDeliberately``.
+        for session in sessions { session.endSession(deliberate: deliberate) }
         renderer.detach()
         // Nothing is open any more, which is the widget's business as much as the card's.
         publishOpenMacs()
@@ -180,24 +176,17 @@ extension SessionModel {
     func endSession(_ id: UUID) {
         guard let session = sessions.first(where: { $0.id == id }) else { return }
 
-        // **The flag has to be set before the teardown, and this is not optional.** `wire`
-        // announces its own end, and by the time that arrives the phases below are already where
-        // they are — so this is the only evidence left that the user, and not the network, ended
-        // the session. Without it the transition reads a deliberate end as a drop and puts the
-        // Mac straight back on its reconnect ladder.
-        //
-        // Read and cleared by the *first* transition to arrive, which is why ``disconnect()`` has
-        // the same shape and the same caveat: ending several Macs in one moment shares one flag,
-        // and the ones after the first can be caught by it. See the note on that method.
-        userEndedSession = true
-
         // Cleared before the teardown, so what follows reads as a switch *out of* a session
         // rather than a switch into one. ``activateSession(_:)`` is a no-op for the Mac already on
         // screen, and the Mac being ended is still that until this line runs.
         let wasActive = activeSessionID == id
         if wasActive { activeSessionID = nil }
 
-        session.endSession()
+        // The user asked for this one, said to the Mac it is about. `wire` announces its own end
+        // and the phases above are already where they are by the time it arrives, so this record
+        // is the only evidence left that the user rather than the network ended it. See
+        // ``MacSession/userEndedDeliberately`` for why it is not kept on the container.
+        session.endSession(deliberate: true)
 
         guard wasActive else {
             publishOpenMacs()

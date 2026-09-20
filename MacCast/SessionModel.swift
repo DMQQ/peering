@@ -872,13 +872,6 @@ final class SessionModel {
     /// half-second from arming a second offer.
     var pendingOffer: Task<Void, Never>?
 
-    /// Set by the two ways the user ends a session themselves, read and cleared by the
-    /// transition that follows.
-    ///
-    /// A dropped link and a deliberate end reach the model as the same phase, so intent has
-    /// to be carried across rather than inferred — and it is carried no further than that
-    /// transition, or a leftover flag would silence the news that the next session dropped.
-    var userEndedSession = false
 
     init() {
         device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
@@ -1003,9 +996,6 @@ final class SessionModel {
         // that changes twice a year could be tomorrow.
         WidgetCenter.shared.reloadAllTimelines()
 
-        // Intent does not survive into the next attempt: a flag left over from a session the
-        // user ended would otherwise suppress the news that its successor has dropped.
-        userEndedSession = false
         // An attempt from the backoff timer would race this one and start a second session.
         stopReconnecting()
         // And a session that is already up must be torn down rather than replaced. Assigning

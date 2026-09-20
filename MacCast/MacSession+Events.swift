@@ -48,7 +48,10 @@ extension MacSession {
                 // A drop over the LAN is deliberately not recorded: the relay is not metering a
                 // local session and cannot have cut one, so a refusal that followed would be the
                 // other situation entirely.
-                if !model.userEndedSession, connectionPath == .relay {
+                // Read from this Mac's own record rather than the container's: the flag below is
+                // cleared on the way past, so the third Mac in a loop would have read the second
+                // one's answer. See ``MacSession/userEndedDeliberately``.
+                if !userEndedDeliberately, connectionPath == .relay {
                     model.relaySessionDropped = true
                 }
                 finishSessionHistory()
@@ -97,8 +100,12 @@ extension MacSession {
                 sessionStartedAt = nil
             }
 
-            let userEnded = model.userEndedSession
-            model.userEndedSession = false
+            // **This Mac's own answer, cleared as it is read.** One flag served every Mac, and
+            // ending several at once meant the first transition consumed it: the rest were read as
+            // having dropped and armed a ladder that could never complete. See
+            // ``MacSession/userEndedDeliberately``.
+            let userEnded = userEndedDeliberately
+            userEndedDeliberately = false
             // **Every Mac, unlike the card.** A banner is about a Mac the user is not looking at
             // by definition, and a background Mac dropping is exactly the thing holding the
             // connection open was supposed to spare them. Keyed by host, so two Macs' banners
@@ -310,7 +317,13 @@ extension MacSession {
                 //
                 // The flag is cleared above rather than after, so the ends this causes cannot
                 // re-enter this branch and end everything a second time.
-                model.userEndedSession = true
+                //
+                // **Nothing is recorded here about who ended it**, and there used to be a line that
+                // looked like it did. It set the container's flag immediately before calling
+                // `disconnect(deliberate: false)`, which assigns that same flag from its own
+                // argument, so the write was overwritten before it could be read. The ladder arming
+                // after a cut is the behaviour this path has always had: the next attempt is refused
+                // for the same reason and is answered by the branch below.
                 model.disconnect(deliberate: false)
             } else if model.spentAllowance != nil {
                 // **A later refusal from the same ladder, and it has nothing to add.** The
@@ -319,7 +332,7 @@ extension MacSession {
                 // and a sale arriving on top of that is the app talking over itself. The ladder
                 // re-arms on a failed attempt by design, so this is the second and third refusal of
                 // the same cut rather than a new one.
-                model.userEndedSession = true
+                userEndedDeliberately = true
                 model.stopReconnecting()
             } else {
                 // Free, or on Relay with the day's three hours spent, and the user tapped Connect
@@ -327,7 +340,7 @@ extension MacSession {
                 // is the whole of why this branch is the paywall and the one above is not.
                 model.paywallReason = .quotaExhausted
                 // Suppress the reconnect ladder: there is nothing to reconnect to.
-                model.userEndedSession = true
+                userEndedDeliberately = true
                 model.stopReconnecting()
             }
         }
