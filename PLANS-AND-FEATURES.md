@@ -43,9 +43,11 @@ periods rather than two plans.
 **The shape in one sentence:** *Relay is the remote working set, Plus is the clock going away, Pro
 is the toolbox and the funder.*
 
-**The gates are still not built.** The app meters relay time and nothing else, so every row in the
-table above is a claim rather than a check. What the screens now say, the app and the site say
-together, which is the drift that was fixed on 20 September; enforcement is the next piece of work.
+**The gates are built.** Eight `PlanCapability` cases in
+`MacCastKit/Sources/MacCastKit/PlanAccess.swift`, each with a `minimumPlan`, and around twenty call
+sites in the app that ask one of them. The relay meters relay time against a plan it verifies from
+Apple's own receipt rather than from the client's word. Section 2 is the row-by-row account, checked
+against the code.
 
 ### Where the numbers came from
 
@@ -86,21 +88,35 @@ Astropad and below Splashtop Pro, and the free tier here gives 30 minutes a day 
 
 ## 2. Every feature the app has, and where it goes
 
-> **Superseded, 20 September, and wrong in five places.** The tables below were the proposal; the
-> agreed map is the table in section 1 and the capability map that now enforces it,
-> `MacCastKit/Sources/MacCastKit/PlanAccess.swift`. Where they disagree, the code is right:
->
-> - **Paired Macs** are one on free and every Mac on all three paid plans, not 1 / 1 / 3 / every.
-> - **Sound from the Mac and Picture in Picture** are Relay, not free on every plan.
-> - **SSH servers** are free, and the table below is right about that by accident. This bullet said
->   Relay Plus for part of 20 September; the same day put them back, and the capability has left
->   `PlanAccess.swift` altogether. The row below is what free includes and it stays as written.
-> - **Macros, snippets and quick commands** are Pro, not free.
-> - **Upload and download** exist and are Relay. This table says they were never built, which was
->   true when it was written and has not been since.
->
-> Kept rather than deleted because the reasoning behind each row is still the reasoning that was
-> argued about, and a note saying "this changed" is more use than a table quietly rounded off.
+**Checked against the code on 20 September 2026, and this section now says what the code does.**
+The authority is `MacCastKit/Sources/MacCastKit/PlanAccess.swift`: eight `PlanCapability` cases,
+each with a `minimumPlan`, and every gate in the app asks one of them. Nothing in the app names a
+plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
+there is one list and no second place to drift from.
+
+**Those eight are the whole of what a plan decides.**
+
+| Gated feature | Capability | Cheapest plan |
+|---|---|---|
+| Pairing another Mac | `extraMacs` | Relay |
+| Sound from the Mac | `macSound` | Relay |
+| Picture in Picture | `pictureInPicture` | Relay |
+| Moving files between the phone and the Mac | `fileTransfer` | Relay |
+| Several shells at once, as tabs | `shellTabs` | Relay Plus |
+| Several Macs open at once | `concurrentSessions` | Pro |
+| Macros, snippets and quick commands (making them) | `macros` | Pro |
+| The sharpest picture over the relay | `highBitrate` | Pro |
+
+**Everything else is free on every plan**, and the tables below say so row by row. Two of those
+free rows are free deliberately against the field, and both are argued in section 1: SSH servers,
+because the connection is between the user's own phone and their own machine and charging for a
+list of hosts the user typed in reads as a hostage rather than as a price; and Wake on LAN, because
+the packet only goes out on the local network, and on your own network this app is meant to be
+complete.
+
+Two gates are about *how much* rather than *whether*: relay time, which the relay meters per device
+per 24-hour window, and the bitrate ceiling, which only applies to a relayed session. A free user on
+their own network gets the full picture and unlimited time.
 
 ### Connection
 
@@ -111,10 +127,14 @@ Astropad and below Splashtop Pro, and the free tier here gives 30 minutes a day 
 | Trusted Macs list: rename, forget, choose LAN or relay | ✅ | ✅ | ✅ | ✅ |
 | Local network sessions, unlimited and unmetered | ✅ | ✅ | ✅ | ✅ |
 | Relay sessions | 30 min/day | 3 h/day | unlimited | unlimited |
-| Paired Macs | 1 | 1 | 3 | every |
+| Paired Macs | one | every Mac you own | every Mac you own | every Mac you own |
 | Wake on LAN | ✅ | ✅ | ✅ | ✅ |
 | Face ID lock on launch | ✅ | ✅ | ✅ | ✅ |
 | Siri / Shortcuts: connect, end shells | ✅ | ✅ | ✅ | ✅ |
+
+The paired-Mac row is `extraMacs`, and it is the one gate on the cheapest rung. It is a limit on a
+list rather than on anything the service runs: pairing a second Mac costs the relay nothing, which
+is why it sits here and not higher.
 
 ### Picture
 
@@ -124,15 +144,22 @@ Astropad and below Splashtop Pro, and the free tier here gives 30 minutes a day 
 | Share one running app, or a single window | ✅ | ✅ | ✅ | ✅ |
 | Every Space / desktop as a picture (desktops panel) | ✅ | ✅ | ✅ | ✅ |
 | Adaptive quality, fit vs fill | ✅ | ✅ | ✅ | ✅ |
-| Session audio (hear the Mac) | ✅ | ✅ | ✅ | ✅ |
-| Picture in Picture | ✅ | ✅ | ✅ | ✅ |
+| Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
+| Picture in Picture | · | ✅ | ✅ | ✅ |
+| The sharpest picture over the relay (the bitrate ceiling) | · | · | · | ✅ |
 | Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ | ✅ |
 | Screenshot with the system share sheet | ✅ | ✅ | ✅ | ✅ |
 
-**Note:** I put the whole Picture column at free deliberately. App-and-window sharing is
-the thing VNC clients cannot do, so it should be what a free user shows somebody else, and
-audio/PiP are "does it feel finished" features rather than depth. If any row here moves up,
-`Privacy mode` is the one I would gate — it is a power feature and costs nothing to run.
+The note that used to be here proposed keeping this whole column free and gating privacy mode
+instead. Both halves were answered on 20 September: **sound and Picture in Picture moved up to
+Relay**, because they are what the field charges for and the entry rung had nothing but a number to
+sell, and **privacy mode stayed free**, because Jump, Screens and Apple's own ARD all include it and
+gating it would have bought nothing.
+
+The bitrate row is not a picture that exists or does not exist. Every plan gets a picture, every
+plan still adapts to the network, and the direct path is uncapped on all of them. What Pro decides
+is how far a *relayed* stream may climb, which is the one row in the map that costs the operator
+money every time it is used.
 
 ### Control
 
@@ -143,12 +170,15 @@ audio/PiP are "does it feel finished" features rather than depth. If any row her
 | On-screen keyboard, hardware keyboard, modifier lock keys | ✅ | ✅ | ✅ | ✅ |
 | Control mode vs Observe mode | ✅ | ✅ | ✅ | ✅ |
 | Clipboard: pull from the Mac, and clipboard history | ✅ | ✅ | ✅ | ✅ |
-| Quick commands / snippets (chips above the keyboard) | ✅ | ✅ | ✅ | ✅ |
-| Custom macros (editor, save, fire) | ✅ | ✅ | ✅ | ✅ |
+| Quick commands and snippets: running one you already have | ✅ | ✅ | ✅ | ✅ |
+| Quick commands and snippets: adding or editing one | · | · | · | ✅ |
+| Macros: record, edit, fire | · | · | · | ✅ |
 
-**Note:** the two rows I would move up: **macros** and **quick commands** to Pro. They are the
-only genuinely "power user" controls, and they are the kind of thing a professional will pay
-for without a free user ever noticing they are missing.
+The note that used to be here proposed moving macros and quick commands to Pro, and that is what
+happened. It is worth being precise about where the gate sits, because it is not on the feature:
+the gate is on the button that *makes* one. A row of chips the user already has runs on every plan,
+in every terminal, and only the editor is Pro. `PlanAccess.swift` folds macros, snippets and quick
+commands into the single `macros` case on purpose, because they are one idea at three sizes.
 
 ### Terminals and files
 
@@ -156,15 +186,21 @@ for without a free user ever noticing they are missing.
 |---|---|---|---|---|
 | Mac terminal (a shell on your Mac, in the session) | ✅ | ✅ | ✅ | ✅ |
 | SSH servers: saved hosts, passwords in Keychain, host-key prompt | ✅ | ✅ | ✅ | ✅ |
-| Multiple shells open as tabs | **one at a time** | **one at a time** | tabs | tabs |
+| SSH port forwarding and tunnels | ✅ | ✅ | ✅ | ✅ |
+| Multiple shells open as tabs | one at a time | one at a time | tabs | tabs |
 | File browser on the Mac terminal (navigate, cd, preview) | ✅ | ✅ | ✅ | ✅ |
 | File browser over SSH (SFTP, with an exec fallback) | ✅ | ✅ | ✅ | ✅ |
-| Upload / download files | ❌ | ❌ | ❌ | ❌ |
+| Moving a file between the phone and the machine | · | ✅ | ✅ | ✅ |
 
-**Owner's call, adopted:** terminals are free with **one active shell at a time**; extra tabs
-are paid. That is a *concurrency* gate rather than a capability gate — it is the sort of limit
-that costs the service something and reads as fair, where hiding the terminal entirely would
-read as stingy. Same shape could be reused elsewhere if more gates are needed.
+Two rows here were wrong and are now right. **SSH servers are free**, and the capability has left
+`PlanAccess.swift` altogether: the owner's question was "why block SSH for free", and on inspection
+nothing about it costs the service anything, so what looked like a feature was a list. **Upload and
+download exist** and are `fileTransfer` on Relay; the table here used to say they were never built,
+which was true when it was written and has not been since.
+
+Tabs stayed on Relay Plus, and that is the row doing the arguing on its own: it is a *concurrency*
+gate rather than a capability gate, one shell is free on every plan, and the second one at the same
+moment is what costs a login on the far end.
 
 ### Around the app
 
@@ -176,25 +212,34 @@ read as stingy. Same shape could be reused elsewhere if more gates are needed.
 | Session history (last 30 sessions, duration, path, bytes) | ✅ | ✅ | ✅ | ✅ |
 | "Your Mac is waiting" / unlock notifications | ✅ | ✅ | ✅ | ✅ |
 
-**Note:** widgets and the Live Activity are the most natural paid rows in this whole document —
-they are pure polish, nobody needs them to use the app, and they are visible to other people
-(which is free advertising). If more paid differentiation is needed, move these to Plus first.
+The note that used to be here called widgets and the Live Activity the most natural paid rows in
+the document. They moved the other way: the widget extension cannot read StoreKit, so gating them
+would have meant real work for no money, and nobody in the field gates a widget.
 
 ---
 
-## 3. How gates would actually be enforced
+## 3. How the gates are enforced
 
-- **Relay minutes** — the relay already meters per device ID per 24 h window. It now needs to
-  know the plan; that is being added as a client-asserted field in the relay handshake (see §5).
-- **Number of Macs** — client-side, at pairing time. Count `pins.hostIDs`, refuse the pairing
-  over the limit, offer the upgrade.
-- **Number of terminal tabs** — client-side, at "new shell". Count open shells, refuse above the
-  limit. This one is already a natural check: `SSHModel.openShells` and the Mac terminal list.
-- **Everything else** — a check at the feature's entry point, against one plan value the app
-  reads from one place. The app is currently gaining that single value as `RelayPlan`.
-- **Client-side means bypassable.** A patched app can claim anything. That is the same trust
-  level as the relay's plan field, and it is the right trade at this size. The real fix, when it
-  matters, is verifying Apple's signed transaction offline (see §5).
+Built and shipped. Every one of these is a check at the feature's own entry point, against the single
+map in `PlanAccess.swift`, and every gate in the app draws itself through `PlanLocked` in the app's
+`SharedControls.swift`.
+
+- **Relay minutes** are metered by the relay, per device ID per 24-hour window. The plan arrives in
+  the handshake as a StoreKit receipt, which the relay verifies against Apple's root certificate
+  offline; `Relay/src/storekit.rs` is the whole of it.
+- **Paired Macs** (`extraMacs`) are counted client-side at pairing time, against the pins the user
+  has saved.
+- **Several Macs at once** (`concurrentSessions`) is checked client-side at session start. It is the
+  only row about how many of something may be *live*, and the only one whose cost scales with the
+  number rather than with the user: every session held open is a control connection the relay goes
+  on splicing whether or not anybody is looking at it.
+- **Terminal tabs** (`shellTabs`) are counted client-side at "New shell".
+- **Sound, Picture in Picture, moving files, macros and the bitrate ceiling** are each one check at
+  their own entry point.
+- **Client-side means bypassable.** A patched app can claim anything, which is the same trust level
+  as the relay's own plan field, and is the right trade at this size. The real fix, when it matters,
+  is verifying Apple's signed transaction offline, and the relay now does that for the one thing
+  that costs it money.
 
 **How a locked feature should appear:** visible, drawn as itself, and one tap to the paywall. Never
 hidden. A feature a user cannot see cannot make them want it, and hiding the terminal from a free
@@ -262,19 +307,26 @@ transfer at all, so relay bandwidth costs nothing at the margin; its real constr
 ~7 forwarded ports (so: concurrent relayed sessions) and a shared 1 Gbps link under a fair-use
 clause. **The relay meter is a conversion lever, not a cost control.**
 
-### Paying users are currently metered as free — the biggest revenue bug
-The relay decides who is paid by checking a key against a server-side list, and **nothing mints a
-key that can go on it**: the app generates a random UUID locally. So every real subscriber gets
-the free allowance, and `SessionModel+Events.swift` hides it by telling them their subscription is
-active and to try again later. At 15 minutes this was invisible; at any tiered allowance it hits
-exactly the people who paid.
+### Paying users were metered as free, and now are not
 
-- **Interim (in flight):** the app declares its plan in the relay handshake and the relay applies
-  the matching allowance. Client-asserted, documented as such.
-- **Real fix:** StoreKit hands the app a JWS (Apple-signed proof of the transaction, carrying the
-  product ID). The relay can verify that offline against Apple's root certificate — no backend of
-  yours, no accounts, and it answers "paid?" and "which plan?" at once. Caveat: revocation and
-  refunds need Apple's server API, so a refunded user keeps access until the JWS expires.
+**Closed.** The relay used to decide who was paid by checking a key against a server-side list, and
+nothing minted a key that could go on it: the app generated a random UUID locally, so every real
+subscriber got the free allowance and the app papered over it by saying the subscription was active
+and to try again later.
+
+Two things closed it. The app declares its plan in the relay handshake, and **the relay verifies
+Apple's signed transaction itself**: `Relay/src/storekit.rs` checks the JWS against Apple's root
+certificate, offline, with no backend of ours and no accounts, and it answers "paid?" and "which
+plan?" at once. `signalling.rs` uses it to decide whether a client's plan is Apple's or its own
+claim.
+
+One exception is still in the code deliberately, and is worth knowing about before the next release.
+An *unproven* claim is still honoured, because reading one as free on the day verification shipped
+would have taken every existing subscriber down to half an hour a day. `Relay/src/config.rs` holds
+the switch; the reasoning is in `RelayPlan.swift`.
+
+The caveat from before still stands: revocation and refunds need Apple's server API, so a refunded
+user keeps access until the JWS expires.
 
 ### Architecture: what the field does, and what to take
 

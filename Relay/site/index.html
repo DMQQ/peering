@@ -4,16 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peering · your Mac, from anywhere</title>
-<meta name="description" content="Peering puts your Mac's screen on your iPhone. Pair once on your own network; after that your two devices find each other from anywhere, encrypted end to end, straight between themselves when the network allows.">
+<meta name="description" content="Your Mac's screen on your iPhone. Pair once on your own network, then reach your Mac from anywhere, end to end encrypted and straight between the two devices.">
+<link rel="canonical" href="https://getpeering.app/">
 <meta name="theme-color" content="#0a0a0c">
 <link rel="icon" href="/assets/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
+
+<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
+     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
+     and a square icon in it is a logo with a lot of nothing around it. -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Peering · your Mac, from anywhere">
-<meta property="og:description" content="Your Mac's screen on your iPhone: on your own network, straight between the two devices when the network allows, or through a relay that cannot read what it carries.">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
 <meta property="og:url" content="https://getpeering.app/">
-<meta property="og:image" content="https://getpeering.app/assets/pears-512.png">
+<meta property="og:title" content="Peering · your Mac, from anywhere">
+<meta property="og:description" content="Your Mac's screen on your iPhone. Pair once on your own network, then reach your Mac from anywhere, end to end encrypted and straight between the two devices.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Peering, with the app on an iPhone beside the wordmark.">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering · your Mac, from anywhere">
+<meta name="twitter:description" content="Your Mac's screen on your iPhone. Pair once on your own network, then reach your Mac from anywhere, end to end encrypted.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="twitter:image:alt" content="Peering, with the app on an iPhone beside the wordmark.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Peering",
+  "url": "https://getpeering.app/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "iOS, macOS",
+  "description": "Your Mac's screen on your iPhone. Pair once on your own network, then reach your Mac from anywhere, end to end encrypted and straight between the two devices.",
+  "downloadUrl": "https://getpeering.app/download",
+  "screenshot": "https://getpeering.app/assets/og.png",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "Free to use on your own network. Relay plans, for reaching a Mac from another network, are monthly or yearly."
+  }
+}
+</script>
 </head>
 <body>
 
@@ -65,23 +102,23 @@
                told in the meantime. -->
           <a class="btn btn-quiet" href="#how">See how it works</a>
         </div>
-        <p class="fine">iPhone, and macOS on the Mac you want to reach. Free to use on your own network.</p>
       </div>
 
       <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
            product, the Mac it reaches and the phone it reaches from.
 
-           app-mac.png is a capture of the host window's content, with the window's own title bar
-           and traffic lights cropped off because the frame draws the machine and not the window.
-           It is 16:10, the proportion of the display the frame draws; anything else is clipped by
-           the screen rather than shown whole. -->
+           app-mac.png is the whole of this Mac's display at 1512 by 982, which is the proportion
+           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
+           supplies the machine around it, including the notch, which no screenshot can contain
+           because it is not something the display draws but something it is missing. -->
+      <div class="hero-stage">
       <div class="stage">
         <div class="mac" aria-label="The Peering host app on a Mac">
           <div class="mac-lid">
             <div class="mac-screen">
-              <img src="/assets/app-mac.png" alt="Peering on Mac: the host app with a phone connected, showing the Mac's screen streaming live." width="1600" height="1000">
+              <img src="/assets/app-mac.png" alt="Peering on Mac: the host app with a phone connected, showing the Mac's screen streaming live." width="1512" height="982">
+              <div class="mac-notch" aria-hidden="true"></div>
             </div>
-            <div class="mac-camera" aria-hidden="true"></div>
           </div>
           <div class="mac-base" aria-hidden="true"></div>
         </div>
@@ -92,6 +129,7 @@
           </div>
           <div class="phone-island" aria-hidden="true"></div>
         </div>
+      </div>
       </div>
     </div>
   </section>
@@ -162,7 +200,22 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M16.2 17.6l4.2-4.2a1.3 1.3 0 00-1.8-1.8l-4.2 4.2-.5 2.3z"/></svg>
           <h3>Your Macs, named how you like</h3>
           <p>Rename a Mac to something you recognise, or forget one you are done with, from the row itself.</p>
-          <p>Starting a session with a second Mac ends the first.</p>
+          <p>The list is the pairing. A Mac in it is one the phone can reach; one you forget is one it cannot.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>Every Mac you own</h3>
+          <p>Free pairs with one Mac. Relay pairs with every Mac you own, and they all live in the same list.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>More than one at once</h3>
+          <p>One Mac at a time is free on every plan: starting a session with a second one ends the first.</p>
+          <p>Pro holds several open together, so moving between two machines is a tap rather than a reconnect.</p>
         </div>
 
         <div class="card feature">
@@ -230,7 +283,16 @@
         </div>
 
         <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>The sharpest picture over the relay</h3>
+          <p>On your own network the picture is uncapped on every plan, and every plan adapts to the network.</p>
+          <p>What Pro changes is the ceiling on a relayed session: how far the rate may climb while the bytes are being carried.</p>
+        </div>
+
+        <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
+          <span class="feature-tag">Relay</span>
           <h3>Sound from the Mac</h3>
           <p>Whatever the Mac is playing comes out of the phone, so you hear what the machine is doing rather than watching it do it silently.</p>
           <p>One switch in the session panel, and turning it off leaves the stream alone.</p>
@@ -250,8 +312,9 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
+          <span class="feature-tag">Relay</span>
           <h3>Keeps going when you leave</h3>
-          <p>Picture in Picture over your other apps, a Live Activity on the Lock Screen, and a widget on the Home Screen.</p>
+          <p>Picture in Picture over your other apps, so the Mac's screen stays with you outside the app. The Live Activity on the Lock Screen and the widget on the Home Screen are on every plan.</p>
         </div>
 
         <div class="card feature">
@@ -263,16 +326,18 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
+          <span class="feature-tag">Relay Plus</span>
           <h3>A real shell</h3>
           <p>Full-screen terminal sessions with a key row built for a phone: escape, control keys, arrows and word-at-a-time movement.</p>
-          <p>One shell at a time is free. Named tabs to keep several open need Relay Plus.</p>
+          <p>One shell at a time is free on every plan. Named tabs, to keep several open at once, are Relay Plus.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
+          <span class="feature-tag">Relay</span>
           <h3>Files, on either machine</h3>
-          <p>Walk the folders of your Mac or of any server you have added, and open, change and save a file where it sits.</p>
-          <p>Moving one between the phone and the machine needs Relay.</p>
+          <p>Walk the folders of your Mac or of any server you have added, open a config or a script, change it and save it, make new ones and rename or delete what is listed.</p>
+          <p>All of that is free. Moving a file between the phone and the machine is Relay.</p>
         </div>
 
         <div class="card feature">
@@ -309,12 +374,15 @@
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
+          <span class="feature-tag">Pro</span>
           <h3>The commands you type every time</h3>
           <p>A row of chips above the keyboard holding the commands and snippets you reach for, in every terminal. Nothing fires until you tap it.</p>
+          <p>Running the ones you already have is free on every plan. Making or editing one is Pro.</p>
         </div>
 
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
+          <span class="feature-tag">Pro</span>
           <h3>Macros</h3>
           <p>Record a sequence once and fire it with one tap: the things you type every time you sit down at that Mac.</p>
           <p>Saved on the phone, editable, and never sent anywhere until you run it.</p>
@@ -368,16 +436,12 @@
           <div>
             <h3>What the relay handles</h3>
             <p>
-              Your devices' IDs, your Mac's name, the protocol version, which plan the app says
-              you are on, and how much relay time has been used.
+              Your devices' IDs, your Mac's name, the protocol version, which plan the app says you
+              are on, and how much relay time has been used.
             </p>
             <p>
-              It sees, as any server does, the address each device connects from, and hands each of
-              them the other's so they can reach one another directly. Your devices learn the same,
-              so the relay is not the only thing that knows where they are.
-            </p>
-            <p>
-              What it can <em>read</em> is unchanged: nothing, on either path.
+              It sees the address each device connects from, as any server does, and hands each of
+              them the other's. What it can <em>read</em> is nothing, on either path.
             </p>
           </div>
           <div>
@@ -448,95 +512,7 @@
           </thead>
           <tbody>
             <tr class="group-row">
-              <th scope="rowgroup" colspan="4">On your own network</th>
-              <td class="col-pro"></td>
-            </tr>
-            <tr>
-              <th scope="row">Every display, app and window</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">One shell at a time</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">SSH servers, with saved keys</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">SSH port forwarding</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">The file browser, with editing and running</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Clipboard, and its history</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Keyboard, pointer, trackpad and scroll wheel</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Observe mode</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Privacy mode</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Screenshots, widgets, Live Activity and Siri</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Wake on LAN, Spaces, and session history</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr>
-              <th scope="row">Notifications when the Mac is waiting for you</th>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes"><span class="vh">Included</span></td>
-              <td class="yes col-pro"><span class="vh">Included</span></td>
-            </tr>
-            <tr class="group-row">
-              <th scope="rowgroup" colspan="4">Across the internet</th>
+              <th scope="rowgroup" colspan="4">What a plan buys</th>
               <td class="col-pro"></td>
             </tr>
             <tr>
@@ -600,6 +576,94 @@
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
               <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">Not included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="group-row">
+              <th scope="rowgroup" colspan="4">Included on every plan</th>
+              <td class="col-pro"></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Every display, app and window</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">One shell at a time</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSH servers, with saved keys</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSH port forwarding</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">The file browser, with editing and running</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Clipboard, and its history</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Keyboard, pointer, trackpad and scroll wheel</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Observe mode</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Privacy mode</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Screenshots, widgets, Live Activity and Siri</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Wake on LAN, Spaces, and session history</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes col-pro"><span class="vh">Included</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Notifications when the Mac is waiting for you</th>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
+              <td class="yes"><span class="vh">Included</span></td>
               <td class="yes col-pro"><span class="vh">Included</span></td>
             </tr>
           </tbody>

@@ -30,6 +30,11 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   --step: clamp(64px, 9vw, 112px);
+
+  /* The bar's height, named once because the hero has to subtract it: the bar is sticky and takes
+     its own place in the flow at the top of the page, so a section asking for a full viewport and
+     starting below the bar is a section that is one bar too tall. */
+  --bar: 64px;
 }
 
 * { box-sizing: border-box; }
@@ -143,7 +148,7 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   gap: 24px;
-  height: 64px;
+  height: var(--bar);
 }
 
 .brand {
@@ -242,9 +247,22 @@ a { color: inherit; }
 
 /* ---------- Hero ---------- */
 
+/* One screen, with everything on it. The padding is measured in height rather than in width here
+   because what the section has to fit is a height, and 8vw of padding on a wide, short window is
+   what was pushing the devices off the bottom of it.
+
+   At least a screen here, and exactly a screen on a wide one, where the rule below makes the
+   height definite. It has to be definite there because the devices are sized against it and a
+   minimum leaves the grid row indefinite, which is a thing container units resolve to zero
+   against. On a phone it is a minimum instead: fitting a heading, a paragraph and two buttons
+   into one small screen leaves the devices as a thumbnail, and a phone is a page you are meant
+   to scroll anyway. */
 .hero {
   position: relative;
-  padding: clamp(48px, 8vw, 96px) 0 var(--step);
+  min-height: calc(100vh - var(--bar));
+  min-height: calc(100svh - var(--bar));
+  display: grid;
+  padding: clamp(28px, 4.5vh, 64px) 0;
   overflow: hidden;
 }
 
@@ -255,11 +273,39 @@ a { color: inherit; }
    than half a 1080-point page, and the half they would not fit in is the half the screenshots would
    have been shrunk into. The devices are the widest thing on the page now, so they get the whole of
    it and the words sit over them at their own measure. */
+/* The hero runs wider than the rest of the page. Every other section is a column of words and
+   wants the measure a column of words wants; this one is a word and a machine side by side, and a
+   1080 column leaves a band of nothing down each edge that the machine could have had. */
+.hero .wrap {
+  max-width: 1560px;
+  padding: 0 clamp(24px, 3.5vw, 56px);
+}
+
 .hero-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  /* Both rows sized by what is in them, so a narrow page grows to fit its devices rather than
+     squeezing them into whatever is left of a screen. The wide rule below turns the second row
+     into the remainder, which is what the devices are then measured against. */
+  grid-template-rows: auto auto;
+  align-content: start;
+  justify-items: center;
   text-align: center;
+}
+
+/* The devices get whatever the words leave, and are sized off that rather than off the width of
+   the page, so the whole hero is one screen at any shape of window.
+
+   `container-type: size` is what makes that leftover height readable from inside. Without it the
+   stage would have to guess at how tall the copy above it is, and the guess would be wrong the
+   first time a heading reflowed or a line was added. */
+.hero-stage {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: clamp(24px, 3.5vh, 52px);
 }
 
 .hero-copy {
@@ -270,13 +316,20 @@ a { color: inherit; }
 
 .hero-mark {
   display: block;
-  margin-bottom: 18px;
+  /* Scaled with the title rather than left at a fixed 96, so the mark stays in proportion to the
+     word it introduces at every width. */
+  width: clamp(78px, 8.5vw, 112px);
+  height: auto;
+  margin-bottom: 16px;
   filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.6));
 }
 
 .hero h1 {
-  font-size: clamp(52px, 8vw, 88px);
-  letter-spacing: -0.03em;
+  /* The largest thing on the page, deliberately: it is the name of the product and the first word
+     anyone reads, and the mark above it and the line under it are both smaller than it. The ceiling
+     is where the word still fits the column it is in when the columns are side by side. */
+  font-size: clamp(64px, 10vw, 124px);
+  letter-spacing: -0.035em;
 }
 
 .lede {
@@ -333,22 +386,31 @@ a { color: inherit; }
      laptop beside an honest iPhone makes the phone 107px wide, and a screenshot nobody can read is
      not a screenshot. It is the fraction that keeps the phone legible, which is what the picture is
      for. */
-  --display: min(640px, 62vw);
+  /* Sized off the page here rather than off the room it has, because on a phone there is no
+     fixed room to divide up: the section grows to whatever the words need. */
+  --display: min(420px, 62vw);
   --screen: calc(var(--display) * 0.46);
 
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  margin-top: clamp(44px, 5.5vw, 76px);
 }
 
 /* Body, and the light along its edge. The rim is a mask rather than a border so the gradient
    survives the corner radius, and it is drawn inside the body rather than around it so the
    highlight is the last thing on the device and not a ring floating off it. */
 .phone,
+.mac-lid { position: relative; }
+
+/* The phone is the app's own two greys, which is what the app's onboarding draws. */
+.phone { background: linear-gradient(180deg, #202023, #101012); }
+
+/* The Mac is black, because the lid of a MacBook is black glass: the bezel and the housing in it
+   are the same black, and that is the whole point of the notch, which is a cut in the display
+   rather than a shape stuck onto it. The rim is what keeps it from being a hole in the page. */
 .mac-lid {
-  position: relative;
-  background: linear-gradient(180deg, #202023, #101012);
+  background: #000;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
 }
 
 .phone::after,
@@ -369,8 +431,17 @@ a { color: inherit; }
 /* ---------- Phone ---------- */
 
 .phone {
-  --bezel: calc(var(--screen) * 10 / 290);
+  /* The bezel is a fraction of the screen it surrounds, and it is thinner than the app's own tour
+     draws it: the tour holds the phone up as the subject of a page, where a visible border is what
+     tells the reader it is a device, and here it sits beside a Mac and only has to be one. Two
+     fifths of the screen's width would have been the same bevel twice. */
+  --bezel: calc(var(--screen) * 7 / 290);
   --body-w: calc(var(--screen) + var(--bezel) * 2);
+  --body-r: calc(var(--body-w) * 0.148);
+  /* The screen's corner is the body's corner less the bezel, which is the only value that makes the
+     two concentric. Picked by eye instead, the inner radius is either too tight or too slack, and
+     the bezel looks thicker at the corners than along the edges. */
+  --screen-r: calc(var(--body-r) - var(--bezel));
   /* The screenshot's own proportions. A frame that did not match them would letterbox or crop every
      image put inside it, which is the one thing a frame must not do. */
   --screen-h: calc(var(--screen) * 1311 / 603);
@@ -378,13 +449,13 @@ a { color: inherit; }
   flex: none;
   width: var(--body-w);
   padding: var(--bezel);
-  border-radius: calc(var(--body-w) * 0.148);
+  border-radius: var(--body-r);
   box-shadow: 0 34px 74px rgba(0, 0, 0, 0.62);
   z-index: 2;
 }
 
 .phone-screen {
-  border-radius: calc(var(--screen) * 0.128);
+  border-radius: var(--screen-r);
   overflow: hidden;
   background: #000;
   aspect-ratio: 603 / 1311;
@@ -413,13 +484,18 @@ a { color: inherit; }
 /* ---------- Mac ---------- */
 
 /* An open MacBook, drawn in the same three parts a MacBook has: a lid with a screen in it, a hinge,
-   and a base wider than the lid with the scoop in its front edge. The display is 16:10, which is
-   what a Mac's screen is; a screenshot of the host app should be cut to that or the frame will
-   letterbox it. */
+   and a base wider than the lid with the scoop in its front edge.
+
+   The display is 1512 by 982, which is this Mac's screen and the one the capture in it was taken
+   on, so the picture is 1:1 with the device and nothing is cut off at the edges or left as a band.
+   16:10 was a number borrowed from the old frame and it was short: a Mac display is 1.54. */
 .mac {
   --bezel: calc(var(--display) * 0.017);
   --lid-w: calc(var(--display) + var(--bezel) * 2);
-  --lid-h: calc(var(--display) * 0.625 + var(--bezel) * 2);
+  --lid-r: calc(var(--lid-w) * 0.030);
+  /* Concentric with the lid, for the same reason the phone's screen is concentric with its body. */
+  --screen-r: calc(var(--lid-r) - var(--bezel));
+  --screen-h: calc(var(--display) * 982 / 1512);
   --base-h: calc(var(--lid-w) * 0.030);
 
   display: flex;
@@ -431,16 +507,16 @@ a { color: inherit; }
 .mac-lid {
   width: var(--lid-w);
   padding: var(--bezel);
-  border-radius: calc(var(--lid-w) * 0.030) calc(var(--lid-w) * 0.030)
+  border-radius: var(--lid-r) var(--lid-r)
                  calc(var(--lid-w) * 0.009) calc(var(--lid-w) * 0.009);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
 }
 
 .mac-screen {
-  border-radius: calc(var(--display) * 0.009);
+  position: relative;
+  border-radius: var(--screen-r);
   overflow: hidden;
   background: #000;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 1512 / 982;
 }
 
 .mac-screen img {
@@ -449,15 +525,25 @@ a { color: inherit; }
   height: auto;
 }
 
-.mac-camera {
+/* The camera housing, which every MacBook Pro since 2021 has and which is part of the machine
+   rather than part of the picture: a screenshot cannot contain it, because it is not something the
+   display draws, it is something the display is missing. Drawn over the top of whatever is in the
+   screen, in the black of the housing, with the shallow bottom corners the real one has.
+
+   It is a little wider and a little deeper than a real one, and it has an edge. Both are for the
+   same reason: the housing sits in the empty middle of the menu bar, which in a dark capture is
+   black on black, and a shape that cannot be seen is not doing the one job it has. The edge is
+   what the real housing has anyway, where the light from above catches the inside of the cut. */
+.mac-notch {
   position: absolute;
-  top: calc(var(--bezel) * 0.5);
+  top: 0;
   left: 50%;
-  transform: translate(-50%, -50%);
-  width: max(3px, calc(var(--display) * 0.006));
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.10);
+  transform: translateX(-50%);
+  width: calc(var(--display) * 0.092);
+  height: calc(var(--screen-h) * 0.026);
+  border-radius: 0 0 calc(var(--screen-h) * 0.013) calc(var(--screen-h) * 0.013);
+  background: #000;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .mac-base {
@@ -584,13 +670,17 @@ a { color: inherit; }
 
 .feature { padding: 24px; }
 
-/* The plan a feature needs, on the few cards that need one.
-   Quieter than `.plan-badge` on purpose: a feature card is a description rather than an offer, so
+/* The plan a feature needs, on the cards that need one.
+   On the card's top-trailing corner rather than above the heading, which is where the app puts it
+   on a control it has locked: above the heading it takes a line out of the flow, so a card that
+   costs something is a different shape from one that does not and the grid goes ragged.
+   Quieter than `.plan-badge` on purpose. A feature card is a description rather than an offer, so
    this labels instead of selling, and most cards carry nothing at all. */
 .feature-tag {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 3px 10px;
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  padding: 3px 9px;
   border-radius: 999px;
   background: rgba(10, 132, 255, 0.14);
   border: 1px solid rgba(10, 132, 255, 0.45);
@@ -890,6 +980,20 @@ a { color: inherit; }
   letter-spacing: 0.01em;
 }
 
+/* The rows every plan shares. They are read after the differences and they are quieter than they
+   were, because twelve identical ticks in a row is a block that says "free gets everything" to
+   anyone scanning, and the paid columns beside it then read as empty. They stay in the table
+   rather than moving to a list above it: what Free gets is a question this section has to answer,
+   and it is answered here as a row rather than as a claim. */
+.plans tr.quiet th[scope="row"] {
+  font-size: 14px;
+  color: var(--ink-55);
+}
+
+.plans tr.quiet .yes::before { border-color: rgba(255, 255, 255, 0.42); }
+.plans tr.quiet .no-cell .no { color: rgba(255, 255, 255, 0.12); }
+.plans tr.quiet td, .plans tr.quiet th { border-bottom-color: rgba(255, 255, 255, 0.045); }
+
 /* The Pro column, lifted out of the table the way the badge inside it is lifted out of the type.
    The lift runs the whole height of the column, which is why a group row is one cell spanning four
    columns and a bare cell for the fifth: a single cell across all five would cut the tint in two. */
@@ -1072,6 +1176,81 @@ a { color: inherit; }
 
 /* ---------- Narrow ---------- */
 
+/* Side by side, on a screen wide enough to hold the words and the devices at once. Stacked, the
+   copy takes a third of the height and the devices are left with what is under it, which on a
+   laptop is not enough for either of them to be worth showing. Beside it, they are limited by the
+   width of their own column instead, which is the dimension that a hero has spare. */
+@media (min-width: 1000px) {
+  /* Exactly one screen, and the devices sized against it. Above this width there is room for the
+     words and the machines to share a screen, and the section stops being a page you scroll. */
+  .hero {
+    height: calc(100vh - var(--bar));
+    height: calc(100svh - var(--bar));
+    min-height: 640px;
+  }
+
+  /* Two ceilings, because the stage can be short of room in either direction. `98cqh` is the
+     height: the phone is the tallest thing in it and stands 1.0224 of this width, so the display
+     has to be 97.8% of whatever it is given. `72.6cqw` is the width, and it is the same sum with
+     the stage's own width in it, because the two devices together are 1.376 of the display across.
+     62vw is the page-width ceiling, which binds on the way up to this breakpoint. */
+  .stage { --display: min(750px, 62vw, calc(98cqh), calc(72.6cqw)); }
+
+  /* A query container, which is what lets the devices read the height of the row they are in. It
+     is here and not in the base because `container-type: size` is size containment: the element
+     stops contributing its own content to the layout, which is exactly right for a row that is
+     being measured and exactly wrong for one that is being sized by what is inside it. */
+  .hero-stage { min-height: 0; container-type: size; }
+
+  .hero-inner {
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    grid-template-rows: 1fr;
+    align-content: stretch;
+    gap: clamp(32px, 4vw, 64px);
+    justify-items: start;
+    text-align: left;
+  }
+
+  .hero-copy {
+    align-items: flex-start;
+    align-self: center;
+  }
+
+  .hero-copy .cta-row { justify-content: flex-start; }
+
+  /* Stretched, not centred. A centred item's height would come from its content, and a container
+     whose size comes from its content cannot be asked how tall it is by the things inside it. */
+  .hero-stage {
+    align-self: stretch;
+    justify-self: stretch;
+    padding-top: 0;
+  }
+}
+
+/* Stacked again, once the window is tall enough to afford it. The two arrangements are not a
+   preference, they are two answers to the same sum: stacked, the words are taken out of the height
+   the devices have to live in, and side by side they are taken out of the width instead. On a
+   laptop the height is the scarce one, and the devices come out half the size they do here. On a
+   display with height to spare the height stops being the constraint at all, and the centred
+   arrangement gives the machine the whole width to grow into. */
+@media (min-width: 1000px) and (min-height: 1250px) {
+  .hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .hero-copy {
+    align-items: center;
+    align-self: auto;
+  }
+
+  .hero-copy .cta-row { justify-content: center; }
+
+  .hero-stage { padding-top: clamp(24px, 3.5vh, 52px); }
+}
+
 @media (max-width: 960px) {
   /* Four plans and a label do not fit across a narrow page, so this is where the table stops
      trying. It becomes its own scroll box: the wrapper scrolls both ways, the header row pins to the
@@ -1106,7 +1285,7 @@ a { color: inherit; }
      eventually becomes a thumbnail. The phone's fraction goes up instead, which costs the Mac some
      width and buys the screenshot inside it the room to still be a screenshot. */
   .stage {
-    --display: min(640px, 58vw);
+    --display: min(420px, 58vw);
     --screen: calc(var(--display) * 0.44);
   }
   .stage .phone { margin-left: calc(var(--display) * -0.10); }
