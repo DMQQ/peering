@@ -100,4 +100,31 @@ public enum PreferenceKeys {
     /// Written whenever the list changes and read once when the model is built, so the two ends of
     /// that round trip have to be spelling the same key.
     public static let customMacros = "Peering.customMacros"
+
+    // The five first-run tours, one flag each.
+    //
+    // Five keys rather than one list of tours already seen, and that is the whole of the design.
+    // A tour is owed by the *screen* it belongs to, and the screens are reached in an order the
+    // app does not decide: somebody who never opens a shell on a server is owed the two tours
+    // behind that screen forever, and somebody who does is owed them once. One list would make
+    // "have I seen the tips for this screen" a question about a set that has to be kept in step
+    // with the screens themselves, and the first new screen would be the one that was forgotten.
+    //
+    // Written by both exits of a tour — finishing it and skipping it — for the reason
+    // ``hasSeenWelcome`` records: "I have read this" and "I do not want this" are the same
+    // instruction, and a flag written only by the last step would come back for everybody who
+    // pressed Skip on the first one.
+    //
+    // Read and written through ``Tour``, which is where the steps and the reset live; the keys are
+    // here because a key spelled twice is a flag that silently does nothing for one of the two.
+    /// Whether the Connect screen's tips have been seen.
+    public static let hasSeenTourConnect = "Peering.hasSeenTourConnect"
+    /// Whether the Servers screen's tips have been seen.
+    public static let hasSeenTourServers = "Peering.hasSeenTourServers"
+    /// Whether the tips for a shell on a server have been seen.
+    public static let hasSeenTourShell = "Peering.hasSeenTourShell"
+    /// Whether the terminal's tips have been seen.
+    public static let hasSeenTourTerminal = "Peering.hasSeenTourTerminal"
+    /// Whether the remote screen's tips have been seen.
+    public static let hasSeenTourScreen = "Peering.hasSeenTourScreen"
 }

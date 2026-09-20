@@ -53,6 +53,9 @@ struct RemoteScreen: View {
     /// ``presentLandscapeHint()``, at the moment the card goes up.
     @AppStorage(PreferenceKeys.hasSeenLandscapeHint) var hasSeenLandscapeHint = false
 
+    /// Whether this screen's first-run tips have been seen. See ``Tour``.
+    @AppStorage(PreferenceKeys.hasSeenTourScreen) var hasSeenTourScreen = false
+
     /// Set when iOS refused a rotation, which means Rotation Lock is on. Lasts as long as the
     /// session does, because the condition it describes does too.
     ///
@@ -180,6 +183,23 @@ struct RemoteScreen: View {
         }
     }
 
+    /// What this screen owes, and what it waits for.
+    ///
+    /// **Three gates, all of them about a tour arriving before the screen is the screen.** The
+    /// session has to be up, because the steps are drawn around a pill, a dock and a joystick that
+    /// only exist once the picture does. The turn-your-phone card has to have gone, because it is
+    /// the first thing a portrait session shows, it sits over the middle of the picture, and a tour
+    /// running under a card is two things saying "look here" at once. And the flag has to say the
+    /// tips are still owed, which is the one that survives the session.
+    ///
+    /// `showsLandscapeHint` is not a permanent condition and does not need to be: the card takes
+    /// itself away after three seconds, and this is recomputed on every pass, so the tips begin the
+    /// moment the screen is alone.
+    private var dueScreenTours: [Tour] {
+        guard model.phase == .ready, !showsLandscapeHint, !hasSeenTourScreen else { return [] }
+        return [.screen]
+    }
+
     /// Whether the phone is held sideways.
     ///
     /// Asked of the window rather than of the geometry the chrome is laid out in, and a bug lives
@@ -256,6 +276,11 @@ struct RemoteScreen: View {
                     .transition(.opacity)
                 }
             }
+            // On the stack rather than on a layer of its own, and it has to be: the tips are drawn
+            // around the pill, the dock and the joystick, so the thing they are read from has to be
+            // an ancestor of all three. A `Color.clear` put on top of this stack would be over the
+            // picture and behind nothing, and would see no frames at all.
+            .firstRunTours(dueScreenTours) { $0.markSeen() }
         }
         // The keyboard must not resize the picture. A remote desktop whose view shrinks every
         // time the system keyboard appears would move every control the user is aiming at.

@@ -30,9 +30,19 @@ struct TerminalPanel: View {
     @State private var inputFocused = false
     @FocusState private var renameFocused: Bool
 
+    /// Whether the terminal's tips have been seen. See ``Tour``.
+    ///
+    /// The same flag ``SSHTerminalScreen`` reads, and the same steps: the log, the deck and the
+    /// command row are one set of controls shown on two screens.
+    @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
+
     /// The log's type size, named once because it is used twice — the base font and the bold
     /// runs inside it. Two spellings of it is a bold word a point bigger than its own line.
     private static let fontSize: CGFloat = 12
+
+    private var dueTerminalTours: [Tour] {
+        hasSeenTourTerminal ? [] : [.terminal]
+    }
 
     /// The grid the shells are drawn against, measured from the log's own frame.
     ///
@@ -110,6 +120,7 @@ struct TerminalPanel: View {
                         browsing(terminal)
                     } else {
                         output(terminal)
+                            .tourAnchor(.terminalLog)
                         // Above the deck rather than in it, because it is not a chip you press to
                         // send something — it is a list of what has already been sent, and it is
                         // shown only while the button in the input row says so.
@@ -133,7 +144,9 @@ struct TerminalPanel: View {
                             send: { self.send($0, to: terminal.id) },
                             isEnabled: terminal.isRunning
                         )
+                        .tourAnchor(.terminalDeck)
                         input(terminal)
+                            .tourAnchor(.terminalInput)
                     }
                 } else {
                     ContentUnavailableView(
@@ -149,6 +162,11 @@ struct TerminalPanel: View {
                 }
             }
             .background(Color.black)
+            // The same three steps the SSH terminal shows, on the same three controls, because it
+            // is the same terminal: one deck, one command field and one log, shared between the
+            // Mac's shells and a server's. One flag between them too, so a person who has read
+            // what the keys do on one of them is not told again on the other.
+            .firstRunTours(dueTerminalTours) { $0.markSeen() }
             .navigationTitle("Mac terminals")
             .navigationBarTitleDisplayMode(.inline)
             // The header is part of the terminal, so it is the terminal's colour. Left alone it

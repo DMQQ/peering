@@ -26,6 +26,9 @@ struct SSHTab: View {
     /// user's own saved hosts behind a paywall.
     @Environment(SessionModel.self) private var session
 
+    /// Whether this screen's first-run tips have been seen. See ``Tour``.
+    @AppStorage(PreferenceKeys.hasSeenTourServers) private var hasSeenTourServers = false
+
     @State private var isAdding = false
     @State private var editingHost: SSHHost?
     /// The host whose public key is being shown, from the row's own menu.
@@ -141,6 +144,10 @@ struct SSHTab: View {
                                 openRow(open)
                             }
                         }
+                        // Only drawn while something is open, so this step of the tour is only
+                        // drawn then either: an absent control reports no frame, and a step with
+                        // no frame is dropped rather than ringed around nothing.
+                        .tourAnchor(.serversOpen)
                     }
 
                     card("Servers", systemImage: "server.rack") {
@@ -152,6 +159,7 @@ struct SSHTab: View {
                             }
                         }
                     }
+                    .tourAnchor(.serversList)
 
                     // **Add a server is free, and it is one button again.** It was two: the same
                     // row with a plus on one plan and a padlock on the other, which is the shape
@@ -174,11 +182,20 @@ struct SSHTab: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(ColorPalette.surface)
                     }
+                    .tourAnchor(.serversAdd)
                 }
                 .padding(18)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .firstRunTours(dueServerTours) { $0.markSeen() }
+    }
+
+    /// What this screen owes. Nothing is gated on the list being empty or full: the three steps
+    /// are three things this screen always has to say, and the one about the shells already open
+    /// is dropped on its own when there are none.
+    private var dueServerTours: [Tour] {
+        hasSeenTourServers ? [] : [.servers]
     }
 
     private var emptyRow: some View {

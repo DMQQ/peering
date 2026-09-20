@@ -48,6 +48,10 @@ extension RemoteScreen {
                             settingsButton
                         }
                         .reportChromeFrame(.leadingRail, into: $chromeFrames)
+                        // The left rail is the one a first-run tip rings. The right one holds the
+                        // keys that come back to the same panels, and a highlight around both ends
+                        // of a landscape screen is a highlight around the picture.
+                        .tourAnchor(.screenRail)
                         Spacer(minLength: 0)
                         ControlRail(maxHeight: railMaxHeight(in: available.height)) {
                             landscapeQuickActions
@@ -67,7 +71,9 @@ extension RemoteScreen {
                 // keeping the pill from crossing a landscape screen — to the pill. Left at 420
                 // it would have started constraining the status rows instead, since the dots
                 // moved inside it.
-                statusBar.frame(maxWidth: Self.pillMaxWidth + Self.sessionDotsWidth)
+                statusBar
+                    .frame(maxWidth: Self.pillMaxWidth + Self.sessionDotsWidth)
+                    .tourAnchor(.screenStatus)
                 // Under the pill rather than beside it, in both orientations: the pill is about
                 // the connection the user is watching and the strip is about the others, and
                 // stacking them is what lets the strip disappear without moving the pill.
@@ -112,6 +118,7 @@ extension RemoteScreen {
                             // the stick reaches both without crossing the screen.
                             pointerColumn
                                 .reportChromeFrame(.pointer, into: $chromeFrames)
+                                .tourAnchor(.screenPointer)
                                 .offset(x: joystickColumnOffset)
                         }
                     }
@@ -148,6 +155,7 @@ extension RemoteScreen {
                 if !model.showKeyboard {
                     portraitPointer
                         .reportChromeFrame(.pointer, into: $chromeFrames)
+                        .tourAnchor(.screenPointer)
                     // Centred across and sitting on the dock, rather than on the screen's own
                     // centre. `maxHeight: .infinity` with no alignment centres its content, so
                     // this filled the screen and put the joystick in the middle of both axes —
@@ -163,6 +171,7 @@ extension RemoteScreen {
 
                 VStack(spacing: 0) {
                     statusBar
+                        .tourAnchor(.screenStatus)
                     // Standing permanently here, where landscape's collapses with the pill: this
                     // is the orientation the dock sits at the bottom of, and a bar of Macs that
                     // came and went while the dock stayed would be the one piece of chrome on the
@@ -184,6 +193,10 @@ extension RemoteScreen {
                         portraitDock(width: available.width * ChromeMetrics.dockWidthFraction)
                             .reportChromeFrame(.dock, into: $chromeFrames)
                             .padding(.bottom, ChromeMetrics.edgeInset)
+                            // The dock's own step, and the rails' is the landscape one. Only ever
+                            // one of the two is on screen, and the tour drops whichever is not:
+                            // see ``Tour/screen``.
+                            .tourAnchor(.screenDock)
                     }
                 }
             }

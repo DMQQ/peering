@@ -17,6 +17,17 @@ struct SSHTerminalScreen: View {
     /// The saved commands. Owned by the app because the Mac's terminals show the same list.
     @Environment(QuickCommands.self) private var quickCommands
 
+    /// Whether the tips for a shell on a server have been seen, and whether the terminal's have.
+    ///
+    /// **Two tours on one screen, and they are not the same tour twice.** This screen is two
+    /// things at once: a connection, which is the tab strip and the switch to the server's files,
+    /// and a terminal, which is the log, the keys and the line that types. A person meets them in
+    /// that order, the connection arriving before there is anything in it to type at, so they are
+    /// two runs of the same mechanism and the screen hands them over in that order. See
+    /// ``dueTours``.
+    @AppStorage(PreferenceKeys.hasSeenTourShell) private var hasSeenTourShell = false
+    @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
+
     @State private var command = ""
     /// A plain flag rather than `@FocusState`, for the reason spelled out at length in
     /// ``TerminalPanel``: the field is a `UITextField` owning its own responder status, and
@@ -64,7 +75,8 @@ struct SSHTerminalScreen: View {
     @State private var showsHiddenFiles = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        let _ = NSLog("TOURDEBUG ssh body due=%@ shell=%d term=%d", String(describing: dueTours), hasSeenTourShell ? 1 : 0, hasSeenTourTerminal ? 1 : 0)
+        return VStack(spacing: 0) {
             // Drawn for one shell as well as for several, which it was not.
             //
             // It was hidden when there was only one, on the good argument that a single tab is
@@ -74,6 +86,7 @@ struct SSHTerminalScreen: View {
             // cross on it are about that shell, and the row is what ``TerminalPanel`` draws for
             // the Mac's terminals whatever their number.
             tabStrip
+                .tourAnchor(.shellTabs)
                 .terminalEndPrompt(
                     name: model.pendingClose?.title ?? "",
                     detail: "The shell on the server stops, along with anything running in it. Your other shells are left alone.",
@@ -91,6 +104,7 @@ struct SSHTerminalScreen: View {
                 browsing
             } else {
                 output
+                    .tourAnchor(.terminalLog)
                 // The saved commands and the keys in one row, shared with the Mac's terminals —
                 // see ``TerminalDeck``, which is where the two strips this screen used to stack
                 // went and why.
@@ -106,9 +120,15 @@ struct SSHTerminalScreen: View {
                     send: { model.send(Data($0.utf8), to: terminal) },
                     isEnabled: canType
                 )
+                .tourAnchor(.terminalDeck)
                 input
+                    .tourAnchor(.terminalInput)
             }
         }
+        // On the screen's own stack, inside the navigation stack the Servers tab wraps it in: the
+        // steps are measured off the strip, the log and the row below, and a preference does not
+        // travel out through a navigation container.
+        .firstRunTours(dueTours) { $0.markSeen() }
         .sheet(isPresented: $isEditingQuickCommands) {
             SSHQuickCommandsEditor(commands: quickCommands)
         }
@@ -348,7 +368,27 @@ struct SSHTerminalScreen: View {
             TerminalModeButton(isBrowsing: isBrowsing) { toggleBrowsing() }
                 .padding(.top, 11)
                 .padding(.trailing, 8)
+                .tourAnchor(.shellMode)
         }
+    }
+
+    /// What this screen owes, connection first.
+    ///
+    /// The order is the order a person meets them: the strip and the switch are what arriving on
+    /// this screen is, and the log, the keys and the command line are what using it is. The second
+    /// tour is not started until the first has been answered, because they are shown by one
+    /// mechanism (``firstRunTours(_:onDismiss:)``) which takes them in this order and runs them one
+    /// at a time.
+    ///
+    /// Deliberately *not* gated on the shell being live. A shell that failed still has a strip, a
+    /// switch and a terminal, and those are what the tips are about; the one thing that would be
+    /// absurd is a tour about typing at a shell that has ended, and nothing in these steps says
+    /// anything untrue of one.
+    private var dueTours: [Tour] {
+        var due: [Tour] = []
+        if !hasSeenTourShell { due.append(.shell) }
+        if !hasSeenTourTerminal { due.append(.terminal) }
+        return due
     }
 
     private func chip(_ open: SSHTerminal, isSelected: Bool) -> some View {

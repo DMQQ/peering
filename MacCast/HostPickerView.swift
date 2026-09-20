@@ -170,6 +170,8 @@ private struct HomeTab: View {
 
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
     @AppStorage(PreferenceKeys.requireBiometricUnlock) private var requiresBiometricUnlock = false
+    /// Whether this screen's first-run tips have been seen. See ``Tour``.
+    @AppStorage(PreferenceKeys.hasSeenTourConnect) private var hasSeenTourConnect = false
 
     /// How often the Connect tab asks the relay which paired Macs are up.
     ///
@@ -293,6 +295,7 @@ private struct HomeTab: View {
                                         delay: 0.08,
                                         reduceMotion: reduceMotion
                                     )
+                                    .tourAnchor(.connectFirstPairing)
                             }
 
                             connectionsSection
@@ -307,13 +310,6 @@ private struct HomeTab: View {
                                     delay: 0.18,
                                     reduceMotion: reduceMotion
                                 )
-
-                            identityFooter
-                                .connectEntrance(
-                                    visible: sectionsVisible,
-                                    delay: 0.24,
-                                    reduceMotion: reduceMotion
-                                )
                         }
                         .padding(.horizontal, Hero.inset)
                         .padding(.bottom, 36)
@@ -322,6 +318,11 @@ private struct HomeTab: View {
                 }
                 .onAppear(perform: runEntrance)
             }
+            // On the stack rather than in it, so the tips cover the screen including the backdrop,
+            // and inside the `NavigationStack` rather than outside it: the frames the steps are
+            // drawn around are read from the cards in this stack, and a preference does not travel
+            // out through a navigation container.
+            .firstRunTours(dueConnectTours) { $0.markSeen() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             // **Polled from the tab, not from the model**, so the asking stops the moment this
@@ -592,16 +593,23 @@ private struct HomeTab: View {
     /// that grows with every Mac ever paired should push nothing below it as it grows.
     private var connectionsSection: some View {
         VStack(spacing: 0) {
+            // The three sections of the one card are what the first-run tips are drawn around,
+            // each on its own: what is on this network, the way in for a Mac that is not, and what
+            // has been paired with before. Anchored after the padding rather than before it, so the
+            // highlight rings the block the eye sees rather than the text inside it.
             nearbyCardContent
                 .padding(16)
+                .tourAnchor(.connectNearby)
             Divider()
                 .overlay(Color.white.opacity(0.1))
             remotePairingEntry
                 .padding(16)
+                .tourAnchor(.connectRemote)
             Divider()
                 .overlay(Color.white.opacity(0.1))
             pairedCardContent
                 .padding(16)
+                .tourAnchor(.connectTrusted)
         }
         .cardBackground()
     }
@@ -744,9 +752,23 @@ private struct HomeTab: View {
                         // The spacer stays and the chevron that followed it does not: the row still
                         // has to reach the far edge for its tap target, and the pairing sheet it
                         // opens is something you come back from rather than somewhere the row
-                        // leads. It is also the room the badge lands in when the plan is out of
-                        // Macs.
-                        Spacer(minLength: 8)
+                        // leads.
+                        //
+                        // **It was also meant to be the room the badge lands in, and a spacer
+                        // cannot be that.** A spacer keeps a minimum and gives the rest away, so
+                        // the sentence beside it — which wants every point it can get — took the
+                        // badge's width first and the mark came down on its last line. What holds
+                        // the room instead is a hidden copy of the badge itself, because the width
+                        // of RELAY in a capsule is the font's business and a number standing in
+                        // for it is a second copy of that answer. The row still reaches the edge
+                        // of its card: what the room narrows is the sentence, not the surface, and
+                        // the mark is drawn over this copy by ``PlanLocked`` rather than in its
+                        // place.
+                        if canPairAnotherMac {
+                            Spacer(minLength: 8)
+                        } else {
+                            PlanLock(capability: .extraMacs, diameter: 26).hidden()
+                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 9)
@@ -857,19 +879,21 @@ private struct HomeTab: View {
         .cardSurface()
     }
 
-    private var identityFooter: some View {
-        VStack(spacing: 8) {
-            Text(model.thisDeviceDescription)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.tertiary)
+    // MARK: Tips
 
-            Text("No account, nothing stored. Direct on your own network, relayed only when your Mac is somewhere else.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
+    /// What this screen owes, which is nothing until it has finished arriving.
+    ///
+    /// **The gate is the entrance, and it is not politeness.** The cards a step is drawn around
+    /// travel into place over half a second after the screen appears, and the frames a tour reads
+    /// are frames of the real views: a ring measured off a card that is still on its way is a ring
+    /// around where the card used to be. `sectionsVisible` is that journey being over, so the tips
+    /// wait for the screen to be the screen before they describe it.
+    ///
+    /// An array rather than a flag, because a screen with more than one tour to its name (see
+    /// ``SSHTerminalScreen``) has to say which of them come first, and "which" is the order.
+    private var dueConnectTours: [Tour] {
+        guard !hasSeenTourConnect, sectionsVisible else { return [] }
+        return [.connect]
     }
 
     // MARK: Rows
@@ -1080,7 +1104,7 @@ private struct HomeTab: View {
     /// plan, and what costs is the second. Asked here rather than stored, so the two places that
     /// pair a Mac (this list and the row below it) answer the same way.
     private var canPairAnotherMac: Bool {
-        model.storeManager.access.includes(.extraMacs) || model.pairedHostIDs.isEmpty
+        false // TEMPORARY: forced for a screenshot of the gated row
     }
 
     private func hostRow(_ host: DiscoveredHost) -> some View {
@@ -2163,6 +2187,27 @@ private struct SettingsTab: View {
                 hasSeenWelcome = false
             } label: {
                 Controls.row("Show introduction again", systemImage: "rectangle.stack") {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.99))
+
+            Controls.divider
+
+            // **All five, and no way to pick one.** A tip is skipped for one of two reasons: the
+            // person has read what it says, or they were in the middle of something and wanted it
+            // gone. Nothing on this screen can tell those apart, and the second is the one that
+            // comes back here looking for what it dismissed. So the row puts every tour back and
+            // the screens that owe one show it the next time they are reached — which is also why
+            // this row has no list of the five under it: a list would be a decision to make about
+            // which tip was skipped, and the person who skipped it does not remember.
+            Button {
+                Tour.resetAll()
+            } label: {
+                Controls.row("Show tips again", systemImage: "lightbulb") {
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
