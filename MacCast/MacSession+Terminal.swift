@@ -177,7 +177,14 @@ extension MacSession {
     func browsingPath(for id: UUID) -> String? { browsingPaths[id] }
 
     /// Points a terminal's browser at a folder, before asking for it.
-    func setBrowsingPath(_ path: String?, for id: UUID) { browsingPaths[id] = path }
+    func setBrowsingPath(_ path: String?, for id: UUID) {
+        browsingPaths[id] = path
+        // **What the last folder came to stops being about anything the moment the user leaves.**
+        // The line names files that are missing from a folder they are no longer looking at, and a
+        // sentence about somewhere else is the kind of thing that reads as a bug. See
+        // ``FolderUpload/isRunning``.
+        folderUploads.removeValue(forKey: id)
+    }
 
     /// Asks the Mac for a folder's contents. `nil` is its home folder, which is where a browser
     /// starts: the shell's own working directory is not something this side is told, and home is
@@ -258,6 +265,16 @@ extension MacSession {
     func uploadFile(_ url: URL, sessionID id: UUID) {
         guard let folder = browsingPaths[id] else { return }
 
+        // **A folder the user picked is the case this catches, and it used to be a raw error.**
+        // The picker offers everything, and a folder went down the file path: a directory has
+        // whatever size the filesystem reports for it, and reading it as bytes fails, so the user
+        // got an unexplained sentence from a tap that looked like every other one. There is no
+        // second button and no menu to choose between them: what the user picked is what decides.
+        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
+            uploadFolder(url, sessionID: id)
+            return
+        }
+
         let name = url.lastPathComponent
         let destination = folder.hasSuffix("/") ? folder + name : folder + "/" + name
         writes[id] = FileWrite(door: .upload, path: destination)
@@ -326,6 +343,165 @@ extension MacSession {
             offset = end
             await Task.yield()
         }
+    }
+
+    // MARK: - Sending a folder
+
+    /// Sends a folder to the Mac, entry by entry.
+    ///
+    /// **No new protocol, and that is the design rather than a shortcut.** The Mac already answers
+    /// "make a folder" and "write this file", so a folder is a walk of this phone's own filesystem
+    /// and a sequence of requests the far end has understood since it learned to change a listing.
+    /// A recursive message of its own would be a second path to write, a second path to keep in
+    /// step with the first, and a feature that does not work at all against a Mac that has not
+    /// updated. Nothing on the Mac needs to know a folder is what it is being given.
+    ///
+    /// **Each entry has its own outcome.** One unresolvable link or one file over the limit costs
+    /// that entry and nothing else: the folder still arrives, minus one thing, and the user is told
+    /// which thing and why. A transfer with one outcome for the lot would either stop at the first
+    /// problem or report success over a folder that is missing a file.
+    func uploadFolder(_ url: URL, sessionID id: UUID) {
+        guard let folder = browsingPaths[id] else { return }
+
+        let name = url.lastPathComponent
+        let root = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+        uploadFailures.removeValue(forKey: id)
+
+        Task { @MainActor in
+            // Security-scoped for the same reason a single file is: what the picker hands back is
+            // outside this app's sandbox, and walking it without this is a permission failure that
+            // reads as an empty folder.
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+            let children: [FolderUploadEntry]
+            do {
+                // Off the main actor: a folder of a few thousand files is a few thousand stat
+                // calls, and this screen is drawing a terminal behind the sheet.
+                children = try await Task.detached {
+                    try FolderWalk.entries(of: url, at: root)
+                }.value
+            } catch {
+                uploadFailures[id] = error.localizedDescription
+                return
+            }
+
+            guard !children.isEmpty else {
+                uploadFailures[id] = "That folder is empty."
+                return
+            }
+
+            // The folder itself first, because the walk lists what is *inside* it and none of that
+            // can be written until the folder exists. Prepended here rather than produced by the
+            // walk, which knows about a directory's contents and has no business knowing what the
+            // transfer intends to do with its name.
+            let rootEntry = FolderUploadEntry(
+                path: root, name: name, isFolder: true, source: nil, bytes: 0
+            )
+            folderUploads[id] = FolderUpload(root: root, entries: [rootEntry] + children)
+            advanceFolderUpload(sessionID: id)
+        }
+    }
+
+    /// Sends the next thing in a folder, or finishes.
+    ///
+    /// **One entry in the air at a time**, which is the same rule every other write and change
+    /// follows and is what makes an outcome attributable to the entry it belongs to. It is not a
+    /// queue with a length of one being worked around: the Mac's answer names the path it was given,
+    /// and the model holds one of each per shell.
+    ///
+    /// Entries that need nothing sent are passed over in a loop rather than by recursing, because a
+    /// folder can hold thousands of them: a tree of symbolic links or of oversized files would
+    /// otherwise be one call per entry.
+    func advanceFolderUpload(sessionID id: UUID) {
+        guard var upload = folderUploads[id], upload.isRunning else { return }
+
+        while !upload.isFinished {
+            let entry = upload.entries[upload.next]
+            let needsSending = entry.isFolder
+                || (entry.source != nil && entry.bytes <= Self.maximumUploadBytes)
+            if needsSending { break }
+
+            upload.entries[upload.next].outcome = entry.source == nil
+                ? .skipped("A link to somewhere else, which is not copied.")
+                : .failed("Too large to send. The limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))).")
+            upload.next += 1
+        }
+
+        if upload.isFinished {
+            folderUploads[id] = upload
+            finishFolderUpload(upload, sessionID: id)
+            return
+        }
+
+        guard writes[id] == nil, changes[id] == nil else {
+            folderUploads[id] = upload
+            return
+        }
+
+        let entry = upload.entries[upload.next]
+        upload.next += 1
+        folderUploads[id] = upload
+
+        if entry.isFolder {
+            let operation = RemoteFileOperation.create(path: entry.path, kind: .folder)
+            changes[id] = FileChange(operation: operation, path: entry.path)
+            wire?.sendTerminal(.changeFile(sessionID: id, operation: operation))
+            return
+        }
+
+        guard let source = entry.source else { return }
+        writes[id] = FileWrite(door: .upload, path: entry.path)
+        Task { @MainActor in
+            await send(contentsOf: source, totalBytes: entry.bytes, to: entry.path, sessionID: id)
+        }
+    }
+
+    /// Files one entry's outcome and moves on.
+    ///
+    /// **Matched on the path**, like every other write and change, and for a stronger version of the
+    /// same reason: a folder upload is a long run of operations through one shell, so an answer
+    /// belonging to a file the user uploaded by hand in the middle of it must not be filed as the
+    /// folder's next entry.
+    func finishFolderEntry(path: String, outcome: FolderUploadEntry.Outcome, sessionID id: UUID) {
+        guard var upload = folderUploads[id], upload.isRunning else { return }
+        // **The entry before the index, not the one at it.** The index moves as the request goes
+        // *out* rather than when the answer comes back, so `next - 1` is the entry in flight and
+        // `next` is the one after it. Reading the path at `next` would match the wrong entry, and
+        // the run would mis-file every outcome and stop at the first one it could not match.
+        guard upload.next > 0, upload.entries[upload.next - 1].path == path else { return }
+
+        upload.entries[upload.next - 1].outcome = outcome
+        folderUploads[id] = upload
+        advanceFolderUpload(sessionID: id)
+    }
+
+    /// Says what the folder came to, asks for the listing again once, and stops the run.
+    ///
+    /// **Once, not once per file.** Every other upload re-lists the folder so the new file appears,
+    /// which for two hundred files would be two hundred listings of the same directory crossing a
+    /// channel a keystroke is trying to use. The whole folder is one arrival, so it is one ask.
+    ///
+    /// **The record stays, marked stopped.** What the run came to is the answer to the only question
+    /// the user has, and removing it the moment it finishes would leave a folder that looks exactly
+    /// as it did before with two files quietly missing from it. It goes when they go somewhere
+    /// else. See ``FolderUpload/isRunning``.
+    private func finishFolderUpload(_ upload: FolderUpload, sessionID id: UUID) {
+        var stopped = upload
+        stopped.isRunning = false
+        folderUploads[id] = stopped
+        listDirectory((upload.root as NSString).deletingLastPathComponent, sessionID: id)
+
+        let name = upload.root.split(separator: "/").last.map(String.init) ?? upload.root
+        append(note: "\(name): \(upload.line())")
+    }
+
+    /// What a folder being sent is doing, or what the last one came to. `nil` when neither.
+    ///
+    /// Read by the browser's one progress line. Two facts in one sentence because they are the two
+    /// halves of the same thing, and because the panel has one row to give them.
+    func folderProgress(sessionID id: UUID) -> String? {
+        folderUploads[id]?.line()
     }
 
     /// Sends a file to the Mac in pieces, reading it a piece at a time as it goes.
@@ -473,7 +649,17 @@ extension MacSession {
             pruneBrowsing(atOrBelow: change.path, sessionID: id)
         }
 
-        listDirectory(folder, sessionID: id)
+        // **Once at the end, not once per entry, when a folder is being sent through this shell.**
+        // A folder upload makes a folder per folder, and a listing each would be a directory
+        // crossing a channel a keystroke is trying to use, two hundred times over, for a screen the
+        // user is not reading until the run finishes. See ``finishFolderUpload(_:sessionID:)``.
+        //
+        // Nothing else can be in flight to be missed by this: a manual change cannot start while
+        // one is in the air through the same shell, so an upload running means the only changes
+        // arriving here are its own.
+        if folderUploads[id]?.isRunning != true {
+            listDirectory(folder, sessionID: id)
+        }
     }
 
     /// Whether this terminal is waiting on a change it asked for.
@@ -683,8 +869,15 @@ extension MacSession {
             case .upload:
                 // The folder on screen is now out of date by exactly one file, and asking again is
                 // cheaper to get right than patching one entry in.
-                listDirectory((path as NSString).deletingLastPathComponent, sessionID: id)
+                //
+                // **Unless a folder is being sent through this shell**, in which case this is one
+                // file of many and the question belongs to the end of the run: two hundred files
+                // would otherwise be two hundred listings of the same directory.
+                if folderUploads[id]?.isRunning != true {
+                    listDirectory((path as NSString).deletingLastPathComponent, sessionID: id)
+                }
             }
+            finishFolderEntry(path: path, outcome: .done, sessionID: id)
             let written = path.split(separator: "/").last.map(String.init) ?? path
             append(note: "Wrote \(written) (\(totalBytes.formatted(.byteCount(style: .file))))")
 
@@ -696,8 +889,14 @@ extension MacSession {
             writes.removeValue(forKey: id)
             switch write.door {
             case .save: saveFailures[id] = message
-            case .upload: uploadFailures[id] = message
+            case .upload:
+                // **Not filed as the shell's upload failure while a folder is running.** That
+                // sentence is drawn over the folder as a whole, and one unreadable file inside a
+                // folder is not a failure of the folder: it is one entry's outcome, which is where
+                // it goes instead, and the run carries on to the next one.
+                if folderUploads[id]?.isRunning != true { uploadFailures[id] = message }
             }
+            finishFolderEntry(path: path, outcome: .failed(message), sessionID: id)
             append(note: "Terminal: \(message)")
 
         case .fileOperationDone(let id, let path, let note):
@@ -708,6 +907,7 @@ extension MacSession {
             changes.removeValue(forKey: id)
             changeFailures.removeValue(forKey: id)
             finish(change, sessionID: id)
+            finishFolderEntry(path: path, outcome: .done, sessionID: id)
             append(note: "Terminal: \(note)")
 
         case .fileOperationFailure(let id, let path, let message):
@@ -718,6 +918,7 @@ extension MacSession {
             // opposite case: the folder is fine, one thing in it did not happen, and the user is
             // most likely going to try again on the row that is still on screen.
             changeFailures[id] = message
+            finishFolderEntry(path: path, outcome: .failed(message), sessionID: id)
             // A rename that did not land may still have been the one that emptied a folder, and a
             // delete that did not land certainly was not. Re-asking is cheap and is the only way to
             // know which: nothing here can tell what the disk looks like now.

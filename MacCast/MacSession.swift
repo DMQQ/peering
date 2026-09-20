@@ -490,6 +490,18 @@ final class MacSession: Identifiable {
         let path: String
     }
 
+    /// Folders being sent to the Mac, by the terminal they are being sent through.
+    ///
+    /// **A folder is a sequence of the operations beside it, not a kind of its own.** The Mac
+    /// already answers "make a folder" and "write this file", so this is the phone's own walk of
+    /// its filesystem followed by a series of requests the far end has understood since it learned
+    /// to change a listing. Nothing about the protocol knows a folder is involved.
+    ///
+    /// One per shell, for the reason the writes and the changes are: the Mac answers an operation by
+    /// naming the path it was given, and two operations through one shell are two answers that could
+    /// both match one remembered request.
+    var folderUploads: [UUID: FolderUpload] = [:]
+
     /// Changes in the air, by the terminal they were asked through.
     ///
     /// One per terminal, and deliberately: the Mac answers a change by naming the path it was

@@ -44,6 +44,18 @@ struct FileBrowserPanel: View {
     /// site passing one would be told it had an extra argument.
     var waitingHint: String? = nil
 
+    /// What a long job is doing, drawn between the path bar and the list. `nil` draws nothing.
+    ///
+    /// It exists for the folder upload, which is a run of hundreds of operations the user cannot
+    /// see, over a panel that otherwise looks exactly as it did before they started. `nil` is right
+    /// for every other state this panel has: a read has its own spinner and a write shows up as the
+    /// entry appearing in the list.
+    ///
+    /// **A sentence rather than a bar.** The entries are not all the same size, so a bar filled from
+    /// the count would move at a speed with nothing to do with the bytes, and an indicator that
+    /// lies about how much is left is worse than one that only says where it has got to.
+    var progress: String? = nil
+
     /// A folder or file was tapped.
     var onOpen: (RemoteDirectoryEntry) -> Void
     /// Go to an absolute path: a breadcrumb, or the row that steps up a level.
@@ -203,6 +215,9 @@ struct FileBrowserPanel: View {
                     // row can see which of several similar names they are changing.
                     Text(pendingRename?.name ?? "")
                 }
+            // Under the path bar and above the list, so it belongs to the folder rather than to
+            // any row in it. See ``progress``.
+            if let progress { progressLine(progress) }
             content
                 .confirmationDialog(
                     deleteTitle,
@@ -629,6 +644,30 @@ struct FileBrowserPanel: View {
     /// The hint, but only after the wait has gone on long enough to be worth explaining.
     private var slowReadHint: String? {
         waitingLongEnough ? waitingHint : nil
+    }
+
+    /// The one line a running job gets, under the path bar.
+    ///
+    /// A spinner beside it even when the run has stopped, because the line is what the run came to
+    /// and is still the most recent thing that happened in this folder — the same reason it stays
+    /// at all. See ``FolderUpload``.
+    private func progressLine(_ text: String) -> some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.mini)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                // Truncated in the middle, because both ends of this sentence carry something: the
+                // count at the front and the name of the file at the back, and a tail truncation
+                // would take the name every time it was long.
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.04))
+        .overlay(alignment: .bottom) { hairline }
     }
 
     private func list(_ directory: RemoteDirectory) -> some View {

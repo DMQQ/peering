@@ -1517,6 +1517,11 @@ final class SessionModel {
         activeSession?.uploadFile(url, sessionID: id)
     }
 
+    /// What a folder being sent through this shell is doing, or what the last one came to.
+    func folderProgress(sessionID id: UUID) -> String? {
+        activeSession?.folderProgress(sessionID: id)
+    }
+
     func createEntry(_ name: String, kind: RemoteEntryKind, in folder: String, sessionID id: UUID) {
         activeSession?.createEntry(name, kind: kind, in: folder, sessionID: id)
     }

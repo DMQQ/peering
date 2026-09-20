@@ -730,6 +730,10 @@ struct TerminalPanel: View {
                     // for, and where the answer is. It is a guess with a delay on it — see the
                     // panel — and it is the only thing the user can act on from here.
                     waitingHint: "If your Mac is asking whether Peering may read this folder, answer it there.",
+                    // What a folder being sent is doing, or what the last one came to. One line,
+                    // and the only thing on this screen that says a run of hundreds of operations
+                    // is happening at all. See ``FileBrowserPanel/progress``.
+                    progress: model.folderProgress(sessionID: terminal.id),
                     onOpen: { open($0, in: terminal) },
                     onNavigate: { navigate(to: $0, in: terminal) },
                     onRevealPath: { reveal($0, in: terminal) },
