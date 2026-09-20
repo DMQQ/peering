@@ -22,16 +22,25 @@ extension SessionModel {
                 pendingHostID = nil
                 connect(to: .discovered(host))
             }
-            // If we raced Bonjour on cold launch and lost — starting a relay session before the
-            // local browser had time to find the Mac — switch to LAN as soon as it does appear,
+            // If we raced Bonjour on cold launch and lost, starting a relay session before the
+            // local browser had time to find the Mac, switch to LAN as soon as it does appear,
             // but only while the relay connection is still establishing. Once the session is
             // carrying a picture, an interruption costs more than the relay does.
+            //
+            // **Replaced rather than dialled beside it, and that is a bug fix rather than a
+            // tidy-up.** This is the same Mac met a moment later by a better route, not a second
+            // one. Dialled as a new Mac it walked into both checks that exist for a genuinely
+            // second Mac, and the one that caught it was the plan gate: the session being upgraded
+            // has no `hostID` yet, because the handshake is what says what a Mac is, so the "this
+            // Mac is already open" shortcut above cannot match it and the app offered to sell the
+            // user a second Mac in the middle of connecting their first. Reported from the phone
+            // as a second-Mac paywall appearing while reconnecting to one Mac.
             if let session = activeSession,
                session.connectionPath == .relay,
                session.phase != .ready,
                let hostID = UserDefaults.standard.string(forKey: Self.lastHostIDKey),
                let host = hosts.first(where: { $0.id == hostID }) {
-                connect(to: .discovered(host))
+                reconnect(session, to: .discovered(host))
             }
             self.resumeIfNeeded()
             // The second sentence matters more than it did: an empty list here is now the

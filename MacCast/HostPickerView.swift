@@ -1802,6 +1802,7 @@ private struct SettingsTab: View {
                         if !model.pairedHostIDs.isEmpty { trustedMacsSection }
                         identitySection
                         moreSection
+                        legalSection
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 16)
@@ -2218,6 +2219,45 @@ private struct SettingsTab: View {
         }
     }
 
+    /// The two documents that have to be reachable from inside the app.
+    ///
+    /// **A card of its own at the very bottom, and that is the whole of where it goes.** The card
+    /// above is about this app and this Mac: the download, the introduction, the way to tell us
+    /// something is wrong. An agreement is not that, and nobody setting up a second machine is
+    /// looking for it, so it sits below everything a person came here to do and above nothing.
+    ///
+    /// Both open in the browser rather than in a web view. A page drawn inside the app would be a
+    /// second copy of a document that has to say the same thing as the one the App Store listing
+    /// points at, and two copies of a privacy policy is one copy too many.
+    private var legalSection: some View {
+        Controls.card("Legal") {
+            externalLink("Privacy policy", systemImage: "hand.raised", to: PeeringSite.privacy)
+
+            Controls.divider
+
+            externalLink("Terms of use", systemImage: "doc.text", to: PeeringSite.terms)
+        }
+    }
+
+    /// One row that leaves the app.
+    ///
+    /// The trailing arrow is the same one the download row above uses, and it is doing the same
+    /// job: this is the glyph that says a tap goes somewhere else rather than opening a screen
+    /// inside the app, which for a legal page is the difference between reading it and wondering
+    /// where the back button went.
+    private func externalLink(_ title: String, systemImage: String, to url: URL) -> some View {
+        Link(destination: url) {
+            Controls.row(title, systemImage: systemImage) {
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.99))
+        .foregroundStyle(ColorPalette.ink)
+    }
+
     /// Where a report goes, with the two facts that make one actionable already written in it.
     ///
     /// The app version and the iOS release are the first things anyone has to ask for, and asking
@@ -2491,6 +2531,14 @@ enum PeeringSite {
     /// The download page rather than the home page: it is one tap further from a visitor who has
     /// not decided and one tap closer to the file for somebody who has.
     static let download = URL(string: "https://getpeering.app/download")!
+
+    /// The two documents that have to be reachable without leaving the app for a search engine.
+    ///
+    /// The extensionless forms, which is the same shape as ``download`` and the form the App Store
+    /// listing and the receipts point at. Both are served, and the one that is written here is the
+    /// one that stays the same if the site ever stops being a folder of `.html` files.
+    static let privacy = URL(string: "https://getpeering.app/privacy")!
+    static let terms = URL(string: "https://getpeering.app/terms")!
 }
 
 
