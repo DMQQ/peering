@@ -47,46 +47,28 @@ struct HostPickerView: View {
     @State private var screen: Screen = .connect
 
     var body: some View {
-        // The window's bottom safe area, which the bar needs and cannot measure for itself: it is
-        // placed as a safe area *inset*, so by the time it is laid out it is already below the
-        // line it would be measuring. Read here, one level up, where the window's own insets are
-        // still the answer. See ``RootTabBar/bottomSafeArea``.
-        GeometryReader { geometry in
-            TabView(selection: $screen) {
-                ForEach(Screen.allCases) { item in
-                    content(for: item)
-                        // On each screen rather than on the tab view, which is where the
-                        // documentation puts it and, more to the point, the only place it works:
-                        // on the tab view the bar is made invisible but is not taken away, and its
-                        // five items stay in the accessibility tree as unnamed buttons sitting
-                        // over this bar.
-                        .toolbar(.hidden, for: .tabBar)
-                        .tag(item)
-                }
-            }
-            // iOS's bar is hidden rather than kept and drawn over. It has a fixed number of
-            // columns, and a sixth tab does not widen it: it folds the last two into a "More"
-            // table, which is the thing this change exists to avoid. Hiding it also hands back the
-            // bottom safe area it was holding, which is why the custom bar has to be installed as
-            // an inset: the screens underneath are all scroll views, and one that ran under the
-            // bar would have its last row covered by glass.
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                // The bar goes while a shell is up. That screen asks for every point it can get:
-                // a terminal is read from the bottom up, and the line the cursor is on is the one
-                // nearest the bar. So it hides the bar it used to have, and a bar drawn here does
-                // not answer to `.toolbar(.hidden, for: .tabBar)`. The question is asked of the
-                // model, which is where the answer lives: the shell screen is the Servers tab's
-                // own root, so nothing about the hierarchy changes when it opens.
-                if servers.selectedTerminal == nil {
-                    RootTabBar(screen: $screen, bottomSafeArea: geometry.safeAreaInsets.bottom)
-                }
+        TabView(selection: $screen) {
+            ForEach(Screen.allCases) { item in
+                content(for: item)
+                    // The bar goes while a shell is up, and it is asked for on the screen rather
+                    // than on the tab view: applied there the bar is made invisible but is not
+                    // taken away, and its five items stay in the accessibility tree over the
+                    // shell. The condition belongs to the Servers tab, because the shell screen
+                    // is that tab's own root and nothing about the hierarchy changes when it
+                    // opens.
+                    .toolbar(
+                        item == .servers && servers.selectedTerminal != nil ? .hidden : .visible,
+                        for: .tabBar
+                    )
+                    .tabItem { Label(item.title, systemImage: item.symbol) }
+                    .tag(item)
             }
         }
         .tint(ColorPalette.accent)
         .preferredColorScheme(.dark)
         // `initial: true`, because "open a shell on prod" usually launches the app rather than
-        // arriving at one already open — so the flag is already up by the time this view first
-        // appears, and a plain `onChange` would sit there waiting for it to change.
+        // arriving at one already open, so the flag is already up by the time this view first
+        // appears and a plain `onChange` would sit there waiting for it to change.
         .onChange(of: servers.wantsFocus, initial: true) { _, wantsFocus in
             guard wantsFocus else { return }
             screen = .servers
@@ -97,9 +79,9 @@ struct HostPickerView: View {
 
     /// The screen behind each tab.
     ///
-    /// One switch rather than five `.tabItem`s, because the bar is drawn here now and a `.tabItem`
-    /// would be a label for a bar that is no longer on screen: two descriptions of the same five
-    /// things, one of which nothing reads.
+    /// One switch rather than five copies inlined into the tab view, so the five places the app
+    /// has are stated once. The bar's own titles and glyphs come from ``Screen``, which the tab
+    /// view reads directly.
     @ViewBuilder
     private func content(for item: Screen) -> some View {
         switch item {
@@ -109,232 +91,6 @@ struct HostPickerView: View {
         case .faq: NavigationStack { FAQView() }
         case .settings: SettingsTab()
         }
-    }
-}
-
-// MARK: - Tab bar
-
-/// Every measurement the tab bar is built from, all of them taken off the bar it replaces.
-///
-/// Measured rather than chosen, and measured on the device the app is built against, because the
-/// whole point of the numbers is that the two bars are the same bar to look at: a capsule two
-/// points out of place is a bar that has been replaced, and the eye finds that without being told
-/// what to look for. The one exception is ``minimumItemWidth``, which is a reading from a narrower
-/// phone rather than from this one.
-private enum RootTabBarMetrics {
-    /// The capsule's height, top edge to bottom edge.
-    static let height: CGFloat = 64
-    /// From the screen's edge to the capsule's, on both sides. The bar floats.
-    static let screenInset: CGFloat = 21
-    /// From the screen's *bottom* edge to the capsule's. See ``RootTabBar/bottomSafeArea``: this is
-    /// measured from the screen and not from the safe area, which is a different number on every
-    /// device that has a home indicator and the same number on the ones that do not.
-    static let bottomGap: CGFloat = 21
-    /// Inside the capsule, before the first tab and after the last. Nine points is what the system
-    /// leaves there, and it is what makes five tabs of 68.4 points fill a 360-point capsule.
-    static let sidePadding: CGFloat = 9
-    /// How narrow a tab is allowed to get before the bar starts scrolling instead of sharing.
-    ///
-    /// This is the width the system's bar gives five tabs on a 375-point phone, which is the
-    /// narrowest screen the app runs on: the point below which it is no longer reproducing
-    /// anything, and a label is on its way to being truncated. Six tabs on a 402-point phone divide
-    /// into 57 points each, which is under it, so six is where this bar scrolls and the system's
-    /// would have folded two away.
-    static let minimumItemWidth: CGFloat = 63
-    /// The glyph, at the size the system draws a tab bar's.
-    ///
-    /// 23 rather than the 25 a `UITabBarItem` is documented at, because the number wanted is the
-    /// one that draws the same *ink*: a symbol at 25 sets a glyph 21 points tall, and the system's
-    /// is 19.3, which is what 23 draws.
-    static let glyphSize: CGFloat = 23
-    /// The label's size, which is the system's too, and smaller than any text style in the app.
-    static let labelSize: CGFloat = 10
-    /// Between the glyph and the label under it.
-    static let labelGap: CGFloat = 2
-    /// How far the glyph and its label sit below the middle of the capsule.
-    ///
-    /// The system's item is not centred in its own bar, and a stack that is centred in the capsule
-    /// lands about two points high: measured off the bar being replaced, the glyph's ink starts
-    /// 15.9 points below the capsule's top edge and the label's ends 13.8 above its bottom, which
-    /// are not the same number. This is that difference, and it is a nudge rather than a layout
-    /// because the two are the same stack placed a little lower.
-    static let contentDrop: CGFloat = 2
-    /// An item under a finger.
-    static let pressedOpacity: CGFloat = 0.6
-    /// An item that is not the current one.
-    ///
-    /// **Not the 40% the tab bar's appearance used to ask for**, because it never got it: the
-    /// appearance was set in `onAppear`, which runs after iOS has already built the bar, and iOS 26
-    /// draws its own glass capsule whatever it is told. What the old bar actually showed is this,
-    /// and matching what was on screen is the whole point of the number.
-    static let restingInk: CGFloat = 0.95
-}
-
-/// The app's own tab bar, drawn here so that it can scroll sideways.
-///
-/// **Why the system's bar is not used.** A `TabView`'s bar belongs to iOS, and iOS's bar has a
-/// fixed number of columns: a sixth tab does not widen it, it moves what does not fit into a "More"
-/// list, which is a table of names rather than a row of places. Session tabs are what this is for,
-/// and six is the ordinary number of them, so the bar has to be one that grows.
-///
-/// This one is a copy of the bar it replaces. Same capsule, same height, same distance from the
-/// screen's bottom edge, same glass over the same backdrop, glyph over label at the same sizes and
-/// the same gaps. At five tabs nothing has moved, and the difference only appears at six: this bar
-/// keeps its columns and scrolls, where the system's would have folded two of them away.
-///
-/// Three things the system's bar did are given up, and each is worth naming rather than
-/// discovering later:
-///
-/// - **The tab bar's rotor.** VoiceOver offers a `UITabBar`'s items as a group with a "2 of 5"
-///   position announced for each. There is no SwiftUI trait for a tab bar, so the group is rebuilt
-///   by hand (a container, one element per tab, the position spoken as the element's value), and
-///   the rotor itself is the one piece that cannot be rebuilt, because setting it is a UIKit trait
-///   and this is not a UIKit view.
-/// - **Tapping the current tab to scroll its screen to the top.** `UITabBarController` does that,
-///   and it is the only gesture a bar of this shape offers that is not a tab change. There is
-///   nothing here to hang it on: the screens are five separate views with their own scroll views,
-///   and this bar can see none of them. Tapping the tab you are already on does nothing.
-/// - **The highlighted plate behind the current tab.** iOS 26's bar marks the selection with a
-///   lighter plate under it, which is a second selection marker this bar does not need: the tint
-///   is the marker here, and two of them for one state is one too many. What is lost with the
-///   plate is the item's *shape* being visible at rest, which is the thing the plate did that the
-///   tint does not. See ``RootTabBarMetrics/restingInk`` for what is left in its place.
-private struct RootTabBar: View {
-    @Binding var screen: Screen
-
-    /// The window's bottom safe area, handed in by the caller.
-    ///
-    /// The bar is installed as a bottom safe area *inset*, which puts its bottom edge on the safe
-    /// area's own line, and the bar it is copying is not there. iOS 26's capsule hangs into the
-    /// home-indicator strip, a fixed distance from the *screen's* bottom edge: 21 points on an
-    /// iPhone 17 Pro, whose safe area is 34, and 22 on a phone with a home button, whose safe area
-    /// is nothing at all. So the number that has to be subtracted is the safe area, and a view
-    /// inside a safe area inset is laid out below the safe area it would be trying to measure.
-    let bottomSafeArea: CGFloat
-
-    /// Where the bar is scrolled to, in points from the start of its content.
-    ///
-    /// Only ever read when the selection changes, to answer one question: is the tab that was just
-    /// chosen already on screen. Without it a `scrollTo` would re-centre every tab that is tapped,
-    /// and a bar that shifts sideways under a finger that tapped something in the middle of it
-    /// reads as a bar that moved on its own.
-    @State private var scrollOffset: CGFloat = 0
-
-    var body: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { scroller in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(Screen.allCases) { item in
-                            tab(item, width: itemWidth(in: geometry.size.width))
-                                .id(item)
-                        }
-                    }
-                    .padding(.horizontal, RootTabBarMetrics.sidePadding)
-                }
-                // A name for the bar itself, so the UI tests can reach a tab without matching every
-                // "Servers" and "Connect" on the screen behind it. The bar is one scroll view here
-                // and was one tab bar to UIKit, and this is what stands in for `app.tabBars`.
-                .accessibilityIdentifier("RootTabBar")
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, offset in
-                    scrollOffset = offset
-                }
-                .onChange(of: screen) { _, item in
-                    reveal(item, in: geometry.size.width, with: scroller)
-                }
-            }
-        }
-        .frame(height: RootTabBarMetrics.height)
-        // The glass, the shape, and the clipping of the content to it: the same three lines the
-        // rest of the app's glass panels are built from, and the clip is what keeps a tab from
-        // showing beside the capsule's curve once the tabs are wider than the bar.
-        .glassEffect(.regular, in: Capsule())
-        .clipShape(Capsule())
-        .padding(.horizontal, RootTabBarMetrics.screenInset)
-        .padding(.bottom, RootTabBarMetrics.bottomGap - bottomSafeArea)
-    }
-
-    /// One tab: the glyph, the name under it, and the whole column as the target.
-    private func tab(_ item: Screen, width: CGFloat) -> some View {
-        Button {
-            screen = item
-        } label: {
-            VStack(spacing: RootTabBarMetrics.labelGap) {
-                Image(systemName: item.symbol)
-                    .font(.system(size: RootTabBarMetrics.glyphSize))
-                Text(item.title)
-                    .font(.system(size: RootTabBarMetrics.labelSize))
-            }
-            .foregroundStyle(
-                item == screen ? ColorPalette.accent : ColorPalette.ink.opacity(RootTabBarMetrics.restingInk)
-            )
-            .offset(y: RootTabBarMetrics.contentDrop)
-            .frame(width: width, height: RootTabBarMetrics.height)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(TabButtonStyle())
-        // One element, named, and marked when it is the current one. A system bar says all three by
-        // being a tab bar; this one has to say them out loud, and the position is the half of that
-        // which is not a label or a trait: VoiceOver's "2 of 5" comes from the tab bar container
-        // iOS would have built, and a custom bar has no container to inherit it from.
-        .accessibilityLabel(item.title)
-        .accessibilityValue(position(of: item))
-        .accessibilityAddTraits(item == screen ? .isSelected : [])
-    }
-
-    /// How wide one tab is.
-    ///
-    /// The system's bar divides what is left of the capsule by the number of tabs, and that is
-    /// kept while it stays above ``RootTabBarMetrics/minimumItemWidth``, so five tabs land exactly
-    /// where the old bar's did. Past it the tabs hold their width and the bar scrolls, because the
-    /// alternative is tabs that keep shrinking until the names on them do not fit.
-    private func itemWidth(in capsuleWidth: CGFloat) -> CGFloat {
-        let shared = (capsuleWidth - RootTabBarMetrics.sidePadding * 2)
-            / CGFloat(Screen.allCases.count)
-        return max(RootTabBarMetrics.minimumItemWidth, shared)
-    }
-
-    /// Brings a tab into view when it is off the end of the bar, and leaves the bar alone when it
-    /// is not.
-    ///
-    /// Most of what arrives here is a tap, on a tab that was on screen to be tapped, and the
-    /// visibility test is what keeps the bar still for those: re-centring the tab that was just
-    /// chosen would slide the bar sideways under the finger that chose it. The rest is a selection
-    /// made from somewhere other than the bar (the Servers tab moves itself when a Shortcut asks
-    /// for a shell), which is what can land on a tab that is off the edge, and the sixth tab
-    /// onwards is where a tap can too, on the part of a tab that is showing past the capsule.
-    private func reveal(_ item: Screen, in capsuleWidth: CGFloat, with scroller: ScrollViewProxy) {
-        guard let index = Screen.allCases.firstIndex(of: item) else { return }
-        let width = itemWidth(in: capsuleWidth)
-        let leading = RootTabBarMetrics.sidePadding + CGFloat(index) * width
-        let trailing = leading + width
-
-        // Off the start of the bar or off the end of it, and pushed back on from the side it went
-        // off. Everything between the two is already visible, and the bar is left where it is.
-        let isPastLeadingEdge = leading < scrollOffset
-        guard isPastLeadingEdge || trailing > scrollOffset + capsuleWidth else { return }
-        withAnimation(Motion.tap) {
-            scroller.scrollTo(item, anchor: isPastLeadingEdge ? .leading : .trailing)
-        }
-    }
-
-    /// Where this tab is in the bar, for the one announcement the system's container used to make.
-    private func position(of item: Screen) -> String {
-        guard let index = Screen.allCases.firstIndex(of: item) else { return "" }
-        return "\(index + 1) of \(Screen.allCases.count)"
-    }
-}
-
-/// A tab under a finger.
-///
-/// The system's bar dims the item it is pressed on, and that is the one piece of its feedback a bar
-/// drawn here gets to keep: the long-press large content viewer and the plate that marks the
-/// current tab are iOS drawing its own control, and neither comes with one that is not.
-private struct TabButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? RootTabBarMetrics.pressedOpacity : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

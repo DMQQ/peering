@@ -52,14 +52,12 @@ final class SSHLockFlowTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// A tab on the app's own bar.
+    /// A tab on the system's bar.
     ///
-    /// It used to be `app.tabBars.buttons[...]`, and that query is gone with the tab bar it named:
-    /// the root bar is drawn by the app now so that it can scroll, and it is a scroll view rather
-    /// than a `UITabBar`. Named rather than a bare `app.buttons["Servers"]`, which would also match
+    /// Named through `tabBars` rather than a bare `app.buttons["Servers"]`, which would also match
     /// the navigation bar's back button on the screen this test comes back to.
     private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
-        app.scrollViews["RootTabBar"].buttons[name]
+        app.tabBars.buttons[name]
     }
 
     @MainActor
