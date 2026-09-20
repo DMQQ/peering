@@ -213,7 +213,9 @@ public final class HostBrowser: @unchecked Sendable {
                     self.restartAttempt = 0
                     self.emit(.started)
                 case .failed(let error):
-                    self.emit(.failed(error.localizedDescription))
+                    // Through the shared table like every other network failure: an `NWError`'s
+                    // own `localizedDescription` is `Network.NWError error 60`, not a sentence.
+                    self.emit(.failed(NetworkFailureText.describe(error)))
                     self.replaceFailedBrowser()
                 case .cancelled:
                     self.emit(.updated([]))

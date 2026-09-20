@@ -50,6 +50,53 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
+    /// What the relay's datagram lane has carried so far.
+    ///
+    /// Public because the session log prints it and the log outlives the session. The counts are
+    /// cumulative for the session rather than a rate: a rate needs a window and a decision about
+    /// how long, and the comparison worth making is between two readings of the same counter
+    /// minutes apart, which needs no window at all.
+    public struct DatagramCounts: Sendable, Equatable {
+        /// Everything the socket read, from the relay and from the peer alike.
+        public let received: Int
+        /// The subset that arrived straight from the peer rather than through the relay. This is
+        /// the punched path, and the only one an operator can do nothing about.
+        public let fromPeer: Int
+        /// Datagrams that arrived and could not be opened: a corrupted packet, or two ends that
+        /// are not speaking the same key.
+        public let refused: Int
+        /// Pictures assembled whole from those datagrams.
+        public let pictures: Int
+
+        public init(received: Int, fromPeer: Int, refused: Int, pictures: Int) {
+            self.received = received
+            self.fromPeer = fromPeer
+            self.refused = refused
+            self.pictures = pictures
+        }
+
+        /// One line, for a log a person reads.
+        ///
+        /// Written for the question it answers rather than as a dump: "datagrams arriving and
+        /// pictures not" is the sentence that means a lossy path, and it can only be read off
+        /// the figures if they are beside each other.
+        public var summary: String {
+            "\(received) received, \(fromPeer) from the Mac, \(refused) unreadable, \(pictures) pictures"
+        }
+    }
+
+    /// What the lane has carried, for the log and the diagnostics screen.
+    public var datagramCounts: DatagramCounts {
+        lock.withLock {
+            DatagramCounts(
+                received: videoDatagrams?.receivedDatagrams ?? 0,
+                fromPeer: videoDatagrams?.receivedFromPeer ?? 0,
+                refused: datagramFailures,
+                pictures: picturesFromPeer
+            )
+        }
+    }
+
     /// What the session tells its owner. Everything is a value, so the UI can apply these
     /// on whatever actor it likes.
     public enum Event: Sendable {
@@ -60,6 +107,14 @@ public final class ClientSession: @unchecked Sendable {
         /// Round-trip time of a control ping, in milliseconds. The control channel is the
         /// one whose latency the user feels, so this is the number worth showing.
         case latency(milliseconds: Double)
+        /// What the relay's datagram lane has carried, every couple of seconds while one is open.
+        ///
+        /// Four numbers because a lane fails in four distinguishable ways and they need
+        /// different answers: nothing arriving at all is a network that will not carry it,
+        /// datagrams arriving and being refused is this end failing to open them, datagrams
+        /// arriving and far too few pictures is a path losing the odd packet, and everything
+        /// arriving is a lane with nothing wrong with it.
+        case datagramCounts(DatagramCounts)
         /// Diagnostics worth surfacing without failing: a pin that was accepted, a video
         /// channel that connected but has not produced a stream yet.
         case note(String)
@@ -243,34 +298,13 @@ public final class ClientSession: @unchecked Sendable {
 
         /// What to say about an error that came from the network rather than from the protocol.
         ///
-        /// `Network.framework` reports a POSIX failure as an `NWError`, and an `NWError` is not
-        /// a `LocalizedError` — so the fallback everywhere it was caught was string interpolation,
-        /// which put "Network.NWError error 54 connection reset by peer" in an alert in front of
-        /// a user who can do nothing with it. These are the handful of codes that actually occur
-        /// when a phone talks to a Mac on a local network, and each is translated into the one
-        /// thing there is to know about it.
-        ///
-        /// 54 is the common one and the one worth getting right: it means the *other end* went
-        /// away without closing politely. The host quit, the app was rebuilt, the Mac slept. It
-        /// usually says nothing at all about the phone, and the message should not imply it does.
+        /// **The table itself lives in ``NetworkFailureText``**, and this forwards to it. It used
+        /// to be the only spelling of the rule, which is how the transport came to have a second
+        /// one: `error.localizedDescription`, which for an `NWError` is not a sentence at all but
+        /// the string `Network.NWError error 60`. One table, called from both places that can
+        /// fail this way, so the next one cannot leak the raw error again.
         static func describe(_ error: Error) -> String {
-            guard let nwError = error as? NWError, case .posix(let code) = nwError else {
-                return (error as? LocalizedError)?.errorDescription ?? "\(error)"
-            }
-            switch code {
-            case .ECONNRESET:
-                return "The Mac closed the connection. It may have quit, restarted, or gone to sleep."
-            case .ECONNREFUSED:
-                return "The Mac refused the connection. Check that Peering is running on it."
-            case .ETIMEDOUT:
-                return "The Mac did not answer. Check that both devices are on the same network."
-            case .EHOSTUNREACH, .ENETUNREACH:
-                return "The Mac could not be reached on this network."
-            case .EPIPE:
-                return "The connection to the Mac was lost."
-            default:
-                return "The connection to the Mac failed (\(code.rawValue))."
-            }
+            NetworkFailureText.describe(error)
         }
 
         public var errorDescription: String? {
@@ -386,6 +420,15 @@ public final class ClientSession: @unchecked Sendable {
     /// corrupted packet, and one per picture is two ends that are not speaking the same key.
     private var datagramFailures = 0
     private var reportedDatagramFailure = false
+    /// Pictures that arrived whole from the peer, and the number that matters most.
+    ///
+    /// A picture is cut into roughly a hundred datagrams, so a frame completes only if *every*
+    /// one of them lands. A lane losing one datagram in a hundred therefore delivers about a
+    /// third of its pictures, and one losing one in twenty delivers almost none, while the
+    /// datagram counters beside this one climb the whole time and look healthy. Datagrams
+    /// arriving and pictures arriving are different facts, and only the pair of them says which
+    /// end of that trade a session is on.
+    private var picturesFromPeer = 0
 
     /// Whether this session's video could be travelling a path that a network can block.
     ///
@@ -1300,6 +1343,15 @@ public final class ClientSession: @unchecked Sendable {
     /// on every pass is a state whose observer cannot tell a change from a repeat.
     private func reportDirectPath(_ outcome: DirectPath) {
         let changed = lock.withLock { () -> Bool in
+            // **A path that is open is not closed by a later look-up.** The probing loop asks the
+            // relay where the Mac is every twelve attempts, for the whole session, so that a
+            // mapping which expired can be replaced. Every one of those asks announced `probing`,
+            // which *downgraded* a path that was demonstrably carrying the picture to "nothing
+            // back yet". The log then read as a direct path that kept failing while the transport
+            // had not moved in minutes, which is exactly how it was read on a session that never
+            // left the punched path once. The ask still happens and the address is still
+            // replaced; only the announcement is suppressed.
+            if case .open = reportedDirectPath, case .probing = outcome { return false }
             guard reportedDirectPath != outcome else { return false }
             reportedDirectPath = outcome
             return true
@@ -1327,6 +1379,7 @@ public final class ClientSession: @unchecked Sendable {
             // arrived from is now what the Mac sends to. There is nothing in it to render, and a
             // real frame has never been seen under this kind.
             guard frame.kind != .directProbe else { return }
+            lock.withLock { picturesFromPeer += 1 }
             handleVideoFrame(frame, from: .primary)
 
         case .failure(let error):
@@ -1445,10 +1498,16 @@ public final class ClientSession: @unchecked Sendable {
         fallbackPolicy.reset()
         guard videoWatchTask == nil else { lock.unlock(); return }
         let task = Task { [weak self] in
+            var ticks = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled, let self else { return }
                 self.evaluateVideoTransport()
+                // The counts every second tick, which is every second: fast enough to read them
+                // off a screen while a session is running, and slow enough that a screen showing
+                // four numbers is not redrawn sixty times a second to show the same four.
+                ticks += 1
+                if ticks % 2 == 0 { self.reportDatagramCounts() }
             }
         }
         videoWatchTask = task
@@ -1504,15 +1563,30 @@ public final class ClientSession: @unchecked Sendable {
                 reason: "no picture for \(Int(VideoFallbackPolicy.silenceBeforeFallback))s "
                     + "on a control channel that is answering"
             ))
-            announce(.control, note: "No video is arriving. Asking the Mac to send the picture over the control channel.")
+            // The counters ride with the note, and that is the point of putting them here rather
+            // than only on a diagnostics screen: this sentence is the moment the picture moved,
+            // the log is what outlives the session, and a lane that failed is only explicable
+            // with the numbers as they were *when* it failed. Settings cannot even be opened
+            // while a session runs, so a live-only readout would be unreachable exactly here.
+            announce(.control, note: "No video is arriving. Asking the Mac to send the picture over the control channel. Datagram lane: \(datagramCounts.summary).")
 
         case .usePrimaryTransport:
             connection()?.send(.videoTransport, VideoTransportRequest(
                 transport: .primary,
                 reason: "video is arriving again on the transport it prefers"
             ))
-            announce(.primary, note: "Video is arriving again on the faster path.")
+            announce(.primary, note: "Video is arriving again on the faster path. Datagram lane: \(datagramCounts.summary).")
         }
+    }
+
+    /// Hands the lane's counters to whoever is watching.
+    ///
+    /// Silent until there is a lane: a session on the LAN or on the relay's control channel has
+    /// no datagram socket, and reporting zeros for one would read as a lane that is present and
+    /// idle rather than one that does not exist.
+    private func reportDatagramCounts() {
+        guard lock.withLock({ videoDatagrams != nil }) else { return }
+        emit(.datagramCounts(datagramCounts))
     }
 
     /// Says which lane the picture is on, the first time it is on it.

@@ -341,7 +341,8 @@ public final class ClientConnection: @unchecked Sendable {
                         self.resumeReady(.success(()))
                         self.receiveNext()
                     case .failed(let error):
-                        let failure = Failure.transport(error.localizedDescription)
+                        transportLog.error("connection failed: \(String(describing: error), privacy: .public)")
+                        let failure = Failure.transport(NetworkFailureText.describe(error))
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
                         self.finish(failure)
@@ -353,7 +354,8 @@ public final class ClientConnection: @unchecked Sendable {
                         // A refused connection arrives as `.waiting`, not `.failed`, because
                         // Network.framework would otherwise retry forever. For a user who just
                         // tapped a Mac in a list, retrying forever is a hang.
-                        let failure = Failure.transport(error.localizedDescription)
+                        transportLog.error("connection waiting: \(String(describing: error), privacy: .public)")
+                        let failure = Failure.transport(NetworkFailureText.describe(error))
                         self.cancelTimeout()
                         self.resumeReady(.failure(failure))
                         self.finish(failure)
@@ -427,7 +429,8 @@ public final class ClientConnection: @unchecked Sendable {
                 } catch {
                     // A framing error is unrecoverable — the byte stream is unusable — so the
                     // connection is torn down rather than resynchronised onto a guess.
-                    let failure = Failure.transport("\(error)")
+                    transportLog.error("framing failed: \(String(describing: error), privacy: .public)")
+                    let failure = Failure.transport(NetworkFailureText.describe(error))
                     connection?.cancel()
                     finish(failure)
                     return
@@ -437,7 +440,8 @@ public final class ClientConnection: @unchecked Sendable {
             }
 
             if let error {
-                finish(.transport(error.localizedDescription))
+                transportLog.error("receive failed: \(String(describing: error), privacy: .public)")
+                finish(.transport(NetworkFailureText.describe(error)))
                 return
             }
             if isComplete {

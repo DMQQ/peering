@@ -107,7 +107,7 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     case directProbe = 0x1B
 }
 
-public enum FramingError: Error, Equatable, Sendable {
+public enum FramingError: Error, LocalizedError, Equatable, Sendable {
     /// The declared length exceeded ``FrameDecoder/maxFrameLength``. Thrown *before*
     /// any attempt to buffer the payload, so a hostile length field cannot exhaust memory.
     case frameTooLarge(declared: UInt32)
@@ -116,6 +116,24 @@ public enum FramingError: Error, Equatable, Sendable {
     /// The kind byte was not a known ``MessageKind``. Almost always means the peers are
     /// speaking different protocol versions; failing loudly beats silently skipping bytes.
     case unknownKind(UInt8)
+
+    /// A sentence for the user, since this reaches one.
+    ///
+    /// A framing failure is a protocol fault rather than a network one: the bytes arrived, and they
+    /// did not make sense. It is not something the user did or can undo, so none of these tells them
+    /// to try again — each says what the two ends disagreed about and leaves it there. The numbers
+    /// are kept where they are the whole point of the sentence, and left out of
+    /// ``unknownKind`` where the user has no use for a byte.
+    public var errorDescription: String? {
+        switch self {
+        case .frameTooLarge(let declared):
+            return "The Mac sent a message this app cannot read (\(declared) bytes). The two ends may be running different versions."
+        case .zeroLengthFrame:
+            return "The Mac sent a malformed message. The two ends may be running different versions."
+        case .unknownKind:
+            return "The Mac sent a message this app does not recognise. Update whichever end is older."
+        }
+    }
 }
 
 /// A single decoded wire message.
