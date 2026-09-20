@@ -164,6 +164,33 @@ final class MacSession {
 
     var videoPoll: Task<Void, Never>?
 
+    // MARK: - Asking this Mac for the picture, and for silence
+
+    /// What this Mac said about being asked to pause. See ``PicturePause/mayAsk(hostDeclared:)``.
+    ///
+    /// Read off the handshake and never assumed: `false` is a Mac too old to have been asked, and
+    /// the command means a dropped session on one of those rather than a picture that stops.
+    var hostSupportsVideoPause = false
+
+    /// Whether the picture is stopped because this client asked for it to be.
+    ///
+    /// **Not the same as the picture being stopped.** A Mac whose screen is asleep, a stream that
+    /// failed, and a pause this end requested all look alike on screen and are three different
+    /// facts; only the third is something this end may undo.
+    var picturePaused = false
+
+    /// When the picture was last asked for again, and how long it took to come back.
+    ///
+    /// **The number the whole feature has to be judged on.** A design whose promise is that
+    /// switching Macs is instant has to be able to say how long the first frame takes after the
+    /// ask, and nothing else in the app can measure it: the request goes out here and the frames
+    /// come back to the renderer, so this is the only place both ends of the interval are visible.
+    /// Reported into the notes and into Diagnostics rather than shown standing, because it is a
+    /// fact about the plumbing and the screen is for the picture.
+    var pictureResumedAt: Date?
+    var pictureResumeBaselineFrames: Int?
+    var lastResumeMilliseconds: Double?
+
     var autoQualityPolicy = AutoQualityPolicy(path: .lan)
     var lastAutoDroppedFrames = 0
 
@@ -299,6 +326,60 @@ final class MacSession {
     /// land — the user would lose the folder they are looking at, along with the row they were
     /// about to try again on. This one is drawn above the list, which stays where it is.
     var changeFailures: [UUID: String] = [:]
+
+    // MARK: - The picture's on/off switch
+
+    /// Asks this Mac for the picture, or for silence, and touches nothing else.
+    ///
+    /// The session, its control channel, its shells, its clipboard and the assertion that keeps
+    /// the Mac awake all survive this, which is the whole point of the command existing: a Mac
+    /// nobody is looking at should not be spending its battery or the operator's bandwidth, but
+    /// it should still be a Mac somebody is connected to.
+    ///
+    /// **Silent for a Mac that cannot take it.** See ``PicturePause/mayAsk(hostDeclared:)``: an
+    /// un-updated Mac goes on streaming, which costs bandwidth and nothing else, where sending
+    /// anyway would cost the session.
+    func setPicturePaused(_ paused: Bool) {
+        guard PicturePause.mayAsk(hostDeclared: hostSupportsVideoPause) else { return }
+        guard phase.holdsSession, paused != picturePaused else { return }
+        picturePaused = paused
+        send(.setVideoEnabled(!paused))
+
+        if paused {
+            // A measurement belongs to a request that is still outstanding, and this one has just
+            // been superseded by the picture stopping.
+            pictureResumedAt = nil
+            pictureResumeBaselineFrames = nil
+        } else {
+            // Taken before the frame arrives, which is the only moment it can be taken: the
+            // renderer's total at the instant the ask went out is what "the first frame back"
+            // is measured from.
+            pictureResumedAt = Date()
+            pictureResumeBaselineFrames = renderer.currentSnapshot.framesEnqueued
+            lastResumeMilliseconds = nil
+        }
+    }
+
+    /// Times the picture's return, once there is a frame to time it by.
+    ///
+    /// Called from the poll rather than from the event path, because the question is "has
+    /// anything arrived", and the frame that answers it is deliberately not allowed to touch the
+    /// main actor on its way past. See the event handler in ``SessionModel/connect(to:)``.
+    ///
+    /// **A count that has moved in either direction counts as an answer.** Forwards is a frame
+    /// that arrived; backwards is the renderer's own total resetting, which happens when the Mac
+    /// re-sends its stream description on the way back, and that is the picture starting again
+    /// just as much as a frame is.
+    func measureResumeIfNeeded(_ snapshot: VideoRenderer.Snapshot) {
+        guard let resumedAt = pictureResumedAt, let baseline = pictureResumeBaselineFrames else { return }
+        guard snapshot.framesEnqueued != baseline else { return }
+
+        pictureResumedAt = nil
+        pictureResumeBaselineFrames = nil
+        let milliseconds = Date().timeIntervalSince(resumedAt) * 1000
+        lastResumeMilliseconds = milliseconds
+        append(note: "Picture back \(Int(milliseconds.rounded())) ms after asking for it")
+    }
 
     // MARK: - Sending
 

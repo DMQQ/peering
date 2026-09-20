@@ -134,6 +134,33 @@ final class SessionModel {
         return sessions.first { $0.id == activeSessionID }
     }
 
+    /// Makes one session the Mac the app is showing, and tells the Macs about it.
+    ///
+    /// **The one operation the whole feature comes down to**, and the only one that is cheap:
+    /// the handshake, the pairing, the sockets, the shells and the sleep assertion all stay
+    /// exactly where they are. What changes is which Mac's picture is being decoded, and the
+    /// asking is what keeps the other one from spending its battery and the operator's bandwidth
+    /// on frames nobody is looking at.
+    ///
+    /// A no-op for the session already on screen, deliberately: asking a Mac for its picture
+    /// again when nothing has changed would blink it, and a tab tapped twice is not a request to
+    /// restart anything.
+    ///
+    /// **Nothing calls this yet, and that is not an oversight.** There is one Mac until Stage 4,
+    /// so there is nothing to switch to; what this stage adds is the path a switch takes and the
+    /// instrument that times it, both of which need the second Mac to be observed. The
+    /// measurement it feeds is read off ``MacSession/lastResumeMilliseconds``, which is printed
+    /// in the diagnostics blob.
+    func activateSession(_ id: UUID) {
+        guard id != activeSessionID, let session = sessions.first(where: { $0.id == id }) else { return }
+        // Stopped before the switch rather than after: the Mac being left should stop spending
+        // at the moment it stops being looked at, and asking it afterwards would leave both
+        // streaming for however long the handover takes.
+        activeSession?.setPicturePaused(true)
+        activeSessionID = id
+        session.setPicturePaused(false)
+    }
+
     // MARK: - Connection state
 
     var phase: ClientSession.Phase {

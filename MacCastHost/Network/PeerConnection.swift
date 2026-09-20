@@ -79,8 +79,19 @@ final class PeerConnection: @unchecked Sendable {
                 for frame in frames { onFrame?(frame) }
             }
 
-            if let error { finish(error); return }
-            if isComplete { finish(nil); return }
+            if let error {
+                finish(error)
+                connection.cancel()
+                return
+            }
+            if isComplete {
+                // A clean EOF ends the receive half, but this object owns the whole network
+                // resource. Cancel explicitly so Network.framework does not retain the send half
+                // and its protocol stack after observers have already been told it is closed.
+                finish(nil)
+                connection.cancel()
+                return
+            }
             receiveNext()
         }
     }

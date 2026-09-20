@@ -48,6 +48,15 @@ enum Diagnostics {
         // control connection and metering it either way. This is the line that says which of the
         // two carried the picture.
         lines.append("Picture path: \(model.usedDirectPath ? "direct (peer to peer)" : "relay")")
+        // **The figure the whole several-Macs-at-once design stands on.** How long the picture
+        // takes to come back after this end asks for it again is the difference between switching
+        // Macs and reconnecting to one, and it is measurable in exactly one place: the ask goes
+        // out from here and the frames come back to the renderer, so this is the only code that
+        // sees both ends of the interval. Read off the last session rather than a live one, like
+        // the datagram counts above and for the same reason. "not measured" rather than omitted,
+        // because a missing line reads as a feature that does not exist.
+        let resume = model.activeSession?.lastResumeMilliseconds
+        lines.append("Picture resume: \(resume.map { "\(Int($0.rounded())) ms" } ?? "not measured")")
         // Only for a session that had a datagram lane, and from the last one rather than the
         // live one, because Settings cannot be opened while a session is running. These are the
         // four figures that tell a lane the network is dropping from one this end is refusing,

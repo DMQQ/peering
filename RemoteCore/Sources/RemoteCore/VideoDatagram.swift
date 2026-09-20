@@ -554,8 +554,12 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         queue.setSpecific(key: queueMarker, value: ())
 
         // The relay's family decides the socket's, because the relay is the destination every
-        // session has and the peer is the one that might not exist.
-        guard let resolved = Self.resolve(host: host, port: port, family: AF_UNSPEC, numeric: false)
+        // session has and the peer is the one that might not exist. IPv6 is preferred: when both
+        // ends land on IPv6 the peer's address is globally routable with no NAT in front of it, so
+        // the direct path is a straight send rather than a hole punch. IPv4 is the fallback for
+        // hosts or networks that have no IPv6 reachability.
+        guard let resolved = Self.resolve(host: host, port: port, family: AF_INET6, numeric: false)
+                           ?? Self.resolve(host: host, port: port, family: AF_INET, numeric: false)
         else {
             throw VideoDatagramError.unresolvedHost(host)
         }
@@ -704,7 +708,16 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     }
 
     public func cancel() {
-        queue.async { [weak self] in self?.stopOnQueue() }
+        // Resource release is part of cancellation's contract, so do it before returning. The old
+        // weak asynchronous hop could lose `self` before the block ran; because a BSD descriptor is
+        // not managed by ARC, deallocation then leaked the socket for the life of the process.
+        onQueue { stopOnQueue() }
+    }
+
+    deinit {
+        // `cancel()` is the normal path. This is the ownership backstop for a socket that was
+        // constructed and then released before its owner had a chance to install it or start it.
+        onQueue { stopOnQueue() }
     }
 
     // MARK: - All on `queue`

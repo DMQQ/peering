@@ -91,6 +91,28 @@ private final class LoopbackSocket: @unchecked Sendable {
     }
 }
 
+/// Whether a fresh UDP socket can take a specific loopback port right now.
+///
+/// Used as the public lifecycle observation: once `VideoDatagramSocket.cancel()` returns, the
+/// descriptor it owned must no longer hold its local port.
+private func canBindLoopback(port: UInt16) -> Bool {
+    let descriptor = socket(AF_INET, SOCK_DGRAM, 0)
+    guard descriptor >= 0 else { return false }
+    defer { Darwin.close(descriptor) }
+
+    var address = sockaddr_in()
+    address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+    address.sin_family = sa_family_t(AF_INET)
+    address.sin_port = port.bigEndian
+    address.sin_addr = in_addr(s_addr: inet_addr("127.0.0.1"))
+
+    return withUnsafePointer(to: &address) { pointer in
+        pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            bind(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
+        }
+    }
+}
+
 /// What a socket under test was handed, gathered off its own queue.
 private final class Collected: @unchecked Sendable {
     private let lock = NSLock()
@@ -135,6 +157,30 @@ struct VideoDatagramSocketTests {
         let collected = Collected()
         socket.onDatagram = { datagram, source in collected.add(datagram, source) }
         return (socket, collected)
+    }
+
+    @Test("cancelling releases the local port before it returns")
+    func cancelIsSynchronous() throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        let port = socket.localPort
+
+        #expect(!canBindLoopback(port: port), "the live socket owns its port")
+        socket.cancel()
+        #expect(canBindLoopback(port: port), "cancel returns only after the descriptor is closed")
+    }
+
+    @Test("releasing an uncancelled socket still releases its local port")
+    func deinitClosesDescriptor() throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        var socket: VideoDatagramSocket? = try makeSocket(relayingTo: relay).0
+        let port = try #require(socket?.localPort)
+
+        #expect(!canBindLoopback(port: port), "the live socket owns its port")
+        socket = nil
+        #expect(canBindLoopback(port: port), "deinitialization closes an owned descriptor")
     }
 
     /// The bind is what tells the relay where this end is, and nothing is forwarded to an address

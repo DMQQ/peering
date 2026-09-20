@@ -49,6 +49,7 @@ final class HostServer: @unchecked Sendable {
     /// is sending it. Without it a relayed session has no picture but the one on the control
     /// stream, which is the arrangement the datagram path exists to leave.
     private struct RelayTunnel {
+        let id: UUID
         let bridge: RelayControlBridge
         let session: RelaySession
     }
@@ -325,6 +326,15 @@ final class HostServer: @unchecked Sendable {
     /// that switching away and coming straight back does not cost the user their session.
     private static let silenceLimit: TimeInterval = 60
 
+    /// How long a connection may occupy a session slot without completing authentication.
+    ///
+    /// Authorized sessions get the deliberately generous limit above because a real client can
+    /// spend time suspended in the background. A connection that has not authenticated has no
+    /// reason to retain a socket indefinitely, and doing so lets a peer accumulate half-open
+    /// handshakes for as long as the host runs. Thirty seconds still leaves ample time to compare
+    /// and confirm the first-pairing code.
+    private static let handshakeSilenceLimit: TimeInterval = 30
+
     /// How often to look. Well under the limit, so a session is ended within a few seconds of
     /// going quiet rather than up to a whole interval late.
     private static let reaperInterval: TimeInterval = 5
@@ -338,8 +348,14 @@ final class HostServer: @unchecked Sendable {
     /// the connection stays open, `isAuthorized` stays true, and the 18-minute phantom that
     /// prompted this had its last real frame long before it was looked at.
     private func reapSilentSessions() {
-        for session in controlSessions where session.isAuthorized && session.silence > Self.silenceLimit {
-            sessionLog.notice("A device stopped answering; ending its session")
+        for session in controlSessions {
+            let limit = session.isAuthorized ? Self.silenceLimit : Self.handshakeSilenceLimit
+            guard session.silence > limit else { continue }
+            if session.isAuthorized {
+                sessionLog.notice("A device stopped answering; ending its session")
+            } else {
+                sessionLog.notice("An unauthenticated connection stopped answering; ending its handshake")
+            }
             // `cancel()` closes the connection and the close handler does everything else —
             // the session leaves the list, its video streams end, and the advertisement goes
             // back up. Doing any of that here as well would do it twice.
@@ -438,6 +454,15 @@ final class HostServer: @unchecked Sendable {
             }
 
             videoConnections.append((peer: videoPeer, clientKey: key))
+            let previousClose = videoPeer.onClose
+            videoPeer.onClose = { [weak self, weak videoPeer] error in
+                previousClose?(error)
+                guard let self, let videoPeer else { return }
+                // A video socket is independent from control and may reconnect several times
+                // during one session. Remove it as soon as it closes rather than retaining every
+                // old PeerConnection until control eventually ends.
+                self.videoConnections.removeAll { $0.peer === videoPeer }
+            }
             onVideoConnection?(videoPeer)
         }
         // Set for every session, not only the relayed ones, because it is now the moment the
@@ -483,16 +508,39 @@ final class HostServer: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self, self.listener != nil else { return }
             do {
+                let tunnelID = UUID()
                 let bridge = try RelayControlBridge(
                     session: relaySession,
-                    localPort: self.port
+                    localPort: self.port,
+                    onClose: { [weak self] in
+                        // RelayByteSplice owns a different queue. Return ownership changes to the
+                        // server queue so an accept and a close are ordered with the two arrays.
+                        self?.queue.async { [weak self] in
+                            self?.relayTunnelClosed(id: tunnelID)
+                        }
+                    }
                 )
-                self.pendingRelayBridges.append(RelayTunnel(bridge: bridge, session: relaySession))
+                self.pendingRelayBridges.append(RelayTunnel(
+                    id: tunnelID,
+                    bridge: bridge,
+                    session: relaySession
+                ))
                 bridge.start()
             } catch {
                 self.emit(.failed("Could not open the relay control tunnel: \(error.localizedDescription)"))
             }
         }
+    }
+
+    /// Drops a relay allocation whether its loopback connection was accepted yet or not.
+    ///
+    /// In particular, a bridge that fails before `accept` must leave the pending FIFO. Otherwise
+    /// the next unrelated connection consumes its allocation and is incorrectly treated as the
+    /// relayed client. Active bridges are removed here too; their local EOF independently closes
+    /// the corresponding HostSession.
+    private func relayTunnelClosed(id: UUID) {
+        pendingRelayBridges.removeAll { $0.id == id }
+        activeRelayBridges.removeAll { $0.id == id }
     }
 
     /// Pushes an updated capture catalogue to every authorized client.

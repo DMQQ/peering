@@ -164,6 +164,9 @@ extension MacSession {
             // find it, and it can be stale by minutes.
             hostName = hello.hostName
             hostID = hello.serverID
+            // What this Mac can be asked for, recorded once at the door rather than guessed at
+            // each time a picture needs stopping. See ``PicturePause/mayAsk(hostDeclared:)``.
+            hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.
@@ -341,6 +344,7 @@ extension MacSession {
                     self.captureSessionBandwidth(snapshot)
                     self.updateFrameRate(from: snapshot)
                     self.updateAutoQuality(from: snapshot)
+                    self.measureResumeIfNeeded(snapshot)
 
                     let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
                     let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
