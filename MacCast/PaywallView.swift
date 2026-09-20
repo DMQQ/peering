@@ -188,6 +188,8 @@ struct PaywallView: View {
             switch capability {
             case .extraMacs:
                 return "One Mac is free, and this is the second one and every one after it."
+            case .concurrentSessions:
+                return "One Mac at a time is free. This is holding several open at once, so switching between them is a tap rather than a reconnection."
             case .macSound:
                 return "Whatever the Mac is playing comes out of this phone, from the music you left running to the alert it makes in answer to a key you sent it."
             case .pictureInPicture:

@@ -31,6 +31,7 @@ final class PlanAccessTests: XCTestCase {
     /// why the rows in the maps are checked against the controls by hand as well.
     private static let expected: [PlanCapability: RelayPlan] = [
         .extraMacs: .relay,
+        .concurrentSessions: .pro,
         .macSound: .relay,
         .pictureInPicture: .relay,
         .fileTransfer: .relay,

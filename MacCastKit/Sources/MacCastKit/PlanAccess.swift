@@ -10,13 +10,13 @@ import Foundation
 /// the same map in prose, and they are the two that cannot be compiled against it: a change here
 /// is a change owed to both of them in the same commit.
 ///
-/// **Six rows, and everything else in the app is free.** Every display, app and window as a
+/// **Seven rows, and everything else in the app is free.** Every display, app and window as a
 /// source, the desktops panel, the clipboard and its history, the pointer and the keyboard, observe
 /// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, notifications,
-/// session history, wake on LAN, saving SSH servers, one shell at a time and the whole file browser
-/// including editing, making, renaming, deleting and running what it lists. None of those are here,
-/// and none of them should be. A capability that is not on this list cannot be gated by accident,
-/// because the question a gate asks is this type and there is no case for it.
+/// session history, wake on LAN, saving SSH servers, one Mac at a time, one shell at a time and the
+/// whole file browser including editing, making, renaming, deleting and running what it lists. None
+/// of those are here, and none of them should be. A capability that is not on this list cannot be
+/// gated by accident, because the question a gate asks is this type and there is no case for it.
 ///
 /// **SSH servers were a seventh and were removed.** The gate said the app was holding the user's own
 /// saved machines behind a subscription: a host they typed in themselves, kept in their keychain
@@ -34,6 +34,26 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// costs the service nothing to serve, which is why it sits on the cheapest rung rather than
     /// being sold back at each one. See the note on the Mac count in the app's `Tier`.
     case extraMacs
+
+    /// A second Mac held open at the same time as the first.
+    ///
+    /// **A concurrency gate rather than a capability gate**, which is the same axis as ``shellTabs``
+    /// and the same argument that took SSH servers out of this map: nothing is hidden by it. The
+    /// first Mac is free on every plan, its picture, its shells, its files and its clipboard are all
+    /// free, and what a plan buys is the second one being *open at the same moment* rather than
+    /// reached by ending the first.
+    ///
+    /// It belongs beside ``extraMacs`` and is deliberately separate from it. That one is a limit on
+    /// a list — how many Macs may be paired — and this one is a limit on how many may be live. A
+    /// subscriber on Relay pairs every Mac they own and holds one at a time, which is what the card
+    /// for that rung says.
+    ///
+    /// It costs the service real money, more than anything else here: every session held open is a
+    /// control connection the relay goes on splicing whether or not the user is looking at it, and
+    /// the picture of the Mac that is on screen is joined by the sleep assertion, the keepalive and
+    /// the metering of each one behind it. That is what puts it on Pro rather than on the entry
+    /// rung, where a limit on pairing sits.
+    case concurrentSessions
     case macSound
     case pictureInPicture
     /// Moving a file between the phone and the machine, in either direction: taking one off it, and
@@ -89,6 +109,12 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // stingy. This is the row that had to carry that on its own once SSH servers left the
             // map, and it was always the half of the pair doing the arguing.
             return .plus
+        case .concurrentSessions:
+            // The only row here that is about how many of something may be live at once, and the
+            // only one whose cost scales with the number rather than with the user. It is the
+            // second Mac that costs and the first that must not, which is why the gate is asked
+            // against an empty list as well as a paid plan.
+            return .pro
         case .macros, .highBitrate:
             // The toolbox. Macros are the only genuinely power-user controls in the app, and the
             // rung somebody buys to have the tool rather than to run out of it. The picture's
@@ -110,6 +136,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     public var name: String {
         switch self {
         case .extraMacs: return "Pairing another Mac"
+        case .concurrentSessions: return "Several Macs at once"
         case .macSound: return "Sound from the Mac"
         case .pictureInPicture: return "Picture in Picture"
         case .fileTransfer: return "Moving files between the phone and the Mac"
