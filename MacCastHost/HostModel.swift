@@ -161,6 +161,13 @@ final class HostModel {
     /// Runs while at least one client is attached. See ``startScreenWatch()``.
     private var screenWatchTask: Task<Void, Never>?
 
+    /// The capture problem the attached clients have already been told about.
+    ///
+    /// Held so the same one is not announced twice. A denied Screen Recording grant fails again
+    /// on every attempt to start a stream, and a phone told the same thing four times is a phone
+    /// whose notices get ignored. See ``announceCaptureProblem(_:)``.
+    private var announcedCaptureProblem: String?
+
     private var server: HostServer?
     private var relayRegistration: RelayHostRegistration?
     private var pins: PinStore?
@@ -421,7 +428,11 @@ final class HostModel {
             Task { @MainActor [weak self] in self?.record(message) }
         }
         coordinator.onFailure = { [weak self] error in
-            Task { @MainActor [weak self] in self?.apply(.failed(error.localizedDescription)) }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.apply(.failed(error.localizedDescription))
+                self.announceCaptureProblem(error)
+            }
         }
         coordinator.onInputTransform = { [weak self] transform in
             // Written straight through rather than hopped to the main actor: `input` is not
@@ -1046,6 +1057,31 @@ final class HostModel {
         return nil
     }
 
+    /// Tells whoever is attached why there is no picture, when the reason is one they cannot see
+    /// from where they are.
+    ///
+    /// **This is the fresh-install failure, and it is silent on both ends.** With Screen Recording
+    /// not yet allowed, macOS refuses the stream before a frame exists: this window goes on saying
+    /// the Mac is serving, the phone goes on saying it is opening the video channel, and neither
+    /// of them ever says the true thing. The phone cannot work it out: from its side a Mac that
+    /// cannot capture and a Mac with nothing to show look identical, so the host is the only
+    /// place the sentence can come from.
+    ///
+    /// Only for the failures that have something to say to the far end; ``CaptureError/clientNotice``
+    /// decides which those are. Announced once per problem rather than once per attempt, and the
+    /// record is per-process on purpose: a grant cannot take effect without a relaunch, so a
+    /// problem announced here stays true for the life of this run.
+    private func announceCaptureProblem(_ error: CaptureError) {
+        guard let notice = error.clientNotice, let message = notice.message else { return }
+        guard message != announcedCaptureProblem else { return }
+        announcedCaptureProblem = message
+        server?.broadcastNotice(notice)
+        // The Mac's own activity list gets it too, beside the failure that caused it. It is
+        // already recorded there through `apply(.failed(_:))`; this is the line that says the
+        // other device was told, which is what an operator reading a report needs to know.
+        record("Told the connected device why there is no picture.", level: .warning)
+    }
+
     /// Runs ``screenNotice()`` while anyone is attached.
     ///
     /// Nobody attached means nobody to tell, and a host that checks its own screen every two
@@ -1111,12 +1147,23 @@ final class HostModel {
 
     // MARK: - Sleep prevention
 
-    /// Toggles the lid-close sleep prevention assertion on or off.
+    /// Toggles what the settings screen calls "Keep Mac awake", and what the code calls lid-close
+    /// sleep prevention because that is what it is trying to do.
     ///
-    /// The assertion uses `PreventSystemSleep` — the same type `caffeinate -s` acquires —
-    /// which survives closing the lid on most Macs. Unlike a `pmset` change it is
-    /// process-scoped: the OS releases it automatically when this process exits, so a crash
-    /// can never leave the Mac permanently unable to sleep.
+    /// **What the assertion does and does not buy, because the name overpromises.** The type is
+    /// `PreventSystemSleep`, the one `caffeinate -s` acquires, and it stops the Mac going to sleep
+    /// on its own: idle timers, a stalled download, nothing to do. Closing the lid is a *different*
+    /// path in macOS, and whether the assertion covers it depends on the machine: a laptop with no
+    /// external display in clamshell stays awake on some Macs and sleeps on others. What does
+    /// survive a lid close on every Mac is `pmset -a disablesleep 1`, which needs administrator
+    /// rights and outlives a crash, which is why this is not it.
+    ///
+    /// The caption on the switch says the same thing in the same words, and the two have to: the
+    /// comment that used to be here claimed the assertion survives a lid close on most Macs, which
+    /// contradicted the screen the user was reading it on.
+    ///
+    /// Being process-scoped is the one property worth having here: the OS releases the assertion
+    /// when this process exits, so a crash can never leave the Mac unable to sleep.
     func setPreventLidCloseSleep(_ on: Bool) {
         preventLidCloseSleep = on
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")

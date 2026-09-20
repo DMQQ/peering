@@ -519,12 +519,6 @@ final class HostSession: @unchecked Sendable {
         }
     }
 
-    /// Proactively pushes updated clipboard content to the client without a request.
-    func sendClipboard(_ text: String) {
-        guard isAuthorized else { return }
-        send(MessageKind.clipboardContent, ClipboardPayload(text: text))
-    }
-
     func sendTerminalEvent(_ event: TerminalEvent) {
         guard isAuthorized else { return }
         send(.terminalEvent, event)

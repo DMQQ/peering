@@ -25,21 +25,6 @@ final class Updater {
     /// guessing at three states instead of reading one.
     private(set) var canCheck = false
 
-    /// Whether the app checks on its own schedule. Exposed so a switch can offer it; the default
-    /// comes from the Info.plist.
-    var checksAutomatically: Bool {
-        get { controller.updater.automaticallyChecksForUpdates }
-        set { controller.updater.automaticallyChecksForUpdates = newValue }
-    }
-
-    /// The version on disk, for a screen that shows one.
-    var currentVersion: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "Unknown"
-        let build = info?["CFBundleVersion"] as? String
-        return build.map { "\(short) (\($0))" } ?? short
-    }
-
     @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private var observation: NSKeyValueObservation?
 

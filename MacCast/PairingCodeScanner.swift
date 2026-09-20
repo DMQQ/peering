@@ -10,7 +10,20 @@ import UIKit
 /// ``PairingPayload``, not here — this type only knows how to read a QR code, and a view that
 /// wants one kind of code has to say what it does with the other.
 struct PairingCodeScanner: UIViewControllerRepresentable {
-    let onCode: (String) -> Void
+    /// Hands over what the code said, and answers whether it was any use.
+    ///
+    /// **The answer is why this is not `(String) -> Void`.** The scanner reads whatever QR code
+    /// is in front of the camera, and the screens that use it are looking for one particular
+    /// kind: the pairing prompt wants six digits and refuses a Mac's device ID, which is also a
+    /// QR code the app itself draws. This used to be a one-shot callback: the flag that stopped
+    /// it firing twice was set *before* the payload was looked at, so the first wrong code
+    /// (somebody's Wi-Fi code, a screenshot, the Mac's own ID) ended the scanner for the life of
+    /// the sheet. The camera kept running, the picture kept moving, and nothing it saw was ever
+    /// reported again.
+    ///
+    /// Returning `false` leaves the scanner armed; returning `true` retires it. A caller that
+    /// cannot refuse anything just returns `true`.
+    let onCode: (String) -> Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(onCode: onCode) }
 
@@ -23,10 +36,10 @@ struct PairingCodeScanner: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: ScannerViewController, context: Context) {}
 
     final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
-        private let onCode: (String) -> Void
+        private let onCode: (String) -> Bool
         private var delivered = false
 
-        init(onCode: @escaping (String) -> Void) { self.onCode = onCode }
+        init(onCode: @escaping (String) -> Bool) { self.onCode = onCode }
 
         func metadataOutput(
             _ output: AVCaptureMetadataOutput,
@@ -37,8 +50,9 @@ struct PairingCodeScanner: UIViewControllerRepresentable {
                   let readable = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
                   let value = readable.stringValue
             else { return }
-            delivered = true
-            onCode(value)
+            // Set only once the code has been taken. A code that was refused leaves this false,
+            // and the next one to come into frame gets the same chance the first one had.
+            if onCode(value) { delivered = true }
         }
     }
 }
@@ -98,9 +112,19 @@ final class ScannerViewController: UIViewController {
         previewLayer = preview
     }
 
+    /// Says that there is no camera to scan with, and why.
+    ///
+    /// Two reasons, and the difference matters to whoever is holding the phone. A device or a
+    /// simulator without one is a fact about the hardware; a camera this app has been refused is
+    /// a switch somebody can go and turn on, and "Camera unavailable" sends them looking for a
+    /// problem with their phone. The typed code is the way past either, so it is named here
+    /// rather than left to be discovered.
     private func showUnavailableMessage() {
+        let refused = AVCaptureDevice.authorizationStatus(for: .video) == .denied
         let label = UILabel()
-        label.text = "Camera unavailable\nEnter the six-digit code instead."
+        label.text = refused
+            ? "Peering is not allowed to use the camera.\nAllow Camera in Settings, or enter the six-digit code instead."
+            : "Camera unavailable\nEnter the six-digit code instead."
         label.numberOfLines = 0
         label.textAlignment = .center
         label.textColor = .secondaryLabel
@@ -110,6 +134,19 @@ final class ScannerViewController: UIViewController {
             label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+        ])
+
+        guard refused, let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        var configuration = UIButton.Configuration.bordered()
+        configuration.title = "Open Settings"
+        let button = UIButton(configuration: configuration, primaryAction: UIAction { _ in
+            UIApplication.shared.open(url)
+        })
+        button.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(button)
+        NSLayoutConstraint.activate([
+            button.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            button.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 18),
         ])
     }
 }

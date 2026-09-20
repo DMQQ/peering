@@ -236,8 +236,6 @@ final class VideoCoordinator: @unchecked Sendable {
     /// knows when to ask.
     var onSourceChanged: (@Sendable (CaptureSource?) -> Void)?
 
-    var isSending: Bool { streamer.isAttached }
-
     /// The capture source being captured, if any.
     var source: CaptureSource? { lock.withLock { currentSource } }
 

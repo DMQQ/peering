@@ -141,6 +141,16 @@ private struct LandingView: View {
     }
 
     private static let claimLines: [ClaimLine] = [
+        // First because it is the fact the rest of the page depends on, and the one a visitor is
+        // most likely not to have: this is not an app that finds Macs by itself. Something has to
+        // be running on the Mac, and until this line existed nothing on this screen said so:
+        // the first mention was the picker's empty state, which is a screen they only reach after
+        // deciding, and only after deciding that nothing had been found.
+        ClaimLine(
+            icon: "macbook.and.iphone",
+            title: "Two apps, one pairing",
+            detail: "Peering runs on both ends. Install it on the Mac you want to reach, then pair from here."
+        ),
         ClaimLine(
             icon: "lock.shield",
             title: "Encrypted, device to device",

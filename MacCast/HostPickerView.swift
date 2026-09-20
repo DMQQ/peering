@@ -188,7 +188,12 @@ private struct HomeTab: View {
             )
         }
 
-        if normalized.contains("pinned") || normalized.contains("did not present the key") {
+        // Matched on the word the sentence itself uses, which is the shape all of this file has:
+        // the session hands over a sentence and the screen decides what to call it. The one
+        // sentence this looks for is `Failure.pinMismatch`'s, and it is the *only* thing that
+        // produces it. The connect path used to raise the same alarm for any failure on a paired
+        // Mac, which is why this check has a second, now dead spelling removed from it.
+        if normalized.contains("pinned") {
             return FailurePresentation(title: "Mac identity changed", message: detail, isRelayFailure: false)
         }
 
@@ -728,7 +733,7 @@ private struct HomeTab: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Protect paired Macs")
                     .font(.subheadline.weight(.semibold))
-                Text("Require Face ID when Peering is opened again.")
+                Text("Ask for \(DeviceAuthentication.biometryName), or your device passcode, when Peering is opened again.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1108,72 +1113,6 @@ private struct ActivityTab: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-        }
-    }
-
-    // MARK: Connection status
-
-    private var connectionStatusCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Controls.sectionLabel(
-                    "Connection status",
-                    systemImage: "gauge.with.dots.needle.67percent"
-                )
-                Spacer()
-                Circle()
-                    .fill(model.phase.holdsSession ? Color.green : .white.opacity(0.22))
-                    .frame(width: 7, height: 7)
-            }
-
-            VStack(spacing: 9) {
-                statusRow("State", value: connectionState)
-                statusRow("Mac", value: model.hostName ?? "None")
-                statusRow("Path", value: model.connectionPath?.rawValue ?? "None")
-                // What the row above does not say. A relayed session can carry its picture two
-                // ways, and which one it got is the difference between a session that found a path
-                // between the two machines and one that went around through a server in Finland —
-                // so on a relayed session this is the row that tells them apart.
-                if model.connectionPath == .relay {
-                    statusRow(
-                        "Picture",
-                        value: model.usedDirectPath ? "Direct (peer to peer)" : "Through the relay"
-                    )
-                }
-                statusRow("Display", value: model.videoStatus)
-                if let tls = model.tlsDescription {
-                    statusRow("Transport", value: tls)
-                }
-                if let latency = model.latencyMilliseconds {
-                    statusRow("Control latency", value: "\(Int(latency.rounded())) ms")
-                }
-            }
-        }
-        .cardSurface()
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func statusRow(_ label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Text(value)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-        }
-        .font(.caption)
-    }
-
-    private var connectionState: String {
-        switch model.phase {
-        case .idle: return "Idle"
-        case .connecting: return "Connecting"
-        case .handshaking: return "Securing connection"
-        case .confirming: return "Confirming pairing code"
-        case .ready: return "Connected"
-        case .failed: return "Connection failed"
-        case .disconnected: return "Disconnected"
         }
     }
 
@@ -1670,8 +1609,8 @@ private struct SettingsTab: View {
     @AppStorage(PreferenceKeys.liveActivities) private var liveActivitiesEnabled = true
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
-    @AppStorage("Peering.interactionMode") private var interactionMode: InteractionMode = .control
-    @AppStorage("Peering.scalesToFill") private var scalesToFill = false
+    @AppStorage(PreferenceKeys.interactionMode) private var interactionMode: InteractionMode = .control
+    @AppStorage(PreferenceKeys.scalesToFill) private var scalesToFill = false
     @AppStorage(PreferenceKeys.streamQuality) private var streamQuality: SessionModel.StreamQuality = .auto
     @State private var deviceNameDraft = ""
     /// Whether the copy has just happened, so the row can say so and then stop saying so.
@@ -1876,7 +1815,7 @@ private struct SettingsTab: View {
 
     private var securitySection: some View {
         Controls.card("Security") {
-            Controls.toggle("Require Face ID on open", systemImage: "faceid", isOn: Binding(
+            Controls.toggle("Require \(DeviceAuthentication.biometryName) on open", systemImage: DeviceAuthentication.biometrySymbol, isOn: Binding(
                 get: { requiresBiometricUnlock },
                 set: { requested in
                     guard requested else {

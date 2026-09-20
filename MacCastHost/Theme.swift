@@ -110,9 +110,6 @@ enum HostPalette {
     /// shape rather than a rounded rectangle, small enough that a 245-point picture still fits
     /// inside one without the corners eating it.
     static let panelRadius: CGFloat = 18
-    /// A row or tile inside a panel — the same shape one step down, so a row reads as sitting on
-    /// the panel rather than cut into it.
-    static let rowRadius: CGFloat = 12
     /// A control: buttons, pills, the icon chips.
     static let controlRadius: CGFloat = 10
 }

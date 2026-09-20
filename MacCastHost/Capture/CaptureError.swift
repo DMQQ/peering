@@ -1,4 +1,5 @@
 import Foundation
+import RemoteCore
 import ScreenCaptureKit
 
 /// Everything the capture path can fail with, phrased for the status window.
@@ -54,10 +55,32 @@ enum CaptureError: LocalizedError, Equatable {
         }
     }
 
-    /// The stream is dead but the session can be rebuilt, unlike a denial or a bug.
-    var isRecoverable: Bool {
-        if case .streamStopped = self { return true }
-        return false
+    /// What the phone is told about this, or nothing when it is not the phone's business.
+    ///
+    /// **A denial is the one failure the phone is otherwise blind to.** Everything else that goes
+    /// wrong with capture either recovers by itself or leaves the client with a catalogue it can
+    /// choose from. A missing Screen Recording grant produces a connection that works, a Mac that
+    /// says it is serving, and no frames ever, which is exactly what the client renders as
+    /// "opening the video channel", indefinitely, with nothing on either screen naming the cause.
+    ///
+    /// The sentence in ``errorDescription`` is written for the Mac's own window: it can name
+    /// System Settings and the pane, because the person reading it is sitting at the machine. This
+    /// one is for somebody in another room, who can be told what is wrong and who has to fix it,
+    /// and cannot act on a pane they cannot see.
+    ///
+    /// Nothing else is announced. A source that went away is one the user chose and can see in the
+    /// picker, and the two stream failures are either retried by the host or visible as a picture
+    /// that stopped, which the client already has words for.
+    var clientNotice: NoticePayload? {
+        switch self {
+        case .screenRecordingDenied:
+            return NoticePayload(
+                message: "This Mac cannot record its screen. Someone there has to allow Screen Recording for Peering in System Settings, then quit Peering on the Mac and open it again.",
+                symbol: "rectangle.slash"
+            )
+        case .sourceUnavailable, .catalogUnavailable, .streamStopped, .streamFailed, .encodingFailed:
+            return nil
+        }
     }
 
     /// Translates a thrown `SCStreamError` into the state it implies.

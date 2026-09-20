@@ -173,12 +173,26 @@ extension HostStatusView {
             }
             .hostPanel()
 
+            // Two buttons rather than one, because they do different things and only one of them
+            // can help with Screen Recording. Accessibility is re-read on every check, so
+            // "Check again" is the whole story there; Screen Recording is read once, when the
+            // process starts, so a grant made while this window is open does nothing until the
+            // app is opened again. The caption used to say "restart Peering" beside a button that
+            // could not do it, which sent the user to the Dock to quit by hand.
             HStack(spacing: 8) {
                 Button("Check again") { model.refreshPermissions() }
                     .controlSize(.small)
-                Text("Restart Peering after changing a permission.")
+                if !model.permissions.screenRecordingGranted {
+                    Button("Relaunch Peering") { model.permissions.relaunch() }
+                        .controlSize(.small)
+                        .buttonStyle(.borderedProminent)
+                }
+                Text(model.permissions.screenRecordingGranted
+                     ? "Accessibility is picked up straight away. Screen Recording needs a relaunch."
+                     : "Screen Recording is only read when the app starts, so it needs a relaunch to take effect.")
                     .font(.caption)
                     .foregroundStyle(HostPalette.faint)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

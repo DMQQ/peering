@@ -6,27 +6,26 @@ import SwiftUI
 /// Putting authentication around individual connect buttons would leave the other entrances
 /// unprotected and would also interrupt an automatic reconnect after a brief network drop.
 enum DeviceAuthentication {
+    /// Whether this device can answer the app's own lock at all, so the switch is not offered
+    /// where it could never be opened again.
+    ///
+    /// `.deviceOwnerAuthentication` rather than the biometric-only policy, which is the change
+    /// that made this file's two halves agree. It evaluates biometry and falls back to the device
+    /// passcode, and everything below already argued for it in the per-server case: a lock whose
+    /// only key is a face the phone no longer recognises, because the user re-enrolled or is
+    /// wearing a mask in a dark room, is a lock with no key. For a *stored server* that is a
+    /// server you cannot open; for the whole app it is worse, because the switch that turns the
+    /// lock off is behind the lock. Both gates ask for the same thing now.
     static var isAvailable: Bool {
         let context = LAContext()
         var error: NSError?
-        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
     }
 
+    /// The gate the app opens behind. See ``unlock(reason:)``, which is the same gate and carries
+    /// the reasoning; this name is kept because the app-wide call sites read better for it.
     static func authenticate(reason: String) async -> Bool {
-        let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
-        var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
-            return false
-        }
-        do {
-            return try await context.evaluatePolicy(
-                .deviceOwnerAuthenticationWithBiometrics,
-                localizedReason: reason
-            )
-        } catch {
-            return false
-        }
+        await unlock(reason: reason)
     }
 
     // MARK: - A single server's own lock
@@ -105,6 +104,11 @@ struct SecuredRootView<Content: View>: View {
     @State private var isUnlocked = false
     @State private var isAuthenticating = false
 
+    /// Read once per body pass rather than asked for on every tap: it decides which of two
+    /// screens this is, and a lock screen that redraws itself into a different one while somebody
+    /// is looking at it is worse than either.
+    private var canAuthenticate: Bool { DeviceAuthentication.isAvailable }
+
     private let content: Content
 
     init(@ViewBuilder content: () -> Content) {
@@ -121,15 +125,43 @@ struct SecuredRootView<Content: View>: View {
                 ColorPalette.backdrop.ignoresSafeArea()
 
                 VStack(spacing: 18) {
-                    Image(systemName: "faceid")
+                    // The device's own glyph and name, not a face: a Touch ID Mac or an iPad reads
+                    // "Unlock with Face ID" as a screen that belongs to a different app.
+                    Image(systemName: canAuthenticate ? DeviceAuthentication.biometrySymbol : "lock.fill")
                         .font(.system(size: 48, weight: .light))
                     Text("Peering is locked")
                         .font(.title2.weight(.bold))
-                    Button("Unlock with Face ID") { unlock() }
-                        .buttonStyle(.borderedProminent)
-                        .tint(ColorPalette.ink)
-                        .foregroundStyle(ColorPalette.onInk)
-                        .disabled(isAuthenticating)
+
+                    if canAuthenticate {
+                        Button("Unlock with \(DeviceAuthentication.biometryName)") { unlock() }
+                            .buttonStyle(.borderedProminent)
+                            .tint(ColorPalette.ink)
+                            .foregroundStyle(ColorPalette.onInk)
+                            .disabled(isAuthenticating)
+
+                        // Said here because the alternative is a person who has forgotten which
+                        // finger they enrolled concluding the app is broken.
+                        Text("Your device passcode is accepted too.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        // **The way out of a lock that can never be opened.** This device has
+                        // neither a passcode nor usable biometry, so no amount of tapping will get
+                        // past this screen, and the switch that turns it off is on the other side
+                        // of it. Without this, deleting the app is the only exit, and it costs
+                        // nothing to offer: a phone with no passcode and no biometry is a phone
+                        // whose owner has already decided that anyone holding it can open it.
+                        Text("This device has no passcode or biometrics set up, so the lock cannot be answered.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 32)
+
+                        Button("Turn the lock off") { isProtectionEnabled = false }
+                            .buttonStyle(.bordered)
+                            .tint(ColorPalette.ink)
+                    }
                 }
             }
         }

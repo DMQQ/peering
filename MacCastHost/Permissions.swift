@@ -9,6 +9,7 @@ import AppKit
 @preconcurrency import ApplicationServices
 import CoreGraphics
 import Observation
+import os
 import ScreenCaptureKit
 
 /// The two macOS permissions this app cannot function without, and the difference between
@@ -30,12 +31,6 @@ import ScreenCaptureKit
 final class Permissions {
     private(set) var accessibilityGranted = false
     private(set) var screenRecordingGranted = false
-
-    /// Both are evaluated at process start, so a grant made while the app is running does
-    /// not take effect until relaunch. The UI says so rather than appearing broken.
-    private(set) var hasRequestedScreenRecording = false
-
-    var allGranted: Bool { accessibilityGranted && screenRecordingGranted }
 
     init() {
         refresh()
@@ -90,7 +85,6 @@ final class Permissions {
     /// Prompts for Screen Recording. Probing SCK is the mechanism that registers the app
     /// in System Settings and shows the permission sheet on macOS 15+.
     func requestScreenRecording() {
-        hasRequestedScreenRecording = true
         Task { @MainActor in await probeScreenCaptureKit() }
     }
 
@@ -106,4 +100,40 @@ final class Permissions {
         guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
     }
+
+    /// Quits this app and opens it again.
+    ///
+    /// **The only thing that can make a Screen Recording grant take effect.** macOS reads that
+    /// consent when the process starts, so an app that stays running after the user grants it is
+    /// an app that keeps capturing nothing until they quit it by hand. "Check again", which sits
+    /// next to this button, cannot help with that at all: a check can only report what the
+    /// process was granted at launch, and the caption under it currently promises otherwise.
+    ///
+    /// **Restarted through a shell rather than by asking the workspace for a second instance.**
+    /// That is about the listener, not about tidiness: this app binds a port, so a copy opened
+    /// while this one is still alive finds the port taken, fails to serve, and leaves the user
+    /// with a Mac that looks open and is not hosting. The shell waits for this process to be gone
+    /// before opening the app again, which makes the handover sequential instead of a race.
+    func relaunch() {
+        // Single-quoted for the shell, with any quote in the path closed, escaped and reopened,
+        // so a folder named `Peering's App` does not end the string early.
+        let path = "'" + Bundle.main.bundleURL.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        let script = "while /bin/kill -0 \(getpid()) 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open -n \(path)"
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script]
+        do {
+            try process.run()
+        } catch {
+            // Deliberately not terminating. A relaunch that could not be arranged leaves the app
+            // exactly as it was, which is a working app with a missing permission rather than no
+            // app at all, and the button stays available to try again.
+            hostLog.error("could not arrange a relaunch: \(String(describing: error), privacy: .public)")
+            return
+        }
+        NSApp.terminate(nil)
+    }
 }
+
+private let hostLog = Logger(subsystem: "pl.dmq.peering.host", category: "permissions")

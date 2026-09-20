@@ -14,6 +14,14 @@ struct PairingPrompt: View {
     @State private var enteredCode = ""
     @State private var showsMismatch = false
     @State private var showsScanner = false
+
+    /// What to say about a code the scanner read and refused, if anything.
+    ///
+    /// Only ever about the last one: the scanner stays armed after a refusal, precisely so the
+    /// next code gets the same chance, and a sentence about a code that is no longer in frame
+    /// should go when the next one arrives.
+    @State private var scanNote: String?
+
     @FocusState private var codeFieldFocused: Bool
 
     var body: some View {
@@ -104,14 +112,38 @@ struct PairingPrompt: View {
                     // and beside the one for the Mac's device ID, because the two codes are
                     // read by two screens and each has to refuse the other's — see
                     // ``PairingPayload``. It refuses anything that is not six digits, so a
-                    // Mac's ID scanned here leaves the prompt exactly as it was.
-                    guard let scannedCode = PairingPayload.code(from: payload) else { return }
+                    // Mac's ID scanned here is refused here rather than carried on with.
+                    //
+                    // **`false` rather than a bare `return`.** The scanner retires itself on a
+                    // code it has taken, and it used to decide that before this ran: one wrong
+                    // code in frame, and the camera went on showing a live picture that it would
+                    // never report anything from again. Refusing here leaves it armed, and the
+                    // sentence is what stops a refusal from looking like a broken camera.
+                    guard let scannedCode = PairingPayload.code(from: payload) else {
+                        scanNote = "That is not a pairing code. Point the camera at the code shown on your Mac."
+                        return false
+                    }
+                    scanNote = nil
                     showsScanner = false
                     enteredCode = scannedCode
                     if scannedCode == code {
                         model.confirmPairing(accepted: true)
                     } else {
                         showsMismatch = true
+                    }
+                    return true
+                }
+                .overlay(alignment: .bottom) {
+                    if let scanNote {
+                        Text(scanNote)
+                            .font(.footnote)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(.regularMaterial, in: Capsule())
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 28)
+                            .transition(.opacity)
                     }
                 }
                 .ignoresSafeArea()

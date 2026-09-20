@@ -155,8 +155,14 @@ struct RemotePairingSheet: View {
                     // typed text, so a scan that turns out to be the wrong kind of code
                     // produces exactly the sentence typing it would have, with the value that
                     // caused it visible underneath.
+                    //
+                    // `true`, and it is the honest answer for this screen rather than a formality:
+                    // this one refuses nothing, the sheet closes on any code, and the judgement
+                    // about whether it was a usable one is made in the sheet behind, where the
+                    // sentence and the value both are.
                     identifier = payload
                     submit()
+                    return true
                 }
                 .ignoresSafeArea()
                 .navigationTitle("Scan the Mac's code")
