@@ -476,6 +476,7 @@ dependency of the `MacCastHost` target. Three things have to line up, and only t
 VERSION=$(date +%Y%m%d)0
 xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION" \
+  -destination 'generic/platform=macOS' \
   -archivePath /tmp/Peering.xcarchive archive
 # Proof, before the upload rather than after it, that the bundle carries the number you meant. The
 # failure this catches is the quiet one: an archive built with no override, uploaded, and offered
@@ -483,14 +484,39 @@ xcodebuild -project MacCast.xcodeproj -scheme MacCastHost -configuration Release
 /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" \
   /tmp/Peering.xcarchive/Products/Applications/Peering.app/Contents/Info.plist
 
+# The same kind of proof for the two properties an Intel Mac depends on, and for the same reason:
+# both fail silently. A thin archive builds and notarises exactly like a universal one, and the
+# only place it shows is on the machine that cannot open it. The destination above is what
+# produces both slices; that directory is now the only Mac release path, so a build that skips it
+# is checked here rather than trusted.
+#
+# The floor matters as much as the architecture, and the two have to move together. Xcode writes
+# `LSMinimumSystemVersion` from `MACOSX_DEPLOYMENT_TARGET`, and `generate_appcast` copies it into
+# the feed as `sparkle:minimumSystemVersion`. Lower the floor without going universal and the feed
+# starts offering macOS 15 to Intel Macs that cannot execute the binary, which turns a silent
+# exclusion into a broken update.
+ARCHIVE_APP=/tmp/Peering.xcarchive/Products/Applications/Peering.app
+lipo -archs "$ARCHIVE_APP/Contents/MacOS/Peering"                     # expect: x86_64 arm64
+lipo -archs "$ARCHIVE_APP/Contents/PlugIns/MacCastHostWidgetExtension.appex/Contents/MacOS/MacCastHostWidgetExtension"
+                                                                      # expect: x86_64 arm64
+xcrun vtool -show-build "$ARCHIVE_APP/Contents/MacOS/Peering" | grep minos   # expect: minos 15.0
+
 # Notarise before packaging, or every download is quarantined and the app is a dialog nobody
 # finishes. This step needs an Apple ID with an app-specific password and a team.
 xcrun notarytool submit /path/to/Peering.app --keychain-profile <profile> --wait
 xcrun stapler staple /path/to/Peering.app
 
-# Package and sign.
-hdiutil create -volname Peering -srcfolder /path/to/Peering.app -ov -format UDZO \
+# Package and sign. The source is the archived app from above, not a build product: the disk image
+# that shipped was arm64-only, and the archive it should have come from was not, so this line is
+# where that went wrong if it goes wrong again.
+hdiutil create -volname Peering -srcfolder "$ARCHIVE_APP" -ov -format UDZO \
   /tmp/Peering-<version>.dmg
+
+# And the image is what actually ships, so this is the copy of the check that counts. `lipo` cannot
+# see inside a disk image, so mount it read-only and look at the app within.
+hdiutil attach -nobrowse -readonly -mountpoint /tmp/peering-verify "/tmp/Peering-<version>.dmg"
+lipo -archs /tmp/peering-verify/Peering.app/Contents/MacOS/Peering     # expect: x86_64 arm64
+hdiutil detach /tmp/peering-verify
 
 # The feed. `generate_appcast` reads a directory of disk images, signs each with the key from the
 # keychain, and writes appcast.xml beside them.
