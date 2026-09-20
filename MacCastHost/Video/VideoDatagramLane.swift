@@ -33,6 +33,22 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// address once rather than on every probe.
     private var directPeer: (host: String, port: UInt16)?
 
+    /// What the attempt has come to, so that it can be said once per change rather than per probe.
+    ///
+    /// The client's own type, deliberately rather than a second enum spelled the same way. It is
+    /// one feature with two ends, and the five things it can come to are the same five from either
+    /// side, so the two logs can be read against each other without a translation. The *words* are
+    /// this end's own, because the subject is not the same; see ``sentence(for:)``.
+    private var probeStatus: ClientSession.DirectPath = .notTried
+
+    /// The last discovery that *threw*, kept so that one is said once rather than on every re-ask.
+    ///
+    /// Its own state because it is its own fault, and the fault a `try?` used to erase: "the relay
+    /// has not said where the client is" is an answer about the client, and this is the relay not
+    /// answering at all. The two are a datagram away from each other in the code and worlds apart
+    /// in what to do about them.
+    private var discoveryFailure: String?
+
     /// The relay's allocation, kept so the probing task can name the session it is asking about.
     private let relay: RelaySession
 
@@ -91,12 +107,13 @@ final class VideoDatagramLane: @unchecked Sendable {
     /// Both ends knocking within the same moment is the whole of what makes this work, and neither
     /// tells the other it is doing it: each discovers the other's address from the relay and sends.
     ///
-    /// **Silent on failure, and that is now the one asymmetry left.** The client half reports what
-    /// its attempt came to, so the phone can say whether the relay never named the Mac or named it
-    /// and the packets went nowhere. This end says nothing either way, which is defensible because
-    /// the phone is where somebody looks, but it does mean a session can only be diagnosed from
-    /// one side of it, and a Mac whose probes are the ones being dropped will look from the phone
-    /// exactly like a Mac that is not probing at all.
+    /// **What it comes to is said here too, in the client's own five outcomes.** This end used to
+    /// report nothing on failure: a `try?` covered both the relay not naming the client and the
+    /// naming of an address this Mac cannot use, so neither could be told from an attempt that had
+    /// never run. That was defensible only while the phone is where somebody looks, and it is not.
+    /// A firewall, a NAT and a relay that will not answer are all facts this end can see and the
+    /// phone cannot, and when a session will not open at all it is the phone's log that cannot be
+    /// read. ``note(_:)`` says each of them once, in ``sentence(for:)``'s words.
     private func beginDirectPath() {
         let task = Task { [weak self] in
             guard let self else { return }
@@ -114,11 +131,33 @@ final class VideoDatagramLane: @unchecked Sendable {
             var attempt = 0
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
-                    if let address = try? await RelaySignallingConnection.discoverPeer(
-                        at: ProtocolInfo.relaySignallingURL,
-                        videoToken: relay.videoToken
-                    ) {
-                        try? socket.setDirectPeer(host: address.host, port: address.port)
+                    do {
+                        if let address = try await RelaySignallingConnection.discoverPeer(
+                            at: ProtocolInfo.relaySignallingURL,
+                            videoToken: relay.videoToken
+                        ) {
+                            self.clearDiscoveryFailure()
+                            let peer = "\(address.host):\(address.port)"
+                            do {
+                                try socket.setDirectPeer(host: address.host, port: address.port)
+                                self.note(.probing(peer: peer))
+                            } catch {
+                                // The address came back and this Mac cannot address it, which is
+                                // the client's own `.addressUnusable` seen from the far side. It
+                                // is the failure that kept the whole feature inert for as long as
+                                // it was a `try?`, so it is an error and not only a status.
+                                if self.note(.addressUnusable(peer: peer)) {
+                                    videoLog.error("the client is at \(peer, privacy: .public), which this Mac cannot address: \(error.localizedDescription, privacy: .public)")
+                                }
+                            }
+                        } else {
+                            // Not a failure, and the ordinary first answer: the relay only knows
+                            // where the client is once the client has sent it a datagram, which
+                            // this end is asking a few milliseconds ahead of.
+                            self.note(.noAddress)
+                        }
+                    } catch {
+                        self.noteDiscoveryFailure(error)
                     }
                 }
 
@@ -139,6 +178,76 @@ final class VideoDatagramLane: @unchecked Sendable {
             return previous
         }
         previous?.cancel()
+    }
+
+    /// Whether this outcome is news, recording it if it is.
+    ///
+    /// The client settles the same question the same way, and for the same reason: the loop above
+    /// asks every three seconds and then every minute for the whole session, so a state announced
+    /// on every pass is a state nobody reading the log can tell from a repeat. The one subtlety is
+    /// kept from that side too, and it is the one that matters: **a path that is open is not closed
+    /// by a later look-up.** A re-ask returns a *candidate* address, and a candidate is not a
+    /// statement about the path already carrying the picture.
+    private func record(_ outcome: ClientSession.DirectPath) -> Bool {
+        lock.withLock {
+            if case .open = probeStatus, case .probing = outcome { return false }
+            guard probeStatus != outcome else { return false }
+            probeStatus = outcome
+            return true
+        }
+    }
+
+    /// Records what the attempt has come to, and says it when that is news.
+    ///
+    /// The outcomes are the client's own type rather than a second enum, so a session that never
+    /// punched and a session that punched and then lost it are the same story told from both ends,
+    /// which is the only way a report from one of them can be checked against the other. A reader
+    /// with both logs open is comparing the two readings of one fact rather than two vocabularies.
+    @discardableResult
+    private func note(_ outcome: ClientSession.DirectPath) -> Bool {
+        guard record(outcome) else { return false }
+        videoLog.notice("direct path: \(Self.sentence(for: outcome), privacy: .public)")
+        return true
+    }
+
+    /// The outcome in *this* end's words.
+    ///
+    /// The cases are shared with the client so that the two ends agree about *what* happened, and
+    /// they do: an `addressUnusable` here and an `addressUnusable` there are the same fact seen
+    /// from the two sides, and a session can be read from either log against the other. The
+    /// sentences cannot be shared, because the subject is not the same. The client's summary says
+    /// "this phone" and "the Mac", which is right on a phone and backwards in a Mac's log, and a
+    /// line that names the wrong end is worse than no line at all for the one reader it has.
+    private static func sentence(for outcome: ClientSession.DirectPath) -> String {
+        switch outcome {
+        case .notTried: return "Not tried"
+        case .noAddress: return "The relay has not said where the client is"
+        case .probing(let peer): return "Knocking on \(peer), nothing back yet"
+        case .addressUnusable(let peer): return "The relay named \(peer), which this Mac cannot use"
+        case .open(let peer): return "Straight to \(peer)"
+        }
+    }
+
+    /// Forgets the last discovery failure, so that the next one is said afresh.
+    private func clearDiscoveryFailure() {
+        lock.withLock { discoveryFailure = nil }
+    }
+
+    /// Says a discovery that *threw*, once rather than on every re-ask.
+    ///
+    /// Kept apart from the outcomes above because it is a different fault with a different fix: the
+    /// relay not being reachable at all, rather than the relay having nothing yet to say about
+    /// where the client is. It is also the half a `try?` erased, and the erasure is exactly what
+    /// let a Mac that could never have punched look like one that had not tried yet.
+    private func noteDiscoveryFailure(_ error: Error) {
+        let line = error.localizedDescription
+        let changed = lock.withLock { () -> Bool in
+            guard discoveryFailure != line else { return false }
+            discoveryFailure = line
+            return true
+        }
+        guard changed else { return }
+        videoLog.error("the relay could not be asked where the client is: \(line, privacy: .public)")
     }
 
     /// Takes a datagram that arrived straight from the client, and sends the picture back the same
@@ -192,8 +301,14 @@ final class VideoDatagramLane: @unchecked Sendable {
         do {
             try socket.setDirectPeer(host: host, port: port)
             videoLog.notice("the client is reachable directly at \(host, privacy: .public):\(port, privacy: .public)")
+            // Recorded and not said: the line above is this stage's sentence, and it names the
+            // address the probe actually arrived from rather than the one the relay remembered.
+            // What this does is stop the next re-ask from announcing `probing` over a path that is
+            // already carrying the picture.
+            _ = record(.open(peer: "\(host):\(port)"))
         } catch {
             videoLog.error("the client's direct address could not be used: \(error.localizedDescription, privacy: .public)")
+            _ = record(.addressUnusable(peer: "\(host):\(port)"))
         }
     }
 

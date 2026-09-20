@@ -393,4 +393,28 @@ struct VideoDatagramSocketTests {
         // the peer anyway, which would make it look like the direct path worked when it did not.
         #expect(relay.receive() == [])
     }
+
+    /// A v4 peer on a v6 socket is the ordinary case, and it used to be refused.
+    ///
+    /// ``makeSocket(relayingTo:)`` aims at `::1`, so this socket is built in `AF_INET6`, which is
+    /// what macOS builds for *any* IPv4-only relay name, because it answers an `AF_INET6` lookup
+    /// with the v4-mapped form. The relay then names the peer in the peer's real family, and a
+    /// phone on cellular IPv4 is named in `AF_INET`. `getaddrinfo` refuses the two together, so
+    /// every session between a Mac that reached the relay over v4-mapped and a phone on cellular
+    /// died at this line rather than in either network.
+    @Test("a v4 peer is reachable from a socket built in v6")
+    func v4PeerOnAV6Socket() throws {
+        let relay = try LoopbackSocket()
+        defer { relay.closeSocket() }
+        let (socket, _) = try makeSocket(relayingTo: relay)
+        defer { socket.cancel() }
+
+        try socket.setDirectPeer(host: "127.0.0.1", port: relay.port)
+
+        // And the mapping is not a licence to accept anything: a host that is not an address at
+        // all is still refused, which is what keeps a relay from naming something unusable.
+        #expect(throws: VideoDatagramError.unusablePeerAddress("not an address")) {
+            try socket.setDirectPeer(host: "not an address", port: relay.port)
+        }
+    }
 }

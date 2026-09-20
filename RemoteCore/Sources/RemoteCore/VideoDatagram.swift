@@ -649,9 +649,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
     /// See ``onQueue(_:)``.
     public func setDirectPeer(host: String, port: UInt16) throws {
         try onQueue {
-            guard let resolved = Self.resolve(
-                host: host, port: port, family: family, numeric: true
-            ) else {
+            guard let resolved = Self.resolvePeer(host: host, port: port, family: family) else {
                 throw VideoDatagramError.unusablePeerAddress(host)
             }
             peerAddress = resolved.address
@@ -1037,6 +1035,45 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         }
         guard result == 0 else { return nil }
         return (String(cString: host), UInt16(String(cString: service)) ?? 0)
+    }
+
+    /// The peer's address, said in the family this socket was built in.
+    ///
+    /// **A v4 peer and a v6 socket is the ordinary case, and it was a dead end.** macOS resolves
+    /// an IPv4-only name asked for under `AF_INET6` to its *v4-mapped* form, so a socket aimed at a
+    /// relay that has an `A` record and no `AAAA` is built in `AF_INET6`. The relay, which sees
+    /// each end in its real family, then names a peer in `AF_INET`. `getaddrinfo` refuses a
+    /// plain IPv4 literal for an `AF_INET6` socket:
+    ///
+    /// ```text
+    /// 5.173.160.2          AF_INET   -> works
+    /// 5.173.160.2          AF_INET6  -> fails
+    /// ::ffff:5.173.160.2   AF_INET6  -> works
+    /// ```
+    ///
+    /// So the punch died on its first step in exactly the sessions it exists for, and it died
+    /// quietly: the two ends disagree about family precisely when the far one is on cellular IPv4.
+    /// Mapping rather than refusing is the fix, and it is the same rule the relay applies from the
+    /// other side when it folds a v4-mapped source away before naming it. Fold on the way out, map
+    /// on the way in.
+    ///
+    /// **A v6 peer on a v4 socket is still refused, and that is not an oversight.** There is no way
+    /// to say an IPv6 address from an `AF_INET` socket at all, so the honest answer is the one the
+    /// caller already handles; and the relay does not offer that pair, because it compares the two
+    /// ends' families before it answers.
+    private static func resolvePeer(
+        host: String,
+        port: UInt16,
+        family: Int32
+    ) -> (address: sockaddr_storage, length: socklen_t)? {
+        if let resolved = resolve(host: host, port: port, family: family, numeric: true) {
+            return resolved
+        }
+        guard family == AF_INET6 else { return nil }
+        // Spelled rather than assembled byte by byte: `::ffff:` and an IPv4 literal is itself a
+        // valid IPv6 numeric address, so the resolver does the work and there is no prefix to get
+        // wrong. A host that is not an address at all fails here too, which is the correct answer.
+        return resolve(host: "::ffff:\(host)", port: port, family: AF_INET6, numeric: true)
     }
 
     /// Resolves `host` and `port` into a socket address, restricted to `family`.
