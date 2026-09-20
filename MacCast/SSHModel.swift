@@ -748,6 +748,14 @@ final class SSHModel {
     /// Sixty-four megabytes, which is a number about this phone rather than about any server: the
     /// bytes are read into memory to be sent, and the alternative to refusing is being killed by the
     /// system partway through, which looks to the user like the app crashing for no reason.
+    ///
+    /// **This browser streams nothing, and the Mac's does.** Its upload reads its file a piece at a
+    /// time, so this end's cost there is one piece whatever the size; here the whole file is still
+    /// held at once, up to this figure. Streaming it means an SFTP write that takes a stream of
+    /// pieces rather than one `Data`, which is a new command in `SSHCore`'s command loop and a
+    /// rewrite of a working write path, so what was fixed here instead is the order: the size is
+    /// now asked of the filesystem *before* the file is read, where it used to be checked after,
+    /// which meant a file far over the limit was read in order to discover it was over the limit.
     static let maximumUploadBytes = 64 * 1_048_576
 
     /// Whether a save or an upload is in flight, and the last thing that went wrong with one.
@@ -927,15 +935,23 @@ final class SSHModel {
 
             let read: Result<Data, any Error>
             do {
+                // **The size first, and this order is the fix rather than the figure.** It used to
+                // be checked after the read, so a file far over the limit was read into memory in
+                // order to find out that it was over the limit: the check that exists to stop the
+                // app being killed by the system was itself the way it would be. Asking the
+                // filesystem costs nothing and touches no bytes.
+                let size = try await Task.detached {
+                    try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                }.value
+                guard size <= Self.maximumUploadBytes else {
+                    throw SSHSessionError.browse(
+                        "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                    )
+                }
                 // Off the main actor: this is a file the user chose from anywhere on the device,
                 // and reading a few tens of megabytes of it on the main actor is a hitch on a screen
                 // that is drawing a terminal.
-                let bytes = try await Task.detached { try Data(contentsOf: url) }.value
-                read = bytes.count > Self.maximumUploadBytes
-                    ? .failure(SSHSessionError.browse(
-                        "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
-                    ))
-                    : .success(bytes)
+                read = .success(try await Task.detached { try Data(contentsOf: url) }.value)
             } catch {
                 read = .failure(error)
             }

@@ -201,10 +201,12 @@ extension MacSession {
 
     /// How large a file this app will send to the Mac.
     ///
-    /// Sixty-four megabytes, the same figure the SSH browser refuses above and for the same
-    /// reason: the bytes are read into memory to be sent, and the alternative to refusing is being
-    /// killed by the system partway through, which looks to the user like the app crashing for no
-    /// reason. The Mac refuses the same number back, and holds it in its own terminal manager, so
+    /// Sixty-four megabytes, and **the reason is now the Mac's memory rather than this phone's.**
+    /// It used to be the phone's: the file was read into memory to be sent, so the alternative to
+    /// refusing was being killed by the system partway through, which looks to the user like the
+    /// app crashing for no reason. The file is read piece by piece now, so this end's cost is one
+    /// piece whatever the size. What has not changed is the far end: the Mac assembles the whole
+    /// file in its terminal manager before it writes anything, and it refuses the same figure, so
     /// neither end is the only one holding the line.
     static let maximumUploadBytes = 64 * 1_048_576
 
@@ -261,23 +263,25 @@ extension MacSession {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-            let bytes: Data
+            // **Asked of the filesystem rather than found by reading it.** This is what makes the
+            // refusal below cost nothing: a two-gigabyte video is turned away without a byte of it
+            // being touched, where reading it first would be the very thing being refused.
+            let size: Int
             do {
-                // Off the main actor: this is a file the user chose from anywhere on the device,
-                // and reading a few tens of megabytes of it on the main actor is a hitch on a
-                // screen that is drawing a terminal.
-                bytes = try await Task.detached { try Data(contentsOf: url) }.value
+                size = try await Task.detached {
+                    try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                }.value
             } catch {
                 writes.removeValue(forKey: id)
                 uploadFailures[id] = error.localizedDescription
                 return
             }
-            guard bytes.count <= Self.maximumUploadBytes else {
+            guard size <= Self.maximumUploadBytes else {
                 writes.removeValue(forKey: id)
                 uploadFailures[id] = "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
                 return
             }
-            await send(bytes, to: destination, sessionID: id)
+            await send(contentsOf: url, totalBytes: size, to: destination, sessionID: id)
         }
     }
 
@@ -315,6 +319,69 @@ extension MacSession {
             ))
             offset = end
             await Task.yield()
+        }
+    }
+
+    /// Sends a file to the Mac in pieces, reading it a piece at a time as it goes.
+    ///
+    /// **Read as it goes rather than whole, and that is the whole of this function.** A
+    /// sixty-four megabyte file read in one go is sixty-four megabytes held by an app that is also
+    /// decoding a picture and drawing a terminal, and the system kills that app. The user's view of
+    /// that failure is the app disappearing for no reason, with nothing to connect it to the upload
+    /// they just started.
+    ///
+    /// **The reads are `async`, which is not decoration.** A blocking `FileHandle.read` called from
+    /// here would be a disk read on the main actor in the middle of a loop that already yields
+    /// between pieces, and the yielding is what this method is measured against: the picture behind
+    /// the panel has to keep moving while a file goes out. The async read suspends and lets
+    /// everything else on the main actor run, which the yield below then also does explicitly.
+    ///
+    /// **A piece that goes missing does not leave the Mac hanging on a file it was promised.** The
+    /// size is known, so the last piece is the one that completes it; a file that shrank under us
+    /// between that size being asked for and this running ends the transfer with an empty last
+    /// piece rather than with nothing. That is the same message an empty file sends, and the Mac
+    /// replaces the file on it: the user gets the bytes that were actually there.
+    ///
+    /// Nothing is said about the outcome here. The Mac answers with an event, because the control
+    /// channel carries both directions and a write is acknowledged on the same sink a shell's
+    /// output arrives through.
+    private func send(contentsOf url: URL, totalBytes: Int, to path: String, sessionID id: UUID) async {
+        wire?.sendTerminal(.beginWrite(sessionID: id, path: path, totalBytes: totalBytes))
+
+        // An empty file is a transfer with nothing in it, and the last piece still has to be sent:
+        // the Mac replaces the file on that message, so a client that stopped after the size would
+        // leave it holding a file it had been told about and never given.
+        guard totalBytes > 0 else {
+            wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
+            return
+        }
+
+        do {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+
+            var sent = 0
+            while true {
+                // `nil` and an empty `Data` mean the same thing here and are both the end of the
+                // file, so one `guard` covers the file shrinking under us and the file simply
+                // ending on a piece boundary.
+                guard let piece = try await handle.read(upToCount: Self.writeChunkBytes), !piece.isEmpty
+                else {
+                    if sent < totalBytes {
+                        wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))
+                    }
+                    return
+                }
+
+                sent += piece.count
+                let isLast = sent >= totalBytes
+                wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: piece, isLast: isLast))
+                if isLast { return }
+                await Task.yield()
+            }
+        } catch {
+            writes.removeValue(forKey: id)
+            uploadFailures[id] = error.localizedDescription
         }
     }
 
