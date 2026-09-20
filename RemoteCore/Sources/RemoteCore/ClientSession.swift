@@ -359,9 +359,13 @@ public final class ClientSession: @unchecked Sendable {
     private var _serverKey: Data?
     private var state: HandshakeState = .idle
     private var pingTask: Task<Void, Never>?
-    private var pingSentAt: DispatchTime?
-    /// The last few round trips, newest last. See ``reportLatency()``.
-    private var latencySamples: [Double] = []
+    /// The pings in flight, and the window they are measured into.
+    ///
+    /// Both rules live in ``PingLedger`` and ``LatencyWindow`` so they can be driven by a test:
+    /// every interesting case in them is about *timing*, and timing is the one thing a test
+    /// cannot wait for.
+    private var pingLedger = PingLedger()
+    private var latency = LatencyWindow(length: ClientSession.latencyWindow)
 
     /// The video transport watchdog: the rules, and the three things it watches. See
     /// ``evaluateVideoTransport()``.
@@ -960,7 +964,7 @@ public final class ClientSession: @unchecked Sendable {
             emit(.catalog(catalog))
 
         case .pong:
-            reportLatency()
+            reportLatency(for: frame)
 
         case .notice:
             // Decoded leniently on purpose. A notice is advisory — the session is healthy and
@@ -1034,8 +1038,14 @@ public final class ClientSession: @unchecked Sendable {
     /// cost of asking five times as often is nothing.
     private static let pingInterval: Duration = .seconds(1)
 
-    /// How many recent samples the reported figure is drawn from.
-    private static let latencyWindow = 5
+    /// How long a round trip stays in the reported figure.
+    ///
+    /// **A duration rather than a count**, where this used to be five samples. Five samples a
+    /// second apart is five seconds and five samples after a stall is eight, so the window the
+    /// number was drawn from had no length anybody could state — and it re-centred on every
+    /// sample, which is most of what "it jumps" meant. Ten seconds is long enough that one bad
+    /// round trip does not own the figure and short enough that the figure still describes now.
+    private static let latencyWindow: TimeInterval = 10
 
     /// How many probe attempts go by between two asks at the relay for the peer's address.
     ///
@@ -1052,8 +1062,14 @@ public final class ClientSession: @unchecked Sendable {
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.pingInterval)
                 guard !Task.isCancelled, let self else { return }
-                self.lock.withLock { self.pingSentAt = DispatchTime.now() }
-                self.connection()?.send(Frame(kind: .ping))
+                let ping = self.lock.withLock {
+                    self.pingLedger.record(now: DispatchTime.now().uptimeNanoseconds)
+                }
+                // A ping is small and the control channel is otherwise idle, so the payload costs
+                // nothing and is what makes the reply measurable. A Mac that does not echo it
+                // answers empty, which the ledger reads as the oldest question still open.
+                let payload = (try? MessageCodec.encode(PingPayload(sequence: ping.sequence))) ?? Data()
+                self.connection()?.send(Frame(kind: .ping, payload: payload))
             }
         }
         pingTask = task
@@ -1071,22 +1087,32 @@ public final class ClientSession: @unchecked Sendable {
     /// A median rather than a mean, deliberately. The interesting samples here are the outliers
     /// — a ping that caught a stall — and a mean would let one of them drag the figure up for
     /// the next five seconds while the connection is fine.
-    private func reportLatency() {
-        guard let sent = lock.withLock({ pingSentAt }) else { return }
-        let sample = Double(DispatchTime.now().uptimeNanoseconds - sent.uptimeNanoseconds) / 1_000_000
+    private func reportLatency(for frame: Frame) {
+        let now = DispatchTime.now()
+        let monotonic = Self.monotonicNow()
 
-        let window = lock.withLock { () -> [Double] in
+        let reported = lock.withLock { () -> Double? in
             // A pong is the only thing that proves the control channel is working, and the
             // fallback asks that question before it moves the session's whole picture onto
             // this channel. Answered here because this is where a pong is known to have
             // arrived, rather than by a second timer inferring it from the latency figure.
-            lastControlReplyAt = Self.monotonicNow()
-            latencySamples.append(sample)
-            if latencySamples.count > Self.latencyWindow { latencySamples.removeFirst() }
-            return latencySamples
+            lastControlReplyAt = monotonic
+
+            // Matched by the number the ping carried, so a reply that arrives after the next ping
+            // has gone out is measured against the question it answers. An empty pong is a Mac
+            // that does not echo the number; the ledger reads that as the oldest question open.
+            let sequence = (try? MessageCodec.decode(PingPayload.self, from: frame.payload))?.sequence
+            guard let ping = pingLedger.answered(sequence: sequence) else { return nil }
+
+            latency.add(
+                Double(now.uptimeNanoseconds - ping.sentAtNanoseconds) / 1_000_000,
+                at: monotonic
+            )
+            return latency.reported
         }
-        guard !window.isEmpty else { return }
-        emit(.latency(milliseconds: window.sorted()[window.count / 2]))
+
+        guard let reported else { return }
+        emit(.latency(milliseconds: reported))
     }
 
     // MARK: - Video

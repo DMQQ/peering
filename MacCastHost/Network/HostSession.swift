@@ -482,7 +482,11 @@ final class HostSession: @unchecked Sendable {
             }
 
         case .ping:
-            connection.send(Frame(kind: .pong))
+            // The payload is handed back rather than understood: it is the number the client timed
+            // this ping with, and echoing it is what lets the client match this reply to that
+            // question instead of to whichever ping went out most recently. An empty ping gets an
+            // empty pong, so a client older than this handler is unaffected.
+            connection.send(Frame(kind: .pong, payload: frame.payload))
 
         case .terminalRequest:
             guard frame.payload.count <= Self.maxControlPayload else {

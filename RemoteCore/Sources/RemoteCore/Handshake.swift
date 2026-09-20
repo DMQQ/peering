@@ -126,6 +126,25 @@ public struct ClipboardPayload: Codable, Sendable, Equatable {
     }
 }
 
+/// The number a ping went out with, echoed by its pong.
+///
+/// **A ping with no number cannot be timed, only guessed at.** The client kept one timestamp and
+/// overwrote it with every ping, so a reply arriving after the next ping had gone out was measured
+/// against the newer one — a round trip delayed by a second and a half reported tens of
+/// milliseconds. The number is what lets a pong be matched to the question it answers, and what
+/// lets one that arrives too late be thrown away instead of believed.
+///
+/// It travels as a payload rather than as a new message kind so that a Mac which does not read it
+/// answers with an empty pong and nothing breaks. See ``ClientSession/pingIndex(answeredBy:)`` for
+/// what an empty pong is taken to mean.
+public struct PingPayload: Codable, Sendable, Equatable {
+    public let sequence: UInt64
+
+    public init(sequence: UInt64) {
+        self.sequence = sequence
+    }
+}
+
 public struct ErrorPayload: Codable, Sendable, Equatable {
     public var code: String
     public var message: String
