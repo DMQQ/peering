@@ -568,6 +568,58 @@ final class MacCastPolicyTests: XCTestCase {
 
     // MARK: - Session awareness
 
+    /// **The rule that stops two Macs overwriting each other's banner.** An identifier fixed per
+    /// kind is right for one Mac and wrong for several: two Macs ending a session at the same
+    /// moment produce one banner about one of them, and the one that loses is whichever the system
+    /// saw first — which for a pairing code is a pairing the user never gets to finish.
+    func testTwoMacsBannersDoNotReplaceEachOther() {
+        let one = SessionAwareness.Notification(
+            kind: .awaitingPairingCode, title: "Pairing with Studio", body: "…", hostID: "AAAAAA"
+        )
+        let other = SessionAwareness.Notification(
+            kind: .awaitingPairingCode, title: "Pairing with Attic", body: "…", hostID: "BBBBBB"
+        )
+
+        XCTAssertNotEqual(one.identifier, other.identifier)
+    }
+
+    /// The rest of the rule is unchanged: the same kind and the same Mac still replaces itself, so
+    /// a session that passes through a phase twice does not stack two banners about one thing.
+    func testTheSameMacAndKindStillReplacesItself() {
+        let first = SessionAwareness.Notification(
+            kind: .awaitingPairingCode, title: "Pairing with Studio", body: "…", hostID: "AAAAAA"
+        )
+        let second = SessionAwareness.Notification(
+            kind: .awaitingPairingCode, title: "Pairing with Studio", body: "…", hostID: "AAAAAA"
+        )
+
+        XCTAssertEqual(first.identifier, second.identifier)
+    }
+
+    /// A caller with no Mac in hand is no worse off than before: the identifier falls back to the
+    /// kind's own name, which is what every call site used to get.
+    func testABannerWithNoMacKeepsTheKindIdentifier() {
+        let notification = SessionAwareness.Notification(
+            kind: .connected, title: "Connected", body: "…"
+        )
+
+        XCTAssertEqual(notification.identifier, SessionAwareness.Kind.connected.identifier)
+    }
+
+    /// And the rule threads it through, rather than leaving it to the notifier to remember.
+    func testTheRuleCarriesTheHostItWasGiven() {
+        let notification = SessionAwareness.notification(
+            from: .handshaking,
+            to: .confirming(code: "419302"),
+            hostName: "Studio",
+            hostID: "7C4E422B",
+            deliberate: false
+        )
+
+        XCTAssertEqual(notification?.hostID, "7C4E422B")
+        XCTAssertTrue(notification?.identifier.hasSuffix("7C4E422B") == true)
+    }
+
     func testAReadySessionThatFailsNotifies() {
         let notification = SessionAwareness.notification(
             from: .ready,

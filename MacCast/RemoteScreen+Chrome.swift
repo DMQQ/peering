@@ -62,7 +62,7 @@ extension RemoteScreen {
                 // Under the pill rather than beside it, in both orientations: the pill is about
                 // the connection the user is watching and the strip is about the others, and
                 // stacking them is what lets the strip disappear without moving the pill.
-                SessionTabs()
+                SessionTabs(chromeFrames: $chromeFrames)
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
@@ -138,7 +138,7 @@ extension RemoteScreen {
 
                 VStack(spacing: 0) {
                     statusBar
-                    SessionTabs()
+                    SessionTabs(chromeFrames: $chromeFrames)
                         .padding(.top, 6)
                     Spacer(minLength: 0)
                     // Above the dock, for the same reason as in landscape: below it there is

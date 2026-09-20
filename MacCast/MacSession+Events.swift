@@ -96,10 +96,15 @@ extension MacSession {
 
             let userEnded = model.userEndedSession
             model.userEndedSession = false
+            // **Every Mac, unlike the card.** A banner is about a Mac the user is not looking at
+            // by definition, and a background Mac dropping is exactly the thing holding the
+            // connection open was supposed to spare them. Keyed by host, so two Macs' banners
+            // queue rather than replace each other. See ``SessionAwareness/Notification/hostID``.
             model.notifier.sessionMoved(
                 from: previous,
                 to: phase,
                 hostName: hostName ?? "the Mac",
+                hostID: hostID,
                 deliberate: userEnded
             )
             // The same transition, said twice: once as something that can interrupt the user
@@ -142,15 +147,23 @@ extension MacSession {
                 SessionAudio.shared.end()
             }
 
-            SessionActivity.shared.sessionMoved(
-                from: previous,
-                to: phase,
-                hostName: hostName ?? "the Mac",
-                startedAt: sessionStartedAt,
-                reconnecting: model.isReconnecting,
-                deliberate: userEnded,
-                path: Self.activityPath(connectionPath)
-            )
+            // **The card describes the Mac on screen and no other.** There is one Activity and
+            // one handle for the whole app, so a Mac behind the active one reporting its own
+            // transition would take the card away from the Mac the user is looking at — its name,
+            // its clock, its path — and a background Mac dropping would replace a working session
+            // on the Lock Screen with the news that something the user cannot see has failed.
+            // That news is a banner's job, and it has one. See ``SessionNotifier``.
+            if isActive {
+                SessionActivity.shared.sessionMoved(
+                    from: previous,
+                    to: phase,
+                    hostName: hostName ?? "the Mac",
+                    startedAt: sessionStartedAt,
+                    reconnecting: isReconnecting,
+                    deliberate: userEnded,
+                    path: Self.activityPath(connectionPath)
+                )
+            }
 
             if !phase.holdsSession {
                 // The buttons stop claiming a modifier the moment the link that carried it is
@@ -276,9 +289,16 @@ extension MacSession {
                 // in the same breath as being told is how a wall turns into a con.
                 model.spentAllowance = model.storeManager.relayPlan
                 model.relaySessionDropped = false
-                // Suppress the reconnect ladder: there is nothing to reconnect to.
+                // **The cut is simultaneous, so the answer to it is too.** The relay reads the
+                // allowance live off one counter per client, so every session it is splicing sees
+                // zero within the same charge period and every one of them is being dropped at
+                // this moment. Ending only the Mac that happened to notice leaves the user with
+                // dead tabs behind the sheet, each one failing its own way a second later.
+                //
+                // The flag is cleared above rather than after, so the ends this causes cannot
+                // re-enter this branch and end everything a second time.
                 model.userEndedSession = true
-                model.stopReconnecting()
+                model.disconnect(deliberate: false)
             } else if model.spentAllowance != nil {
                 // **A later refusal from the same ladder, and it has nothing to add.** The
                 // explanation is already on screen, and the one thing this must not do is put the

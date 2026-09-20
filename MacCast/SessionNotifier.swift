@@ -63,6 +63,7 @@ final class SessionNotifier {
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
         hostName: String,
+        hostID: String? = nil,
         deliberate: Bool
     ) {
         switch phase {
@@ -80,6 +81,7 @@ final class SessionNotifier {
             from: previous,
             to: phase,
             hostName: hostName,
+            hostID: hostID,
             deliberate: deliberate
         ) else { return }
 
@@ -96,11 +98,14 @@ final class SessionNotifier {
     /// Terminal prompts are the case where the Mac explicitly needs the person back. The
     /// in-app attention badge is always updated; this adds a banner only while Peering is not
     /// frontmost and notification permission has already been granted.
-    func terminalNeedsAttention(_ message: String, sessionID: UUID) {
+    /// `macName` is the second line rather than the first, because the message is what the user
+    /// needs and the Mac is what tells them which of several to look at: two Macs can both have a
+    /// shell called `prod`, and this is read on a locked screen with nothing else on it.
+    func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isAuthorized, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = "Terminal needs you"
-        content.body = message
+        content.body = macName.map { "\($0): \(message)" } ?? message
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: "peering-terminal-\(sessionID.uuidString)",
@@ -146,11 +151,28 @@ final class SessionNotifier {
     /// Takes banners back by the identifier their kind owns. Both lists, because a request
     /// that has been added but not yet delivered sits in the pending one — and it would then
     /// arrive at exactly the wrong moment.
+    ///
+    /// **By prefix rather than by exact name**, which is what several Macs made necessary: an
+    /// identifier is now `kind.hostID`, so the exact string is no longer knowable from the kind
+    /// alone, and the Mac whose state has changed is not always the one being asked about — a
+    /// session coming up retires the pairing-code banner of any Mac, including one this end can
+    /// no longer name because its session has already been let go of.
+    ///
+    /// Reading what is delivered is an `await`, which is why this is a `Task` where it used to be
+    /// three synchronous lines. Nothing waits on it: taking a banner back is housekeeping, and a
+    /// user who sees it for a moment longer has lost nothing.
     private func retract(_ kinds: [SessionAwareness.Kind]) {
         guard !kinds.isEmpty else { return }
-        let identifiers = kinds.map(\.identifier)
+        let prefixes = kinds.map(\.identifier)
         let center = UNUserNotificationCenter.current()
-        center.removeDeliveredNotifications(withIdentifiers: identifiers)
-        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        Task {
+            let delivered = await center.deliveredNotifications()
+            let pending = await center.pendingNotificationRequests()
+            let owned = (delivered.map(\.request.identifier) + pending.map(\.identifier))
+                .filter { identifier in prefixes.contains { identifier.hasPrefix($0) } }
+            guard !owned.isEmpty else { return }
+            center.removeDeliveredNotifications(withIdentifiers: owned)
+            center.removePendingNotificationRequests(withIdentifiers: owned)
+        }
     }
 }

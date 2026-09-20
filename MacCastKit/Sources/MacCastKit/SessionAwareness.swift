@@ -24,7 +24,30 @@ public enum SessionAwareness {
         public let title: String
         public let body: String
 
-        public var identifier: String { kind.identifier }
+        /// Which Mac the banner is about, where the caller knows.
+        ///
+        /// **The half of the identifier that several Macs made necessary.** The kind alone is
+        /// fixed per kind on purpose — a second banner of a kind should replace the first rather
+        /// than stack behind it — but with more than one Mac open that rule stops meaning "the
+        /// newest news about this" and starts meaning "the newest news about anything": two Macs
+        /// ending a session at the same moment produce one banner about one of them, and the
+        /// pairing code on the Mac nobody is sitting at is the one that loses.
+        ///
+        /// Optional, and a `nil` identifier falls back to the kind's own, so a caller with no Mac
+        /// in hand is no worse off than before.
+        public let hostID: String?
+
+        public init(kind: Kind, title: String, body: String, hostID: String? = nil) {
+            self.kind = kind
+            self.title = title
+            self.body = body
+            self.hostID = hostID
+        }
+
+        public var identifier: String {
+            guard let hostID, !hostID.isEmpty else { return kind.identifier }
+            return "\(kind.identifier).\(hostID)"
+        }
     }
 
     /// The banner for one transition, or `nil` for the transitions that deserve none.
@@ -40,6 +63,7 @@ public enum SessionAwareness {
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
         hostName: String,
+        hostID: String? = nil,
         deliberate: Bool
     ) -> Notification? {
         // The same phase arriving twice is not an event. This one happens in practice: the
@@ -51,7 +75,8 @@ public enum SessionAwareness {
             return Notification(
                 kind: .connected,
                 title: "Connected to \(hostName)",
-                body: "The Mac's screen is on this device now."
+                body: "The Mac's screen is on this device now.",
+                hostID: hostID
             )
 
         case .confirming:
@@ -61,7 +86,8 @@ public enum SessionAwareness {
             return Notification(
                 kind: .awaitingPairingCode,
                 title: "Pairing with \(hostName)",
-                body: "The Mac is showing a six-digit code. Open Peering to check the two match."
+                body: "The Mac is showing a six-digit code. Open Peering to check the two match.",
+                hostID: hostID
             )
 
         case .failed(let message):
@@ -71,7 +97,8 @@ public enum SessionAwareness {
             return Notification(
                 kind: .connectionEnded,
                 title: "Connection to \(hostName) failed",
-                body: message
+                body: message,
+                hostID: hostID
             )
 
         case .disconnected:
@@ -81,7 +108,8 @@ public enum SessionAwareness {
             return Notification(
                 kind: .connectionEnded,
                 title: "Connection to \(hostName) ended",
-                body: "The Mac is no longer reachable from this device."
+                body: "The Mac is no longer reachable from this device.",
+                hostID: hostID
             )
 
         case .idle, .connecting, .handshaking:

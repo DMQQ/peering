@@ -21,6 +21,13 @@ enum ChromeRegion: Hashable {
     case pointer
     case panel
     case statusBar
+    /// The row of Macs, when there is more than one.
+    ///
+    /// **Reported as the whole row rather than as its controls**, unlike the wheel. The gaps
+    /// between two tabs are a few points wide and lead nowhere the user meant to touch, so a
+    /// press that slips between two names is a press that misses rather than one that lands on
+    /// the Mac behind the strip — and the strip sits directly over the picture's top edge.
+    case sessionTabs
     case dock
 }
 

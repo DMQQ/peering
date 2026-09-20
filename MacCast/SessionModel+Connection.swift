@@ -104,33 +104,28 @@ extension SessionModel {
         // lost. After the lines beneath them they are simply nil.
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
-        activeSession?.finishSessionHistory()
 
         // Recorded before anything moves. `ClientSession` announces the end itself, and by
-        // the time that event is applied the phase below has already been set — so this flag
+        // the time that event is applied the phases below have already been set — so this flag
         // is the only evidence left that the user, and not the network, ended it.
         userEndedSession = deliberate
         // Only a deliberate one. A drop, and the end iOS forces on a backgrounded app, are the
         // two cases where coming back to the app should find the session restored.
-        if deliberate {
-            UserDefaults.standard.set(false, forKey: Self.resumeKey)
-            stopReconnecting()
-        }
-        sessionStartedAt = nil
-        activeSession?.connectTask?.cancel()
-        activeSession?.connectTask = nil
-        activeSession?.wire?.disconnect()
-        activeSession?.wire = nil
-        activeSession?.videoPoll?.cancel()
-        activeSession?.videoPoll = nil
+        if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
+
+        // **Every Mac, not the one on screen.** The control says "Disconnect", and a person
+        // saying that to their phone means stop rather than stop one of the things it is doing.
+        // The end iOS forces is the same argument from the other side: it granted a few seconds
+        // for the whole process and every session is about to be suspended with it, so ending
+        // one and leaving the rest to be killed unobserved is the worst of the three outcomes.
+        // See ``backgroundTimeExpired()``.
+        for session in sessions { session.endSession() }
         renderer.detach()
-        connectionPath = nil
         // An end this app chose is not a session the relay cut. Cleared here as well as on a
         // session coming up, because this path sets the phase directly and so never passes
         // through the drop handling in ``apply(_:)-swift.enum.case`` that would clear it.
         relaySessionDropped = false
         latchedModifiers = []
-        phase = .disconnected
 
         // Below the assignment rather than above it: this is the path that *is* the phase
         // change, and the announcement that follows it sees no difference to act on.
@@ -409,7 +404,10 @@ extension SessionModel {
         // drops moves to `.failed` immediately — before `enteringBackground()` — so
         // `phase.holdsSession` is already false. Without this, the app suspends, `Task.sleep`
         // freezes, and the "dropped" Live Activity card is never shown.
-        guard (phase.holdsSession || isReconnecting), backgroundTask == .invalid else { return }
+        // Held for as long as **any** Mac is open or being retried. What iOS suspends is the
+        // process, so the assertion is about the app rather than about the Mac on screen, and a
+        // session behind the active one would otherwise be killed with no chance to say so.
+        guard hasOpenSession, backgroundTask == .invalid else { return }
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
         }
@@ -441,18 +439,14 @@ extension SessionModel {
     /// correct it with. And the user, who is not looking, gets a banner.
     func backgroundTimeExpired() {
         endBackgroundAssertion()
-        if phase.holdsSession {
-            disconnect(deliberate: false)
-        } else if isReconnecting {
-            // Background time ran out before the reconnect ladder finished. Cancel it and show
-            // the "dropped" card; the ladder will restart when the user returns to the foreground.
-            stopReconnecting()
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
-                startedAt: nil,
-                path: MacSession.activityPath(connectionPath)
-            )
-        }
+        // **Every Mac**, and one call because ``disconnect(deliberate:)`` already means all of
+        // them. This used to end one session and then handle the ladder-running case separately:
+        // with several Macs those two branches are the same branch, and the second one is the
+        // case where a Mac behind the active one was left to be killed unobserved. The card and
+        // the banner are taken down by the same path, which is the whole reason for ending it
+        // tidily rather than letting the system do it.
+        guard hasOpenSession else { return }
+        disconnect(deliberate: false)
     }
 
     func endBackgroundAssertion() {

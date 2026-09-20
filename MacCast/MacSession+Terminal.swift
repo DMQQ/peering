@@ -536,7 +536,7 @@ extension MacSession {
             }
             selectedTerminalID = id
             append(note: message)
-            model.notifier.terminalNeedsAttention(message, sessionID: id)
+            model.notifier.terminalNeedsAttention(message, sessionID: id, macName: hostName)
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].isRunning = false

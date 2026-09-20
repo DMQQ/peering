@@ -174,6 +174,32 @@ final class MacSession {
     /// also cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
     var connectTask: Task<Void, Never>?
 
+    /// Takes this Mac's connection apart, and leaves the object for its last figures to be read.
+    ///
+    /// **Not a disconnect of its own**, which is the only subtle thing about it: whether the end
+    /// was the user's or iOS's is decided once by the caller and said once in the banner, and a
+    /// per-session copy of that decision is how two Macs would come to disagree about it.
+    ///
+    /// The record is filed first, because everything it describes — the path, the name, the
+    /// bytes — is cleared below. The player is released rather than kept: its `deinit` stops the
+    /// engine, and holding one past its session leaves an audio engine running for a Mac nobody
+    /// is connected to.
+    func endSession() {
+        finishSessionHistory()
+        connectTask?.cancel()
+        connectTask = nil
+        stopReconnecting()
+        wire?.disconnect()
+        wire = nil
+        videoPoll?.cancel()
+        videoPoll = nil
+        audioPlayer = nil
+        connectionPath = nil
+        sessionStartedAt = nil
+        picturePaused = false
+        phase = .disconnected
+    }
+
     // MARK: - Coming back after a drop
 
     /// Whether there is a live connection behind this session, or an attempt to put one back.
@@ -250,11 +276,15 @@ final class MacSession {
             // The reconnect ladder gave up. `sessionMoved` is not called again because there is
             // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
             // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
-                startedAt: nil,
-                path: Self.activityPath(connectionPath)
-            )
+            //
+            // Only for the Mac on screen: a background Mac giving up is a banner, not a card.
+            if isActive {
+                SessionActivity.shared.sessionDropped(
+                    hostName: hostName ?? "the Mac",
+                    startedAt: nil,
+                    path: Self.activityPath(connectionPath)
+                )
+            }
             return
         }
         let delay = SessionModel.reconnectDelays[reconnectAttempt]

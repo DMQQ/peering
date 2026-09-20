@@ -16,6 +16,16 @@ import SwiftUI
 struct SessionTabs: View {
     @Environment(SessionModel.self) private var model
 
+    /// Where the screen's chrome regions are collected.
+    ///
+    /// **Not optional, and it is the one thing about this view that is a correctness requirement
+    /// rather than a drawing.** The strip lies over the picture, and the gesture surface is a
+    /// UIKit view underneath the SwiftUI chrome: a touch aimed at a tab is delivered to the canvas
+    /// as well unless the region is reported. A tab switch that also clicks whatever is at that
+    /// point on the Mac is the failure this prevents, and it is silent — the Mac does something
+    /// the user did not ask for, a second after they asked for something else.
+    @Binding var chromeFrames: [ChromeRegion: CGRect]
+
     /// How tall a tab is, and the size the `+` is drawn at to match it.
     ///
     /// Small, because this sits under the status pill rather than beside it: it is chrome about
@@ -31,6 +41,7 @@ struct SessionTabs: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 6)
+        .reportChromeFrame(.sessionTabs, into: $chromeFrames)
     }
 
     /// One Mac, named as the picker names it.
