@@ -20,7 +20,7 @@ struct SessionLiveActivity: Widget {
                 // — mid-card — instead of against the trailing edge, where every other Live
                 // Activity and the Lock Screen card below both put it.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.attributes.hostName, systemImage: symbol(for: context.state.phase))
+                    Label(context.state.hostName ?? "Peering", systemImage: symbol(for: context.state.phase))
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,7 +76,7 @@ private struct LockScreenSession: View {
                 .frame(width: 26)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(context.attributes.hostName)
+                Text(context.state.hostName ?? "Peering")
                     .font(.headline)
                     .lineLimit(1)
 

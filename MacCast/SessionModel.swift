@@ -161,6 +161,19 @@ final class SessionModel {
         // and the Mac behind keeps sending. See ``MacSession/shouldPlayAudio``.
         left?.refreshAudioMuteState()
         session.refreshAudioMuteState()
+
+        // **The card follows the tab, name and clock and all.** Its own entry point rather than
+        // a phase change: a switch moves everything about the card except the phase, and the two
+        // Macs are not in the same state — the one being arrived at has its own clock. See
+        // ``SessionActivity/followActiveSession``.
+        SessionActivity.shared.followActiveSession(
+            hostName: session.hostName ?? "the Mac",
+            startedAt: session.sessionStartedAt,
+            phase: session.phase,
+            reconnecting: session.isReconnecting,
+            path: MacSession.activityPath(session.connectionPath),
+            sessionCount: openSessions.count
+        )
     }
 
     /// The Macs that are open, in the order they were opened.

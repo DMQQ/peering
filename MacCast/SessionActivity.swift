@@ -38,7 +38,8 @@ final class SessionActivity {
         startedAt: Date?,
         reconnecting: Bool,
         deliberate: Bool = false,
-        path: SessionActivityAttributes.Path? = nil
+        path: SessionActivityAttributes.Path? = nil,
+        sessionCount: Int? = nil
     ) {
         guard isEnabled else {
             end()
@@ -58,14 +59,16 @@ final class SessionActivity {
             let state = SessionActivityAttributes.ContentState(
                 phase: phase == .ready ? .active : .pending,
                 startedAt: startedAt,
-                path: path
+                path: path,
+                hostName: hostName,
+                sessionCount: sessionCount
             )
             if let activity {
                 Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
             } else {
                 // Only ever reached from the foreground: every route into these phases starts
                 // with a tap, and `Activity.request` is dropped silently from the background.
-                start(attributes: SessionActivityAttributes(hostName: hostName), state: state)
+                start(state)
             }
 
         case .idle, .failed, .disconnected:
@@ -105,10 +108,11 @@ final class SessionActivity {
     func showReconnecting(
         hostName: String,
         startedAt: Date?,
-        path: SessionActivityAttributes.Path? = nil
+        path: SessionActivityAttributes.Path? = nil,
+        sessionCount: Int? = nil
     ) {
         guard isEnabled else { return }
-        show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path)
+        show(.reconnecting, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
     }
 
     /// The session was lost rather than ended, and the card stays up to say so.
@@ -119,16 +123,67 @@ final class SessionActivity {
     func sessionDropped(
         hostName: String,
         startedAt: Date?,
-        path: SessionActivityAttributes.Path? = nil
+        path: SessionActivityAttributes.Path? = nil,
+        sessionCount: Int? = nil
     ) {
         guard isEnabled else { return }
-        show(.dropped, hostName: hostName, startedAt: startedAt, path: path)
+        show(.dropped, hostName: hostName, startedAt: startedAt, path: path, sessionCount: sessionCount)
     }
 
     /// Applies the Settings switch immediately. Enabling takes effect on the next connection;
     /// disabling also removes a card that is already on the Lock Screen.
     func preferenceChanged(enabled: Bool) {
         if !enabled { end() }
+    }
+
+    /// Re-points the card at the Mac that is now on screen.
+    ///
+    /// **Not a phase change, which is why it cannot go through ``sessionMoved(from:to:hostName:startedAt:reconnecting:deliberate:path:sessionCount:)``.**
+    /// That method treats a phase it has already seen as nothing to do, and a tab switch changes
+    /// everything about the card *except* the phase: the name, the clock and the path all belong
+    /// to the Mac being moved to, and the state the user was in has not moved at all.
+    ///
+    /// The clock is restarted from the new Mac's own `sessionStartedAt`, which is what makes the
+    /// card honest across a switch: the Mac being arrived at has been connected for as long as it
+    /// has been connected, and a duration carried over from the Mac being left would be timing
+    /// somebody else's session.
+    func followActiveSession(
+        hostName: String,
+        startedAt: Date?,
+        phase: ClientSession.Phase,
+        reconnecting: Bool,
+        path: SessionActivityAttributes.Path?,
+        sessionCount: Int
+    ) {
+        guard isEnabled else { return }
+        guard let activity else { return }
+        let state = SessionActivityAttributes.ContentState(
+            phase: Self.cardPhase(of: phase, reconnecting: reconnecting),
+            startedAt: startedAt,
+            path: path,
+            hostName: hostName,
+            sessionCount: sessionCount
+        )
+        Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
+    }
+
+    /// A session's phase, said in the card's three words.
+    ///
+    /// Written out here rather than inlined at the two places that need it, because the mapping
+    /// is not obvious from either side: a session that has not finished connecting is `pending`,
+    /// and a Mac that is being put back is `reconnecting` rather than whatever its phase says,
+    /// since the phase during a retry is `.failed` and the card's whole job at that moment is to
+    /// say it is coming back rather than that it went.
+    static func cardPhase(
+        of phase: ClientSession.Phase,
+        reconnecting: Bool
+    ) -> SessionActivityAttributes.Phase {
+        if reconnecting, !phase.holdsSession { return .reconnecting }
+        switch phase {
+        case .ready: return .active
+        case .idle, .connecting, .handshaking, .confirming: return .pending
+        case .failed, .disconnected: return .dropped
+        }
     }
 
     /// Shows a state that is about the session rather than being it.
@@ -140,18 +195,17 @@ final class SessionActivity {
         _ phase: SessionActivityAttributes.Phase,
         hostName: String,
         startedAt: Date?,
-        path: SessionActivityAttributes.Path?
+        path: SessionActivityAttributes.Path?,
+        sessionCount: Int? = nil
     ) {
         let state = SessionActivityAttributes.ContentState(
             phase: phase,
             startedAt: startedAt,
-            path: path
+            path: path,
+            hostName: hostName,
+            sessionCount: sessionCount
         )
-        if let activity {
-            Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
-        } else {
-            start(attributes: SessionActivityAttributes(hostName: hostName), state: state)
-        }
+        apply(state)
     }
 
     /// Called when the app enters the background with an active session.
@@ -180,20 +234,39 @@ final class SessionActivity {
     /// the Lock Screen for a session that ended hours ago, and this launch would have no idea it
     /// was there to remove — the handle is nil after a relaunch, which is the only way back to it.
     func adoptOrphan() {
-        guard activity == nil, let orphan = Activity<SessionActivityAttributes>.activities.first else { return }
-        activityLog.info("adopting a Live Activity left by a previous launch")
-        activity = orphan
-        end()
+        guard activity == nil else { return }
+        // **All of them, not the first.** One card at a time is the design, so more than one
+        // means something went wrong in an earlier run; removing only the first would leave the
+        // rest to sit on the Lock Screen for the system's own eight hours, describing a session
+        // from a process that has been gone since before this one started.
+        let orphans = Activity<SessionActivityAttributes>.activities
+        for orphan in orphans {
+            Task { await orphan.end(nil, dismissalPolicy: .immediate) }
+        }
+        guard !orphans.isEmpty else { return }
+        activityLog.info("ended \(orphans.count) Live Activit\(orphans.count == 1 ? "y" : "ies") left by a previous launch")
     }
 
-    private func start(
-        attributes: SessionActivityAttributes,
-        state: SessionActivityAttributes.ContentState
-    ) {
+    /// Puts a state on the card, starting one if there is none.
+    ///
+    /// The two halves were written out at each of the four call sites; they are one function
+    /// because the interesting case is the missing one, and four copies of "start it if it is
+    /// not there" is four chances to forget the stale date.
+    private func apply(_ state: SessionActivityAttributes.ContentState) {
+        guard let activity else {
+            start(state)
+            return
+        }
+        Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
+    }
+
+    private func start(_ state: SessionActivityAttributes.ContentState) {
         guard isEnabled, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
         do {
             activity = try Activity.request(
-                attributes: attributes,
+                // No attributes: everything that varies is in the state, so that a card can be
+                // re-pointed at another Mac rather than replaced. See ``ContentState/hostName``.
+                attributes: SessionActivityAttributes(),
                 content: ActivityContent(state: state, staleDate: staleDate(for: state)),
                 // Local only. Every update here is produced in-process on a phase change, so a
                 // push token would be a standing promise to a server that does not exist.

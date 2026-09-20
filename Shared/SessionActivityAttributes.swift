@@ -122,6 +122,28 @@ nonisolated struct SessionActivityAttributes: ActivityAttributes {
         /// is an address typed by hand. When a session feels slow this is the first question
         /// anyone asks, and the Lock Screen is where they are looking when they ask it.
         var path: Path?
+
+        /// The name of the Mac this card is about.
+        ///
+        /// **Here rather than among the attributes above, and that is what lets the card follow a
+        /// tab.** `ActivityAttributes` are fixed when the activity is requested and there is no
+        /// API to change them afterwards; only `ContentState` updates. A name living up there
+        /// could only ever be the name of the Mac the card was started for, so switching to
+        /// another Mac would leave the Lock Screen naming one the user is not looking at, and the
+        /// only way to correct it would be to end the card and start a second one — which throws
+        /// away the running clock that makes the card worth having.
+        ///
+        /// Optional so that a card started by an earlier build still decodes: a missing field
+        /// reads as absent rather than throwing, and a Live Activity that fails to decode is a
+        /// card that vanishes mid-session. The views fall back to the app's own name.
+        var hostName: String?
+
+        /// How many Macs are open, so the card can say when there is more than one.
+        ///
+        /// A count rather than the names: the Lock Screen has room for one line, and the useful
+        /// fact there is not which other Macs are open but that the connection being described is
+        /// one of several. Optional for the same decoding reason as the name.
+        var sessionCount: Int?
     }
 
     /// The transport behind a session, as a word short enough for a chip.
@@ -130,9 +152,6 @@ nonisolated struct SessionActivityAttributes: ActivityAttributes {
         case relay = "Relay"
         case direct = "Direct"
     }
-
-    /// The Mac's name, which the session has from the handshake onwards.
-    var hostName: String
 
     /// A session, reduced to what a Lock Screen has room to say.
     ///
