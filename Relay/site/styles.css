@@ -129,6 +129,66 @@ a { color: inherit; }
   pointer-events: none;
 }
 
+/* The shine that goes round a card's edge while it is hovered: one bright wedge on a turning conic
+   gradient, drawn in the same 1px band as the hairline above, so what it travels along is the
+   card's own border rather than a second ring drawn inside it.
+
+   `@property` is what makes it turn. An unregistered custom property is a string to the engine,
+   and a gradient rebuilt from a string each frame is not interpolated: the wedge would sit still
+   at whichever angle the animation left it at. Registered as an angle, it animates like any other
+   numeric value. An engine without `@property` gets no shine at all, because `var(--shine)` with
+   nothing behind it invalidates the whole background, and a missing decoration is the right
+   failure for a decoration. */
+@property --shine {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* Tuned to be a sheen rather than a beacon: dim over the last four tenths of the turn, hottest
+     at the leading edge, and nothing at all behind it. The white is the point of it. A ring that
+     was accent blue all the way round would read as a selected card. */
+  background: conic-gradient(
+    from var(--shine),
+    transparent 0turn,
+    transparent 0.45turn,
+    rgba(10, 132, 255, 0.18) 0.68turn,
+    rgba(10, 132, 255, 0.55) 0.86turn,
+    rgba(10, 132, 255, 1) 0.96turn,
+    rgba(255, 255, 255, 1) 0.995turn,
+    transparent 1turn
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  pointer-events: none;
+}
+
+.card:hover::after {
+  opacity: 1;
+  animation: card-shine 2.6s linear infinite;
+}
+
+@keyframes card-shine {
+  to { --shine: 1turn; }
+}
+
+/* A card is not an offer and the shine is not information, so a reader who has asked for less
+   movement keeps the card they had, holding the wedge still near the top rather than leaving a
+   gap where a border used to be. */
+@media (prefers-reduced-motion: reduce) {
+  .card:hover::after { animation: none; opacity: 0.5; }
+}
+
 /* ---------- Bar ---------- */
 
 .bar {
