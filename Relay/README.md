@@ -109,7 +109,7 @@ client is metered on:
 
 | Plan | Wire name | Allowance |
 |---|---|---|
-| Free | `free` | 30 minutes a day |
+| Free | `free` | 15 minutes a day |
 | Relay | `relay` | 3 hours a day |
 | Relay Plus | `plus` | unlimited |
 | Pro | `pro` | unlimited |
@@ -166,7 +166,7 @@ set to `1`, a client that sends no receipt, or one that does not verify, is mete
 claims. The reason an operator sets it is TestFlight: a beta build's receipt is a **sandbox** one,
 and the relay refuses those by name (`not_a_real_purchase`) rather than treating them as proof,
 because Apple hands sandbox transactions out for nothing to anyone with a developer account. So a
-tester on a `pro` build is metered as free: thirty minutes a day on a build that says it is
+tester on a `pro` build is metered as free: fifteen minutes a day on a build that says it is
 unlimited, until someone sets the variable and restarts. That is what a beta looks like from the
 relay's side rather than a fault in the receipt check, and it is worth knowing before reading a
 log, because a session line saying `receipt refused` with `reason=not_a_real_purchase` is Apple's
@@ -178,7 +178,7 @@ through this code yet, only ones minted by the tests, so the first production re
 real test of it. If real receipts turn out to be refused, and a paying subscriber reports being
 metered as free, `PEERINGD_TRUST_CLAIMED_PLANS=1` and a restart is the way back to the behaviour
 that shipped before any of this: every client metered by the plan it claims. That is a bad state to
-stay in and a much better one to be in for an hour than a fleet of subscribers on thirty minutes a
+stay in and a much better one to be in for an hour than a fleet of subscribers on fifteen minutes a
 day.
 
 **What a false plan does not buy is *access*.** The relay carries a TLS session belonging to the two

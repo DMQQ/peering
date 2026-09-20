@@ -15,7 +15,7 @@ because the reasoning in it still holds in places. The live ladder is:
 |---|---|---|---|---|
 | Monthly | $0 | **$3.99** | **$7.99** | **$12.99** |
 | Yearly | $0 | **$29.99** | **$59.99** | **$99.99** |
-| Relay per 24h | 30 min | 3 h | unlimited | unlimited |
+| Relay per 24h | 15 min | 3 h | unlimited | unlimited |
 | Paired Macs | 1 | every | every | every |
 | Sound, Picture in Picture | | yes | yes | yes |
 | Moving files both ways | | yes | yes | yes |
@@ -138,7 +138,7 @@ their own network gets the full picture and unlimited time.
 | Nearby discovery (Bonjour), connect by address | ✅ | ✅ | ✅ | ✅ |
 | Trusted Macs list: rename, forget, choose LAN or relay | ✅ | ✅ | ✅ | ✅ |
 | Local network sessions, unlimited and unmetered | ✅ | ✅ | ✅ | ✅ |
-| Relay sessions | 30 min/day | 3 h/day | unlimited | unlimited |
+| Relay sessions | 15 min/day | 3 h/day | unlimited | unlimited |
 | Paired Macs | one | every Mac you own | every Mac you own | every Mac you own |
 | Wake on LAN | ✅ | ✅ | ✅ | ✅ |
 | Face ID lock on launch | ✅ | ✅ | ✅ | ✅ |
@@ -286,7 +286,7 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
 - File browser on **both** terminals (phase 1 and 2), including SFTP with an exec fallback
 - Live Activity, widgets (iOS + macOS host), session history, Siri intents
 - Relay: metering per device per day, three products in one subscription group
-- Free tier at 30 min/day, relay copy across app, site, terms
+- Free tier at 15 min/day, relay copy across app, site, terms
 
 **In flight** 🔧
 - **A video "lane" and a fallback** (protocol v12). See the correction in §5 first: the premise I
