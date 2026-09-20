@@ -374,34 +374,25 @@ extension MacSession {
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-            let children: [FolderUploadEntry]
+            let entries: [FolderUploadEntry]
             do {
-                // Off the main actor: a folder of a few thousand files is a few thousand stat
-                // calls, and this screen is drawing a terminal behind the sheet.
-                children = try await Task.detached {
-                    try FolderWalk.entries(of: url, at: root)
-                }.value
+                entries = try await Self.entries(for: url, in: folder)
             } catch {
                 uploadFailures[id] = error.localizedDescription
                 return
             }
 
-            guard !children.isEmpty else {
+            // Only the folder's own entry means it held nothing: the walk lists what is inside, so
+            // anything else would have added to the count.
+            guard entries.count > 1 else {
                 uploadFailures[id] = "That folder is empty."
                 return
             }
 
-            // The folder itself first, because the walk lists what is *inside* it and none of that
-            // can be written until the folder exists. Prepended here rather than produced by the
-            // walk, which knows about a directory's contents and has no business knowing what the
-            // transfer intends to do with its name.
-            let rootEntry = FolderUploadEntry(
-                path: root, name: name, isFolder: true, source: nil, bytes: 0
-            )
             folderUploads[id] = FolderUpload(
                 root: root,
                 listingFolder: folder,
-                entries: [rootEntry] + children
+                entries: entries
             )
             advanceFolderUpload(sessionID: id)
         }
@@ -421,7 +412,10 @@ extension MacSession {
     func uploadItems(_ urls: [URL], sessionID id: UUID) {
         guard let folder = browsingPaths[id], !urls.isEmpty else { return }
 
-        if urls.count == 1, !Self.isDirectory(urls[0]) {
+        // **One thing keeps the path it always had**, file or folder both: its feedback is the row
+        // appearing in the list, and the run machinery would put a progress line over the panel for
+        // something that is over before it can be read.
+        if urls.count == 1 {
             uploadFile(urls[0], sessionID: id)
             return
         }
@@ -439,44 +433,55 @@ extension MacSession {
 
             var entries: [FolderUploadEntry] = []
             var failure: String?
-            do {
-                for url in urls {
-                    let name = url.lastPathComponent
-                    if Self.isDirectory(url) {
-                        // A folder in the drop is a folder to make and fill, exactly as it would be
-                        // if it had been picked on its own.
-                        let target = folder.hasSuffix("/") ? folder + name : folder + "/" + name
-                        entries.append(FolderUploadEntry(
-                            path: target, name: name, isFolder: true, source: nil, bytes: 0
-                        ))
-                        // Off the main actor: walking a folder is a stat per file in it.
-                        let children = try await Task.detached {
-                            try FolderWalk.entries(of: url, at: target)
-                        }.value
-                        entries.append(contentsOf: children)
-                    } else {
-                        let target = folder.hasSuffix("/") ? folder + name : folder + "/" + name
-                        let bytes = (try? await Task.detached {
-                            try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-                        }.value) ?? 0
-                        entries.append(FolderUploadEntry(
-                            path: target, name: name, isFolder: false, source: url, bytes: bytes
-                        ))
-                    }
+            for url in urls {
+                do {
+                    entries += try await Self.entries(for: url, in: folder)
+                } catch {
+                    // **One thing that could not be read does not cost the rest of the drop.** It
+                    // is a folder the walk could not open, or a file whose size could not be read,
+                    // and the others are already in hand: sending them and saying what was skipped
+                    // is the same bargain every entry in a run makes.
+                    failure = error.localizedDescription
                 }
-            } catch {
-                failure = error.localizedDescription
             }
 
-            if let failure, entries.isEmpty {
-                uploadFailures[id] = failure
+            if entries.isEmpty {
+                uploadFailures[id] = failure ?? "Nothing could be read from what you chose."
                 return
             }
-            guard !entries.isEmpty else { return }
 
             folderUploads[id] = FolderUpload(root: folder, listingFolder: folder, entries: entries)
             advanceFolderUpload(sessionID: id)
         }
+    }
+
+    /// The entries one picked or dropped thing becomes: itself, and everything under it.
+    ///
+    /// **The folder's own entry first**, because the walk lists what is *inside* a folder and none
+    /// of that can be written until the folder exists. Prepended here rather than produced by the
+    /// walk, which knows about a directory's contents and has no business knowing what a transfer
+    /// intends to do with its name.
+    ///
+    /// Both `await`s are off the main actor: walking a folder is a stat per file in it, and the
+    /// screen behind this is drawing a terminal.
+    static func entries(for url: URL, in folder: String) async throws -> [FolderUploadEntry] {
+        let name = url.lastPathComponent
+        let target = folder.hasSuffix("/") ? folder + name : folder + "/" + name
+
+        guard isDirectory(url) else {
+            let bytes = try await Task.detached {
+                try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            }.value
+            return [FolderUploadEntry(
+                path: target, name: name, isFolder: false, source: url, bytes: bytes
+            )]
+        }
+
+        let root = FolderUploadEntry(path: target, name: name, isFolder: true, source: nil, bytes: 0)
+        let children = try await Task.detached {
+            try FolderWalk.entries(of: url, at: target)
+        }.value
+        return [root] + children
     }
 
     /// Whether something the user picked is a folder, asked of the filesystem.
