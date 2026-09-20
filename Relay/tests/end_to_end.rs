@@ -18,7 +18,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 use peeringd::config::PlanAllowances;
 use peeringd::protocol::{unhex, ClientMessage, ServerMessage};
-use peeringd::quota::QuotaTracker;
+use peeringd::quota::{Plan, QuotaTracker};
 use peeringd::session::Registry;
 use peeringd::signalling::{HostRegistry, Settings};
 use peeringd::storekit::StoreKitVerifier;
@@ -44,8 +44,33 @@ struct Session {
     video_token: String,
 }
 
+/// Every test's relay, metered by the defaults: half an hour free, three hours on Relay, and a
+/// splice charged every `CHARGE_PERIOD`.
 async fn start() -> TestRelay {
-    let registry = Arc::new(Registry::new());
+    start_with(Arc::new(QuotaTracker::new(
+        PlanAllowances::default(),
+        Default::default(),
+    )))
+    .await
+}
+
+/// The same relay with a counter the caller built, which is what the metering tests need: they set
+/// an allowance small enough to spend inside a test and a charge period short enough to watch, and
+/// they read the counter back afterwards.
+async fn start_with(quota: Arc<QuotaTracker>) -> TestRelay {
+    start_with_timeouts(quota, Duration::from_secs(10), Duration::from_secs(90)).await
+}
+
+/// The same relay with the two signalling deadlines the caller chooses.
+///
+/// Only the two tests about *refusing* a connection want short ones; everything else wants
+/// deadlines long enough that they cannot be what a failure is about.
+async fn start_with_timeouts(
+    quota: Arc<QuotaTracker>,
+    handshake_timeout: Duration,
+    idle_timeout: Duration,
+) -> TestRelay {
+    let registry = Arc::new(Registry::new(usize::MAX));
 
     // Port 0 throughout, so tests never collide with a relay someone is actually running — or with
     // each other when the suite runs them in parallel.
@@ -54,8 +79,7 @@ async fn start() -> TestRelay {
     let signal = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let signal_port = signal.local_addr().unwrap().port();
 
-    let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
 
     // The relay's one video socket, bound exactly as `main` binds it and before signalling starts,
     // so that the port every session is told is the port that exists.
@@ -79,7 +103,20 @@ async fn start() -> TestRelay {
             quota,
             // Pinned to Apple's real root, so nothing this test sends can be mistaken for a
             // receipt. The verified path has its own tests, with a chain they can sign.
+            //
+            // Claims are trusted, which is **not** the shipped default: `PEERINGD_TRUST_CLAIMED_PLANS`
+            // is closed out of the box and this stands in for an operator who has opened it. The
+            // metering tests below are about what the relay does with a plan once it has one, and
+            // the switch is the cheapest way to give it one; a *verified* Pro receipt would need a
+            // chain the test can sign, which `tests/storekit.rs` builds and this file does not.
             receipts: Arc::new(StoreKitVerifier::apple(true)),
+            // No ceiling in these tests, and no timeouts short enough to interfere with them: they
+            // are about what the relay does with a session, not about what it refuses. Both have
+            // their own tests.
+            max_sessions: usize::MAX,
+            max_connections: 1 << 20,
+            handshake_timeout,
+            idle_timeout,
         },
         None,
     ));
@@ -219,6 +256,9 @@ async fn a_mac_and_a_phone_are_introduced_and_their_control_sockets_talk() {
             // No receipt: what the app sends until `Transaction.currentEntitlements` has answered,
             // and what every client that has bought nothing sends for its whole life.
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -268,6 +308,9 @@ async fn video_datagrams_flow_between_the_two_ends() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -331,6 +374,9 @@ async fn an_end_can_learn_where_its_peer_is() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -427,6 +473,9 @@ async fn two_sessions_share_the_one_video_port_without_crossing() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -440,6 +489,9 @@ async fn two_sessions_share_the_one_video_port_without_crossing() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -506,6 +558,9 @@ async fn a_phone_asking_for_a_mac_that_is_not_running_is_told_so() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -549,6 +604,9 @@ async fn a_mac_that_disconnects_stops_being_reachable() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -588,6 +646,9 @@ async fn a_stolen_control_token_is_no_use_twice() {
             api_key: None,
             plan: Some("free".into()),
             jws_representation: None,
+            public_key: None,
+            proof: None,
+            proof_time: None,
         },
     )
     .await;
@@ -618,4 +679,451 @@ async fn a_stolen_control_token_is_no_use_twice() {
         !matches!(outcome, Ok(Ok(read)) if read > 0),
         "a spent token should open nothing"
     );
+}
+
+// MARK: - What a running session is charged
+
+/// The connect request the metering tests below make, so that what they vary is visibly the plan
+/// and nothing else.
+fn connect_request(plan: Option<&str>) -> ClientMessage {
+    ClientMessage::ConnectToHost {
+        host_id: "mac".into(),
+        client_id: "phone".into(),
+        protocol_version: 3,
+        api_key: None,
+        plan: plan.map(str::to_string),
+        jws_representation: None,
+        public_key: None,
+        proof: None,
+        proof_time: None,
+    }
+}
+
+/// A session with its control splice running: a phone and a Mac introduced by the relay, both
+/// having presented the same control token, and one byte already carried from one end to the other.
+struct Splice {
+    phone: TcpStream,
+    mac: TcpStream,
+    /// Kept open because the tests below ask the relay questions over it once the splice is over: a
+    /// client whose session was ended for money is a client that comes back and asks for another.
+    phone_ws: Ws,
+    /// And the Mac's, held for the same reason and read by nobody: a registration that dropped
+    /// mid-session would leave the relay with a session whose host is offline, and a test that
+    /// expects a refusal for money wants the money to be the only reason it could have been.
+    _mac_ws: Ws,
+}
+
+async fn splice(relay: &TestRelay, plan: Option<&str>) -> Splice {
+    let mut mac = register_mac(relay, "mac").await;
+    let mut phone = connect(relay.signal_port).await;
+    send(&mut phone, &connect_request(plan)).await;
+
+    let phone_session = await_session(&mut phone).await;
+    let mac_session = await_session(&mut mac).await;
+
+    // Both ends present the same control token. Whichever arrives first waits for the other, and
+    // whoever ends up holding both splices, so the first byte is what proves the splice is up
+    // rather than assuming it from the two calls returning.
+    let mut phone_side = present(relay.control_port, &phone_session.control_token).await;
+    let mut mac_side = present(relay.control_port, &mac_session.control_token).await;
+    assert!(
+        carries_traffic(&mut phone_side, &mut mac_side, b'!').await,
+        "the splice should be carrying traffic before a test starts charging for it"
+    );
+
+    Splice {
+        phone: phone_side,
+        mac: mac_side,
+        phone_ws: phone,
+        _mac_ws: mac,
+    }
+}
+
+/// Pushes a byte in at one end and reports whether it came out of the other.
+///
+/// Anything but a delivered byte is a splice that has stopped carrying traffic, which is the only
+/// thing the metering tests are asking about: a session the relay has ended and a session whose
+/// sockets have gone quiet look the same from here on purpose.
+async fn carries_traffic(writer: &mut TcpStream, reader: &mut TcpStream, byte: u8) -> bool {
+    if writer.write_all(&[byte]).await.is_err() {
+        return false;
+    }
+    let mut heard = [0u8; 1];
+    matches!(
+        timeout(PATIENCE, reader.read_exact(&mut heard)).await,
+        Ok(Ok(_)) if heard[0] == byte
+    )
+}
+
+/// Whether the relay has let go of this end, which is what an ended session looks like from a
+/// client: the socket closes and the read comes back with nothing in it.
+async fn closed(stream: &mut TcpStream) -> bool {
+    let mut buf = [0u8; 1];
+    loop {
+        match timeout(PATIENCE, stream.read(&mut buf)).await {
+            // Closed by the relay, or reset by it: both mean the splice is over, and which of the
+            // two it was is not something a client can tell a user apart by.
+            Ok(Ok(0)) | Ok(Err(_)) => return true,
+            // Traffic that is not this test's, which the splice is entitled to carry.
+            Ok(Ok(_)) => continue,
+            Err(_) => return false,
+        }
+    }
+}
+
+/// A session that runs past its allowance is ended, and coming straight back does not get another.
+///
+/// **This is the hole the per-charge meter closes.** The allowance used to be looked at once, before
+/// the session was allocated, and the counter only moved when a splice finished, so a client with a
+/// second of credit could open a splice and hold it open for as long as it liked. The numbers here
+/// are small on purpose: two seconds of allowance and a charge every tenth of a second, so the test
+/// waits a couple of seconds rather than the fifteen one charge would otherwise take.
+#[tokio::test]
+async fn a_session_that_runs_past_its_allowance_is_ended() {
+    let quota = Arc::new(
+        QuotaTracker::new(
+            PlanAllowances {
+                free_seconds: Some(2),
+                relay_seconds: Some(60),
+            },
+            Default::default(),
+        )
+        .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_with(Arc::clone(&quota)).await;
+    let mut client = splice(&relay, Some("free")).await;
+
+    assert!(
+        closed(&mut client.phone).await,
+        "the relay should end a session whose allowance is spent"
+    );
+    assert_eq!(
+        quota.remaining("phone", None, Plan::Free),
+        Some(0),
+        "and what ended it is the counter, not a connection that happened to drop"
+    );
+
+    // The client cannot simply ask again: the seconds it spent are spent, and the check before a
+    // session is allocated reads the same counter the meter was charging.
+    send(&mut client.phone_ws, &connect_request(Some("free"))).await;
+    assert!(
+        matches!(
+            next_message(&mut client.phone_ws).await,
+            ServerMessage::Error { ref code, .. } if code == "quotaExceeded"
+        ),
+        "a client with nothing left should be told so rather than given a second session"
+    );
+}
+
+/// A session well inside its allowance is charged for what it runs and left alone.
+///
+/// The other half of the same rule, and the one a broken relay would show: charging while a splice
+/// runs must not disturb a client that is nowhere near its limit. This session is charged several
+/// times over, and carries traffic on both sides of those charges.
+#[tokio::test]
+async fn a_session_inside_its_allowance_is_charged_and_left_alone() {
+    let quota = Arc::new(
+        QuotaTracker::new(PlanAllowances::default(), Default::default())
+            .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_with(Arc::clone(&quota)).await;
+    let mut client = splice(&relay, Some("free")).await;
+
+    // Several charge periods, and a fraction of the half hour this client is allowed.
+    tokio::time::sleep(Duration::from_millis(600)).await;
+
+    assert!(
+        carries_traffic(&mut client.phone, &mut client.mac, b'a').await,
+        "a session that is inside its allowance must keep splicing"
+    );
+    assert!(
+        carries_traffic(&mut client.mac, &mut client.phone, b'b').await,
+        "and must keep splicing in both directions"
+    );
+
+    let left = quota
+        .remaining("phone", None, Plan::Free)
+        .expect("a free plan is metered");
+    assert!(
+        left < 30 * 60,
+        "the time it ran should have been charged: {left} seconds left"
+    );
+    assert!(
+        left > 30 * 60 - 60,
+        "and no more of it than it ran: {left} seconds left"
+    );
+}
+
+/// An unlimited plan is tracked like everything else and is never ended by the meter.
+///
+/// The rule the relay has always had, now that something watches the counter while a session runs:
+/// Plus and Pro are metered for the log and are not blocked by it. This session outlives the whole
+/// of a free allowance by several times over, and is still carrying traffic at the end of it.
+#[tokio::test]
+async fn an_unlimited_plan_is_never_ended_by_the_meter() {
+    let quota = Arc::new(
+        QuotaTracker::new(
+            PlanAllowances {
+                free_seconds: Some(1),
+                relay_seconds: Some(1),
+            },
+            Default::default(),
+        )
+        .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_with(Arc::clone(&quota)).await;
+    let mut client = splice(&relay, Some("pro")).await;
+
+    // Several times what the free allowance would have bought, and many charge periods.
+    tokio::time::sleep(Duration::from_millis(1_500)).await;
+
+    assert!(
+        carries_traffic(&mut client.phone, &mut client.mac, b'z').await,
+        "a Pro session must not be ended by the counter, however long it runs"
+    );
+    assert_eq!(
+        quota.remaining("phone", None, Plan::Pro),
+        None,
+        "and it is still not bounded by the counter it was allocated against"
+    );
+
+    // That it was *tracked* is what the free plan's number is used for here: it is a ruler, not a
+    // limit. Pro is metered for the log the same way free is, so what this session spent shows up
+    // in a reading that does not bound it at all.
+    let left = quota
+        .remaining("phone", None, Plan::Free)
+        .expect("a free plan is metered");
+    assert!(
+        left < 30 * 60 - 1,
+        "an unlimited session is still charged for the log: 30 minutes less {left} seconds recorded"
+    );
+}
+
+/// **A socket that never says hello.** Nothing is authenticated in front of this listener, and
+/// before these deadlines existed a peer could open a connection, send nothing at all, and hold a
+/// task and a file descriptor for as long as it liked, at any of the three stages, including the
+/// WebSocket upgrade this test exercises.
+#[tokio::test]
+async fn a_socket_that_never_finishes_its_handshake_is_closed() {
+    let relay = start_with_timeouts(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_millis(250),
+        Duration::from_secs(30),
+    )
+    .await;
+
+    let mut socket = TcpStream::connect(("127.0.0.1", relay.signal_port))
+        .await
+        .expect("the signalling port should accept a connection");
+
+    // Nothing is written: no TLS, no WebSocket, no bytes. The relay has to give up on its own.
+    let mut byte = [0u8; 1];
+    let read = timeout(PATIENCE, socket.read(&mut byte)).await;
+
+    assert!(
+        matches!(read, Ok(Ok(0)) | Ok(Err(_))),
+        "the relay held a socket that never said anything"
+    );
+}
+
+/// **A connection that has said hello and then gone quiet.** A registered Mac holds its socket open
+/// for as long as it is running and pings every 25 seconds, so a *silent* one is a connection that
+/// has gone, not one that is resting: the deadline is what makes the difference observable.
+#[tokio::test]
+async fn a_signalling_connection_that_goes_quiet_is_dropped() {
+    let relay = start_with_timeouts(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        // Short enough to watch inside a test, and the point is the deadline rather than the number.
+        Duration::from_millis(250),
+    )
+    .await;
+
+    let mut ws = connect(relay.signal_port).await;
+
+    let closed = timeout(PATIENCE, async {
+        loop {
+            match ws.next().await {
+                // A Close frame, a clean end, or a transport error: all three mean the relay let go.
+                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => return,
+                Some(Ok(_)) => continue,
+            }
+        }
+    })
+    .await;
+
+    assert!(closed.is_ok(), "the relay held a silent connection open");
+}
+
+/// And a connection that keeps talking is *not* dropped, which is what the deadline is only useful
+/// alongside: a Mac that pings on its own schedule stays registered indefinitely.
+#[tokio::test]
+async fn a_connection_that_keeps_pinging_is_not_dropped() {
+    let relay = start_with_timeouts(
+        Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default())),
+        Duration::from_secs(10),
+        Duration::from_millis(250),
+    )
+    .await;
+
+    let mut ws = connect(relay.signal_port).await;
+
+    // Four times the idle deadline, pinged twice as often as it expires.
+    for _ in 0..8 {
+        tokio::time::sleep(Duration::from_millis(125)).await;
+        send(&mut ws, &ClientMessage::Ping).await;
+        let mut answered = false;
+        while !answered {
+            match timeout(PATIENCE, ws.next()).await {
+                Ok(Some(Ok(Message::Text(_)))) => answered = true,
+                Ok(Some(Ok(_))) => continue,
+                other => panic!("the relay dropped a connection that was pinging: {other:?}"),
+            }
+        }
+    }
+}
+
+// MARK: - What the allowance hangs from
+
+/// A client key and the proof it makes over its own device id.
+///
+/// Built here the way the app builds it: a P-256 key, the 65-byte uncompressed point in hex, and a
+/// DER signature over `device_proof::client_payload`. The point of exercising it end to end is that
+/// the two sides of this signature are written in two languages, and a payload spelled differently
+/// in each is a proof that never verifies and looks, from the relay, exactly like a client that did
+/// not send one.
+fn client_proof(
+    signing: &p256::ecdsa::SigningKey,
+    client_id: &str,
+    proof_time: u64,
+) -> (String, String, u64) {
+    use p256::ecdsa::{Signature, signature::Signer};
+
+    let body = peeringd::device_proof::client_payload(client_id, proof_time);
+    let signature: Signature = signing.sign(body.as_bytes());
+    (
+        peeringd::protocol::bytes_hex(&signing.verifying_key().to_sec1_bytes()),
+        peeringd::protocol::bytes_hex(signature.to_der().as_bytes()),
+        proof_time,
+    )
+}
+
+/// **The reinstall, which is what this whole proof is for.** A device id lives in the app's own
+/// storage and is destroyed by deleting the app; the key lives in the Keychain, and iOS keeps those
+/// through a reinstall. So the second install announces a *different* id and signs with the *same*
+/// key, and what it has already spent has to follow the key rather than the id.
+#[tokio::test]
+async fn a_reinstall_spends_the_allowance_the_first_install_spent() {
+    use p256::ecdsa::SigningKey;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    // One second of free relay. A splice is charged a minimum of one second, so a session that
+    // runs for any fraction of a second spends the whole allowance and the test does not have to
+    // sit here for two seconds to watch a counter move.
+    let quota = Arc::new(
+        QuotaTracker::new(
+            PlanAllowances {
+                free_seconds: Some(1),
+                relay_seconds: Some(10_800),
+            },
+            Default::default(),
+        )
+        .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_with(Arc::clone(&quota)).await;
+    let mut mac = register_mac(&relay, "mac").await;
+
+    // The key this phone holds, and the id its first install announced.
+    let signing = SigningKey::from_bytes(&[0x42; 32].into()).expect("a valid scalar");
+    let first = client_proof(&signing, "install-one", now);
+
+    let mut phone = connect(relay.signal_port).await;
+    send(
+        &mut phone,
+        &ClientMessage::ConnectToHost {
+            host_id: "mac".into(),
+            client_id: "install-one".into(),
+            protocol_version: 3,
+            api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
+            public_key: Some(first.0.clone()),
+            proof: Some(first.1),
+            proof_time: Some(first.2),
+        },
+    )
+    .await;
+
+    let phone_session = await_session(&mut phone).await;
+    let mac_session = await_session(&mut mac).await;
+    let mut phone_side = present(relay.control_port, &phone_session.control_token).await;
+    let mut mac_side = present(relay.control_port, &mac_session.control_token).await;
+    assert!(carries_traffic(&mut phone_side, &mut mac_side, b'!').await);
+
+    // Long enough to spend the two seconds several times over.
+    tokio::time::sleep(Duration::from_millis(600)).await;
+
+    assert_eq!(
+        quota.remaining(&first.0, None, Plan::Free),
+        Some(0),
+        "the key is what the relay charged, and it is spent"
+    );
+
+    // And the second install: a fresh id, the same key, nothing left.
+    let mut reinstalled = connect(relay.signal_port).await;
+    let second = client_proof(&signing, "install-two", now);
+    send(
+        &mut reinstalled,
+        &ClientMessage::ConnectToHost {
+            host_id: "mac".into(),
+            client_id: "install-two".into(),
+            protocol_version: 3,
+            api_key: None,
+            plan: Some("free".into()),
+            jws_representation: None,
+            public_key: Some(second.0),
+            proof: Some(second.1),
+            proof_time: Some(second.2),
+        },
+    )
+    .await;
+
+    assert!(
+        matches!(
+            next_message(&mut reinstalled).await,
+            ServerMessage::Error { ref code, .. } if code == "quotaExceeded"
+        ),
+        "a fresh id with the same key must not be a fresh allowance"
+    );
+}
+
+/// And a client that sends no proof is metered by its id, exactly as every build before this one
+/// was: the field is optional, and its absence is not a refusal.
+#[tokio::test]
+async fn a_client_without_a_proof_is_still_metered_by_its_id() {
+    let quota = Arc::new(
+        QuotaTracker::new(
+            PlanAllowances {
+                free_seconds: Some(1),
+                relay_seconds: Some(10_800),
+            },
+            Default::default(),
+        )
+        .with_charge_period(Duration::from_millis(100)),
+    );
+    let relay = start_with(Arc::clone(&quota)).await;
+    let mut client = splice(&relay, Some("free")).await;
+
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    assert_eq!(
+        quota.remaining("phone", None, Plan::Free),
+        Some(0),
+        "the announced id is the key when there is no proof"
+    );
+    let _ = client.phone_ws.send(Message::Close(None)).await;
 }

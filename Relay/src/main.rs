@@ -25,7 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let config = Config::from_env()?;
-    let registry = Arc::new(Registry::new());
+    // The ceiling travels in rather than being a constant in the module, because it is a fact about
+    // the machine: see `Settings::max_sessions`.
+    let registry = Arc::new(Registry::new(config.max_sessions));
     // Who each device id belongs to. A relay that does not write these down forgets them on
     // restart, which re-opens the window for every id it had learned. See `device_bindings`.
     let (hosts, binding_failure) = HostRegistry::with_bindings(config.device_bindings.clone());
@@ -84,23 +86,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // The allowances are logged as minutes because that is how they are configured and how the
     // app's copy states them; seconds would be a conversion nobody asked for. `unlimited` is the
-    // top two plans and is not configurable — see `PlanAllowances`.
+    // top two plans and is not configurable: see `PlanAllowances`. Which plan a client ends up
+    // metered by is the block below, which is the more important of the two lines.
     info!(
         free_minutes = config.plans.free_seconds.map(|s| s / 60),
         relay_minutes = config.plans.relay_seconds.map(|s| s / 60),
-        "relay quota active; the plan comes from the receipt Apple signed, and from the plan the client claims when there is no receipt that verifies"
+        "relay quota active"
     );
 
     // Said at startup rather than only in a comment, because it is the state of the one known hole
     // in the relay and the line an operator should see before deciding it is fine. Read off the
-    // verifier rather than off the configuration, so the warning is about what was actually built.
+    // verifier rather than off the configuration, so both lines are about what was actually built.
+    //
+    // The closed branch names TestFlight, because that is the case an operator meets first and the
+    // one that looks like a bug: a tester's receipt is a real one that Apple signed and this relay
+    // refuses it all the same, so a beta build on `pro` is metered as free until someone sets the
+    // switch. Naming it here saves an operator the round of reading `storekit` to find that out.
     if receipts.trusts_claims() {
         warn!(
-            "a client with no verifiable receipt is metered by the plan it claims, which a patched app can lie about; set PEERINGD_TRUST_CLAIMED_PLANS=0 to meter every unproven plan as free"
+            "PEERINGD_TRUST_CLAIMED_PLANS is on: a client with no verifiable receipt is metered by the plan it claims, which any patched app can lie about. That setting is for beta testing, where a TestFlight build's receipt is a sandbox one and is refused by name; unset it for production"
         );
     } else {
         info!(
-            "claimed plans are not trusted: only a receipt that verifies against Apple's root buys more than the free allowance"
+            "claimed plans buy nothing: a plan is believed only when the receipt Apple signed for it verifies, and every client without one, a TestFlight build whose receipt is a sandbox one included, is metered as free"
         );
     }
 
@@ -144,7 +152,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry), Arc::clone(&quota)));
+    // No counter is handed to the control relay any more, and that is not an omission: what a
+    // splice is charged on travels with its session, put there by signalling where the plan was
+    // resolved. See `quota::Account`.
+    tokio::spawn(tcp_relay::serve(control, Arc::clone(&registry)));
 
     // Abandoned sessions are the normal residue of clients that crash or walk away, so this runs
     // forever rather than as a one-off. This is also what retires the video routes of a session
@@ -190,6 +201,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         session_ttl: config.session_ttl,
         quota,
         receipts,
+        max_sessions: config.max_sessions,
+        max_connections: config.max_connections,
+        handshake_timeout: config.handshake_timeout,
+        idle_timeout: config.idle_timeout,
     };
 
     tokio::select! {
