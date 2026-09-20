@@ -20,8 +20,15 @@ because the reasoning in it still holds in places. The live ladder is:
 | Sound, Picture in Picture | | yes | yes | yes |
 | Moving files both ways | | yes | yes | yes |
 | Several shells at once | | | yes | yes |
+| Several Macs at once | | | | yes |
 | Macros, snippets, quick commands | | | | yes |
 | The sharpest picture over the relay | | | | yes |
+
+Several Macs at once is the row that is about how many may be *live* rather than how many may be
+paired, and the two are deliberately separate. "Paired Macs" above is a limit on a list and is true
+on Relay and up; this one is a limit on concurrency and is Pro. So a Relay subscriber pairs every
+Mac they own and holds one at a time, which is what the card for that rung says. One Mac at a time
+is free on every plan, and the first one always will be.
 
 The picture row is the newest and the only one in the map about *how much* rather than *whether*.
 Automatic quality starts at 20 Mbps on a direct path and 8 on a relay, and climbs; a relayed

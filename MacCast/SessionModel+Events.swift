@@ -22,6 +22,17 @@ extension SessionModel {
                 pendingHostID = nil
                 connect(to: .discovered(host))
             }
+            // If we raced Bonjour on cold launch and lost — starting a relay session before the
+            // local browser had time to find the Mac — switch to LAN as soon as it does appear,
+            // but only while the relay connection is still establishing. Once the session is
+            // carrying a picture, an interruption costs more than the relay does.
+            if let session = activeSession,
+               session.connectionPath == .relay,
+               session.phase != .ready,
+               let hostID = UserDefaults.standard.string(forKey: Self.lastHostIDKey),
+               let host = hosts.first(where: { $0.id == hostID }) {
+                connect(to: .discovered(host))
+            }
             self.resumeIfNeeded()
             // The second sentence matters more than it did: an empty list here is now the
             // moment to look at the other way in, which is the row directly below this text.

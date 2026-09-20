@@ -27,8 +27,10 @@ extension MacSession {
                 // a session object means an attempt is already underway, true from the moment
                 // `connect(to:)` assigns it, and false from the moment the attempt fails, which
                 // is the state this branch exists in.
+                connectTask?.cancel()
+                connectTask = nil
                 wire = nil
-                model.scheduleReconnect()
+                scheduleReconnect()
                 return
             }
             if phase.holdsSession { model.isResuming = false }
@@ -67,6 +69,7 @@ extension MacSession {
                 videoStatus = "Disconnected"
             }
             if phase == .ready {
+                hasBeenReady = true
                 // A session that came up is not a session that was cut, whatever the last one
                 // did. Cleared here so a drop that was followed by a working reconnect cannot
                 // label a refusal an hour later as the relay having cut something.
@@ -125,8 +128,10 @@ extension MacSession {
                 // connection, the video socket, the datagram lane and the relay proxy before it
                 // emits this phase, so what is being let go of here is a reference to something
                 // that has already let go of everything else.
+                connectTask?.cancel()
+                connectTask = nil
                 wire = nil
-                model.scheduleReconnect()
+                scheduleReconnect()
             }
             // Held open for as long as there is a session, so the socket outlives the app being
             // on screen. Start before the card rather than after: the card is worth nothing if

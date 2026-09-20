@@ -205,6 +205,24 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         }
     }
 
+    /// Ends the display attachment itself, not merely the current encoded stream.
+    ///
+    /// `reset()` intentionally keeps the renderer because source switches use it and the next
+    /// config arrives on the same screen. A finished session is different: its SwiftUI view is
+    /// leaving, so retaining the layer's renderer would retain decoder/display resources after
+    /// the network session is gone.
+    func detach() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.renderer?.flush()
+            self.renderer = nil
+            self.formatDescription = nil
+            self.debugTimingOrigin = nil
+            self.debugTimingFrameCount = 0
+            self.lock.withLock { self.snapshot = Snapshot() }
+        }
+    }
+
     var currentSnapshot: Snapshot { lock.withLock { snapshot } }
 
     // MARK: - Format description
@@ -606,6 +624,17 @@ final class SessionPiP: NSObject {
         guard let controller, controller.isPictureInPictureActive else { return }
         controller.stopPictureInPicture()
     }
+
+    /// Stops the floating window and releases the content source tied to the departing video
+    /// layer. A later `attach` builds a controller for the next session's layer.
+    func detach() {
+        if controller?.isPictureInPictureActive == true {
+            controller?.stopPictureInPicture()
+        }
+        controller?.delegate = nil
+        controller = nil
+        host = nil
+    }
 }
 
 extension SessionPiP: AVPictureInPictureControllerDelegate {
@@ -712,4 +741,3 @@ extension SessionPiP: AVPictureInPictureSampleBufferPlaybackDelegate {
         completionHandler()
     }
 }
-

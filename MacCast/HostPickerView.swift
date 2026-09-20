@@ -862,6 +862,18 @@ private struct HomeTab: View {
         let reach = model.reachability(ofHost: hostID)
         let isActive = model.currentHostID == hostID && model.phase == .ready
         return HStack(spacing: 10) {
+            // **The second Mac is the paid one.** Drawn as itself with its own dot and its own
+            // name, dimmed, with the plan's name at its trailing edge rather than a padlock in
+            // the row's place: a row is how somebody finds out the app can hold more than one
+            // Mac open at all, and the first Mac is free on every plan, which is why
+            // `isIncluded` is passed rather than left to the map. See ``PlanLocked``.
+            PlanLocked(
+                capability: .concurrentSessions,
+                title: "Another Mac",
+                placement: .trailing,
+                diameter: 44,
+                isIncluded: model.canAddAnotherSession
+            ) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
                     ZStack(alignment: .bottomTrailing) {
@@ -907,6 +919,7 @@ private struct HomeTab: View {
             }
             .buttonStyle(.plain)
             .disabled(model.isBusy)
+            }
 
             Menu {
                 Section("Connection") {

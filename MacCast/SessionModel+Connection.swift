@@ -117,11 +117,13 @@ extension SessionModel {
             stopReconnecting()
         }
         sessionStartedAt = nil
+        activeSession?.connectTask?.cancel()
+        activeSession?.connectTask = nil
         activeSession?.wire?.disconnect()
         activeSession?.wire = nil
         activeSession?.videoPoll?.cancel()
         activeSession?.videoPoll = nil
-        renderer.reset()
+        renderer.detach()
         connectionPath = nil
         // An end this app chose is not a session the relay cut. Cleared here as well as on a
         // session coming up, because this path sets the phase directly and so never passes
@@ -145,7 +147,7 @@ extension SessionModel {
         // this, quitting left silence playing and a floating window of a Mac nobody is
         // connected to.
         SessionAudio.shared.end()
-        SessionPiP.shared.stop()
+        SessionPiP.shared.detach()
 
         if deliberate {
             SessionActivity.shared.sessionEnded()
@@ -278,81 +280,89 @@ extension SessionModel {
         relayPresence = answers
     }
 
+    /// Puts every Mac that has dropped back, and starts the one that was open last if none is.
+    ///
+    /// **One call, over every session and then the cold case**, because the three places this is
+    /// called from are all asking the same question: coming back to the front, a Mac appearing in
+    /// the browser, and the ladder's own tick. Each session resumes itself — see
+    /// ``MacSession/resumeIfNeeded()`` — and what is left here is the launch where there is no
+    /// session at all and the only evidence of one is what was written down before the app died.
     func resumeIfNeeded() {
-        // `session` is assigned synchronously in ``connect(to:)``, before the phase has heard
-        // anything, while the browser fires `updated` on its own schedule — so the session is
-        // the only reliable evidence that an attempt is already in flight. Without it the retry
-        // and the browser can both start one, and each silently closes the other's connection.
-        guard session == nil, !phase.holdsSession else {
-            stopReconnecting()
-            return
-        }
+        for session in sessions { session.resumeIfNeeded() }
+        resumeTheLastMacIfNothingIsOpen()
+    }
+
+    /// The cold launch: nothing is open, and `resumeKey` says there was something.
+    ///
+    /// A separate path rather than a branch of the loop above, because a session that does not
+    /// exist yet cannot know which Mac it is for: the ID is in the defaults and nowhere else. It
+    /// is also the only case where Bonjour can be consulted by *name*, which is what a device
+    /// that dropped before the handshake was ever recorded by.
+    private func resumeTheLastMacIfNothingIsOpen() {
+        // **Only the launch with nothing in it.** With a session object at all, the loop above
+        // has already asked that session to put itself back, and a second dial for the same Mac
+        // would race the first and close its connection mid-handshake.
+        guard sessions.isEmpty else { return }
         guard UserDefaults.standard.bool(forKey: Self.resumeKey) else { return }
 
         let defaults = UserDefaults.standard
         let hostID = defaults.string(forKey: Self.lastHostIDKey)
         let name = defaults.string(forKey: Self.lastHostNameKey)
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
-            stopReconnecting()
             isResuming = true
             connect(to: .discovered(host))
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            stopReconnecting()
             isResuming = true
             connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
-        } else {
-            // Includes the LAN-only case: the Mac is paired and simply not here yet. The ladder
-            // keeps asking until it appears, which is the whole of what "wait for it to come
-            // back" means — stopping at the first attempt that found nothing would end a resume
-            // that has not failed, only not succeeded yet.
-            scheduleReconnect()
         }
     }
 
-    /// Arms the next attempt, if there is one left to make.
-    /// Arms the next attempt, if there is one left to make.
-    func scheduleReconnect() {
-        guard reconnectTask == nil else { return }
-        guard reconnectAttempt < Self.reconnectDelays.count else {
-            isReconnecting = false
-            // The reconnect ladder gave up. `sessionMoved` is not called again because there is
-            // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
-            // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
-            SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
-                startedAt: nil,
-                path: MacSession.activityPath(connectionPath)
-            )
+    /// Opens a Mac that is already paired, beside the ones already open.
+    ///
+    /// **The door the strip's `+` and the picker's rows both come through.** The gate and the
+    /// ceiling are enforced one level down in ``SessionModel/connect(to:replacing:)``, because
+    /// that is where every route from anywhere in the app actually arrives; this is the name the
+    /// screens call and the place the "already open" question is answered.
+    func addSession(hostID: String) {
+        // **A Mac already open is brought to the front rather than opened twice.** Two sessions
+        // to one Mac would be two control channels, two terminal lists and two meters for one
+        // machine, and the Mac itself would see two clients where the user has one phone.
+        if let open = sessions.first(where: { $0.hostID == hostID && $0.isLive }) {
+            activateSession(open.id)
             return
         }
-        let delay = Self.reconnectDelays[reconnectAttempt]
-        reconnectAttempt += 1
-        isReconnecting = true
-        reconnectTask = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard let self, !Task.isCancelled else { return }
-            self.reconnectTask = nil
-            self.resumeIfNeeded()
-        }
+        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
     }
 
-    /// Stops the retry, *without* resetting the backoff.
+    /// The paired Macs that are not already open, which is what the strip's `+` offers.
     ///
-    /// The counter belongs to a run of attempts, and resetting it here is what turned a failing
-    /// reconnect into a permanent loop: every cycle called this, so the attempt count returned to
-    /// zero and the delays never advanced past the first second. Only a session that actually
-    /// came up clears it — see the `.ready` branch in ``apply(_:)``.
-    /// Stops the retry, *without* resetting the backoff.
-    ///
-    /// The counter belongs to a run of attempts, and resetting it here is what turned a failing
-    /// reconnect into a permanent loop: every cycle called this, so the attempt count returned to
-    /// zero and the delays never advanced past the first second. Only a session that actually
-    /// came up clears it — see the `.ready` branch in ``apply(_:)``.
-    func stopReconnecting() {
-        reconnectTask?.cancel()
-        reconnectTask = nil
-        isReconnecting = false
+    /// Most recently connected first, for the same reason the widget's list is: the Mac someone
+    /// wants to add is almost always one they have used lately.
+    var closedPairedMacs: [(id: String, name: String)] {
+        let open = Set(sessions.compactMap(\.hostID))
+        return pairedHostIDs
+            .filter { !open.contains($0) }
+            .sorted { (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast) }
+            .map { (id: $0, name: displayName(forHostID: $0) ?? "A Mac") }
     }
+
+    /// Replaces one Mac's session with a fresh attempt at the same Mac, and leaves the rest alone.
+    ///
+    /// **The old session is removed rather than left to be pruned**, because it is the one being
+    /// replaced and its ladder has just handed over: leaving it would put two entries for one Mac
+    /// in the strip for as long as the new attempt takes, which is exactly the state the user
+    /// would read as "it connected twice".
+    func reconnect(_ session: MacSession, to target: ClientSession.Target) {
+        connect(to: target, replacing: session)
+    }
+
+    /// Stops the active Mac being retried, *without* resetting its backoff.
+    ///
+    /// The counter belongs to a run of attempts, and resetting it here is what turned a failing
+    /// reconnect into a permanent loop: every cycle called this, so the attempt count returned to
+    /// zero and the delays never advanced past the first second. Only a session that actually
+    /// came up clears it — see the `.ready` branch in ``MacSession/apply(_:)``.
+    func stopReconnecting() { activeSession?.stopReconnecting() }
 
     // MARK: - Backgrounding
 

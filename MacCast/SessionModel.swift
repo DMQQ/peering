@@ -145,12 +145,6 @@ final class SessionModel {
     /// A no-op for the session already on screen, deliberately: asking a Mac for its picture
     /// again when nothing has changed would blink it, and a tab tapped twice is not a request to
     /// restart anything.
-    ///
-    /// **Nothing calls this yet, and that is not an oversight.** There is one Mac until Stage 4,
-    /// so there is nothing to switch to; what this stage adds is the path a switch takes and the
-    /// instrument that times it, both of which need the second Mac to be observed. The
-    /// measurement it feeds is read off ``MacSession/lastResumeMilliseconds``, which is printed
-    /// in the diagnostics blob.
     func activateSession(_ id: UUID) {
         guard id != activeSessionID, let session = sessions.first(where: { $0.id == id }) else { return }
         // Stopped before the switch rather than after: the Mac being left should stop spending
@@ -160,6 +154,37 @@ final class SessionModel {
         activeSessionID = id
         session.setPicturePaused(false)
     }
+
+    /// The Macs that are open, in the order they were opened.
+    ///
+    /// **What the tab strip draws and what the ceiling counts**, and not the same list as
+    /// ``sessions``: a session that has ended is kept until the next one arrives so that its
+    /// failure can still be read and its last figures copied into a diagnostics blob, and a Mac
+    /// nobody is connected to is not a tab.
+    var openSessions: [MacSession] { sessions.filter(\.isLive) }
+
+    /// Whether any Mac is open, which is the question the picker and the gate both ask.
+    var hasOpenSession: Bool { !openSessions.isEmpty }
+
+    /// Whether another Mac may be opened on this plan.
+    ///
+    /// **The first Mac is free on every plan**, which is why this is not asked of
+    /// ``StoreManager/access`` on its own. The question is never "is this paid": it is "is this
+    /// paid, or is this the first one" — the same shape as ``canOpenAnotherShell``, and passed to
+    /// the badge as `isIncluded` for the same reason.
+    var canAddAnotherSession: Bool {
+        storeManager.access.includes(.concurrentSessions) || openSessions.isEmpty
+    }
+
+    /// The most Macs the app will hold open at once.
+    ///
+    /// **A ceiling on the user's own phone rather than on the service**, and the number is
+    /// deliberately low: every Mac open is a control connection, a keepalive and a sleep
+    /// assertion held on a machine the user is not looking at, and past a handful the thing being
+    /// spent is the battery of the phone that has to service them all. Four is more Macs than
+    /// anybody works across at once and fewer than the number at which the cost stops being
+    /// invisible.
+    static let sessionCeiling = 4
 
     // MARK: - Connection state
 
@@ -844,10 +869,46 @@ final class SessionModel {
         browser.start()
     }
 
-    var isBusy: Bool { phase.holdsSession }
+    /// Whether a Mac is open, which is what the picker's rows are disabled by.
+    ///
+    /// **Any Mac and not the one on screen.** A row that dialled a second Mac while the first was
+    /// open is the case the plan gates, and a row disabled by the active session's phase alone
+    /// would be enabled the moment the user looked at a Mac that had finished — which is exactly
+    /// when the gate is the thing standing between them and a connection.
+    var isBusy: Bool { hasOpenSession }
 
     func connect(to target: ClientSession.Target) {
+        connect(to: target, replacing: nil)
+    }
+
+    /// Opens a Mac, replacing one session if there is one to replace.
+    ///
+    /// - Parameter old: the session this attempt supersedes, or `nil` when it is a Mac being
+    ///   opened from the picker. A replaced session is removed rather than left to be pruned,
+    ///   because its ladder has just handed over and two entries for one Mac is what a user reads
+    ///   as "it connected twice".
+    func connect(to target: ClientSession.Target, replacing old: MacSession?) {
         guard let identity, identityFailure == nil else { return }
+
+        // **The gate, at the one place every route passes through.** The picker's row, the strip's
+        // plus and the widget's URL all arrive here, so a gate drawn on one of them cannot be
+        // walked past by another — which is the shape of gate that ends up on a review as a
+        // promise the app does not keep. See ``PlanCapability/concurrentSessions``.
+        //
+        // A ladder putting a Mac back is deliberately not gated: that Mac is already open and the
+        // plan was checked when it was, so asking again would end a session the user has paid for
+        // the moment their subscription lapsed mid-reconnect.
+        if old == nil, hasOpenSession, !canAddAnotherSession {
+            paywallReason = .feature(.concurrentSessions)
+            return
+        }
+        // **Said rather than silently refused.** The ceiling is a fact about this phone rather
+        // than about the user's plan, and a tap that did nothing at all would read as the app
+        // being broken rather than as a limit being reached.
+        if old == nil, openSessions.count >= Self.sessionCeiling {
+            append(note: "This phone holds \(Self.sessionCeiling) Macs open at once. Close one to open another.")
+            return
+        }
 
         // Remembered for the home-screen widget, which can offer to connect but has no way of
         // knowing to what — see ``reconnectToLastHost()``. Written twice on purpose: the app
@@ -872,6 +933,8 @@ final class SessionModel {
         // Let go of rather than kept: the object below replaces it in ``sessions``, and the
         // events the old connection is still emitting have nothing left to land on. That is the
         // wanted behaviour — they describe a Mac nobody is looking at any more.
+        activeSession?.connectTask?.cancel()
+        activeSession?.connectTask = nil
         activeSession?.wire?.disconnect()
         // The user has just asked to reach a Mac, which is the first moment the question
         // "tell you when it needs you?" means anything.
@@ -962,10 +1025,12 @@ final class SessionModel {
             }
         )
         session.wire = wire
-        // **The container, and it can only ever hold one.** The list is replaced rather than
-        // appended to, which is what makes this stage invisible: the app had a single session
-        // property, and it still behaves as though it has one. Stage 4 changes these two lines.
-        sessions = [session]
+        // **The container, and this is the only place it changes.** A Mac that has finished is
+        // not a Mac anybody is connected to and is let go of here; the one exception is a session
+        // still being retried, which has a ladder running and a Mac on the other end of it.
+        if let old { sessions.removeAll { $0 === old } }
+        sessions.removeAll { !$0.isLive }
+        sessions.append(session)
         activeSessionID = session.id
 
         // Whether a missing picture could be a network blocking video, which is a question
@@ -980,7 +1045,15 @@ final class SessionModel {
         wire.videoFallbackEnabled = session.connectionPath != .lan
         session.startVideoPolling()
 
-        Task { await wire.connect(to: target) }
+        let connectTask = Task { [weak session, weak wire] in
+            guard let wire else { return }
+            await wire.connect(to: target)
+            await MainActor.run {
+                guard session?.wire === wire else { return }
+                session?.connectTask = nil
+            }
+        }
+        session.connectTask = connectTask
     }
 
     // MARK: - Clipboard
@@ -1140,7 +1213,14 @@ final class SessionModel {
 
     /// Set while a dropped session is being put back, so the Live Activity can say so rather
     /// than keep claiming a connection that is not there.
-    var isReconnecting = false
+    ///
+    /// Read off the session on screen: the card describes one Mac, and the Mac it describes is
+    /// the one the user was looking at when it dropped. Every session has its own answer —
+    /// see ``MacSession/isReconnecting`` for why the ladder is per Mac.
+    var isReconnecting: Bool {
+        get { activeSession?.isReconnecting ?? false }
+        set { activeSession?.isReconnecting = newValue }
+    }
 
     /// How long to wait before each attempt at putting a dropped session back.
     ///
@@ -1153,8 +1233,15 @@ final class SessionModel {
         .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
     ]
 
-    var reconnectTask: Task<Void, Never>?
-    var reconnectAttempt = 0
+    var reconnectTask: Task<Void, Never>? {
+        get { activeSession?.reconnectTask }
+        set { activeSession?.reconnectTask = newValue }
+    }
+
+    var reconnectAttempt: Int {
+        get { activeSession?.reconnectAttempt ?? 0 }
+        set { activeSession?.reconnectAttempt = newValue }
+    }
 
     /// Set while ``resumeIfNeeded()`` is connecting, so a failure it causes is retried by the
     /// ladder rather than reported.

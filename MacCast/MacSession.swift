@@ -129,6 +129,13 @@ final class MacSession {
     /// update a number that the screen can already count by itself.
     var sessionStartedAt: Date?
 
+    /// Whether this connection ever reached a Mac.
+    ///
+    /// Kept for the one question the phase cannot answer: a dropped session and a session that
+    /// never got past the handshake are both `.failed`, and only the first is one the ladder
+    /// should keep trying to put back. See ``resumeIfNeeded()``.
+    var hasBeenReady = false
+
     /// Optimistic state for this session's physical-display privacy command. The host always
     /// restores brightness when the last client disconnects.
     var privacyModeEnabled = false
@@ -163,6 +170,111 @@ final class MacSession {
     var videoTransport: VideoTransport = .primary
 
     var videoPoll: Task<Void, Never>?
+    /// The task inside the current attempt, retained so a user ending or replacing the session
+    /// also cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
+    var connectTask: Task<Void, Never>?
+
+    // MARK: - Coming back after a drop
+
+    /// Whether there is a live connection behind this session, or an attempt to put one back.
+    ///
+    /// **The question the strip, the ceiling and the gate all ask**, and deliberately not
+    /// `phase.holdsSession` on its own: a Mac that has dropped and is being retried is a Mac the
+    /// user still has open, and letting go of it the moment its socket failed is how a session
+    /// disappears from the app while the ladder is quietly rebuilding it.
+    var isLive: Bool { phase.holdsSession || isReconnecting }
+
+    /// Set while a dropped session is being put back, so the Live Activity can say so rather
+    /// than keep claiming a connection that is not there.
+    var isReconnecting = false
+
+    /// How many attempts this Mac's ladder has made, and the task waiting to make the next one.
+    ///
+    /// **Per Mac, which is the whole reason these moved here.** Two Macs on one phone drop for
+    /// two different reasons at two different times, and a shared counter means the second Mac's
+    /// failure resets the first one's backoff, so a Mac that is switched off is dialled every
+    /// second forever because the Mac in the user's hand keeps failing too.
+    var reconnectAttempt = 0
+    var reconnectTask: Task<Void, Never>?
+
+    /// Puts this Mac back, if it dropped and the user did not end it.
+    ///
+    /// **This Mac and no other**, which is what the ladder being here is for. The host is known —
+    /// it is the one this session was dialled for — so the resume is a dial to a named Mac rather
+    /// than "whatever was open last", and a second Mac dropping at the same moment runs its own
+    /// ladder beside this one without either resetting the other's backoff.
+    ///
+    /// The wire is the evidence that an attempt is already in flight, and it is assigned
+    /// synchronously in ``SessionModel/connect(to:)`` before the phase has heard anything, while
+    /// the browser fires on its own schedule. Without that guard the retry and the browser can
+    /// both start one, and each silently closes the other's connection.
+    func resumeIfNeeded() {
+        guard wire == nil, !phase.holdsSession else {
+            if phase.holdsSession { stopReconnecting() }
+            return
+        }
+        // **Only a Mac that was actually connected.** A connection that failed at the handshake,
+        // or a first pairing with a mistyped ID, is an attempt that has ended rather than a
+        // session waiting to come back, and retrying it forever is what the failure card is for.
+        guard hasBeenReady || isReconnecting else { return }
+        guard UserDefaults.standard.bool(forKey: SessionModel.resumeKey) else { return }
+        guard let hostID else {
+            // A connection that never reached a handshake has no Mac to dial. That is the case
+            // for a first pairing whose ID was mistyped, and there is nothing to retry.
+            stopReconnecting()
+            return
+        }
+
+        if let host = model.hosts.first(where: { $0.id == hostID }) {
+            stopReconnecting()
+            model.isResuming = true
+            model.reconnect(self, to: .discovered(host))
+        } else if model.allowsRelay, model.pins.hostIDs.contains(hostID) {
+            stopReconnecting()
+            model.isResuming = true
+            model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? "A Mac"))
+        } else {
+            // The LAN-only case: the Mac is paired and simply not here yet. The ladder keeps
+            // asking until it appears, which is the whole of what "wait for it to come back"
+            // means — stopping at the first attempt that found nothing would end a resume that
+            // has not failed, only not succeeded yet.
+            scheduleReconnect()
+        }
+    }
+
+    /// Arms the next attempt, if there is one left to make.
+    func scheduleReconnect() {
+        guard reconnectTask == nil else { return }
+        guard reconnectAttempt < SessionModel.reconnectDelays.count else {
+            isReconnecting = false
+            // The reconnect ladder gave up. `sessionMoved` is not called again because there is
+            // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
+            // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
+            SessionActivity.shared.sessionDropped(
+                hostName: hostName ?? "the Mac",
+                startedAt: nil,
+                path: Self.activityPath(connectionPath)
+            )
+            return
+        }
+        let delay = SessionModel.reconnectDelays[reconnectAttempt]
+        reconnectAttempt += 1
+        isReconnecting = true
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self, !Task.isCancelled else { return }
+            self.reconnectTask = nil
+            self.resumeIfNeeded()
+        }
+    }
+
+    /// Stops the retry, *without* resetting the backoff. See
+    /// ``SessionModel/stopReconnecting()`` for why the counter is not cleared here.
+    func stopReconnecting() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        isReconnecting = false
+    }
 
     // MARK: - Asking this Mac for the picture, and for silence
 

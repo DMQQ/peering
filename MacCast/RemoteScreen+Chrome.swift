@@ -59,6 +59,10 @@ extension RemoteScreen {
                 // it would have started constraining the status rows instead, since the dots
                 // moved inside it.
                 statusBar.frame(maxWidth: Self.pillMaxWidth + Self.sessionDotsWidth)
+                // Under the pill rather than beside it, in both orientations: the pill is about
+                // the connection the user is watching and the strip is about the others, and
+                // stacking them is what lets the strip disappear without moving the pill.
+                SessionTabs()
 
                 // The panel comes *before* the bottom row in this stack, not after it. Both are
                 // bottom-anchored by the spacer above, so a panel added below the row pushed the
@@ -134,6 +138,8 @@ extension RemoteScreen {
 
                 VStack(spacing: 0) {
                     statusBar
+                    SessionTabs()
+                        .padding(.top, 6)
                     Spacer(minLength: 0)
                     // Above the dock, for the same reason as in landscape: below it there is
                     // nothing left to push it into.
