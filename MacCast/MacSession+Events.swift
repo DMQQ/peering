@@ -33,7 +33,13 @@ extension MacSession {
                 scheduleReconnect()
                 return
             }
-            if phase.holdsSession { model.isResuming = false }
+            if phase.holdsSession {
+                model.isResuming = false
+                // A session that is up again is a resume that arrived, so this Mac is a Mac we are
+                // connected to rather than one whose ladder has run out. Without this the next drop
+                // would be the tail of the last one, and the shorter ladder would already be spent.
+                hasGivenUpResuming = false
+            }
 
             // Read before the assignment. Everything said about a transition — the banner,
             // the point the stopwatch starts from — is about where the session came from,
@@ -106,27 +112,19 @@ extension MacSession {
             // ``MacSession/userEndedDeliberately``.
             let userEnded = userEndedDeliberately
             userEndedDeliberately = false
-            // **Every Mac, unlike the card.** A banner is about a Mac the user is not looking at
-            // by definition, and a background Mac dropping is exactly the thing holding the
-            // connection open was supposed to spare them. Keyed by host, so two Macs' banners
-            // queue rather than replace each other. See ``SessionAwareness/Notification/hostID``.
-            model.notifier.sessionMoved(
-                from: previous,
-                to: phase,
-                hostName: hostName ?? "the Mac",
-                hostID: hostID,
-                deliberate: userEnded
-            )
-            // The same transition, said twice: once as something that can interrupt the user
-            // from another app, and once as something they will see without unlocking. Neither
-            // is a substitute for the other, and both read from this one place.
             // A session that ended without the user asking is put back on its own. The flag
-            // inside `scheduleReconnect` is what decides whether this was theirs — the phase
-            // alone cannot tell a drop from a disconnect.
+            // inside `scheduleReconnect` is what decides whether this was theirs; the phase alone
+            // cannot tell a drop from a disconnect.
             //
             // Before the activity is told, not after: scheduling is what sets `isReconnecting`,
             // and the card has to go up saying "reconnecting" rather than be taken down and
             // brought back a moment later as though nothing had happened.
+            //
+            // **Before the banner too, and for a reason of its own.** The banner's question is
+            // whether this drop is already being put back, and the whole of that answer is
+            // `isReconnecting`, which is false until this block has run. Posted first, every
+            // network switch would announce itself in the most visible place it has, which is
+            // exactly the thing being fixed here.
             if !phase.holdsSession, !userEnded {
                 // **Released here, or the ladder cannot take a single step.**
                 //
@@ -148,6 +146,23 @@ extension MacSession {
                 wire = nil
                 scheduleReconnect()
             }
+
+            // **Every Mac, unlike the card.** A banner is about a Mac the user is not looking at
+            // by definition, and a background Mac dropping is exactly the thing holding the
+            // connection open was supposed to spare them. Keyed by host, so two Macs' banners
+            // queue rather than replace each other. See ``SessionAwareness/Notification/hostID``.
+            //
+            // The same transition, said twice: once as something that can interrupt the user from
+            // another app, and once as something they will see without unlocking. Neither is a
+            // substitute for the other, and both read from this one place.
+            model.notifier.sessionMoved(
+                from: previous,
+                to: phase,
+                hostName: hostName ?? "the Mac",
+                hostID: hostID,
+                deliberate: userEnded,
+                resuming: isResumingAfterDrop
+            )
             // Held open for as long as there is a session, so the socket outlives the app being
             // on screen. Start before the card rather than after: the card is worth nothing if
             // the session it describes has already been suspended. See ``SessionAudio``.

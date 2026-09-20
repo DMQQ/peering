@@ -281,7 +281,11 @@ public final class ClientSession: @unchecked Sendable {
         /// The Mac's device ID, for the targets that name one rather than an address.
         ///
         /// `nil` for a literal address, which says nothing about *which* Mac is at it.
-        var hostID: String? {
+        ///
+        /// Read by the reconnect ladder, which has to know whether the Mac it is dialling is the
+        /// one it is replacing before it carries anything across: what belongs to the Mac and what
+        /// belongs to the attempt are different lifetimes, and only the first survives a dial.
+        public var hostID: String? {
             switch self {
             case .discovered(let host): return host.id
             case .relay(let hostID, _, _), .relayPairing(let hostID, _, _): return hostID

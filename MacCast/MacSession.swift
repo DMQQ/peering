@@ -229,6 +229,43 @@ final class MacSession: Identifiable {
     /// disappears from the app while the ladder is quietly rebuilding it.
     var isLive: Bool { phase.holdsSession || isReconnecting }
 
+    /// Whether this Mac dropped and is being put back, rather than being opened for the first time
+    /// or dialled again by hand.
+    ///
+    /// **The one question neither the phase nor ``isLive`` can answer.** A network switch and a
+    /// first connection both pass through `phase.holdsSession` and both run the same ladder, so
+    /// those two say the same thing about either. What separates them is that this Mac has been
+    /// ready before and the user did not end it, which is why ``hasBeenReady`` has to survive the
+    /// dial that ``SessionModel/connect(to:replacing:)`` makes, and why it is carried there.
+    ///
+    /// **`hasGivenUpResuming` is here because the phases cannot tell two moments apart.** The
+    /// instant a drop lands, and the instant the ladder finally runs out, the session is in the
+    /// same state: `.failed`, `isReconnecting` false, a Mac that had been ready. The first of those
+    /// is a resume about to be armed and the second is a resume that has ended, so "an attempt is
+    /// in flight" is not the question, and asking it either way would put the connecting theatre
+    /// back on screen for a network blip or leave a dead session's picture up for ever. The answer
+    /// is a fact worth storing rather than a state worth inferring.
+    ///
+    /// Everything that should behave differently for a blip than for a connection keys off this:
+    /// the remote screen staying up rather than handing over to the picker, the connecting card
+    /// staying down, the failure banner staying quiet, and the shorter ladder.
+    ///
+    /// The rule itself lives in ``SessionResume``, where it can be tested: it takes five facts and
+    /// the phases are two of them, which is not obvious enough to leave unverified.
+    var isResumingAfterDrop: Bool {
+        SessionResume.isUnderWay(
+            hasBeenReady: hasBeenReady,
+            userEndedDeliberately: userEndedDeliberately,
+            hasGivenUpResuming: hasGivenUpResuming,
+            isReconnecting: isReconnecting,
+            phase: phase
+        )
+    }
+
+    /// Set when the retry ladder runs out, so that a Mac which is not coming back stops being
+    /// treated as one that is. Cleared the moment a session is up again.
+    var hasGivenUpResuming = false
+
     /// Set while a dropped session is being put back, so the Live Activity can say so rather
     /// than keep claiming a connection that is not there.
     var isReconnecting = false
@@ -288,10 +325,28 @@ final class MacSession: Identifiable {
     }
 
     /// Arms the next attempt, if there is one left to make.
+    ///
+    /// **A resume gets the shorter ladder, and it is chosen here rather than kept in the session**
+    /// because it has to match the counter: `reconnectAttempt` indexes into whichever ladder is
+    /// being used, and it is carried across a dial precisely so that this one can run out. A
+    /// ladder that is swapped half way through would index the wrong list.
     func scheduleReconnect() {
         guard reconnectTask == nil else { return }
-        guard reconnectAttempt < SessionModel.reconnectDelays.count else {
+        let delays = isResumingAfterDrop
+            ? SessionModel.resumeReconnectDelays
+            : SessionModel.reconnectDelays
+        guard reconnectAttempt < delays.count else {
             isReconnecting = false
+            // **Said out loud, because nothing else will say it.** With the banner suppressed for
+            // the whole of a resume, running out is the moment the app has to stop behaving like a
+            // session that is coming back: this flag is what turns the remote screen over to the
+            // picker so that the failure is on screen rather than behind a frozen picture.
+            //
+            // The banner is not re-posted here. `SessionAwareness` refuses a repeat of the phase it
+            // is already in, and the phase has been `.failed` since the drop, so the failure
+            // reaches the user as the Connect screen's own card, which is the app's main way of
+            // saying it.
+            hasGivenUpResuming = true
             // The reconnect ladder gave up. `sessionMoved` is not called again because there is
             // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
             // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
@@ -306,7 +361,7 @@ final class MacSession: Identifiable {
             }
             return
         }
-        let delay = SessionModel.reconnectDelays[reconnectAttempt]
+        let delay = delays[reconnectAttempt]
         reconnectAttempt += 1
         isReconnecting = true
         reconnectTask = Task { [weak self] in
@@ -314,6 +369,20 @@ final class MacSession: Identifiable {
             guard let self, !Task.isCancelled else { return }
             self.reconnectTask = nil
             self.resumeIfNeeded()
+        }
+
+        // **The network may already have moved, and this is the case where it usually has.** A
+        // relay socket can hang for the whole of the ten seconds the silence watchdog allows, and
+        // the phone's own change of network is reported long before the drop is: at a moment when
+        // nothing was being put back, which is no reason to dial and so was not acted on. Asked
+        // here because this is the only place a wait begins, and deferred by a turn because the
+        // answer can dial: this runs inside the handling of a phase change, and the rest of that
+        // handling has to finish against the session it started with.
+        //
+        // Only for a Mac being put back. A first connection's ladder is a wait with nothing behind
+        // it to hurry.
+        if isResumingAfterDrop {
+            Task { @MainActor [model] in model.considerNetworkChange() }
         }
     }
 

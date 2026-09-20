@@ -838,6 +838,10 @@ final class SessionModel {
 
     let pins = ClientPinStore.standard
     let browser = HostBrowser()
+
+    /// Watches the phone's own network so that a switch is answered at once rather than waited
+    /// out. Created in ``start()``, which is where the app is told this model is live.
+    private var networkWatcher: NetworkPathWatcher?
     let notifier = SessionNotifier.shared
 
     /// Whether the last thing Bonjour said was a failure.
@@ -904,6 +908,44 @@ final class SessionModel {
             // HostBrowser reports from its own queue. Every one of these touches observable
             // state, so each is hopped deliberately rather than by luck.
             Task { @MainActor in self.apply(event) }
+        }
+
+        // Started with the app rather than at the first drop, and that is not tidiness: what the
+        // watcher does is compare against the path the last dial was made on, and one that began at
+        // a drop would have nothing to compare against and would call its first update a change.
+        let watcher = NetworkPathWatcher()
+        watcher.hasSomethingToPutBack = { [weak self] in
+            self?.sessions.contains { $0.isResumingAfterDrop } ?? false
+        }
+        watcher.onUsableChange = { [weak self] in self?.networkChanged() }
+        networkWatcher = watcher
+        watcher.start()
+    }
+
+    /// Asks the network watcher whether the path has moved since the last dial.
+    ///
+    /// For the moment a wait *begins* rather than the moment the network moves, which is the relay
+    /// case: see ``NetworkPathWatcher/judgeNow()``. Deferred by a turn at the call site, because it
+    /// can dial and the caller is in the middle of handling a phase change.
+    func considerNetworkChange() {
+        networkWatcher?.judgeNow()
+    }
+
+    /// The phone's network has changed to something that can carry a session, so dial now rather
+    /// than wait out a backoff that was counted against a network which is gone.
+    ///
+    /// **Only for a Mac that is on its way back.** A path change with a working session is not a
+    /// reason to dial anything, and one with no session at all is not either; what is left is the
+    /// case this exists for, a session that dropped and was waiting, whose wait is now answering a
+    /// question nobody is asking any more.
+    ///
+    /// **The counter is deliberately not reset.** It is what makes the ladder finite, and a phone
+    /// whose network flaps between two cells would otherwise be dialled for as long as it kept
+    /// flapping. Dialling early costs a rung rather than the ladder.
+    private func networkChanged() {
+        for session in sessions where session.isResumingAfterDrop {
+            session.stopReconnecting()
+            session.resumeIfNeeded()
         }
     }
 
@@ -1052,6 +1094,39 @@ final class SessionModel {
         // the previous session's drops are not this one's to react to.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
+
+        // **Two facts belong to the Mac rather than to this attempt at reaching it**, so they are
+        // carried across a dial of that Mac, and only of that Mac. Everything else above is the
+        // connection's, which is why the list is this short.
+        //
+        // `hasBeenReady` is what tells a resume apart from a first connection. The ladder builds a
+        // new object, so without it a Mac that dropped and is being put back is indistinguishable
+        // from a Mac being opened for the first time, and the app puts the whole connecting
+        // theatre back on screen for a network blip.
+        //
+        // `reconnectAttempt` is carried for the opposite reason: **it used to be thrown away by
+        // every dial.** The counter lives on the object, the object is replaced on each attempt,
+        // and the replacement started at zero, so a Mac that was reachable enough to dial but
+        // never completed stayed on the first rung of the ladder for as long as it kept failing.
+        // A ladder that cannot advance is not a ladder, and a shorter one for a resume is only
+        // safe once this one can run out.
+        if let old, let targetID = target.hostID, targetID == old.hostID {
+            session.hasBeenReady = old.hasBeenReady
+            session.reconnectAttempt = old.reconnectAttempt
+
+            // **And which source was on screen, because the screen is staying up now.** The Mac's
+            // capture pipeline is the app's and goes on capturing the same display or window across
+            // a client reconnect, so this end's record is the thing that would go wrong: a session
+            // that forgets names the catalogue's first display at a picture that is something else.
+            // ``PictureIdentity`` reads a changed source as a different picture, and
+            // ``RemoteScreen`` answers that by resetting the zoom and the pan. That is exactly the
+            // state a resume is supposed to preserve, so it would be thrown away by a reconnect
+            // the user was never meant to notice.
+            //
+            // The catalogue itself is deliberately not carried: the Mac sends it again on `.ready`,
+            // and a stale one naming sources that are gone is worse than a moment without one.
+            session.activeSourceID = old.activeSourceID
+        }
 
         session.hostName = target.displayName
         // Nothing else has to be cleared: everything below this line was this connection's, and
@@ -1345,6 +1420,12 @@ final class SessionModel {
         set { activeSession?.isReconnecting = newValue }
     }
 
+    /// Whether the Mac on screen dropped and is being put back. See
+    /// ``MacSession/isResumingAfterDrop``: the rule is ``SessionResume``'s, and the screens ask it
+    /// here so that they are reading one answer rather than each working out which session is the
+    /// one they mean.
+    var isResumingAfterDrop: Bool { activeSession?.isResumingAfterDrop ?? false }
+
     /// How long to wait before each attempt at putting a dropped session back.
     ///
     /// Spread out, because the usual cause is the Mac being asleep or the network being briefly
@@ -1354,6 +1435,23 @@ final class SessionModel {
     /// better served by the picker than by a spinner.
     static let reconnectDelays: [Duration] = [
         .seconds(1), .seconds(2), .seconds(5), .seconds(10), .seconds(20),
+    ]
+
+    /// The same ladder for a Mac that dropped and is being put back, and it is short on purpose.
+    ///
+    /// **A resume is silent, and silence has to end somewhere.** The long ladder is right for a
+    /// connection being made, where there is a card on screen saying what is happening and a wait
+    /// that is visibly a wait. A resume shows a picture that has stopped moving and says nothing
+    /// about it, so "still coming back" and "gone" look exactly alike, and the only difference the
+    /// user can act on is how long they are asked to wonder. Three rungs is about eight seconds:
+    /// long enough for a handover to settle, short enough that the failure still arrives while they
+    /// are looking at the thing they were waiting for.
+    ///
+    /// **The two ladders share a counter**, which is why they are the same shape, biggest rung
+    /// last: `reconnectAttempt` indexes into whichever one is in use and is carried across a dial,
+    /// so the shorter list is simply the one that runs out sooner.
+    static let resumeReconnectDelays: [Duration] = [
+        .seconds(1), .seconds(2), .seconds(5),
     ]
 
     var reconnectTask: Task<Void, Never>? {

@@ -631,6 +631,42 @@ final class MacCastPolicyTests: XCTestCase {
         XCTAssertNotNil(notification)
     }
 
+    /// A drop the app is already putting back is not news. This is the one place a network switch
+    /// would otherwise still be visible: the screen is a frozen picture, the connecting card stays
+    /// down, and a banner would be the only thing left that said anything had happened.
+    func testADropThatIsBeingResumedIsNotNotified() {
+        let notification = SessionAwareness.notification(
+            from: .ready,
+            to: .failed("The Mac stopped answering."),
+            hostName: "Studio",
+            deliberate: false,
+            resuming: true
+        )
+
+        XCTAssertNil(notification)
+    }
+
+    /// And the suppression is exactly one case wide. A failure on the way to a connection is the
+    /// thing banner text exists for, and a session the user ended is not a resume however much it
+    /// looks like one from the phases.
+    func testAFailureThatIsNotAResumeStillNotifies() {
+        let onTheWay = SessionAwareness.notification(
+            from: .connecting,
+            to: .failed("The Mac refused the connection."),
+            hostName: "Studio",
+            deliberate: false
+        )
+        let userEnded = SessionAwareness.notification(
+            from: .ready,
+            to: .failed("The connection ended."),
+            hostName: "Studio",
+            deliberate: true
+        )
+
+        XCTAssertNotNil(onTheWay)
+        XCTAssertNotNil(userEnded, "a deliberate end is not a resume, whatever the caller passes")
+    }
+
     func testAReadySessionThatDropsNotifies() {
         let notification = SessionAwareness.notification(
             from: .ready,

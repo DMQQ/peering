@@ -18,6 +18,18 @@ struct ContentView: View {
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = false
 
     private var isRemoteScreen: Bool {
+        // **A Mac being put back keeps this screen, and most of the change follows from that.** A
+        // drop leaves the phase at `.failed`, which used to unmount this whole subtree and hand
+        // over to the picker: the picture left the screen, the picker ran its staggered entrance,
+        // the connecting card went up over a session that was only changing networks, and every
+        // piece of state in here (the zoom, the open panel, the dock) was thrown away and rebuilt.
+        // None of that is a connection being made. It is one being restored, and the honest thing
+        // to leave on screen is the frame the session left behind.
+        //
+        // Asked of the session rather than of the phase, because a first connection passes through
+        // the same phases and should keep behaving exactly as it does: see
+        // ``MacSession/isResumingAfterDrop``.
+        if model.isResumingAfterDrop { return true }
         switch model.phase {
         case .ready, .confirming: return true
         default: return false
@@ -269,6 +281,14 @@ struct ContentView: View {
     }
 
     private func beginConnecting() {
+        // **A resume gets no card, and this is the whole of why.** The card exists to cover the
+        // part of a connection that has nothing to look at yet, and its 0.9s hold is tuned for a
+        // Mac being opened, where being read as an arrival rather than a flicker is the point. A
+        // resume has a picture already on screen underneath and someone who was watching it. The
+        // screen it comes back to is still up, so there is nothing here to cover and no reason to
+        // make them wait for the ritual.
+        guard !model.isResumingAfterDrop else { return }
+
         connectingDismissTask?.cancel()
         connectingDismissTask = nil
         connectingSince = Date()

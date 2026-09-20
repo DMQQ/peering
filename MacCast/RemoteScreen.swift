@@ -227,7 +227,18 @@ struct RemoteScreen: View {
                     PairingPrompt(code: code, hostName: model.hostName ?? "this Mac")
                 }
 
-                if model.phase == .connecting || model.phase == .handshaking {
+                // **The same decision the connecting card makes, and it has to be made in both
+                // places.** This overlay used to be unreachable: the remote screen was unmounted
+                // for the whole of a connection, so a scrim saying "Connecting…" could never be
+                // drawn over it. Keeping the screen mounted for a resume is what makes this line
+                // live, and a black veil with a spinner over a picture that never left is the one
+                // thing a resume must not show.
+                //
+                // Pairing is deliberately not covered. Six digits are a security check rather than
+                // theatre, and a resumed session that somehow needs them has to be able to show
+                // them. See ``PairingPrompt`` just above.
+                if (model.phase == .connecting || model.phase == .handshaking),
+                   !model.isResumingAfterDrop {
                     ProgressOverlay(
                         title: model.phase == .connecting ? "Connecting…" : "Securing the connection…",
                         detail: model.hostName

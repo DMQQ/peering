@@ -59,12 +59,22 @@ public enum SessionAwareness {
     /// `deliberate` is the user's own doing, and it cannot be read off the phases: a session
     /// the user ended and one that dropped are both `.disconnected` from here. Only the
     /// caller, which watched the button, knows which of the two it was.
+    /// `resuming` is a drop the app is already putting back on its own. It is the third thing the
+    /// phases cannot say for themselves, beside `deliberate`, and it is here for the same reason:
+    /// a Mac that has dropped and is being retried is not news, because the thing the user would do
+    /// about a banner is the thing the ladder is already doing. A network switch that recovers in
+    /// two seconds should not have told them anything, and with no indicator on screen the banner
+    /// was the only thing left that did.
+    ///
+    /// Defaulted rather than required so that the callers which cannot be a resume say nothing
+    /// about it, and the one that can has to pass it.
     public static func notification(
         from previous: ClientSession.Phase,
         to phase: ClientSession.Phase,
         hostName: String,
         hostID: String? = nil,
-        deliberate: Bool
+        deliberate: Bool,
+        resuming: Bool = false
     ) -> Notification? {
         // The same phase arriving twice is not an event. This one happens in practice: the
         // model sets `.disconnected` itself and the session then reports one of its own.
@@ -91,6 +101,13 @@ public enum SessionAwareness {
             )
 
         case .failed(let message):
+            // Not a failure, a handover. See `resuming` above: the app is already dialling this
+            // Mac again, so there is nothing here for the user to do, and saying so would be the
+            // one visible trace of a switch that is meant to be invisible. When the ladder does
+            // run out the phase is still `.failed` and the retry is no longer running, so the
+            // banner arrives then, which is the moment it is true.
+            guard !resuming else { return nil }
+
             // The Mac's own wording, not a summary of it: these messages say what to do next
             // ("if it was reset, forget it here and pair again") and a banner is often the
             // only place the user will ever read one.

@@ -64,7 +64,8 @@ final class SessionNotifier {
         to phase: ClientSession.Phase,
         hostName: String,
         hostID: String? = nil,
-        deliberate: Bool
+        deliberate: Bool,
+        resuming: Bool = false
     ) {
         switch phase {
         case .connecting, .handshaking:
@@ -82,7 +83,8 @@ final class SessionNotifier {
             to: phase,
             hostName: hostName,
             hostID: hostID,
-            deliberate: deliberate
+            deliberate: deliberate,
+            resuming: resuming
         ) else { return }
 
         post(notification)
