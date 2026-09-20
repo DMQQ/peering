@@ -127,6 +127,22 @@ struct HostMenuBarContent: View {
             set: { model.setPreventLidCloseSleep($0) }
         ))
 
+        // **Above the lid switch, because it is the one more people want.** A Mac that idle-sleeps
+        // cannot be reached from anywhere, which is the failure somebody opens this menu to fix:
+        // they were out, they tapped their Mac on the phone, and nothing answered. The switch
+        // below is about the lid and is the harder of the two — it needs an administrator rule —
+        // and the two were the same subject in this menu until this line existed, so the only
+        // thing offered for "I want to reach it" was the one that costs a password prompt.
+        //
+        // A display that goes dark is fine and deliberately not prevented here by anything new:
+        // the control channel stays up, so terminals, SSH and the clipboard all work with the
+        // screen off, and only the picture is black. What breaks everything is the *system*
+        // sleeping, which is what this assertion stops.
+        Toggle("Keep Mac reachable", isOn: Binding(
+            get: { model.preventLidCloseSleep },
+            set: { model.setPreventLidCloseSleep($0) }
+        ))
+
         lidCloseItem
 
         Divider()
