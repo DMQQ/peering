@@ -26,7 +26,11 @@ extension HostStatusView {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keep Mac awake")
                             .font(.subheadline.weight(.medium))
-                        Text("Prevents idle system and display sleep immediately; macOS shows no permission prompt. Closing the lid still follows macOS clamshell and power rules. Lifted automatically when Peering quits.")
+                        // Says which of the two switches this is, because the second one is about
+                        // the same subject and costs something: this holds an idle-sleep
+                        // assertion, which needs no permission and is released when Peering
+                        // quits, and it does not keep a closed Mac running. The row below does.
+                        Text("Keeps this Mac awake on its own: no idle sleep, no display sleep, and no permission prompt. It does not survive the lid being shut, and the next row is the one that does. Lifted automatically when Peering quits.")
                             .font(.caption)
                             .foregroundStyle(HostPalette.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -46,6 +50,10 @@ extension HostStatusView {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+
+                Divider().padding(.leading, 52)
+
+                LidCloseSleepRow()
 
                 Divider().padding(.leading, 52)
 

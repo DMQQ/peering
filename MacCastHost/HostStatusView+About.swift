@@ -29,8 +29,18 @@ extension HostStatusView {
                 )
                 Divider()
                 privacyRow(
+                    "Hear this Mac, and run things on it",
+                    "The sound this Mac plays is sent with the picture, and is on by default. A trusted phone can also open a Terminal here as you, list and read files, replace them, launch applications, switch desktops and lock the screen. That is the same reach your own Terminal window has, and it is why the list above is worth reading before you pair."
+                )
+                Divider()
+                privacyRow(
                     "Clipboard, when you ask",
-                    "Clipboard text moves only when you use Pull or Push on the iPhone. Files, the microphone and the camera are not sent."
+                    // **Files used to be named here as something that is never sent, and they are
+                    // sent**, in both directions, up to 64 MB at a time. A privacy screen that
+                    // understates what a trusted device can do is worse than no privacy screen,
+                    // because it is the one page a reader takes at its word. The microphone and the
+                    // camera really are not used, on either device, and saying so is worth keeping.
+                    "Clipboard text moves only when you use Pull or Push on the iPhone. Files do move between the two, when you ask them to. No microphone and no camera is used, on either device."
                 )
             }
             .padding(14)
@@ -99,7 +109,11 @@ extension HostStatusView {
     /// The app version and the macOS release are the first things anyone has to ask for. Neither
     /// identifies the person or the machine: there is no account, and nothing here is a serial
     /// number. Nothing about the session is included either — no Mac name, no device ID.
-    private static var reportURL: URL {
+    ///
+    /// Shared with the menu bar, which offers the same thing: the menu is where this app is
+    /// usually being looked at when something has gone wrong, and a bug report that starts with the
+    /// user having to find a window first is one that does not get written.
+    static var reportURL: URL {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = info?["CFBundleVersion"] as? String ?? "unknown"

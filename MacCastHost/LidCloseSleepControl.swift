@@ -1,0 +1,386 @@
+import Foundation
+import RemoteCore
+import SwiftUI
+
+/// The privileged half of "keep running with the lid closed": the administrator prompt, the two
+/// commands it buys, and the reading of what the machine currently does.
+///
+/// **Why this is a type of its own rather than more of ``HostModel``.** Every function here spawns
+/// a process, and two of them can put the system's authentication dialog on screen, which means
+/// each one blocks until something outside this app has finished. That is a property worth
+/// containing: the model decides what should happen, this decides how to ask for it, and the parts
+/// of both that are pure live in ``LidCloseSleep``, where they have tests.
+enum LidCloseSleepControl {
+    /// How a privileged action ended, in the three ways it can.
+    enum Outcome: Sendable, Equatable {
+        /// It ran and it worked.
+        case done
+        /// The user dismissed the authentication dialog. Not a failure, and not a change of state:
+        /// the row puts its switch back and says nothing about it.
+        case cancelled
+        /// It ran and did not work, with a sentence for the window.
+        case failed(String)
+    }
+
+    /// The name the rule is written for: the account running this app, not every account.
+    ///
+    /// It could be written for `%admin` and cover whoever is at the machine next, which is both
+    /// wider than the promise the window makes and narrower than it looks, since it would stop
+    /// working the day the account is taken out of that group.
+    static var invokingUserName: String { NSUserName() }
+
+    // MARK: - Reading
+
+    /// What `pmset -g` says about sleeping on a closed lid.
+    ///
+    /// Asked of a process because there is no API for this setting: it is a `pmset` value,
+    /// `SleepDisabled` is the name it prints under, and the tool that sets it is the only thing
+    /// whose answer is certainly about the same setting.
+    static func sleepDisabledState() async -> LidCloseSleep.SleepDisabledState {
+        await offTheMainThread {
+            LidCloseSleep.sleepDisabledState(inPMSetOutput: run(LidCloseSleep.pmsetPath, ["-g"]).out)
+        }
+    }
+
+    /// What `pmset -g batt` says about the power source and the charge.
+    ///
+    /// Asked of `pmset` rather than of IOKit for the reason the rest of this file asks `pmset`: one
+    /// tool, one answer, and the same one the feature's own setting comes from. It is read once a
+    /// minute and only while the Mac is being kept up with its lid shut, so the cost is a process
+    /// per minute in the one state where a flat battery is possible.
+    static func batteryState() async -> LidCloseSleep.BatteryState {
+        await offTheMainThread {
+            LidCloseSleep.batteryState(
+                inPMBattOutput: run(LidCloseSleep.pmsetPath, ["-g", "batt"]).out
+            )
+        }
+    }
+
+    /// Whether the drop-in is in place, as `sudo` reads it.
+    ///
+    /// `-n` is what makes this safe to run unasked: it turns "may I" into a question with no
+    /// dialog attached, so a Mac without the rule answers no in a few milliseconds rather than
+    /// putting a password prompt up at launch. The listing is read rather than the file because
+    /// the file cannot be read without being root, and because the answer that matters is what
+    /// `sudo` will do rather than what is on disk.
+    ///
+    /// `nil` when `sudo` would not list at all, which is a different answer from "not installed":
+    /// it means this could not be established, and the row treats it as not knowing.
+    static func ruleGrants() async -> LidCloseSleep.Grants? {
+        await offTheMainThread {
+            let result = run("/usr/bin/sudo", ["-n", "-l"])
+            guard result.status == 0 else { return nil }
+            return LidCloseSleep.grants(inSudoListing: result.out)
+        }
+    }
+
+    // MARK: - Acting
+
+    /// Turns the setting on or off without a prompt.
+    ///
+    /// Only ever works once the rule is in place, and `sudo`'s own refusal is not the sentence to
+    /// show: "a password is required" is true and useless, and the caller has a better one, which
+    /// is that the rule is missing and has to be installed again.
+    @discardableResult
+    static func setSleepDisabled(_ disabled: Bool) async -> Outcome {
+        await offTheMainThread { applySleepDisabled(disabled) }
+    }
+
+    /// The same thing, with the system's authentication dialog instead of the rule.
+    ///
+    /// The way out of the one state that would otherwise have none: a Mac whose sleep is disabled
+    /// and whose rule has been taken away cannot be put back by the silent path, and a switch that
+    /// refuses to turn off is worse than one password prompt.
+    static func setSleepDisabledAskingForAdmin(_ disabled: Bool, prompt: String) async -> Outcome {
+        await runAsAdministrator(
+            shellScript: LidCloseSleep.command(disabled: disabled),
+            prompt: prompt
+        )
+    }
+
+    /// Installs the drop-in, taking administrator rights once.
+    static func installRule(user: String) async -> Outcome {
+        let script: String
+        do {
+            script = try LidCloseSleep.installScript(user: user)
+        } catch {
+            return .failed((error as? LocalizedError)?.errorDescription ?? "\(error)")
+        }
+        return await runAsAdministrator(
+            shellScript: script,
+            prompt: "Peering needs to install a rule that lets it stop this Mac sleeping with the lid closed. The rule allows two commands: pmset -a disablesleep 1, and pmset -a disablesleep 0."
+        )
+    }
+
+    /// Takes the rule away and lets the Mac sleep again, in one prompt.
+    static func removeRule() async -> Outcome {
+        await runAsAdministrator(
+            shellScript: LidCloseSleep.removeScript(),
+            prompt: "Peering will remove its administrator rule and let this Mac sleep normally again."
+        )
+    }
+
+    /// Turns the setting off from the quit path, where nothing can be waited for.
+    ///
+    /// Synchronous on purpose: the process is going away, so there is no later in which to finish
+    /// an `await`. `-n` is also what makes it safe here, because quitting must never put a
+    /// password prompt on screen: it works or it fails, both in milliseconds.
+    @discardableResult
+    static func restoreSleepSilently() -> Outcome {
+        applySleepDisabled(false)
+    }
+
+    // MARK: - Running things
+
+    /// The silent `pmset` call that both of the without-a-prompt paths go through.
+    private static func applySleepDisabled(_ disabled: Bool) -> Outcome {
+        let result = run(
+            "/usr/bin/sudo",
+            ["-n", LidCloseSleep.pmsetPath, "-a", "disablesleep", disabled ? "1" : "0"]
+        )
+        guard result.status != 0 else { return .done }
+        let message = result.err.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .failed(message.isEmpty ? "Could not change the sleep setting (sudo exited \(result.status))." : message)
+    }
+
+    /// Runs one shell script as root, through the system's own authentication dialog.
+    ///
+    /// `osascript` rather than an `AuthorizationRef` so that the password is typed into the dialog
+    /// macOS owns, is never seen by this process, and is not this app's to keep.
+    ///
+    /// A dismissal is recognised rather than reported as a failure: `osascript` exits non-zero
+    /// when the dialog is put away, and someone who has just declined is not owed an error message
+    /// about having declined.
+    private static func runAsAdministrator(shellScript: String, prompt: String) async -> Outcome {
+        let script = LidCloseSleep.administratorScript(shellScript: shellScript, prompt: prompt)
+        return await offTheMainThread {
+            let result = run("/usr/bin/osascript", ["-e", script])
+            guard result.status != 0 else { return .done }
+            let message = result.err.trimmingCharacters(in: .whitespacesAndNewlines)
+            if message.contains("-128") || message.localizedCaseInsensitiveContains("cancel") {
+                return .cancelled
+            }
+            return .failed(
+                message.isEmpty
+                    ? "The administrator prompt did not finish (osascript exited \(result.status))."
+                    : message
+            )
+        }
+    }
+
+    /// What a finished process said.
+    struct Output: Sendable {
+        var status: Int32
+        var out: String
+        var err: String
+    }
+
+    /// Runs one process to completion and collects what it said.
+    ///
+    /// **Both pipes are drained before the wait.** A child that fills a pipe buffer blocks until
+    /// somebody reads it, so waiting first and reading afterwards is a deadlock, and the shape it
+    /// takes here is the worst one available: an authentication dialog sitting on screen while the
+    /// app that asked for it waits forever for the answer.
+    static func run(_ executable: String, _ arguments: [String]) -> Output {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        let out = Pipe()
+        let err = Pipe()
+        process.standardOutput = out
+        process.standardError = err
+        do {
+            try process.run()
+        } catch {
+            return Output(status: -1, out: "", err: "Could not run \(executable): \(error.localizedDescription)")
+        }
+        // **Both pipes are drained at the same time, not one after the other.** Reading `out` to
+        // the end first looks like draining and is not: a child that fills the stderr pipe blocks
+        // on the write while this side waits for stdout that will never come, and the shape that
+        // deadlock takes here is the worst one available, an authentication dialog on screen with
+        // the app that asked for it waiting forever behind it. None of the four commands this runs
+        // today writes enough to fill a pipe buffer, which makes the deadlock unlikely rather than
+        // impossible, and unlikely stops being true the first time one of them is replaced.
+        //
+        // The second read goes to another queue and is handed back through a semaphore, which is
+        // what orders the two threads: the box is written before the signal and read only after the
+        // wait, so the annotation below is a statement about that ordering rather than a hope.
+        let errBox = PipeOutput()
+        let errFinished = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .userInitiated).async {
+            errBox.data = err.fileHandleForReading.readDataToEndOfFile()
+            errFinished.signal()
+        }
+        let outData = out.fileHandleForReading.readDataToEndOfFile()
+        errFinished.wait()
+        let errData = errBox.data
+        process.waitUntilExit()
+        return Output(
+            status: process.terminationStatus,
+            out: String(decoding: outData, as: UTF8.self),
+            err: String(decoding: errData, as: UTF8.self)
+        )
+    }
+
+    /// Runs `work` somewhere that is not the main thread.
+    ///
+    /// Everything above blocks on a child process, and one of them can block for as long as it
+    /// takes a person to type a password. On the main actor that is a frozen window behind the
+    /// authentication dialog, so the model calls these from the main actor and they run here.
+    private static func offTheMainThread<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await Task.detached(priority: .userInitiated) { work() }.value
+    }
+}
+
+/// One pipe's worth of bytes, carried across a thread boundary exactly once.
+///
+/// A reference type rather than a captured `var`, because a closure that mutates a local is not
+/// `Sendable` and this project is in Swift 6 language mode. `@unchecked` is the honest annotation
+/// for what it is: the box has no synchronisation of its own, and it does not need any because the
+/// only reader waits on the semaphore the only writer signals. Anything that ever reads it from a
+/// second place would make this comment false.
+private final class PipeOutput: @unchecked Sendable {
+    var data = Data()
+}
+
+/// The row for "keep running with the lid closed", and the explanation it owes before it does
+/// anything.
+///
+/// **Separate from "Keep Mac awake" above it, because the two are different bargains.** That
+/// switch holds a power assertion: free, silent, released when this process ends, and no promise
+/// at all about a closed lid. This one changes a machine setting through an administrator rule.
+/// One switch for both would take a password for something that never needed one and would hide
+/// the price of the half that does.
+///
+/// The explanation is owed before the prompt rather than in the caption alone, because it carries
+/// the two things somebody would be annoyed to find out afterwards: that the Mac does not sleep at
+/// all while this is on, on battery included, and that agreeing leaves a file in `/etc/sudoers.d`.
+struct LidCloseSleepRow: View {
+    @Environment(HostModel.self) private var model
+    @State private var explaining = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Image(systemName: "laptopcomputer.and.arrow.down")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(model.keepRunningWithLidClosed ? HostPalette.ink : HostPalette.muted)
+                    .frame(width: 26, height: 26)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Keep running with the lid closed")
+                        .font(.subheadline.weight(.medium))
+                    Text("Survives the lid being shut, which the switch above does not. macOS only offers this through pmset, so it needs your administrator password once, and while it is on the Mac does not sleep at all: leave it open to the air rather than shut in a bag. Undone when Peering quits, and repaired at the next launch if it is force quit instead.")
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                // A spinner in place of the switch while the password dialog is up, because the
+                // switch cannot move until there is an answer and a control that ignores a click
+                // reads as broken.
+                if model.lidCloseBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 26)
+                } else {
+                    Toggle("", isOn: Binding(get: { model.keepRunningWithLidClosed }, set: apply))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .tint(HostPalette.accent)
+                }
+            }
+
+            if let failure = model.lidCloseFailure {
+                Text(failure)
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 38)
+            }
+
+            // **The switch and the machine, when they disagree.** This is the state the entire
+            // recovery path exists for and it used to be invisible: a rule removed by hand, or a
+            // crash between the write and the marker, left a switch reading "on" over a Mac that
+            // slept the moment the lid shut. The app cannot promise a Mac stays up; it can promise
+            // not to claim it is, and the difference between those two is this line.
+            if model.keepRunningWithLidClosed, model.lidCloseSystemState == .off {
+                Text("Switched on, but this Mac is not doing it: pmset reports the setting as off. Switch this off and on again to put it back.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 38)
+            }
+
+            if model.lidCloseRuleInstalled == true {
+                // What the rule is, in the commands themselves rather than in a summary of them:
+                // the question asked before leaving a file in /etc/sudoers.d is exactly "what does
+                // this let the app run", and the answer fits on one line.
+                HStack(spacing: 6) {
+                    Text("The administrator rule covers only \(LidCloseSleep.command(disabled: true)) and \(LidCloseSleep.command(disabled: false)).")
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        Task { await model.removeLidCloseRule() }
+                    } label: {
+                        Text("Remove it").underline()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.muted)
+                    .help("Deletes /etc/sudoers.d/peering-sleep and lets this Mac sleep normally again, in one administrator prompt.")
+                }
+                .padding(.leading, 38)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .alert("Keep running with the lid closed?", isPresented: $explaining) {
+            Button("Install the rule") { Task { await model.enableLidCloseSleep() } }
+            Button("Not now", role: .cancel) {}
+        } message: {
+            Text(explanation)
+        }
+        // Read when the pane is opened rather than once at launch, so that a rule removed or added
+        // by hand in another window is what the row is describing.
+        .task { await model.checkLidCloseSleepRule() }
+    }
+
+    /// The price, before anything is asked for.
+    ///
+    /// Three paragraphs for three things, in the order they matter to the person reading: what
+    /// macOS will not do for this app, what the rule can and cannot do, and what being on means
+    /// for the machine in front of them.
+    private var explanation: String {
+        """
+        macOS keeps a Mac awake with its lid shut only through pmset, and that needs administrator \
+        rights. Peering will ask for your password once and leave a rule at \
+        /etc/sudoers.d/peering-sleep.
+
+        The rule allows exactly two commands, run as root: \(LidCloseSleep.command(disabled: true)) \
+        and \(LidCloseSleep.command(disabled: false)). Nothing else becomes possible, and removing \
+        the rule takes it all back.
+
+        While it is on, the Mac does not sleep at all, on battery included, so leave it open to the \
+        air rather than shut in a bag. Peering turns it back off when it quits and when you switch \
+        this off.
+        """
+    }
+
+    /// The switch asks first or acts, depending on whether the price has been paid before.
+    ///
+    /// The expensive half is the administrator rule, and it is asked for once. A machine that
+    /// already has it needs no second prompt, so turning this back on later is instant and silent.
+    private func apply(_ wanted: Bool) {
+        if wanted, model.lidCloseRuleInstalled != true {
+            explaining = true
+        } else {
+            Task { await model.setKeepRunningWithLidClosed(wanted) }
+        }
+    }
+}

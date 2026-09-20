@@ -1,4 +1,5 @@
 import AppKit
+import RemoteCore
 import SwiftUI
 
 /// What the menu bar icon is saying.
@@ -116,10 +117,66 @@ struct HostMenuBarContent: View {
 
         Divider()
 
+        // **The two switches, in the menu, because this is where the host is actually met.** It is
+        // a background agent: the window is where it is set up and the menu is where it is glanced
+        // at, and whether a Mac is allowed to sleep is the sort of thing somebody wants to decide
+        // while looking at the Mac rather than after opening a window and finding a pane in it.
+        // The same two switches the Settings pane draws, under the same two names.
+        Toggle("Keep this Mac awake", isOn: Binding(
+            get: { model.preventLidCloseSleep },
+            set: { model.setPreventLidCloseSleep($0) }
+        ))
+
+        lidCloseItem
+
+        Divider()
+
+        // The same draft the About pane builds, offered where the app is actually being looked at
+        // when something has gone wrong. Nothing about the session is in it: the version and the
+        // macOS release are the whole of what travels, which is what makes this a menu item rather
+        // than a form to fill in.
+        Button("Report an issue…") {
+            NSWorkspace.shared.open(HostStatusView.reportURL)
+        }
+
+        Divider()
+
         Button("Quit Peering") {
             model.stop()
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    /// The lid switch, or the way to set it up, depending on whether the rule is already in place.
+    ///
+    /// **A door rather than a switch that does nothing.** Turning this on needs an administrator
+    /// rule installed once, and that first install raises a password dialog. Raised from a menu
+    /// item, the dialog arrives with no explanation attached to it and no way to read one first,
+    /// which is the wrong place to ask somebody for their password. So before the rule exists the
+    /// menu offers the setup as a door into the pane where the explanation lives, and the switch
+    /// itself appears only once flipping it is silent.
+    @ViewBuilder
+    private var lidCloseItem: some View {
+        if model.lidCloseRuleInstalled == true {
+            Toggle("Keep running with the lid closed", isOn: Binding(
+                get: { model.keepRunningWithLidClosed },
+                set: { wanted in Task { await model.setKeepRunningWithLidClosed(wanted) } }
+            ))
+            .disabled(model.lidCloseBusy)
+
+            // The switch is what was asked for and the reading is what the Mac is doing, and the
+            // two come apart after a crash or a hand edit. Said here as well as in the pane,
+            // because the menu is where somebody looks when the Mac is doing something they did
+            // not ask for and the window is closed.
+            if model.keepRunningWithLidClosed, model.lidCloseSystemState == .off {
+                Text("Not in force: this Mac still sleeps on a closed lid")
+            }
+        } else {
+            Button("Keep running with the lid closed…") {
+                openWindow(id: MacCastHostApp.mainWindowID)
+                NSApp.activate()
+            }
+        }
     }
 }

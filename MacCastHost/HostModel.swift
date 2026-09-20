@@ -58,12 +58,76 @@ final class HostModel {
     // The display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
     private var sleepAssertionID: IOPMAssertionID = 0
 
-    // Optional stronger assertion that also prevents lid-close sleep.
-    // Uses the same "PreventSystemSleep" type that `caffeinate -s` uses — no admin prompt,
-    // automatically released when this process exits (even on crash).
+    // The assertion that keeps the Mac up on its own, with no permission prompt. It is *not* the
+    // lid-close switch, whatever its name says: `PreventSystemSleep` is the type `caffeinate -s`
+    // takes, and macOS reads a closed lid on a different path entirely. See
+    // ``setKeepRunningWithLidClosed(_:)`` for the one that does survive a shut lid, and what it
+    // costs, and the `MARK: - Sleep prevention` note below for why this half stayed free.
     private var lidSleepAssertionID: IOPMAssertionID = 0
     private var preferenceDisplaySleepAssertionID: IOPMAssertionID = 0
     private(set) var preventLidCloseSleep: Bool = UserDefaults.standard.bool(forKey: "preventLidCloseSleep")
+
+    /// The key the "keep running with the lid closed" switch is stored under.
+    ///
+    /// A second switch rather than a stronger version of the one above, because the two are
+    /// different promises at different prices: one holds an assertion that costs nothing and dies
+    /// with this process, the other changes a machine setting through an administrator rule. One
+    /// control for both would take a password for the half that never needed one, and would bury
+    /// the price of the half that does.
+    private static let keepRunningWithLidClosedKey = "keepRunningWithLidClosed"
+
+    /// The key that records that it was *this app* that ran `pmset -a disablesleep 1`.
+    ///
+    /// The distinction the whole recovery path rests on. `disablesleep` is a machine setting and
+    /// not an assertion: it outlives this process and it outlives a crash, so a host that dies
+    /// while this switch is on leaves behind a laptop that will not sleep in a bag. Nothing on the
+    /// machine records who set it, so if this app is to undo its own work without undoing somebody
+    /// else's, it has to have written the fact down first.
+    private static let sleepDisabledByThisAppKey = "sleepDisabledByThisApp"
+
+    /// Whether the user wants this Mac to stay up with its lid shut.
+    ///
+    /// The intention, not the reading. What the machine is actually doing is `SleepDisabled` in
+    /// `pmset -g`, and the two can disagree after a crash, which is what
+    /// ``adoptLidCloseSleepSetting()`` exists to repair.
+    private(set) var keepRunningWithLidClosed =
+        UserDefaults.standard.bool(forKey: HostModel.keepRunningWithLidClosedKey)
+
+    /// Whether `/etc/sudoers.d/peering-sleep` is doing its job, as `sudo` reports it.
+    ///
+    /// Nil until it has been asked, and nil again when `sudo` will not list at all, which the row
+    /// treats as not knowing rather than as not installed: the two lead to different advice, and
+    /// only one of them is worth asking for a password over.
+    private(set) var lidCloseRuleInstalled: Bool?
+
+    /// Whether an administrator prompt or a process is in flight for that row.
+    ///
+    /// The switch cannot move until the person in front of the password dialog has answered, and a
+    /// control that ignores a click reads as broken, so the row draws this instead of the switch.
+    private(set) var lidCloseBusy = false
+
+    /// What went wrong the last time that row was used, until the next attempt.
+    private(set) var lidCloseFailure: String?
+
+    /// What `pmset -g` last said, or `nil` before it has been read.
+    ///
+    /// Kept apart from ``keepRunningWithLidClosed`` because the two answer different questions. That
+    /// one is what the user asked for and this one is what the machine is doing, and the whole
+    /// reason the recovery code exists is that they come apart: a crash, a force quit, a hand edit
+    /// of `/etc/sudoers.d` or somebody else's `pmset` all leave one true and the other false. The
+    /// row reads both, so "switched on and not in force" can be said out loud instead of being a
+    /// Mac that quietly will not sleep.
+    private(set) var lidCloseSystemState: LidCloseSleep.SleepDisabledState?
+
+    /// The one thing this app does before a window exists.
+    ///
+    /// The lid-close check is here rather than in ``start()``, which runs when the window is
+    /// opened, because the Mac this matters on is the one nobody is looking at: it was set to open
+    /// at login and left in a corner, with its window closed. The launch that follows a crash is
+    /// exactly that launch.
+    init() {
+        Task { await adoptLidCloseSleepSetting() }
+    }
 
     /// Whether a given trusted device is attached right now.
     ///
@@ -246,8 +310,45 @@ final class HostModel {
         }
     }
 
+    /// Everything that has to happen on the way out, including the half of the lid-close switch
+    /// that makes it safe to have.
+    ///
+    /// **The restore is why this exists at all now.** `pmset -a disablesleep 1` is a machine
+    /// setting: it outlives this process, so a Mac whose owner turned it on and then quit the app
+    /// would be a Mac that never sleeps again, with nothing on screen to say why. The restore runs
+    /// only when this app is the one that set it, so a machine whose sleep was disabled by
+    /// something else is left exactly as it was found; that test, and the marker it reads, are
+    /// explained on ``sleepDisabledByThisAppKey``.
+    ///
+    /// Synchronous, and it stays that way: the process is going away, so there is no later in
+    /// which to finish an `await`, and the command it runs either has the right to run or fails in
+    /// milliseconds without asking anything. See ``LidCloseSleepControl/restoreSleepSilently()``.
     func prepareForTermination() {
         publishHostWidgetState(listening: false)
+        // Cancelled before the restore rather than after, so a check that is already in flight
+        // cannot land on a model that is on its way out and put the switch back on.
+        batteryWatchdog?.cancel()
+        batteryWatchdog = nil
+        restoreSleepDisabledIfOurs()
+    }
+
+    /// Puts the machine back to sleeping normally, if it was this app that stopped it.
+    ///
+    /// A failure here leaves the marker in place on purpose: the setting is still on, and the next
+    /// launch is the next chance to undo it. The case that produces one is the rule having been
+    /// taken away by hand, which is also the case where nothing else could have undone it.
+    private func restoreSleepDisabledIfOurs() {
+        guard UserDefaults.standard.bool(forKey: Self.sleepDisabledByThisAppKey) else { return }
+        switch LidCloseSleepControl.restoreSleepSilently() {
+        case .done:
+            UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
+        case .failed(let message):
+            // Straight to the unified log rather than through ``record(_:level:)``: the window is
+            // closing, and an entry appended to a list nobody will read is not a diagnostic.
+            hostLog.notice("could not restore lid-close sleep on quit: \(message, privacy: .public)")
+        case .cancelled:
+            break
+        }
     }
 
     /// Changes the port, and restarts the listener if one is running.
@@ -1147,8 +1248,7 @@ final class HostModel {
 
     // MARK: - Sleep prevention
 
-    /// Toggles what the settings screen calls "Keep Mac awake", and what the code calls lid-close
-    /// sleep prevention because that is what it is trying to do.
+    /// Toggles what the settings screen calls "Keep Mac awake": the free half of sleep prevention.
     ///
     /// **What the assertion does and does not buy, because the name overpromises.** The type is
     /// `PreventSystemSleep`, the one `caffeinate -s` acquires, and it stops the Mac going to sleep
@@ -1156,14 +1256,17 @@ final class HostModel {
     /// path in macOS, and whether the assertion covers it depends on the machine: a laptop with no
     /// external display in clamshell stays awake on some Macs and sleeps on others. What does
     /// survive a lid close on every Mac is `pmset -a disablesleep 1`, which needs administrator
-    /// rights and outlives a crash, which is why this is not it.
+    /// rights and outlives a crash, and which is the switch below rather than this one.
     ///
     /// The caption on the switch says the same thing in the same words, and the two have to: the
     /// comment that used to be here claimed the assertion survives a lid close on most Macs, which
     /// contradicted the screen the user was reading it on.
     ///
-    /// Being process-scoped is the one property worth having here: the OS releases the assertion
-    /// when this process exits, so a crash can never leave the Mac unable to sleep.
+    /// Being process-scoped is the one property worth having on this half: the OS releases the
+    /// assertion when this process exits, so the free switch can never leave a Mac unable to
+    /// sleep. ``setKeepRunningWithLidClosed(_:)`` buys the same guarantee with a marker, a quit
+    /// hook and a launch check, which is most of the reason it is a second switch and not this one
+    /// with more force behind it.
     func setPreventLidCloseSleep(_ on: Bool) {
         preventLidCloseSleep = on
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
@@ -1216,6 +1319,360 @@ final class HostModel {
         guard preferenceDisplaySleepAssertionID != 0 else { return }
         IOPMAssertionRelease(preferenceDisplaySleepAssertionID)
         preferenceDisplaySleepAssertionID = 0
+    }
+
+    // MARK: - Lid-close sleep
+
+    /// Turns "keep running with the lid closed" on or off.
+    ///
+    /// **The switch the assertion above cannot be.** A closed lid is a separate path in macOS, and
+    /// the only public switch that survives one is `pmset -a disablesleep`, which needs
+    /// administrator rights and, once set, stays set: through this process, through a crash, and
+    /// through a reboot. Three things follow from that, and they are the whole of this section.
+    ///
+    /// It is applied through a scoped sudoers rule rather than by prompting every time, so the
+    /// password is asked for once. ``LidCloseSleep`` holds the text of that rule and the reasons
+    /// for its shape, and its tests are what keep it from being a rule that grants more than the
+    /// window promises.
+    ///
+    /// It is undone on the way out, see ``prepareForTermination()``, because a Mac left unable to
+    /// sleep with nothing on screen to explain it is a worse outcome than the feature is good.
+    ///
+    /// And it is re-examined on the way in, see ``adoptLidCloseSleepSetting()``, because a crash
+    /// skips the first of those two and the setting survives the crash.
+    ///
+    /// The stored intention is written only once the machine has actually been changed, so the
+    /// switch being on is a statement about the Mac rather than about the last click.
+    func setKeepRunningWithLidClosed(_ wanted: Bool) async {
+        guard !lidCloseBusy else { return }
+        lidCloseBusy = true
+        defer {
+            lidCloseBusy = false
+            // Started or stopped on every exit from this function rather than at each of its six
+            // return points, because a switch that moves without its watchdog moving with it is a
+            // Mac that either stops being watched or keeps a task alive for nothing.
+            updateBatteryWatchdog()
+        }
+        lidCloseFailure = nil
+
+        // The rule comes first when it is wanted: it is what makes the command below silent, and
+        // it is the only part of this that costs a password.
+        if wanted, !(await ensureLidCloseRule()) { return }
+
+        switch await applySleepDisabled(wanted) {
+        case .cancelled:
+            return
+        case .failed(let message):
+            lidCloseFailure = message
+            record("Could not change lid-close sleep prevention: \(message)", level: .failure)
+            return
+        case .alreadyThere:
+            // The switch follows the intention and the marker does not follow the setting, which is
+            // the whole of the difference between adopting a setting and stealing one: this app
+            // found the Mac like this, so undoing it is not its business, and the quit path would
+            // otherwise do exactly that.
+            keepRunningWithLidClosed = wanted
+            UserDefaults.standard.set(wanted, forKey: Self.keepRunningWithLidClosedKey)
+            record(wanted
+                ? "This Mac was already set to stay up with the lid closed, and not by Peering; it is being left as it was found"
+                : "This Mac was already sleeping normally on a closed lid",
+                level: .info)
+            return
+        case .applied:
+            break
+        }
+
+        // Read after the change rather than assumed from it, for the reason the whole section
+        // exists: the switch is a request and this is what the machine did with it.
+        lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
+        keepRunningWithLidClosed = wanted
+        UserDefaults.standard.set(wanted, forKey: Self.keepRunningWithLidClosedKey)
+        // The marker is this app's record of a change it made to the machine, and it is what the
+        // quit and launch paths use to know whether undoing that change is this app's business.
+        UserDefaults.standard.set(wanted, forKey: Self.sleepDisabledByThisAppKey)
+        record(wanted
+            ? "Lid-close sleep prevention on; this Mac stays up with the lid shut, on battery included"
+            : "Lid-close sleep prevention off; this Mac sleeps on a closed lid again")
+    }
+
+    /// Watches the charge while the lid-close switch is on, and puts normal sleep back when the
+    /// battery gets low.
+    private var batteryWatchdog: Task<Void, Never>?
+
+    /// How often the charge is read while the Mac is being kept up.
+    ///
+    /// A minute, against a threshold of ten per cent. At the draw of a Mac running with its screen
+    /// off that is a good deal finer than it needs to be, and the cost of the margin being too fine
+    /// is one small process a minute in the one state where the battery is at risk.
+    private static let batteryCheckInterval: TimeInterval = 60
+
+    /// Starts or stops the battery check, to match the switch.
+    ///
+    /// **The rail the other three do not replace.** Restoring on quit needs the app to be quit, the
+    /// launch repair needs it to be launched again, and the switch needs somebody to remember it.
+    /// A Mac shut in a bag at ninety per cent has none of those coming, and what it has instead is
+    /// this: a check that runs while the machine is on its way down and takes the decision out of
+    /// the hands of somebody who is not there.
+    private func updateBatteryWatchdog() {
+        batteryWatchdog?.cancel()
+        batteryWatchdog = nil
+        guard keepRunningWithLidClosed else { return }
+
+        batteryWatchdog = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.batteryCheckInterval))
+                guard let self, !Task.isCancelled, self.keepRunningWithLidClosed else { return }
+
+                let state = await LidCloseSleepControl.batteryState()
+                guard LidCloseSleep.batteryIsLow(state) else { continue }
+
+                // Turned off through the ordinary path rather than by running `pmset` behind the
+                // model's back, so the switch, the marker and the machine all move together and the
+                // pane does not go on reading "on" over a Mac that has been allowed to sleep.
+                await self.setKeepRunningWithLidClosed(false)
+                self.record(
+                    "Battery is down to \(LidCloseSleep.batteryFloor)%, so this Mac sleeps normally again. Kept awake with the lid shut it would have run the battery flat rather than sleeping through the last of it.",
+                    level: .info
+                )
+                return
+            }
+        }
+    }
+
+    /// The same thing, under the name the confirmation dialog calls it by.
+    func enableLidCloseSleep() async {
+        await setKeepRunningWithLidClosed(true)
+    }
+
+    /// Reads whether the administrator rule is doing its job.
+    ///
+    /// Asked of `sudo` rather than of the disk, see ``LidCloseSleep/grants(inSudoListing:)``, and
+    /// asked again every time the settings pane is opened rather than once at launch, so that a
+    /// rule someone removed by hand in another window is what the row ends up describing.
+    func checkLidCloseSleepRule() async {
+        guard let grants = await LidCloseSleepControl.ruleGrants() else {
+            lidCloseRuleInstalled = nil
+            return
+        }
+        lidCloseRuleInstalled = grants.coversBoth
+    }
+
+    /// Takes the administrator rule away again, for someone who wants it gone.
+    ///
+    /// One prompt, and the same prompt undoes the setting: both halves run as root in one shell
+    /// script, in that order, because the rule is what lets this app turn the setting off later.
+    /// See ``LidCloseSleep/removeScript()``.
+    func removeLidCloseRule() async {
+        guard !lidCloseBusy else { return }
+        lidCloseBusy = true
+        defer { lidCloseBusy = false }
+        lidCloseFailure = nil
+
+        switch await LidCloseSleepControl.removeRule() {
+        case .cancelled:
+            return
+        case .failed(let message):
+            lidCloseFailure = message
+            record("Could not remove the administrator sleep rule: \(message)", level: .failure)
+        case .done:
+            lidCloseRuleInstalled = false
+            keepRunningWithLidClosed = false
+            UserDefaults.standard.set(false, forKey: Self.keepRunningWithLidClosedKey)
+            UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
+            updateBatteryWatchdog()
+            record("Administrator sleep rule removed; this Mac sleeps on a closed lid again")
+        }
+    }
+
+    /// Puts the machine and the switch back into agreement, once, at launch.
+    ///
+    /// **The crash path, and the reason it is a decision rather than a line of code.** A clean quit
+    /// turns the setting back off and clears the marker. A crash does neither, and `disablesleep`
+    /// survives a crash and a reboot, so what this finds is a Mac that was left unable to sleep
+    /// some time ago. The three answers it can reach are in
+    /// ``LidCloseSleep/launchAction(systemState:setByThisApp:isPreferred:)``, which is a value with
+    /// tests because the mistake worth preventing, undoing a setting somebody else made, cannot be
+    /// reproduced on demand by crashing a process.
+    func adoptLidCloseSleepSetting() async {
+        let state = await LidCloseSleepControl.sleepDisabledState()
+        // What the machine is doing, kept so the row can say when it disagrees with the switch. The
+        // switch is the intention and this is the reading, and the two come apart after a crash, a
+        // force quit or a hand edit. That disagreement used to be visible only as a red line inside
+        // the Settings pane for one session, so a Mac that had stopped sleeping looked exactly like
+        // a Mac that had not.
+        lidCloseSystemState = state
+
+        // **Where a claim about a setting that is gone gets dropped.** The marker says this app
+        // turned the setting on; a reading of `off` says it is not on, whoever did it, so the claim
+        // is stale and only harm can come of keeping it. Harm with a concrete shape: a stale marker
+        // plus some other tool later setting `disablesleep` reads as "on, and ours" at the next
+        // launch, and the quit path then turns that tool's setting off. Not done on `.unknown`,
+        // because forgetting ownership on a reading that failed is how a Mac ends up unable to
+        // sleep with nothing left claiming it.
+        if LidCloseSleep.shouldForgetOwnership(systemState: state) {
+            UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
+        }
+
+        // Asked once at launch as well as when the Settings pane opens, because the menu bar draws
+        // the same switch and is the place it is usually flipped from. Without this the menu would
+        // have to guess, and its options are a switch that silently fails or a door to a window
+        // somebody did not want to open. `sudo -n -l` cannot raise a dialog, so it costs
+        // milliseconds and nothing else.
+        await checkLidCloseSleepRule()
+
+        let setByThisApp = UserDefaults.standard.bool(forKey: Self.sleepDisabledByThisAppKey)
+        switch LidCloseSleep.launchAction(
+            systemState: state,
+            setByThisApp: setByThisApp,
+            isPreferred: keepRunningWithLidClosed
+        ) {
+        case .keep:
+            record("This Mac is still set to stay up with the lid closed")
+        case .restore:
+            switch LidCloseSleepControl.restoreSleepSilently() {
+            case .done:
+                UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
+                record("Sleep was still disabled by Peering from a previous run; this Mac sleeps on a closed lid again")
+            case .failed(let message):
+                lidCloseFailure = message
+                // Two sentences rather than one with a description spliced into it: the command's
+                // own words have no full stop to end them, so the second sentence used to arrive
+                // welded onto the first.
+                record("This Mac still will not sleep with the lid closed. Switching the row off and on again in Settings is the repair. The command said: \(message)", level: .failure)
+            case .cancelled:
+                break
+            }
+        case .reapply:
+            switch await LidCloseSleepControl.setSleepDisabled(true) {
+            case .done:
+                UserDefaults.standard.set(true, forKey: Self.sleepDisabledByThisAppKey)
+                record("Lid-close sleep prevention re-applied; it had been cleared on this Mac since the last run")
+            case .failed(let message):
+                lidCloseFailure = message
+                record("Lid-close sleep prevention is switched on but not in force: \(message)", level: .failure)
+            case .cancelled:
+                break
+            }
+        case .leaveAlone:
+            // Not ours to undo, and saying so is the point: nothing else in this app can explain
+            // why a Mac has stopped sleeping on its lid.
+            record("This Mac has sleep disabled and Peering did not do it, so it is being left alone")
+        case .none:
+            break
+        }
+
+        // Reachable after every path above, including the ones that changed nothing: a switch that
+        // survived a crash is a Mac that has been up with its lid shut since before this process
+        // started, which is exactly when a battery check is most worth having.
+        updateBatteryWatchdog()
+    }
+
+    /// Puts the rule in place if it is not there, and answers whether it ended up there.
+    ///
+    /// Checked after installing rather than assumed, and assumed to be false when `sudo` will not
+    /// say: the file is written by another process, as root, and the only trustworthy answer about
+    /// what `sudo` will do next is `sudo`'s own.
+    private func ensureLidCloseRule() async -> Bool {
+        // **The cache is re-checked before it is trusted, and the re-check is what makes the switch
+        // work at all.** It is filled when the Settings pane opens, and the file can be gone since:
+        // deleted by hand, removed by the button, or never installed for this account. Trusting it
+        // means skipping the install prompt and then failing the very command it was there to make
+        // silent, which leaves the switch on with nothing behind it and the raw refusal from `sudo`
+        // on screen. `sudo -n -l` cannot put a dialog up, so asking again costs milliseconds.
+        if lidCloseRuleInstalled == true {
+            await checkLidCloseSleepRule()
+            if lidCloseRuleInstalled == true { return true }
+        }
+
+        switch await LidCloseSleepControl.installRule(user: LidCloseSleepControl.invokingUserName) {
+        case .cancelled:
+            return false
+        case .failed(let message):
+            lidCloseFailure = message
+            record("Could not install the administrator sleep rule: \(message)", level: .failure)
+            return false
+        case .done:
+            await checkLidCloseSleepRule()
+            guard lidCloseRuleInstalled == true else {
+                lidCloseFailure = "The rule was written, but sudo does not report it. This Mac has not been changed."
+                record("The administrator sleep rule was installed but does not take effect", level: .failure)
+                return false
+            }
+            record("Administrator sleep rule installed, granting two pmset commands and nothing else")
+            return true
+        }
+    }
+
+    /// How an attempt to change the machine setting ended, in the four ways it can.
+    ///
+    /// Four rather than the three ``LidCloseSleepControl/Outcome`` has, because the fourth is not
+    /// like the others: ``alreadyThere`` means the Mac is where it was asked to be and *this app did
+    /// not put it there*. That has to be told apart from a change this app made, because the marker
+    /// that lets it undo its own work on quit must not be written for a setting that is somebody
+    /// else's. A Mac whose clamshell setting is held by another tool and whose marker says
+    /// otherwise is a Mac that stops sleeping the first time Peering quits.
+    private enum SleepApplication {
+        /// This app ran the command and the machine changed.
+        case applied
+        /// The machine was already in the wanted state, and not because of this app.
+        case alreadyThere
+        case cancelled
+        case failed(String)
+    }
+
+    /// Applies the setting, asking for a password only if the silent route has nothing to offer.
+    ///
+    /// The rule is normally what makes this silent. It can be gone, deleted by hand or by the
+    /// button in Settings, and the case that matters then is turning the switch *off*: a Mac whose
+    /// sleep is disabled and whose rule has been taken away cannot be put back any other way, and
+    /// a switch that will not turn off is worse than one password prompt. The prompt is skipped
+    /// when the machine is already where it was asked to be, which is what makes switching off a
+    /// Mac that sleeps normally cost nothing at all.
+    ///
+    /// **The already-there answer is read before the prompt is considered, and never as a
+    /// success.** A Mac that is already in the wanted state when the silent command fails is a Mac
+    /// whose setting comes from somewhere else: another tool's sudoers rule, or somebody typing
+    /// `pmset` themselves. There is nothing for this app to do and nothing for it to claim.
+    private func applySleepDisabled(_ wanted: Bool) async -> SleepApplication {
+        let target: LidCloseSleep.SleepDisabledState = wanted ? .on : .off
+
+        // **Read before writing, because an exit status cannot tell a change from an agreement.**
+        // `sudo -n pmset -a disablesleep 1` exits 0 whether it flipped the setting or found it
+        // already flipped, and the difference is the whole of who owns it: a Mac whose clamshell
+        // sleep another tool had already disabled would be claimed by this app, and the quit path
+        // would then turn that other tool's setting off. Asking the machine first costs one process
+        // more than the command itself and it is the only thing that separates the two cases.
+        if await LidCloseSleepControl.sleepDisabledState() == target { return .alreadyThere }
+
+        let outcome = await LidCloseSleepControl.setSleepDisabled(wanted)
+        if case .cancelled = outcome { return .cancelled }
+
+        if case .failed(let message) = outcome {
+            // **The cache is re-read rather than believed here, and this is the branch that most
+            // needs it.** It is where somebody arrives having just deleted the rule by hand, and
+            // where turning the switch off is the only thing that can undo a Mac that has stopped
+            // sleeping. Believing a stale "the rule is installed" is what withholds the one
+            // password prompt that can still put it back.
+            await checkLidCloseSleepRule()
+            guard lidCloseRuleInstalled != true else { return .failed(message) }
+            return Self.application(of: await LidCloseSleepControl.setSleepDisabledAskingForAdmin(
+                wanted,
+                prompt: wanted
+                    ? "Peering will stop this Mac sleeping with the lid closed."
+                    : "Peering will let this Mac sleep normally again."
+            ))
+        }
+
+        return .applied
+    }
+
+    /// The privileged outcome, in the four-way spelling the caller above works in.
+    private static func application(of outcome: LidCloseSleepControl.Outcome) -> SleepApplication {
+        switch outcome {
+        case .done: return .applied
+        case .cancelled: return .cancelled
+        case .failed(let message): return .failed(message)
+        }
     }
 
     private func acquireSleepAssertion() {
