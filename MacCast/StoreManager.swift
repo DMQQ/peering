@@ -347,7 +347,7 @@ final class StoreManager {
         /// The allowance is read off ``RelayPlan`` rather than typed in, so what a card promises and
         /// what the relay meters are the same number. That matters most for the middle rung: it is
         /// the one a subscriber compares against free, and "three hours" appearing on the card
-        /// while the meter beside it counts half an hour is how a sale turns into a refund.
+        /// while the meter beside it counts the free allowance is how a sale turns into a refund.
         var tagline: String {
             switch self {
             case .relay:

@@ -247,6 +247,12 @@ struct PlanFeaturesView: View {
                 capability: .pictureInPicture
             ),
             PlanFeature(
+                icon: "clock.arrow.circlepath",
+                title: "Clipboard history",
+                detail: "The last twelve things that crossed between the two machines, waiting to be pasted again. Copying and pasting themselves are on every plan.",
+                capability: .clipboardHistory
+            ),
+            PlanFeature(
                 icon: "moon.fill",
                 title: "Privacy mode",
                 detail: "Dim the Mac's own displays while you work, so nobody standing there watches along."

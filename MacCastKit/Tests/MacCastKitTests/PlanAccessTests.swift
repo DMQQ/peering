@@ -35,6 +35,7 @@ final class PlanAccessTests: XCTestCase {
         .macSound: .relay,
         .pictureInPicture: .relay,
         .fileTransfer: .relay,
+        .clipboardHistory: .relay,
         .shellTabs: .plus,
         .macros: .pro,
         .highBitrate: .pro,

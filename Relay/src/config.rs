@@ -162,13 +162,21 @@ const DEFAULT_HANDSHAKE_SECONDS: u64 = 10;
 const DEFAULT_IDLE_SECONDS: u64 = 90;
 
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
-const DEFAULT_FREE_MINUTES: u64 = 30;
+///
+/// **Fifteen rather than thirty, and the reason is what free is for.** Free's own promise, on the
+/// site and in the app, is "your own network, for as long as you like": the direct path is
+/// unlimited on every plan and costs nothing to serve, and the relay allowance is there to answer
+/// "does this work when I am out". Half an hour a day answered that and then kept answering it, so
+/// a free user with a commute spent the whole allowance every day without ever reaching a wall
+/// they would pay to remove. Fifteen still covers a first proper try and runs out in the middle of
+/// regular use, which is the difference between a sample and a subscription.
+const DEFAULT_FREE_MINUTES: u64 = 15;
 /// Relay-plan minutes per client per window, unless `PEERINGD_RELAY_MINUTES` says otherwise.
 const DEFAULT_RELAY_MINUTES: u64 = 180;
 
 /// What each plan is allowed, in seconds per window.
 ///
-/// The two numbers here are the whole of the product's promise about relay time: half an hour a
+/// The two numbers here are the whole of the product's promise about relay time: fifteen minutes a
 /// day free, three hours a day on the cheapest subscription, and no limit above that. They are
 /// configurable because an operator may want to be stingier or more generous than the app's copy
 /// says, and the app's copy is what has to keep up — `SessionHistory.swift` mirrors these numbers
@@ -180,7 +188,7 @@ const DEFAULT_RELAY_MINUTES: u64 = 180;
 /// not configured the relay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlanAllowances {
-    /// `PEERINGD_FREE_MINUTES`, 30 by default. `None` would mean unlimited; nothing sets it.
+    /// `PEERINGD_FREE_MINUTES`, 15 by default. `None` would mean unlimited; nothing sets it.
     pub free_seconds: Option<u64>,
     /// `PEERINGD_RELAY_MINUTES`, 180 by default.
     pub relay_seconds: Option<u64>,
@@ -462,7 +470,7 @@ mod tests {
         let config = configured(&[]).unwrap();
 
         assert_eq!(config.plans, PlanAllowances::default());
-        assert_eq!(config.plans.free_seconds, Some(30 * 60), "free is half an hour a day");
+        assert_eq!(config.plans.free_seconds, Some(15 * 60), "free is a quarter of an hour a day");
         assert_eq!(config.plans.relay_seconds, Some(180 * 60), "Relay is three hours a day");
     }
 

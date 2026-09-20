@@ -10,8 +10,8 @@ import Foundation
 /// the same map in prose, and they are the two that cannot be compiled against it: a change here
 /// is a change owed to both of them in the same commit.
 ///
-/// **Seven rows, and everything else in the app is free.** Every display, app and window as a
-/// source, the desktops panel, the clipboard and its history, the pointer and the keyboard, observe
+/// **Nine rows, and everything else in the app is free.** Every display, app and window as a
+/// source, the desktops panel, the clipboard itself, the pointer and the keyboard, observe
 /// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, notifications,
 /// session history, wake on LAN, saving SSH servers, one Mac at a time, one shell at a time and the
 /// whole file browser including editing, making, renaming, deleting and running what it lists. None
@@ -60,6 +60,22 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// sending one to it. One capability rather than two, because they are one gesture with the
     /// arrow reversed and a plan that allowed one of them would be a plan nobody could describe.
     case fileTransfer
+
+    /// The list of what was copied through the session, rather than the copying of it.
+    ///
+    /// **The same line this app draws through macros**: what a plan buys is the shelf, not the
+    /// ability to use it. Pull, Copy and Push are on the rail on every plan and are free, because a
+    /// phone that cannot put text on the Mac is not a remote desktop; what Relay adds is the twelve
+    /// that came before, which is a thing somebody who works this way daily reaches for and
+    /// somebody who does it once does not miss. Gating the rail instead would be charging for the
+    /// clipboard, which is the argument that keeps the terminal keys free and puts the macro
+    /// *editor* behind Pro.
+    ///
+    /// It is here rather than beside the concurrency gates because nothing about it is a limit:
+    /// the history either exists or it does not, and a free user losing it loses a surface rather
+    /// than a ceiling.
+    case clipboardHistory
+
     case shellTabs
     /// Macros, the snippets above the terminal keyboard, and the quick commands in a shell.
     ///
@@ -94,7 +110,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// resold the same plan would change the ladder without changing a single answer here.
     public var minimumPlan: RelayPlan {
         switch self {
-        case .extraMacs, .macSound, .pictureInPicture, .fileTransfer:
+        case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory:
             // The remote working set: away from your own network, with every Mac you own, its
             // sound, its picture floating over another app, and files that move both ways. The
             // entry rung used to differ from free in exactly one number, three hours against half
@@ -140,6 +156,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .macSound: return "Sound from the Mac"
         case .pictureInPicture: return "Picture in Picture"
         case .fileTransfer: return "Moving files between the phone and the Mac"
+        case .clipboardHistory: return "The clipboard history"
         case .shellTabs: return "Several shells at once"
         case .macros: return "Macros, snippets and quick commands"
         case .highBitrate: return "The sharpest picture"

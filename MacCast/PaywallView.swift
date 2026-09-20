@@ -49,7 +49,7 @@ struct PaywallView: View {
     /// the review. Same products either way; only the reason changes.
     ///
     /// It changes twice over, in fact, because there are two ways to hit the quota now: a free user
-    /// who has spent half an hour, and a Relay subscriber who has spent their three hours. Telling
+    /// who has spent the free allowance, and a Relay subscriber who has spent their three hours. Telling
     /// the second one that their *free* allowance is gone reads as the app having forgotten they
     /// paid, which is worse than saying nothing.
     /// Six doors now, and the two the app opens by itself are the ones that are not the user's
@@ -194,6 +194,8 @@ struct PaywallView: View {
                 return "Whatever the Mac is playing comes out of this phone, from the music you left running to the alert it makes in answer to a key you sent it."
             case .pictureInPicture:
                 return "Keeps the Mac's screen floating over other apps while you do something else, and iOS can float it by itself on your way out of the app."
+            case .clipboardHistory:
+                return "Keeps the last twelve things that crossed between the two machines, so what you copied on the Mac is still there when you think of it on the phone. Copying and pasting themselves are on every plan."
             case .fileTransfer:
                 return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 64 MB."
             case .shellTabs:
@@ -819,7 +821,7 @@ struct AllowanceSpentView: View {
         let stillFree = "Connecting over your own network is unlimited on every plan and still works."
         switch plan {
         case .free:
-            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day the free plan includes is spent. The relay will not carry another one from this iPhone until the window turns over. \(stillFree)"
+            return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day the free plan includes are spent. The relay will not carry another one from this iPhone until the window turns over. \(stillFree)"
         case .relay:
             return "The session that just ended was carried over the relay, and the \(plan.allowanceSpelling) a day Relay includes are spent. Relay Plus and Pro remove the daily limit. \(stillFree)"
         case .plus, .pro:

@@ -13,7 +13,7 @@ import Foundation
 ///
 /// Grouped rather than passed as three arguments because the three travel together and are read
 /// together, and because a call site that forgets one of them is a paying subscriber metered at
-/// half an hour a day — the failure the proof exists to remove.
+/// the free allowance, which is the failure the proof exists to remove.
 public struct RelayEntitlement: Sendable, Equatable {
     /// The plan this device is on: `free`, `relay`, `plus` or `pro`. Omitted means the free plan,
     /// which is also what an unrecognised spelling means.

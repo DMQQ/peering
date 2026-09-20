@@ -859,8 +859,13 @@ final class SessionOfferPolicyTests: XCTestCase {
         )
     }
 
-    /// A window whose relay allowance is nearly gone: five minutes of half an hour.
-    private var nearlySpent: Double { 300.0 / 1800.0 }
+    /// A window whose free relay allowance is nearly gone: three of the plan's fifteen minutes
+    /// left, which is under the quarter that ``SessionOfferPolicy/lowRelayAllowanceFraction``
+    /// calls running low.
+    ///
+    /// Read off ``RelayPlan`` rather than typed in, because this number has already moved once and
+    /// a fixture that has to be remembered is a fixture that will be missed.
+    private var nearlySpent: Double { 180.0 / (RelayPlan.free.allowanceSeconds ?? 1) }
 
     /// The connect that was a mistake, and the one that dropped on arrival. Both reach this with a
     /// record, because both reached `.ready`, which is what the floor is for.
@@ -899,7 +904,7 @@ final class SessionOfferPolicyTests: XCTestCase {
         ))
     }
 
-    /// Free is half an hour a day, so twenty-five minutes spent leaves five, under the quarter
+    /// Free is fifteen minutes a day, so twelve minutes spent leaves three, under the quarter
     /// that ``SessionOfferPolicy/lowRelayAllowanceFraction`` calls running low.
     func testARelaySessionThatLeavesTheAllowanceLowIsOffered() {
         let decision = SessionOfferPolicy.decision(
@@ -907,11 +912,11 @@ final class SessionOfferPolicyTests: XCTestCase {
             state: state(
                 hasOfferedAfterFirstSession: true,
                 allowanceFraction: nearlySpent,
-                remaining: 300
+                remaining: 180
             )
         )
 
-        XCTAssertEqual(decision?.reason, .runningLow(remaining: 300))
+        XCTAssertEqual(decision?.reason, .runningLow(remaining: 180))
         XCTAssertEqual(decision?.consumption, .lowAllowance)
     }
 

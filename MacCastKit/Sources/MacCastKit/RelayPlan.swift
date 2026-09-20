@@ -14,10 +14,10 @@ import Foundation
 /// only for as long as the relay keeps believing claims at all. The relay's `storekit.rs` holds that
 /// reasoning and the condition for ending it; the short version is that reading an unproven `plus`
 /// as free on the day the verification shipped would have taken every existing subscriber down to
-/// half an hour a day, which is why the claim still decides anything at all.
+/// the free allowance, which is why the claim still decides anything at all.
 ///
 /// **The numbers are the relay's, repeated here.** `Relay/src/config.rs` holds the authority:
-/// thirty minutes free and three hours on Relay, both per rolling 24-hour window, and no limit at
+/// fifteen minutes free and three hours on Relay, both per rolling 24-hour window, and no limit at
 /// all above that (`PEERINGD_FREE_MINUTES`, `PEERINGD_RELAY_MINUTES`). This mirrors them so the bar
 /// in the Sessions tab can be drawn without asking the server, and the copy in the app's paywall,
 /// its introduction and `Relay/site` states the same facts again. Edit one without the others and
@@ -36,7 +36,7 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     /// ``isUnlimited`` says which it is.
     public var allowanceSeconds: TimeInterval? {
         switch self {
-        case .free: return 30 * 60
+        case .free: return 15 * 60
         case .relay: return 180 * 60
         case .plus, .pro: return nil
         }
@@ -51,7 +51,7 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     /// cannot disagree with the bar.
     public var allowanceSpelling: String {
         switch self {
-        case .free: return "half an hour"
+        case .free: return "fifteen minutes"
         case .relay: return "three hours"
         case .plus, .pro: return "unlimited relay"
         }

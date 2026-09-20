@@ -221,7 +221,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "What is free?",
-                    answer: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes half an hour of it in each rolling 24 hours."
+                    answer: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes fifteen minutes of it in each rolling 24 hours."
                 ),
                 QA(
                     question: "What happens when my relay time runs out?",

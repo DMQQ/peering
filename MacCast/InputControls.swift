@@ -939,13 +939,23 @@ struct MacroBar: View {
                 )
                 // Only once there is something in it, and this is the same rule the Copy button
                 // beside it follows: a button that opens an empty list is a button that teaches
-                // nothing the first time it is pressed.
+                // nothing the first time it is pressed. The history keeps filling on a plan that
+                // cannot open it, which is deliberate: it is the user's own clipboard, and the
+                // day they subscribe the last twelve things are waiting rather than starting from
+                // nothing.
+                //
+                // **The list is gated and the clipboard is not**, which is the same line the macro
+                // editor below draws: Pull, Copy and Push are free on every plan, because a phone
+                // that cannot put text on the Mac is not a remote desktop, and what Relay adds is
+                // the twelve that came before. See ``PlanCapability/clipboardHistory``.
                 if !model.clipboardHistory.isEmpty {
-                    ClipboardButton(
-                        symbol: "clock.arrow.circlepath",
-                        label: "History",
-                        action: { showingClipboardHistory = true }
-                    )
+                    PlanLocked(capability: .clipboardHistory, title: "Clipboard history", diameter: 34) {
+                        ClipboardButton(
+                            symbol: "clock.arrow.circlepath",
+                            label: "History",
+                            action: { showingClipboardHistory = true }
+                        )
+                    }
                 }
 
                 // Divider

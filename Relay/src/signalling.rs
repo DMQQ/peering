@@ -819,8 +819,9 @@ mod tests {
         }
     }
 
-    /// The allowances the app states, which are the relay's defaults: half an hour free and three
-    /// hours on Relay. Two numbers rather than one, so a test that confuses the plans fails.
+    /// The allowances the app states, which are the relay's defaults: a quarter of an hour free
+    /// and three hours on Relay. Two numbers rather than one, so a test that confuses the plans
+    /// fails.
     fn default_settings() -> Settings {
         settings_with(Arc::new(QuotaTracker::new(
             PlanAllowances::default(),
@@ -1156,10 +1157,11 @@ mod tests {
         .await
     }
 
-    /// Half an hour free means half an hour: a client that has spent more than that is refused.
+    /// A quarter of an hour free means a quarter of an hour: a client that has spent more than
+    /// that is refused.
     #[tokio::test]
     async fn a_spent_free_allowance_is_refused() {
-        let reply = connect_with(None, 30 * 60 + 1).await;
+        let reply = connect_with(None, 15 * 60 + 1).await;
         assert!(
             matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
             "expected a quota refusal, got {reply:?}"
@@ -1169,11 +1171,11 @@ mod tests {
     /// The same client, saying `relay`, is inside its much larger allowance — which is the whole
     /// of what a subscription buys here.
     #[tokio::test]
-    async fn a_relay_plan_is_still_connected_after_the_free_hour_is_spent() {
-        let reply = connect_with(Some("relay"), 30 * 60 + 1).await;
+    async fn a_relay_plan_is_still_connected_after_the_free_allowance_is_spent() {
+        let reply = connect_with(Some("relay"), 15 * 60 + 1).await;
         assert!(
             matches!(reply, Some(ServerMessage::SessionReady { .. })),
-            "Relay should have three hours, not half an hour: {reply:?}"
+            "Relay should have three hours, not a quarter of an hour: {reply:?}"
         );
     }
 
@@ -1194,7 +1196,7 @@ mod tests {
     #[tokio::test]
     async fn a_plan_the_relay_does_not_know_is_metered_as_free() {
         for claimed in ["enterprise", "unlimited", "pro max", ""] {
-            let reply = connect_with(Some(claimed), 30 * 60 + 1).await;
+            let reply = connect_with(Some(claimed), 15 * 60 + 1).await;
             assert!(
                 matches!(reply, Some(ServerMessage::Error { ref code, .. }) if code == "quotaExceeded"),
                 "{claimed:?} should have been metered as free, got {reply:?}"

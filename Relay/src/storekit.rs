@@ -28,7 +28,7 @@
 //! **A claimed plan buys nothing on its own, and that is the default.** A client that sends
 //! `"plan":"pro"` with no receipt is metered as a client that bought nothing, which is the answer
 //! to the money hole this module was written for: a patched app can still say `pro`, and all it
-//! gets for saying it is half an hour a day. The claim is not thrown away, though: every session
+//! gets for saying it is the free allowance. The claim is not thrown away, though: every session
 //! line says which path decided the plan, so a support question about a client that should be
 //! paying is answered by the log rather than by a guess. Three words carry the whole of it:
 //!
@@ -42,7 +42,7 @@
 //! (`not_a_real_purchase`): Apple signs them and they name the real products, but they are handed
 //! out for nothing to anyone with a developer account, so believing one would put the price of
 //! unlimited relay at an App Store Connect login. A tester who has bought the real thing is
-//! therefore metered as free on a beta build, thirty minutes a day on a phone that says `pro`, and
+//! therefore metered as free on a beta build, the free allowance on a phone that says `pro`, and
 //! the switch is what an operator sets so that the people testing a build are metered by what they
 //! claim. Every other client gets its plan from the same switch while it is on, which is the trade,
 //! and startup says which state the relay is in.

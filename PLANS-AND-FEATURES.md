@@ -55,12 +55,23 @@ Measured against the field rather than chosen. Screens 5 is $3.99/mo and $29.99/
 permanent free tier and no audio at all; Splashtop charges $23.99/yr just to leave the LAN and
 $99/yr for its Pro tier; RealVNC Essentials is $8.25/mo; Astropad Workbench, the closest product to
 this one, gives 20 minutes a day free and charges $99.99/yr. Pro at $99.99/yr sits level with
-Astropad and below Splashtop Pro, and the free tier here gives 30 minutes a day rather than 20.
+Astropad and below Splashtop Pro. The free allowance here is 15 minutes a day, which is five under
+Astropad's, and that is a deliberate trade: the path between two devices on the same network is
+unlimited on every plan and costs nothing to serve, so the free allowance is only ever answering
+"does this work when I am out", and an allowance generous enough to work with is one nobody pays to
+raise.
 
 ### What moved, and why
 
+- **The free relay allowance is fifteen minutes rather than thirty.** Measured against what free is
+  for rather than against the field. Half an hour answered the question above and then went on
+  answering it: a free user with a commute spent the whole allowance every day and never reached a
+  wall they would pay to remove, which is a sample that has stopped sampling. Fifteen still covers a
+  first proper try away from home, and runs out somewhere in the middle of regular use.
+
 - **Sound, Picture in Picture, moving files and the Mac count moved down to the entry rung.** The
-  entry rung used to differ from free in exactly one number, three hours against half an hour,
+  entry rung used to differ from free in exactly one number, three hours against the free
+  allowance,
   which made it the hardest thing on the ladder to sell. These four are what the field charges for:
   file transfer is the single most consistent paywall in remote desktop, audio is off entirely on
   TeamViewer's free tier and Performance-tier at Splashtop, and device count is the field's
@@ -94,7 +105,7 @@ each with a `minimumPlan`, and every gate in the app asks one of them. Nothing i
 plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
 there is one list and no second place to drift from.
 
-**Those eight are the whole of what a plan decides.**
+**Those nine are the whole of what a plan decides.**
 
 | Gated feature | Capability | Cheapest plan |
 |---|---|---|
@@ -102,6 +113,7 @@ there is one list and no second place to drift from.
 | Sound from the Mac | `macSound` | Relay |
 | Picture in Picture | `pictureInPicture` | Relay |
 | Moving files between the phone and the Mac | `fileTransfer` | Relay |
+| The clipboard history | `clipboardHistory` | Relay |
 | Several shells at once, as tabs | `shellTabs` | Relay Plus |
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
@@ -169,7 +181,8 @@ money every time it is used.
 | Scroll wheel | ✅ | ✅ | ✅ | ✅ |
 | On-screen keyboard, hardware keyboard, modifier lock keys | ✅ | ✅ | ✅ | ✅ |
 | Control mode vs Observe mode | ✅ | ✅ | ✅ | ✅ |
-| Clipboard: pull from the Mac, and clipboard history | ✅ | ✅ | ✅ | ✅ |
+| Clipboard: pull from the Mac, push to it, copy | ✅ | ✅ | ✅ | ✅ |
+| Clipboard history: the last twelve | · | ✅ | ✅ | ✅ |
 | Quick commands and snippets: running one you already have | ✅ | ✅ | ✅ | ✅ |
 | Quick commands and snippets: adding or editing one | · | · | · | ✅ |
 | Macros: record, edit, fire | · | · | · | ✅ |
@@ -281,7 +294,7 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
   video onto the control channel, chunking so a keyframe fits, a rate cap while it is there, and a
   probe of the lane it left. On the direct path that is a genuine fallback from the dedicated
   video socket; on the relay path it is only a rate reduction, because video is already there.
-- **Per-plan relay allowances** — the relay learns the plan from the handshake; free 30 min,
+- **Per-plan relay allowances** — the relay learns the plan from the handshake; free 15 min,
   Relay 3 h, Plus/Pro unlimited.
 
 **Not started** ❌
@@ -322,7 +335,7 @@ claim.
 
 One exception is still in the code deliberately, and is worth knowing about before the next release.
 An *unproven* claim is still honoured, because reading one as free on the day verification shipped
-would have taken every existing subscriber down to half an hour a day. `Relay/src/config.rs` holds
+would have taken every existing subscriber down to the free allowance. `Relay/src/config.rs` holds
 the switch; the reasoning is in `RelayPlan.swift`.
 
 The caveat from before still stands: revocation and refunds need Apple's server API, so a refunded
@@ -375,7 +388,7 @@ reporting — a promise in the privacy policy — a bug report or a review is th
 get. (A "Report an issue" row now exists in Settings, in both the iOS app and the Mac host.)
 
 ### Traps that will bite on the next release
-- **The relay enforces nothing new until it is redeployed.** The app and site say 30 minutes/day
+- **The relay enforces nothing new until it is redeployed.** The app and site say 15 minutes/day
   and per-plan allowances; the running server has whatever it was started with.
 - **The site's prices are stale** ($4.99/$14.99/$79.99) until App Store Connect moves. Do not
   change the site first, or it advertises a price the store will not honour.
@@ -418,6 +431,6 @@ these three in there, or change both files together, but do not change one alone
 the plan the client claims — the JWS is checked against Apple Root CA - G3, pinned in this
 repository, and a verified receipt always wins. The **claimed plan is still believed when no
 receipt arrives**, which is deliberate: a shipped app cannot send one, so verification-only would
-drop every existing subscriber to 30 minutes a day on deploy day. `PEERINGD_TRUST_CLAIMED_PLANS=0`
+drop every existing subscriber to the free allowance on deploy day. `PEERINGD_TRUST_CLAIMED_PLANS=0`
 closes it, and the removal condition is in the README: deploy, watch `plan_trust="claimed"` in the
 logs, then turn the fallback off.

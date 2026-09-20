@@ -599,9 +599,9 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
     let port = signal.local_addr().expect("should have an address").port();
 
     let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
-    // Spent rather than configured away, so the test travels the path a client does: half an hour
-    // of free relay already used, which is where a subscriber on the free plan would be.
-    quota.record("phone", Duration::from_secs(30 * 60 + 1));
+    // Spent rather than configured away, so the test travels the path a client does: a whole free
+    // allowance already used, which is where a subscriber on the free plan would be.
+    quota.record("phone", Duration::from_secs(15 * 60 + 1));
 
     tokio::spawn(signalling::serve(
         signal,
@@ -741,7 +741,7 @@ async fn a_receipt_that_does_not_verify_leaves_the_claim_standing() {
     );
 
     // The same request against a relay that does not trust claims: the subscription is invisible
-    // to the relay and the client is back to half an hour a day, which is what closing it looks
+    // to the relay and the client is back to the free allowance, which is what closing it looks
     // like from the client's side.
     let strict = relay(TestChain::genesis().verifier(false)).await;
     let answer = ask(strict, "pro", Some(forged)).await;
