@@ -119,3 +119,50 @@ public struct LatencyWindow: Sendable {
         return (sorted[middle - 1] + sorted[middle]) / 2
     }
 }
+
+/// How long a session has been silent, and whether that is long enough to end it.
+///
+/// **The fix for a session that froze and never said anything.** A connection can stop carrying
+/// without ever reporting a failure: the phone changes network, the path under a socket goes away,
+/// and `NWConnection` neither fails nor completes — writes are accepted and nothing comes back.
+/// Every layer above waits for an error that never arrives, so the picture stays on its last
+/// decoded frame indefinitely and the user is told nothing.
+///
+/// Silence is the only evidence available, and the client already collects it: one ping a second,
+/// and a pong that proves the channel is alive. This is the rule that turns the absence of that
+/// pong into a decision, kept apart from the session so it can be tested — every case that matters
+/// is about elapsed time, and a test cannot wait for it.
+public struct ControlSilence: Sendable {
+    /// Ten seconds, which is ten unanswered pings in a row.
+    ///
+    /// Deliberately twice `VideoFallbackPolicy.controlHealthWindow`, which calls the channel
+    /// unhealthy after five. That window is used to *refuse* to move the picture, which is cheap
+    /// and reversible; this one ends the session, which is not. A network handover is a few
+    /// seconds of silence that often resolves itself, and dropping those would be a worse bug
+    /// than the freeze this exists to fix.
+    public static let defaultLimit: TimeInterval = 10
+
+    public let limit: TimeInterval
+
+    public init(limit: TimeInterval = ControlSilence.defaultLimit) {
+        self.limit = limit
+    }
+
+    /// Whether the control channel has gone too long without answering.
+    ///
+    /// `isReady` rather than "was ever ready": a session that has already ended must not be judged
+    /// again, or a failure becomes a second failure about the same moment.
+    ///
+    /// The baseline is the last reply, or the moment the session became ready when there has not
+    /// been one yet — a session whose first pong is late is judged against its own start rather
+    /// than against a silence that began before it existed.
+    public func hasExpired(
+        isReady: Bool,
+        readyAt: TimeInterval?,
+        lastReplyAt: TimeInterval?,
+        now: TimeInterval
+    ) -> Bool {
+        guard isReady, let since = lastReplyAt ?? readyAt else { return false }
+        return now - since > limit
+    }
+}

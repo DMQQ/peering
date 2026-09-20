@@ -232,3 +232,47 @@ struct LanePingWireTests {
         #expect(frame.kind != .videoChunk)
     }
 }
+
+/// When silence on the control channel becomes a failure.
+///
+/// The case this exists for is a phone that changes network: the path under the control connection
+/// goes away and nothing reports it, so the session sat frozen on its last frame with nothing said.
+/// Every case here is about elapsed time, which is why the rule is a value and not a timer.
+@Suite("Control-channel silence")
+struct ControlSilenceTests {
+    private let silence = ControlSilence(limit: 10)
+
+    @Test func aChannelThatHasAnsweredRecentlyHasNotExpired() {
+        #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 97, now: 100))
+    }
+
+    /// Ten unanswered pings, which is what the limit means.
+    @Test func aChannelSilentPastTheLimitHasExpired() {
+        #expect(silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 89, now: 100))
+    }
+
+    /// A session whose first pong has not arrived yet is judged against when it became ready.
+    /// Without that it would have no baseline at all and could never expire.
+    @Test func beforeTheFirstReplyTheClockRunsFromWhenTheSessionBecameReady() {
+        #expect(!silence.hasExpired(isReady: true, readyAt: 95, lastReplyAt: nil, now: 100))
+        #expect(silence.hasExpired(isReady: true, readyAt: 80, lastReplyAt: nil, now: 100))
+    }
+
+    /// A session that has already ended must not be judged again, or one moment becomes two
+    /// failures.
+    @Test func aSessionThatIsNotReadyNeverExpires() {
+        #expect(!silence.hasExpired(isReady: false, readyAt: 0, lastReplyAt: 0, now: 100))
+    }
+
+    /// Nothing to judge: no reply and no ready moment means this rule has no opinion, which is
+    /// the state before a session has ever come up.
+    @Test func withNoBaselineThereIsNoOpinion() {
+        #expect(!silence.hasExpired(isReady: true, readyAt: nil, lastReplyAt: nil, now: 100))
+    }
+
+    /// Exactly on the limit is not yet over, so the boundary is the limit rather than a moment
+    /// before it.
+    @Test func theLimitItselfIsNotYetExpired() {
+        #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 90, now: 100))
+    }
+}

@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import os
 
 public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
     case invalidPort(UInt16)
@@ -25,6 +26,8 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
 /// cursor position leaves. The direct path measured 40 ms for exactly this.
 ///
 /// Every socket below goes through here rather than reaching for `.tcp`.
+private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
+
 private func relayTCPParameters() -> NWParameters {
     let tcp = NWProtocolTCP.Options()
     tcp.noDelay = true
@@ -220,6 +223,17 @@ final class RelayByteSplice: @unchecked Sendable {
             advance()
         case .failed, .cancelled:
             stop()
+        case .waiting(let error):
+            // **Not treated as a failure, deliberately.** A relay leg with nowhere to go is what a
+            // phone mid-handover looks like, and iOS often brings the path back on its own within a
+            // few seconds — tearing the tunnel down here would drop a session that was about to
+            // recover. The silence watchdog in the session is what ends one that does not, and it
+            // is the better place for that decision: it can tell a handover from a dead network by
+            // whether an answer ever comes back.
+            //
+            // Logged rather than swallowed, because a connection that is waiting and a connection
+            // that is fine look identical from every layer above this one.
+            videoTunnelLog.notice("the relay leg is waiting: \(String(describing: error), privacy: .public)")
         default:
             break
         }

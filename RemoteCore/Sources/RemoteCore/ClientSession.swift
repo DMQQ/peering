@@ -392,6 +392,18 @@ public final class ClientSession: @unchecked Sendable {
     private var lastPictureAt: TimeInterval?
     /// When the control channel last answered anything.
     private var lastControlReplyAt: TimeInterval?
+    /// When the handshake finished, which is what the silence watchdog counts from until the
+    /// first pong arrives.
+    private var readyAt: TimeInterval?
+
+    /// The rule that turns a silent control channel into a failure. See ``ControlSilence``.
+    ///
+    /// **Its absence was a real bug**: a session that stopped being carried and never reported it
+    /// stayed frozen on its last decoded frame with nothing said, because every layer above was
+    /// waiting for an error that never came. `lastControlReplyAt` existed and was read only by the
+    /// fallback policy, which uses it to decline to move the picture onto a channel that is
+    /// itself failing.
+    private static let controlSilence = ControlSilence()
     /// Chunks in from the control channel, pictures out. Only ever fed from the control lane:
     /// the preferred transport carries whole frames, which need no reassembly.
     private var videoChunks = VideoChunkReassembler()
@@ -972,7 +984,12 @@ public final class ClientSession: @unchecked Sendable {
     // MARK: - Ready
 
     private func becomeReady() {
-        lock.withLock { state = .ready }
+        lock.withLock {
+            state = .ready
+            // The watchdog's baseline until the first pong arrives. Without it, a session whose
+            // first pong is late would be judged against a silence that began before it existed.
+            readyAt = Self.monotonicNow()
+        }
         emit(.phase(.ready))
 
         // A video connection is authorized by an *authenticated* control session for the same
@@ -1631,6 +1648,7 @@ public final class ClientSession: @unchecked Sendable {
         // extra packet is sent to ask the question.
         lastPictureAt = Self.monotonicNow()
         lastControlReplyAt = nil
+        readyAt = nil
         fallbackPolicy.reset()
         guard videoWatchTask == nil else { lock.unlock(); return }
         let task = Task { [weak self] in
@@ -1639,6 +1657,7 @@ public final class ClientSession: @unchecked Sendable {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled, let self else { return }
                 self.evaluateVideoTransport()
+                self.failIfControlHasGoneQuiet()
                 // The counts every second tick, which is every second: fast enough to read them
                 // off a screen while a session is running, and slow enough that a screen showing
                 // four numbers is not redrawn sixty times a second to show the same four.
@@ -1661,6 +1680,7 @@ public final class ClientSession: @unchecked Sendable {
         fallbackPolicy.reset()
         lastPictureAt = nil
         lastControlReplyAt = nil
+        readyAt = nil
         videoChunks = VideoChunkReassembler()
         announcedTransport = .primary
         // The datagram lane's state is the same kind of thing: a replay window and a partial
@@ -1679,6 +1699,38 @@ public final class ClientSession: @unchecked Sendable {
         lanePingTask?.cancel()
         lanePingTask = nil
         return task
+    }
+
+    /// Ends a session the network has stopped carrying without saying so.
+    ///
+    /// **The case this exists for.** The phone changes network, and the path under the control
+    /// connection goes away. Nothing fails: not the socket, which was never told, and not any layer
+    /// above it, which is waiting for an error. The picture stays on its last decoded frame and the
+    /// app says nothing at all, which is what a user meets as a frozen screen with no explanation.
+    ///
+    /// Silence is the only evidence available, and the client already collects it: one ping a
+    /// second, and a pong that proves the channel is alive. This turns the absence of that pong
+    /// into a failure, which is what the reconnect ladder is waiting for — a phase change it can
+    /// act on. Failing is not the point; failing is what lets the app try again.
+    ///
+    /// A session that recovers inside the window is untouched, which is deliberate. A network
+    /// handover is a few seconds of silence that often resolves itself, and dropping those sessions
+    /// would be a worse bug than the freezer this fixes.
+    private func failIfControlHasGoneQuiet() {
+        let now = Self.monotonicNow()
+        lock.lock()
+        let expired = Self.controlSilence.hasExpired(
+            isReady: state == .ready,
+            readyAt: readyAt,
+            lastReplyAt: lastControlReplyAt,
+            now: now
+        )
+        let silentSince = lastControlReplyAt ?? readyAt
+        lock.unlock()
+
+        guard expired, let silentSince else { return }
+        sessionLog.error("the control channel has not answered for \(Int(now - silentSince), privacy: .public)s; failing the session")
+        fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.")
     }
 
     private func evaluateVideoTransport() {
