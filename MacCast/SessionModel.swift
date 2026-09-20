@@ -892,6 +892,20 @@ final class SessionModel {
         connect(to: target, replacing: nil)
     }
 
+    /// The Mac a target names, or `nil` for a literal address.
+    ///
+    /// **Written out rather than asked of ``ClientSession/Target``**, whose own answer to this is
+    /// internal to `RemoteCore`. Opening that up for one caller is a wider change than the
+    /// question is worth, and the two would have to be kept in step either way: a literal address
+    /// is `nil` in both, because it says where a Mac is and nothing about which one it is.
+    private static func hostID(of target: ClientSession.Target) -> String? {
+        switch target {
+        case .discovered(let host): return host.id
+        case .relay(let hostID, _, _), .relayPairing(let hostID, _, _): return hostID
+        case .address: return nil
+        }
+    }
+
     /// Opens a Mac, replacing one session if there is one to replace.
     ///
     /// - Parameter old: the session this attempt supersedes, or `nil` when it is a Mac being
@@ -900,6 +914,20 @@ final class SessionModel {
     ///   as "it connected twice".
     func connect(to target: ClientSession.Target, replacing old: MacSession?) {
         guard let identity, identityFailure == nil else { return }
+
+        // **A Mac that is already open is brought to the front rather than dialled again.**
+        // Two sessions to one Mac would be two control channels, two terminal lists and two
+        // meter entries for one machine, and the Mac itself would count two clients where the
+        // user has one phone. Every route that names a Mac passes through here — the picker's
+        // row, the widget's URL, Siri — so this is the one place it can be answered.
+        //
+        // Not for a ladder putting a Mac back: that is the same Mac's own session being
+        // replaced, and `old` is how it says so.
+        if old == nil, let hostID = Self.hostID(of: target),
+           let open = sessions.first(where: { $0.hostID == hostID && $0.isLive }) {
+            activateSession(open.id)
+            return
+        }
 
         // **The gate, at the one place every route passes through.** The picker's row, the strip's
         // plus and the widget's URL all arrive here, so a gate drawn on one of them cannot be

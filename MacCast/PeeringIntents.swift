@@ -144,7 +144,10 @@ struct DisconnectIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        guard let model = IntentHost.model, model.phase.holdsSession else {
+        // **Any Mac, not the one on screen.** With several open, asking about the active
+        // session's phase would answer "not connected" while two other Macs are connected, and
+        // the phrase is the same one a user says to mean stop everything.
+        guard let model = IntentHost.model, model.hasOpenSession else {
             return .result(dialog: "Not connected.")
         }
         model.disconnect()
