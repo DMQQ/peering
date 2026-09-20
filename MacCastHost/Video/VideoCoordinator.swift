@@ -28,34 +28,37 @@ final class VideoCoordinator: @unchecked Sendable {
     private let adapter = CaptureFrameAdapter()
     private let lock = NSLock()
 
-    /// A client that has connected but cannot be attached yet, because no frame carrying
-    /// parameter sets has arrived. Held as a peer rather than a flag so the attach goes to
-    /// the connection that is actually waiting, not to whichever one connected most
-    /// recently.
-    private var waiting: PeerConnection?
-    /// The peer the streamer is currently serving. Kept here as well as in `VideoStreamer`
-    /// so connection lifetime and capture lifetime can be changed under one lock.
-    private var attached: PeerConnection?
+    /// Which client is being sent the picture, and which ones have asked for no frames.
+    ///
+    /// Kept here as well as in `VideoStreamer` so connection lifetime and capture lifetime can
+    /// be changed under one lock. A paused connection is one of these rather than nothing at
+    /// all: the client is still connected and still coming back, and the socket it is holding is
+    /// the expensive thing a resume would otherwise have to rebuild.
+    private var audience = VideoAudience<PeerConnection>()
+
+    /// The source the stream is on, or `nil` when nothing is being captured.
     private var currentSource: CaptureSource?
     private var currentAudioConfig: AudioStreamConfig?
-
-    /// Every accepted replacement or relevant close advances this value. Capture operations
-    /// carry the value they were scheduled under, so work for an old peer can be discarded
-    /// without confusing it with the peer that replaced it.
-    private var audienceGeneration: UInt64 = 0
 
     /// Capture start/stop calls are asynchronous, but their ordering is user-visible. The
     /// task chain makes them land in the same order as the connection changes recorded under
     /// `lock`: in particular, an idle stop always finishes before a replacement peer's start.
     private var lifecycleTail: Task<Void, Never>?
 
-    /// Whether ``currentSource`` is a decision a client made, as opposed to the default the
-    /// host fell back to.
+    /// The source a client chose, as opposed to the default the host fell back to.
     ///
     /// The two are not interchangeable even when they name the same source, because they have
-    /// different lifetimes: a default belongs to the host and outlives everyone, while a
-    /// choice belongs to the client that made it and goes away with it.
-    private var sourceWasChosen = false
+    /// different lifetimes: a default belongs to the host and outlives everyone, while a choice
+    /// belongs to the client that made it. **So it outlives a pause and not a disconnect**: a
+    /// client that asked for no frames is still connected, still on this Mac's tab, and coming
+    /// back to the window it was watching, while a client that has gone takes its choice with
+    /// it and the next one gets the default.
+    ///
+    /// Held as the source itself rather than as a flag beside ``currentSource``, because a
+    /// paused capture has no running source to remember the choice by: the stop clears
+    /// ``currentSource``, and a flag alone would leave the next start with nothing to name but
+    /// the default display.
+    private var chosenSource: CaptureSource?
 
     /// How the next stream is built: the size of its surface, and the rate it is asked for.
     ///
@@ -261,19 +264,21 @@ final class VideoCoordinator: @unchecked Sendable {
             guard let peer else { return }
             self?.videoPeerClosed(peer)
         }
+        serve(peer)
+    }
 
+    /// Attaches a client's video connection, or holds it until the stream has a description.
+    ///
+    /// Shared by a connection that has just arrived and by one a client is asking for again
+    /// after a pause, because the two are the same event: this client wants frames and there is
+    /// a connection to send them to. The only difference is where the connection came from, and
+    /// a second path for it is how the two would come to disagree about the keyframe, which is
+    /// the difference between a picture and a black screen.
+    private func serve(_ peer: PeerConnection) {
         let config = adapter.config
         lock.withLock {
-            audienceGeneration &+= 1
-            if config == nil {
-                waiting = peer
-            } else {
-                // A described stream can attach immediately. It supersedes any peer that
-                // was still waiting for that description when this connection arrived.
-                waiting = nil
-                attached = peer
-            }
-            scheduleEnsureCapturingLocked(generation: audienceGeneration)
+            audience.connected(peer, described: config != nil)
+            scheduleEnsureCapturingLocked(generation: audience.generation)
         }
 
         if let config {
@@ -285,36 +290,113 @@ final class VideoCoordinator: @unchecked Sendable {
         }
     }
 
-    private func videoPeerClosed(_ peer: PeerConnection) {
-        let wasAttached = lock.withLock { () -> Bool? in
-            let wasWaiting = waiting === peer
-            let wasAttached = attached === peer
-            guard wasWaiting || wasAttached else { return nil }
+    /// Turns the picture on or off for one client, and touches nothing else.
+    ///
+    /// This is the whole of the host's half of ``RemoteCommand/setVideoEnabled(_:)``, and the
+    /// property it exists to preserve is that *only* the frames change. The session, the
+    /// control channel, the terminals, the clipboard and the assertion that keeps this Mac
+    /// awake are all somebody else's business and are left alone; a client that asks for no
+    /// frames is still a client with a session.
+    ///
+    /// The client is identified by the key it presented rather than by the connection the
+    /// request arrived on, and that is not a detail: in a direct session the request arrives on
+    /// the control connection while the frames go out on a socket of their own, so the
+    /// connection carrying the command is never the connection to act on. The key is what ties
+    /// the two together, exactly as it does when a video connection is authorized.
+    func setVideoEnabled(_ enabled: Bool, clientKey: Data?) {
+        if enabled {
+            resumeVideo(clientKey: clientKey)
+        } else {
+            pauseVideo(clientKey: clientKey)
+        }
+    }
 
-            if wasWaiting { waiting = nil }
-            if wasAttached { attached = nil }
-            audienceGeneration &+= 1
+    /// Stops sending frames to a client, keeping its connection.
+    ///
+    /// What stops is the capture, if this was the last client asking for a picture, and the
+    /// bytes going to this one. What is deliberately **not** done is closing anything: on a
+    /// direct session reopening the video socket costs a fresh TLS handshake, and on a relayed
+    /// one the control connection *is* the video connection, so the only thing there is to
+    /// close is the session itself.
+    ///
+    /// The source choice survives, unlike on a disconnect, because the client has not gone
+    /// anywhere and the window it was watching is the one it must come back to.
+    private func pauseVideo(clientKey: Data?) {
+        let attached = lock.withLock { () -> PeerConnection? in
+            guard let served = audience.served, served.peerPublicKey == clientKey else {
+                // Not a client this Mac is sending frames to. The picture is one stream and one
+                // client is served at a time, so a second phone that never had it (or one a
+                // newer connection displaced) has nothing to stop.
+                return nil
+            }
+
+            let seat = audience.pause(served)
+            // The bitrate and the lane were chosen for a link that is about to carry nothing.
+            // Left standing, the picture that comes back would come back capped to the control
+            // channel because of a measurement taken before the pause, and a resumed session
+            // would pay the fallback's price with none of its reason.
+            forgetTransportChoiceLocked()
+            scheduleStopIfIdleLocked(generation: audience.generation)
+            return seat == .attached ? served : nil
+        }
+
+        guard let attached else { return }
+        // Only if this connection is the one being served. See `detach(ifAttachedTo:)`.
+        _ = streamer.detach(ifAttachedTo: attached)
+        coordinatorLog.notice("video paused by the client · its session stays up")
+    }
+
+    /// Starts sending frames to a client that has asked for them again.
+    ///
+    /// The connection attached is the one this client paused, because it is still open and
+    /// because it is the expensive thing to rebuild. When there is none (its video connection
+    /// went away while it was paused, or it never had one) there is nothing to attach, and the
+    /// connection it opens next is served the way any new one is. The picture arrives either
+    /// way, which is the property that matters.
+    private func resumeVideo(clientKey: Data?) {
+        let resumed = lock.withLock {
+            audience.pausedConnections.first { $0.peerPublicKey == clientKey }
+        }
+        guard let resumed else { return }
+        serve(resumed)
+    }
+
+    /// A client's video connection went away.
+    ///
+    /// The capture is not stopped by every close, only by one that takes the last of the
+    /// audience with it, because a client that reconnects has a new connection accepted before
+    /// the old one is reaped.
+    private func videoPeerClosed(_ peer: PeerConnection) {
+        let seat = lock.withLock { () -> VideoAudience<PeerConnection>.Seat in
+            let departure = audience.closed(peer)
+
+            // A paused connection was never part of the audience, and an unrelated socket may be
+            // one this Mac deliberately stopped sending to. Neither changes what the capture is
+            // doing, and in particular neither advances the generation: a queued start belonging
+            // to the connection being served now would be discarded, and a client asking for a
+            // picture would be left with a capture that never starts.
+            guard departure == .waiting || departure == .attached else { return departure }
 
             // A source choice belongs to the departed audience. Clear it synchronously so a
             // replacement queued behind the stop selects the host's default source.
-            sourceWasChosen = false
-            // And so does a transport choice. Left standing, the next client — which has asked
-            // for nothing — would be served a capped picture on the control channel because of
+            chosenSource = nil
+            // And so does a transport choice. Left standing, the next client, which has asked
+            // for nothing, would be served a capped picture on the control channel because of
             // a decision somebody else made about a link that no longer exists.
             forgetTransportChoiceLocked()
-            scheduleStopIfIdleLocked(generation: audienceGeneration)
-            return wasAttached
+            scheduleStopIfIdleLocked(generation: audience.generation)
+            return departure
         }
 
-        guard let wasAttached else { return }
-        if wasAttached {
+        switch seat {
+        case .attached:
             // Only if this connection is the one being served. See `detach(ifAttachedTo:)`.
             _ = streamer.detach(ifAttachedTo: peer)
-        }
-        if wasAttached {
             coordinatorLog.notice("video client disconnected")
-        } else {
+        case .waiting:
             coordinatorLog.notice("waiting video client disconnected")
+        case .unrelated, .paused:
+            break
         }
     }
 
@@ -349,26 +431,32 @@ final class VideoCoordinator: @unchecked Sendable {
             await self.pipeline.stop()
             let remainsIdle = self.lock.withLock { () -> Bool in
                 self.currentSource = nil
-                return self.audienceGeneration == generation
-                    && self.waiting == nil && self.attached == nil
+                return self.audience.generation == generation && self.audience.isIdle
             }
             self.onInputTransform?(nil)
             if remainsIdle {
-                self.onStatus?("Capture stopped · no video clients")
-                coordinatorLog.notice("capture stopped · no video clients")
+                // A client that asked for no frames is still here, and the status line has to be
+                // able to tell that from a client that left: "no video clients" over a session
+                // that is still up reads as a bug and sends its reader looking for one.
+                let paused = self.lock.withLock { !self.audience.pausedConnections.isEmpty }
+                let reason = paused
+                    ? "Capture stopped · paused by the client"
+                    : "Capture stopped · no video clients"
+                self.onStatus?(reason)
+                coordinatorLog.notice("\(reason, privacy: .public)")
             }
         }
     }
 
     private func hasAudience(generation: UInt64) -> Bool {
         lock.withLock {
-            audienceGeneration == generation && (waiting != nil || attached != nil)
+            audience.generation == generation && !audience.isIdle
         }
     }
 
     private func isIdle(generation: UInt64) -> Bool {
         lock.withLock {
-            audienceGeneration == generation && waiting == nil && attached == nil
+            audience.generation == generation && audience.isIdle
         }
     }
 
@@ -437,17 +525,20 @@ final class VideoCoordinator: @unchecked Sendable {
     ///
     /// The question is deliberately not "is anything being captured". A stream left running
     /// on a departed client's source is still running, and answering the narrow question is
-    /// what let it be shown to the next client — see ``forgetChosenSourceIfIdle()``.
+    /// what let it be shown to the next client. See ``videoPeerClosed(_:)``, which drops the
+    /// choice with the audience that made it.
+    ///
+    /// A paused client is the case that makes the choice worth keeping as a source rather than
+    /// as a flag beside the running one: capture stops while it is paused, so there is a moment
+    /// with a choice and no stream, and this is what comes back to the window it was watching
+    /// instead of to the host's default display.
     ///
     /// The default is not restarted when it is already running, which is every client after
     /// the first on an untouched host. That restart would be a few hundred milliseconds of
     /// black for no change in the picture: `startCapture` rebuilds the `SCStream` rather than
     /// reusing it, so an unnecessary call is not free.
     private func ensureCapturing() async throws {
-        let target = lock.withLock { () -> CaptureSource in
-            guard let current = currentSource, sourceWasChosen else { return Self.defaultSource }
-            return current
-        }
+        let target = lock.withLock { chosenSource ?? Self.defaultSource }
         guard lock.withLock({ currentSource }) != target else { return }
         try await startCapture(target)
     }
@@ -469,20 +560,35 @@ final class VideoCoordinator: @unchecked Sendable {
     /// forces a keyframe, and the client rebuilds its decoder against the new picture.
     func switchSource(_ source: CaptureSource) async throws {
         let operation = lock.withLock { () -> Task<Void, Error> in
-            // Recorded before the switch, not after. If the capture fails, the *intent* is
-            // still the client's. Scheduling under the same lock also orders a disconnect
+            // Recorded before the switch, not after, so the *intent* is the client's even if
+            // the capture fails. Scheduling under the same lock also orders a disconnect
             // after this switch, rather than letting its stop race the pipeline start.
-            sourceWasChosen = true
+            chosenSource = source
             let previous = lifecycleTail
             let operation = Task { [weak self] in
                 if let previous { await previous.value }
                 guard let self else { return }
+                // Nothing is captured for an audience of nobody. A client that has paused has
+                // asked for no frames and the capture has stopped, so its switch is kept and not
+                // acted on: starting a stream here would be exactly the battery the pause was
+                // asked for, spent on a picture nobody is being sent. What starts it is the
+                // resume, which is a connection arriving like any other: see ``serve(_:)``.
+                guard self.lock.withLock({ !self.audience.isIdle }) else { return }
                 try await self.startCapture(source)
             }
             lifecycleTail = Task { _ = await operation.result }
             return operation
         }
-        try await operation.value
+
+        do {
+            try await operation.value
+        } catch {
+            // The choice did not take, so it is not the client's any more: whatever is running
+            // stands, or nothing does, and the next client is not walked into retrying a source
+            // that has already failed once.
+            lock.withLock { if chosenSource == source { chosenSource = currentSource } }
+            throw error
+        }
     }
 
     private func startCapture(_ source: CaptureSource) async throws {
@@ -614,7 +720,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// available here. Datagrams are never acknowledged, so a blocked path and a working one
     /// look identical from this side of the socket.
     func setVideoTransport(_ request: VideoTransportRequest, clientKey: Data?, controlPeer: PeerConnection) {
-        let served = lock.withLock { attached ?? waiting }
+        let served = lock.withLock { audience.served }
         if let served, let clientKey, served.peerPublicKey != clientKey {
             // Somebody else's picture. A session is served by one client at a time, and
             // redirecting the stream to a second one on that client's say-so is the one thing
@@ -669,7 +775,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// frames of a path that is allowed to lose frames; waiting for the client to confirm it
     /// has the key would cost a round trip on every session for no gain.
     func enableVideoDatagrams(clientKey: Data?, relay: RelaySession) -> Data? {
-        let served = lock.withLock { attached ?? waiting }
+        let served = lock.withLock { audience.served }
         if let served, let clientKey, served.peerPublicKey != clientKey {
             coordinatorLog.notice("refused a video datagram request from a client that is not being served")
             return nil
@@ -700,7 +806,8 @@ final class VideoCoordinator: @unchecked Sendable {
     private var requestedBitrateKbps = 0
     private var videoTransport: VideoTransport = .primary
 
-    /// Drops both halves of the choice above. Call with `lock` held.
+    /// Drops both halves of the choice above, for an audience that has ended or paused.
+    /// Call with `lock` held.
     private func forgetTransportChoiceLocked() {
         videoTransport = .primary
         requestedBitrateKbps = 0
@@ -735,11 +842,9 @@ final class VideoCoordinator: @unchecked Sendable {
         cancelWatchdog()
         lock.withLock {
             currentSource = nil
-            waiting = nil
-            attached = nil
-            sourceWasChosen = false
+            chosenSource = nil
+            audience.removeAll()
             forgetTransportChoiceLocked()
-            audienceGeneration &+= 1
             scheduleLifecycleLocked { [weak self, pipeline] in
                 await pipeline.stop()
                 guard let self else { return }
@@ -770,12 +875,7 @@ final class VideoCoordinator: @unchecked Sendable {
             // the call: a first description is what a waiting client was waiting for, while a
             // later one means an attached client's decoder is now holding parameter sets for
             // a picture that no longer exists.
-            let pending = lock.withLock { () -> PeerConnection? in
-                guard let pending = waiting else { return nil }
-                waiting = nil
-                attached = pending
-                return pending
-            }
+            let pending = lock.withLock { audience.described() }
             if let pending {
                 streamer.attach(pending, config: config)
             } else if streamer.isAttached {

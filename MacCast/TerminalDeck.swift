@@ -62,8 +62,13 @@ struct TerminalDeck: View {
                 // already have one teaches nothing the first time it is needed, and this is the
                 // only way to make the first one, and it is drawn on the plans that do not
                 // include making one as well: the same slider glyph in the same 46 points,
-                // dimmed, with the plan's name beside it. That is how somebody finds out the
+                // dimmed, with the plan's name on its corner. That is how somebody finds out the
                 // feature is there to want, and the glyph is what tells them which feature it is.
+                //
+                // The badge on the corner rather than beside the chip is worth more here than
+                // anywhere else it appears: the chip is 46 points, the badge that used to stand
+                // after it was 53, and the row it pushed aside is a row of keys a thumb is
+                // reaching into by feel. What a locked chip costs the deck now is nothing at all.
                 PlanLocked(
                     capability: .macros,
                     title: commands.isEmpty ? "Add a quick command" : "Edit quick commands",

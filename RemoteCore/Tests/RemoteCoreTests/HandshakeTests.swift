@@ -44,6 +44,56 @@ struct HandshakeTests {
         #expect(hello.macAddresses == nil)
     }
 
+    /// The flag that keeps an un-updated Mac reachable. See
+    /// ``RemoteCommand/setVideoEnabled(_:)`` for why it is a capability rather than a version
+    /// bump, and note what this test is for: the command is only safe to send to a Mac that has
+    /// said `true`, so the claim has to survive the wire intact.
+    @Test("serverHello carries the video pause capability")
+    func serverHelloCarriesTheVideoPauseCapability() throws {
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            macAddresses: ["aa:bb:cc:dd:ee:ff"],
+            supportsVideoPause: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.supportsVideoPause == true)
+        #expect(decoded == hello)
+    }
+
+    /// A Mac older than the field sends a hello with no such key, and that has to read as "no".
+    /// `nil` cannot be told apart from a Mac too old to have heard the question, and the two
+    /// call for the same behaviour: send nothing, and let that tab go on streaming.
+    @Test("a serverHello with no capability reads as a refusal")
+    func serverHelloWithoutTheCapability() throws {
+        let data = Data(#"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8)
+        let hello = try MessageCodec.decode(ServerHello.self, from: data)
+
+        #expect(hello.supportsVideoPause == nil)
+    }
+
+    /// The other direction, and the one that decides whether the flag is additive at all: a
+    /// client that has never heard of the field ignores it, which is what makes an updated Mac
+    /// reachable from an older phone. A Mac that cannot be reached is the cost this design
+    /// refuses to pay, and it is why the capability exists instead of a version bump.
+    @Test("a serverHello with a field this build does not know still decodes")
+    func unknownServerHelloField() throws {
+        let data = Data(#"""
+            {"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true,
+             "supportsWhateverComesNext":true}
+            """#.utf8)
+        let hello = try MessageCodec.decode(ServerHello.self, from: data)
+
+        #expect(hello.serverID == "server-1")
+        #expect(hello.alreadyPaired)
+    }
+
     @Test("serverHello carries no public key")
     func serverHelloHasNoKeyField() throws {
         let hello = ServerHello(

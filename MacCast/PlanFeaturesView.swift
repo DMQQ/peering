@@ -5,7 +5,7 @@ import SwiftUI
 ///
 /// `capability` is `nil` for everything the free plan includes, which is most of the app. Where it
 /// is set, the row draws a badge, and the badge is **read off the capability**, not typed onto
-/// the row, because the badge on this row and the badge drawn beside the control it describes are
+/// the row, because the badge on this row and the badge drawn on the control it describes are
 /// the same fact seen from two screens. ``PlanCapability`` is where that fact lives; the two screens
 /// are one tap apart and a feature that is free here and gated there is not a difference of opinion,
 /// it is a page contradicting itself.

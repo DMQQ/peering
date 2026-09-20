@@ -583,6 +583,15 @@ final class HostModel {
             coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay)
         }
 
+        // And the picture's on/off switch, which is the same shape once more: straight through,
+        // off the main actor, because it is a decision about a socket and an encoder. Nothing
+        // here ends a session, so a client that asks for no frames keeps its control channel,
+        // its shells and the sleep assertion this Mac holds while it is connected, and only the
+        // frames stop. See ``VideoCoordinator/setVideoEnabled(_:clientKey:)``.
+        server.onVideoEnabled = { [weak coordinator] clientKey, enabled in
+            coordinator?.setVideoEnabled(enabled, clientKey: clientKey)
+        }
+
         // `input` is captured directly rather than reached through `self`, and deliberately
         // so: injecting a mouse move is not UI work, and hopping to the main actor would put
         // every pointer event behind whatever SwiftUI happens to be doing.

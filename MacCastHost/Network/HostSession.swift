@@ -95,6 +95,16 @@ final class HostSession: @unchecked Sendable {
     /// has. The server holds the relay's allocation and the pipeline, which are the two
     /// things this needs and the two things a session does not have.
     var onVideoKeyRequest: (@Sendable () -> Data?)?
+
+    /// Called when a client asks for the picture to be turned on or off. See
+    /// ``RemoteCommand/setVideoEnabled(_:)``.
+    ///
+    /// Carries the request and nothing else. The connection to act on is found from the key
+    /// this session presented, which the server adds on its way out: the same division as
+    /// ``onVideoTransportRequest``, and for the same reason: a session knows one connection,
+    /// while the answer needs whichever connection is currently being served.
+    var onVideoEnabled: (@Sendable (Bool) -> Void)?
+
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
     var onRequestClipboard: (@Sendable () -> String?)?
     /// Called when the client pushes its clipboard to the host.
@@ -341,7 +351,12 @@ final class HostSession: @unchecked Sendable {
             // Hardware addresses are useful only to trusted clients for Wake-on-LAN. The
             // server hello precedes first-pairing confirmation, so exposing them there would
             // let any device on the LAN collect them without being accepted.
-            macAddresses: alreadyPaired ? NetworkInterfaceInfo.hardwareMACAddresses() : nil
+            macAddresses: alreadyPaired ? NetworkInterfaceInfo.hardwareMACAddresses() : nil,
+            // Declared to everyone, trusted or not: it is the version of this Mac's software
+            // rather than anything about the user, and a client that sends the pause command to
+            // a Mac that has not said this gets a decode failure in the middle of a session
+            // instead of the honest degradation the flag exists for.
+            supportsVideoPause: true
         ))
 
         if alreadyPaired {
@@ -477,6 +492,11 @@ final class HostSession: @unchecked Sendable {
                 }
             case .pushClipboard(let text):
                 onReceiveClipboard?(text)
+            case .setVideoEnabled(let enabled):
+                // Routed here rather than through `onCommand`, because the decision is about a
+                // *connection* and which one it is comes from this session's key rather than
+                // from the command. See ``onVideoEnabled``.
+                onVideoEnabled?(enabled)
             default:
                 onCommand?(command)
             }

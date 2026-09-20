@@ -175,7 +175,7 @@ struct TerminalPanel: View {
                     // so the button and the request cannot come apart.
                     //
                     // On a plan that has run out of shells the plus is still a plus, dimmed, with
-                    // the plan's name beside it rather than a padlock in its place. This button is
+                    // the plan's name on its corner rather than a padlock in its place. This button is
                     // how somebody finds out the app can keep several shells open at all, and a
                     // padlock where the plus was is the one drawing that answers "what does this
                     // button do" with nothing.

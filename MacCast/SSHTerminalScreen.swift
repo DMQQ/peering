@@ -153,8 +153,8 @@ struct SSHTerminalScreen: View {
                 // The same button in the same place on every plan. A second shell from inside the
                 // first is the one anyone would look for, so it is the last place to hide the fact
                 // that several are possible: on a plan that runs one shell at a time the plus is
-                // still a plus, dimmed, with the plan's name beside it, and the tap opens the plans
-                // rather than a shell.
+                // still a plus, dimmed, with the plan's name on its corner, and the tap opens the
+                // plans rather than a shell.
                 PlanLocked(capability: .shellTabs, title: "New shell", diameter: 20) {
                     Button("New shell", systemImage: "plus") {
                         model.openAnotherShell(on: terminal)
@@ -494,8 +494,8 @@ struct SSHTerminalScreen: View {
                         : nil,
                     // Two different reasons for a transfer not to be on offer, and the panel draws
                     // them differently: an account without file transfer gets the button dimmed
-                    // with the plan's name beside it, which is the panel's own gate now, and the
-                    // `nil` above is about a shell that has ended.
+                    // with the plan's name on its corner, which is the panel's own gate now, and
+                    // the `nil` above is about a shell that has ended.
                     // And absent for the same reason: a run types a command into the shell, so a
                     // shell that has ended is one with nothing to type into.
                     onRun: canType ? { run($0) } : nil,

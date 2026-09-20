@@ -210,6 +210,8 @@ struct RemoteCommandTests {
             .launchApplication(bundleIdentifier: "com.example.Editor"),
             .setPrivacyMode(enabled: true),
             .setPrivacyMode(enabled: false),
+            .setVideoEnabled(true),
+            .setVideoEnabled(false),
             .lockScreen,
             .requestClipboard,
             .pushClipboard(text: "héllo 👋 世界"),
@@ -218,6 +220,25 @@ struct RemoteCommandTests {
         for command in commands {
             #expect(try roundTrip(command) == command)
         }
+    }
+
+    /// The wire shape, pinned, because both ends have to agree on it and because the failure of
+    /// getting it wrong is not symmetric anywhere. A Mac that does not know this command fails
+    /// on it rather than ignoring it, which is why a client may only send it to one that has
+    /// said it understands it, see ``ServerHello/supportsVideoPause``.
+    @Test("the video switch encodes as one keyed payload")
+    func videoSwitchEncoding() throws {
+        let encoded = try JSONEncoder().encode(RemoteCommand.setVideoEnabled(false))
+        #expect(String(decoding: encoded, as: UTF8.self) == #"{"setVideoEnabled":{"_0":false}}"#)
+    }
+
+    /// An absolute state produced by a tab switch, so it must neither be merged with another
+    /// one nor held back for the coalescing window: a Mac that goes on producing frames for
+    /// another 16 ms is the thing the command exists to stop.
+    @Test("the video switch is neither merged nor delayed")
+    func videoSwitchIsNotCoalesced() {
+        #expect(RemoteCommand.setVideoEnabled(false).coalescing == Coalescing.none)
+        #expect(RemoteCommand.setVideoEnabled(true).coalescing == Coalescing.none)
     }
 
     /// `OptionSet` does not get synthesised `Codable`, so this pins the hand-written one.
@@ -246,13 +267,18 @@ struct RemoteCommandTests {
         #expect(RemoteCommand.scroll(dx: 1, dy: 1).coalescing == .accumulate)
     }
 
-    /// Losing any of these leaves the host stuck — a button held down, or a key repeating.
+    /// Losing any of these leaves the host stuck, with a button held down or a key repeating, or
+    /// leaves a request that is sent exactly once stranded with nothing to repeat it. A video
+    /// switch is the second kind, and it is the same shape as ``setCaptureSource(_:)``: a
+    /// resume that never arrives is a client waiting for a picture that never starts, and a
+    /// pause that never arrives is a Mac capturing for somebody who is looking elsewhere.
     @Test("press and release events are never dropped")
     func criticalEvents() {
         for command: RemoteCommand in [
             .mouseDown(button: .left), .mouseUp(button: .left),
             .keyDown(keyCode: 0, modifiers: []), .keyUp(keyCode: 0, modifiers: []),
             .setPrivacyMode(enabled: true),
+            .setVideoEnabled(false), .setVideoEnabled(true),
             .lockScreen,
             .pushClipboard(text: "important"),
         ] {
@@ -279,6 +305,10 @@ struct RemoteCommandTests {
             .setCaptureSource(.display(1)),
             .launchApplication(bundleIdentifier: "com.example.Editor"),
             .setStreamQuality(fps: 0, bitrateKbps: 8_000),
+            // Stopping the picture changes what the Mac is showing, not what it is doing: a
+            // session in observe mode is exactly the one that goes on watching a Mac it is not
+            // allowed to touch.
+            .setVideoEnabled(false),
             .refreshSpacePreviews,
             .setPrivacyMode(enabled: true),
             .lockScreen,

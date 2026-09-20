@@ -15,7 +15,7 @@ extension SessionModel {
     /// asked of ``StoreManager/access`` at each of the three places a shell can be started. The
     /// free plan runs one shell at a time and ``PlanCapability/shellTabs`` is the second one, so
     /// the question is never "is this paid" on its own: the first shell is free on every plan, and
-    /// the badge belongs beside the button only once there is one to be concurrent with.
+    /// the badge belongs on the button only once there is one to be concurrent with.
     ///
     /// Asked by the button that draws the badge and by the guard that refuses the request, for the
     /// reason every gate in this app is written once: a gated button over a request that would have
@@ -51,7 +51,7 @@ extension SessionModel {
     /// **On a plan that runs one shell, this types into the one in hand instead.** Running what the
     /// browser lists is part of the browser and is free on every plan, so refusing the run would
     /// break a promise to sell a tab; and opening the tab anyway would be the app granting itself,
-    /// silently, exactly what it draws a badge beside when the user asks. What is left is the
+    /// silently, exactly what it draws a badge on when the user asks. What is left is the
     /// sentence the feature is described with: a line typed into a shell you already have.
     func runInNewTerminal(_ command: String) {
         guard canOpenAnotherShell else {

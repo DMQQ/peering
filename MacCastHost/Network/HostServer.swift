@@ -63,6 +63,7 @@ final class HostServer: @unchecked Sendable {
     private var _onVideoConnection: (@Sendable (PeerConnection) -> Void)?
     private var _onVideoTransport: (@Sendable (Data?, VideoTransportRequest, PeerConnection) -> Void)?
     private var _onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)?
+    private var _onVideoEnabled: (@Sendable (Data?, Bool) -> Void)?
     private var _onRequestClipboard: (@Sendable () -> String?)?
     private var _onReceiveClipboard: (@Sendable (String) -> Void)?
 
@@ -103,6 +104,19 @@ final class HostServer: @unchecked Sendable {
     var onVideoKeyRequest: (@Sendable (Data?, RelaySession) -> Data?)? {
         get { callbackLock.withLock { _onVideoKeyRequest } }
         set { callbackLock.withLock { _onVideoKeyRequest = newValue } }
+    }
+
+    /// Called when a client asks for the picture to be turned on or off, with the key that
+    /// identifies it.
+    ///
+    /// The key rather than the connection, because the two are not the same socket: a direct
+    /// session's frames go out on a video connection of their own, and on a relayed one they go
+    /// out on the control connection this request arrived on. The key is the only thing that
+    /// names the same client on both paths, which is why the video connection's authorization
+    /// is built on it too.
+    var onVideoEnabled: (@Sendable (Data?, Bool) -> Void)? {
+        get { callbackLock.withLock { _onVideoEnabled } }
+        set { callbackLock.withLock { _onVideoEnabled = newValue } }
     }
 
     /// Called when any client requests the host clipboard. Return `nil` to send nothing.
@@ -379,6 +393,13 @@ final class HostServer: @unchecked Sendable {
             // so it is the connection that can carry the answer. The session's key is what
             // ties it to the video connection already being served.
             self.onVideoTransport?(session.peerPublicKey, request, peer)
+        }
+        // The key and not the connection, unlike the transport request above: what this answer
+        // acts on is whichever connection is currently being sent frames, and on a direct
+        // session that is a socket this request did not arrive on.
+        session.onVideoEnabled = { [weak self, weak session] enabled in
+            guard let self, let session else { return }
+            self.onVideoEnabled?(session.peerPublicKey, enabled)
         }
         session.onTerminalRequest = { [weak self, weak session] request, sink in
             guard let self, let session else { return }

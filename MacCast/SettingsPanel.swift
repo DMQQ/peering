@@ -180,7 +180,7 @@ struct SettingsPanel: View {
             // the reason this exists.
             //
             // **The switch is the switch on every plan.** It is dimmed and inert without the
-            // capability, with the plan's name beside it, and the tap opens the plans: what the
+            // capability, with the plan's name on its corner, and the tap opens the plans: what the
             // row is for has not changed, so the row is not drawn differently. It used to be a
             // padlock in the switch's place with the words kept, which left a row saying "Sound
             // from the Mac" and a control that could have been anything. A hidden row was never
@@ -321,7 +321,7 @@ struct SettingsPanel: View {
     /// The floating window, and whether it arrives on its own.
     ///
     /// The switch is drawn on every plan, as itself: dimmed and inert without the capability, with
-    /// the plan's name beside it. What is *not* drawn on a plan that does not include it is the
+    /// the plan's name on its corner. What is *not* drawn on a plan that does not include it is the
     /// manual start and the diagnostic below, which are the two things that would be lying: what
     /// iOS said the last time it was asked is a sentence about a feature the user cannot use yet,
     /// and it would be the loudest thing in a card that has nothing to report.

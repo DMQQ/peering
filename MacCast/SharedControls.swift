@@ -134,36 +134,99 @@ enum Controls {
 
 // MARK: - Locked controls
 
-/// The plan a control needs, worn beside that control rather than in its place.
+/// The plan a control needs, drawn on that control rather than beside it or in its place.
 ///
 /// **The badge, not the gate.** A capsule saying RELAY, PLUS or PRO is the same word the cards and
 /// the sheet use, so the badge, the tap and the purchase all name one thing: what is drawn here is
-/// the name of the plan, and what unlocks the control beside it.
+/// the name of the plan, and what unlocks the control it is drawn on.
 ///
 /// It used to be the gate as well, worn where the control would have been, which is how a row
 /// reading "Add a server" came to end in a badge with the plus taken away. ``PlanLocked`` records
 /// why that was wrong twice over; this type is what is left of it, and the only thing it decides
-/// now is how a plan's name is drawn at the size of the control it sits next to.
+/// now is how a plan's name is drawn on the control that belongs to it.
 ///
-/// Drawn to roughly the height of that control, so it lands at the same optical weight and a row of
-/// them still lines up, and hidden from VoiceOver because the control it sits beside carries the
-/// whole sentence. Read on its own this is a plan name with no verb.
+/// **Two drawings of one word, because the badge has two jobs.** ``Form/control`` is the badge as a
+/// peer of the control: drawn to roughly the control's height, so it lands at the same optical
+/// weight as the row around it and a column of them still lines up. ``Form/corner`` is the badge as
+/// a mark on a control that has a frame of its own, pinned to its top-trailing corner at a fraction
+/// of that height. The second one exists because the first took the layout's width everywhere it
+/// appeared, and the layout paid for it by moving what was next to the control: at the deck's
+/// 46-point chips the badge beside the chip was 53 points wide with 8 points of spacing after it,
+/// so a plan changing under the user's thumb reshuffled a row of keys they were reaching into.
+///
+/// Hidden from VoiceOver in both forms, because the control under the badge carries the whole
+/// sentence. Read on its own this is a plan name with no verb.
 struct PlanLock: View {
     /// The plan that unlocks it. The badge is its name, because the same word has to appear here,
     /// on the card that sells it and in the sheet this opens.
     let capability: PlanCapability
-    /// Roughly the size of the control beside it: a row's switch is about 30 across, a toolbar
-    /// glyph less, the deck's chips more. The badge is drawn to this height and no wider than its
-    /// own text needs.
+    /// Roughly the size of the control it belongs to: a row's switch is about 30 across, a toolbar
+    /// glyph less, the deck's chips more.
+    ///
+    /// The ``Form/control`` badge is drawn to this height and no wider than its own text needs. The
+    /// ``Form/corner`` mark reads it only at the top of that range: it is the same size at every
+    /// gate in the app, grown by a point and a half for the deck's chips, which are large enough
+    /// that a mark the size of the one on a toolbar glyph would read as a speck on them.
     var diameter: CGFloat = 30
+    /// Which of the two drawings this is. See ``Form``.
+    var form: Form = .control
+
+    /// The two shapes the same word is drawn in.
+    ///
+    /// Same tint, same capsule and the same accessibility in both: the difference is what each one
+    /// is standing on, and it is a difference of size rather than of meaning. One of them is a peer
+    /// of the control and takes room in the layout for itself; the other is a mark on the control
+    /// and takes none.
+    enum Form {
+        /// Drawn to the control's own size, for a badge standing at the end of it.
+        case control
+        /// A small fixed mark, for a control's top-trailing corner.
+        case corner
+    }
 
     var body: some View {
+        switch form {
+        case .control:
+            capsule(
+                typeSize: max(9, diameter * 0.32),
+                tracking: 0.5,
+                horizontal: diameter * 0.3,
+                vertical: diameter * 0.17
+            )
+        case .corner:
+            capsule(typeSize: cornerTypeSize, tracking: 0.4, horizontal: 4, vertical: 1.5)
+        }
+    }
+
+    /// How large the corner mark's name is printed.
+    ///
+    /// Between eight and a half and ten points whatever it is sitting on, which is small enough to
+    /// read as a mark rather than as a second control and large enough to still be a word: the
+    /// widest name in the map, RELAY, is under 30 points of text at this size. The range is narrow
+    /// on purpose and the ceiling is the half of it that does any work: the deck's chips are more
+    /// than twice the size of a toolbar glyph, and a mark that ignored that would read as a speck
+    /// on them, so they are the one site that takes the larger size.
+    private var cornerTypeSize: CGFloat { max(8.5, min(10, diameter * 0.25)) }
+
+    /// The plan's name in its capsule, at whatever size the form asks for.
+    ///
+    /// `fixedSize` is not tidying, it is the one thing that keeps this legible on the smallest
+    /// control it is drawn on: an overlay is proposed the size of the control underneath it, and a
+    /// toolbar glyph is narrower than the word PLUS, so without it the badge comes apart into two
+    /// lines on exactly the controls with the least room to spare.
+    private func capsule(
+        typeSize: CGFloat,
+        tracking: CGFloat,
+        horizontal: CGFloat,
+        vertical: CGFloat
+    ) -> some View {
         Text(capability.minimumPlan.badge)
-            .font(.system(size: max(9, diameter * 0.32), weight: .bold))
-            .tracking(0.5)
+            .font(.system(size: typeSize, weight: .bold))
+            .tracking(tracking)
             .foregroundStyle(ColorPalette.accent)
-            .padding(.horizontal, diameter * 0.3)
-            .padding(.vertical, diameter * 0.17)
+            .fixedSize()
+            .padding(.horizontal, horizontal)
+            .padding(.vertical, vertical)
             .background(ColorPalette.accent.opacity(0.18), in: Capsule())
             // Hidden because the button around it carries the whole sentence. Read on its own this
             // is a plan name with no verb, and what a VoiceOver user needs is "Macros, locked".
@@ -171,13 +234,13 @@ struct PlanLock: View {
     }
 }
 
-/// A gated control: the control itself, and the plan badge beside it when the plan does not
-/// include it.
+/// A gated control: the control itself, wearing the plan's name on its corner when the plan does
+/// not include it.
 ///
 /// **The control is drawn as itself, in its own shape and with its own glyph, dimmed, with a small
-/// plan-name badge beside it. Tapping it opens the paywall. Never a padlock, never a badge in the
-/// control's place.** That is the owner's rule for every gate in the app, and it is the third
-/// attempt: the first two are worth recording, because both were argued for at the time.
+/// plan-name badge on its top-trailing corner. Tapping it opens the paywall. Never a padlock, never
+/// a badge in the control's place.** That is the owner's rule for every gate in the app, and it is
+/// the third attempt: the first two are worth recording, because both were argued for at the time.
 ///
 /// The first drew a padlock the size of the control it replaced. A padlock is the glyph the system
 /// uses for a passcode, so it answers "why did that not work" with a word about security rather
@@ -192,7 +255,18 @@ struct PlanLock: View {
 /// So the label is the real control, written once, drawn exactly as the unlocked branch draws it,
 /// and the locked state is that same drawing dimmed and inert inside a button that opens the plans.
 /// Nothing is renamed, nothing is hidden and nothing is swapped: what the plan adds to the sentence
-/// is the badge, which is why the badge goes *beside* the control and never in its place.
+/// is the badge, which is why the badge is drawn *on* the control and never in its place.
+///
+/// **The badge's position was the third thing to be wrong here, and in the smallest way.** Beside
+/// the control was the owner's own instruction, and it was right about everything except the width:
+/// a locked control took its own width, plus 8 points of spacing, plus a capsule carrying a word,
+/// and the layout underneath moved to pay for it. On the settings rows that was 53 points out of a
+/// card's width with a switch's label pushed in from the edge of it; at the deck's chips it was a
+/// row of keys that reshuffled when a plan changed under a thumb. A locked control should cost the
+/// layout exactly what the unlocked one costs, so the badge hangs off the corner instead and the
+/// layout is the unlocked layout. The controls with something already at the end of them, a row
+/// with a chevron, still wear it over that end, which costs nothing either: see ``BadgePlacement``
+/// for which control gets which.
 ///
 /// **One type rather than the same three lines at each gate.** Every one of these has to do two
 /// things that are easy to get wrong in a way nobody notices: open the paywall at the *feature*
@@ -210,9 +284,14 @@ struct PlanLocked<Label: View>: View {
     /// pressed where "Several shells at once, locked" is what the app sells.
     var title: String?
     /// Where the badge goes, which follows from what the control is. See ``BadgePlacement``.
-    var placement: BadgePlacement = .beside
-    /// Roughly the size of the control, so the badge beside it is drawn at the same optical weight
-    /// rather than at a fixed one.
+    ///
+    /// ``BadgePlacement/corner`` is the default because it is the only placement that fits every
+    /// control: it takes nothing from the layout, so a control that has a frame of its own is the
+    /// same size locked as it is unlocked, and nothing around it moves when a plan changes.
+    var placement: BadgePlacement = .corner
+    /// Roughly the size of the control. The badge takes its own scale from it, which is a
+    /// proportional one beside a control and a nearly fixed one on its corner: see the parameter on
+    /// ``PlanLock``.
     var diameter: CGFloat = 30
     /// Whether the control is live, where that is not the same question as whether the plan
     /// includes the capability.
@@ -259,10 +338,15 @@ struct PlanLocked<Label: View>: View {
     @ViewBuilder
     private var locked: some View {
         switch placement {
-        case .beside:
-            HStack(spacing: 8) {
-                inert
-                PlanLock(capability: capability, diameter: diameter)
+        case .corner:
+            // On the control's top-trailing corner and hanging off it, the way a notification dot
+            // sits on an app icon: most of the mark is over the whitespace above and to the right
+            // of the control, and what is left of it is over the corner the control's own glyph
+            // does not reach into. The drawing underneath is the drawing the unlocked branch makes,
+            // untouched and unwidened, which is the point of the placement.
+            inert.overlay(alignment: .topTrailing) {
+                PlanLock(capability: capability, diameter: diameter, form: .corner)
+                    .offset(x: Self.cornerOverhang, y: -Self.cornerOverhang)
             }
         case .trailing:
             // Over the control's own trailing edge rather than after it: a control that is a whole
@@ -274,6 +358,16 @@ struct PlanLocked<Label: View>: View {
             }
         }
     }
+
+    /// How far the corner mark hangs off the corner it is pinned to, in both axes.
+    ///
+    /// Six points, and both ends of that number are decided by something on screen. Below about
+    /// four the mark reads as sitting inside the control rather than on it, which is where the
+    /// glyph that says what the control is lives. Above about eight it starts to reach whatever the
+    /// layout puts next to the control: the two tightest gaps a gated control has to its neighbours
+    /// are the 8 points between two chips in the terminal deck and the 6 points between the switch
+    /// rows in Settings, and both are read off those layouts rather than guessed at.
+    private static var cornerOverhang: CGFloat { 6 }
 
     /// The control, drawn exactly as the unlocked branch draws it, with the life taken out of it.
     ///
@@ -292,13 +386,21 @@ extension PlanLocked {
     /// Where the plan badge is drawn when the capability is not included.
     ///
     /// Two shapes rather than one because the two kinds of control are laid out differently, and
-    /// the badge has to be legible in both: it may not cover the control it belongs to, and it may
-    /// not push a row in from the edge of its card.
+    /// the badge has to be legible in both: it may not cover the part of the control that says what
+    /// the control is, and it may not push a row in from the edge of its card.
+    ///
+    /// **There was a third, and it is the one the owner asked to be rid of.** `beside` put the
+    /// badge after the control in the layout's own flow, which is honest about what the badge is
+    /// and ruinous about what it costs: the control gave up the badge's width, so a locked control
+    /// was a different size from the one beside it and every row around it moved. Nothing in the
+    /// app used it for anything the other two cannot do, and a placement no site wants is a
+    /// placement the next reader has to work out the shape of for nothing.
     enum BadgePlacement {
-        /// After the control, in the layout's own flow: the shape for a control with a frame of its
-        /// own (a toolbar glyph, a chip, a circle, a switch). The control gives up the badge's
-        /// width, so it is the shape for anything whose width is not the point.
-        case beside
+        /// On the control's top-trailing corner, hung a few points off it: the shape for a control
+        /// with a frame of its own (a toolbar glyph, a chip, a circle, a switch). Nothing is given
+        /// up for it, here or anywhere around it, so the locked control occupies exactly the space
+        /// the unlocked one occupies and lands in exactly the same place.
+        case corner
         /// Over the control's trailing edge: the shape for a control that *is* a whole row, whose
         /// surface has to reach the edge of the card and which already leaves room at the end.
         case trailing

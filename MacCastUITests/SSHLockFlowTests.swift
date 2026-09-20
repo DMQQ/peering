@@ -148,10 +148,6 @@ final class SSHLockFlowTests: XCTestCase {
         XCTAssertTrue(connect.waitForExistence(timeout: 5), "the sign-in sheet had nothing to tap")
         connect.tap()
 
-        // TEMP TAB BAR CHECK
-        Thread.sleep(forTimeInterval: 8)
-        capture(app, "9-shell-screen")
-
         // The shell screen, and then the refusal. `New shell` is the toolbar item only that screen
         // has, so waiting on it is waiting for the sign-in sheet to have gone somewhere real.
         XCTAssertTrue(app.buttons["New shell"].waitForExistence(timeout: 15),

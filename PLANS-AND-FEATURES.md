@@ -195,16 +195,19 @@ user just means they never learn it exists.
 
 **Extended on 20 September, because "with a lock" was read too literally twice.** The control is
 drawn as itself, in its normal shape and with its normal icon, dimmed, with a small plan-name badge
-(RELAY, PLUS or PRO) beside it, and the tap opens the paywall. Never a padlock, and never a badge in
-the control's place. The first attempt drew a padlock the size of the control it replaced, which
-answered "what was that button" with nothing; the second kept the words and swapped only the icon,
-so "Add a server" ended in a padlock where the plus had been, which is the same failure in a smaller
-place. Both are the reason the rule is now about the *whole* control rather than about the words
-alone. The code that draws it is `PlanLocked` in the app's `SharedControls.swift`, and every gate in
-the app goes through it except one: the "New shell" item in a server row's menu, which is a line of
-a system menu rather than a view the app lays out, and so cannot wear a badge. It keeps its own name
-and its own glyph and its tap opens the paywall, which is as much of the rule as a menu row can
-hold.
+(RELAY, PLUS or PRO) on its top-trailing corner, and the tap opens the paywall. Never a padlock, and
+never a badge in the control's place. The badge was beside the control when this paragraph was
+written and moved onto its corner on the owner's call, which is a correction to the paragraph rather
+than a change of rule: beside the control it took the badge's own width out of the row, so a locked
+control was a different size from the unlocked one and the layout around it moved to pay for it. The
+first attempt drew a padlock the size of the control it replaced, which answered "what was that
+button" with nothing; the second kept the words and swapped only the icon, so "Add a server" ended
+in a padlock where the plus had been, which is the same failure in a smaller place. Both are the
+reason the rule is now about the *whole* control rather than about the words alone. The code that
+draws it is `PlanLocked` in the app's `SharedControls.swift`, and every gate in the app goes through
+it except one: the "New shell" item in a server row's menu, which is a line of a system menu rather
+than a view the app lays out, and so cannot wear a badge. It keeps its own name and its own glyph
+and its tap opens the paywall, which is as much of the rule as a menu row can hold.
 
 ---
 

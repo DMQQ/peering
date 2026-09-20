@@ -981,7 +981,7 @@ struct MacroBar: View {
                 // Gating the built-in keys instead would be charging for the keyboard.
                 //
                 // The button keeps its slider on a plan that does not include the editor, dimmed,
-                // with the badge beside it. The rail is a row of glyphs and this is one of them:
+                // with the badge on its corner. The rail is a row of glyphs and this is one of them:
                 // taking the glyph away leaves a row that cannot say which of the buttons in it
                 // edits macros, and the seller of the feature is the last button that should stop
                 // saying what it does.

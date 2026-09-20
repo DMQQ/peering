@@ -38,13 +38,39 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Ethernet/Wi-Fi MAC addresses of the host's physical interfaces, for Wake-on-LAN.
     /// Each entry is a colon-separated hex string ("aa:bb:cc:dd:ee:ff").
     public var macAddresses: [String]?
+    /// Whether this Mac can be asked to stop sending the picture without ending the session.
+    /// See ``RemoteCommand/setVideoEnabled(_:)``.
+    ///
+    /// **A capability rather than a protocol version, and the difference is who gets locked
+    /// out.** Every earlier change to the command set was one that every session sends, so a
+    /// mixed pair failed at some unpredictable moment and a version bump turned that into an
+    /// update message at the door. This command is conditional by construction: a client sends
+    /// it only to a Mac that has said it can take it, and a Mac that has not is a Mac whose
+    /// second tab keeps streaming rather than a Mac its owner cannot reach at all. Macs update
+    /// on their own schedule, and the app has to be honest about a feature one of them does
+    /// not have rather than refuse to speak to it.
+    ///
+    /// Optional and additive, so a Mac older than this field sends a hello that decodes with
+    /// it `nil`, which reads as "no" and is the honest answer. A client must send the
+    /// command only on an explicit `true`: an unknown command is a decode failure in the
+    /// middle of a session, and `nil` cannot be told apart from a host too old to have heard
+    /// the question.
+    public var supportsVideoPause: Bool?
 
-    public init(serverID: String, hostName: String, protocolVersion: UInt16, alreadyPaired: Bool, macAddresses: [String]? = nil) {
+    public init(
+        serverID: String,
+        hostName: String,
+        protocolVersion: UInt16,
+        alreadyPaired: Bool,
+        macAddresses: [String]? = nil,
+        supportsVideoPause: Bool? = nil
+    ) {
         self.serverID = serverID
         self.hostName = hostName
         self.protocolVersion = protocolVersion
         self.alreadyPaired = alreadyPaired
         self.macAddresses = macAddresses
+        self.supportsVideoPause = supportsVideoPause
     }
 }
 

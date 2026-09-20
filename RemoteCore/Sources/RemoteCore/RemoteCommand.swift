@@ -96,6 +96,32 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// running encoder and `fps` to the capture pipeline's frame interval. A value of 0 for
     /// either field means "keep current". Takes effect on the next keyframe.
     case setStreamQuality(fps: Int, bitrateKbps: Int)
+    /// Turns the picture on or off, and touches nothing else.
+    ///
+    /// **"Stop sending frames, keep the session" is the one thing the protocol could not say.**
+    /// It is not an omission in the code but the shape of the two transports. A direct session's
+    /// video has a socket of its own, and closing it does stop the Mac, but reopening it costs
+    /// a fresh TLS handshake, which is most of what a client switching between Macs is trying
+    /// to avoid. A relayed session has no video socket at all: the control connection *is* the
+    /// video connection, so the only thing there is to close is the session itself, with its
+    /// terminals, its clipboard and the assertion that keeps the Mac awake.
+    ///
+    /// So `false` is a pause rather than a disconnect. The session, the control channel and
+    /// everything riding it stay exactly as they are, and the client keeps its shells and its
+    /// place in the picture; what stops is the capture on the Mac, which is the point: a Mac
+    /// nobody is looking at should not be spending its battery, its upstream, or on the relay
+    /// the operator's money. `true` starts it again, and the first frame back is a keyframe,
+    /// because the client's decoder has been idle and nothing else can restart it.
+    ///
+    /// Deliberately not a session control that ends anything, and deliberately not a
+    /// ``setStreamQuality(fps:bitrateKbps:)`` of zero: a client that is looking at this Mac
+    /// again must not have to re-negotiate a format, a source or a transport to see it.
+    ///
+    /// **A client must not send this to a Mac that has not said it understands it.** An unknown
+    /// command is a decode failure in the middle of a session, so the Mac declares the
+    /// capability in ``ServerHello/supportsVideoPause`` and an older one fails at the door
+    /// instead.
+    case setVideoEnabled(Bool)
     /// Asks the host to re-photograph the desktop being shown, ahead of the schedule it would
     /// otherwise keep to.
     ///
@@ -122,7 +148,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .refreshSpacePreviews, .setPrivacyMode, .lockScreen,
+             .setVideoEnabled, .refreshSpacePreviews, .setPrivacyMode, .lockScreen,
              .requestClipboard, .pushClipboard:
             return .none
         }
@@ -133,7 +159,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     public var isCritical: Bool {
         switch self {
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .setCaptureSource, .launchApplication,
-             .setPrivacyMode, .lockScreen, .pushClipboard:
+             .setPrivacyMode, .lockScreen, .pushClipboard, .setVideoEnabled:
             return true
         default:
             return false
@@ -147,8 +173,9 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .mouseMove, .mouseDown, .mouseUp, .scroll, .keyDown, .keyUp, .textInput,
              .switchSpace, .switchToSpace, .joystickMove:
             return true
-        case .setCaptureSource, .launchApplication, .setStreamQuality, .refreshSpacePreviews,
-             .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard:
+        case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
+             .refreshSpacePreviews, .setPrivacyMode, .lockScreen, .requestClipboard,
+             .pushClipboard:
             return false
         }
     }

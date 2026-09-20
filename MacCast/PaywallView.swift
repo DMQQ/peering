@@ -74,8 +74,8 @@ struct PaywallView: View {
         /// A feature the user just reached for, on a plan that does not include it.
         ///
         /// **The one door opened by a control that did nothing.** Every other reason here is either
-        /// a wall the relay put up or something the app decided to say; this one is a badge beside
-        /// the thing under the user's thumb, and the sheet has to open by naming it. Without that, the
+        /// a wall the relay put up or something the app decided to say; this one is a badge on the
+        /// thing under the user's thumb, and the sheet has to open by naming it. Without that, the
         /// answer to a tap that did nothing is a purchase screen out of nowhere, which reads as the
         /// app having ignored the tap and then tried to sell something.
         ///

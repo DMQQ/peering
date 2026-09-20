@@ -361,8 +361,9 @@ final class InputInjector: @unchecked Sendable {
             }
 
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
-             .refreshSpacePreviews, .setPrivacyMode, .requestClipboard, .pushClipboard:
-            // Handled upstream in HostModel.onCommand before this method is called.
+             .setVideoEnabled, .refreshSpacePreviews, .setPrivacyMode, .requestClipboard,
+             .pushClipboard:
+            // Handled upstream, in the host's own routing, before this method is called.
             break
         }
     }

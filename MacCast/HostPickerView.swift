@@ -65,15 +65,15 @@ struct HostPickerView: View {
                 }
             }
             // iOS's bar is hidden rather than kept and drawn over. It has a fixed number of
-            // columns, and a sixth tab does not widen it — it folds the last two into a "More"
+            // columns, and a sixth tab does not widen it: it folds the last two into a "More"
             // table, which is the thing this change exists to avoid. Hiding it also hands back the
             // bottom safe area it was holding, which is why the custom bar has to be installed as
             // an inset: the screens underneath are all scroll views, and one that ran under the
             // bar would have its last row covered by glass.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                // The bar goes while a shell is up. That screen asks for every point it can get —
+                // The bar goes while a shell is up. That screen asks for every point it can get:
                 // a terminal is read from the bottom up, and the line the cursor is on is the one
-                // nearest the bar — so it hides the bar it used to have, and a bar drawn here does
+                // nearest the bar. So it hides the bar it used to have, and a bar drawn here does
                 // not answer to `.toolbar(.hidden, for: .tabBar)`. The question is asked of the
                 // model, which is where the answer lives: the shell screen is the Servers tab's
                 // own root, so nothing about the hierarchy changes when it opens.
@@ -187,7 +187,7 @@ private enum RootTabBarMetrics {
 ///
 /// - **The tab bar's rotor.** VoiceOver offers a `UITabBar`'s items as a group with a "2 of 5"
 ///   position announced for each. There is no SwiftUI trait for a tab bar, so the group is rebuilt
-///   by hand — a container, one element per tab, the position spoken as the element's value — and
+///   by hand (a container, one element per tab, the position spoken as the element's value), and
 ///   the rotor itself is the one piece that cannot be rebuilt, because setting it is a UIKit trait
 ///   and this is not a UIKit view.
 /// - **Tapping the current tab to scroll its screen to the top.** `UITabBarController` does that,
@@ -198,14 +198,14 @@ private enum RootTabBarMetrics {
 ///   lighter plate under it, which is a second selection marker this bar does not need: the tint
 ///   is the marker here, and two of them for one state is one too many. What is lost with the
 ///   plate is the item's *shape* being visible at rest, which is the thing the plate did that the
-///   tint does not — see ``RootTabBarMetrics/restingInk`` for what is left in its place.
+///   tint does not. See ``RootTabBarMetrics/restingInk`` for what is left in its place.
 private struct RootTabBar: View {
     @Binding var screen: Screen
 
     /// The window's bottom safe area, handed in by the caller.
     ///
     /// The bar is installed as a bottom safe area *inset*, which puts its bottom edge on the safe
-    /// area's own line — and the bar it is copying is not there. iOS 26's capsule hangs into the
+    /// area's own line, and the bar it is copying is not there. iOS 26's capsule hangs into the
     /// home-indicator strip, a fixed distance from the *screen's* bottom edge: 21 points on an
     /// iPhone 17 Pro, whose safe area is 34, and 22 on a phone with a home button, whose safe area
     /// is nothing at all. So the number that has to be subtracted is the safe area, and a view
@@ -295,9 +295,14 @@ private struct RootTabBar: View {
     }
 
     /// Brings a tab into view when it is off the end of the bar, and leaves the bar alone when it
-    /// is not. Reached only by a selection made from somewhere other than a tap: the Servers tab
-    /// moves itself when Siri asks for a shell, and with six or more tabs that tab may be past the
-    /// edge. A tap cannot get here, because a tab that was tapped was on screen to be tapped.
+    /// is not.
+    ///
+    /// Most of what arrives here is a tap, on a tab that was on screen to be tapped, and the
+    /// visibility test is what keeps the bar still for those: re-centring the tab that was just
+    /// chosen would slide the bar sideways under the finger that chose it. The rest is a selection
+    /// made from somewhere other than the bar (the Servers tab moves itself when a Shortcut asks
+    /// for a shell), which is what can land on a tab that is off the edge, and the sixth tab
+    /// onwards is where a tap can too, on the part of a tab that is showing past the capsule.
     private func reveal(_ item: Screen, in capsuleWidth: CGFloat, with scroller: ScrollViewProxy) {
         guard let index = Screen.allCases.firstIndex(of: item) else { return }
         let width = itemWidth(in: capsuleWidth)
@@ -2171,9 +2176,11 @@ private struct SettingsTab: View {
     /// The floating window, in the Settings tab.
     ///
     /// The same two controls as the session panel's, and the same plan behind them. On a plan that
-    /// does not include it, the switch is still the switch, dimmed and inert with the plan's name
-    /// beside it, and the rows that only make sense once the feature works (the manual start and
-    /// the diagnostic it produces) are the ones that are not drawn. The footer carries the sentence
+    /// does not include it, the switch is still the switch, dimmed and inert, with the plan's name
+    /// on its top-trailing corner rather than beside it: an overlay costs the row no width, and a
+    /// badge that takes width is a badge that moves every other control in the row when the plan
+    /// changes. The rows that only make sense once the feature works (the manual start and the
+    /// diagnostic it produces) are the ones that are not drawn. The footer carries the sentence
     /// about which plan adds it.
     private var pipSection: some View {
         Controls.card(
