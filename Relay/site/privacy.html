@@ -84,9 +84,11 @@
 
     <h2>3. What the relay handles</h2>
     <p>
-      When your two devices are on different networks they cannot reach each other directly, so
-      they both connect outwards to a relay server which introduces them and copies bytes between
-      them. To do that job it handles:
+      When your two devices are on different networks they both connect outwards to a relay server,
+      which introduces them and copies bytes between them. The picture also often takes a path the
+      two devices open for themselves, which the relay is not part of — but it is what tells each
+      of them where the other is, and it carries the rest of the session either way. To do that job
+      it handles:
     </p>
     <ul>
       <li>your Mac's device ID and its name;</li>
@@ -95,7 +97,8 @@
       <li>which plan your app says it is on, so the right allowance can be applied;</li>
       <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
       <li>the relay access key, for connections made with a paid plan;</li>
-      <li>the IP address of each device, which any server necessarily sees.</li>
+      <li>the IP address of each device, which any server necessarily sees, and which it hands to
+        the other device so they can try to reach each other without it.</li>
     </ul>
     <p>
       <strong>The relay cannot read what it carries.</strong> The control channel is a TLS session

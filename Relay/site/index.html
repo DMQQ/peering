@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Peering · your Mac, from anywhere</title>
-<meta name="description" content="Peering puts your Mac's screen on your iPhone. Pair once on your own network; after that an end-to-end encrypted relay reaches it from anywhere. No account, no analytics, and a relay that cannot read what it carries.">
+<meta name="description" content="Peering puts your Mac's screen on your iPhone. Pair once on your own network; after that your two devices find each other from anywhere, encrypted end to end, straight between themselves when the network allows.">
 <meta name="theme-color" content="#0a0a0c">
 <link rel="icon" href="/assets/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/styles.css">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Peering · your Mac, from anywhere">
-<meta property="og:description" content="Your Mac's screen on your iPhone, over your own network or through a relay that cannot read what it carries.">
+<meta property="og:description" content="Your Mac's screen on your iPhone: on your own network, straight between the two devices when the network allows, or through a relay that cannot read what it carries.">
 <meta property="og:url" content="https://getpeering.app/">
 <meta property="og:image" content="https://getpeering.app/assets/pears-512.png">
 </head>
@@ -137,7 +137,13 @@
         <div class="card feature">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8c2.4 2.4 3.6 5.2 3.6 8.2s-1.2 5.8-3.6 8.2c-2.4-2.4-3.6-5.2-3.6-8.2s1.2-5.8 3.6-8.2z"/><path d="M4.2 9.4h15.6M4.2 14.6h15.6"/></svg>
           <h3>Come back from anywhere</h3>
-          <p>After pairing, an end-to-end encrypted relay reaches your Mac when it is on another network.</p>
+          <p>After pairing, your two devices find each other when one of them is on another network.</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="6" height="13.2" rx="1.8"/><rect x="14.8" y="5.4" width="6" height="13.2" rx="1.8"/><path d="M9.4 12h5.2"/><path d="M12.4 9.6L14.8 12l-2.4 2.4"/></svg>
+          <h3>Straight between the two</h3>
+          <p>When your networks allow it, the picture takes a path the two devices find for themselves, and only the control connection goes through the relay.</p>
         </div>
 
         <div class="card feature">
@@ -231,10 +237,9 @@
               can try to reach one another directly.
             </p>
             <p>
-              That last part is new, and worth stating plainly: your two devices now learn each
-              other's public address, so the relay is no longer the only thing that knows where
-              either of them is. What it can <em>read</em> has not changed. It reads nothing, on
-              either path.
+              Worth stating plainly: your two devices learn each other's public address, so the
+              relay is no longer the only thing that knows where either of them is. What it can
+              <em>read</em> has not changed. It reads nothing, on either path.
             </p>
           </div>
           <div>
@@ -306,13 +311,15 @@
         <div class="card plan plan-best">
           <span class="plan-badge">Best value</span>
           <h3>Pro</h3>
-          <p class="plan-price">$79.99<span>/year</span></p>
+          <p class="plan-price">$39.99<span>/year</span></p>
           <p class="plan-note">everything, billed yearly</p>
           <ul>
             <li>Everything in Relay Plus</li>
             <li>Every Mac you own</li>
-            <li>Session audio and Picture in Picture</li>
-            <li>Wake on LAN and privacy mode</li>
+            <li>Every display and every window as a source</li>
+            <li>Snippets, quick commands and macros</li>
+            <li>Session audio, and Picture in Picture</li>
+            <li>Wake on LAN, and privacy mode</li>
             <li>Everything added while you are subscribed</li>
           </ul>
         </div>
@@ -386,9 +393,10 @@
         <details>
           <summary>Does it work on a network I do not control?</summary>
           <p>
-            Yes. Once paired, the connection uses the relay over the internet, so it works from a
-            hotel, a train, or someone else's Wi-Fi. The local network only has to be shared for
-            the first pairing.
+            Yes. Once paired, your two devices find each other over the internet, so it works from
+            a hotel, a train, or someone else's Wi-Fi. They try a path straight between themselves
+            first, and fall back to the relay when the network will not allow one — as a carrier
+            network often will not. The local network only has to be shared for the first pairing.
           </p>
         </details>
       </div>
