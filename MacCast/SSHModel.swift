@@ -3,9 +3,6 @@ import MacCastKit
 import Observation
 import RemoteCore
 import SSHCore
-import os
-
-private let sshModelLog = Logger(subsystem: "pl.dmq.peering", category: "ssh")
 
 /// How much of a shell's output is kept.
 ///

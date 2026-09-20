@@ -37,17 +37,22 @@ let package = Package(
         // open on while a human reads a fingerprint.
         //
         // It costs one thing worth naming here rather than in a commit message: Citadel requires
-        // swift-crypto below 4.0, and this project pins 4.5.2, so every target in the Xcode project
-        // — the app, both widgets, the Mac host and the probes — resolves swift-crypto to 3.15.1
-        // because of it. RemoteCore's 143 tests pass against 3.15.1, and RemoteCore only uses
-        // `SHA256` and `P256.KeyAgreement`, but the pin is a consequence of this line and should be
-        // revisited if Citadel ever widens its requirement.
+        // swift-crypto below 4.0, and that bound is the one that binds. Every target in the Xcode
+        // project (the app, both widgets, the Mac host and the probes) resolves swift-crypto
+        // 3.15.1 because of it, while everything that does not pull Citadel in (RemoteCore,
+        // MacCastKit and both probes, built by `swift test`) resolves 4.5.2. The line below this
+        // one is the same bound and changes nothing, which was measured rather than assumed:
+        // widening it leaves the resolution at 3.15.1, and narrowing it produces SwiftPM's own
+        // complaint naming Citadel. So the suites and the shipped app build against different
+        // majors of the library that backs swift-certificates' X509, which is where the work that
+        // matters happens. The way out is upstream, and neither Citadel's newest release nor the
+        // swift-nio-ssh fork this project depends on has widened its requirement yet.
         .package(url: "https://github.com/orlandos-nl/Citadel.git", from: "0.12.1"),
         // Declared here rather than left to arrive through Citadel, even though Citadel is what
-        // puts it in the graph. `SSHFingerprint` uses `SHA256` directly, and the version bound is
-        // the constraint that decides what the *whole Xcode project* resolves to — see the note
-        // above. Written down, it is a decision with a reason; inherited, it is a surprise in
-        // `Package.resolved` that nobody chose.
+        // puts it in the graph: `SSHFingerprint` and `SSHPasscodeStore` use `SHA256` directly, so
+        // this target needs the product whether or not anything else does. The bound is written
+        // out because a version nobody chose is a surprise in `Package.resolved`, not because it
+        // decides anything; the note above is the measured account of what does.
         .package(url: "https://github.com/apple/swift-crypto.git", "3.12.3"..<"4.0.0"),
     ],
     targets: [

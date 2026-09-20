@@ -6,6 +6,19 @@ DerivedData/
 .build/
 *.xcarchive
 
+# Caches a mis-parsed build flag left inside the source tree. A build that passed
+# `-Xcc -validate-clang-modules-once` where a path belonged put the clang module cache under
+# `MacCast.xcodeproj/-Xcc/` (31 MB, 1,940 files) and the same build's header map under
+# `MacCast.xcodeproj/-I/` (34 MB, 1,818 files), and wrote a 268-byte binary diagnostics file at
+# the root under the flag's own name. It is build state Xcode regenerates and nothing here reads
+# it. Both directory names begin with a dash, which is a nuisance on a command line
+# (`git add -- MacCast.xcodeproj/-Xcc`) but not in a pattern, so none of these need escaping. The
+# `-I` tree was ignored already, but only because the paths inside it run through `DerivedData/`;
+# naming it here makes that a decision rather than a coincidence.
+/MacCast.xcodeproj/-Xcc/
+/MacCast.xcodeproj/-I/
+/-validate-clang-modules-once
+
 # Disk images built by hand for local testing. They are the same class of artefact
 # as the published ones below: several megabytes, replaced on every version, and
 # nothing reads them. A copy had been tracked here since before the rules existed.

@@ -85,7 +85,7 @@ extension SessionModel {
         else { return }
 
         terminalHistory.removeAll { $0 == command }
-        UserDefaults.standard.set(terminalHistory, forKey: Self.terminalHistoryKey)
+        UserDefaults.standard.set(terminalHistory, forKey: PreferenceKeys.terminalHistory)
         lastSentCommand = nil
         lastSentAt = nil
     }
@@ -106,10 +106,9 @@ extension SessionModel {
             history.removeLast(history.count - Self.terminalHistoryLimit)
         }
         terminalHistory = history
-        UserDefaults.standard.set(history, forKey: Self.terminalHistoryKey)
+        UserDefaults.standard.set(history, forKey: PreferenceKeys.terminalHistory)
     }
 
-    static let terminalHistoryKey = "Peering.terminalHistory"
     static let terminalHistoryLimit = 30
 
     func sendTerminalBytes(_ bytes: [UInt8], to id: UUID) {

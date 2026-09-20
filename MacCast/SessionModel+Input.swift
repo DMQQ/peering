@@ -24,7 +24,7 @@ extension SessionModel {
         // trapping on an out-of-range index.
         let index = speeds.firstIndex(of: pointerSpeed) ?? 0
         pointerSpeed = speeds[(index + 1) % speeds.count]
-        UserDefaults.standard.set(pointerSpeed, forKey: "Peering.pointerSpeed")
+        UserDefaults.standard.set(pointerSpeed, forKey: PreferenceKeys.pointerSpeed)
     }
 
     /// How the speed is written: "1×", "1.5×", "2×".

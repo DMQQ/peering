@@ -261,6 +261,11 @@ get. (A "Report an issue" row now exists in Settings, in both the iOS app and th
 tested, the endpoint verified running); the Mac host has an "Open at login" setting (it had none,
 so a reboot silently ended remote access); and both apps have a "Copy diagnostics" button.
 
+**Done since (20 September):** the site and `Config/Products.storekit` now agree on the same three
+prices, $4.99 a month, $14.99 a month and $39.99 a year, so local testing shows what a visitor is
+told. Neither of them is the authority: **App Store Connect is**, and it has not been set. Type
+these three in there, or change both files together, but do not change one alone.
+
 **Done since, and verified:** the relay now verifies the StoreKit transaction instead of trusting
 the plan the client claims — the JWS is checked against Apple Root CA - G3, pinned in this
 repository, and a verified receipt always wins. The **claimed plan is still believed when no

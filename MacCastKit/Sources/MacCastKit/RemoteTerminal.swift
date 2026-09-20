@@ -34,10 +34,6 @@ public struct RemoteTerminal: Identifiable, Equatable {
         if !isRunning { return .stopped }
         return output.isEmpty ? .starting : .running
     }
-
-    public var visibleOutput: String {
-        TerminalTextSanitizer.render(output)
-    }
 }
 
 /// What a terminal's tab is saying about it. See ``RemoteTerminal/state``.

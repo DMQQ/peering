@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -23,7 +24,7 @@ extension SessionModel {
 
     func saveMacros() {
         if let data = try? JSONEncoder().encode(customMacros) {
-            UserDefaults.standard.set(data, forKey: Self.customMacrosKey)
+            UserDefaults.standard.set(data, forKey: PreferenceKeys.customMacros)
         }
     }
 

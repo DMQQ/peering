@@ -72,4 +72,32 @@ public enum PreferenceKeys {
     /// asked of it is whether it is the bucket we are in now, and two spellings of one instant is
     /// how a comparison starts disagreeing with itself.
     public static let lowRelayOfferWindow = "Peering.lowRelayOfferWindow"
+    /// Whether the pointer drives the Mac or only watches it.
+    ///
+    /// Persisted because observe mode's no-input promise has to survive a relaunch: a mode that
+    /// reset itself would quietly hand the Mac back to whoever picked the phone up. Read by the
+    /// screen that obeys the setting and by the panel that offers it.
+    public static let interactionMode = "Peering.interactionMode"
+    /// Whether the picture is scaled up to reach the screen's edges.
+    ///
+    /// Persisted because it is a property of the *source* rather than of the moment: a window
+    /// captured on its own is usually a different shape from the screen, and someone who has just
+    /// filled one will want the next one filled too.
+    public static let scalesToFill = "Peering.scalesToFill"
+    /// What the joystick multiplies the pointer's travel by.
+    ///
+    /// Kept as a number rather than an index so the label and the arithmetic read the same, and
+    /// persisted because it is a property of the hand rather than of the session: someone who has
+    /// found the speed they like wants it next time.
+    public static let pointerSpeed = "Peering.pointerSpeed"
+    /// The terminal commands sent from this phone, newest first.
+    ///
+    /// In the defaults rather than in memory, because the list is for finding a command again after
+    /// the app has been away, and the remote screen it is shown on is built fresh for each session.
+    public static let terminalHistory = "Peering.terminalHistory"
+    /// The user's own macros, as encoded JSON.
+    ///
+    /// Written whenever the list changes and read once when the model is built, so the two ends of
+    /// that round trip have to be spelling the same key.
+    public static let customMacros = "Peering.customMacros"
 }
