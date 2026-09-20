@@ -50,6 +50,13 @@ public enum SSHSessionError: Error, Sendable {
     /// a folder that is not there, a file that is not text and a server with no SFTP are all
     /// ordinary answers, and the panel that asked has a line to put them on.
     case browse(String)
+    /// A forward could not be opened, with the reason in the terms the forward list shows.
+    ///
+    /// Separate from ``transport`` for the same reason ``browse`` is: a refusal to open a channel
+    /// to `db.internal:5432` says nothing about the shell, which is still perfectly usable, and a
+    /// user whose tunnel is refused needs to be told which tunnel and why rather than shown a
+    /// message about their connection.
+    case forward(any Error)
 }
 
 /// What a session reports, in the order it happens.
@@ -232,6 +239,21 @@ private final class ShellHandle: @unchecked Sendable {
     }
 }
 
+/// A port forward's request for a channel, and where to put the answer.
+///
+/// A continuation rather than a stream of results, for the same reason ``SSHBrowseRequest`` is one:
+/// the loop is the only thing that can answer, and the caller is a task of its own that wants to
+/// carry on when it has. Unlike a browse this hands back a live channel rather than a value, which
+/// is safe for exactly one reason and it is worth naming: NIO's `Channel` is `Sendable`, because
+/// every method on it is a hop onto its own event loop. The client that made it is not, and does
+/// not leave the task.
+struct SSHForwardRequest: Sendable {
+    let host: String
+    let port: Int
+    let localPort: Int
+    let continuation: CheckedContinuation<NIOAsyncChannel<ByteBuffer, ByteBuffer>, any Error>
+}
+
 /// The input a session accepts from its caller.
 private enum SSHCommand: Sendable {
     case write(Data)
@@ -239,7 +261,30 @@ private enum SSHCommand: Sendable {
     /// Something to do with the server's files. A question rather than a message, which is why it
     /// carries a continuation out: see ``SSHBrowseRequest``.
     case browse(SSHBrowseRequest)
+    /// Asking the connection to open a channel somewhere only the server can reach.
+    case forward(SSHForwardRequest)
     case close
+}
+
+/// A flag the connection task sets and anyone may read.
+///
+/// The same two-window problem ``ShellHandle/isAttached`` solves for browse requests, and it needs
+/// its own answer because the windows are in different places. A forward is legitimate from the
+/// moment the transport is up, which is *before* the shell is attached and is exactly when a
+/// keyboard-interactive server would still be authenticating; and it stops being legitimate when
+/// the command loop ends, which is after the shell has detached. Reusing the shell's flag would
+/// refuse the first and allow the second.
+///
+/// A lock rather than an actor: the reader is a synchronous `guard`, and an `await` there would put
+/// a suspension point in the middle of a decision that has to be one.
+final class SSHConnectionFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isUp = false
+
+    var value: Bool {
+        get { lock.withLock { isUp } }
+        set { lock.withLock { isUp = newValue } }
+    }
 }
 
 /// One interactive shell on one server.
@@ -260,16 +305,19 @@ public final class SSHSession: Sendable {
     private let commands: AsyncStream<SSHCommand>
     private let issue: AsyncStream<SSHCommand>.Continuation
     private let shell: ShellHandle
+    /// Whether the command loop is running, which is what a forward has to ask before it asks for
+    /// anything else. See ``SSHConnectionFlag``.
+    private let isUp = SSHConnectionFlag()
 
     private let endpoint: SSHEndpoint
     private let username: String
-    private let password: String
+    private let credential: SSHCredential
     private let knownHosts: SSHKnownHosts
     private let ask: @Sendable (SSHHostKeyPrompt) async -> Bool
 
     public init(
         host: SSHHost,
-        password: String,
+        credential: SSHCredential,
         knownHosts: SSHKnownHosts = SSHKnownHosts(),
         columns: Int = 80,
         rows: Int = 24,
@@ -277,7 +325,7 @@ public final class SSHSession: Sendable {
     ) {
         self.endpoint = host.endpoint
         self.username = host.username
-        self.password = password
+        self.credential = credential
         self.knownHosts = knownHosts
         self.ask = ask
         self.shell = ShellHandle(columns: columns, rows: rows)
@@ -406,6 +454,43 @@ public final class SSHSession: Sendable {
     /// `CheckedContinuation` on the floor — and one of those deallocated without being resumed is
     /// a trap rather than a hang, which is the right severity for a bug that would otherwise be
     /// invisible until a user's phone crashed.
+    // MARK: - Forwarding
+
+    /// Opens a channel through the server to somewhere it can reach.
+    ///
+    /// This is the whole of the client half of a local port forward, and it is one call because
+    /// Citadel already has the other half: `SSHClient.createDirectTCPIPChannel` sends the
+    /// `direct-tcpip` channel-open a standard `sshd` understands. What this adds is a way to ask
+    /// for one from outside the task that owns the client, which is the problem ``SSHSession``
+    /// exists to solve for the shell and now solves for this too.
+    ///
+    /// Answers with a wrapped channel rather than a bare one so the wrapping happens on the right
+    /// event loop before anything can read from it — see ``NIOAsyncChannel``, which drops reads
+    /// otherwise. `localPort` is passed through because the server logs where the connection came
+    /// from, and reporting the port this phone is actually listening on is the honest answer there.
+    ///
+    /// Throws ``SSHSessionError/notConnected`` when there is no connection to open it on, and
+    /// ``SSHSessionError/forward(_:)`` when the server refused.
+    public func openDirectChannel(
+        to host: String,
+        port: Int,
+        from localPort: Int
+    ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+        guard isUp.value else { throw SSHSessionError.notConnected }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let request = SSHForwardRequest(
+                host: host,
+                port: port,
+                localPort: localPort,
+                continuation: continuation
+            )
+            if case .terminated = issue.yield(.forward(request)) {
+                continuation.resume(throwing: SSHSessionError.notConnected)
+            }
+        }
+    }
+
     private func browse(_ kind: SSHBrowseRequest.Kind, at path: String) async throws -> SSHBrowseResult {
         guard shell.isAttached else { throw SSHSessionError.notConnected }
 
@@ -413,6 +498,30 @@ public final class SSHSession: Sendable {
             let request = SSHBrowseRequest(kind: kind, path: path, continuation: continuation)
             if case .terminated = issue.yield(.browse(request)) {
                 continuation.resume(throwing: SSHSessionError.notConnected)
+            }
+        }
+    }
+
+    /// The offer the handshake makes, built here rather than stored.
+    ///
+    /// A key's authentication method holds a live signing key, so building one at `init` would mean
+    /// holding signing material for the whole life of a screen that may never connect, and holding
+    /// it in a type the app can copy around. This is also the one place the two halves of
+    /// ``SSHCredential`` are allowed to differ, which is the point of the enum: everything above
+    /// this line deals in "the credential", and only the handshake cares which kind it is.
+    private func authenticationMethod() throws -> SSHAuthenticationMethod {
+        switch credential {
+        case .password(let password):
+            return .passwordBased(username: username, password: password)
+        case .key(let pair):
+            do {
+                return try pair.authenticationMethod(username: username)
+            } catch let error as SSHKeyError {
+                // Carried as a transport failure because that is what it is from the screen's point
+                // of view: no shell opened, and the reason goes on the shell's own line. The key's
+                // own sentence is the reason, so the user is told which half of the problem to fix
+                // rather than shown a Swift description of an enum.
+                throw SSHSessionError.transport(error.message)
             }
         }
     }
@@ -438,7 +547,7 @@ public final class SSHSession: Sendable {
             client = try await SSHClient.connect(
                 host: endpoint.hostname,
                 port: endpoint.port,
-                authenticationMethod: .passwordBased(username: username, password: password),
+                authenticationMethod: try authenticationMethod(),
                 hostKeyValidator: .custom(delegate),
                 // `.never`, and not as a default. Citadel's reconnect loop re-dials from inside its
                 // own close handler; against a server that is simply down that is an unbounded
@@ -455,7 +564,46 @@ public final class SSHSession: Sendable {
             return
         }
 
+        // Set before the shell is asked for, not after: a forward is legitimate as soon as there is
+        // a transport to carry it, and a server that spends a second on keyboard-interactive
+        // authentication is a server whose forwards would otherwise be refused for that second.
+        isUp.value = true
         emit.yield(.connected)
+
+        /// Asks the server for a channel to somewhere it can reach.
+        ///
+        /// Nested rather than a method because the client is a local of this task and does not
+        /// leave it — the same confinement the shell and the file service live under, and the
+        /// reason a forward is asked for through the command stream rather than around it.
+        ///
+        /// The originator address is this phone's own loopback port for that forward. The server's
+        /// `sshd` puts it in a log line and nowhere else, and a made-up value there is a log that
+        /// lies about which tunnel a connection came through.
+        func openDirectChannel(
+            to host: String,
+            port: Int,
+            from localPort: Int
+        ) async throws -> NIOAsyncChannel<ByteBuffer, ByteBuffer> {
+            let originator = try SocketAddress(ipAddress: "127.0.0.1", port: localPort)
+            let channel = try await client.createDirectTCPIPChannel(
+                using: SSHChannelType.DirectTCPIP(
+                    targetHost: host,
+                    targetPort: port,
+                    originatorAddress: originator
+                )
+            ) { channel in
+                // Nothing to add. `createDirectTCPIPChannel` has already put the codec on that
+                // turns `SSHChannelData` into `ByteBuffer`, which is the only handler this needs.
+                channel.eventLoop.makeSucceededVoidFuture()
+            }
+
+            // On the channel's own loop and before anything can read from it. The async wrapping
+            // initialiser is one hop later, and that hop is one in which a fast server's first
+            // bytes arrive and are dropped.
+            return try await channel.eventLoop.submit {
+                try NIOAsyncChannel<ByteBuffer, ByteBuffer>(wrappingChannelSynchronously: channel)
+            }.get()
+        }
 
         // Held only so this task can close it, and only ever touched from here.
         let request = SSHChannelRequestEvent.PseudoTerminalRequest(
@@ -519,6 +667,21 @@ public final class SSHSession: Sendable {
                         // at any price. One folder is one round trip on a connection that is
                         // already open; a stall that short is not worth the box.
                         await files.answer(request)
+                    case .forward(let request):
+                        // Answered here for the same reason, and it costs even less than a folder
+                        // read: opening a channel is one round trip and the answer is a live
+                        // channel, not a stream of bytes. The bytes are pumped outside, by a task
+                        // that has only `Sendable` handles on both ends.
+                        do {
+                            let channel = try await openDirectChannel(
+                                to: request.host,
+                                port: request.port,
+                                from: request.localPort
+                            )
+                            request.continuation.resume(returning: channel)
+                        } catch {
+                            request.continuation.resume(throwing: SSHSessionError.forward(error))
+                        }
                     case .close:
                         break
                     }
@@ -542,6 +705,9 @@ public final class SSHSession: Sendable {
 
         shell.detach()
         try? await client.close()
+        // Cleared before the events are, so a dial that arrives in the last microseconds of a
+        // session is refused on the flag rather than sent into a stream nobody is reading.
+        isUp.value = false
         emit.yield(.closed)
         emit.finish()
         issue.finish()

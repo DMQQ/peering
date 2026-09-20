@@ -120,6 +120,39 @@ struct SSHCredentialStoreTests {
         let store = SSHCredentialStore(backend: InMemorySecretBackend())
         #expect(store.remove(for: UUID()))
     }
+
+    @Test("a key is stored, read back whole, and replaced by a password")
+    func keyRoundTrip() throws {
+        let store = SSHCredentialStore(backend: InMemorySecretBackend())
+        let id = UUID()
+        let pair = try SSHKeyPair.imported(KeyFixture.plainPrivate, passphrase: nil)
+
+        #expect(store.save(.key(pair), for: id))
+        #expect(store.credential(for: id) == .key(pair))
+
+        // A password and a key are alternatives for one host, so the second save is a replacement
+        // rather than an addition. Nothing about the shape allows both to be held at once.
+        store.save(.password("hunter2"), for: id)
+        #expect(store.credential(for: id) == .password("hunter2"))
+        #expect(store.all().count == 1)
+    }
+
+    @Test("a password saved by the previous build still reads back")
+    func passwordFromAv1Build() throws {
+        // The exact bytes the version before keys wrote: Swift's synthesized enum encoding names
+        // the case, so a second case beside `.password` does not move the first one's fields. This
+        // is written out by hand rather than produced by the current encoder, because an assertion
+        // that a value round-trips through *this* build is not evidence about a blob written by
+        // another one — and the failure this guards is every saved password in the app being lost
+        // at the next update, with the user asked to type them all again.
+        let backend = InMemorySecretBackend()
+        let id = UUID()
+        let blob = Data(#"{"\#(id.uuidString)":{"password":{"_0":"hunter2"}}}"#.utf8)
+        #expect(backend.write(blob, service: SSHCredentialStore.service, account: "credentials"))
+
+        let store = SSHCredentialStore(backend: backend)
+        #expect(store.credential(for: id) == .password("hunter2"))
+    }
 }
 
 private struct RefusingBackend: SSHSecretBackend {

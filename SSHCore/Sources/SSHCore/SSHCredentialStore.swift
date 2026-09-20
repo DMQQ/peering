@@ -12,12 +12,25 @@ private let log = Logger(subsystem: "pl.dmq.peering", category: "ssh")
 /// is a migration: every stored blob is a password-shaped thing that has to be re-read and
 /// re-written, on the one store where getting that wrong loses the user's logins.
 ///
+/// That is how ``key(_:)`` arrived, and it cost exactly what the paragraph above promised: no
+/// migration, no re-read, no blob rewritten. A password stored by the previous build decodes
+/// unchanged into this one, because Swift's synthesized enum encoding names the *case* and the
+/// `.password` arm's bytes do not move when a second case appears beside it. There is a test for
+/// that, against a blob written in the old shape by hand, because "this should be compatible" is
+/// the kind of claim that is worth being wrong about loudly.
+///
+/// A case rather than a field also settles the question a `password:` and a `key:` side by side
+/// would leave open: which one wins when both are set. Neither does, because both cannot be.
+///
 /// `Codable` here is not forward-compatible — an older build cannot decode a case it does not know.
 /// That is fine *because* the Keychain entry is `ThisDeviceOnly`: no blob can ever arrive from
 /// another device, and a blob written by a newer build of this one is a blob from an app that has
 /// already been updated.
 public enum SSHCredential: Codable, Sendable, Equatable {
     case password(String)
+    /// A key pair, both halves. The public half travels with the private one because it is what the
+    /// user has to install on the server — see ``SSHKeyPair``.
+    case key(SSHKeyPair)
 }
 
 /// The credentials, keyed by host id.

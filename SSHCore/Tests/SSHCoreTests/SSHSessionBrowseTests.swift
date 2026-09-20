@@ -16,7 +16,7 @@ struct SSHSessionBrowseTests {
     private func orphan() -> SSHSession {
         SSHSession(
             host: SSHHost(name: "Nowhere", hostname: "127.0.0.1", port: 1, username: "nobody"),
-            password: "not a password"
+            credential: .password("not a password")
         ) { _ in true }
     }
 

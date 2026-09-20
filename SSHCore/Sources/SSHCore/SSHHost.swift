@@ -50,6 +50,16 @@ public struct SSHHost: Identifiable, Hashable, Codable, Sendable {
     public var lastConnectedAt: Date?
     /// What this server asks for before it will open.
     public var lock: SSHHostLock
+    /// The tunnels this server carries, as a list of what to set up when a shell opens on it.
+    ///
+    /// On the host rather than in a store of its own, and that is a decision about what a forward
+    /// *is*: nobody wants a tunnel to a machine they have not saved. It is also not a secret — a
+    /// port number and an address are the same kind of thing as the hostname two fields up — so it
+    /// belongs in `UserDefaults` with the rest of the inventory rather than in the keychain.
+    ///
+    /// The list is the *intent*; whether any of it is up is runtime state that lives nowhere near
+    /// here, because a forward only exists while a connection does.
+    public var forwards: [SSHPortForward]
 
     public init(
         id: UUID = UUID(),
@@ -59,7 +69,8 @@ public struct SSHHost: Identifiable, Hashable, Codable, Sendable {
         username: String,
         createdAt: Date = Date(),
         lastConnectedAt: Date? = nil,
-        lock: SSHHostLock = .off
+        lock: SSHHostLock = .off,
+        forwards: [SSHPortForward] = []
     ) {
         self.id = id
         self.name = name
@@ -69,6 +80,7 @@ public struct SSHHost: Identifiable, Hashable, Codable, Sendable {
         self.createdAt = createdAt
         self.lastConnectedAt = lastConnectedAt
         self.lock = lock
+        self.forwards = forwards
     }
 
     /// Written out by hand for one field, and this is the only reason.
@@ -91,6 +103,7 @@ public struct SSHHost: Identifiable, Hashable, Codable, Sendable {
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         lastConnectedAt = try container.decodeIfPresent(Date.self, forKey: .lastConnectedAt)
         lock = try container.decodeIfPresent(SSHHostLock.self, forKey: .lock) ?? .off
+        forwards = try container.decodeIfPresent([SSHPortForward].self, forKey: .forwards) ?? []
     }
 
     public var endpoint: SSHEndpoint {
