@@ -376,7 +376,7 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "arrow.up.to.line",
                 title: "Send a file to it",
-                detail: "Pick a file from the phone and put it in the folder you are looking at, up to 64 MB.",
+                detail: "Pick a file from the phone and put it in the folder you are looking at, up to 2 GB.",
                 capability: .fileTransfer
             ),
         ]),

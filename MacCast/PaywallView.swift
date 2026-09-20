@@ -197,7 +197,7 @@ struct PaywallView: View {
             case .clipboardHistory:
                 return "Keeps the last twelve things that crossed between the two machines, so what you copied on the Mac is still there when you think of it on the phone. Copying and pasting themselves are on every plan."
             case .fileTransfer:
-                return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 64 MB."
+                return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB."
             case .shellTabs:
                 return "One shell at a time is free, on your Mac and on any server you have added. This is naming a tab, and keeping several open at once."
             case .macros:

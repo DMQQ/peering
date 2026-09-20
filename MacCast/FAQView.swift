@@ -199,11 +199,11 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "How does clipboard sharing work?",
-                    answer: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. The iPhone keeps the 12 most recent pulled items until you clear them. Nothing is copied in the background."
+                    answer: "Text moves only when you ask it to: pull the Mac's clipboard, push this phone's, or pick something you pulled earlier. Pulling, pushing and copying are free on every plan. The list of the 12 most recent pulls is the part Relay adds, and it keeps filling on a plan that cannot open it, so the day you subscribe the last twelve things are waiting. Nothing is copied in the background."
                 ),
                 QA(
                     question: "Can I transfer files?",
-                    answer: "Yes, from the file browser inside a terminal. You can read a file, download it to the phone, edit a text file and save it back, make a new file or folder, rename or delete what is listed, and send a file from the phone into the folder you are looking at. Deleting moves the file to the Bin on your own Mac; on an SSH server it is gone, and the confirmation says so. What a file is gets decided by the file itself rather than its name, so a picture opens as a picture and anything that is neither text nor a picture is refused rather than shown as rubbish. The limits are worth knowing: text files are read up to 128 KB, and a longer one can be read but not edited or downloaded, because saving would replace the whole file with only the part you were shown. Uploads are capped at 64 MB."
+                    answer: "Yes, from the file browser inside a terminal. You can read a file, download it to the phone, edit a text file and save it back, make a new file or folder, rename or delete what is listed, and send a file from the phone into the folder you are looking at. Deleting moves the file to the Bin on your own Mac; on an SSH server it is gone, and the confirmation says so. What a file is gets decided by the file itself rather than its name, so a picture opens as a picture and anything that is neither text nor a picture is refused rather than shown as rubbish. The limits are worth knowing: text files are read up to 128 KB, and a longer one can be read but not edited or downloaded, because saving would replace the whole file with only the part you were shown. Sending a file the other way is capped at 2 GB, which is a limit on the waiting rather than on the phone's memory."
                 ),
                 QA(
                     question: "Can I open a terminal?",
@@ -211,7 +211,19 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "Can I reach my server, or only my Mac?",
-                    answer: "Any SSH server you add under Servers. Sign-in is by password, stored in the Keychain if you ask for it to be remembered, and the first time you connect the server's key fingerprint is shown for you to confirm. That server's files are reachable through the same browser as the Mac's."
+                    answer: "Any SSH server you add under Servers. Sign in with a password, kept in the Keychain if you ask for that, or with a key: make one here and copy the public half into the server's authorized_keys, or paste a private key you already have, passphrase and all. What this app can sign with is ed25519 and RSA. The first time you connect, the server's key fingerprint is shown for you to confirm. That server's files are reachable through the same browser as the Mac's."
+                ),
+                QA(
+                    question: "What is port forwarding for?",
+                    answer: "Reaching something that only the server can see: a database behind a firewall, a service listening on the Mac's own network, a web page on a machine with no route to the internet. A forward opens a port on this phone and lets the far end make the connection, so an app here points at localhost and gets through. The listener is on this phone's loopback only, so nothing on the wifi you are sitting on can reach it."
+                ),
+                QA(
+                    question: "What are macros and quick commands?",
+                    answer: "Saved commands you fire with a tap rather than typing them on glass. Quick commands are the chips above the terminal keyboard, and the same list is waiting in every shell; macros are longer sequences you record once. Firing one is free on every plan. Making or editing one is Pro, the same way the terminal itself is free and the second shell at once is not."
+                ),
+                QA(
+                    question: "Can I switch between the Mac's desktops?",
+                    answer: "Yes. The desktops panel draws every Space the Mac has as a picture rather than a list of names, and tapping one brings it forward, which is the only practical way to move between them from a phone."
                 ),
             ]
         ),
@@ -226,6 +238,10 @@ struct FAQView: View {
                 QA(
                     question: "What happens when my relay time runs out?",
                     answer: "The relay stops carrying sessions until the window rolls over, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Relay raises the allowance to three hours a day, and Relay Plus and Pro remove the limit."
+                ),
+                QA(
+                    question: "Can I use more than one Mac at once?",
+                    answer: "One at a time is free on every plan, and starting a session with a second Mac ends the first. Pro keeps them all open, so moving between two machines is a tap rather than a reconnection, and the one you are not looking at stays connected behind the one you are."
                 ),
                 QA(
                     question: "Why does the app ask me to subscribe?",
@@ -269,7 +285,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "What can't Peering do yet?",
-                    answer: "A list rather than a promise. There is no dictation button. SSH sign-in is password only: no key files, and no port forwarding. A Mac asleep and off your network cannot be woken. There is no virtual display, so a Mac with its lid shut and no screen attached has nothing to show."
+                    answer: "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. There is no virtual display, so a Mac with its lid shut and no screen attached has nothing to show."
                 ),
                 QA(
                     question: "Is any of that coming?",
