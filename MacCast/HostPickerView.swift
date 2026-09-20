@@ -797,6 +797,22 @@ private struct HomeTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // **This card is read before anything in the app can work, which is why the link
+                // belongs on it.** The Mac app is a download rather than an App Store install, so
+                // somebody who has just installed this half has no way from inside it to find the
+                // other one: Nearby is empty because no Mac is listening, and the paragraph above
+                // names "Peering on the Mac" without saying where that comes from.
+                // Drawn the way the app draws its other secondary actions, rather than as tinted
+                // text: there is no accent hue in this app except for "this is on", and a link
+                // coloured with it would be borrowing a state to mean "tap me". See ``ColorPalette``.
+                Link(destination: PeeringSite.download) {
+                    Label("Get Peering for Mac", systemImage: "arrow.down.circle")
+                        .font(.subheadline.weight(.medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(.top, 4)
             }
 
             Spacer(minLength: 0)
@@ -2125,6 +2141,23 @@ private struct SettingsTab: View {
 
     private var moreSection: some View {
         Controls.card("More") {
+            // First, because it is the only row in this card that is about something other than
+            // the app you are holding, and the one a second Mac needs: the Mac app is a download
+            // rather than an App Store install, so somebody setting up another machine has to come
+            // back here for it.
+            Link(destination: PeeringSite.download) {
+                Controls.row("Peering for Mac", systemImage: "arrow.down.circle") {
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.99))
+            .foregroundStyle(ColorPalette.ink)
+
+            Controls.divider
+
             Button {
                 hasSeenWelcome = false
             } label: {
@@ -2440,6 +2473,24 @@ private struct FailurePresentation {
     let title: String
     let message: String
     let isRelayFailure: Bool
+}
+
+// MARK: - The site
+
+/// Where the other half of the product comes from.
+///
+/// **The Mac app is not in the App Store.** It is a download, and that makes this the only address
+/// that reaches it: the phone app cannot find a Mac that has nothing running on it, cannot pair
+/// with one, and shows an empty list until that download is installed and opened. So the two rows
+/// that carry this link are not marketing in a settings screen, they are the two places somebody
+/// is stuck without it.
+///
+/// Named once here for the reason ``Legal`` is named once in `PaywallView`: the address has to
+/// agree with the site, the App Store listing and the docs, and only one of those can be compiled.
+enum PeeringSite {
+    /// The download page rather than the home page: it is one tap further from a visitor who has
+    /// not decided and one tap closer to the file for somebody who has.
+    static let download = URL(string: "https://getpeering.app/download")!
 }
 
 
