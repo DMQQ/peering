@@ -44,6 +44,10 @@ html {
   /* The sticky bar is 64px; without this every in-page link lands with its heading underneath it. */
   scroll-padding-top: 88px;
   -webkit-text-size-adjust: 100%;
+  /* body::before is position:fixed and its width resolves against the visual viewport on mobile,
+     which is wider than the layout viewport. Clipping here stops it from expanding the document
+     scroll width without touching overflow-y or creating a stacking context (as hidden would). */
+  overflow-x: clip;
 }
 
 body {
