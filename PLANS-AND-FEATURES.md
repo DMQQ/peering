@@ -13,8 +13,8 @@ because the reasoning in it still holds in places. The live ladder is:
 
 | | Free | Relay | Relay Plus | Pro |
 |---|---|---|---|---|
-| Monthly | $0 | **$3.99** | **$7.99** | **$12.99** |
-| Yearly | $0 | **$29.99** | **$59.99** | **$99.99** |
+| Monthly | $0 | **$2.99** | **$5.99** | **$9.99** |
+| Yearly | $0 | **$19.99** | **$44.99** | **$79.99** |
 | Relay per 24h | 15 min | 3 h | unlimited | unlimited |
 | Paired Macs | 1 | every | every | every |
 | Sound, Picture in Picture | | yes | yes | yes |
