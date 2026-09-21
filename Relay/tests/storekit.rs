@@ -623,6 +623,7 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
             max_connections: 1 << 20,
             handshake_timeout: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(90),
+            apns: None,
         },
         None,
     ));
