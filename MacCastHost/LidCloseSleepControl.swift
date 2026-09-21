@@ -243,6 +243,56 @@ private final class PipeOutput: @unchecked Sendable {
     var data = Data()
 }
 
+/// The row for "keep this Mac awake": one power assertion, held for as long as the host runs.
+///
+/// **A row rather than a switch drawn wherever it is wanted, and it took a third copy to get
+/// there.** The Settings pane had this written out by hand and the onboarding was about to make it
+/// three. The two places that draw rows share this one now; the menu bar cannot, because a menu
+/// item is a `Toggle` in a menu builder rather than a row in a `VStack`, and that copy is the price
+/// of the menu existing at all.
+///
+/// The caption is doing the job ``LidCloseSleepRow`` explains at length. Of the two switches on
+/// this subject this is the one that is free, silent and does not survive the lid, and a user who
+/// read only the first of the two would come back from a shut lid believing they had bought that.
+struct KeepAwakeRow: View {
+    @Environment(HostModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "moon.zzz")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(model.preventLidCloseSleep ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Keep Mac awake")
+                    .font(.subheadline.weight(.medium))
+                // Says which of the two switches this is, because the second one is about the same
+                // subject and costs something: this holds an idle-sleep assertion, which needs no
+                // permission and is released when Peering quits, and it does not keep a closed Mac
+                // running. The row below does.
+                Text("Keeps this Mac awake on its own: no idle sleep, no display sleep, and no permission prompt. It does not survive the lid being shut, and the next row is the one that does. Lifted automatically when Peering quits.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: Binding(
+                get: { model.preventLidCloseSleep },
+                set: { model.setPreventLidCloseSleep($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(HostPalette.accent)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+}
+
 /// The row for "keep running with the lid closed", and the explanation it owes before it does
 /// anything.
 ///
