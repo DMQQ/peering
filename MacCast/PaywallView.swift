@@ -217,10 +217,17 @@ struct PaywallView: View {
 
     /// How often the user wants to be billed.
     ///
-    /// Opens on the yearly, which is the better value and the one the monthly exists to make look
-    /// like the better value. It is a choice rather than a default the screen hides: the switch
-    /// says what it is doing, and every price below it moves when it moves.
-    @State private var period: BillingPeriod = .yearly
+    /// Opens on the monthly. It used to open on the yearly, on the argument that the yearly is the
+    /// better value and the monthly exists to make it look like one. That is true of the money and
+    /// it was wrong about the screen: the first price a person reads on a page asking for money
+    /// should be the smallest one it can honestly ask for, and a switch that opens on the larger
+    /// number turns the smaller one into a retreat from the offer rather than an offer of its own.
+    /// The yearly is one tap away and keeps the saving badge, which is the argument for it; it does
+    /// not also need to be the default.
+    ///
+    /// Still a choice rather than a default the screen hides: the switch says what it is doing, and
+    /// every price below it moves when it moves.
+    @State private var period: BillingPeriod = .monthly
     /// Whether the full feature list is up. A sheet rather than a push: this view is already
     /// presented as one, and a navigation stack here would give the paywall a back button it has
     /// never had.
@@ -288,16 +295,23 @@ struct PaywallView: View {
                 // the button. Pinned to the bottom instead, over the cards, which is also the one
                 // place the price can be read at the moment the things it is being weighed against
                 // are on screen. The material is what stops the text underneath reading as part of
-                // it, and the inset collapses to nothing while the store is still loading, so the
-                // empty state has no bar across it.
+                // it.
+                //
+                // The two links ride in this bar as well, and for the same reason the button does:
+                // see ``legalLinks``. The shop is the one corner of this screen that is on screen
+                // whatever the cards are doing, so it is where a thing that must be seen goes.
                 .safeAreaInset(edge: .bottom) {
-                    if justBought == nil {
-                        buyButton
-                            .padding(.horizontal, 18)
-                            .padding(.top, 10)
-                            .padding(.bottom, 12)
-                            .background(.ultraThinMaterial)
+                    VStack(spacing: 10) {
+                        if justBought == nil {
+                            buyButton
+                        }
+
+                        legalLinks
                     }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
+                    .background(.ultraThinMaterial)
                 }
             }
 
@@ -562,7 +576,7 @@ struct PaywallView: View {
         }
     }
 
-    /// Everything under the cards: the two ways out that are not buying, and the fine print.
+    /// Everything under the cards: the two ways out that are not buying, and the renewal terms.
     ///
     /// **Two blocks with a gap, rather than six centred lines at one spacing.** Everything here
     /// used to be ten points apart — two buttons, then two links, then three short paragraphs and a
@@ -571,10 +585,17 @@ struct PaywallView: View {
     /// The actions are now one group, the legal text another, and the space between the groups is
     /// the largest gap below the cards, so the eye can tell where the offer ends.
     ///
-    /// The order inside the second block is the order a reader wants it: what they are agreeing to,
-    /// then where the two documents are, then the one reassuring sentence.
+    /// The two links that used to close this out are in the pinned bar now rather than down here,
+    /// because down here they were reachable and unfindable. See ``legalLinks``.
+    ///
+    /// **It used to end on a third line, and that line is gone.** "Relay carries your encrypted
+    /// session. It cannot read what it forwards." was true, and it was the only thing down here
+    /// that the App Store does not require, which made it the only thing that could go. Three
+    /// stacked blocks under the cards is a wall however well spaced they are, and the reassurance
+    /// was the cheapest of the three: the privacy claim belongs on the page that is about privacy,
+    /// where it can be made properly, rather than tacked under a price.
     private var footer: some View {
-        VStack(spacing: 22) {
+        VStack(spacing: 18) {
             VStack(spacing: 12) {
                 // The whole inventory, one tap away.
                 //
@@ -641,25 +662,38 @@ struct PaywallView: View {
                 // and a sentence that enumerated it would go stale the day a period is added.
                 Text("\(period == .monthly ? "This subscription renews every month" : "This subscription renews every year") until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
                     .fixedSize(horizontal: false, vertical: true)
-
-                // The two links a screen selling an auto-renewable subscription is required to
-                // carry, and the reason there is a site at all: the pages are served by the relay,
-                // out of `Relay/site`, and both are plain HTML with no script for the reviewer
-                // whose browser runs none.
-                HStack(spacing: 18) {
-                    Link("Privacy Policy", destination: Legal.privacy)
-                    Link("Terms of Use", destination: Legal.terms)
-                }
-                .padding(.top, 1)
-
-                Text("Relay carries your encrypted session. It cannot read what it forwards.")
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
         }
+    }
+
+    /// The two links a screen selling an auto-renewable subscription is required to carry, and the
+    /// reason there is a site at all: the pages are served by the relay, out of `Relay/site`, and
+    /// both are plain HTML with no script for the reviewer whose browser runs none.
+    ///
+    /// **They used to be the last thing in the scroll, under the last card, and they may as well
+    /// not have been there.** They were correct in the sense that they existed and could be reached
+    /// by scrolling far enough, and a requirement that nobody can find is not met. The buy button
+    /// is pinned, so the screen looks finished the moment it opens: nothing invites a scroll past
+    /// three cards with their feature lists to the smallest and faintest type on the page, and the
+    /// one person guaranteed to look for those links is the reviewer, who has no reason to.
+    ///
+    /// In the pinned bar they are on screen the moment the sheet is, at every scroll position and
+    /// in every state of the store, which is what being required actually asks for.
+    private var legalLinks: some View {
+        HStack(spacing: 18) {
+            Link("Privacy Policy", destination: Legal.privacy)
+            Link("Terms of Use", destination: Legal.terms)
+        }
+        .font(.caption2)
+        // Brightness rather than the accent, which in this app means "this one is on" and nothing
+        // else. A link is a thing to press, not a thing that is selected, and the system's own
+        // answer for the difference is how bright it is. `.secondary` and not `.tertiary`, which is
+        // what made them invisible where they used to be.
+        .foregroundStyle(.secondary)
     }
 
     private var light: some View {
