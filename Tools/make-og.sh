@@ -58,9 +58,15 @@ for _ in $(seq 1 50); do
     sleep 0.2
 done
 
+# `--virtual-time-budget` is the difference between a card of the hero and a card of whichever frame
+# of the hero Chrome happened to stop on. The hero arrives in a staggered fade of about a second,
+# and a screenshot taken at the load event catches it part way through: a wordmark at half opacity,
+# a machine still fourteen points below where it belongs. Chrome advances the clock by this much
+# before rendering, so the card is of the page at rest, and the same card every run on any machine.
 echo "==> rendering 1600x840"
 "$CHROME" --headless=new --disable-gpu --hide-scrollbars \
     --force-device-scale-factor=1 --window-size=1600,840 \
+    --virtual-time-budget=4000 \
     --screenshot="$TMP/og-1600.png" "http://127.0.0.1:$PORT/" 2>/dev/null
 
 if [ ! -s "$TMP/og-1600.png" ]; then

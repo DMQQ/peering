@@ -159,6 +159,22 @@ a { color: inherit; }
    failure for a decoration. */
 @property --shine {
   syntax: "<angle>";
+  /* **Inherited, unlike `--spin` below, and it has to be.** Where the turn begins is the place on
+     the edge the pointer crossed, and only the script knows it: the script can set a property on
+     the card but not on the card's `::after`, which is the element the gradient is painted on. So
+     the angle is set on the card and inherited down to the pseudo-element. Nothing else in the
+     document reads it, and the cards are never nested inside each other. */
+  inherits: true;
+  initial-value: 0deg;
+}
+
+/* How far the current turn has got, which is the only part of the angle an animation drives. It is
+   a second property rather than the first one because a keyframe cannot add to a custom property
+   without `var()` inside the keyframe: `to { --shine: calc(var(--shine) + 1turn) }` is a keyframe
+   that has to resolve a variable, and the engines that support `@property` do not all support that.
+   Added at the point of use instead, so the keyframe holds nothing but a number. */
+@property --spin {
+  syntax: "<angle>";
   inherits: false;
   initial-value: 0deg;
 }
@@ -174,7 +190,7 @@ a { color: inherit; }
      drawn in, and no hue of its own**, because a card is not a control and a border that changed
      colour under the pointer would read as a selection. It is the hairline's own material, lit. */
   background: conic-gradient(
-    from var(--shine),
+    from calc(var(--shine) + var(--spin)),
     transparent 0turn,
     transparent 0.45turn,
     rgba(255, 255, 255, 0.10) 0.68turn,
@@ -194,18 +210,37 @@ a { color: inherit; }
 
 .card:hover::after {
   opacity: 1;
+}
+
+/* Lit, as `:hover` is, and for one turn longer than the pointer is. The script raises this when
+   the pointer leaves with a sweep still in flight, so the light finishes the circuit it started
+   instead of being cut off mid-edge, which is what an effect looks like when it is a hover state
+   rather than a thing happening.
+
+   It is a second selector rather than a replacement for the one above, so a card that is only ever
+   tapped on a touch screen keeps the behaviour it had: `:hover` is what lights it there, and
+   nothing here has to know how long a tap lasts. */
+.card.is-lit::after {
+  opacity: 1;
+}
+
+/* The turn itself. Raised and lowered by the script rather than by `:hover`, because it has to
+   outlive the hover: see the note above and the script's own. */
+.card.is-shining::after {
   animation: card-shine 2.6s linear infinite;
 }
 
 @keyframes card-shine {
-  to { --shine: 1turn; }
+  to { --spin: 1turn; }
 }
 
 /* A card is not an offer and the shine is not information, so a reader who has asked for less
    movement keeps the card they had, holding the wedge still near the top rather than leaving a
    gap where a border used to be. */
 @media (prefers-reduced-motion: reduce) {
-  .card:hover::after { animation: none; opacity: 0.5; }
+  .card:hover::after,
+  .card.is-lit::after,
+  .card.is-shining::after { animation: none; opacity: 0.5; }
 }
 
 /* ---------- Bar ---------- */
@@ -441,6 +476,54 @@ a { color: inherit; }
   max-width: 40em;
 }
 
+/* The hero arriving: the mark, the name, the line under it, the sentence, the buttons, and then
+   the two machines. In the order it is read, one piece a fraction behind the last.
+
+   **A keyframe animation rather than the `.reveal` the rest of the page uses**, and the difference
+   is the section. Everything below the fold is scrolled to, so an observer can see it happen;
+   this is on the first frame, and a reveal driven by an observer would hold the whole hero
+   invisible until the observer's first callback: a flash of blank page on a fast machine and a
+   blank hero on a slow one. There is nothing to observe: it is already here, and what it has to do
+   is arrive.
+
+   The rise and the distance are the app's own, from the landing screen this page is the web
+   version of: the same short lift, the same fraction of a second between one line and the next.
+   Nothing overshoots, because a page whose every line springs past its resting place reads as
+   restless rather than as arrived. */
+.hero-mark,
+.hero h1,
+.hero .lede,
+.hero .body,
+.hero .cta-row,
+.hero-stage {
+  animation: hero-in 0.62s cubic-bezier(0.32, 0.72, 0.24, 1) both;
+}
+
+.hero-mark { animation-delay: 0.04s; }
+.hero h1 { animation-delay: 0.11s; }
+.hero .lede { animation-delay: 0.18s; }
+.hero .body { animation-delay: 0.25s; }
+.hero .cta-row { animation-delay: 0.32s; }
+/* Last, and by the widest margin, because it is the widest thing here: the eye should reach it
+   after the words have said what it is looking at. */
+.hero-stage { animation-delay: 0.4s; }
+
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-mark,
+  .hero h1,
+  .hero .lede,
+  .hero .body,
+  .hero .cta-row,
+  .hero-stage {
+    animation: none;
+  }
+}
+
 /* ---------- Devices ---------- */
 
 /* Both devices are drawn rather than rendered, and drawn the same way: a body that is nearly black,
@@ -481,8 +564,13 @@ a { color: inherit; }
 .phone,
 .mac-lid { position: relative; }
 
-/* The phone is the app's own two greys, which is what the app's onboarding draws. */
-.phone { background: linear-gradient(180deg, #202023, #101012); }
+/* The phone is black, for the reason the Mac below it is and one of its own: the bezel around an
+   iPhone's display is the same black glass as the display, so face on the device is one black
+   rectangle with a machined highlight around it and the screen is a hole in that black rather than
+   a picture in a frame. It was the app's two near-black greys, which is the shape of a laptop's lid
+   rather than of a phone's face. The rim is what keeps it from being a hole in the page, exactly as
+   it is for the Mac. */
+.phone { background: #000; }
 
 /* The Mac is black, because the lid of a MacBook is black glass: the bezel and the housing in it
    are the same black, and that is the whole point of the notch, which is a cut in the display
@@ -719,12 +807,22 @@ a { color: inherit; }
   margin-bottom: 16px;
 }
 
+/* The card's headings are the display face, like every other heading on the page. They were the
+   system face, following the app's rule that the display face is for names and not for labels, but
+   a card heading *is* a name. It is the name of the thing the sentence under it describes, which is
+   the same job the plan names and the section headings do, and a page where the h2s are one face and
+   the h3s under them are another reads as two documents stapled together.
+
+   The size comes up with the face, because a serif sets smaller on its x-height than the sans it
+   replaced, and the tracking is negative for the reason the base rule gives: at heading sizes a
+   serif wants its letters closed up, and a card heading is small enough that leaving it at zero is
+   the difference between a name and a caption. */
 .step h3, .feature h3 {
-  font-family: var(--text);
-  font-size: 16.5px;
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.35;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 .step p, .feature p {
@@ -847,10 +945,11 @@ a { color: inherit; }
 }
 
 .privacy-notes h3 {
-  font-family: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
 .privacy-notes p {
@@ -1029,10 +1128,15 @@ a { color: inherit; }
   z-index: 3;
 }
 
+/* The name and the price are one pair in the app's own plans page, and both of them are set in the
+   display face there. Here the name was the system face, which made the price read as the only
+   thing on the row that had been designed. */
 .plans .plan-name {
   display: block;
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--ink-70);
 }
 
@@ -1125,13 +1229,21 @@ a { color: inherit; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* A question is the heading of the answer under it, so it is set like one. It was the system face
+   at 500, near enough to the body's own weight that the eight questions read as eight more
+   paragraphs, and the one thing a disclosure needs is for its row to be the thing the eye lands on.
+   The weight goes to bold rather than to a colour: the display face has no 500, and a heavier
+   question in the page's own ink is a heading, where a coloured one is a link. */
 .faq summary {
   cursor: pointer;
   list-style: none;
   padding: 20px 34px 20px 0;
   position: relative;
-  font-size: 16.5px;
-  font-weight: 500;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
 .faq summary::-webkit-details-marker { display: none; }
@@ -1236,11 +1348,16 @@ a { color: inherit; }
   color: var(--ink-50);
 }
 
+/* A section of a document is a heading like any other, and it inherits the display face from the
+   base rule everywhere else on the site. It was pulled back to the system face here alone, which
+   made the legal pages the only place where a heading and the paragraph under it were the same
+   weight of the same letterform. */
 .doc h2 {
-  font-family: var(--text);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
   margin-top: 40px;
 }
 
