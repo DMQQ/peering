@@ -45,6 +45,9 @@ final class SessionNotifier {
             // Settings since the last launch should get them this time.
             guard settings.authorizationStatus == .notDetermined else {
                 isAuthorized = settings.authorizationStatus == .authorized
+                if isAuthorized {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
                 return
             }
             do {
