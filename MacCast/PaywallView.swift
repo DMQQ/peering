@@ -270,19 +270,8 @@ struct PaywallView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 22) {
-                        // **What the screen becomes once the money has moved.** It used to become
-                        // nothing: the sheet stayed exactly as it was, with the plan just bought
-                        // still on offer and the sentence at the top recomputed from the plan the
-                        // device now has. On the quota door that sentence is the one written for a
-                        // case that should never happen ("the relay is counting this connection
-                        // against a quota your plan does not have"), so a customer's first sight
-                        // of the thing they had just paid for was a warning.
-                        if let tier = justBought {
-                            confirmation(tier)
-                        } else {
-                            header
-                            plans
-                        }
+                        header
+                        plans
                         footer
                     }
                     .padding(.horizontal, 18)
@@ -323,7 +312,13 @@ struct PaywallView: View {
             SkipButton(action: onDismiss)
                 .padding(.top, 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+            if let tier = justBought {
+                ThankYouView(tier: tier, onDismiss: onDismiss)
+                    .transition(.opacity)
+            }
         }
+        .animation(Motion.settle, value: justBought != nil)
         .task { await store.start() }
         .sheet(isPresented: $showsEverythingIncluded) {
             PlanFeaturesView()
@@ -340,43 +335,6 @@ struct PaywallView: View {
     }
 
     // MARK: - Sections
-
-    /// What the sheet says to somebody who has just paid.
-    ///
-    /// Three sentences and a way out. The first names what they now have, the second is the tier's
-    /// own tagline rather than new copy about it, and the third is the renewal line the App Store
-    /// requires, which reads differently here than in the fine print at the bottom, because this
-    /// is the one moment somebody is reading it.
-    ///
-    /// `onDismiss` rather than a local flag: the sheet is owned by whatever opened it, and a
-    /// confirmation that closed only itself would leave the reason it was opened still set.
-    private func confirmation(_ tier: StoreManager.Tier) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 46, weight: .light))
-                .foregroundStyle(ColorPalette.accent)
-                .frame(height: 56)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("You are on \(tier.name)")
-                    .font(DisplayFont.display(28))
-                    .tracking(-1)
-
-                Text(tier.tagline)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text("It renews automatically until you cancel, which you can do any time in your App Store settings.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            WelcomePrimaryButton(title: "Done") { onDismiss() }
-                .padding(.top, 4)
-        }
-    }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
