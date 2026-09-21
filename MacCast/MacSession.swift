@@ -227,7 +227,19 @@ final class MacSession: Identifiable {
     /// `phase.holdsSession` on its own: a Mac that has dropped and is being retried is a Mac the
     /// user still has open, and letting go of it the moment its socket failed is how a session
     /// disappears from the app while the ladder is quietly rebuilding it.
-    var isLive: Bool { phase.holdsSession || isReconnecting }
+    ///
+    /// **A Mac that has never been connected is not that Mac, which is what `hasBeenReady` is doing
+    /// in a question about liveness.** A dial that failed before its handshake arms the same ladder
+    /// (the failure card promises a few more attempts, and they are worth making), but nothing was
+    /// ever open, and counting it as an open Mac is how a Mac that was merely unreachable came to
+    /// be reported as a second one. The free plan's one-Mac allowance was spent by an attempt, so
+    /// the Connect row for that same Mac went behind ``PlanCapability/concurrentSessions`` and the
+    /// way past it was to buy a plan for a Mac that had never answered. ``SessionModel/isBusy`` asks
+    /// the same list, so the picker's other rows were dead for the length of the ladder too.
+    ///
+    /// The flag survives the ladder's own dial (see ``SessionModel/reconnect(_:to:)``), so a Mac
+    /// that really did drop and is being put back is still live for the whole of its ladder.
+    var isLive: Bool { phase.holdsSession || (hasBeenReady && isReconnecting) }
 
     /// Whether this Mac dropped and is being put back, rather than being opened for the first time
     /// or dialled again by hand.
@@ -299,7 +311,17 @@ final class MacSession: Identifiable {
         // or a first pairing with a mistyped ID, is an attempt that has ended rather than a
         // session waiting to come back, and retrying it forever is what the failure card is for.
         guard hasBeenReady || isReconnecting else { return }
-        guard UserDefaults.standard.bool(forKey: SessionModel.resumeKey) else { return }
+        guard UserDefaults.standard.bool(forKey: SessionModel.resumeKey) else {
+            // **Nothing is going to put this Mac back, so it stops claiming that one will.** This
+            // switch is the user's own answer to "resume when reachable", and a ladder that armed
+            // itself and then found the answer was no left `isReconnecting` set with no task behind
+            // it. That is a session the app has no way to finish: live by its own definition, with
+            // nothing left that will ever clear the flag, so the Mac holds a session slot and a tab
+            // for the rest of the launch and cannot be opened again. Turning the switch off is not
+            // meant to cost a Mac.
+            stopReconnecting()
+            return
+        }
         guard let hostID else {
             // A connection that never reached a handshake has no Mac to dial. That is the case
             // for a first pairing whose ID was mistyped, and there is nothing to retry.
