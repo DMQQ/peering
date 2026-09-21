@@ -16,9 +16,12 @@ private let notifierLog = Logger(subsystem: "pl.dmq.peering", category: "notific
 @MainActor
 final class SessionNotifier {
     static let shared = SessionNotifier()
+    static let remoteTokenChangedName = Notification.Name("pl.dmq.peering.remoteTokenChanged")
 
     private var hasAskedForPermission = false
     private var isAuthorized = false
+    /// The current APNs device token, set when the OS delivers one.
+    private(set) var remoteToken: Data?
 
     private init() {}
 
@@ -46,10 +49,19 @@ final class SessionNotifier {
             }
             do {
                 isAuthorized = try await center.requestAuthorization(options: [.alert, .sound])
+                if isAuthorized {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
             } catch {
                 notifierLog.error("could not ask for notification permission: \(String(describing: error), privacy: .public)")
             }
         }
+    }
+
+    /// Called by the app delegate when the OS delivers or refreshes the APNs device token.
+    func remoteTokenDidChange(_ token: Data) {
+        remoteToken = token
+        NotificationCenter.default.post(name: Self.remoteTokenChangedName, object: nil)
     }
 
     // MARK: - Banners

@@ -73,6 +73,9 @@ extension MacSession {
                 model.publishOpenMacs()
                 applyInitialQuality()
                 wire?.sendTerminal(.list)
+                if let token = SessionNotifier.shared.remoteToken {
+                    wire?.sendTerminal(.registerPushToken(token))
+                }
             }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"

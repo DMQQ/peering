@@ -69,6 +69,11 @@ final class VideoStreamer: @unchecked Sendable {
     /// by definition not been receiving this stream — the config travels the lane that is not
     /// working — so the switch has to carry the description across with it.
     private var currentConfig: VideoStreamConfig?
+    /// The most recent recovery point for the current stream. ScreenCaptureKit emits no new
+    /// picture for a completely still desktop, so merely asking the encoder for a keyframe can
+    /// wait forever. A newly attached client gets this one immediately, while the encoder is
+    /// still asked for a fresh keyframe before any later delta is allowed through.
+    private var latestKeyframe = DeferredVideoKeyframe()
 
     /// Distinguishes the chunks of one frame from the chunks of the next on the wire.
     private var chunkFrameID: UInt32 = 0
@@ -149,7 +154,7 @@ final class VideoStreamer: @unchecked Sendable {
             let abandoned = self.peer != nil && self.peer !== peer ? datagrams : nil
             if abandoned != nil { datagrams = nil }
             self.peer = peer
-            pending = nil
+            pending = latestKeyframe.latest(matching: config)
             pendingAudio = nil
             audioConfigOwed = audioConfig != nil
             sentAudioLast = true
@@ -357,6 +362,7 @@ final class VideoStreamer: @unchecked Sendable {
         lock.withLock {
             generation += 1
             pending = nil
+            latestKeyframe.reset()
             awaitingKeyframe = true
             sending = true
         }
@@ -379,10 +385,14 @@ final class VideoStreamer: @unchecked Sendable {
         let shouldPump = lock.withLock { () -> Bool in
             let now = Self.monotonicNow()
             lastFrameAt = now
-            if frame.isKeyframe { lastKeyframeAt = now }
+            if frame.isKeyframe {
+                lastKeyframeAt = now
+                latestKeyframe.record(frame)
+            }
 
-            // With no client there is nothing to send and nothing worth buffering — a frame
-            // held for a client that has not connected yet would be stale by the time it did.
+            // With no client there is nothing to send. The latest keyframe above is the one
+            // exception: it is the recovery point a client needs when the desktop stays still
+            // after attaching and ScreenCaptureKit therefore produces no replacement frame.
             guard peer != nil else { return false }
 
             // The client's decoder has been reset, and only a keyframe can restart it. A

@@ -37,6 +37,17 @@ final class RelayHostRegistration: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Asks the relay to push an APNs notification to the given device token. Fire-and-forget:
+    /// if the signalling socket is momentarily down the push is lost, and the Mac retries on
+    /// the next terminal-attention event.
+    func notifyDevice(token: String, title: String, body: String) {
+        let connection = lock.withLock { connection }
+        guard let connection else { return }
+        Task.detached {
+            try? await connection.send(.notifyDevice(token: token, title: title, body: body))
+        }
+    }
+
     func stop() {
         let values = lock.withLock { () -> (Task<Void, Never>?, RelaySignallingConnection?) in
             let values = (task, connection)

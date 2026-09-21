@@ -226,6 +226,8 @@ final class SessionModel {
     /// is the app admitting it does not know, which is what it was doing before this existed,
     /// while drawing it as though it were the first.
     var relayPresence: [String: Bool] = [:]
+    /// `nil` = never polled. `true` = relay answered last poll. `false` = relay was unreachable.
+    var relayReachable: Bool? = nil
 
     /// What this phone knows about whether a paired Mac can be reached right now.
     ///
@@ -890,6 +892,17 @@ final class SessionModel {
         } catch {
             identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    // MARK: - Push token
+
+    /// Sends the current APNs token to every session that is ready. Called when the token
+    /// arrives or refreshes while sessions may already be connected.
+    func sendPushToken() {
+        guard let token = SessionNotifier.shared.remoteToken else { return }
+        for session in sessions where session.phase == .ready {
+            session.wire?.sendTerminal(.registerPushToken(token))
         }
     }
 

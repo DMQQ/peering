@@ -155,6 +155,15 @@ pub enum ClientMessage {
         /// The device id the phone paired with, exactly as it stores it.
         host_id: String,
     },
+
+    /// A registered Mac asking the relay to push an APNs notification to a phone that is no
+    /// longer reachable over the control channel. The relay holds the APNs key; the Mac only
+    /// knows the device token it received from the phone.
+    NotifyDevice {
+        device_token: String,
+        title: String,
+        body: String,
+    },
 }
 
 /// What the relay sends back.

@@ -124,7 +124,13 @@ extension SessionModel {
         // dropped and would arm a ladder that can never finish, leaving them in the strip as tabs
         // that never come back. See ``MacSession/userEndedDeliberately``.
         for session in sessions { session.endSession(deliberate: deliberate) }
-        renderer.detach()
+        // A non-deliberate end is followed by the reconnect ladder, and the RemoteScreen is
+        // deliberately kept mounted across that handover. Detaching here severs the renderer
+        // from that still-mounted view; SwiftUI does not call `makeUIView` again, so the new
+        // connection can be perfectly healthy while every frame disappears into no display.
+        // Keep both the attachment and the last good frame until the replacement stream's config
+        // arrives. A deliberate end really removes the screen and releases the decoder.
+        if deliberate { renderer.detach() }
         // Nothing is open any more, which is the widget's business as much as the card's.
         publishOpenMacs()
         // An end this app chose is not a session the relay cut. Cleared here as well as on a
@@ -316,10 +322,11 @@ extension SessionModel {
             return
         }
 
-        let answers = await RelaySignallingConnection.hostPresence(
+        let (answers, reachable) = await RelaySignallingConnection.hostPresence(
             at: ProtocolInfo.relaySignallingURL,
             hostIDs: hostIDs
         )
+        relayReachable = reachable
         guard !answers.isEmpty else { return }
 
         // Replaced rather than merged, because a Mac that has gone is *absent* from the answer:

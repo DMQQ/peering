@@ -17,6 +17,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> UIInterfaceOrientationMask {
         OrientationLock.shared.allowed
     }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        SessionNotifier.shared.remoteTokenDidChange(deviceToken)
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        // Remote push is a nice-to-have; local notifications still work without it.
+    }
 }
 
 @main
@@ -61,6 +75,13 @@ struct MacCastApp: App {
                 .environment(model)
                 .environment(servers)
                 .environment(quickCommands)
+                .task {
+                    for await _ in NotificationCenter.default.notifications(
+                        named: SessionNotifier.remoteTokenChangedName
+                    ) {
+                        model.sendPushToken()
+                    }
+                }
                 .task {
                     model.start()
                     await model.storeManager.start()

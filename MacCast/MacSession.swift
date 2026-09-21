@@ -369,6 +369,11 @@ final class MacSession: Identifiable {
             // reaches the user as the Connect screen's own card, which is the app's main way of
             // saying it.
             hasGivenUpResuming = true
+            // The screen is about to leave and no replacement stream will reuse its display.
+            // Non-deliberate teardown kept this attachment alive for the retry; this is the
+            // terminal path that releases it. A background Mac shares the active Mac's renderer
+            // and therefore must not detach it.
+            if isActive { renderer.detach() }
             // The reconnect ladder gave up. `sessionMoved` is not called again because there is
             // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
             // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.

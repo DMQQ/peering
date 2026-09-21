@@ -9,6 +9,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
+use peeringd::apns::ApnsClient;
 use peeringd::config::{Config, TlsFiles};
 use peeringd::quota::QuotaTracker;
 use peeringd::session::Registry;
@@ -188,6 +189,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(web::serve(listener, Arc::new(root)));
     }
 
+    let apns = match (
+        config.apns_key_id.clone(),
+        config.apns_team_id.clone(),
+        config.apns_bundle_id.clone(),
+        config.apns_key.clone(),
+    ) {
+        (Some(key_id), Some(team_id), Some(bundle_id), Some(key_path)) => {
+            match ApnsClient::from_config(key_path, key_id, team_id, bundle_id) {
+                Ok(client) => {
+                    info!("APNs client ready");
+                    Some(Arc::new(client))
+                }
+                Err(e) => {
+                    warn!(error = %e, "APNs client failed to initialise; push notifications will not work");
+                    None
+                }
+            }
+        }
+        _ => None,
+    };
+
     let settings = Settings {
         host: config.public_host.clone(),
         // Falls back to the bound port, which is right whenever nothing is forwarded.
@@ -205,6 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         max_connections: config.max_connections,
         handshake_timeout: config.handshake_timeout,
         idle_timeout: config.idle_timeout,
+        apns,
     };
 
     tokio::select! {

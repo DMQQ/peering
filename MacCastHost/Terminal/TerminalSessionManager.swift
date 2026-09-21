@@ -20,8 +20,7 @@ final class TerminalSessionManager: @unchecked Sendable {
         let master: FileHandle
         var isRunning = true
         var history = Data()
-        var promptTail = ""
-        var lastAttention: (kind: TerminalAttentionKind, time: Date)?
+        var attentionDetector = TerminalAttentionDetector()
         /// The name the user typed. While this is set, nothing else renames the terminal.
         var manualName: String?
         /// The last command sent to it, which is what an unnamed terminal is called.
@@ -120,7 +119,13 @@ final class TerminalSessionManager: @unchecked Sendable {
     private let lock = NSLock()
     private var sessions: [UUID: Session] = [:]
     private var sinks: [String: Sink] = [:]
+    private var pushTokenByClientID: [String: String] = [:]
     private var writes: [WriteKey: PendingWrite] = [:]
+
+    /// Called when a terminal needs the user's attention and the client's sink is gone, meaning
+    /// the phone is no longer connected over the control channel. Token is the APNs hex token;
+    /// message is the human-readable sentence for the notification body.
+    var onPushNeeded: (@Sendable (String, String, TerminalAttentionKind) -> Void)?
     private static let maximumHistoryBytes = 512 * 1024
     private static let maximumSessionsPerClient = 10
 
@@ -241,6 +246,7 @@ final class TerminalSessionManager: @unchecked Sendable {
                 sink(.failed(sessionID: id, message: "That terminal is no longer running."))
                 return
             }
+            lock.withLock { session.attentionDetector.userDidRespond() }
             do { try session.master.write(contentsOf: data) }
             catch { sink(.failed(sessionID: id, message: "Could not write to the terminal.")) }
 
@@ -297,6 +303,10 @@ final class TerminalSessionManager: @unchecked Sendable {
 
         case .close(let id):
             close(id: id, ownerClientID: clientID)
+
+        case .registerPushToken(let tokenData):
+            let hex = tokenData.map { String(format: "%02x", $0) }.joined()
+            lock.withLock { pushTokenByClientID[clientID] = hex }
         }
     }
 
@@ -400,23 +410,20 @@ final class TerminalSessionManager: @unchecked Sendable {
             if session.history.count > Self.maximumHistoryBytes {
                 session.history.removeFirst(session.history.count - Self.maximumHistoryBytes)
             }
-            let text = String(decoding: data, as: UTF8.self)
-            session.promptTail = String((session.promptTail + text).suffix(1_024))
-            guard let kind = Self.detectAttention(in: session.promptTail) else { return nil }
-            if let last = session.lastAttention, last.kind == kind,
-               Date().timeIntervalSince(last.time) < 5 { return nil }
-            session.lastAttention = (kind, Date())
-            return kind
+            return session.attentionDetector.receive(data)
         }
 
         send(.output(sessionID: session.id, data: data), to: session.ownerClientID)
         if let attention {
             let noun = attention == .password ? "a password" : "confirmation"
-            send(.attention(
-                sessionID: session.id,
-                kind: attention,
-                message: "Terminal “\(session.name)” is waiting for \(noun)."
-            ), to: session.ownerClientID)
+            let message = "Terminal \u{201C}\(session.name)\u{201D} is waiting for \(noun)."
+            send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
+            let (isConnected, pushToken) = lock.withLock {
+                (sinks[session.ownerClientID] != nil, pushTokenByClientID[session.ownerClientID])
+            }
+            if !isConnected, let pushToken {
+                onPushNeeded?(pushToken, message, attention)
+            }
         }
     }
 
@@ -1348,24 +1355,4 @@ final class TerminalSessionManager: @unchecked Sendable {
         return ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
     }
 
-    private static func detectAttention(in rawText: String) -> TerminalAttentionKind? {
-        let plain = rawText.replacingOccurrences(
-            of: "\\u{001B}\\[[0-?]*[ -/]*[@-~]",
-            with: "",
-            options: .regularExpression
-        ).lowercased()
-        let tail = String(plain.suffix(400))
-        if tail.range(of: #"(?:password|passphrase)(?: for [^:\n]+)?:\s*$"#, options: .regularExpression) != nil {
-            return .password
-        }
-        let confirmationPatterns = [
-            #"(?:\[|\()(?:y/n|yes/no)(?:\]|\))\??\s*$"#,
-            #"are you sure[^\n]*\??\s*$"#,
-            #"press (?:enter|return)[^\n]*$"#,
-            #"continue\?\s*$"#,
-        ]
-        return confirmationPatterns.contains {
-            tail.range(of: $0, options: .regularExpression) != nil
-        } ? .confirmation : nil
-    }
 }

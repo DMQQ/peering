@@ -54,6 +54,7 @@ final class SSHTerminal: Identifiable {
     /// redraw. A key held here is the same key the keychain holds, which is not a second copy of a
     /// secret so much as the same one read once.
     @ObservationIgnored let credential: SSHCredential
+    @ObservationIgnored private var attentionDetector = TerminalAttentionDetector()
 
     private(set) var phase: Phase = .connecting
     /// Raw bytes, not a string.
@@ -108,11 +109,16 @@ final class SSHTerminal: Identifiable {
         return screen.styled
     }
 
-    fileprivate func append(_ chunk: Data) {
+    fileprivate func append(_ chunk: Data) -> TerminalAttentionKind? {
         output.append(chunk)
         if output.count > scrollbackLimit {
             output.removeFirst(output.count - scrollbackLimit)
         }
+        return attentionDetector.receive(chunk)
+    }
+
+    fileprivate func userDidRespond() {
+        attentionDetector.userDidRespond()
     }
 
     fileprivate func setPhase(_ phase: Phase) {
@@ -476,6 +482,7 @@ final class SSHModel {
     /// Opens a shell. Returns once the connection is *starting*; the tab reports the rest.
     @discardableResult
     func open(_ host: SSHHost, credential: SSHCredential, remember: Bool) -> SSHTerminal {
+        SessionNotifier.shared.prepareForFirstConnect()
         if remember {
             credentials.save(credential, for: host.id)
         }
@@ -505,7 +512,13 @@ final class SSHModel {
                         Task { await self.startEnabledForwards(on: host) }
                     }
                 case .output(let data):
-                    terminal.append(data)
+                    if let attention = terminal.append(data) {
+                        let reason = attention == .password ? "a password" : "your response"
+                        SessionNotifier.shared.terminalNeedsAttention(
+                            "SSH “\(terminal.title)” is waiting for \(reason).",
+                            sessionID: terminal.id
+                        )
+                    }
                 case .failed(let error):
                     let reason = Self.describe(error)
                     terminal.setPhase(.ended(reason))
@@ -593,6 +606,7 @@ final class SSHModel {
     }
 
     func send(_ data: Data, to terminal: SSHTerminal) {
+        terminal.userDidRespond()
         terminal.session.send(data)
     }
 

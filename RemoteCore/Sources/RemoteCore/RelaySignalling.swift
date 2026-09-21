@@ -112,14 +112,20 @@ public final class RelaySignallingConnection: @unchecked Sendable {
     /// Answers nothing rather than throwing when the relay cannot be reached at all. A phone that
     /// is offline, or a relay that is down, has not learned that any Mac is gone; it has learned
     /// nothing, and the screen has to be able to tell those apart.
-    public static func hostPresence(at url: URL, hostIDs: [String]) async -> [String: Bool] {
-        guard !hostIDs.isEmpty else { return [:] }
+    /// - Returns: `(presence, reachable)` where `reachable` is `true` when at least one round-trip
+    ///   completed, distinguishing "relay down" from "relay up but Mac not registered".
+    public static func hostPresence(
+        at url: URL,
+        hostIDs: [String]
+    ) async -> (presence: [String: Bool], reachable: Bool) {
+        guard !hostIDs.isEmpty else { return ([:], true) }
 
         let connection = RelaySignallingConnection(url: url)
         return await withTaskCancellationHandler {
             defer { connection.cancel() }
 
             var presence: [String: Bool] = [:]
+            var reachable = false
             do {
                 for hostID in hostIDs {
                     try Task.checkCancellation()
@@ -134,20 +140,22 @@ public final class RelaySignallingConnection: @unchecked Sendable {
                 var outstanding = Set(hostIDs)
                 for _ in 0..<(hostIDs.count * 2 + 4) where !outstanding.isEmpty {
                     try Task.checkCancellation()
-                    switch try await connection.receive() {
+                    let msg = try await connection.receive()
+                    reachable = true
+                    switch msg {
                     case .hostPresence(let id, let online):
                         presence[id] = online
                         outstanding.remove(id)
                     case .error:
-                        return presence
+                        return (presence, reachable)
                     default:
                         continue
                     }
                 }
             } catch {
-                return presence
+                return (presence, reachable)
             }
-            return presence
+            return (presence, reachable)
         } onCancel: {
             connection.cancel()
         }

@@ -1071,6 +1071,9 @@ private struct HomeTab: View {
             return "Not reachable · last used "
                 + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
         case .unknown:
+            if model.relayReachable == false {
+                return "Relay unavailable · connect over LAN"
+            }
             if let last = model.lastConnectedAt[hostID] {
                 return "Last used "
                     + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())

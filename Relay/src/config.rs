@@ -151,6 +151,15 @@ pub struct Config {
     /// pings rather than a hiccup.
     pub handshake_timeout: Duration,
     pub idle_timeout: Duration,
+    /// `PEERINGD_APNS_KEY_ID`: the 10-character key identifier from the APNs key.
+    pub apns_key_id: Option<String>,
+    /// `PEERINGD_APNS_TEAM_ID`: the 10-character Apple Developer team identifier.
+    pub apns_team_id: Option<String>,
+    /// `PEERINGD_APNS_BUNDLE_ID`: the app's bundle identifier, e.g. `pl.dmq.peering`.
+    pub apns_bundle_id: Option<String>,
+    /// `PEERINGD_APNS_KEY`: path to the `.p8` private key file downloaded from the Apple
+    /// Developer portal.
+    pub apns_key: Option<PathBuf>,
 }
 
 /// Sessions at once, unless `PEERINGD_MAX_SESSIONS` says otherwise. See the field for why 1000.
@@ -313,6 +322,10 @@ impl Config {
                 "PEERINGD_IDLE_SECONDS",
                 DEFAULT_IDLE_SECONDS,
             )?),
+            apns_key_id: get("PEERINGD_APNS_KEY_ID"),
+            apns_team_id: get("PEERINGD_APNS_TEAM_ID"),
+            apns_bundle_id: get("PEERINGD_APNS_BUNDLE_ID"),
+            apns_key: get("PEERINGD_APNS_KEY").map(PathBuf::from),
         })
     }
 }

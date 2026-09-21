@@ -50,6 +50,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
     private var renderer: AVSampleBufferVideoRenderer?
     private var formatDescription: CMVideoFormatDescription?
+    /// The host's forced recovery point can beat SwiftUI to creating the display layer during a
+    /// fast reconnect. Keep that one frame until ``attach(_:)`` rather than losing the only frame
+    /// a decoder can start from on a still desktop.
+    private var deferredKeyframe = DeferredVideoKeyframe()
     private var snapshot = Snapshot()
     private var debugTimingOrigin: (arrival: TimeInterval, pts: Double)?
     private var debugTimingFrameCount = 0
@@ -71,7 +75,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // The renderer, not the layer. The layer's own `enqueue`/`flush` come from
             // `AVQueuedSampleBufferRendering`, which is deprecated on this class; the modern
             // surface is the `sampleBufferRenderer` it vends.
-            self.renderer = layer.sampleBufferRenderer
+            let renderer = layer.sampleBufferRenderer
+            self.renderer = renderer
+            if let frame = self.deferredKeyframe.take(), let format = self.formatDescription {
+                self.enqueue(frame, on: renderer, format: format)
+            }
         }
     }
 
@@ -108,6 +116,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             }
 
             self.formatDescription = format
+            self.deferredKeyframe.reset()
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
             // The old pictures are in the old format. Flushing before the new frames arrive
@@ -129,65 +138,76 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// Submits one compressed picture.
     func enqueue(_ frame: EncodedVideoFrame) {
         queue.async { [weak self] in
-            guard let self, let renderer = self.renderer, let format = self.formatDescription else {
+            guard let self, let format = self.formatDescription else { return }
+            guard let renderer = self.renderer else {
+                self.deferredKeyframe.record(frame)
                 return
             }
+            self.enqueue(frame, on: renderer, format: format)
+        }
+    }
 
-            // The decoder failing is reported on the renderer, not by a return value, and it
-            // is sticky: without a flush the layer refuses every later frame and the picture
-            // simply never comes back.
-            //
-            // **This runs before the keyframe gate below, and the order is the fix rather
-            // than a preference.** The flush discards every picture the decoder was holding,
-            // which invalidates the stream in exactly the way a new config does — so it has
-            // to re-arm the gate and then be judged by it. With the two the other way round,
-            // an inter frame arriving on a failed renderer passed a gate that had already
-            // been evaluated, fell through this branch, and was enqueued onto a renderer that
-            // had just been emptied — and the flag set two lines above was cleared again on
-            // the way out. The frame could not decode, the layer failed again, and the stream
-            // stayed broken while the log said it was waiting for a keyframe.
-            if renderer.status == .failed {
-                videoLog.notice("renderer failed; flushing and waiting for a keyframe · \(renderer.error?.localizedDescription ?? "no error", privacy: .public)")
-                renderer.flush()
-                self.lock.withLock {
-                    self.snapshot.awaitingKeyframe = true
-                    self.snapshot.lastError = renderer.error?.localizedDescription
-                }
-            }
-
-            // Until the first keyframe arrives there is nothing to decode against — the
-            // parameter sets describe the stream, not the picture, and H.264 prediction runs
-            // from the last keyframe. Feeding an inter frame here produces a decode error and
-            // a flushed renderer, which costs the frames that were about to work.
-            let awaitingKeyframe = self.lock.withLock { self.snapshot.awaitingKeyframe }
-            if awaitingKeyframe && !frame.isKeyframe {
-                self.lock.withLock { self.snapshot.framesDropped += 1 }
-                return
-            }
-
-            if !renderer.isReadyForMoreMediaData {
-                // Backpressure, from the renderer rather than the layer. A keyframe is the one
-                // frame worth flushing for: dropping it would extend the wait for a recovery
-                // point, whereas dropping an inter frame costs a single picture.
-                guard frame.isKeyframe else {
-                    self.lock.withLock { self.snapshot.framesDropped += 1 }
-                    return
-                }
-                renderer.flush()
-            }
-
-            guard let sample = Self.makeSampleBuffer(frame, format: format) else {
-                self.lock.withLock { self.snapshot.framesDropped += 1 }
-                videoLog.error("makeSampleBuffer failed for a \(frame.isKeyframe ? "key" : "delta", privacy: .public) frame")
-                return
-            }
-
-            renderer.enqueue(sample)
+    /// The queue-confined half of ``enqueue(_:)``, also used to replay a keyframe that arrived
+    /// before SwiftUI installed the display surface.
+    private func enqueue(
+        _ frame: EncodedVideoFrame,
+        on renderer: AVSampleBufferVideoRenderer,
+        format: CMVideoFormatDescription
+    ) {
+        // The decoder failing is reported on the renderer, not by a return value, and it
+        // is sticky: without a flush the layer refuses every later frame and the picture
+        // simply never comes back.
+        //
+        // **This runs before the keyframe gate below, and the order is the fix rather
+        // than a preference.** The flush discards every picture the decoder was holding,
+        // which invalidates the stream in exactly the way a new config does — so it has
+        // to re-arm the gate and then be judged by it. With the two the other way round,
+        // an inter frame arriving on a failed renderer passed a gate that had already
+        // been evaluated, fell through this branch, and was enqueued onto a renderer that
+        // had just been emptied — and the flag set two lines above was cleared again on
+        // the way out. The frame could not decode, the layer failed again, and the stream
+        // stayed broken while the log said it was waiting for a keyframe.
+        if renderer.status == .failed {
+            videoLog.notice("renderer failed; flushing and waiting for a keyframe · \(renderer.error?.localizedDescription ?? "no error", privacy: .public)")
+            renderer.flush()
             self.lock.withLock {
-                self.snapshot.framesEnqueued += 1
-                self.snapshot.bytesEnqueued += Int64(frame.data.count)
-                self.snapshot.awaitingKeyframe = false
+                self.snapshot.awaitingKeyframe = true
+                self.snapshot.lastError = renderer.error?.localizedDescription
             }
+        }
+
+        // Until the first keyframe arrives there is nothing to decode against — the
+        // parameter sets describe the stream, not the picture, and H.264 prediction runs
+        // from the last keyframe. Feeding an inter frame here produces a decode error and
+        // a flushed renderer, which costs the frames that were about to work.
+        let awaitingKeyframe = self.lock.withLock { self.snapshot.awaitingKeyframe }
+        if awaitingKeyframe && !frame.isKeyframe {
+            self.lock.withLock { self.snapshot.framesDropped += 1 }
+            return
+        }
+
+        if !renderer.isReadyForMoreMediaData {
+            // Backpressure, from the renderer rather than the layer. A keyframe is the one
+            // frame worth flushing for: dropping it would extend the wait for a recovery
+            // point, whereas dropping an inter frame costs a single picture.
+            guard frame.isKeyframe else {
+                self.lock.withLock { self.snapshot.framesDropped += 1 }
+                return
+            }
+            renderer.flush()
+        }
+
+        guard let sample = Self.makeSampleBuffer(frame, format: format) else {
+            self.lock.withLock { self.snapshot.framesDropped += 1 }
+            videoLog.error("makeSampleBuffer failed for a \(frame.isKeyframe ? "key" : "delta", privacy: .public) frame")
+            return
+        }
+
+        renderer.enqueue(sample)
+        self.lock.withLock {
+            self.snapshot.framesEnqueued += 1
+            self.snapshot.bytesEnqueued += Int64(frame.data.count)
+            self.snapshot.awaitingKeyframe = false
         }
     }
 
@@ -197,6 +217,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             guard let self else { return }
             self.renderer?.flush()
             self.formatDescription = nil
+            self.deferredKeyframe.reset()
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
             self.lock.withLock {
@@ -217,6 +238,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.renderer?.flush()
             self.renderer = nil
             self.formatDescription = nil
+            self.deferredKeyframe.reset()
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
             self.lock.withLock { self.snapshot = Snapshot() }

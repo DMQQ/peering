@@ -183,6 +183,10 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// ``TerminalEvent/fileOperationDone(sessionID:path:note:)`` and
     /// ``TerminalEvent/fileOperationFailure(sessionID:path:message:)``.
     case changeFile(sessionID: UUID, operation: RemoteFileOperation)
+    /// The phone's APNs device token, sent once when the session becomes ready and again if
+    /// it changes. The host stores it per client and uses it to wake the phone when a terminal
+    /// needs attention and the phone is not reachable over the control channel.
+    case registerPushToken(Data)
 }
 
 public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {

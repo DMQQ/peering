@@ -694,6 +694,9 @@ final class HostModel {
                     Task { @MainActor [weak self] in self?.record(message) }
                 }
             )
+            server.onPushNeeded = { [weak registration] token, message in
+                registration?.notifyDevice(token: token, title: "Terminal needs you", body: message)
+            }
             relayRegistration = registration
             registration.start()
         } catch {

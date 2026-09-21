@@ -59,6 +59,7 @@ final class HostServer: @unchecked Sendable {
     private var videoConnections: [(peer: PeerConnection, clientKey: Data)] = []
 
     private let callbackLock = NSLock()
+    private var _onPushNeeded: (@Sendable (String, String) -> Void)?
     private var _onEvent: (@Sendable (HostEvent) -> Void)?
     private var _onCommand: (@Sendable (RemoteCommand) -> Void)?
     private var _onVideoConnection: (@Sendable (PeerConnection) -> Void)?
@@ -67,6 +68,13 @@ final class HostServer: @unchecked Sendable {
     private var _onVideoEnabled: (@Sendable (Data?, Bool) -> Void)?
     private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
+
+    /// Called when a terminal needs attention and the phone is not connected.
+    /// Arguments: APNs device token (hex), notification body.
+    var onPushNeeded: (@Sendable (String, String) -> Void)? {
+        get { callbackLock.withLock { _onPushNeeded } }
+        set { callbackLock.withLock { _onPushNeeded = newValue } }
+    }
 
     var onEvent: (@Sendable (HostEvent) -> Void)? {
         get { callbackLock.withLock { _onEvent } }
@@ -165,6 +173,9 @@ final class HostServer: @unchecked Sendable {
 
     func start() throws {
         guard listener == nil else { return }
+        terminalManager.onPushNeeded = { [weak self] token, message, _ in
+            self?.onPushNeeded?(token, message)
+        }
 
         let tls = try TLSConfig.serverOptions(identity: identity, queue: queue)
         let tcp = NWProtocolTCP.Options()
