@@ -44,30 +44,43 @@ html {
   /* The sticky bar is 64px; without this every in-page link lands with its heading underneath it. */
   scroll-padding-top: 88px;
   -webkit-text-size-adjust: 100%;
-  /* body::before is position:fixed and its width resolves against the visual viewport on mobile,
-     which is wider than the layout viewport. Clipping here stops it from expanding the document
-     scroll width without touching overflow-y or creating a stacking context (as hidden would). */
+  /* Both declarations, in this order, and the pair is the point. `hidden` is the floor: it is
+     understood by every engine ever shipped, so a browser that has never heard of `clip` still gets
+     a document that cannot be dragged sideways. `clip` overrides it wherever it is understood,
+     because `hidden` can make the element a scroll container and a scroll container is what takes
+     `position: sticky` off the bar and off the table headers.
+
+     This is insurance and not the fix. The page's horizontal scroll came from the `position: fixed`
+     backdrop that used to live on `body::before`, which is gone; see the note on `body`. Nothing
+     overflows now. This is here so that nothing quietly starts to, on a device I cannot test. */
+  overflow-x: hidden;
   overflow-x: clip;
 }
 
 body {
   margin: 0;
-  background: var(--backdrop);
   color: var(--ink);
   font-family: var(--text);
   font-size: 17px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-}
+  /* The app's backdrop: the near-black, and one soft light from the top so the top of the page has
+     a centre rather than being uniformly dark.
 
-/* The app's backdrop: the near-black, and one soft light from the top so the top of the page has
-   a centre rather than being uniformly dark. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+     Painted on the body itself, and it used to be a `body::before` at `position: fixed; inset: 0`.
+     That box was the page's horizontal scroll. A fixed box is measured against the visual viewport
+     on a phone rather than the layout viewport, and those two are not the same width once a browser
+     has a scrollbar, a notch, or a pinch in play, so the box came out wider than the screen and the
+     document took its width from it. An `overflow-x: clip` on the root was added to contain it and
+     did not, on the one device that mattered, because a fixed box is not reliably part of what a
+     root clip contains.
+
+     `background-attachment: fixed` puts the light in the same place with no box at all: background
+     paint is not scrollable overflow, so there is nothing left to be too wide. */
+  background-color: var(--backdrop);
+  background-image: radial-gradient(60% 42% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .wrap {
@@ -91,16 +104,17 @@ a { color: inherit; }
 
 .skip {
   position: absolute;
-  left: -9999px;
-}
-.skip:focus {
+  top: -100px;
   left: 16px;
-  top: 16px;
   z-index: 20;
   padding: 10px 16px;
   background: var(--ink);
   color: #000;
   border-radius: 999px;
+  transition: top 0.12s ease;
+}
+.skip:focus {
+  top: 16px;
 }
 
 :focus-visible {
@@ -858,7 +872,24 @@ a { color: inherit; }
 /* No scroll container here by default, which is what lets the header row stick to the viewport
    rather than to a box inside the page. A narrow page cannot have it that way: see the table block
    in the narrow-width section, where the wrapper becomes one. */
-.plans-wrap { margin-top: 44px; }
+.plans-wrap {
+  margin-top: 44px;
+  /* The one thing on this page that widened the document without meaning to.
+
+     The table's cells are sticky so that a tick is never without the row it answers and never
+     without the plan it belongs to. A sticky box inside a scroll container still reports its full
+     width to the scrollable overflow of everything above that container, so on a phone the table
+     escaped the wrapper's own `overflow: auto` and the page could be dragged 324px sideways while
+     the wrapper sat there scrolling correctly, with the whole of the bug invisible in the wrapper.
+
+     `contain: paint` keeps every half of it: the cells go on sticking, the wrapper goes on scrolling
+     them, and nothing inside is part of the document's overflow any more. Turning the cells static
+     also stops it, and costs the feature. An `overflow-x` on `html` or `body` also stops it, and on
+     `body` it costs the sticky bar, because it makes the body a scroll container and takes the bar's
+     scrollport away from the viewport. This is the only place the containment is needed, so this is
+     where it goes. */
+  contain: paint;
+}
 
 .plans {
   width: 100%;
@@ -929,7 +960,7 @@ a { color: inherit; }
 }
 
 /* Everything here that has to cover what scrolls behind it paints the page's own light rather
-   than a flat colour. That light is a gradient fixed to the viewport (see `body::before`), so a
+   than a flat colour. That light is a gradient fixed to the viewport (see `body`), so a
    cell painting #0a0a0c would cut a rectangle out of it wherever the two overlapped. Fixed
    attachment paints the same gradient in the same place, and there is no seam. */
 .plans tbody th[scope="row"],
@@ -1369,10 +1400,21 @@ a { color: inherit; }
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     font-size: 17px;
-    display: none;
+    display: flex;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease, visibility 0s ease 0.22s;
   }
 
-  .nav.open { display: flex; }
+  .nav.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
   .nav a { padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
   .nav a:last-child { border-bottom: 0; }
 
@@ -1385,4 +1427,5 @@ a { color: inherit; }
   .reveal { opacity: 1; transform: none; }
   .link i { animation: none; opacity: 0; }
   .btn:active { transform: none; }
+  .nav { transition: none; }
 }
