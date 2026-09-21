@@ -295,7 +295,7 @@ struct SettingsPanel: View {
         return """
             The Mac sends the picture at \(mbps) Mbps and holds that rate whatever the network \
             does. A connection with less room than this to spare shows it as stutter rather \
-            than as a softer picture — Low is 2 Mbps, Medium is 8, High is 20.
+            than as a softer picture: Low is 2 Mbps, Medium is 8, High is 20.
             """
     }
 

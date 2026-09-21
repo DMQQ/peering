@@ -99,8 +99,8 @@ struct OnboardingView: View {
             // The address is not in the prose either. It is a row under it, sized so that it is
             // the obvious thing on the page to press — see ``downloadLink``.
             body: """
-                Put Peering on the Mac you want to reach and open it. That is the whole setup—no \
-                account, router changes, or settings to configure.
+                Put Peering on the Mac you want to reach and open it. That is the whole setup: \
+                no account, router changes, or settings to configure.
                 """,
             device: .mac(companion: "AppConnect")
         ),
@@ -1415,17 +1415,19 @@ private struct MacDrawing<Screen: View>: View {
             style: .continuous
         )
 
+        // Pure black, and nothing drawn on it. It carried a hairline of white at 16% down its
+        // inside edge, on the reasoning that the housing is a black shape on a black bezel and
+        // needs an edge to read as a cut rather than as a smudge. That is not what a notch looks
+        // like: it is a hole in the display, nothing catches the light inside it face on, and the
+        // line made it read as a shape laid on top of the screen instead of missing from it.
+        //
+        // It is the phone's island's own treatment, which has never had an edge either. The two
+        // are the same thing on the same kind of glass, so they are drawn the same way, and what
+        // tells the notch apart from the menu bar behind it is the menu bar, which is a capture of
+        // a real desktop and is never this black.
         return shape
             .fill(.black)
             .frame(width: width * MacStageMetrics.notchWidth, height: height * MacStageMetrics.notchHeight)
-            // The real housing has an edge, where the light from above catches the inside of the
-            // cut, and without it the housing is a black shape on a black bezel: it sits in the
-            // empty middle of the menu bar, which in a dark capture is black on black.
-            .overlay {
-                shape
-                    .strokeBorder(.white.opacity(0.16), lineWidth: 1)
-                    .frame(width: width * MacStageMetrics.notchWidth, height: height * MacStageMetrics.notchHeight)
-            }
     }
 
     private func base(width: CGFloat, height: CGFloat) -> some View {
