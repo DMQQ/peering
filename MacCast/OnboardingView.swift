@@ -3,7 +3,7 @@ import StoreKit
 import SwiftUI
 import UIKit
 
-/// Five pages, swiped, in the order the app asks things of you.
+/// Six pages, swiped, in the order the app asks things of you.
 ///
 /// The order is the point rather than the count. Pair, choose, drive, leave, and what it costs —
 /// which is the sequence a new user actually meets these, and each page is the answer to the
@@ -85,7 +85,7 @@ struct OnboardingView: View {
     private static let pages: [Page] = [
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppMac"),
-            title: "Get it on your Mac",
+            title: "Install it once",
             // **First, because everything after it is impossible without it.** The page that
             // follows says to pick your Mac out of Nearby, which presumes a Mac that is running
             // this. The tour used to open by assuming that, and a first launch with only one of
@@ -100,59 +100,46 @@ struct OnboardingView: View {
             // The address is not in the prose either. It is a row under it, sized so that it is
             // the obvious thing on the page to press — see ``downloadLink``.
             body: """
-                Peering is two apps: this one, and the one your Mac runs. The Mac app captures the \
-                screen and streams it to this phone, so it goes on the Mac you want to reach.
-
-                The Mac needs no setup. It shows a name and a six-digit code when a new phone asks \
-                to connect, and everything else happens here.
+                Put Peering on the Mac you want to reach and open it. That is the whole setup—no \
+                account, router changes, or settings to configure.
                 """,
             device: .mac(companion: "AppConnect")
         ),
         Page(
             content: .feature(icon: "wifi", screenshot: "AppConnect"),
-            title: "Pair once",
+            title: "Pair once. Stay connected.",
             body: """
-                Choose your Mac from Nearby on the same network, or pair from another network \
-                with the ID under Devices. Someone must be at the Mac to read out the six digits.
-
-                After that, the relay finds your Mac from other networks without pairing again.
+                Choose your Mac, compare the six-digit code, and Peering remembers it. Next time, \
+                reconnect nearby or from another network without pairing again.
                 """
         ),
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppSources"),
-            title: "Share what you need",
+            title: "See exactly what you need",
             body: """
-                A whole display, one running app, or a single window.
-
-                The list is live, and includes apps you have not opened yet. Switch at any time \
-                without dropping the connection.
+                Bring over a whole display, one app, a single window, or any of your Spaces. Jump \
+                between them whenever you like without ending the session.
                 """
         ),
         Page(
             content: .feature(icon: "hand.point.up.left", screenshot: "AppControls"),
-            title: "Drive it",
+            title: "Your Mac, under your fingers",
             body: """
-                Control & zoom puts your fingers on the Mac. Drag and tap to control it, pinch \
-                to zoom, then use two fingers to move around the enlarged picture.
-
-                Switch to Observe when you want to inspect the picture without sending input.
+                Tap, type, scroll, zoom, use shortcuts, or steer the pointer with the joystick. \
+                Switch to Observe whenever you only want to look.
                 """
         ),
         Page(
             content: .feature(icon: "arrow.triangle.2.circlepath", screenshot: "AppPictureInPicture"),
-            title: "Leave and come back",
+            title: "Your session follows you",
             body: """
-                Lock your phone and the session survives. Picture in Picture keeps the picture \
-                up, and a Live Activity shows it on the Lock Screen.
-
-                Once paired, Peering can find your Mac through the relay when you are on a \
-                different network. If the relay cannot be reached, the app says so separately \
-                from a problem with your Mac.
+                Leave the app or lock your phone without losing the connection. Picture in Picture \
+                keeps your Mac in view, while Live Activities keep the session close at hand.
                 """
         ),
         Page(
             content: .plans,
-            title: "Choose your plan",
+            title: "Start free. Go farther when you need.",
             // One sentence, and the rows do the rest.
             //
             // **It used to be two paragraphs explaining the ladder**, over three rows that also
@@ -161,9 +148,8 @@ struct OnboardingView: View {
             // separate offers. What is left here is the one thing no row can say, which is that
             // the free plan is a real plan and not a trial.
             body: """
-                Peering is free on your own network, for as long as you like. A plan is what \
-                reaches your Mac when you are somewhere else, and every one of them includes \
-                everything free has.
+                Use Peering on your own network for free, for as long as you like. Upgrade when \
+                you want more relay time or the tools built for working away from your Mac.
                 """
         )
     ]
@@ -535,7 +521,13 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
         } else {
-            VStack(spacing: 8) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ],
+                spacing: 10
+            ) {
                 // Free first, because it is the floor the other three are measured from rather than
                 // a fourth thing on offer. Without it the page listed three products and left the
                 // reader to work out what they were an upgrade *from*, which is the sentence the
@@ -557,7 +549,7 @@ struct OnboardingView: View {
                         // cards three unrelated claims, and the reader had to reconstruct the
                         // order from them.
                         line: tier.tagline,
-                        // The yearly, always, on this page: it is four rows in a swipe rather than
+                        // The yearly, always, on this page: it is four cards in a swipe rather than
                         // the comparison screen, and a period switch here would be a second
                         // decision inside the one screen that is trying to be finished with. The
                         // paywall is one tap away for anyone who wants the monthly, and both prices
@@ -1190,64 +1182,50 @@ private struct PlanChoice: View {
 
     var body: some View {
         Button(action: select) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(name)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(ColorPalette.ink)
+            VStack(alignment: .leading, spacing: 8) {
+                // Reserve the same first line on every card. The recommendation sits above the
+                // plan name in the subscription sheet, so the two screens now read in the same
+                // order and every name stays aligned.
+                Text("Best value")
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(0.4)
+                    .foregroundStyle(ColorPalette.accent)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(ColorPalette.accent.opacity(0.18), in: Capsule())
+                    .opacity(recommended ? 1 : 0)
+                    .accessibilityHidden(!recommended)
 
-                        if recommended {
-                            Text("BEST VALUE")
-                                .font(.system(size: 8, weight: .bold))
-                                .tracking(0.6)
-                                .foregroundStyle(ColorPalette.accent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                        }
-                    }
-
-                    Text(line)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-
-                Spacer(minLength: 8)
-
-                // Left out entirely on the free row rather than printed as a zero: the rows to the
-                // right are prices, and "Free" beside them is the absence of one. Every checkmark
-                // still lands on the same edge, because the spacer above is what pushes them there.
-                //
-                // Three dots rather than a dash for a price the store has not answered with, for
-                // the reason the paywall's copy of this line gives: a dash sitting where a price
-                // goes reads as a minus sign.
-                if let price {
-                    Text(price)
-                        .font(.subheadline.weight(.semibold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(name)
+                        .font(DisplayFont.display(20))
+                        .tracking(-0.5)
                         .foregroundStyle(ColorPalette.ink)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.82)
+
+                    Text(price ?? "No charge")
+                        .font(DisplayFont.display(19))
+                        .tracking(-0.5)
+                        .foregroundStyle(ColorPalette.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
                 }
 
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 17))
-                    .foregroundStyle(selected ? ColorPalette.accent : Color.white.opacity(0.22))
+                Text(line)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.white.opacity(selected ? 0.10 : 0.05))
-            }
+            .frame(maxWidth: .infinity, minHeight: 126, alignment: .topLeading)
+            .cardSurface()
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .strokeBorder(ColorPalette.accent, lineWidth: 1.5)
                     .opacity(selected ? 1 : 0)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
         .buttonStyle(RailButtonStyle(scale: 0.985))
         .accessibilityAddTraits(selected ? [.isSelected] : [])

@@ -427,7 +427,7 @@ extension SessionModel {
     /// the wrong answer for the rest of the session.
     @discardableResult
     func applyPictureInPicturePlan() -> Bool {
-        let included = storeManager.access.includes(.pictureInPicture)
+        let included = PictureInPictureAccess.canArm(access: storeManager.access)
         SessionPiP.shared.isOnPlan = included
         return included
     }
@@ -507,6 +507,15 @@ extension SessionModel {
     /// connection that ended — which it cannot correct, because nothing of ours is running to
     /// correct it with. And the user, who is not looking, gets a banner.
     func backgroundTimeExpired() {
+        let shouldEndSession = BackgroundSessionExpiry.shouldEndSession(
+            assertionIsActive: backgroundTask != .invalid,
+            appIsBackground: UIApplication.shared.applicationState == .background,
+            hasOpenSession: hasOpenSession,
+            // PiP is a system-owned background presentation. Once it is active, iOS is keeping
+            // the app alive for real media playback; the temporary assertion expiring must not
+            // tear down the session underneath the floating window.
+            pictureInPictureIsActive: SessionPiP.shared.isActive
+        )
         endBackgroundAssertion()
         // **Every Mac**, and one call because ``disconnect(deliberate:)`` already means all of
         // them. This used to end one session and then handle the ladder-running case separately:
@@ -514,7 +523,7 @@ extension SessionModel {
         // case where a Mac behind the active one was left to be killed unobserved. The card and
         // the banner are taken down by the same path, which is the whole reason for ending it
         // tidily rather than letting the system do it.
-        guard hasOpenSession else { return }
+        guard shouldEndSession else { return }
         disconnect(deliberate: false)
     }
 

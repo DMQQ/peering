@@ -602,6 +602,12 @@ final class SessionPiP: NSObject {
     /// silence. PiP depends on several things being true at once and refuses without telling
     /// anyone which one was not.
     func start() {
+        guard PictureInPictureAccess.canStart(isOnPlan: isOnPlan) else {
+            lastRefusal = "Picture in Picture is part of \(PlanCapability.pictureInPicture.minimumPlan.name)."
+            lastAttempt = "not included in plan"
+            videoLog.notice("Picture in Picture refused because the current plan does not include it")
+            return
+        }
         guard let controller else {
             lastRefusal = "No picture yet. PiP mirrors the video layer, so a session has to be running."
             lastAttempt = "no layer"
@@ -679,6 +685,19 @@ extension SessionPiP: AVPictureInPictureControllerDelegate {
 
     func pictureInPictureControllerDidStopPictureInPicture(_ controller: AVPictureInPictureController) {
         videoLog.notice("Picture in Picture stopped")
+    }
+
+    /// The app's session screen never left the hierarchy; PiP only lifted its video layer into a
+    /// system window. Tell AVKit that the interface is ready when the user taps the PiP return
+    /// control, otherwise AVKit has no completed restoration to hand back to the app.
+    func pictureInPictureController(
+        _ controller: AVPictureInPictureController,
+        restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+    ) {
+        // SwiftUI kept the session screen alive while the layer floated, so there is no route to
+        // rebuild and no asynchronous presentation to await. AVKit is asking whether restoration
+        // succeeded, not whether the layer has already been reattached on this exact run-loop turn.
+        completionHandler(true)
     }
 
     /// The one that matters. PiP refuses for a long list of reasons and this is the only place

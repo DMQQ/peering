@@ -148,38 +148,33 @@ private struct LandingView: View {
         // deciding, and only after deciding that nothing had been found.
         ClaimLine(
             icon: "macbook.and.iphone",
-            title: "Two apps, one pairing",
-            detail: "Peering runs on both ends. Install it on the Mac you want to reach, then pair from here."
-        ),
-        ClaimLine(
-            icon: "lock.shield",
-            title: "Encrypted, device to device",
-            detail: "Pair once, on the same network or across one. No account, nothing stored."
+            title: "Set it up once",
+            detail: "Install Peering on your Mac, compare a six-digit code, and you are connected."
         ),
         ClaimLine(
             icon: "network",
             title: "Come back from anywhere",
-            detail: "After pairing, an end-to-end encrypted relay reaches your Mac remotely."
-        ),
-        ClaimLine(
-            icon: "hand.point.up.left",
-            title: "You actually drive it",
-            detail: "Pointer, keyboard, joystick, scroll wheel, macros."
+            detail: "Peering remembers your Mac and finds it again, on your Wi-Fi or miles away."
         ),
         ClaimLine(
             icon: "macwindow",
-            title: "A screen, an app, or one window",
-            detail: "Share any of them. Switch without reconnecting."
+            title: "Your whole Mac, not a compromise",
+            detail: "Open any display, app, window, or Space and switch between them without reconnecting."
         ),
         ClaimLine(
-            icon: "rectangle.split.3x1",
-            title: "Every desktop you have",
-            detail: "All your Spaces, each shown as a picture."
+            icon: "hand.point.up.left",
+            title: "Control it like it is in front of you",
+            detail: "Tap, type, scroll, zoom, use shortcuts, and move the pointer with precision."
+        ),
+        ClaimLine(
+            icon: "lock.shield",
+            title: "Private by design",
+            detail: "End-to-end encrypted, with no account and nothing for the relay to read."
         ),
         ClaimLine(
             icon: "pip",
-            title: "Keeps going when you leave",
-            detail: "Picture in Picture, Live Activity, widget."
+            title: "It stays with you",
+            detail: "Keep the session alive with Picture in Picture, Live Activities, and widgets."
         )
     ]
 
@@ -367,9 +362,9 @@ private struct LandingView: View {
 
                 // The whole opening statement, and there is deliberately nothing else under it.
                 // A sentence explaining what the app is used to sit here; it said what this line
-                // already says, and two lines of prose above five rows of claims is how a first
+                // already says, and two lines of prose above six rows of claims is how a first
                 // screen turns into something to get past rather than something to read.
-                Text("Your Mac, in your pocket.")
+                Text("Your Mac. Wherever you are.")
                     .font(.system(.title3).weight(.medium))
                     .foregroundStyle(.secondary)
                     .opacity(titleReveal)
@@ -423,7 +418,7 @@ private struct LandingView: View {
     /// So it comes in with the last claim. The space it occupies is reserved either way: it lives
     /// in the bottom inset, so nothing above it moves as it fades up.
     private var actions: some View {
-        WelcomePrimaryButton(title: "Get started", action: onStart)
+        WelcomePrimaryButton(title: "See how it works", action: onStart)
             .opacity(arrived ? 1 : 0)
             .offset(y: arrived ? 0 : 12)
             .animation(entrance(delay: 0.3), value: arrived)
