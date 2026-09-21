@@ -437,13 +437,11 @@ impl QuotaTracker {
         self.lock().paid_keys.contains(key)
     }
 
-    /// What this plan is allowed in one window. `None` is unlimited, which is what the top two
-    /// plans buy and is deliberately not a number: any number is eventually reached.
+    /// What this plan is allowed in one window. `None` is unlimited.
     fn allowance(&self, plan: Plan) -> Option<u64> {
         match plan {
             Plan::Free => self.allowances.free_seconds,
-            Plan::Relay => self.allowances.relay_seconds,
-            Plan::Plus | Plan::Pro => None,
+            Plan::Relay | Plan::Plus | Plan::Pro => None,
         }
     }
 
@@ -838,17 +836,17 @@ mod tests {
         assert_eq!(q.remaining("phone", None, Plan::Free), Some(900));
         assert_eq!(
             q.remaining("phone", None, Plan::Relay),
-            Some(10_800),
-            "Relay is three hours where free is fifteen minutes"
+            None,
+            "Relay is unlimited where free is metered"
         );
     }
 
     #[test]
-    fn a_relay_plan_is_still_metered() {
+    fn a_relay_plan_is_not_metered() {
         let q = default_tracker();
         q.record("phone", Duration::from_secs(300));
 
-        assert_eq!(q.remaining("phone", None, Plan::Relay), Some(10_500));
+        assert_eq!(q.remaining("phone", None, Plan::Relay), None);
         assert_eq!(q.remaining("phone", None, Plan::Free), Some(600));
     }
 
@@ -915,9 +913,9 @@ mod tests {
         let q = default_tracker();
         q.record("phone", Duration::from_secs(600));
 
-        // Twenty minutes on free, then a subscription: the three hours are three hours from the
-        // window, not from the upgrade.
-        assert_eq!(q.remaining("phone", None, Plan::Relay), Some(10_200));
+        // Ten minutes on free, then a subscription: paid plans are unlimited so usage accrued on
+        // free does not reduce them.
+        assert_eq!(q.remaining("phone", None, Plan::Relay), None);
     }
 
     // MARK: - The log on disk

@@ -163,24 +163,23 @@ const DEFAULT_IDLE_SECONDS: u64 = 90;
 
 /// Free relay minutes per client per window, unless `PEERINGD_FREE_MINUTES` says otherwise.
 ///
-/// **Fifteen rather than thirty, and the reason is what free is for.** Free's own promise, on the
-/// site and in the app, is "your own network, for as long as you like": the direct path is
-/// unlimited on every plan and costs nothing to serve, and the relay allowance is there to answer
-/// "does this work when I am out". Half an hour a day answered that and then kept answering it, so
-/// a free user with a commute spent the whole allowance every day without ever reaching a wall
-/// they would pay to remove. Fifteen still covers a first proper try and runs out in the middle of
-/// regular use, which is the difference between a sample and a subscription.
-const DEFAULT_FREE_MINUTES: u64 = 15;
+/// **One hour rather than fifteen minutes.** Free's promise is "your own network, for as long as
+/// you like": the direct path is unlimited on every plan. The relay allowance is there to answer
+/// "does this work when I am away". An hour covers a real session and still runs out in regular
+/// use, which is the difference between a sample and a subscription.
+const DEFAULT_FREE_MINUTES: u64 = 60;
 /// Relay-plan minutes per client per window, unless `PEERINGD_RELAY_MINUTES` says otherwise.
+///
+/// Not used in the quota check: the Relay plan is now unlimited (see `quota.rs`). Kept here so
+/// `PEERINGD_RELAY_MINUTES` does not become an unknown env var if an operator sets it.
 const DEFAULT_RELAY_MINUTES: u64 = 180;
 
 /// What each plan is allowed, in seconds per window.
 ///
-/// The two numbers here are the whole of the product's promise about relay time: fifteen minutes a
-/// day free, three hours a day on the cheapest subscription, and no limit above that. They are
-/// configurable because an operator may want to be stingier or more generous than the app's copy
-/// says, and the app's copy is what has to keep up — `SessionHistory.swift` mirrors these numbers
-/// to draw its "free relay time" bar, or the bar lies.
+/// The number here is the free plan's promise: one hour a day. Paid plans are unlimited and not
+/// metered at all (see `quota.rs`). Configurable because an operator may want a different free
+/// allowance, but the app's copy has to keep up — `SessionHistory.swift` mirrors this to draw its
+/// "free relay time" bar, or the bar lies.
 ///
 /// Zero is allowed and means what it says: `PEERINGD_FREE_MINUTES=0` blocks relay for free clients
 /// entirely rather than making it unlimited. There is deliberately no spelling for "unlimited"
@@ -470,8 +469,7 @@ mod tests {
         let config = configured(&[]).unwrap();
 
         assert_eq!(config.plans, PlanAllowances::default());
-        assert_eq!(config.plans.free_seconds, Some(15 * 60), "free is a quarter of an hour a day");
-        assert_eq!(config.plans.relay_seconds, Some(180 * 60), "Relay is three hours a day");
+        assert_eq!(config.plans.free_seconds, Some(60 * 60), "free is one hour a day");
     }
 
     #[test]

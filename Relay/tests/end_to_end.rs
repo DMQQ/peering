@@ -829,7 +829,7 @@ async fn a_session_inside_its_allowance_is_charged_and_left_alone() {
     let relay = start_with(Arc::clone(&quota)).await;
     let mut client = splice(&relay, Some("free")).await;
 
-    // Several charge periods, and a fraction of the half hour this client is allowed.
+    // Several charge periods, and a fraction of the hour this client is allowed.
     tokio::time::sleep(Duration::from_millis(600)).await;
 
     assert!(
@@ -845,11 +845,11 @@ async fn a_session_inside_its_allowance_is_charged_and_left_alone() {
         .remaining("phone", None, Plan::Free)
         .expect("a free plan is metered");
     assert!(
-        left < 15 * 60,
+        left < 60 * 60,
         "the time it ran should have been charged: {left} seconds left"
     );
     assert!(
-        left > 15 * 60 - 60,
+        left > 60 * 60 - 60,
         "and no more of it than it ran: {left} seconds left"
     );
 }

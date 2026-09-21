@@ -601,7 +601,7 @@ async fn relay(verifier: StoreKitVerifier) -> u16 {
     let quota = Arc::new(QuotaTracker::new(PlanAllowances::default(), Default::default()));
     // Spent rather than configured away, so the test travels the path a client does: a whole free
     // allowance already used, which is where a subscriber on the free plan would be.
-    quota.record("phone", Duration::from_secs(15 * 60 + 1));
+    quota.record("phone", Duration::from_secs(60 * 60 + 1));
 
     tokio::spawn(signalling::serve(
         signal,
