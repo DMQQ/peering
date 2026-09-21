@@ -1,5 +1,6 @@
 import Foundation
 import MacCastKit
+import RemoteCore
 import Security
 import StoreKit
 import os
@@ -582,7 +583,7 @@ final class StoreManager {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: AnyObject?
-        if SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+        if SecItemCopyMatching(SecretStore.attributes(query), &item) == errSecSuccess,
            let data = item as? Data,
            let key = String(data: data, encoding: .utf8) {
             return key
@@ -594,7 +595,7 @@ final class StoreManager {
             kSecAttrAccount as String: Self.keychainAccount,
             kSecValueData as String: Data(key.utf8),
         ]
-        SecItemAdd(attrs as CFDictionary, nil)
+        SecItemAdd(SecretStore.attributes(attrs), nil)
         return key
     }
 }

@@ -206,7 +206,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         // Bounded because the exit condition is a status code, and a delete that neither
         // succeeds nor reports not-found would otherwise spin forever.
         for _ in 0..<8 {
-            let status = SecItemDelete(query as CFDictionary)
+            let status = SecItemDelete(SecretStore.attributes(query))
             if status == errSecItemNotFound { return }
             guard status == errSecSuccess else { throw Failure.keychain(status) }
         }
@@ -232,7 +232,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: CFTypeRef?
-        if SecItemCopyMatching(lookup as CFDictionary, &item) == errSecSuccess,
+        if SecItemCopyMatching(SecretStore.attributes(lookup), &item) == errSecSuccess,
            let existing = item as! SecKey? {
             return existing
         }
@@ -245,7 +245,7 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             kSecAttrApplicationTag as String: tag,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
-        guard let key = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+        guard let key = SecKeyCreateRandomKey(SecretStore.attributes(attributes), &error) else {
             let detail = error.map { "\($0.takeRetainedValue())" } ?? "unknown"
             throw Failure.keyGeneration(detail)
         }

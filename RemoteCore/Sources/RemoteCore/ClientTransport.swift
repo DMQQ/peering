@@ -100,7 +100,7 @@ public final class ClientPinStore: @unchecked Sendable {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        let status = SecItemCopyMatching(SecretStore.attributes(query), &item)
 
         guard status == errSecSuccess else {
             // errSecItemNotFound is the ordinary first-run case. Anything else means the
@@ -135,7 +135,7 @@ public final class ClientPinStore: @unchecked Sendable {
         ]
 
         let status = SecItemUpdate(
-            query as CFDictionary,
+            SecretStore.attributes(query),
             [kSecValueData as String: data] as CFDictionary
         )
         if status == errSecSuccess { return true }
@@ -147,7 +147,7 @@ public final class ClientPinStore: @unchecked Sendable {
         var insert = query
         insert[kSecValueData as String] = data
         insert[kSecAttrAccessible as String] = accessibility
-        let addStatus = SecItemAdd(insert as CFDictionary, nil)
+        let addStatus = SecItemAdd(SecretStore.attributes(insert), nil)
         if addStatus != errSecSuccess {
             transportLog.error("could not add client pins: OSStatus \(addStatus, privacy: .public)")
         }

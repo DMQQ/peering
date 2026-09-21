@@ -170,7 +170,7 @@ struct KeychainPinStorage: PinStorage {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        let status = SecItemCopyMatching(SecretStore.attributes(query), &item)
 
         // errSecItemNotFound is the ordinary first-run case. Any other failure means the store
         // exists but is unreachable, and since an unreadable store is indistinguishable from an
@@ -193,7 +193,10 @@ struct KeychainPinStorage: PinStorage {
         ]
         let updates: [String: Any] = [kSecValueData as String: data]
 
-        let status = SecItemUpdate(query as CFDictionary, updates as CFDictionary)
+        let status = SecItemUpdate(
+            SecretStore.attributes(query),
+            updates as CFDictionary
+        )
         if status == errSecSuccess { return true }
         guard status == errSecItemNotFound else {
             pinLog.error("could not update pins: OSStatus \(status, privacy: .public)")
@@ -205,7 +208,7 @@ struct KeychainPinStorage: PinStorage {
         // A host must be able to accept connections at login without the user present,
         // so this cannot be `WhenUnlocked`.
         insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let addStatus = SecItemAdd(insert as CFDictionary, nil)
+        let addStatus = SecItemAdd(SecretStore.attributes(insert), nil)
         if addStatus != errSecSuccess {
             pinLog.error("could not add pins: OSStatus \(addStatus, privacy: .public)")
         }
