@@ -186,12 +186,85 @@ struct OnboardingView: View {
         .onAppear(perform: revealContent)
     }
 
+    /// One page, laid out the way its own content wants.
+    ///
+    /// **Two layouts, and the split is the point.** Five of the six pages are a picture with its
+    /// words underneath, and those five share one set of rules so that the picture stays one
+    /// picture: a box above the words for the device to be drawn in, and the words themselves held
+    /// to the tallest page's so that the box comes out the same height on all five. The sixth page
+    /// is a list, and none of that is true of a list.
+    @ViewBuilder
     private func pageView(_ page: Page, at offset: Int) -> some View {
         // The page being looked at animates; every other page is simply in place, so that the one
         // leaving during a button-led change keeps its contents while it slides out.
         let shown = offset == index ? contentVisible : true
 
-        return VStack(alignment: .leading, spacing: 18) {
+        if case .plans = page.content {
+            plansPage(page, shown: shown)
+        } else {
+            devicePage(page, shown: shown)
+        }
+    }
+
+    /// The last page: the heading, and the plans under it.
+    ///
+    /// **Laid out from the top, and that is the whole of what changed.** It used to be a page like
+    /// the others, reserving a device's box above its words and holding those words to the tallest
+    /// page's height, and then filling the box with plan rows instead of a device. Both halves of
+    /// that were wrong on a page with no picture on it. The box belongs to the device and this page
+    /// has no device to size, and the held height is ``tallestWords``, which the five pages that
+    /// *do* have bodies decide between them: a page with no body of its own still reserved one, its
+    /// height, and left about a hundred and fifty points of nothing between the heading and the
+    /// button.
+    ///
+    /// Which is why deleting the body bought the list nothing. The height being reserved was never
+    /// the body's, so the hole it left was the hole that was always there. The heading is at the
+    /// top now, the switch is under it, and the list takes everything that is left: the room the
+    /// heading was holding open is the room the list scrolls in.
+    private func plansPage(_ page: Page, shown: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(page.title)
+                .font(DisplayFont.display(.largeTitle))
+                .tracking(-1)
+                .opacity(shown ? 1 : 0)
+                .offset(y: shown ? 0 : 14)
+                .animation(motion(delay: 0.09), value: shown)
+
+            plans
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            legalLinks
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 22)
+        // The heading is the first thing on this page rather than the middle of it, which puts it
+        // on the same line as `Skip` for the first time in the tour. This is what stops the two
+        // reading as one row on a narrow phone.
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+
+    /// The two links a subscription screen is expected to carry, styled as the paywall styles its
+    /// own so that the same two links do not look like two different things one screen apart.
+    ///
+    /// **Nothing is bought on this page and the links are here anyway.** The rule is about screens
+    /// where a subscription is sold, and this one only chooses between four plans: the button under
+    /// it says "Start using Peering". But it shows four prices and a monthly/yearly switch, which
+    /// is the whole of what makes a screen look like one where money is about to change hands, and
+    /// "strictly not required" is a bad bet when being wrong costs a rejection and being right
+    /// costs a row of caption text.
+    private var legalLinks: some View {
+        HStack(spacing: 18) {
+            Link("Privacy Policy", destination: Legal.privacy)
+            Link("Terms of Use", destination: Legal.terms)
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    /// Every other page: the box the device is drawn in, and the words under it.
+    private func devicePage(_ page: Page, shown: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
             // The stage: everything above the title, and as tall as the page can spare.
             //
             // Empty on every page, and reserved on every page anyway. Reserved because it is the
@@ -231,13 +304,15 @@ struct OnboardingView: View {
                     .offset(y: shown ? 0 : 14)
                     .animation(motion(delay: 0.09), value: shown)
 
-                Text(page.body)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .opacity(shown ? 1 : 0)
-                    .offset(y: shown ? 0 : 18)
-                    .animation(motion(delay: 0.16), value: shown)
+                if case .feature = page.content {
+                    Text(page.body)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .opacity(shown ? 1 : 0)
+                        .offset(y: shown ? 0 : 18)
+                        .animation(motion(delay: 0.16), value: shown)
+                }
 
                 // Last of the three beats, because it is the only thing on the page to do rather
                 // than to read — and the one page that has one is the page whose subject is not
@@ -258,8 +333,12 @@ struct OnboardingView: View {
 
     // MARK: - The stage
 
-    /// All five pages' words, laid out at once and thrown away, so that the tallest of them can
-    /// size every page's words block.
+    /// The five pages with devices on them, their words laid out at once and thrown away, so that
+    /// the tallest of them can size every one of their words blocks.
+    ///
+    /// **The plans page is not one of them.** It is the one page with no device to size, so it is
+    /// the one page whose words are not held to anything; measuring it here would let a long
+    /// heading it does not have to answer for go into the height the other five are held to.
     ///
     /// This is what makes the device one device. Every page holds its words to the tallest block any
     /// page has, and the tallest block is a fact about the whole tour — which the pager will not
@@ -278,17 +357,31 @@ struct OnboardingView: View {
     /// past the block sized to hold them, which is the same fault ``bodyHeight`` describes from the
     /// other side: the device is sized from the room the words leave, so the ruler being short is
     /// the device being wrong on every page.
+    /// The pages whose words are held to the tallest of them, which is every page but the plans.
+    ///
+    /// Asked as a question about the content rather than written down as a range, so that adding a
+    /// page without a device to it later cannot quietly inherit a rule that has nothing to say
+    /// about it.
+    private static var measuredPages: [Page] {
+        Self.pages.filter { page in
+            if case .plans = page.content { return false }
+            return true
+        }
+    }
+
     private var wordsRuler: some View {
         ZStack(alignment: .topLeading) {
-            ForEach(Array(Self.pages.enumerated()), id: \.offset) { _, page in
+            ForEach(Array(Self.measuredPages.enumerated()), id: \.offset) { _, page in
                 VStack(alignment: .leading, spacing: 18) {
                     Text(page.title)
                         .font(DisplayFont.display(.largeTitle))
                         .tracking(-1)
 
-                    Text(page.body)
-                        .font(.subheadline)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if case .feature = page.content {
+                        Text(page.body)
+                            .font(.subheadline)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
 
                     if case .mac = page.device {
                         downloadLink
@@ -360,16 +453,29 @@ struct OnboardingView: View {
     /// of its own. The box has to fit the tallest of them, and it does, because they are sized from
     /// it rather than against each other.
     ///
-    /// The last page has nothing to hold, and takes the device away rather than filling it with
-    /// plan rows: the three plans are the page's content, and content inside a phone would read as
-    /// a picture of a screen rather than as something to press. It fades rather than sliding, so
-    /// that the page that ends the tour is the one page where the frame is not asked to travel.
-    @ViewBuilder
+    /// The last page has nothing to hold. The device is taken away rather than kept and refilled,
+    /// and the three plans are that page's own content rather than something drawn in here: they
+    /// are a list to press, and the same rows inside a phone would read as a picture of a screen
+    /// rather than as something to touch. So on that page the stage draws nothing at all and the
+    /// page lays itself out from the top.
     private var stage: some View {
+        // Nothing is drawn on the last page, which is the one page with no device on it. The plan
+        // rows used to be drawn here; they belong to that page now, because this box is the
+        // device's and the plans page has no device to size.
+        //
+        // **Empty, but not absent, and the difference is the fade.** Wrapping this whole stack in
+        // `if !isLast` reads as the tidy version and is not: the transition lives inside it, so
+        // taking the stack out takes the fade with it and the device disappears between the fifth
+        // page and the sixth rather than fading out on its way. The branch has to stay so that
+        // something is there to cross-fade *from*.
         ZStack {
             if isLast {
-                plans
-                    .transition(.opacity)
+                // A `Color` is a rectangle to the touch system even when it is clear, so this one
+                // is told not to be: laid over the plans page it would otherwise swallow every tap
+                // meant for the list, and a list that cannot be scrolled looks exactly like a list
+                // with nothing to scroll.
+                Color.clear
+                    .allowsHitTesting(false)
             } else if case .mac(let companion) = Self.pages[index].device {
                 // Two frames on one page, which is the page's whole argument: the Mac app is a
                 // second download, and the phone is holding the reason to go and get it.
@@ -502,7 +608,6 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 24)
         } else if store.products.isEmpty {
             VStack(spacing: 12) {
                 ProgressView().tint(ColorPalette.ink)
@@ -514,37 +619,60 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 24)
         } else {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 10) {
-                    BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
+            VStack(spacing: 10) {
+                BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
 
-                    // Free first, because it is the floor the other three are measured from rather
-                    // than a fourth thing on offer.
-                    PlanChoice(
-                        name: "Free",
-                        line: Self.freeLine,
-                        price: "No charge",
-                        recommended: false,
-                        selected: chosen == nil,
-                        select: { chosen = nil }
-                    )
-
-                    ForEach(StoreManager.Tier.allCases) { tier in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 10) {
+                        // Free first, because it is the floor the other three are measured from
+                        // rather than a fourth thing on offer.
                         PlanChoice(
-                            name: tier.name,
-                            line: tier.tagline,
-                            price: store.priceLabel(for: tier, period: period) ?? "···",
-                            recommended: tier.isRecommended,
-                            selected: chosen == tier,
-                            features: tier.features,
-                            select: { chosen = tier }
+                            name: "Free",
+                            line: Self.freeLine,
+                            price: "No charge",
+                            recommended: false,
+                            selected: chosen == nil,
+                            select: { chosen = nil }
                         )
+
+                        ForEach(StoreManager.Tier.allCases) { tier in
+                            PlanChoice(
+                                name: tier.name,
+                                line: tier.tagline,
+                                price: store.priceLabel(for: tier, period: period) ?? "···",
+                                recommended: tier.isRecommended,
+                                selected: chosen == tier,
+                                features: tier.features,
+                                select: { chosen = tier }
+                            )
+                        }
                     }
+                    .animation(Motion.tap, value: chosen)
+                    .animation(Motion.tap, value: period)
                 }
-                .animation(Motion.tap, value: chosen)
-                .animation(Motion.tap, value: period)
+                // Three plans with their feature lists are taller than the room the page leaves
+                // them, so the list is cut at both ends of the scroll. A hard cut through the
+                // middle of a card reads as a card that has been sliced, which is the one thing a
+                // list that is scrollable should never look like. The last few points fade into
+                // the backdrop instead, and the same at the top, where the cards pass under the
+                // switch.
+                //
+                // A mask rather than a gradient drawn over the ends: the page already sits on
+                // ``ColorPalette/backdrop``, so fading the content out is fading it to the colour
+                // that is already there, and nothing here has to know what that colour is.
+                .mask {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.25), location: 0),
+                            .init(color: .black, location: 0.025),
+                            .init(color: .black, location: 0.95),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
             }
         }
     }
