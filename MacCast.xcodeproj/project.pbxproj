@@ -7,22 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C2B2281E306093ED008FB38C /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = E1A00002305B000100ABF943 /* Sparkle */; };
 		C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EC30574AB600ABF943 /* RemoteCore */; };
-		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
-		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
 		C2C039F030574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039EE30574AB600ABF943 /* RemoteCore */; };
 		C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039ED30574AB600ABF943 /* RemoteCore */; };
-		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
-		C2C039FD30574AB600ABF943 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FC30574AB600ABF943 /* X509 */; };
-		C2C03A0030574AB600ABF943 /* SwiftASN1 in Frameworks */ = {isa = PBXBuildFile; productRef = C2C039FF30574AB600ABF943 /* SwiftASN1 */; };
 		C2C03AF83058094A00ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		C2C03AFA3058094A00ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
 		C2C03B093058094B00ABF943 /* MacCastWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C2C03AF53058094900ABF943 /* MacCastWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
 		C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */; };
+		AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
+		AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000AA /* TerminalActivityAttributes.swift */; };
 		D4A10001305B000100ABF943 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF73058094900ABF943 /* WidgetKit.framework */; };
 		D4A10002305B000100ABF943 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2C03AF93058094A00ABF943 /* SwiftUI.framework */; };
-		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */ = {isa = PBXBuildFile; fileRef = D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
+		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,7 +75,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Foundation Extensions */,
+				D4A10003305B000100ABF943 /* MacCastHostWidgetExtension.appex in Embed Host Widget Extension */,
 			);
 			name = "Embed Host Widget Extension";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -90,6 +91,7 @@
 		C2C03AF73058094900ABF943 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		C2C03AF93058094A00ABF943 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionActivityAttributes.swift; sourceTree = "<group>"; };
+		AA00000000000000000000AA /* TerminalActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalActivityAttributes.swift; sourceTree = "<group>"; };
 		D4A10006305B000100ABF943 /* MacCastHostWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MacCastHostWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -180,8 +182,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2B2281E306093ED008FB38C /* Sparkle in Frameworks */,
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
-				E1A00003305B000100ABF943 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +249,7 @@
 			isa = PBXGroup;
 			children = (
 				C2C03B13305809EC00ABF943 /* SessionActivityAttributes.swift */,
+				AA00000000000000000000AA /* TerminalActivityAttributes.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -514,6 +517,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C03B16305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
+				AA00001000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -543,6 +547,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2C03B15305809ED00ABF943 /* SessionActivityAttributes.swift in Sources */,
+				AA00002000000000000000AA /* TerminalActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -978,7 +983,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202609200;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
@@ -989,7 +994,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 202609200;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1006,8 +1011,9 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 202609200;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Peering Host";
@@ -1017,7 +1023,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 202609200;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1164,20 +1170,10 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MacCastKit;
 		};
-		C2C039FC30574AB600ABF943 /* X509 */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */;
-			productName = X509;
-		};
 		E1A00002305B000100ABF943 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
-		};
-		C2C039FF30574AB600ABF943 /* SwiftASN1 */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */;
-			productName = SwiftASN1;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

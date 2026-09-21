@@ -74,6 +74,7 @@ struct MacCastApp: App {
                     if hasSeenWelcome {
                         model.startBrowsing()
                     }
+                    TerminalActivity.shared.adoptOrphan()
                 }
                 // The plan, into the object that floats the picture, as soon as the App Store
                 // answers and again whenever the answer changes under a running app: a
@@ -110,22 +111,30 @@ struct MacCastApp: App {
                 }
                 // The home-screen widget cannot connect anything itself — the session, the
                 // identity and the sockets all live in this process — so it hands over with the
-                // one instruction it can give.
+                // one instruction it can give. Live Activity buttons use the same channel.
                 .onOpenURL { url in
-                    guard url.scheme == "peering", url.host == "connect" else { return }
-
-                    // The widget's medium size names a Mac per row, so the URL carries which one
-                    // was asked for. Without an id — the small tile, which has only one thing it
-                    // could mean — this is the Mac used last, which is what it always was.
-                    let requested = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                        .queryItems?
-                        .first { $0.name == "id" }?
-                        .value
-
-                    if let requested, model.pairedHostIDs.contains(requested) {
-                        model.connectToTrusted(hostID: requested)
-                    } else {
-                        model.reconnectToLastHost()
+                    guard url.scheme == "peering" else { return }
+                    switch url.host {
+                    case "connect":
+                        // The widget's medium size names a Mac per row, so the URL carries which
+                        // one was asked for. Without an id — the small tile, which has only one
+                        // thing it could mean — this is the Mac used last, which is what it
+                        // always was.
+                        let requested = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                            .queryItems?
+                            .first { $0.name == "id" }?
+                            .value
+                        if let requested, model.pairedHostIDs.contains(requested) {
+                            model.connectToTrusted(hostID: requested)
+                        } else {
+                            model.reconnectToLastHost()
+                        }
+                    case "disconnect":
+                        model.disconnect()
+                    case "end-shells":
+                        servers.closeAllShells()
+                    default:
+                        break
                     }
                 }
                 .preferredColorScheme(.dark)

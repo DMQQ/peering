@@ -488,6 +488,7 @@ final class SSHModel {
         terminals.append(terminal)
         selectedTerminalID = terminal.id
         hostSessions[host.id, default: []].append(session)
+        syncTerminalActivity()
 
         // The row is stamped only once a shell actually opened. Doing it here would record an
         // attempt, and the list is meant to say what worked.
@@ -497,6 +498,7 @@ final class SSHModel {
                 case .connected:
                     terminal.setPhase(.live)
                     self?.markConnected(host)
+                    self?.syncTerminalActivity()
                     // After `.live` and in a task of its own, so the shell is usable the moment it
                     // opens rather than once every listener has bound.
                     if let self {
@@ -509,10 +511,12 @@ final class SSHModel {
                     terminal.setPhase(.ended(reason))
                     self?.clearPendingBrowsing(for: terminal.id)
                     self?.record(terminal, outcome: .failed(reason))
+                    self?.syncTerminalActivity()
                     await self?.endForwards(for: terminal)
                 case .closed:
                     if case .ended = terminal.phase {} else { terminal.setPhase(.ended(nil)) }
                     self?.clearPendingBrowsing(for: terminal.id)
+                    self?.syncTerminalActivity()
                     await self?.endForwards(for: terminal)
                     // `.closed` arrives whether the shell was live or had already failed, which is
                     // what lets one case cover both the user closing a session and the server
@@ -564,6 +568,7 @@ final class SSHModel {
         if selectedTerminalID == terminal.id {
             selectedTerminalID = terminals.last?.id
         }
+        syncTerminalActivity()
         // Ended here as well as on the session's own `.closed`, because a listener that outlived
         // the shell it belonged to would be a port still open on the phone with nothing behind it,
         // and "nothing behind it" here means every connection through it hangs until it times out.
@@ -1134,6 +1139,24 @@ final class SSHModel {
         open(terminal.host, credential: terminal.credential, remember: false)
     }
 
+    /// Reflects open shells onto the Live Activity card.
+    ///
+    /// Called whenever a shell opens, connects, fails or closes. The representative name comes
+    /// from the most recently opened shell that is still live, so opening a second server does
+    /// not silently rename the card away from the one the user is looking at.
+    private func syncTerminalActivity() {
+        let live = openShells
+        guard !live.isEmpty else {
+            TerminalActivity.shared.end()
+            return
+        }
+        let name = live.last!.host.displayName
+        let startedAt = live.compactMap { t -> Date? in
+            if case .live = t.phase { return t.startedAt } else { return nil }
+        }.min()
+        TerminalActivity.shared.update(serverName: name, startedAt: startedAt, shellCount: live.count)
+    }
+
     /// Ends every shell. For the intent, which has no way to say *which* one.
     func closeAllShells() {
         for terminal in terminals {
@@ -1141,6 +1164,7 @@ final class SSHModel {
         }
         terminals.removeAll()
         selectedTerminalID = nil
+        TerminalActivity.shared.end()
         // Every host, because the loop above dropped every shell at once and there is no "last one"
         // left to work out per machine.
         let hosts = forwarders.keys

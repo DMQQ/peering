@@ -32,11 +32,24 @@ struct SessionLiveActivity: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text(statusText(for: context.state.phase))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack {
+                        Text(statusText(for: context.state.phase))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        Spacer()
+                        if context.state.phase != .dropped {
+                            Link(destination: URL(string: "peering://disconnect")!) {
+                                Text("End")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(.white.opacity(0.15), in: Capsule())
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
             } compactLeading: {
                 Image(systemName: symbol(for: context.state.phase))
@@ -128,8 +141,19 @@ private struct LockScreenSession: View {
                 // Not `fixedSize()`, which looks like the answer and is worse: it does not
                 // remove the reservation, it insists on it. The row then measures wider than
                 // the card and clips at both ends — the icon against the edge, the timer gone.
-                elapsed(context)
-                    .frame(maxWidth: 92, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 4) {
+                    elapsed(context)
+                        .frame(maxWidth: 92, alignment: .trailing)
+
+                    Link(destination: URL(string: "peering://disconnect")!) {
+                        Text("End")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.white.opacity(0.12), in: Capsule())
+                    }
+                }
             }
         }
         // Stated rather than left to the stack. An `HStack` with a `Spacer` fills what it is

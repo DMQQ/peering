@@ -6,5 +6,6 @@ struct PeeringWidgetBundle: WidgetBundle {
     var body: some Widget {
         QuickConnectWidget()
         SessionLiveActivity()
+        TerminalLiveActivity()
     }
 }
