@@ -20,11 +20,10 @@ struct SSHTerminalScreen: View {
     /// Whether the tips for a shell on a server have been seen, and whether the terminal's have.
     ///
     /// **Two tours on one screen, and they are not the same tour twice.** This screen is two
-    /// things at once: a connection, which is the tab strip and the switch to the server's files,
-    /// and a terminal, which is the log, the keys and the line that types. A person meets them in
-    /// that order, the connection arriving before there is anything in it to type at, so they are
-    /// two runs of the same mechanism and the screen hands them over in that order. See
-    /// ``dueTours``.
+    /// things at once: a connection, which is the strip of shells and the output that arrives
+    /// through it, and a terminal, which is the keys and the line that types. A person meets them
+    /// in that order, the connection arriving before there is anything to type at, so they are two
+    /// runs of the same mechanism and the screen hands them over in that order. See ``dueTours``.
     @AppStorage(PreferenceKeys.hasSeenTourShell) private var hasSeenTourShell = false
     @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
 
@@ -75,8 +74,7 @@ struct SSHTerminalScreen: View {
     @State private var showsHiddenFiles = false
 
     var body: some View {
-        let _ = NSLog("TOURDEBUG ssh body due=%@ shell=%d term=%d", String(describing: dueTours), hasSeenTourShell ? 1 : 0, hasSeenTourTerminal ? 1 : 0)
-        return VStack(spacing: 0) {
+        VStack(spacing: 0) {
             // Drawn for one shell as well as for several, which it was not.
             //
             // It was hidden when there was only one, on the good argument that a single tab is
@@ -104,7 +102,7 @@ struct SSHTerminalScreen: View {
                 browsing
             } else {
                 output
-                    .tourAnchor(.terminalLog)
+                    .tourAnchor(.shellOutput)
                 // The saved commands and the keys in one row, shared with the Mac's terminals —
                 // see ``TerminalDeck``, which is where the two strips this screen used to stack
                 // went and why.
@@ -368,15 +366,14 @@ struct SSHTerminalScreen: View {
             TerminalModeButton(isBrowsing: isBrowsing) { toggleBrowsing() }
                 .padding(.top, 11)
                 .padding(.trailing, 8)
-                .tourAnchor(.shellMode)
         }
     }
 
     /// What this screen owes, connection first.
     ///
-    /// The order is the order a person meets them: the strip and the switch are what arriving on
-    /// this screen is, and the log, the keys and the command line are what using it is. The second
-    /// tour is not started until the first has been answered, because they are shown by one
+    /// The order is the order a person meets them: the strip and what it has printed are what
+    /// arriving on this screen is, and the keys and the command line are what using it is. The
+    /// second tour is not started until the first has been answered, because they are shown by one
     /// mechanism (``firstRunTours(_:onDismiss:)``) which takes them in this order and runs them one
     /// at a time.
     ///

@@ -1,40 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  The update feed for the Mac app, at the URL the app carries in its Info.plist (SUFeedURL).
-
-  This file is generated, not written. Publishing a version means running Sparkle's
-  `generate_appcast` over a directory holding the new disk image, which writes the item below with
-  the download URL, the archive size, and the EdDSA signature the app verifies it against. Only the
-  signature makes the download installable, and it can only be produced by the private key that
-  matches the public half in MacCastHost-Info.plist.
-
-  Until a first release is published the channel is empty, which is the correct way to say "there
-  is nothing to update to" — Sparkle reads it, finds no items, and says nothing to the user.
-
-  An item looks like this:
-
-  <item>
-    <title>Peering 2026.9</title>
-    <pubDate>Tue, 22 Sep 2026 09:00:00 +0000</pubDate>
-    <sparkle:version>202609220</sparkle:version>
-    <sparkle:shortVersionString>2026.9</sparkle:shortVersionString>
-    <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-    <description><![CDATA[What changed in this version.]]></description>
-    <enclosure
-      url="https://getpeering.app/download/Peering-202609220.dmg"
-      sparkle:edSignature="..."
-      length="12345678"
-      type="application/octet-stream" />
-  </item>
-
-  `sparkle:version` is the CFBundleVersion and is what Sparkle compares; it must increase with every
-  release or the update is never offered. The release steps are in Relay/README.md.
--->
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Peering for Mac</title>
-    <link>https://getpeering.app/</link>
-    <description>Updates for the Peering host app for Mac.</description>
-    <language>en</language>
-  </channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Peering</title>
+        <item>
+            <title>202609200</title>
+            <pubDate>Mon, 21 Sep 2026 00:29:17 +0200</pubDate>
+            <sparkle:version>202609200</sparkle:version>
+            <sparkle:shortVersionString>202609200</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://getpeering.app/updates/Peering-202609200.dmg" length="8869698" type="application/octet-stream" sparkle:edSignature="f2oHd/vt9X1uZ8A7nyBhYaYpMLTdcvEtFvwEjAFAbSNtg56akJ0UapjV0YbI9zqIf12xlxM3BnAh4hFEm/DpAw=="/>
+        </item>
+    </channel>
 </rss>

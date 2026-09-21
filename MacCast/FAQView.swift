@@ -233,11 +233,11 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "What is free?",
-                    answer: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes fifteen minutes of it in each rolling 24 hours."
+                    answer: "Connecting over your own network, with no limit and no time counted. The relay is the part that reaches a Mac on another network, and free includes one hour of it in each rolling 24 hours."
                 ),
                 QA(
                     question: "What happens when my relay time runs out?",
-                    answer: "The relay stops carrying sessions until the window rolls over, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Relay raises the allowance to three hours a day, and Relay Plus and Pro remove the limit."
+                    answer: "The relay stops carrying sessions until the window rolls over, and the Sessions tab shows the meter counting down. Connections on your own network keep working the whole time. Any paid plan removes the limit entirely."
                 ),
                 QA(
                     question: "Can I use more than one Mac at once?",

@@ -10,13 +10,12 @@ import MacCastKit
 extension SessionModel {
     /// The client's half of the relay's allowance, and it has to agree with the other half.
     ///
-    /// The authority is the relay's own configuration — `Relay/src/config.rs`, which allows half an
-    /// hour a day on the free plan and three hours on Relay, both in the same rolling 24-hour
-    /// window this file counts in. ``RelayPlan`` mirrors those numbers so the bar can be drawn
-    /// without asking the server, and this reads the mirror for the plan the user is actually on
-    /// rather than for the free one. Reading the wrong plan is how the bar lies: a subscriber
-    /// seeing a third of an hour where they bought three, or a free user seeing hours they do not
-    /// have.
+    /// The authority is the relay's own configuration — `Relay/src/config.rs`, which allows one
+    /// hour a day on the free plan and no limit on any paid plan. ``RelayPlan`` mirrors that so the
+    /// bar can be drawn without asking the server, and this reads the mirror for the plan the user
+    /// is actually on rather than for the free one. Reading the wrong plan is how the bar lies: a
+    /// free user seeing hours they do not have, or a paid subscriber seeing a meter that should not
+    /// exist.
     ///
     /// `nil` is an unlimited plan, which is a plan with no allowance to draw rather than one with a
     /// very large one. The callers ask ``RelayPlan/isUnlimited`` rather than comparing numbers.

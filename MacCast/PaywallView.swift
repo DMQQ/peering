@@ -121,12 +121,9 @@ struct PaywallView: View {
                 switch plan {
                 case .free:
                     return "Your free relay time for today is used up. Upgrade to connect from anywhere without limits."
-                case .relay:
-                    return "Your \(plan.allowanceSpelling) of relay for today are used up. Relay Plus and Pro remove the daily limit."
-                case .plus, .pro:
-                    // Unreachable as the app is wired: an unlimited plan is never metered, so the
-                    // relay cannot refuse one for quota. Saying what a plan with no allowance is
-                    // out of would be nonsense, so this says the true thing instead.
+                case .relay, .plus, .pro:
+                    // Unreachable as the app is wired: paid plans are unlimited and never metered,
+                    // so the relay cannot refuse one for quota. True rather than blank.
                     return "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening."
                 }
             case .upgrade:
@@ -134,7 +131,7 @@ struct PaywallView: View {
                 // meter reads them from. The cards below say the rest.
                 // The two rungs are named rather than pointed at. "The plans above it" reads as a
                 // direction, and the cards it means are *below* this sentence on the screen.
-                return "Reaching a Mac on another network runs on the relay, which is metered. Free includes \(RelayPlan.free.allowanceSpelling) a day, Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
+                return "Reaching a Mac on another network runs on the relay, which is metered. Free includes \(RelayPlan.free.allowanceSpelling) a day. Any paid plan removes the limit."
             case .firstSession:
                 // Opened by the app, so it opens by naming the moment. Without that first clause
                 // this is a purchase screen that has appeared out of nowhere a second after the
@@ -142,31 +139,26 @@ struct PaywallView: View {
                 let moment = "That was your first session. Relay is the part of Peering that reaches your Mac when this iPhone is not on the same network."
                 switch plan {
                 case .free:
-                    return "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Relay raises that to \(RelayPlan.relay.allowanceSpelling), and the plans above it remove the limit."
+                    return "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Any paid plan removes the limit."
                 case .relay:
                     // Somebody who subscribed on the last page of the introduction, before they had
                     // ever connected. Selling them the relay again would be the app having forgotten
                     // they paid, so this says what they already have.
-                    return "\(moment) You are already subscribed, so today's \(plan.allowanceSpelling) of it is what carried this one."
+                    return "\(moment) You are already subscribed, so there was no meter on this one."
                 case .plus, .pro:
                     // Unreachable for the same reason as the case below it, and said truly rather
                     // than left blank.
                     return "\(moment) Your plan already includes unlimited relay, so there is nothing here to buy."
                 }
             case .runningLow(let remaining):
-                // Plan-aware for the reason the exhausted case is: telling a Relay subscriber that
-                // Relay raises the allowance to the allowance they already have is the app reading
-                // its own copy back without having checked who is looking at it.
                 let left = RelayTime.label(remaining)
                 switch plan {
                 case .free:
-                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Relay raises it to \(RelayPlan.relay.allowanceSpelling) a day."
-                case .relay:
-                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. The plans above remove the limit."
-                case .plus, .pro:
-                    // Unreachable as the app is wired: an unmetered plan has no remaining figure to
-                    // be low, so ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for one and
-                    // nothing can construct this reason. True rather than blank.
+                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Any paid plan removes the limit."
+                case .relay, .plus, .pro:
+                    // Unreachable as the app is wired: paid plans are unlimited, so
+                    // ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for them and nothing
+                    // can construct this reason. True rather than blank.
                     return "\(left) left of today's relay time."
                 }
             }
@@ -479,44 +471,7 @@ struct PaywallView: View {
     /// three land within a couple of points of each other, and the smallest is the one that is true
     /// whichever card is selected.
     private var periodPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(BillingPeriod.allCases) { option in
-                Button {
-                    period = option
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(option == .monthly ? "Monthly" : "Yearly")
-                            .font(.subheadline.weight(.medium))
-
-                        if option == .yearly, let saving = store.smallestYearlySaving {
-                            Text("SAVE \(saving)%")
-                                .font(.system(size: 9, weight: .bold))
-                                .tracking(0.6)
-                                .foregroundStyle(ColorPalette.accent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                        }
-                    }
-                    .foregroundStyle(period == option ? ColorPalette.ink : ColorPalette.ink.opacity(0.55))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background {
-                        // Always there and only its opacity moving, for the reason the card's ring
-                        // is: a control that changes size when it is picked moves what is under the
-                        // finger that picked it.
-                        Capsule()
-                            .fill(ColorPalette.accent.opacity(period == option ? 0.22 : 0))
-                    }
-                    .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(period == option ? [.isSelected] : [])
-            }
-        }
-        .padding(3)
-        .background(ColorPalette.ink.opacity(0.05), in: Capsule())
-        .animation(Motion.tap, value: period)
+        BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
     }
 
     /// The one button that buys, pointed at whichever card is selected.
@@ -607,47 +562,60 @@ struct PaywallView: View {
         }
     }
 
+    /// Everything under the cards: the two ways out that are not buying, and the fine print.
+    ///
+    /// **Two blocks with a gap, rather than six centred lines at one spacing.** Everything here
+    /// used to be ten points apart — two buttons, then two links, then three short paragraphs and a
+    /// sentence — and equal spacing is what made it read as a wall: nothing in it said which line
+    /// was something to press and which was something the App Store requires the screen to say.
+    /// The actions are now one group, the legal text another, and the space between the groups is
+    /// the largest gap below the cards, so the eye can tell where the offer ends.
+    ///
+    /// The order inside the second block is the order a reader wants it: what they are agreeing to,
+    /// then where the two documents are, then the one reassuring sentence.
     private var footer: some View {
-        VStack(spacing: 10) {
-            // The whole inventory, one tap away.
-            //
-            // A paywall is a comparison, and a comparison is only as honest as what it leaves out:
-            // three cards can each carry a handful of lines, and the screen's job is to be
-            // decidable, not to be complete. This is where complete lives — so the case for the
-            // subscription is not made by omission.
-            Button {
-                showsEverythingIncluded = true
-            } label: {
-                HStack(spacing: 6) {
-                    Text("See everything Peering does")
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .font(.footnote.weight(.medium))
-                .foregroundStyle(ColorPalette.ink)
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                Task {
-                    if await store.restore() {
-                        restoreNote = nil
-                        justBought = store.activeTier
-                    } else if store.purchaseError == nil {
-                        // Nothing found and nothing thrown, which used to be silence: the button
-                        // was tapped, something may or may not have happened, and the screen said
-                        // nothing either way.
-                        restoreNote = "No purchases to restore on this Apple Account."
+        VStack(spacing: 22) {
+            VStack(spacing: 12) {
+                // The whole inventory, one tap away.
+                //
+                // A paywall is a comparison, and a comparison is only as honest as what it leaves
+                // out: three cards can each carry a handful of lines, and the screen's job is to be
+                // decidable, not to be complete. This is where complete lives, so the case for the
+                // subscription is not made by omission.
+                Button {
+                    showsEverythingIncluded = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("See everything Peering does")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
                     }
-                }
-            } label: {
-                Text("Restore purchases")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(ColorPalette.ink)
                     .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    Task {
+                        if await store.restore() {
+                            restoreNote = nil
+                            justBought = store.activeTier
+                        } else if store.purchaseError == nil {
+                            // Nothing found and nothing thrown, which used to be silence: the
+                            // button was tapped, something may or may not have happened, and the
+                            // screen said nothing either way.
+                            restoreNote = "No purchases to restore on this Apple Account."
+                        }
+                    }
+                } label: {
+                    Text("Restore purchases")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             // **Where the error lives now.** It used to be rendered under the buy button, which
             // only exists once products have loaded, so in the "Prices could not be loaded"
@@ -661,37 +629,36 @@ struct PaywallView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            // The two links a screen selling an auto-renewable subscription is required to carry,
-            // and the reason there is a site at all: the pages are served by the relay, out of
-            // `Relay/site`, and both are plain HTML with no script for the reviewer whose browser
-            // runs none.
-            HStack(spacing: 18) {
-                Link("Privacy Policy", destination: Legal.privacy)
-                Link("Terms of Use", destination: Legal.terms)
+            VStack(spacing: 9) {
+                // The renewal terms, in the smallest type on the screen and the only place they are
+                // said. A subscription screen is required to state that it renews and how to stop
+                // it, and beyond the requirement it is the one sentence here that answers the
+                // question somebody about to pay is actually asking.
+                //
+                // Every period is named because every tier is now sold at both, and the sentence
+                // has to be true whichever card and whichever switch position the user is looking
+                // at. "The plan you chose" rather than a list, because the list is the switch's job
+                // and a sentence that enumerated it would go stale the day a period is added.
+                Text("\(period == .monthly ? "This subscription renews every month" : "This subscription renews every year") until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // The two links a screen selling an auto-renewable subscription is required to
+                // carry, and the reason there is a site at all: the pages are served by the relay,
+                // out of `Relay/site`, and both are plain HTML with no script for the reviewer
+                // whose browser runs none.
+                HStack(spacing: 18) {
+                    Link("Privacy Policy", destination: Legal.privacy)
+                    Link("Terms of Use", destination: Legal.terms)
+                }
+                .padding(.top, 1)
+
+                Text("Relay carries your encrypted session. It cannot read what it forwards.")
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .font(.caption2)
             .foregroundStyle(.tertiary)
-
-            // The renewal terms, in the smallest type on the screen and the only place they are
-            // said. A subscription screen is required to state that it renews and how to stop it,
-            // and beyond the requirement it is the one sentence here that answers the question
-            // somebody about to pay is actually asking.
-            //
-            // Every period is named because every tier is now sold at both, and the sentence has to
-            // be true whichever card and whichever switch position the user is looking at. "The
-            // plan you chose" rather than a list, because the list is the switch's job and a
-            // sentence that enumerated it would go stale the day a period is added.
-            Text("\(period == .monthly ? "This subscription renews every month" : "This subscription renews every year") until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Relay carries your encrypted session. It cannot read what it forwards.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -802,10 +769,8 @@ struct AllowanceSpentView: View {
     private var title: String {
         switch plan {
         case .free: return "Your free relay time is used up"
-        case .relay: return "Your relay time is used up"
-        case .plus, .pro:
-            // Unreachable as the app is wired: an unmetered plan is never cut for quota, and
-            // ``SessionModel/apply(_:)-swift.enum.case`` writes a note rather than this for one.
+        case .relay, .plus, .pro:
+            // Unreachable as the app is wired: paid plans are unlimited and never cut for quota.
             // True rather than blank, like the paywall's own unreachable branches.
             return "The relay stopped the session"
         }
@@ -822,9 +787,7 @@ struct AllowanceSpentView: View {
         switch plan {
         case .free:
             return "That session went over the relay, and free's \(plan.allowanceSpelling) a day are spent. Another relayed session is refused until the allowance comes back. \(stillFree)"
-        case .relay:
-            return "That session went over the relay, and Relay's \(plan.allowanceSpelling) a day are spent. Relay Plus and Pro remove the limit. \(stillFree)"
-        case .plus, .pro:
+        case .relay, .plus, .pro:
             return "Your plan has no daily limit, so the relay counting this one means it read the device as free. Try again, and tell us if it keeps happening. \(stillFree)"
         }
     }
@@ -864,48 +827,56 @@ private struct PlanCard: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(alignment: .leading, spacing: 9) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
+                // **Above the name, which is where the site puts it and what it is worth.** Beside
+                // the name the badge was a sibling of it competing for the same line, and on the
+                // longest name on the ladder — Relay Plus — it took the width the name needed.
+                // Above it, the recommendation is read before the thing it recommends, and the
+                // three names line up down the page whatever each of them is called.
+                if tier.isRecommended {
+                    Text("Best value")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(ColorPalette.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(ColorPalette.accent.opacity(0.18), in: Capsule())
+                }
+
+                // The name and the price, stacked and in the display face, which is the site's
+                // card in one column. The price used to be a `.subheadline` on the trailing edge
+                // of the name's line, which made the two compete for the width and left the number
+                // — the reason anybody is on this screen — the smallest thing in the header. Set
+                // below the name at display size it is the anchor of the card, and the name above
+                // it is what the anchor belongs to.
+                VStack(alignment: .leading, spacing: 1) {
                     Text(tier.name)
-                        .font(.headline.weight(.semibold))
+                        .font(DisplayFont.display(21))
+                        .tracking(-0.5)
                         .foregroundStyle(ColorPalette.ink)
 
-                    if tier.isRecommended {
-                        Text("BEST VALUE")
-                            .font(.system(size: 9, weight: .bold))
-                            .tracking(0.7)
+                    // Three dots rather than a dash for a price the store has not answered with. A
+                    // dash in a price column reads as a minus sign, and this is the one place on
+                    // the screen where a mark that could be arithmetic is worth avoiding.
+                    Text(price ?? "···")
+                        .font(DisplayFont.display(26))
+                        .tracking(-0.8)
+                        .foregroundStyle(ColorPalette.ink)
+
+                    if let note {
+                        Text(note)
+                            .font(.caption2.weight(.medium))
                             .foregroundStyle(ColorPalette.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                    }
-
-                    Spacer(minLength: 8)
-
-                    VStack(alignment: .trailing, spacing: 2) {
-                        // Three dots rather than a dash for a price the store has not answered
-                        // with. A dash in a price column reads as a minus sign, and this is the one
-                        // place on the screen where a mark that could be arithmetic is worth
-                        // avoiding.
-                        Text(price ?? "···")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(ColorPalette.ink)
-                            .multilineTextAlignment(.trailing)
-
-                        if let note {
-                            Text(note)
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(ColorPalette.accent)
-                        }
+                            .padding(.top, 2)
                     }
                 }
 
-                Text(tier.tagline)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(alignment: .leading, spacing: 5) {
+                // The tier's own tagline used to sit here, and it was the third place on the card
+                // saying the same thing: "three hours of relay a day, on every Mac you own" is the
+                // first two lines of the list below it, in fewer words and with a full stop. The
+                // site's columns carry no such sentence either, and the sentence itself is still
+                // what the confirmation screen says to somebody who has just bought.
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(tier.features, id: \.self) { feature in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "checkmark")
@@ -922,6 +893,9 @@ private struct PlanCard: View {
                 }
                 .padding(.top, 2)
             }
+            // Take the whole sheet width before drawing the surface. Expanding after
+            // `cardSurface()` would leave the visible card hugging its longest line of text.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface()
             .overlay {
                 // The ring is always there and only its opacity moves, so the card does not change
@@ -935,6 +909,69 @@ private struct PlanCard: View {
         }
         .buttonStyle(RailButtonStyle(scale: 0.985))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+// MARK: - Shared picker
+
+/// The monthly / yearly toggle, shared by the paywall and the onboarding plans page.
+///
+/// Extracted because both screens need the same control and two hand-written copies of it are two
+/// things to keep in step. The badge rides above the yearly half for the reason the paywall argues
+/// at length: a badge that changes its neighbour's width makes the two halves of a switch two
+/// different sizes. The `saving` parameter feeds the badge and the accessibility value; pass `nil`
+/// when the store has not yet answered with both periods.
+struct BillingPeriodPicker: View {
+    @Binding var period: BillingPeriod
+    /// Smallest saving across all yearly products, in whole percent. `nil` until the store answers.
+    var saving: Int?
+
+    private static let savingLift: CGFloat = 19
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(BillingPeriod.allCases) { option in
+                Button {
+                    period = option
+                } label: {
+                    Text(option == .monthly ? "Monthly" : "Yearly")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(period == option ? ColorPalette.ink : ColorPalette.ink.opacity(0.55))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background {
+                            Capsule()
+                                .fill(ColorPalette.accent.opacity(period == option ? 0.22 : 0))
+                        }
+                        .contentShape(Capsule())
+                        .overlay(alignment: .top) {
+                            if option == .yearly, let saving {
+                                Text("Save \(saving)%")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .tracking(0.4)
+                                    .foregroundStyle(ColorPalette.accent)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(ColorPalette.accent.opacity(0.18), in: Capsule())
+                                    .offset(y: -Self.savingLift)
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(period == option ? [.isSelected] : [])
+                .accessibilityValue(accessibilityValue(for: option))
+            }
+        }
+        .padding(3)
+        .background(ColorPalette.ink.opacity(0.05), in: Capsule())
+        .padding(.top, Self.savingLift)
+        .animation(Motion.tap, value: period)
+    }
+
+    private func accessibilityValue(for option: BillingPeriod) -> String {
+        guard option == .yearly, let saving else { return "" }
+        return "Save \(saving) percent"
     }
 }
 

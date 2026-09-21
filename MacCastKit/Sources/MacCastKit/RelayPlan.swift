@@ -17,11 +17,10 @@ import Foundation
 /// the free allowance, which is why the claim still decides anything at all.
 ///
 /// **The numbers are the relay's, repeated here.** `Relay/src/config.rs` holds the authority:
-/// fifteen minutes free and three hours on Relay, both per rolling 24-hour window, and no limit at
-/// all above that (`PEERINGD_FREE_MINUTES`, `PEERINGD_RELAY_MINUTES`). This mirrors them so the bar
-/// in the Sessions tab can be drawn without asking the server, and the copy in the app's paywall,
-/// its introduction and `Relay/site` states the same facts again. Edit one without the others and
-/// the bar lies about the allowance it is drawing.
+/// one hour free per rolling 24-hour window (`PEERINGD_FREE_MINUTES`), and no limit at all on any
+/// paid plan. This mirrors that so the bar in the Sessions tab can be drawn without asking the
+/// server, and the copy in the app's paywall, its introduction and `Relay/site` states the same
+/// facts again. Edit one without the others and the bar lies about the allowance it is drawing.
 public enum RelayPlan: String, CaseIterable, Sendable {
     case free
     case relay
@@ -36,9 +35,8 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     /// ``isUnlimited`` says which it is.
     public var allowanceSeconds: TimeInterval? {
         switch self {
-        case .free: return 15 * 60
-        case .relay: return 180 * 60
-        case .plus, .pro: return nil
+        case .free: return 60 * 60
+        case .relay, .plus, .pro: return nil
         }
     }
 
@@ -46,14 +44,13 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
     /// The allowance in the app's own words, for the copy that names it.
     ///
-    /// Here rather than typed into four screens: "three hours" written beside a number that says
-    /// 18,000 seconds is the drift this file exists to prevent, and a sentence assembled from this
+    /// Here rather than typed into four screens: "one hour" written beside a number that says
+    /// 7,200 seconds is the drift this file exists to prevent, and a sentence assembled from this
     /// cannot disagree with the bar.
     public var allowanceSpelling: String {
         switch self {
-        case .free: return "fifteen minutes"
-        case .relay: return "three hours"
-        case .plus, .pro: return "unlimited relay"
+        case .free: return "one hour"
+        case .relay, .plus, .pro: return "unlimited relay"
         }
     }
 

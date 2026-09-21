@@ -8,6 +8,8 @@ import SwiftUI
 /// from across a room, and "is a device attached" without "is this Mac available at all" leaves
 /// the most common state — hosting, nobody connected — looking like the least useful one.
 enum HostMenuBarState {
+    /// The app cannot host until its two required macOS permissions are granted.
+    case setupRequired
     /// A device is attached and the screen is going out.
     case streaming
     /// Hosting, with at least one device paired. Reachable the moment one asks.
@@ -20,6 +22,7 @@ enum HostMenuBarState {
     var symbol: String {
         switch self {
         case .streaming, .ready, .waiting: return "iphone"
+        case .setupRequired: return "exclamationmark.triangle"
         case .stopped: return "iphone.slash"
         }
     }
@@ -33,6 +36,7 @@ enum HostMenuBarState {
         case .streaming: return .systemGreen
         case .ready: return .systemBlue
         case .waiting: return .secondaryLabelColor
+        case .setupRequired: return .systemOrange
         case .stopped: return .systemRed
         }
     }
@@ -42,6 +46,7 @@ enum HostMenuBarState {
         case .streaming: return "A device is connected"
         case .ready: return "Hosting, with a paired device"
         case .waiting: return "Hosting, with no device paired"
+        case .setupRequired: return "Setup required"
         case .stopped: return "Not hosting"
         }
     }
@@ -94,7 +99,9 @@ struct HostMenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if model.connectedClients.isEmpty {
+        if !model.permissions.allRequiredGranted {
+            Text("Setup required")
+        } else if model.connectedClients.isEmpty {
             Text(model.status.isListening ? "Waiting for a device" : "Not hosting")
         } else {
             ForEach(model.connectedClients) { client in
@@ -104,11 +111,13 @@ struct HostMenuBarContent: View {
 
         Divider()
 
-        Button(model.status.isListening ? "Stop hosting" : "Start hosting") {
-            model.status.isListening ? model.stop() : model.start()
+        if model.permissions.allRequiredGranted {
+            Button(model.status.isListening ? "Stop hosting" : "Start hosting") {
+                model.status.isListening ? model.stop() : model.start()
+            }
         }
 
-        Button("Open Peering") {
+        Button(model.permissions.allRequiredGranted ? "Open Peering" : "Finish Setup…") {
             openWindow(id: MacCastHostApp.mainWindowID)
             // The window may open behind whatever has focus; a menu bar item that appears to do
             // nothing is worse than one that is missing.

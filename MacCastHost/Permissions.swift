@@ -31,22 +31,76 @@ import ScreenCaptureKit
 final class Permissions {
     private(set) var accessibilityGranted = false
     private(set) var screenRecordingGranted = false
+    private(set) var hasCompletedInitialCheck = false
+    private(set) var screenRecordingCheckInProgress = false
+
+    var allRequiredGranted: Bool {
+        hasCompletedInitialCheck && accessibilityGranted && screenRecordingGranted
+    }
+
+#if DEBUG
+    private var isForcingPermissionOnboarding: Bool {
+        ProcessInfo.processInfo.arguments.contains("-Peering.forcePermissionOnboarding")
+    }
+#endif
 
     init() {
+#if DEBUG
+        // A safe visual-test hook: it can only remove capabilities, never manufacture a grant.
+        // Launch with `-Peering.forcePermissionOnboarding` to inspect first-run setup on a Mac
+        // whose real TCC permissions are already configured.
+        if ProcessInfo.processInfo.arguments.contains("-Peering.forcePermissionOnboarding") {
+            hasCompletedInitialCheck = true
+            return
+        }
+#endif
         refresh()
     }
 
     func refresh() {
-        accessibilityGranted = AXIsProcessTrusted()
+#if DEBUG
+        if isForcingPermissionOnboarding {
+            accessibilityGranted = false
+            screenRecordingGranted = false
+            hasCompletedInitialCheck = true
+            return
+        }
+#endif
+        refreshAccessibility()
         // CGPreflightScreenCaptureAccess reflects the old CG TCC entry, not the
         // ScreenCaptureKit entry that macOS 15 tracks separately. Probe SCK directly.
         Task { @MainActor in await self.probeScreenCaptureKit() }
+    }
+
+    /// Accessibility changes take effect without a relaunch, so the onboarding screen can
+    /// notice the checkbox being switched on without repeatedly touching ScreenCaptureKit.
+    func refreshAccessibility() {
+#if DEBUG
+        if isForcingPermissionOnboarding {
+            accessibilityGranted = false
+            return
+        }
+#endif
+        accessibilityGranted = AXIsProcessTrusted()
     }
 
     /// Probes ScreenCaptureKit to get its real permission status and, on first run,
     /// register the app in System Settings > Privacy & Security > Screen Recording.
     @discardableResult
     func probeScreenCaptureKit() async -> Bool {
+#if DEBUG
+        if isForcingPermissionOnboarding {
+            screenRecordingGranted = false
+            hasCompletedInitialCheck = true
+            return false
+        }
+#endif
+        guard !screenRecordingCheckInProgress else { return screenRecordingGranted }
+        screenRecordingCheckInProgress = true
+        defer {
+            screenRecordingCheckInProgress = false
+            hasCompletedInitialCheck = true
+        }
         do {
             _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
             screenRecordingGranted = true

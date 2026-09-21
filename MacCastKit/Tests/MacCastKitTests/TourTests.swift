@@ -25,7 +25,7 @@ final class TourTests: XCTestCase {
     /// tour, it is a tooltip with a flag that costs a screen its first-run state, and five steps is
     /// a person tapping Next through something they stopped reading at the third. A step whose
     /// control is missing is dropped at run time, so a tour *showing* two steps may be a tour with
-    /// three written — this is about what is written.
+    /// three written. This is about what is written.
     func testEveryTourIsTwoToFourSteps() {
         for tour in Tour.allCases {
             XCTAssertGreaterThanOrEqual(tour.steps.count, 2, "\(tour) should have at least two steps.")
@@ -96,12 +96,15 @@ final class TourTests: XCTestCase {
 
     /// A step whose control is not on screen is dropped, and the rest are kept in order.
     func testOnlyTheStepsThatAreOnScreenSurvive() {
-        // The shell tour's second step is the switch between the shell and the server's files,
-        // which the screen draws at the end of the tab strip; the Connect tour's steps are on a
-        // different screen entirely and none of them is reported here.
-        let run = TourRun(tour: .terminal, appearing: [.terminalLog, .terminalInput])
-        XCTAssertEqual(run?.steps.map(\.target), [.terminalLog, .terminalInput])
-        XCTAssertEqual(run?.count, 2)
+        // The deck is put away while the file browser is up, so the shell's screen can be showing
+        // its log and its command line with no keys between them. The Connect tour's steps are on
+        // a different screen entirely and none of them is reported here.
+        let run = TourRun(tour: .terminal, appearing: [.terminalInput])
+        XCTAssertEqual(run?.steps.map(\.target), [.terminalInput])
+        XCTAssertEqual(run?.count, 1)
+
+        let both = TourRun(tour: .terminal, appearing: [.terminalDeck, .terminalInput])
+        XCTAssertEqual(both?.steps.map(\.target), [.terminalDeck, .terminalInput])
     }
 
     /// A tour with none of its controls on screen does not start at all.
@@ -111,7 +114,7 @@ final class TourTests: XCTestCase {
     /// would have been finished the moment it started, which is a tour marked as read by somebody
     /// who never saw it.
     func testATourWithNothingOnScreenDoesNotStart() {
-        XCTAssertNil(TourRun(tour: .servers, appearing: [.terminalLog]))
+        XCTAssertNil(TourRun(tour: .servers, appearing: [.terminalInput]))
         XCTAssertNil(TourRun(tour: .screen, appearing: []))
     }
 
@@ -120,13 +123,13 @@ final class TourTests: XCTestCase {
     /// The end is a state the view needs: it is what tells it the tour has been read, which is what
     /// writes the flag. A run that could not reach it would leave a tour owed forever.
     func testAdvancingPastTheLastStepFinishesTheRun() {
-        var run = TourRun(tour: .shell, appearing: [.shellTabs, .shellMode])
+        var run = TourRun(tour: .shell, appearing: [.shellTabs, .shellOutput])
         XCTAssertEqual(run?.number, 1)
         XCTAssertEqual(run?.current?.target, .shellTabs)
 
         run?.advance()
         XCTAssertEqual(run?.number, 2)
-        XCTAssertEqual(run?.current?.target, .shellMode)
+        XCTAssertEqual(run?.current?.target, .shellOutput)
         XCTAssertEqual(run?.isFinished, false)
 
         run?.advance()
@@ -141,14 +144,10 @@ final class TourTests: XCTestCase {
     /// The case this exists for: the remote screen's dock, which is put away while the keyboard is
     /// up. A ring drawn around where the dock was a moment ago is a highlight over the picture.
     func testAStepWhoseControlLeavesIsSkipped() {
-        var run = TourRun(tour: .terminal, appearing: [.terminalLog, .terminalDeck, .terminalInput])
-        XCTAssertEqual(run?.current?.target, .terminalLog)
+        var run = TourRun(tour: .terminal, appearing: [.terminalDeck, .terminalInput])
+        XCTAssertEqual(run?.current?.target, .terminalDeck)
 
-        run?.skipMissing(appearing: [.terminalLog, .terminalInput])
-        XCTAssertEqual(run?.current?.target, .terminalLog, "The step on screen stays up.")
-
-        run?.advance()
-        run?.skipMissing(appearing: [.terminalLog, .terminalInput])
+        run?.skipMissing(appearing: [.terminalInput])
         XCTAssertEqual(
             run?.current?.target,
             .terminalInput,
@@ -161,15 +160,14 @@ final class TourTests: XCTestCase {
     /// A step that came back would be the tour losing its place: the person has already read the
     /// step before it, and a ring moving back up the screen reads as the tour starting again.
     func testSkippingMissingStepsOnlyEverMovesForward() {
-        var run = TourRun(tour: .terminal, appearing: [.terminalLog, .terminalDeck, .terminalInput])
+        var run = TourRun(tour: .shell, appearing: [.shellTabs, .shellOutput])
         run?.advance()
-        run?.advance()
-        XCTAssertEqual(run?.current?.target, .terminalInput)
+        XCTAssertEqual(run?.current?.target, .shellOutput)
 
         // Only an earlier step's control is on screen now, which is the state a screen is in for
         // the frame after the thing the tour was pointing at has gone. The run ends rather than
         // rewinding to the step it has already shown.
-        run?.skipMissing(appearing: [.terminalLog])
+        run?.skipMissing(appearing: [.shellTabs])
         XCTAssertNil(run?.current)
         XCTAssertEqual(run?.isFinished, true)
     }

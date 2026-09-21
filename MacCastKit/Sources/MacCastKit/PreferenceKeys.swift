@@ -110,7 +110,7 @@ public enum PreferenceKeys {
     // "have I seen the tips for this screen" a question about a set that has to be kept in step
     // with the screens themselves, and the first new screen would be the one that was forgotten.
     //
-    // Written by both exits of a tour — finishing it and skipping it — for the reason
+    // Written by both exits of a tour (finishing it and skipping it) for the reason
     // ``hasSeenWelcome`` records: "I have read this" and "I do not want this" are the same
     // instruction, and a flag written only by the last step would come back for everybody who
     // pressed Skip on the first one.

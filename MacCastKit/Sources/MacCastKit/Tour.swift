@@ -25,9 +25,8 @@ public enum TourTarget: String, CaseIterable, Sendable {
     case serversAdd
     // A shell on a server.
     case shellTabs
-    case shellMode
+    case shellOutput
     // The terminal, on a server and on a Mac alike.
-    case terminalLog
     case terminalDeck
     case terminalInput
     // The remote screen.
@@ -68,7 +67,7 @@ public struct TourStep: Identifiable, Equatable, Sendable {
 /// feature rests on. A tour is a sentence about a control the person is looking at; the second
 /// screen of a five-screen flow is a screen they have not reached, and its controls are behind a
 /// tap they have not made. So a tour is owed by a screen, is started when that screen is first
-/// reached, and is remembered per screen by a flag of its own — see ``storageKey``.
+/// reached, and is remembered per screen by a flag of its own. See ``storageKey``.
 public enum Tour: String, CaseIterable, Identifiable, Sendable {
     /// The Connect tab: what is on this network, and what has been paired with before.
     case connect
@@ -178,24 +177,29 @@ public enum Tour: String, CaseIterable, Identifiable, Sendable {
             ]
         case .shell:
             [
+                // One step for the whole row, including the switch at its end, because the switch
+                // cannot be pointed at on its own: it is the strip's own accessory, and an anchor
+                // written inside the closure that builds it never reaches the tour at all: the
+                // step was dropped as silently as if the control were off screen, with the control
+                // drawn in front of it. The row lights up with the switch inside the light, and the
+                // sentence names both halves. See ``TabStrip``.
                 TourStep(
                     target: .shellTabs,
                     title: "Your shells",
-                    detail: "Each shell you open gets a tab. The dot is its state, and the cross on the tab ends it."
+                    detail: "Each shell you open gets a tab, and the switch at the end of this row shows the server's own folders. The dot is the shell's state, and the cross on the tab ends it."
                 ),
+                // The output is the *connection's* half of this screen rather than the terminal's:
+                // it is what arrived, and the row of keys and the line that types are what to do
+                // about it. Splitting them that way is also what keeps both tours on this screen at
+                // two steps, which is the length a coach mark survives being read at.
                 TourStep(
-                    target: .shellMode,
-                    title: "Files as well",
-                    detail: "Switches between the shell and the server's own folders. The shell keeps running either way."
+                    target: .shellOutput,
+                    title: "The shell",
+                    detail: "Everything the server prints. Tap it to bring the keyboard back, and scroll up to read what has gone by."
                 ),
             ]
         case .terminal:
             [
-                TourStep(
-                    target: .terminalLog,
-                    title: "The shell",
-                    detail: "Everything the server prints. Tap it to bring the keyboard back, and scroll up to read what has gone by."
-                ),
                 TourStep(
                     target: .terminalDeck,
                     title: "Keys and commands",
@@ -308,7 +312,7 @@ public struct TourRun: Equatable, Sendable {
 /// **A reported rectangle outlives the place it was reported from in one direction only.**
 /// A view that is removed stops reporting, which is what makes an absent control an absent target.
 /// A view that is still there but *scrolled off* the screen carries on reporting, at coordinates
-/// that are perfectly valid and nowhere near the display — so a tour anchored to it would dim the
+/// that are perfectly valid and nowhere near the display, so a tour anchored to it would dim the
 /// app and draw a ring around a point off the edge of the screen. This is the second half of the
 /// rule that a step is skipped rather than drawn over nothing.
 ///

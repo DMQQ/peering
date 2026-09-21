@@ -54,14 +54,9 @@ struct OnboardingView: View {
     /// baseline is a row of its own now, and the row it opens on.
     @State private var chosen: StoreManager.Tier?
 
-    /// How often this page offers to bill, which it does not ask about.
-    ///
-    /// The yearly, and it is not a silent default: the price on every row and on the button says
-    /// "/ year", and the App Store's own sheet states the period and the amount again before
-    /// anything is charged. The tour is five swipes long and is trying to get out of the way, so
-    /// the period switch lives on the paywall, which is the screen whose whole job is the
-    /// comparison.
-    private static let onboardingPeriod = BillingPeriod.yearly
+    /// How often this page offers to bill. Opens on monthly so the lower number is the first one
+    /// read; the yearly is one tap away and the switch shows what it saves.
+    @State private var period: BillingPeriod = .monthly
 
     /// What the free row says, built from the number the relay actually meters.
     ///
@@ -521,47 +516,36 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 24)
         } else {
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 10),
-                    GridItem(.flexible(), spacing: 10)
-                ],
-                spacing: 10
-            ) {
-                // Free first, because it is the floor the other three are measured from rather than
-                // a fourth thing on offer. Without it the page listed three products and left the
-                // reader to work out what they were an upgrade *from*, which is the sentence the
-                // rows above used to try to say in prose.
-                PlanChoice(
-                    name: "Free",
-                    line: Self.freeLine,
-                    price: nil,
-                    recommended: false,
-                    selected: chosen == nil,
-                    select: { chosen = nil }
-                )
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 10) {
+                    BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
 
-                ForEach(StoreManager.Tier.allCases) { tier in
+                    // Free first, because it is the floor the other three are measured from rather
+                    // than a fourth thing on offer.
                     PlanChoice(
-                        name: tier.name,
-                        // One line each, opening with the relay allowance on all three so the rows
-                        // read as a ladder. A tagline that led with something else made the three
-                        // cards three unrelated claims, and the reader had to reconstruct the
-                        // order from them.
-                        line: tier.tagline,
-                        // The yearly, always, on this page: it is four cards in a swipe rather than
-                        // the comparison screen, and a period switch here would be a second
-                        // decision inside the one screen that is trying to be finished with. The
-                        // paywall is one tap away for anyone who wants the monthly, and both prices
-                        // are on the App Store's own sheet either way.
-                        price: store.priceLabel(for: tier, period: Self.onboardingPeriod),
-                        recommended: tier.isRecommended,
-                        selected: chosen == tier,
-                        select: { chosen = tier }
+                        name: "Free",
+                        line: Self.freeLine,
+                        price: "No charge",
+                        recommended: false,
+                        selected: chosen == nil,
+                        select: { chosen = nil }
                     )
+
+                    ForEach(StoreManager.Tier.allCases) { tier in
+                        PlanChoice(
+                            name: tier.name,
+                            line: tier.tagline,
+                            price: store.priceLabel(for: tier, period: period) ?? "···",
+                            recommended: tier.isRecommended,
+                            selected: chosen == tier,
+                            features: tier.features,
+                            select: { chosen = tier }
+                        )
+                    }
                 }
+                .animation(Motion.tap, value: chosen)
+                .animation(Motion.tap, value: period)
             }
-            .animation(Motion.tap, value: chosen)
         }
     }
 
@@ -649,7 +633,7 @@ struct OnboardingView: View {
         // other way in.
         guard let chosen else { return "Start using Peering" }
 
-        guard let price = store.compactPriceLabel(for: chosen, period: Self.onboardingPeriod)
+        guard let price = store.compactPriceLabel(for: chosen, period: period)
         else { return "Continue" }
 
         if store.isPurchasing { return "Contacting the App Store…" }
@@ -660,7 +644,7 @@ struct OnboardingView: View {
         // No tier chosen is the free plan, and the free plan is not a purchase: it is the button
         // that finishes the introduction.
         guard showsPlans, let chosen,
-              let product = store.product(for: chosen, period: Self.onboardingPeriod)
+              let product = store.product(for: chosen, period: period)
         else {
             advance()
             return
@@ -1174,39 +1158,37 @@ private struct PlanChoice: View {
     let name: String
     /// What the rung is, in one line, on the axis the ladder is built on.
     let line: String
-    /// `nil` for the free row, which has no price rather than a price of zero.
-    let price: String?
+    /// The displayed price, including the free row's explicit "No charge" label.
+    let price: String
     let recommended: Bool
     let selected: Bool
+    var features: [String] = []
     let select: () -> Void
 
     var body: some View {
         Button(action: select) {
             VStack(alignment: .leading, spacing: 8) {
-                // Reserve the same first line on every card. The recommendation sits above the
-                // plan name in the subscription sheet, so the two screens now read in the same
-                // order and every name stays aligned.
-                Text("Best value")
-                    .font(.system(size: 9, weight: .bold))
-                    .tracking(0.4)
-                    .foregroundStyle(ColorPalette.accent)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                    .opacity(recommended ? 1 : 0)
-                    .accessibilityHidden(!recommended)
+                if recommended {
+                    Text("Best value")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(ColorPalette.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(ColorPalette.accent.opacity(0.18), in: Capsule())
+                }
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
-                        .font(DisplayFont.display(20))
+                        .font(DisplayFont.display(21))
                         .tracking(-0.5)
                         .foregroundStyle(ColorPalette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
 
-                    Text(price ?? "No charge")
-                        .font(DisplayFont.display(19))
-                        .tracking(-0.5)
+                    Text(price)
+                        .font(DisplayFont.display(26))
+                        .tracking(-0.8)
                         .foregroundStyle(ColorPalette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.68)
@@ -1217,8 +1199,27 @@ private struct PlanChoice: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if !features.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(features, id: \.self) { feature in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(ColorPalette.ink.opacity(0.45))
+                                    .frame(width: 10, alignment: .leading)
+
+                                Text(feature)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                    .padding(.top, 2)
+                }
             }
-            .frame(maxWidth: .infinity, minHeight: 126, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .cardSurface()
             .overlay {
                 RoundedRectangle(cornerRadius: 24, style: .continuous)

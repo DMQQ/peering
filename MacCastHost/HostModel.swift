@@ -262,6 +262,7 @@ final class HostModel {
     /// Computed here rather than in the scene, for the reason the scene already gives: an
     /// `@Observable` read inside `MenuBarExtra`'s label is what invalidates it.
     var menuBarState: HostMenuBarState {
+        guard permissions.allRequiredGranted else { return .setupRequired }
         guard status.isListening else { return .stopped }
         if !connectedClients.isEmpty { return .streaming }
         return pairedClientIDs.isEmpty ? .waiting : .ready
@@ -440,17 +441,21 @@ final class HostModel {
 
     func start() {
         guard server == nil else { return }
+        // There is no useful partial host. Without Screen Recording the client receives no
+        // picture; without Accessibility its input is silently discarded. The root onboarding
+        // owns requesting both grants and calls back here only when they are actually present.
+        guard permissions.allRequiredGranted else {
+            status = .idle
+            return
+        }
         // Before anything opens a session of its own: whatever is in the store at this moment
         // was left by the last process. See ``adoptAbandonedSessions()``.
         adoptAbandonedSessions()
         status = .starting
-        permissions.refresh()
         if preventLidCloseSleep {
             acquireLidSleepAssertion()
             acquirePreferenceDisplaySleepAssertion()
         }
-        permissions.requestMissing()
-
         let device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
         deviceName = device.name
         deviceID = device.id

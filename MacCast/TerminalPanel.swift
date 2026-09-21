@@ -32,8 +32,9 @@ struct TerminalPanel: View {
 
     /// Whether the terminal's tips have been seen. See ``Tour``.
     ///
-    /// The same flag ``SSHTerminalScreen`` reads, and the same steps: the log, the deck and the
-    /// command row are one set of controls shown on two screens.
+    /// The same flag ``SSHTerminalScreen`` reads, and the same steps: the deck and the command row
+    /// are one set of controls shown on two screens. The log is not one of them — it belongs to
+    /// the shell tour, which is the other screen's.
     @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
 
     /// The log's type size, named once because it is used twice — the base font and the bold
@@ -119,8 +120,9 @@ struct TerminalPanel: View {
                     if isBrowsing {
                         browsing(terminal)
                     } else {
+                        // No anchor on the output here: the log belongs to the shell tour, which is
+                        // the SSH screen's, and this panel shows the terminal's two steps only.
                         output(terminal)
-                            .tourAnchor(.terminalLog)
                         // Above the deck rather than in it, because it is not a chip you press to
                         // send something — it is a list of what has already been sent, and it is
                         // shown only while the button in the input row says so.

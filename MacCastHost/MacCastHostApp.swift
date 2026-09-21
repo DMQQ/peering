@@ -17,6 +17,28 @@ import SwiftUI
 final class HostAppDelegate: NSObject, NSApplicationDelegate {
     let model = HostModel()
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        Task { @MainActor [model] in
+            // ScreenCaptureKit is the authoritative permission check and it is asynchronous.
+            // Wait for that answer before deciding whether setup must interrupt the user.
+            while !model.permissions.hasCompletedInitialCheck {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            guard !model.permissions.allRequiredGranted else { return }
+
+            // A menu-bar app remembers that its window was closed. That is useful after setup,
+            // but fatal during setup: the permissions are mandatory and a hidden explanation
+            // leaves only an amber menu icon. Reuse the restored window when SwiftUI made one;
+            // otherwise route a URL back into the WindowGroup so it creates one.
+            if let window = NSApp.windows.first(where: { $0.canBecomeMain }) {
+                window.makeKeyAndOrderFront(nil)
+            } else if let url = URL(string: "peering-host://setup") {
+                NSWorkspace.shared.open(url)
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         model.prepareForTermination()
     }
@@ -39,7 +61,7 @@ struct MacCastHostApp: App {
 
     var body: some Scene {
         WindowGroup(id: Self.mainWindowID) {
-            HostStatusView()
+            HostRootView()
                 .environment(model)
                 .environment(updater)
                 .onOpenURL { model.handleWidgetCommand($0) }
@@ -77,5 +99,50 @@ struct MacCastHostApp: App {
                     .disabled(!updater.canCheck)
             }
         }
+    }
+}
+
+/// Keeps setup in front of the product until macOS has granted both capabilities Peering needs.
+/// Permission state, rather than a one-time "onboarding seen" flag, owns this decision so a
+/// revoked grant cannot leave the host presenting controls that silently do nothing.
+private struct HostRootView: View {
+    @Environment(HostModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var ready: Bool { model.permissions.allRequiredGranted }
+
+    var body: some View {
+        Group {
+            if !model.permissions.hasCompletedInitialCheck {
+                PermissionCheckView()
+            } else if ready {
+                HostStatusView()
+                    .transition(.opacity)
+            } else {
+                PermissionOnboardingView()
+                    .transition(.opacity)
+            }
+        }
+        .animation(HostMotion.state, value: ready)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            model.permissions.refresh()
+        }
+        .onChange(of: ready) { wasReady, isReady in
+            if wasReady, !isReady { model.stop() }
+        }
+    }
+}
+
+private struct PermissionCheckView: View {
+    var body: some View {
+        ZStack {
+            HostPalette.backdrop.ignoresSafeArea()
+            HostPalette.stageLight.ignoresSafeArea()
+            ProgressView("Checking Mac access…")
+                .controlSize(.small)
+                .foregroundStyle(HostPalette.muted)
+        }
+        .frame(minWidth: 720, minHeight: 560)
     }
 }

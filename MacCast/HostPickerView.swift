@@ -1104,7 +1104,7 @@ private struct HomeTab: View {
     /// plan, and what costs is the second. Asked here rather than stored, so the two places that
     /// pair a Mac (this list and the row below it) answer the same way.
     private var canPairAnotherMac: Bool {
-        false // TEMPORARY: forced for a screenshot of the gated row
+        model.storeManager.access.includes(.extraMacs) || model.pairedHostIDs.isEmpty
     }
 
     private func hostRow(_ host: DiscoveredHost) -> some View {

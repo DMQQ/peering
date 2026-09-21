@@ -8,11 +8,11 @@
 //
 //  It exists because the whole of this feature is invisible to everything below it. What the tips
 //  are made of is a preference key and two rectangles, and every unit test of those passes on a
-//  build where the overlay is never mounted at all — which is exactly what happened: the tips ran
+//  build where the overlay is never mounted at all, which is exactly what happened: the tips ran
 //  on no screen for a while because the modifier was applied to the wrong view, and nothing in
 //  `MacCastKitTests` could tell. What is worth asserting is not that the app compiles. It is that
 //  a screen nobody has seen before shows a card, that the card's Next button moves it on, and that
-//  a screen that has been answered goes quiet — including after the app has been launched again,
+//  a screen that has been answered goes quiet, including after the app has been launched again,
 //  which is the half of "once" that a single launch cannot show.
 //
 //  **Run it against a wiped container**, for the reason the SSH flow test gives: the tips are
@@ -21,7 +21,7 @@
 //      xcrun simctl uninstall 825ECC2B-F0D1-439A-9F1B-AD942DFE178F pl.dmq.peering
 //
 //  The scheme's `TestAction` also has no `TestableReference` for `MacCastUITests`, so `xcodebuild
-//  test` refuses until one is added to `MacCast.xcscheme` — a temporary edit, and the same one the
+//  test` refuses until one is added to `MacCast.xcscheme`. A temporary edit, and the same one the
 //  other UI tests in this target document.
 //
 //  The welcome flow is skipped with a launch argument rather than by tapping through it. That is
@@ -37,21 +37,58 @@ final class TourFlowTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// The tip that is on screen, read by the counter on its card.
+    /// The tip that is on screen, found by a phrase from the step it is showing.
     ///
-    /// By the counter rather than by the sentence, because the step's words also appear on the
-    /// dimmed layer behind it — the whole screen is one accessibility element while a tip is up —
-    /// and a query matching both is a query that fails on a screen where only one of them exists.
+    /// **By the sentence and not by the counter on the card.** How many steps a tour has depends on
+    /// what the screen has room for: the Connect screen's last step is a card that is only on the
+    /// screen when the list above it has not pushed it past the fold, and the same build answers
+    /// "1 of 3" on one run and "1 of 4" on the next as the list finds a Mac and grows a row. The
+    /// counter is the right thing to *read* and the wrong thing to assert on.
+    ///
+    /// Matched inside `staticTexts` rather than anywhere in the app, because a step's words are
+    /// also the accessibility label of the dimmed layer behind it (the whole screen is one element
+    /// while a tip is up), and a query that matches both is a query that fails.
     @MainActor
-    private func tip(_ number: Int, of count: Int, in app: XCUIApplication) -> XCUIElement {
-        app.staticTexts["\(number) of \(count)"]
+    private func tip(_ phrase: String, in app: XCUIApplication) -> XCUIElement {
+        app.staticTexts
+            .containing(NSPredicate(format: "label CONTAINS %@", phrase))
+            .firstMatch
     }
+
+    /// The first step of the Connect screen's tour, by a phrase only that step's sentence has.
+    private let connectFirstStep = "This card has the Mac download"
+    private let connectSecondStep = "appears here while Peering is"
+    private let connectThirdStep = "type or scan the device ID"
+    private let serversFirstStep = "Machines you added by hand. Tap one"
+    private let serversSecondStep = "A hostname and a key or a password"
+    private let shellFirstStep = "Each shell you open gets a tab"
+    private let shellSecondStep = "Everything the server prints"
+    private let terminalFirstStep = "Control keys and the commands you save"
+    private let terminalSecondStep = "Type here and press Return"
 
     /// A tab on the system's bar, named through `tabBars` for the reason the FAQ test gives: the
     /// word "Servers" is also the leading item on the shell screen, which is a button too.
     @MainActor
     private func tab(_ name: String, in app: XCUIApplication) -> XCUIElement {
         app.tabBars.buttons[name]
+    }
+
+    /// Puts every tip back, through the row a user would press to see them again.
+    ///
+    /// **Both tests open with this, and it is not belt and braces.** The two of them share one
+    /// container and one set of five flags, and XCTest runs test methods in alphabetical order: the
+    /// shell walk answers the Servers screen's tips on its way past, so a walk that ran second
+    /// would find a screen that had already been taught. Starting from the row makes each test
+    /// independent of the other, and it exercises the row into the bargain.
+    @MainActor
+    private func resetTips(in app: XCUIApplication) {
+        tab("Settings", in: app).tap()
+        let row = app.buttons["Show tips again"]
+        for _ in 0..<10 where !row.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "the Settings row was never reached")
+        row.tap()
     }
 
     /// The Connect screen's tips, then the Servers screen's, then both again on purpose.
@@ -61,27 +98,41 @@ final class TourFlowTests: XCTestCase {
         app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
         app.launch()
 
+        resetTips(in: app)
+        tab("Connect", in: app).tap()
+
         // MARK: The Connect screen
 
-        // Three steps on a fresh install: the card that explains the first pairing, the list of
-        // what is on this network, and the way in for a Mac that is not on it. The fourth step,
-        // the trusted Macs, is below the fold on this phone and is dropped rather than drawn.
+        // Four steps written and three or four shown, depending on whether the trusted Macs are
+        // above the fold: the card that explains the first pairing, the list of what is on this
+        // network, the way in for a Mac that is not on it, and the Macs already paired.
         XCTAssertTrue(
-            tip(1, of: 3, in: app).waitForExistence(timeout: 10),
+            tip(connectFirstStep, in: app).waitForExistence(timeout: 10),
             "the Connect screen's tips never appeared:\n\(app.debugDescription)"
         )
         capture(app, "1-connect-first-step")
 
         app.buttons["Next"].tap()
-        XCTAssertTrue(tip(2, of: 3, in: app).waitForExistence(timeout: 4), "Next did not move on")
+        XCTAssertTrue(
+            tip(connectSecondStep, in: app).waitForExistence(timeout: 4),
+            "Next did not move on"
+        )
 
-        app.buttons["Next"].tap()
-        XCTAssertTrue(tip(3, of: 3, in: app).waitForExistence(timeout: 4), "Next did not move on")
+        // On to the end, whichever step that turns out to be: the button says `Next` until the last
+        // one and `Done` on it, so tapping while it says `Next` is the walk that does not care how
+        // many steps the screen had room for.
+        for _ in 0..<6 where app.buttons["Next"].exists {
+            app.buttons["Next"].tap()
+        }
+        XCTAssertTrue(
+            app.buttons["Done"].waitForExistence(timeout: 4),
+            "the Connect screen's tips never reached a last step"
+        )
         capture(app, "2-connect-last-step")
 
         app.buttons["Done"].tap()
         XCTAssertTrue(
-            tip(3, of: 3, in: app).waitForNonExistence(timeout: 4),
+            app.buttons["Skip"].waitForNonExistence(timeout: 4),
             "the last step did not put the tips away"
         )
         capture(app, "3-connect-answered")
@@ -90,20 +141,23 @@ final class TourFlowTests: XCTestCase {
 
         tab("Servers", in: app).tap()
         XCTAssertTrue(
-            tip(1, of: 2, in: app).waitForExistence(timeout: 10),
+            tip(serversFirstStep, in: app).waitForExistence(timeout: 10),
             "the Servers screen's tips never appeared:\n\(app.debugDescription)"
         )
         capture(app, "4-servers-first-step")
 
         app.buttons["Next"].tap()
-        XCTAssertTrue(tip(2, of: 2, in: app).waitForExistence(timeout: 4), "Next did not move on")
+        XCTAssertTrue(
+            tip(serversSecondStep, in: app).waitForExistence(timeout: 4),
+            "Next did not move on"
+        )
         capture(app, "5-servers-last-step")
 
         // Skipped rather than finished, which is the exit that has to write the flag just as
         // firmly: it is the one somebody in the middle of something uses.
         app.buttons["Skip"].tap()
         XCTAssertTrue(
-            tip(2, of: 2, in: app).waitForNonExistence(timeout: 4),
+            tip(serversSecondStep, in: app).waitForNonExistence(timeout: 4),
             "Skip did not put the tips away"
         )
 
@@ -114,12 +168,12 @@ final class TourFlowTests: XCTestCase {
 
         tab("Servers", in: app).tap()
         XCTAssertFalse(
-            tip(1, of: 2, in: app).waitForExistence(timeout: 3),
+            tip(serversFirstStep, in: app).waitForExistence(timeout: 3),
             "the Servers screen's tips came back after a relaunch"
         )
         tab("Connect", in: app).tap()
         XCTAssertFalse(
-            tip(1, of: 3, in: app).waitForExistence(timeout: 3),
+            tip(connectFirstStep, in: app).waitForExistence(timeout: 3),
             "the Connect screen's tips came back after a relaunch"
         )
 
@@ -136,7 +190,7 @@ final class TourFlowTests: XCTestCase {
 
         tab("Connect", in: app).tap()
         XCTAssertTrue(
-            tip(1, of: 3, in: app).waitForExistence(timeout: 10),
+            tip(connectFirstStep, in: app).waitForExistence(timeout: 10),
             "the tips were not owed again after the Settings row was tapped"
         )
         capture(app, "7-connect-owed-again")
@@ -154,16 +208,7 @@ final class TourFlowTests: XCTestCase {
         app.launchArguments = ["-Peering.hasSeenWelcome", "1"]
         app.launch()
 
-        // Whatever the previous test left behind, this one starts owing every tip: the row is the
-        // same one a user presses to see them again, and using it here keeps the two tests
-        // independent of the order they run in.
-        tab("Settings", in: app).tap()
-        let row = app.buttons["Show tips again"]
-        for _ in 0..<10 where !row.exists {
-            app.swipeUp()
-        }
-        XCTAssertTrue(row.waitForExistence(timeout: 5), "the Settings row was never reached")
-        row.tap()
+        resetTips(in: app)
 
         // MARK: A server, by hand
 
@@ -172,10 +217,13 @@ final class TourFlowTests: XCTestCase {
         // The Servers tab owes its own tips now that the row above has been pressed, and a tip is
         // a dimmed screen with one control lit: "Add a server" is behind it and the tap would land
         // on the dim. Answered here, which is also the only way to reach the button underneath.
-        XCTAssertTrue(tip(1, of: 2, in: app).waitForExistence(timeout: 10),
+        XCTAssertTrue(tip(serversFirstStep, in: app).waitForExistence(timeout: 10),
                       "the Servers screen's tips never appeared")
         app.buttons["Skip"].tap()
-        XCTAssertTrue(tip(1, of: 2, in: app).waitForNonExistence(timeout: 4), "Skip did nothing")
+        XCTAssertTrue(
+            tip(serversFirstStep, in: app).waitForNonExistence(timeout: 4),
+            "Skip did nothing"
+        )
 
         app.buttons["Add a server"].tap()
 
@@ -213,35 +261,37 @@ final class TourFlowTests: XCTestCase {
         connect.tap()
 
         XCTAssertTrue(
-            tip(1, of: 2, in: app).waitForExistence(timeout: 15),
+            tip(shellFirstStep, in: app).waitForExistence(timeout: 15),
             "the shell screen's tips never appeared:\n\(app.debugDescription)"
         )
         capture(app, "8-shell-tabs")
 
         app.buttons["Next"].tap()
-        XCTAssertTrue(tip(2, of: 2, in: app).waitForExistence(timeout: 4), "Next did not move on")
-        capture(app, "9-shell-mode")
+        XCTAssertTrue(
+            tip(shellSecondStep, in: app).waitForExistence(timeout: 4),
+            "Next did not move on"
+        )
+        capture(app, "9-shell-output")
 
         // MARK: The terminal, which this screen owes as well
 
         app.buttons["Done"].tap()
         XCTAssertTrue(
-            tip(1, of: 3, in: app).waitForExistence(timeout: 6),
+            tip(terminalFirstStep, in: app).waitForExistence(timeout: 6),
             "the terminal's tips did not follow the shell's:\n\(app.debugDescription)"
         )
-        capture(app, "10-terminal-log")
+        capture(app, "10-terminal-deck")
 
         app.buttons["Next"].tap()
-        XCTAssertTrue(tip(2, of: 3, in: app).waitForExistence(timeout: 4), "Next did not move on")
-        capture(app, "11-terminal-deck")
-
-        app.buttons["Next"].tap()
-        XCTAssertTrue(tip(3, of: 3, in: app).waitForExistence(timeout: 4), "Next did not move on")
-        capture(app, "12-terminal-input")
+        XCTAssertTrue(
+            tip(terminalSecondStep, in: app).waitForExistence(timeout: 4),
+            "Next did not move on"
+        )
+        capture(app, "11-terminal-input")
 
         app.buttons["Done"].tap()
         XCTAssertTrue(
-            tip(3, of: 3, in: app).waitForNonExistence(timeout: 4),
+            tip(terminalSecondStep, in: app).waitForNonExistence(timeout: 4),
             "the last step did not put the tips away"
         )
     }

@@ -73,7 +73,6 @@ extension View {
                     let rect = proxy[anchor]
                     return TourVisibility.isOnScreen(rect, in: bounds) ? rect : nil
                 }
-                let _ = NSLog("TOURDEBUG overlay due=%@ rects=%@ bounds=%@", String(describing: dueTours), String(describing: rects.keys.map(\.rawValue)), String(describing: bounds))
                 TourLayer(dueTours: dueTours, bounds: bounds, rects: rects, onDismiss: onDismiss)
             }
         }
@@ -250,7 +249,7 @@ private struct TourCoach: View {
 
             RoundedRectangle(cornerRadius: Self.ringRadius, style: .continuous)
                 // White rather than the accent, and the accent is what it was. In this app blue
-                // means one thing — "this one is on" — and a ring around a control is not saying
+                // means one thing ("this one is on"), and a ring around a control is not saying
                 // the control is on, it is saying *look here*: the same sentence the card is
                 // making, in the same white the card is drawn in. A blue ring also reads as part
                 // of the app underneath, which is a control that has been selected rather than
@@ -262,6 +261,11 @@ private struct TourCoach: View {
                 .allowsHitTesting(false)
 
             card(placement: placement)
+                // Snap internal layout when the step changes so the button does not animate
+                // on two simultaneous springs: one for the card's position and a second for
+                // its VStack layout reflowing. The position spring (from the parent ZStack's
+                // implicit animation) is applied outside this scope and still runs.
+                .animation(nil, value: step.id)
                 .position(x: placement.frame.midX, y: placement.frame.midY)
         }
     }
@@ -325,7 +329,7 @@ private struct TourCoach: View {
                 Button("Skip", action: onSkip)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .buttonStyle(RailButtonStyle(scale: 0.98))
+                    .buttonStyle(.plain)
 
                 Spacer(minLength: 0)
 
@@ -337,7 +341,7 @@ private struct TourCoach: View {
                         .background(ColorPalette.ink, in: Capsule())
                         .foregroundStyle(ColorPalette.onInk)
                 }
-                .buttonStyle(RailButtonStyle(scale: 0.96))
+                .buttonStyle(.plain)
             }
             .padding(.top, 2)
         }
@@ -404,11 +408,11 @@ private nonisolated struct SpotlightShape: Shape {
 ///
 /// **One outline rather than a card with a triangle behind it.** Two shapes stacked would have two
 /// edges between them, and the card's own hairline would run straight across the base of its caret
-/// — a line through the one mark that says which control the sentence is about. Drawn as a single
+/// a line through the one mark that says which control the sentence is about. Drawn as a single
 /// closed path there is no edge to stumble over, and the stroke follows the caret out and back.
 ///
 /// `InsettableShape` because that is what `strokeBorder` needs, and `strokeBorder` is what keeps
-/// the hairline inside the shape instead of straddling it — a border centred on the edge is half a
+/// the hairline inside the shape instead of straddling it: a border centred on the edge is half a
 /// point wider than the card on every side, which is visible on a shape this dark.
 private nonisolated struct TourCalloutShape: InsettableShape {
     let edge: TourCallout.Edge

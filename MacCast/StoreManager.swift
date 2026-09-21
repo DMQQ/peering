@@ -245,10 +245,9 @@ final class StoreManager {
     /// What there is to buy, in the order it is shown.
     ///
     /// **Three rungs, and each one is a different bargain rather than more of the last.** Relay is
-    /// the remote working set: three hours a day, every Mac you own, sound, Picture in Picture,
-    /// wake on LAN, and files moving both ways. Relay Plus is the clock going away. Pro is the
-    /// toolbox and the funder, which is the rung somebody buys to have the tool rather than to run
-    /// out of it.
+    /// the remote working set: unlimited relay, every Mac you own, sound, Picture in Picture, wake
+    /// on LAN, and files moving both ways. Relay Plus adds the shell tools. Pro is the toolbox and
+    /// the funder, which is the rung somebody buys to have the tool rather than to run out of it.
     ///
     /// **They used to be a decoy ladder and that was the problem.** The middle rung cost more over
     /// a year than the top one, because the middle was priced monthly and the top yearly, so the
@@ -344,14 +343,9 @@ final class StoreManager {
 
         /// The one line under the name, which is what the tier is *for*.
         ///
-        /// The allowance is read off ``RelayPlan`` rather than typed in, so what a card promises and
-        /// what the relay meters are the same number. That matters most for the middle rung: it is
-        /// the one a subscriber compares against free, and "three hours" appearing on the card
-        /// while the meter beside it counts the free allowance is how a sale turns into a refund.
         var tagline: String {
             switch self {
-            case .relay:
-                return "\(plan.allowanceSpelling.capitalized) of relay a day, on every Mac you own."
+            case .relay: return "Unlimited relay, on every Mac you own."
             case .relayPlus: return "No limit on relay, and the tools that come with it."
             case .pro: return "No limit on relay, and the whole toolbox."
             }
@@ -372,14 +366,28 @@ final class StoreManager {
         /// keeps rather than the server, which is the trust level the whole map is kept at.
         static let macCount = "Every Mac"
 
+        /// What this rung actually adds, one line per row of the site's pricing table.
+        ///
+        /// **Three lists that have to add up between them.** The site prints this ladder as a
+        /// table, and a card that leaves out the thing its rung is *for* is a card that sells the
+        /// rung below it. Pro was doing exactly that: its list named macros and the bitrate, and
+        /// not ``PlanCapability/concurrentSessions``, which is the only row on the ladder that
+        /// costs the service money every time it is used and the only reason to be on the top rung
+        /// rather than the middle one. The top tier read as "Relay Plus with macros" while the
+        /// table beside it said otherwise.
+        ///
+        /// The first line of each paid rung above the entry one is the rung below it, so the lists
+        /// nest rather than repeat, and `features` stays a description of what is *added* at the
+        /// price rather than a second copy of everything the plan includes.
         var features: [String] {
             switch self {
             case .relay:
                 return [
-                    "\(plan.allowanceSpelling.capitalized) of relay every day",
-                    "Every Mac you own instead of one",
+                    "Unlimited relay every day",
+                    "Every Mac you own, instead of one",
                     "Sound from the Mac, and Picture in Picture",
-                    "Moving files between the phone and the Mac",
+                    "Files that move both ways",
+                    "The clipboard history",
                     "Everything free has, and all of it stays free",
                 ]
             case .relayPlus:
@@ -391,6 +399,7 @@ final class StoreManager {
             case .pro:
                 return [
                     "Everything in Relay Plus",
+                    "Several Macs open at the same time",
                     "Macros, snippets and quick commands",
                     "The sharpest picture over the relay",
                     "Every feature added while you are subscribed",

@@ -34,6 +34,16 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C2C039CD30574AB600ABF943"
+               BuildableName = "MacCastTests.xctest"
+               BlueprintName = "MacCastTests"
+               ReferencedContainer = "container:MacCast.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "C2C039D730574AB600ABF943"
                BuildableName = "MacCastUITests.xctest"
                BlueprintName = "MacCastUITests"
