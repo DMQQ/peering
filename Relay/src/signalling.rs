@@ -847,6 +847,7 @@ mod tests {
             max_connections: usize::MAX,
             handshake_timeout: Duration::from_secs(10),
             idle_timeout: Duration::from_secs(90),
+            apns: None,
         }
     }
 
