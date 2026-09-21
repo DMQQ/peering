@@ -465,7 +465,7 @@ the app's own shape rather than beside a different one.
 | Bezel | `10 / 290` of screen width (**3.45%**) |
 | Body corner | `0.148` of body width |
 | Screen corner | `0.128` of screen width |
-| Body fill | `#202023 → #101012`, top to bottom |
+| Body fill | pure black (`#000`), the same as the Mac's lid |
 | Rim | `white 30% → 8%`, 1pt, drawn *inside* the body |
 | Shadow | `black @ 55%`, radius 22, y 10 |
 | Island | `30%` of screen width, `3.8%` of screen height, top padding `1.9%`, pure black |
@@ -476,11 +476,16 @@ can spare, and the same fixed 10 points was **4.8%** of the picture there agains
 site draws. A fixed border in one place and a derived one in the other is two devices, and the fat one
 is the one nobody drew.
 
-The body is drawn as dark as a body and no darker. It was once white at 18% fading to 5%, which over
-a near-black backdrop is not a device but a bright band, and a bright band is what the eye measures
-when it decides how thick a frame is. An iPhone seen face on in a dark room is the opposite
-arrangement: a bezel barely distinguishable from the display it holds, and one machined highlight
-along the outside.
+The body is black, and it is the Mac's lid colour rather than a shade of its own. The bezel around an
+iPhone's display is the same black glass as the display, so face on the device is one black rectangle
+with a machined highlight around it, and the screen is a hole in that black rather than a picture in a
+frame. It was once white at 18% fading to 5%, which over a near-black backdrop is not a device but a
+bright band, and a bright band is what the eye measures when it decides how thick a frame is. Two
+near-black greys came next and were the right idea at half strength: a laptop lid has a bezel of its
+own colour and a phone's does not.
+
+The rim is what keeps a black device from being a hole in the page, on both machines, and it is the
+only thing describing their outline.
 
 The island is drawn by the frame rather than expected in every screenshot. A screenshot of this app
 already has one (its own is black on a black backdrop), and the two land in the same place.

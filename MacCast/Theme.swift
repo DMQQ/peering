@@ -371,94 +371,138 @@ struct IconTile: View {
     }
 }
 
-/// The wordmark, with a light travelling across it.
+/// The wordmark: the app's name, with a light travelling across it.
 ///
-/// Both screens that show the app's name — the introduction and the Connect header — show it with
-/// the same light crossing it, which is the point: it is the one piece of the app that is a *sign*
-/// rather than an interface, and a sign that behaves differently in two places is not one.
-///
-/// The one thing here that moves without being asked to, and it earns that by being the only thing
-/// on either screen that is *not* an interface. A light crossing a name is how a sign says it is
-/// lit; it says it without moving a letter, changing a colour, or making anyone wait, which is more
-/// than any of the alternatives manage — letters that rise in sequence trade legibility for a
-/// second, and a word that changes colour is asking to be looked at rather than read.
-///
-/// The name is painted at 88% rather than at full white, and that is not a shade of choice. Light
-/// crossing light is nothing: the sweep is invisible against a wordmark already at the maximum, so
-/// the effect and the brightness are the same decision.
+/// Both screens that show the name (the introduction and the Connect header) show it with the
+/// same light crossing it, which is the point: it is the one piece of the app that is a *sign*
+/// rather than an interface, and a sign that behaves differently in two places is not one. The
+/// light itself is ``Sheen``, which the tour's headings carry too.
 struct Wordmark: View {
     let size: CGFloat
     let tracking: CGFloat
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// When the light started, so the sweep begins on the frame the name does rather than
-    /// wherever in an absolute cycle the clock happened to be.
-    @State private var began = Date()
-
-    /// One crossing, and the pause after it.
-    private static let crossing: TimeInterval = 1.6
-    private static let cycle: TimeInterval = 4.2
-
-    private var label: some View {
+    var body: some View {
         Text("Peering")
             .modifier(AnimatableDisplay(size: size, tracking: tracking))
+            .sheen()
     }
+}
 
-    var body: some View {
-        label
-            // Not full white, and that is the effect's doing rather than the palette's: light
-            // crossing light is nothing, so a name already at the maximum leaves the sweep nowhere
-            // to go. At 78% the crossing reads as the light arriving and the name being left
-            // brighter for a moment, which is the whole of what a reflection off a wordmark is.
-            .foregroundStyle(ColorPalette.ink.opacity(0.78))
+/// The light that crosses a name, as something more than one name can carry.
+///
+/// It was the wordmark's own body, and it moved out the day the tour's headings were given the same
+/// treatment. A sweep that the second caller copies is two sweeps by the third, and a sign whose
+/// light moves differently from the tour's is two effects that were meant to be one.
+///
+/// It is the one thing in this file that moves without being asked to, and it earns that by being
+/// the only thing it is ever put on that is *not* an interface. A light crossing a name is how a
+/// sign says it is lit; it says it without moving a letter, changing a colour, or making anyone
+/// wait, which is more than any of the alternatives manage: letters that rise in sequence trade
+/// legibility for a second, and a word that changes colour is asking to be looked at rather than
+/// read.
+private struct Sheen: ViewModifier {
+    /// Whether the light is running, for a caller that keeps a screen alive without showing it. A
+    /// page style `TabView` builds the page you are on and its neighbours, so a heading that did
+    /// not ask would have three timelines running behind two pages nobody can see.
+    var active: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// What the name is painted at, and it is the effect's number rather than a shade of choice.
+    /// Light crossing light is nothing: a name already at the maximum leaves the sweep nowhere to
+    /// go. At 78% the crossing reads as the light arriving and the name being left brighter for a
+    /// moment, which is the whole of what a reflection off a wordmark is.
+    ///
+    /// Which is why this modifier paints as well as lights. The surface under the sweep is part of
+    /// the effect, and a caller that set its own colour would get a sweep it could not see.
+    static let paint: CGFloat = 0.78
+
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(ColorPalette.ink.opacity(Self.paint))
             .overlay {
-                if !reduceMotion {
-                    GeometryReader { geometry in
-                        let width = geometry.size.width
-                        let height = geometry.size.height
-                        // A timeline rather than a repeating animation, and it is not a preference.
-                        // This was `withAnimation(.linear(...).repeatForever)` kicked off from
-                        // `onAppear`, and it looked right for exactly as long as the header took to
-                        // fold: the name's own size changes at the end of the entrance, the
-                        // animation on top of it is cancelled by the re-layout that follows, and
-                        // because the view's identity survives the change `onAppear` never fires
-                        // again. What was left was a sweep that had run once, stopping off the side
-                        // of the name where it could not be seen — indistinguishable from an
-                        // effect that never worked. A timeline has no transaction to be cancelled
-                        // by and reads the clock directly.
-                        TimelineView(.periodic(from: .now, by: 1.0 / 20.0)) { context in
-                            band(width: width, height: height, elapsed: context.date.timeIntervalSince(began))
-                        }
-                        .mask { label }
-                    }
-                    .allowsHitTesting(false)
+                if active, !reduceMotion {
+                    Sweep { content }
                 }
             }
     }
 
-    /// The light itself: a soft band, travelling left to right and then out of sight.
-    private func band(width: CGFloat, height: CGFloat, elapsed: TimeInterval) -> some View {
-        // Travelling from well off one side to well off the other, so that the crossing is the
-        // first two fifths of a cycle that spends the rest of it beyond the last letter. The pause
-        // at either end is what keeps this a detail rather than a strobe: a sweep that restarts
-        // the moment it leaves is a loop, and a loop is a thing the eye starts waiting for.
-        let progress = min(max(elapsed.truncatingRemainder(dividingBy: Self.cycle) / Self.crossing, 0), 1)
-        return LinearGradient(
-            stops: [
-                .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.9), location: 0.5),
-                .init(color: .white.opacity(0), location: 1)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-        // A band rather than a hard line: a gradient a third of the name wide, brightest in the
-        // middle, is a reflection. The same thing at a tenth of the width is a scanning bar, which
-        // reads as the app doing something rather than as the light falling on it — and much
-        // wider than this and there is no edge to the light, only a name that gets brighter.
-        .frame(width: width * 0.34, height: height)
-        .offset(x: (progress * 3 - 1.5) * width)
-        .frame(width: width, height: height)
+    /// The light itself, drawn in a view of its own so that the clock starts when the light does.
+    ///
+    /// **Why it is not `@State` on the modifier.** The modifier's storage survives being told to
+    /// stop and start again, it is the same view throughout, so a heading whose page came back
+    /// would resume wherever in the cycle the clock happened to be: a band appearing in the middle
+    /// of the name and jumping to the edge a frame later. Inserted and removed with the overlay it
+    /// belongs to, this one starts on the frame it appears.
+    private struct Sweep<Mask: View>: View {
+        @ViewBuilder var mask: () -> Mask
+
+        /// When the light started, so the sweep begins on the frame the name does rather than
+        /// wherever in an absolute cycle the clock happened to be.
+        @State private var began = Date()
+
+        /// One crossing, and the pause after it.
+        private static var crossing: TimeInterval { 1.6 }
+        private static var cycle: TimeInterval { 4.2 }
+
+        var body: some View {
+            GeometryReader { geometry in
+                let width = geometry.size.width
+                let height = geometry.size.height
+                // A timeline rather than a repeating animation, and it is not a preference. This
+                // was `withAnimation(.linear(...).repeatForever)` kicked off from `onAppear`, and it
+                // looked right for exactly as long as the header took to fold: the name's own size
+                // changes at the end of the entrance, the animation on top of it is cancelled by the
+                // re-layout that follows, and because the view's identity survives the change
+                // `onAppear` never fires again. What was left was a sweep that had run once,
+                // stopping off the side of the name where it could not be seen, indistinguishable
+                // from an effect that never worked. A timeline has no transaction to be cancelled
+                // by and reads the clock directly.
+                TimelineView(.periodic(from: .now, by: 1.0 / 20.0)) { context in
+                    band(width: width, height: height, elapsed: context.date.timeIntervalSince(began))
+                }
+                .mask { mask() }
+            }
+            .allowsHitTesting(false)
+        }
+
+        /// The light itself: a soft band, travelling left to right and then out of sight.
+        private func band(width: CGFloat, height: CGFloat, elapsed: TimeInterval) -> some View {
+            // Travelling from well off one side to well off the other, so that the crossing is the
+            // first two fifths of a cycle that spends the rest of it beyond the last letter. The
+            // pause at either end is what keeps this a detail rather than a strobe: a sweep that
+            // restarts the moment it leaves is a loop, and a loop is a thing the eye starts waiting
+            // for.
+            let progress = min(max(elapsed.truncatingRemainder(dividingBy: Self.cycle) / Self.crossing, 0), 1)
+            return LinearGradient(
+                stops: [
+                    .init(color: .white.opacity(0), location: 0),
+                    .init(color: .white.opacity(0.9), location: 0.5),
+                    .init(color: .white.opacity(0), location: 1)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            // A band rather than a hard line: a gradient a third of the name wide, brightest in the
+            // middle, is a reflection. The same thing at a tenth of the width is a scanning bar,
+            // which reads as the app doing something rather than as the light falling on it, and
+            // much wider than this and there is no edge to the light, only a name that gets
+            // brighter.
+            .frame(width: width * 0.34, height: height)
+            .offset(x: (progress * 3 - 1.5) * width)
+            .frame(width: width, height: height)
+        }
+    }
+}
+
+extension View {
+    /// A light travelling across this name.
+    ///
+    /// For a name that is a *name*: the wordmark, a screen title, the headings of the tour. Not for
+    /// a label: the sweep is what the eye is given on a surface that has nothing else to say, and
+    /// a page where every line is doing it has no sign on it at all.
+    func sheen(active: Bool = true) -> some View {
+        modifier(Sheen(active: active))
     }
 }
 
