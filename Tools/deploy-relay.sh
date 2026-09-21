@@ -17,8 +17,9 @@
 #   Tools/deploy-relay.sh v0.1.6
 #   Tools/deploy-relay.sh v0.1.6 --yes      # skip the confirmation
 #
-# Environment overrides: PEERINGD_SSH (default below), PEERINGD_REPO, PEERINGD_REMOTE_BIN,
-# PEERINGD_REMOTE_SITE.
+# Environment overrides: PEERINGD_SSH (default below), PEERINGD_SSH_PORT, PEERINGD_REPO,
+# PEERINGD_REMOTE_BIN. The site travels by deploy-site.sh, which this calls at the end, so
+# PEERINGD_REMOTE_SITE and PEERINGD_PUBLIC are read there rather than here.
 
 set -euo pipefail
 
@@ -30,7 +31,6 @@ SSH_TARGET="${PEERINGD_SSH:-root@pro01.mikr.us}"
 SSH_ARGS=(-p "${PEERINGD_SSH_PORT:-10190}")
 SCP_ARGS=(-P "${PEERINGD_SSH_PORT:-10190}")
 REMOTE_BIN="${PEERINGD_REMOTE_BIN:-/usr/local/bin/peeringd}"
-REMOTE_SITE="${PEERINGD_REMOTE_SITE:-/srv/peering/site}"
 ASSET="peeringd-linux-x86_64"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -89,9 +89,11 @@ echo "    $FILE_TYPE"
 
 echo "==> uploading to $SSH_TARGET"
 scp -q "${SCP_ARGS[@]}" "$STAGING/peeringd" "$SSH_TARGET:/tmp/peeringd-new"
-# The site as well, because it is served by the relay and changing a line of the privacy policy
-# should not need a Rust build to reach the server.
-scp -q -r "${SCP_ARGS[@]}" "$REPO_DIR/Relay/site" "$SSH_TARGET:/tmp/peering-site-new"
+# The site does not travel with this script any more. It has its own path in deploy-site.sh, which
+# this calls once the relay is back. The reason is not tidiness: the site's assets have to be
+# stamped with a hash of their contents on the way out, and a second copy of that step here is a
+# second copy that can fall behind. It did, and a full relay deploy shipped a stylesheet no
+# browser would replace.
 # The self-check travels with the binary: it is part of what a deployment installs, not something
 # that was set up once by hand and then silently drifted.
 scp -q "${SCP_ARGS[@]}" \
@@ -124,13 +126,6 @@ if [ -f "$REMOTE_BIN" ]; then
 fi
 mv "$REMOTE_BIN.new" "$REMOTE_BIN"
 rm -f /tmp/peeringd-new
-
-mkdir -p "$REMOTE_SITE"
-rm -rf "$REMOTE_SITE.new"
-mv /tmp/peering-site-new "$REMOTE_SITE.new"
-# Names only, so a deploy never deletes something a person put there by hand.
-rsync -a --delete --exclude '.impeccable' "$REMOTE_SITE.new/" "$REMOTE_SITE/"
-rm -rf "$REMOTE_SITE.new"
 
 install -m 755 /tmp/peeringd-healthcheck.sh /usr/local/bin/peeringd-healthcheck.sh
 install -m 644 /tmp/peeringd-healthcheck.service /etc/systemd/system/peeringd-healthcheck.service
@@ -178,6 +173,12 @@ else
     exit 1
 fi
 REMOTE
+
+# After the relay is back, not before, so that a relay that fails to start leaves the site where it
+# was rather than half-deploying the pair. `--yes` because the question above has already been
+# asked and answered once, and this is the same deploy.
+echo "==> deploying the site"
+"$REPO_DIR/Tools/deploy-site.sh" --yes
 
 echo "==> verifying"
 # From the box first: that proves the process is listening, and it is the half this script controls.
