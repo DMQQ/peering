@@ -64,7 +64,7 @@ struct PairingPrompt: View {
 
                 Text(showsMismatch
                      ? "That code does not match. Check the Mac and try again."
-                     : "The code is checked on this iPhone and is never used as a reusable password.")
+                     : "The code is checked on this device and is never used as a reusable password.")
                     .font(.caption)
                     .foregroundStyle(showsMismatch ? ColorPalette.ink : .secondary)
                     .multilineTextAlignment(.center)
@@ -160,4 +160,3 @@ struct PairingPrompt: View {
     }
 
 }
-

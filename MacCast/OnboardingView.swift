@@ -20,6 +20,7 @@ struct OnboardingView: View {
     var onFinish: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(StoreManager.self) private var store
 
     @State private var index = 0
@@ -154,6 +155,20 @@ struct OnboardingView: View {
     ]
 
     var body: some View {
+        Group {
+            if horizontalSizeClass == .regular {
+                regularWidthBody
+            } else {
+                compactWidthBody
+            }
+        }
+        .onAppear(perform: revealContent)
+    }
+
+    /// The phone layout is intentionally kept as the original implementation. A narrow iPad
+    /// window therefore behaves like an iPhone instead of trying to squeeze a two-column layout
+    /// into Split View.
+    private var compactWidthBody: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
             light
@@ -187,7 +202,145 @@ struct OnboardingView: View {
             SkipButton(action: onFinish)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
-        .onAppear(perform: revealContent)
+    }
+
+    /// A bounded, two-column tour for full-width iPad and generous multitasking windows.
+    ///
+    /// The stage and copy each get a real column rather than letting the phone grow to consume
+    /// every point an iPad offers. The pager still owns the entire surface, so swiping, page
+    /// animation, the plan choice, and the fixed actions work exactly as they do on iPhone.
+    private var regularWidthBody: some View {
+        ZStack {
+            ColorPalette.backdrop.ignoresSafeArea()
+            light
+
+            VStack(spacing: 0) {
+                TabView(selection: $index) {
+                    ForEach(Array(Self.pages.enumerated()), id: \.offset) { offset, page in
+                        regularWidthPage(page, at: offset).tag(offset)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .overlay { regularWidthStage }
+
+                indicator
+
+                actions
+                    .frame(maxWidth: 460)
+            }
+            .frame(maxWidth: 1180)
+
+            SkipButton(action: onFinish)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        }
+    }
+
+    @ViewBuilder
+    private func regularWidthPage(_ page: Page, at offset: Int) -> some View {
+        let here = offset == index
+        let shown = here ? contentVisible : true
+
+        if case .plans = page.content {
+            regularWidthPlansPage(page, shown: shown, lit: here)
+        } else {
+            regularWidthDevicePage(page, shown: shown, lit: here)
+        }
+    }
+
+    /// The left column is reserved for the shared stage drawn above the pager. Keeping the stage
+    /// shared preserves the continuous phone movement between pages while the words swipe.
+    private func regularWidthDevicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+        HStack(spacing: 56) {
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(alignment: .leading, spacing: 22) {
+                heading(page.title, lit: lit)
+                    .opacity(shown ? 1 : 0)
+                    .offset(y: shown ? 0 : 14)
+                    .animation(motion(delay: 0.09), value: shown)
+
+                Text(page.body)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .opacity(shown ? 1 : 0)
+                    .offset(y: shown ? 0 : 18)
+                    .animation(motion(delay: 0.16), value: shown)
+
+                if case .mac = page.device {
+                    downloadLink
+                        .opacity(shown ? 1 : 0)
+                        .offset(y: shown ? 0 : 20)
+                        .animation(motion(delay: 0.24), value: shown)
+                }
+            }
+            .frame(maxWidth: 430, alignment: .leading)
+            .frame(maxHeight: .infinity, alignment: .center)
+        }
+        .padding(.horizontal, 48)
+        .padding(.top, 40)
+        .padding(.bottom, 18)
+    }
+
+    /// Plans stay a readable column rather than expanding each choice across the iPad. The list
+    /// keeps its own scrolling, which also makes this fit short landscape and Stage Manager sizes.
+    private func regularWidthPlansPage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            heading(page.title, lit: lit)
+                .opacity(shown ? 1 : 0)
+                .offset(y: shown ? 0 : 14)
+                .animation(motion(delay: 0.09), value: shown)
+
+            Text(page.body)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(shown ? 1 : 0)
+                .offset(y: shown ? 0 : 18)
+                .animation(motion(delay: 0.16), value: shown)
+
+            plans
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            legalLinks
+        }
+        .frame(maxWidth: 680, maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal, 48)
+        .padding(.top, 36)
+        .padding(.bottom, 8)
+    }
+
+    /// The shared iPad stage is capped in both dimensions. This is the key difference from the
+    /// compact layout: extra canvas becomes breathing room, not a billboard-sized phone.
+    private var regularWidthStage: some View {
+        GeometryReader { proxy in
+            if !isLast {
+                let columnWidth = max((proxy.size.width - 152) / 2, 1)
+                let box = CGSize(
+                    width: min(columnWidth, 430),
+                    height: min(max(proxy.size.height - 72, 1), 520)
+                )
+                let laid = stageLayout(in: box)
+
+                ZStack {
+                    if case .mac = Self.pages[index].device {
+                        MacDrawing(displayHeight: laid.macDisplay ?? 1) { deviceScreen }
+                            .offset(laid.macOffset)
+                            .transition(.opacity)
+                    }
+
+                    PhoneStage { phoneScreen }
+                        .scaleEffect(laid.phoneScale, anchor: .center)
+                        .offset(laid.phoneOffset)
+                        .transition(.opacity.animation(.easeOut(duration: 0.14)))
+                }
+                .frame(width: box.width, height: box.height)
+                .position(x: 48 + columnWidth / 2, y: proxy.size.height / 2)
+                .animation(Motion.settle, value: index)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     /// One page, laid out the way its own content wants.

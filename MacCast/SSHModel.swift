@@ -964,7 +964,7 @@ final class SSHModel {
                 }.value
                 guard size <= Self.maximumUploadBytes else {
                     throw SSHSessionError.browse(
-                        "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                        "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
                     )
                 }
                 // Off the main actor: this is a file the user chose from anywhere on the device,

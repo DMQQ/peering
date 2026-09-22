@@ -48,6 +48,23 @@ JS_V="$(shasum -a 256 "$STAGE/site/app.js" | cut -c1-10)"
 echo "    styles.css  v=$CSS_V"
 echo "    app.js      v=$JS_V"
 
+# The disk image needs the same treatment as the stylesheet, and the reason is not visible from
+# this machine. The relay already answers a DMG with `Cache-Control: no-cache`, so the origin is
+# correct, but `dmg` is on Cloudflare's default cache-by-extension list and the zone's Browser
+# Cache TTL replaces that header on the way out. The edge was serving `max-age=14400`, so anybody
+# who had downloaded the previous release within those four hours got the old image back from
+# their own browser with no request reaching this box at all. On 22 September 2026 that handed a
+# protocol-16 build to somebody who had just been told their Mac was too old, and the download
+# page was the one place the fix was supposed to come from.
+#
+# A changed query string is a different cache key at every layer, which is what the stylesheet
+# stamp relies on too. The path stays fixed, so a link from outside the site keeps working.
+DMG_V=""
+if [ -f "$STAGE/site/download/Peering.dmg" ]; then
+    DMG_V="$(shasum -a 256 "$STAGE/site/download/Peering.dmg" | cut -c1-10)"
+    echo "    Peering.dmg v=$DMG_V"
+fi
+
 for page in "$STAGE"/site/*.html; do
     # The empty argument after -i is the backup suffix, and it is required on macOS. Without it
     # sed reads the next argument as the suffix and edits nothing.
@@ -55,6 +72,11 @@ for page in "$STAGE"/site/*.html; do
         -e "s#href=\"/styles.css\"#href=\"/styles.css?v=$CSS_V\"#g" \
         -e "s#src=\"/app.js\"#src=\"/app.js?v=$JS_V\"#g" \
         "$page"
+    if [ -n "$DMG_V" ]; then
+        sed -i '' \
+            -e "s#href=\"/download/Peering.dmg\"#href=\"/download/Peering.dmg?v=$DMG_V\"#g" \
+            "$page"
+    fi
 done
 
 # Checked rather than assumed, because a rewrite that silently matches nothing produces a deploy
@@ -62,6 +84,13 @@ done
 # failure this script was written to end, so it does not get to reappear as a quiet one.
 if ! grep -q "styles.css?v=$CSS_V" "$STAGE"/site/*.html; then
     echo "the stylesheet rewrite matched no page. Has the <link> changed shape?" >&2
+    exit 1
+fi
+
+# The same check for the image, and it matters more: a stale stylesheet looks wrong, where a stale
+# DMG is an old build that installs cleanly and then refuses to talk to the phone.
+if [ -n "$DMG_V" ] && ! grep -q "download/Peering.dmg?v=$DMG_V" "$STAGE"/site/*.html; then
+    echo "the disk image rewrite matched no page. Has the download link changed shape?" >&2
     exit 1
 fi
 

@@ -327,6 +327,15 @@ struct PlanFeaturesView: View {
                 detail: "One shell at a time is in every plan, on your Mac and on any server you have added. This is naming a tab and keeping several open, each with its own scrollback and its own directory.",
                 capability: .shellTabs
             ),
+            // The same line the paywall's own door for it uses, and deliberately: these two are
+            // read minutes apart by the same person, and the row that reads well on its own is
+            // the row that disagrees with the one beside it.
+            PlanFeature(
+                icon: "bell.badge",
+                title: "Told when a shell needs you",
+                detail: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while the session is open and through the Mac when it is not. The terminal and the mark on its own tab are on every plan.",
+                capability: .terminalAlerts
+            ),
             PlanFeature(
                 icon: "clock.arrow.circlepath",
                 title: "Commands you ran before",

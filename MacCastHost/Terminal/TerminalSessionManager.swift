@@ -305,7 +305,15 @@ final class TerminalSessionManager: @unchecked Sendable {
             close(id: id, ownerClientID: clientID)
 
         case .registerPushToken(let tokenData):
-            let hex = tokenData.map { String(format: "%02x", $0) }.joined()
+            // **Empty means forget me.** The phone sends no bytes when its plan stops including
+            // being told about a terminal, and this is the whole of how that reaches the Mac:
+            // the token it was given while the plan did include it is dropped, and a shell that
+            // stops for an answer after that finds nothing to send to. Stored nil rather than as
+            // an empty string, because the push path tests the token for existence and a
+            // registered token of "" would be sent to APNs as a device nobody can reach.
+            let hex = tokenData.isEmpty
+                ? nil
+                : tokenData.map { String(format: "%02x", $0) }.joined()
             lock.withLock { pushTokenByClientID[clientID] = hex }
         }
     }

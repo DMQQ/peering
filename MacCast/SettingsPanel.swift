@@ -200,7 +200,7 @@ struct SettingsPanel: View {
             if model.storeManager.access.includes(.macSound) {
                 Text(model.hostAudioMuted
                      ? "The Mac's audio is still sent, and dropped here without being played."
-                     : "Whatever the Mac plays comes out of this phone, including the sounds it makes in answer to what you send it.")
+                     : "Whatever the Mac plays comes out of this device, including the sounds it makes in answer to what you send it.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -208,7 +208,7 @@ struct SettingsPanel: View {
                 // The plan-aware sentence stays, and it is the *only* thing the locked state adds
                 // to the row: the control is already the control, so what is left to say is which
                 // plan turns it on and what else comes with it.
-                Text("Whatever the Mac plays would come out of this phone. It is part of \(PlanCapability.macSound.minimumPlan.name), along with Picture in Picture and files that move both ways.")
+                Text("Whatever the Mac plays would come out of this device. It is part of \(PlanCapability.macSound.minimumPlan.name), along with Picture in Picture and files that move both ways.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -337,7 +337,7 @@ struct SettingsPanel: View {
                 .tint(ColorPalette.accent)
                 // Pushed straight through rather than read on the next attach: the setting has to
                 // take effect on the controller that is already running.
-                .onChange(of: pipAutoStart) { _, on in SessionPiP.shared.autoStart = on }
+                .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
             }
 
             if model.storeManager.access.includes(.pictureInPicture) {
@@ -347,14 +347,14 @@ struct SettingsPanel: View {
                 // and for getting a refusal in writing, which is a diagnostic, and this is where the
                 // switch it explains lives.
                 Button {
-                    SessionPiP.shared.start()
+                    model.startPiP()
                 } label: {
                     Label("Try it now", systemImage: "pip")
                         .font(.subheadline.weight(.medium))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(!SessionPiP.isSupported)
+                .disabled(!model.isPiPSupported)
 
                 Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving.")
                     .font(.caption2)
@@ -365,12 +365,12 @@ struct SettingsPanel: View {
                 // bar, where it was a line of AVKit's own words in the middle of the picture, read
                 // by nobody, and in the way of the controls. Here it is next to the button that asks
                 // the question, which is the only place it means anything.
-                if let attempt = SessionPiP.shared.lastAttempt {
+                if let attempt = model.pipLastAttempt {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Last attempt: \(attempt)")
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        if let why = SessionPiP.shared.lastRefusal {
+                        if let why = model.pipLastRefusal {
                             Text(why)
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)

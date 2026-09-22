@@ -271,174 +271,7 @@ final class SessionModel {
     var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
     var pairedHostIDs: [String] = []
 
-    // MARK: - The active session's state
-
-    // **Forwarders, and deliberately all of them.** Every property below is a per-Mac fact that
-    // now lives on ``MacSession``: the getter reads it off the session the app is showing, and the
-    // setter writes it there. They exist so that no screen had to change when the state underneath
-    // it moved, which is the acceptance test for this stage — the seam is proved by being
-    // invisible. Stage 5 is what removes the ones whose screens have learned to ask a particular
-    // session rather than "the" session.
-    //
-    // The doc comments that were on these properties are on the stored ones in ``MacSession``.
-
-    /// What the Mac calls itself, or what it was dialled as before the handshake.
-    var hostName: String? {
-        get { activeSession?.hostName }
-        set { activeSession?.hostName = newValue }
-    }
-
-    /// The Mac's own device ID, once the handshake has said what it is.
-    var currentHostID: String? {
-        get { activeSession?.hostID }
-        set { activeSession?.hostID = newValue }
-    }
-
-    /// Round trip of the control channel, which goes through the relay in every session.
-    var latencyMilliseconds: Double? {
-        get { activeSession?.latencyMilliseconds }
-        set { activeSession?.latencyMilliseconds = newValue }
-    }
-
-    /// Round trip of the lane the picture is arriving on, and whether that lane is the direct one.
-    var pathLatencyMilliseconds: Double? {
-        get { activeSession?.pathLatencyMilliseconds }
-        set { activeSession?.pathLatencyMilliseconds = newValue }
-    }
-    var pathLatencyIsDirect: Bool {
-        get { activeSession?.pathLatencyIsDirect ?? false }
-        set { activeSession?.pathLatencyIsDirect = newValue }
-    }
-
-    /// The one number the status chip shows.
-    var shownLatency: Double? { activeSession?.shownLatency }
-
-    var catalog: CaptureCatalog? {
-        get { activeSession?.catalog }
-        set { activeSession?.catalog = newValue }
-    }
-
-    /// This session's notes, newest last. See ``MacSession/notes``.
-    var notes: [String] {
-        get { activeSession?.notes ?? [] }
-        set { activeSession?.notes = newValue }
-    }
-
-    var activeSessionHistoryID: UUID? {
-        get { activeSession?.activeSessionHistoryID }
-        set { activeSession?.activeSessionHistoryID = newValue }
-    }
-    var activeSessionHistoryStartedAt: Date? {
-        get { activeSession?.activeSessionHistoryStartedAt }
-        set { activeSession?.activeSessionHistoryStartedAt = newValue }
-    }
-    var activeSessionBytes: Int64 {
-        get { activeSession?.activeSessionBytes ?? 0 }
-        set { activeSession?.activeSessionBytes = newValue }
-    }
-    var lastBandwidthSampleBytes: Int64 {
-        get { activeSession?.lastBandwidthSampleBytes ?? 0 }
-        set { activeSession?.lastBandwidthSampleBytes = newValue }
-    }
-    var activeSessionLogs: [String] {
-        get { activeSession?.activeSessionLogs ?? [] }
-        set { activeSession?.activeSessionLogs = newValue }
-    }
-
-    var videoStatus: String {
-        get { activeSession?.videoStatus ?? "No video stream" }
-        set { activeSession?.videoStatus = newValue }
-    }
-    /// The frames per second arriving, as measured by the last two polls.
-    var videoFramesPerSecond: Double {
-        get { activeSession?.videoFramesPerSecond ?? 0 }
-        set { activeSession?.videoFramesPerSecond = newValue }
-    }
-    /// The frame count and the moment it was read, for the difference above.
-    var lastFrameSample: (count: Int, at: Date)? {
-        get { activeSession?.lastFrameSample }
-        set { activeSession?.lastFrameSample = newValue }
-    }
-    /// True while the video channel is delivering frames (not ended/absent).
-    var isVideoStreaming: Bool {
-        get { activeSession?.isVideoStreaming ?? false }
-        set { activeSession?.isVideoStreaming = newValue }
-    }
-    /// Which channel the picture is arriving on. `.control` means the Mac's network is not
-    /// letting video through and the session has fallen back — see ``VideoFallbackPolicy``.
-    var videoTransport: VideoTransport {
-        get { activeSession?.videoTransport ?? .primary }
-        set { activeSession?.videoTransport = newValue }
-    }
-
-    /// Which way this session's control connection is carried. See ``MacSession/connectionPath``.
-    var connectionPath: ConnectionPath? {
-        get { activeSession?.connectionPath }
-        set { activeSession?.connectionPath = newValue }
-    }
-
-    /// Whether the picture is being carried straight between the two ends rather than around
-    /// through the relay.
-    var usedDirectPath: Bool {
-        get { activeSession?.usedDirectPath ?? false }
-        set { activeSession?.usedDirectPath = newValue }
-    }
-
-    /// What the attempt at a path straight to the Mac has come to.
-    var directPathStatus: ClientSession.DirectPath {
-        get { activeSession?.directPathStatus ?? .notTried }
-        set { activeSession?.directPathStatus = newValue }
-    }
-
-    /// What the relay's datagram lane carried, kept after the session ends.
-    var datagramCounts: ClientSession.DatagramCounts? {
-        get { activeSession?.datagramCounts }
-        set { activeSession?.datagramCounts = newValue }
-    }
-
-    /// The picture the stream is showing now, or `nil` before the Mac has described one.
-    var picture: PictureIdentity? {
-        get { activeSession?.picture }
-        set { activeSession?.picture = newValue }
-    }
-
-    /// Something the Mac wants said about the picture, or `nil`.
-    var remoteNotice: NoticePayload? {
-        get { activeSession?.remoteNotice }
-        set { activeSession?.remoteNotice = newValue }
-    }
-
-    /// When the session that is up now came up, for the elapsed-time readout.
-    var sessionStartedAt: Date? {
-        get { activeSession?.sessionStartedAt }
-        set { activeSession?.sessionStartedAt = newValue }
-    }
-
-    /// Which capture source this session is showing.
-    var activeSourceID: String? {
-        get { activeSession?.activeSourceID }
-        set { activeSession?.activeSourceID = newValue }
-    }
-
-    /// Optimistic state for the current session's physical-display privacy command.
-    var privacyModeEnabled: Bool {
-        get { activeSession?.privacyModeEnabled ?? false }
-        set { activeSession?.privacyModeEnabled = newValue }
-    }
-    /// The quality the app is set to, read straight from the defaults.
-    ///
-    /// **The rule itself is ``MacCastKit/StreamQuality/stored(in:)``**, because it is a decoding
-    /// rule rather than app state and there is a test for it that runs without an app bundle. This
-    /// is the name the app knows it by.
-    static var storedQuality: StreamQuality { .stored() }
-
-    /// The bitrate preset. Stored rather than computed from the defaults, because every surface
-    /// showing it has to redraw when it changes and a computed property reading `UserDefaults` is
-    /// a change nothing observes — see ``terminalHistory``, which is here for the same reason.
-    ///
-    /// Seeded at init from ``storedQuality``, and written back by ``setStreamQuality(_:)``, which
-    /// is also how the Settings tab's row reaches a session: that tab cannot be opened while one
-    /// is running, so it writes the preference and the next arrival picks it up here.
+    /// The bitrate preset; redrawing on change requires a stored var, not a UserDefaults read.
     var streamQuality: StreamQuality = SessionModel.storedQuality
     /// The level to come back to when the rate is taken over by hand again.
     ///
@@ -448,19 +281,6 @@ final class SessionModel {
     /// policy's current tier stands in — see ``setAutomaticQuality(_:)``.
     var lastManualQuality: StreamQuality? = .storedManualLevel()
 
-    /// Writes a quality choice down, and nothing else.
-    ///
-    /// **The one place the preference is stored**, used by both doors into it: a live session,
-    /// which also tells its Mac, and the Settings tab, which cannot reach one because that tab is
-    /// unreachable while a session runs — see ``MacSession/setStreamQuality(_:)`` and
-    /// ``MacSession/applyInitialQuality()``, which read this back through ``storedQuality`` on
-    /// every arrival so that a change made there is not lost.
-    func rememberQualityChoice(_ quality: StreamQuality) {
-        streamQuality = quality
-        UserDefaults.standard.set(quality.rawValue, forKey: PreferenceKeys.streamQuality)
-        // Remembered for ``setAutomaticQuality(_:)``: a level picked by hand is the one to return to.
-        if quality.bitrateKbps != nil { lastManualQuality = quality }
-    }
 
     // MARK: - Clipboard
     /// The most recently received host clipboard. `nil` until the first pull.
@@ -638,8 +458,6 @@ final class SessionModel {
         return decoded
     }()
 
-    static let hostNamesKey = "Peering.hostNames"
-
     /// The failure to show the user, if the session is in one.
     ///
     /// The phase carries it and the diagnostics screen has always listed it, but the picker
@@ -663,66 +481,6 @@ final class SessionModel {
     /// arrive as "Damian's MacBook Pro" three times over, and the device ID is the only thing
     /// telling them apart.
     var customHostNames: [String: String] = [:]
-
-    static let customHostNamesKey = "Peering.customHostNames"
-
-    func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
-
-    /// Names a Mac, or puts its own name back if the new one is empty.
-    func rename(hostID: String, to name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            customHostNames.removeValue(forKey: hostID)
-        } else {
-            customHostNames[hostID] = trimmed
-        }
-        UserDefaults.standard.set(customHostNames, forKey: Self.customHostNamesKey)
-        publishKnownMacs()
-    }
-
-    /// Hands the widget its copy of the paired list.
-    ///
-    /// Pushed rather than pulled, because the widget is a separate process with no way to ask:
-    /// the only moment this can be written is when the app changes something. Called from the
-    /// four places that can — a pairing being established, a Mac being forgotten, a Mac
-    /// reporting a new name, and a rename — which is the whole of the list.
-    ///
-    /// Most recently connected first, because the widget has room for a few and the Mac someone
-    /// wants is almost always the one they used last.
-    func publishKnownMacs() {
-        let ordered = pairedHostIDs.sorted {
-            (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast)
-        }
-        SharedStore.knownMacs = ordered.map {
-            SharedStore.KnownMac(id: $0, name: displayName(forHostID: $0) ?? "A Mac")
-        }
-        WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
-    }
-
-    /// Hands the widget the live picture: which Macs are open, and which one is on screen.
-    ///
-    /// **Pushed rather than pulled**, like ``publishKnownMacs()`` and for the same reason — the
-    /// widget is a separate process with no way to ask, so the only moment this can be written is
-    /// when the app changes something. The moments are the ones where ``sessions`` or
-    /// ``activeSessionID`` moves, plus the handshake: a Mac's ID is not known at all until it has
-    /// answered, so a connection written down at `connect` time would be an empty string until
-    /// the first `.ready`.
-    ///
-    /// The name is written here too, and writing it is what makes "the Mac you used last" mean
-    /// the Mac you were *looking at*. Both the connect and the handshake write it today, so with
-    /// one Mac it has never mattered; with several it would offer the Mac connected to first
-    /// rather than the one in hand.
-    func publishOpenMacs() {
-        SharedStore.connectedMacIDs = openSessions.compactMap(\.hostID)
-        SharedStore.activeMacID = activeSession?.hostID
-        if let name = activeSession?.hostName {
-            SharedStore.lastHostName = name
-            UserDefaults.standard.set(name, forKey: Self.lastHostNameKey)
-        }
-        // Only the quick-connect widget: this is its list, and reloading every timeline on a
-        // switch would reload a widget that draws none of it.
-        WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
-    }
 
     /// Set when the device's own identity could not be loaded. Everything else is moot in
     /// that case: without a client certificate there is nothing for the Mac to pin.
@@ -855,20 +613,6 @@ final class SessionModel {
     var browseFailed = false
     var identity: SelfSignedIdentity?
     var device = DeviceIdentity(id: "", name: "")
-    /// The wire for the Mac the app is showing.
-    ///
-    /// A forwarder like the rest: the connection belongs to a session, and the app's screens
-    /// ask for "the" one because there is only ever one to ask about.
-    var session: ClientSession? {
-        get { activeSession?.wire }
-        set { activeSession?.wire = newValue }
-    }
-
-    /// The half-second poll that reads the renderer's counters.
-    var videoPoll: Task<Void, Never>? {
-        get { activeSession?.videoPoll }
-        set { activeSession?.videoPoll = newValue }
-    }
 
     /// The offer that is waiting for the screen change to finish. See
     /// ``SessionModel/offerSubscriptionIfDue(after:)``.
@@ -897,9 +641,47 @@ final class SessionModel {
 
     // MARK: - Push token
 
-    /// Sends the current APNs token to every session that is ready. Called when the token
-    /// arrives or refreshes while sessions may already be connected.
+    /// Whether the user has allowed banners, for the one row that reports it.
+    ///
+    /// Held here rather than read in the view because reading it is an `await` on the system, and
+    /// because it changes for a reason nothing in this app can observe: see
+    /// ``SessionNotifier/refreshAuthorization()``.
+    private(set) var notificationsAuthorized = false
+
+    /// Re-reads the notification permission, from the one screen that shows it.
+    func refreshNotificationAuthorization() async {
+        notificationsAuthorized = await notifier.refreshAuthorization()
+    }
+
+    /// Sends the current APNs token to every session that is ready, or clears it when the plan
+    /// does not include being told. Called when the token arrives or refreshes while sessions may
+    /// already be connected, and as each session comes up.
+    ///
+    /// **This is the gate for the push half of the feature, and it is the only one it needs.** The
+    /// Mac sends a notification to a token and knows nothing else about the user; a phone that
+    /// never hands one over cannot be reached, on any plan, by a Mac that has been left running.
+    /// The registration is therefore refused here rather than at the Mac, which has no store and
+    /// no business having one.
+    ///
+    /// **A plan without it still speaks.** An empty registration is the message that forgets the
+    /// token the Mac was given while the plan did include it, and it is sent rather than skipped
+    /// because a subscription that lapses is exactly the case this has to answer: the Mac is not
+    /// reinstalled to make that true, and a stale token would keep delivering a paid feature to
+    /// somebody who has stopped paying for it.
+    ///
+    /// Nothing at all is sent while the entitlement has not been read, which is the first moments
+    /// of a launch and nothing more: the phone has no answer yet, and clearing a token on the
+    /// strength of not knowing would take the feature away from a subscriber for no reason.
     func sendPushToken() {
+        guard let plan = storeManager.access.plan else { return }
+
+        guard plan.includes(.terminalAlerts) else {
+            for session in sessions where session.phase == .ready {
+                session.wire?.sendTerminal(.registerPushToken(Data()))
+            }
+            return
+        }
+
         guard let token = SessionNotifier.shared.remoteToken else { return }
         for session in sessions where session.phase == .ready {
             session.wire?.sendTerminal(.registerPushToken(token))
@@ -1037,7 +819,7 @@ final class SessionModel {
         // than about the user's plan, and a tap that did nothing at all would read as the app
         // being broken rather than as a limit being reached.
         if old == nil, openSessions.count >= Self.sessionCeiling {
-            append(note: "This phone holds \(Self.sessionCeiling) Macs open at once. Close one to open another.")
+            append(note: "This device holds \(Self.sessionCeiling) Macs open at once. Close one to open another.")
             return
         }
 
@@ -1218,76 +1000,6 @@ final class SessionModel {
         session.connectTask = connectTask
     }
 
-    // MARK: - Clipboard
-
-    /// Requests the Mac's clipboard. The result arrives as ``hostClipboard`` once the host responds.
-    ///
-    /// One request for both kinds, because which kind it is is a fact about the Mac's pasteboard
-    /// and only the Mac can look at it.
-    func pullClipboard() {
-        guard phase == .ready else { return }
-        clipboardPulling = true
-        session?.send(.requestClipboard)
-    }
-
-    /// Pushes what is on the iPhone's clipboard to the Mac's pasteboard.
-    ///
-    /// **Whatever is on it.** A picture is sent as a picture and a line of text as text, and the
-    /// picture is preferred when the pasteboard is holding both, which is what copying an image
-    /// out of a web page leaves there.
-    ///
-    /// **A picture is not sent to a Mac that has not said it can take one**, and the pasteboard's
-    /// text goes instead when there is any. A Mac built before the command existed has never heard
-    /// of it, and an unknown command is a decode failure in the middle of a session rather than a
-    /// copy that quietly does nothing — so the picture would cost the session. See
-    /// ``ClipboardImages``.
-    ///
-    /// **Silent when the picture is too large to carry**, rather than sending a truncated one: the
-    /// Mac would refuse to buffer it and nothing would arrive either way. See
-    /// ``ClipboardLimits/maxImageBytes``. There is no message for the user here yet, which is the
-    /// one rough edge this leaves: a screenshot over the limit pushes nothing and says nothing.
-    func pushClipboard() {
-        guard phase == .ready else { return }
-        let board = UIPasteboard.general
-
-        if activeSession?.hostSupportsClipboardImages == true, let png = clipboardImage(from: board) {
-            session?.pushClipboardImage(png)
-            return
-        }
-        guard let text = board.string else { return }
-        session?.send(.pushClipboard(text: text))
-    }
-
-    /// The iPhone's pasteboard as PNG, or `nil` when it is not holding a picture.
-    ///
-    /// **The bytes the pasteboard already has, when it has them.** A screenshot copied on the
-    /// phone is on it as PNG, and `UIPasteboard.image` would decode it and `pngData()` would encode
-    /// it again: work proportional to the picture's size, on the main thread, to arrive back at the
-    /// bytes that were there to begin with. `NSItemProvider`'s types are the fallback for a
-    /// pasteboard that holds a photograph as data and no image.
-    private func clipboardImage(from board: UIPasteboard) -> Data? {
-        if let png = board.data(forPasteboardType: "public.png") { return png }
-        return board.image?.pngData()
-    }
-
-    /// Copies the most recently received host clipboard to the iPhone's pasteboard.
-    ///
-    /// **The size is checked again here**, which is not redundant with the Mac's own check. This
-    /// side's limit is a backstop against a Mac that sends more than it promised, and it is the
-    /// same figure rather than a smaller one so that it can never engage on a payload the Mac
-    /// considered legal. See ``MacCastKit``'s `imagePreviewByteLimit`, whose comment this is.
-    func copyHostClipboard() {
-        guard let payload = hostClipboard else { return }
-        switch payload.kind {
-        case .text:
-            guard let text = payload.text else { return }
-            UIPasteboard.general.string = text
-        case .image:
-            guard let png = payload.carriedImage, let image = UIImage(data: png) else { return }
-            UIPasteboard.general.image = image
-        }
-    }
-
     // MARK: - Clipboard history
 
     /// Everything pulled from the Mac this device has kept, newest first.
@@ -1299,74 +1011,11 @@ final class SessionModel {
     /// cannot reference `Self`, and the alternative is spelling the key twice.
     var clipboardHistory: [ClipboardEntry] = SessionModel.loadClipboardHistory()
 
-    static func loadClipboardHistory() -> [ClipboardEntry] {
-        guard let data = UserDefaults.standard.data(forKey: clipboardHistoryKey) else { return [] }
-        return (try? JSONDecoder().decode([ClipboardEntry].self, from: data)) ?? []
-    }
-
     /// How many pulls have been recorded, so a view can tell the list changed.
     ///
     /// The entries carry no identity to diff on and the text is arbitrary — including text that
     /// repeats, which would make two identical pulls indistinguishable.
     var clipboardHistoryCount = 0
-
-    struct ClipboardEntry: Codable, Equatable, Identifiable {
-        let id: UUID
-        let text: String
-        let at: Date
-    }
-
-    static let clipboardHistoryKey = "Peering.clipboardHistory"
-    /// Enough to find the thing you copied a few steps ago, short of being a log of everything
-    /// that has crossed this device. Each entry is a whole clipboard, and clipboards can be
-    /// large — a spreadsheet range, a file's worth of text.
-    static let clipboardHistoryLimit = 12
-
-    /// Files what the Mac sent us.
-    ///
-    /// Written down rather than kept in memory, which is a decision worth naming: this is the
-    /// user's own clipboard on their own phone, and a history that empties every time the app is
-    /// relaunched is one nobody would use twice. Cleared in one tap from the list.
-    func rememberClipboard(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        var history = clipboardHistory.filter { $0.text != text }
-        history.insert(ClipboardEntry(id: UUID(), text: text, at: Date()), at: 0)
-        if history.count > Self.clipboardHistoryLimit {
-            history.removeLast(history.count - Self.clipboardHistoryLimit)
-        }
-        clipboardHistory = history
-        persistClipboardHistory()
-    }
-
-    func removeClipboardEntry(_ id: UUID) {
-        clipboardHistory.removeAll { $0.id == id }
-        persistClipboardHistory()
-    }
-
-    func clearClipboardHistory() {
-        clipboardHistory = []
-        persistClipboardHistory()
-    }
-
-    /// Puts a history entry on the iPhone's pasteboard, which is what tapping one does.
-    func copyToPhone(_ entry: ClipboardEntry) {
-        UIPasteboard.general.string = entry.text
-        clipboardHistoryCount += 1
-    }
-
-    /// Sends a history entry to the Mac's clipboard, which is the other half of what a tap could
-    /// sensibly do with one.
-    func pushToMac(_ entry: ClipboardEntry) {
-        guard phase == .ready else { return }
-        session?.send(.pushClipboard(text: entry.text))
-    }
-
-    private func persistClipboardHistory() {
-        clipboardHistoryCount += 1
-        guard let data = try? JSONEncoder().encode(clipboardHistory) else { return }
-        UserDefaults.standard.set(data, forKey: Self.clipboardHistoryKey)
-    }
 
     // MARK: - Wake-on-LAN
 

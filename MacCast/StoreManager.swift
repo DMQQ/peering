@@ -174,6 +174,29 @@ final class StoreManager {
         await fetchProducts()
     }
 
+    /// Asks the App Store what this device is entitled to *now*, for the app coming back to the
+    /// front.
+    ///
+    /// **Because the answer was read once and then never again.** ``refreshEntitlement()`` runs at
+    /// launch and on the transactions StoreKit hands over, and a subscription does not produce a
+    /// transaction when it runs out: it simply stops being in `currentEntitlements`. So a plan that
+    /// lapsed under a running app stayed the plan this process believed in — for hours, in the case
+    /// of a session left open — and everything armed from it went on being armed. Picture in
+    /// Picture is the one that shows: it is handed to iOS in advance, so a lapsed user kept getting
+    /// the floating window until the app was next launched.
+    ///
+    /// **A local call, and it is made on the way in rather than on the way out.** The reading is
+    /// offline and takes milliseconds, and the moment the answer has to be true by is the one where
+    /// the app is about to leave the screen and arm something with it. Asking on the way *back in*
+    /// means it is already right before there is anything to arm, and nothing has to be awaited in
+    /// the path where the view hierarchy is being torn down and Picture in Picture is being asked
+    /// for. What it leaves is one gap: a subscription that runs out while the app stays in the
+    /// foreground, which nothing here can notice, and which is worth one floating window until the
+    /// user next leaves the app and comes back.
+    func rereadEntitlement() async {
+        await refreshEntitlement()
+    }
+
     /// What a purchase came to, for the screen that started it.
     ///
     /// **The screen used to be told nothing.** `purchase` returned `Void`, so the paywall could
@@ -389,6 +412,7 @@ final class StoreManager {
                     "Sound from the Mac, and Picture in Picture",
                     "Files that move both ways",
                     "The clipboard history",
+                    "Told when a terminal needs you",
                     "Everything free has, and all of it stays free",
                 ]
             case .relayPlus:

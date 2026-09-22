@@ -46,6 +46,20 @@ final class SessionResumeTests: XCTestCase {
         XCTAssertFalse(isUnderWay(hasBeenReady: false, phase: .idle))
     }
 
+    func testAColdLaunchRestoreStopsAfterItsFirstFailedConnection() {
+        XCTAssertEqual(
+            SessionResume.failureAction(hasBeenReady: false),
+            .stopAndShowFailure
+        )
+    }
+
+    func testADroppedLiveSessionKeepsItsReconnectLadderAfterAFailedAttempt() {
+        XCTAssertEqual(
+            SessionResume.failureAction(hasBeenReady: true),
+            .retrySilently
+        )
+    }
+
     /// **The case that made this a rule rather than a flag.** `userEndedDeliberately` is consumed
     /// by the first transition that reads it, so by the time the session is sitting at
     /// `.disconnected` there is nothing left on it that says the user asked for this. Read as a

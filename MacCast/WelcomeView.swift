@@ -99,6 +99,7 @@ private struct LandingView: View {
     var onSkip: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// Whether the claims have arrived, which is the last of the four beats.
     @State private var arrived = false
     /// The hero's arrival, in the same four numbers the Connect screen uses: how far the mark has
@@ -122,7 +123,7 @@ private struct LandingView: View {
 
     /// How long between one claim and the next.
     ///
-    /// Small, and it has to be: six of them at a tenth of a second each is most of a second of
+    /// Small, and it has to be: seven of them at a tenth of a second each is most of a second of
     /// watching a list assemble itself, which is a thing to sit through rather than a thing to
     /// read. This is the whole difference between the page introducing itself and the page
     /// performing.
@@ -171,6 +172,15 @@ private struct LandingView: View {
             title: "Private by design",
             detail: "End-to-end encrypted, with no account and nothing for the relay to read."
         ),
+        // Beside "It stays with you" rather than among the control claims, because it is the same
+        // kind of fact: something the app does for a user who is not looking at it. It used to be
+        // the one behaviour nobody found out about, since a shell that stops for an answer gives
+        // no sign of it anywhere but its own tab.
+        ClaimLine(
+            icon: "bell.badge",
+            title: "Told when a shell is waiting",
+            detail: "A build that finishes, a prompt for a password, a command that wants an answer: the Mac tells you, on the Lock Screen and with the app closed."
+        ),
         ClaimLine(
             icon: "pip",
             title: "It stays with you",
@@ -184,21 +194,15 @@ private struct LandingView: View {
             light
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    hero
-                    claims
+                Group {
+                    if horizontalSizeClass == .regular {
+                        regularWidthContent
+                    } else {
+                        compactWidthContent
+                    }
                 }
-                // Where the block sits and how wide it is, read from the layout rather than from
-                // the frames of anything that moves. Two things depend on it: the width the hero
-                // centres itself against, and the distance from the mark's resting place to the
-                // middle of the screen — which is where the hero opens. None of that can be
-                // measured off the hero itself, whose offset would be part of the answer.
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                    blockTop = frame.minY
-                    blockWidth = frame.width
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 24)
+                .padding(.horizontal, horizontalSizeClass == .regular ? 48 : 18)
+                .padding(.vertical, horizontalSizeClass == .regular ? 32 : 24)
                 // Fills the viewport and centres the block inside it, which is the other half of
                 // what was wrong with this screen: with the card gone the content came up short,
                 // and a short page under a pinned button pools every spare point in one gap above
@@ -216,7 +220,9 @@ private struct LandingView: View {
             // screen that reads as a wall.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 actions
-                    .padding(.horizontal, 18)
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 460 : .infinity)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, horizontalSizeClass == .regular ? 48 : 18)
                     .padding(.bottom, 18)
                     .padding(.top, 34)
                     .background {
@@ -249,6 +255,39 @@ private struct LandingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         }
         .task { await arrive() }
+    }
+
+    /// The phone composition, kept intact for compact iPad windows as well.
+    private var compactWidthContent: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            hero
+            claims
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            updateHeroGeometry(frame)
+        }
+    }
+
+    /// A readable iPad composition: the identity holds one column and the proof points another.
+    /// Extra width becomes margin instead of turning each claim into a full-screen strip.
+    private var regularWidthContent: some View {
+        HStack(alignment: .center, spacing: 72) {
+            hero
+                .frame(maxWidth: 360)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                    updateHeroGeometry(frame)
+                }
+
+            claims
+                .frame(maxWidth: 600)
+        }
+        .frame(maxWidth: 1_032)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func updateHeroGeometry(_ frame: CGRect) {
+        blockTop = frame.minY
+        blockWidth = frame.width
     }
 
     /// The page arriving, in the order it wants to be read: the mark, then the name, then the hero
@@ -362,7 +401,7 @@ private struct LandingView: View {
 
                 // The whole opening statement, and there is deliberately nothing else under it.
                 // A sentence explaining what the app is used to sit here; it said what this line
-                // already says, and two lines of prose above six rows of claims is how a first
+                // already says, and two lines of prose above a list of claims is how a first
                 // screen turns into something to get past rather than something to read.
                 Text("Your Mac. Wherever you are.")
                     .font(.system(.title3).weight(.medium))

@@ -32,7 +32,7 @@ enum Diagnostics {
         lines.append("\(deviceModel()), iOS \(UIDevice.current.systemVersion)")
         // Named as what it is for rather than as what it is called: the number only ever matters
         // when the two apps disagree, and somebody reading this aloud needs to know that.
-        lines.append("App version: \(ProtocolInfo.version) (the iPhone and Mac apps must match)")
+        lines.append("App version: \(ProtocolInfo.version) (the mobile and Mac apps must match)")
         lines.append("")
 
         let plan = model.storeManager.relayPlan

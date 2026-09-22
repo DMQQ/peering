@@ -36,6 +36,7 @@ final class PlanAccessTests: XCTestCase {
         .pictureInPicture: .relay,
         .fileTransfer: .relay,
         .clipboardHistory: .relay,
+        .terminalAlerts: .relay,
         .shellTabs: .plus,
         .macros: .pro,
         .highBitrate: .pro,
@@ -65,7 +66,7 @@ final class PlanAccessTests: XCTestCase {
     }
 
     /// The free plan includes nothing on the map. Everything free is free by not being a case of
-    /// ``PlanCapability`` at all, so this is the guard on the six that are.
+    /// ``PlanCapability`` at all, so this is the guard on the ten that are.
     func testFreeIncludesNoneOfTheGatedFeatures() {
         for capability in PlanCapability.allCases {
             XCTAssertFalse(
@@ -100,6 +101,7 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertTrue(RelayPlan.plus.includes(.macSound))
         XCTAssertTrue(RelayPlan.plus.includes(.pictureInPicture))
         XCTAssertTrue(RelayPlan.plus.includes(.fileTransfer))
+        XCTAssertTrue(RelayPlan.plus.includes(.terminalAlerts))
 
         XCTAssertFalse(RelayPlan.plus.includes(.macros))
     }

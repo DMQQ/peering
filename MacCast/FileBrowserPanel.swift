@@ -1134,7 +1134,7 @@ struct FilePreviewPanel: View {
                     // nothing, and tapping it opens the plans.
                     PlanLocked(
                         capability: .fileTransfer,
-                        title: "Download to this phone",
+                        title: "Download to this device",
                         diameter: 26
                     ) {
                         ShareLink(item: shareURL) {
@@ -1145,7 +1145,7 @@ struct FilePreviewPanel: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("Download to this phone")
+                        .accessibilityLabel("Download to this device")
                     }
                 }
 

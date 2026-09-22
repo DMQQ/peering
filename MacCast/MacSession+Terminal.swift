@@ -301,7 +301,7 @@ extension MacSession {
             }
             guard size <= Self.maximumUploadBytes else {
                 writes.removeValue(forKey: id)
-                uploadFailures[id] = "That file is too large to send from this phone (the limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))))."
+                uploadFailures[id] = "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))))."
                 return
             }
             await send(contentsOf: url, totalBytes: size, to: destination, sessionID: id)

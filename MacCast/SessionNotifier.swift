@@ -23,6 +23,20 @@ final class SessionNotifier {
     /// The current APNs device token, set when the OS delivers one.
     private(set) var remoteToken: Data?
 
+    /// Whether the plan includes the Mac being able to reach this device about a terminal.
+    ///
+    /// **Pushed in rather than read here**, the way ``SessionPiP/isOnPlan`` is, and for the same
+    /// reason: this object owns no store, and a plan read inside it would be a second copy of an
+    /// entitlement nothing keeps in step with the first. ``SessionModel`` tells it, from the one
+    /// function that owns that answer.
+    ///
+    /// **False until something says otherwise**, and that is the direction to fail in. The
+    /// decision this gates has no tap to wait for: a shell stopping raises its banner by itself,
+    /// so the wrong default is the paid half of the feature arriving for somebody who has not
+    /// bought it. It gates the terminal's banner only. The banners about a session's own state
+    /// are free on every plan and do not ask this.
+    var isOnPlan = false
+
     private init() {}
 
     // MARK: - Permission
@@ -59,6 +73,19 @@ final class SessionNotifier {
                 notifierLog.error("could not ask for notification permission: \(String(describing: error), privacy: .public)")
             }
         }
+    }
+
+    /// Whether banners may be posted, asked of the system rather than remembered.
+    ///
+    /// **Because the decision is not one this app finishes.** It is asked for once, on the first
+    /// connection, and what the user does next is go to iOS Settings, turn it on or off, and come
+    /// back — none of which this process sees. So the answer is re-read where it is shown, and the
+    /// cached one is updated on the way past, which is also what keeps the banners themselves from
+    /// relying on a decision made several launches ago.
+    func refreshAuthorization() async -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        isAuthorized = settings.authorizationStatus == .authorized
+        return isAuthorized
     }
 
     /// Called by the app delegate when the OS delivers or refreshes the APNs device token.
@@ -113,13 +140,20 @@ final class SessionNotifier {
     }
 
     /// Terminal prompts are the case where the Mac explicitly needs the person back. The
-    /// in-app attention badge is always updated; this adds a banner only while Peering is not
-    /// frontmost and notification permission has already been granted.
+    /// in-app attention badge is always updated, on every plan, because it belongs to the
+    /// terminal; this adds a banner only when the plan includes being told, while Peering is not
+    /// frontmost, and once notification permission has been granted.
+    ///
+    /// **The same message is sent by the Mac when no session is up**, over the relay and APNs,
+    /// to the token the phone registered on the way in. The two are one feature and are gated as
+    /// one: see ``PlanCapability/terminalAlerts``, which is also where the registration is
+    /// refused, so a plan without it leaves the Mac with no token to send this to at all.
+    ///
     /// `macName` is the second line rather than the first, because the message is what the user
     /// needs and the Mac is what tells them which of several to look at: two Macs can both have a
     /// shell called `prod`, and this is read on a locked screen with nothing else on it.
     func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
-        guard isAuthorized, UIApplication.shared.applicationState != .active else { return }
+        guard isOnPlan, isAuthorized, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = "Terminal needs you"
         content.body = macName.map { "\($0): \(message)" } ?? message

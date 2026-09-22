@@ -556,8 +556,8 @@ extension RemoteScreen {
                 else { Text("Fit the whole screen") }
             }
             Button { setFill(true) } label: {
-                if scalesToFill { Label("Fill the phone screen", systemImage: "checkmark") }
-                else { Text("Fill the phone screen") }
+                if scalesToFill { Label("Fill this screen", systemImage: "checkmark") }
+                else { Text("Fill this screen") }
             }
         } label: {
             HStack(spacing: 5) {
@@ -572,7 +572,7 @@ extension RemoteScreen {
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .menuInk()
         .accessibilityLabel("How the picture fits the screen")
-        .accessibilityValue(scalesToFill ? "Filling the phone screen" : "Fitting the whole screen")
+        .accessibilityValue(scalesToFill ? "Filling this screen" : "Fitting the whole screen")
         .fixedSize(horizontal: true, vertical: false)
     }
 

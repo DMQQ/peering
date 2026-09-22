@@ -15,11 +15,12 @@ extension MacSession {
     func apply(_ event: ClientSession.Event) {
         switch event {
         case .phase(let phase):
+            var shouldScheduleReconnect = true
             // A failure during a resume is retried, not shown. See ``SessionModel/isResuming``:
-            // this is a race with the teardown of the session that just ended, it clears itself
-            // in under a second, and `.failed` is what puts an alert on screen — so the phase is
-            // deliberately not taken. Cleared here rather than in the ladder so the ladder's
-            // own terminal failure, if it comes to one, is allowed through.
+            // when this Mac had already reached Ready, this is one step of the reconnect ladder
+            // and the phase is deliberately not taken. A cold-launch restoration is different:
+            // its first failure is terminal, is shown once, and clears the persisted request so
+            // lifecycle and browser callbacks cannot open the connecting card again.
             if case .failed = phase, model.isResuming {
                 model.isResuming = false
                 // **The attempt is over, so it stops counting as one in flight.**
@@ -30,8 +31,14 @@ extension MacSession {
                 connectTask?.cancel()
                 connectTask = nil
                 wire = nil
-                scheduleReconnect()
-                return
+                switch SessionResume.failureAction(hasBeenReady: hasBeenReady) {
+                case .retrySilently:
+                    scheduleReconnect()
+                    return
+                case .stopAndShowFailure:
+                    UserDefaults.standard.set(false, forKey: SessionModel.resumeKey)
+                    shouldScheduleReconnect = false
+                }
             }
             if phase.holdsSession {
                 model.isResuming = false
@@ -73,9 +80,10 @@ extension MacSession {
                 model.publishOpenMacs()
                 applyInitialQuality()
                 wire?.sendTerminal(.list)
-                if let token = SessionNotifier.shared.remoteToken {
-                    wire?.sendTerminal(.registerPushToken(token))
-                }
+                // Through the model rather than the token directly: this is the moment the Mac
+                // learns where to reach this device, and whether it may is the plan's answer,
+                // which the model owns. See ``SessionModel/sendPushToken()``.
+                model.sendPushToken()
             }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
@@ -128,7 +136,7 @@ extension MacSession {
             // `isReconnecting`, which is false until this block has run. Posted first, every
             // network switch would announce itself in the most visible place it has, which is
             // exactly the thing being fixed here.
-            if !phase.holdsSession, !userEnded {
+            if !phase.holdsSession, !userEnded, shouldScheduleReconnect {
                 // **Released here, or the ladder cannot take a single step.**
                 //
                 // `resumeIfNeeded` opens with `guard session == nil, !phase.holdsSession`, and the

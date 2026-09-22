@@ -2,6 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  The data protection keychain wants a group named in the signature, and the group macOS will
+	  accept is the app's application identifier. Without this entry the identity key cannot be
+	  created at all: SecKeyCreateRandomKey returns errSecMissingEntitlement, the host reports
+	  "Identity unavailable", and it never starts listening, which from the phone looks like a Mac
+	  that is simply not there.
+
+	  It is easy to miss because everything around it looks correct. The Developer ID profile
+	  already authorises `55RA6Q9VSR.*` and grants the application identifier, so `SecretStore`
+	  finds an entitlement and takes the data protection branch, while the signature carries no
+	  group for the item to belong to. A profile authorising a group is not the same as the app
+	  claiming one, and only the second appears in `codesign -d --entitlements`.
+
+	  `$(AppIdentifierPrefix)` expands at signing time to the team identifier and a dot.
+	-->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)pl.dmq.peering.host</string>
+	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.pl.dmq.peering</string>

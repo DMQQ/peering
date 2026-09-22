@@ -10,13 +10,14 @@ import Foundation
 /// the same map in prose, and they are the two that cannot be compiled against it: a change here
 /// is a change owed to both of them in the same commit.
 ///
-/// **Nine rows, and everything else in the app is free.** Every display, app and window as a
+/// **Ten rows, and everything else in the app is free.** Every display, app and window as a
 /// source, the desktops panel, the clipboard itself, the pointer and the keyboard, observe
-/// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, notifications,
-/// session history, wake on LAN, saving SSH servers, one Mac at a time, one shell at a time and the
-/// whole file browser including editing, making, renaming, deleting and running what it lists. None
-/// of those are here, and none of them should be. A capability that is not on this list cannot be
-/// gated by accident, because the question a gate asks is this type and there is no case for it.
+/// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, the banners a
+/// session's own state puts up, session history, wake on LAN, saving SSH servers, one Mac at a
+/// time, one shell at a time and the whole file browser including editing, making, renaming,
+/// deleting and running what it lists. None of those are here, and none of them should be. A
+/// capability that is not on this list cannot be gated by accident, because the question a gate
+/// asks is this type and there is no case for it.
 ///
 /// **SSH servers were a seventh and were removed.** The gate said the app was holding the user's own
 /// saved machines behind a subscription: a host they typed in themselves, kept in their keychain
@@ -76,6 +77,26 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// than a ceiling.
     case clipboardHistory
 
+    /// The Mac telling the phone that a terminal has stopped and is waiting for a person.
+    ///
+    /// **One capability over two deliveries, because they are one message.** While a session is up
+    /// the banner is posted by the phone itself; when no session is up the Mac sends it over the
+    /// relay and APNs to the device token the phone handed it on the way in. Both are the same
+    /// sentence arriving by different roads, and a user who had the second without the first would
+    /// have no way to tell which half of it they had bought.
+    ///
+    /// **The terminal stays free; being reached for does not.** One shell, its picture, its keys
+    /// and the attention mark on its own tab are on every plan, which is the same arrangement
+    /// ``shellTabs`` is kept at. What a plan buys here is not the terminal but the *reaching* of
+    /// the user when they are somewhere else, and that is the only part of it the relay and APNs
+    /// are in the path of, and so the only part that costs the service anything.
+    ///
+    /// It sits on the entry rung rather than beside the tools because it is not a tool. Everything
+    /// above free that a user reaches for is a control; this one arrives on its own, and what it is
+    /// for is a phone in a pocket while a build finishes. That is the away-from-home case the entry
+    /// rung is sold as, and it is the one row on the map that only exists when nobody is looking.
+    case terminalAlerts
+
     case shellTabs
     /// Macros, the snippets above the terminal keyboard, and the quick commands in a shell.
     ///
@@ -110,12 +131,15 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// resold the same plan would change the ladder without changing a single answer here.
     public var minimumPlan: RelayPlan {
         switch self {
-        case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory:
+        case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory,
+             .terminalAlerts:
             // The remote working set: away from your own network, with every Mac you own, its
-            // sound, its picture floating over another app, and files that move both ways. The
-            // entry rung used to differ from free mainly by a larger clock, which made it the
-            // hardest thing on the ladder to sell. See the note in
-            // `PLANS-AND-FEATURES.md` on why these four moved down to it.
+            // sound, its picture floating over another app, files that move both ways, and the
+            // Mac able to reach you when a shell stops for an answer. The entry rung used to
+            // differ from free mainly by a larger clock, which made it the hardest thing on the
+            // ladder to sell. See the note in `PLANS-AND-FEATURES.md` on why four of these moved
+            // down to it; ``terminalAlerts`` was never anywhere else, since a row about the user
+            // being away from the screen has nothing to offer a plan that is about the screen.
             return .relay
         case .shellTabs:
             // The clock going away, and the concurrency with it. Terminals are the one row that
@@ -157,6 +181,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .pictureInPicture: return "Picture in Picture"
         case .fileTransfer: return "Moving files between the phone and the Mac"
         case .clipboardHistory: return "The clipboard history"
+        case .terminalAlerts: return "Knowing when a terminal needs you"
         case .shellTabs: return "Several shells at once"
         case .macros: return "Macros, snippets and quick commands"
         case .highBitrate: return "The sharpest picture"

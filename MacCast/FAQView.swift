@@ -36,6 +36,7 @@ struct FAQView: View {
                         sectionView(section)
                     }
                 }
+                .adaptiveContentColumn()
                 .padding(.horizontal, 18)
                 .padding(.top, 16)
                 .padding(.bottom, 36)

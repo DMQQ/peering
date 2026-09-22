@@ -184,6 +184,7 @@ struct SSHTab: View {
                     }
                     .tourAnchor(.serversAdd)
                 }
+                .adaptiveContentColumn()
                 .padding(18)
             }
         }

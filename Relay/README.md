@@ -509,8 +509,29 @@ xcrun stapler staple /path/to/Peering.app
 # Package and sign. The source is the archived app from above, not a build product: the disk image
 # that shipped was arm64-only, and the archive it should have come from was not, so this line is
 # where that went wrong if it goes wrong again.
-hdiutil create -volname Peering -srcfolder "$ARCHIVE_APP" -ov -format UDZO \
+#
+# The staging directory is not decoration. `-srcfolder` pointed straight at the app puts the app
+# alone at the root of the volume, and an image whose only item is the app gives nobody anything to
+# drag onto, so the one thing a person can do with it is double-click the app and run it from a
+# read-only disk. That is what the 202609221 image did. It leaves the app installed nowhere, which
+# is invisible until something depends on it being somewhere, and it points Screen Recording at a
+# path that is ejected the moment the image is put away.
+#
+# The alias to /Applications is the whole of the fix. It is the convention every other Mac disk
+# image uses, and it is what makes the window a decision rather than a dead end.
+DMG_STAGE="$(mktemp -d)"
+ditto "$ARCHIVE_APP" "$DMG_STAGE/Peering.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+hdiutil create -volname Peering -srcfolder "$DMG_STAGE" -ov -format UDZO \
   /tmp/Peering-<version>.dmg
+rm -rf "$DMG_STAGE"
+
+# Both items, checked rather than trusted, because an image that lost the alias still builds and
+# still notarises.
+hdiutil attach -nobrowse -readonly -quiet -mountpoint /tmp/peering-layout /tmp/Peering-<version>.dmg
+[ -L /tmp/peering-layout/Applications ] || { echo "the image has no Applications alias" >&2; exit 1; }
+[ -d /tmp/peering-layout/Peering.app ]   || { echo "the image has no app in it" >&2; exit 1; }
+hdiutil detach /tmp/peering-layout -quiet
 
 # And the image is what actually ships, so this is the copy of the check that counts. `lipo` cannot
 # see inside a disk image, so mount it read-only and look at the app within.
@@ -572,6 +593,25 @@ PEERINGD_PUBLIC_HOST=relay.getpeering.app
 
 Signalling still benefits from the orange cloud: the WebSocket rides HTTPS on 443, which is the one
 port nothing blocks.
+
+**The origin's `Cache-Control` is not the last word, and the disk image is where that shows.** The
+relay answers a DMG with `no-cache`, and that is what it should do, but `dmg` is on Cloudflare's
+default cache-by-extension list and the zone's Browser Cache TTL setting replaces the header on the
+way out. The edge serves `max-age=14400` regardless of what this repository asks for, and `xml` is
+not on that list, which is why the appcast is unaffected and the DMG is not.
+
+The consequence is specific and it is not a slow deploy: a person who downloaded the previous
+release within those four hours gets the old image back from their own browser, with no request
+reaching this box at all. On 22 September 2026 that handed a protocol-16 build to somebody who had
+just been told their Mac was too old, from the one page that was supposed to fix it, while every
+check run with `curl` passed, because `curl` has no browser cache.
+
+`deploy-site.sh` closes this the same way it closes it for the stylesheet: the download link is
+stamped with a hash of the image's contents, so a changed image is a changed URL and there is no
+stale key for a cache to answer with. Two things follow. **Do not remove that stamp**, and do not
+verify a release with a bare `curl` of the un-stamped path and call it done. Setting Browser Cache
+TTL to "Respect Existing Headers" in the Cloudflare dashboard would fix the general case as well,
+but the stamp is what holds if the setting is ever changed back.
 
 #### IPv6
 

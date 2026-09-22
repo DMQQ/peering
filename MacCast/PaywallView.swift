@@ -136,7 +136,7 @@ struct PaywallView: View {
                 // Opened by the app, so it opens by naming the moment. Without that first clause
                 // this is a purchase screen that has appeared out of nowhere a second after the
                 // session ended, which reads as the app having pounced rather than followed up.
-                let moment = "That was your first session. Relay is the part of Peering that reaches your Mac when this iPhone is not on the same network."
+                let moment = "That was your first session. Relay is the part of Peering that reaches your Mac when this device is not on the same network."
                 switch plan {
                 case .free:
                     return "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Any paid plan removes the limit."
@@ -183,11 +183,13 @@ struct PaywallView: View {
             case .concurrentSessions:
                 return "One Mac at a time is free. This keeps them all open, so switching is a tap rather than a reconnection."
             case .macSound:
-                return "Whatever the Mac is playing comes out of this phone, from the music you left running to the alert it makes in answer to a key you sent it."
+                return "Whatever the Mac is playing comes out of this device, from the music you left running to the alert it makes in answer to a key you sent it."
             case .pictureInPicture:
                 return "The Mac's screen floats over your other apps, and iOS floats it by itself when you leave."
             case .clipboardHistory:
                 return "The last twelve things that crossed between the two, still there when you think of them. Copying and pasting are on every plan."
+            case .terminalAlerts:
+                return "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan."
             case .fileTransfer:
                 return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB."
             case .shellTabs:

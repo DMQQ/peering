@@ -18,6 +18,7 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 | Paired Macs | 1 | every | every | every |
 | Sound, Picture in Picture | | yes | yes | yes |
 | Moving files both ways | | yes | yes | yes |
+| Told when a terminal needs you | | yes | yes | yes |
 | Several shells at once | | | yes | yes |
 | Several Macs at once | | | | yes |
 | Macros, snippets, quick commands | | | | yes |
@@ -93,7 +94,7 @@ the working features around it rather than a slightly larger clock.
 ## 2. Every feature the app has, and where it goes
 
 **Checked against the code on 20 September 2026, and this section now says what the code does.**
-The authority is `MacCastKit/Sources/MacCastKit/PlanAccess.swift`: eight `PlanCapability` cases,
+The authority is `MacCastKit/Sources/MacCastKit/PlanAccess.swift`: ten `PlanCapability` cases,
 each with a `minimumPlan`, and every gate in the app asks one of them. Nothing in the app names a
 plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
 there is one list and no second place to drift from.
@@ -107,6 +108,7 @@ there is one list and no second place to drift from.
 | Picture in Picture | `pictureInPicture` | Relay |
 | Moving files between the phone and the Mac | `fileTransfer` | Relay |
 | The clipboard history | `clipboardHistory` | Relay |
+| Being told when a terminal needs you | `terminalAlerts` | Relay |
 | Several shells at once, as tabs | `shellTabs` | Relay Plus |
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
@@ -197,6 +199,7 @@ commands into the single `macros` case on purpose, because they are one idea at 
 | File browser on the Mac terminal (navigate, cd, preview) | ✅ | ✅ | ✅ | ✅ |
 | File browser over SSH (SFTP, with an exec fallback) | ✅ | ✅ | ✅ | ✅ |
 | Moving a file between the phone and the machine | · | ✅ | ✅ | ✅ |
+| Told when a terminal stops and waits for an answer | · | ✅ | ✅ | ✅ |
 
 Two rows here were wrong and are now right. **SSH servers are free**, and the capability has left
 `PlanAccess.swift` altogether: the owner's question was "why block SSH for free", and on inspection
@@ -242,6 +245,14 @@ map in `PlanAccess.swift`, and every gate in the app draws itself through `PlanL
 - **Terminal tabs** (`shellTabs`) are counted client-side at "New shell".
 - **Sound, Picture in Picture, moving files, macros and the bitrate ceiling** are each one check at
   their own entry point.
+- **Terminal alerts** (`terminalAlerts`) are two checks on the phone, and neither of them is a
+  control the user is looking at. A session that comes up refuses to register its APNs device token
+  with the Mac on a plan without it, and a shell that stops refuses to raise its banner. The first
+  is the one that carries the weight: the Mac sends a notification to a token and knows nothing else
+  about the user, so a phone that never hands one over cannot be reached by a Mac that has been left
+  running. A plan that lapses sends an *empty* registration on the next connection, which is how the
+  Mac is told to forget the token it was given while the plan did include it. Both checks fail
+  closed while the entitlement has not been read, since neither waits for a tap.
 - **Client-side means bypassable.** A patched app can claim anything, which is the same trust level
   as the relay's own plan field, and is the right trade at this size. The real fix, when it matters,
   is verifying Apple's signed transaction offline, and the relay now does that for the one thing
@@ -274,7 +285,8 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
 **Built and running** ✅
 - Local + relay sessions, pairing, trusted Macs, wake on LAN, Face ID
 - Display / app / window sources, desktops, adaptive quality
-- Clipboard + history, macros, quick commands, session audio, PiP, privacy mode, screenshots
+- Clipboard + history, macros, quick commands, session audio, PiP, terminal alerts, privacy mode,
+  screenshots
 - Mac terminal and SSH terminal, with tabs
 - File browser on **both** terminals (phase 1 and 2), including SFTP with an exec fallback
 - Live Activity, widgets (iOS + macOS host), session history, Siri intents

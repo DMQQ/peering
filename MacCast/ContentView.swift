@@ -219,9 +219,12 @@ struct ContentView: View {
         .animation(Motion.settle, value: isRemoteScreen)
         .animation(Motion.settle, value: hasSeenWelcome)
         .onChange(of: isRemoteScreen, initial: true) { _, remote in
+            let isPad = UIDevice.current.userInterfaceIdiom == .pad
             // The mask is what *permits* rotation, and it is read through
             // `AppDelegate.application(_:supportedInterfaceOrientationsFor:)`.
-            OrientationLock.shared.allowed = remote ? .allButUpsideDown : .portrait
+            OrientationLock.shared.allowed = isPad
+                ? .all
+                : (remote ? .allButUpsideDown : .portrait)
 
             guard let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene }).first
@@ -238,7 +241,7 @@ struct ContentView: View {
             // the device decides — requesting a geometry there would name the orientation
             // the phone is already in (portrait, a member of the allowed set) and read as
             // "stay put", which is what made rotation look disabled while sharing.
-            if !remote {
+            if !remote, !isPad {
                 scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
             }
         }

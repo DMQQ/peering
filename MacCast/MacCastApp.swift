@@ -7,7 +7,9 @@ import UIKit
 final class OrientationLock {
     static let shared = OrientationLock()
     private init() {}
-    var allowed: UIInterfaceOrientationMask = .portrait
+    var allowed: UIInterfaceOrientationMask = UIDevice.current.userInterfaceIdiom == .pad
+        ? .all
+        : .portrait
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -109,6 +111,9 @@ struct MacCastApp: App {
                 // controller keeps the last one. See ``SessionPiP/isOnPlan``.
                 .onChange(of: model.storeManager.access) { _, _ in
                     model.applyPictureInPicturePlan()
+                    // The other one that spends itself without a tap. Sound, files and the rest
+                    // are asked by the control the user is looking at, so they need no push.
+                    model.applyTerminalAlertPlan()
                 }
                 // The banners are for a user who is somewhere else. Coming back to the front
                 // is the moment they stop being the current news: the screen says the same

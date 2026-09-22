@@ -439,6 +439,31 @@ extension SessionModel {
         return included
     }
 
+    /// Tells the object that raises terminal banners whether the plan includes them, and answers
+    /// the same question for the caller.
+    ///
+    /// **Its twin, and called from the same moments**: the other half of the same feature is the
+    /// registration refused in ``sendPushToken()``, which reads the plan directly because it has
+    /// the store in front of it. This one is a push rather than a read because the object it
+    /// informs has no store, which is the same arrangement ``SessionPiP`` is kept in.
+    ///
+    /// The banner it gates has no tap to wait for: a shell stops and the banner is raised, and the
+    /// only question the app can ask is whether the answer was already known. Failing closed until
+    /// it is costs a subscriber one banner in the first moments of a launch.
+    @discardableResult
+    func applyTerminalAlertPlan() -> Bool {
+        let included = TerminalAlertsAccess.canNotify(access: storeManager.access)
+        SessionNotifier.shared.isOnPlan = included
+        return included
+    }
+
+    var isPiPSupported: Bool { SessionPiP.isSupported }
+    var pipLastAttempt: String? { SessionPiP.shared.lastAttempt }
+    var pipLastRefusal: String? { SessionPiP.shared.lastRefusal }
+
+    func startPiP() { SessionPiP.shared.start() }
+    func setPiPAutoStart(_ on: Bool) { SessionPiP.shared.autoStart = on }
+
     /// The reprieve iOS grants a backgrounded app, and what happens when it runs out.
     ///
     /// There is no background mode a remote desktop can honestly claim — the app is not playing
@@ -461,6 +486,11 @@ extension SessionModel {
         // which reads it from the defaults and has it written by the two toggles that draw it,
         // and a third copy would be a third place for it to disagree.
         let pipIncluded = applyPictureInPicturePlan()
+
+        // And the other thing that is allowed to arrive on its own: a shell that stops while the
+        // app is not on screen raises its banner rather than waiting for a tap, so the answer it
+        // reads has to be the current one.
+        applyTerminalAlertPlan()
 
         // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
         // That flag is set, and the picture does float when it is started by hand — but iOS
@@ -492,6 +522,15 @@ extension SessionModel {
     func enteringForeground() {
         SessionActivity.shared.returningToForeground()
         endBackgroundAssertion()
+
+        // **The App Store's answer, re-read before anything is armed from it again.** A
+        // subscription that ran out while this app was off screen produced no transaction to
+        // notice it by, so the plan this process holds can be hours out of date — and every gate
+        // reads it. Asked here rather than at the moment of a backgrounding because the reading is
+        // local and this is the one point where waiting for it costs nothing: the session is being
+        // resumed, not torn down. The change lands in ``StoreManager/access``, which is what the
+        // two pushes above it and the plan sent to the relay all read.
+        Task { await storeManager.rereadEntitlement() }
         // A browse that died while the app was in the background has been sitting behind its own
         // backoff in a suspended process. Starting one now is the difference between a list that
         // is there when the user looks and one that fills in several seconds later.

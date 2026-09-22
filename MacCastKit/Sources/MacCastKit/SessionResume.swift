@@ -12,6 +12,20 @@ import RemoteCore
 /// from every single fact the session holds, which is why this takes five of them and why one of
 /// them has to be carried across the dial.
 public enum SessionResume {
+    /// What a failed connection that the app started on its own means.
+    ///
+    /// A session that was already live has temporarily dropped and keeps its retry ladder. A
+    /// cold-launch restoration has only proved that the remembered Mac is unavailable now; doing
+    /// the same dial again merely re-presents the connecting screen without any new user intent.
+    public enum FailureAction: Equatable, Sendable {
+        case retrySilently
+        case stopAndShowFailure
+    }
+
+    public static func failureAction(hasBeenReady: Bool) -> FailureAction {
+        hasBeenReady ? .retrySilently : .stopAndShowFailure
+    }
+
     /// Whether this Mac is coming back.
     ///
     /// The three flags are the whole of what makes this a resume rather than a connection:
