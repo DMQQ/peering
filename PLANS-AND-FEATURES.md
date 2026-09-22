@@ -313,14 +313,19 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
 - **Per-plan relay allowances** — the relay learns the plan from the handshake; free gets one hour
   and every paid plan is unlimited.
 - **The mosaic** — several of the Mac's windows in one picture, Pro. The Mac half is built and
-  proved on its own (one ScreenCaptureKit stream per tile, composited with CoreImage into a single
-  encoded canvas, `Tools/CaptureProbe --mosaic`), and the phone half is built: pick several sources
-  in the sources panel, tap a tile to go into it, a back control in the status pill to return. What
-  is not yet done is the arrangement editor (dragging and resizing tiles), and one thing still has
-  to be seen with a real client: **that the iOS renderer decodes a composited canvas**. The file the
-  probe writes plays back, which retires the timestamps and the pixel format, but the client's own
-  surface is where a host-made frame failed once before. A tile for a window that is on another
-  Space is black and always will be, because nothing is rendering it.
+  proved on its own: one ScreenCaptureKit stream per tile, copied out of the pool ScreenCaptureKit
+  reuses, composited with CoreImage into a single encoded canvas, and the limits checked against a
+  running Mac (`Tools/CaptureProbe --mosaic` with nine sources builds six; with a 7680×4320 canvas
+  it builds 2560×1440; at 60 fps it runs at 30). The phone half is built too: pick several sources
+  in the sources panel, rearrange them as a list, give one or another more room, tap a tile to go
+  into it, and a back control in the status pill to return. An arrangement is remembered per Mac
+  and comes back thinned to the windows that still exist.
+  What is not done is freeform positions (drag where a tile sits, rather than order and size), and
+  one thing still has to be seen with a real client: **that the iOS renderer decodes a composited
+  canvas**. The file the probe writes plays back, which retires the timestamps, the pixel format and
+  the buffer ownership, but the client's own surface is where a host-made frame failed once before.
+  A tile for a window that is on another Space is black and always will be, because nothing is
+  rendering it.
 
 **Not started** ❌
 - Feature gating (§2 and §3 above)

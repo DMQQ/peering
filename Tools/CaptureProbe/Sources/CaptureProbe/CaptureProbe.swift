@@ -67,6 +67,8 @@ struct CaptureProbe {
         var pipeline = false
         /// Composite several real sources into one canvas. See ``runMosaic(_:)``.
         var mosaic: [String] = []
+        /// The canvas to ask for, for checking what a Mac does with one it will not build.
+        var canvas = CGSize(width: 1280, height: 720)
         /// Ask the system for Screen Recording, which puts a prompt on screen.
         var requestAccess = false
 
@@ -107,6 +109,16 @@ struct CaptureProbe {
                 case "--pipeline":
                     pipeline = true
 
+                case "--canvas":
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--canvas needs WIDTHxHEIGHT")
+                    }
+                    let parts = value.lowercased().split(separator: "x").compactMap { Double($0) }
+                    guard parts.count == 2, parts[0] > 1, parts[1] > 1 else {
+                        throw ProbeError(message: "--canvas needs WIDTHxHEIGHT, like 1920x1080")
+                    }
+                    canvas = CGSize(width: parts[0], height: parts[1])
+
                 case "--mosaic":
                     guard let value = iterator.next() else {
                         throw ProbeError(message: "--mosaic needs a comma-separated list of ids or title fragments")
@@ -133,7 +145,7 @@ struct CaptureProbe {
             """
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
-                                [--mosaic A,B,…] [--request-access]
+                                [--mosaic A,B,…] [--canvas WxH] [--request-access]
 
               --seconds N      how long to capture for (default 3)
               --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
@@ -145,6 +157,8 @@ struct CaptureProbe {
               --pipeline       drive the host's real CapturePipeline over a generated source,
                                so the pipeline itself — not just its encoder — is exercised
                                without Screen Recording permission
+              --canvas WxH     the canvas to ask for (default 1280x720), so what a Mac does
+                               with one larger than it will build can be seen
               --mosaic A,B,…   composite the named sources — stable ids or title fragments —
                                into one canvas through the host's MosaicCompositor, and write
                                the result. This is the only check that runs more than one
@@ -301,15 +315,19 @@ struct CaptureProbe {
             )
         }
 
-        let canvas = CGSize(width: 1280, height: 720)
-        guard let layout = MosaicLayout(canvas: canvas, tiles: tiles, frameRate: min(options.frameRate, 30)).validated else {
+        guard let layout = MosaicLayout(
+            canvas: options.canvas,
+            tiles: tiles,
+            frameRate: min(options.frameRate, 30)
+        ).validated else {
             throw ProbeError(message: "the mosaic had no tiles")
         }
 
         let names = chosen.map { "\($0.title) [\($0.id)]" }.joined(separator: " + ")
         log("""
-            mosaic mode: \(count) sources — \(names) — in a \(Int(layout.canvas.width))×\(Int(layout.canvas.height)) \
-            canvas at \(layout.frameRate) fps, each tile its own SCStream
+            mosaic mode: \(count) asked for, \(layout.tiles.count) built — \(names) — in a \
+            \(Int(layout.canvas.width))×\(Int(layout.canvas.height)) canvas at \(layout.frameRate) fps, \
+            each tile its own SCStream
             """)
 
         let url = URL(fileURLWithPath: options.output)
