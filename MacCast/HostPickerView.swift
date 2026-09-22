@@ -43,6 +43,7 @@ private enum Screen: CaseIterable, Identifiable {
 struct HostPickerView: View {
     @Binding var acknowledgedFailure: String?
 
+    @Environment(SessionModel.self) private var model
     @Environment(SSHModel.self) private var servers
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var screen: Screen = .connect
@@ -70,6 +71,16 @@ struct HostPickerView: View {
                         item == .servers && servers.selectedTerminal != nil ? .hidden : .visible,
                         for: .tabBar
                     )
+                    // The session accessory: a native bottom toolbar that lists whatever Mac and
+                    // SSH sessions are running, so the user can tap straight back to one from
+                    // wherever in the picker they happen to be.
+                    //
+                    // Hidden on the Servers tab while a terminal screen is up — the tab bar itself
+                    // is gone then, and a toolbar above where it was would float over the terminal.
+                    // Also hidden while there is nothing to show, so the toolbar does not reserve
+                    // any space and the separator line does not appear for an empty bar.
+                    .toolbar(sessionAccessoryVisibility(for: item), for: .bottomBar)
+                    .toolbar { sessionAccessory }
                     .tabItem { Label(item.title, systemImage: item.symbol) }
                     .tag(item)
             }
@@ -77,6 +88,82 @@ struct HostPickerView: View {
         .tint(ColorPalette.accent)
         .preferredColorScheme(.dark)
         .onChange(of: servers.wantsFocus, initial: true, focusServers)
+        .tabBarMinimizeOnScrollIfAvailable()
+    }
+
+    /// Whether the bottom toolbar should appear on a given tab.
+    private func sessionAccessoryVisibility(for item: Screen) -> Visibility {
+        let hasSessions = !model.openSessions.isEmpty || !servers.openShells.isEmpty
+        let terminalIsUp = item == .servers && servers.selectedTerminal != nil
+        return hasSessions && !terminalIsUp ? .visible : .hidden
+    }
+
+    /// The scrollable row of session chips the bottom toolbar carries.
+    @ToolbarContentBuilder
+    private var sessionAccessory: some ToolbarContent {
+        ToolbarItem(placement: .bottomBar) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(model.openSessions) { session in
+                        Button {
+                            model.activateSession(session.id)
+                        } label: {
+                            sessionChip(
+                                dot: macDotFill(session),
+                                name: macName(session)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Return to \(macName(session))")
+                    }
+                    ForEach(servers.openShells) { terminal in
+                        Button {
+                            servers.selectedTerminalID = terminal.id
+                            screen = .servers
+                        } label: {
+                            sessionChip(
+                                dot: sshDotFill(terminal),
+                                name: terminal.title
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Return to \(terminal.title)")
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func sessionChip(dot: Color, name: String) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(dot)
+                .frame(width: 6, height: 6)
+            Text(name)
+                .font(.system(size: 12.5, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+        }
+    }
+
+    private func macName(_ session: MacSession) -> String {
+        session.hostID.flatMap { model.displayName(forHostID: $0) }
+            ?? session.hostName
+            ?? "A Mac"
+    }
+
+    private func macDotFill(_ session: MacSession) -> Color {
+        if session.isReconnecting { return ColorPalette.caution }
+        return session.phase == .ready ? .green : Color.primary.opacity(0.25)
+    }
+
+    private func sshDotFill(_ terminal: SSHTerminal) -> Color {
+        switch terminal.phase {
+        case .connecting: return ColorPalette.caution
+        case .live: return .green
+        case .ended: return ColorPalette.danger
+        }
     }
 
     private var wideNavigation: some View {
@@ -144,6 +231,17 @@ struct HostPickerView: View {
 ///
 /// Named once here for the reason ``Legal`` is named once in `PaywallView`: the address has to
 /// agree with the site, the App Store listing and the docs, and only one of those can be compiled.
+private extension View {
+    @ViewBuilder
+    func tabBarMinimizeOnScrollIfAvailable() -> some View {
+        if #available(iOS 26, *) {
+            self.tabBarMinimizeBehavior(.onScrollDown)
+        } else {
+            self
+        }
+    }
+}
+
 enum PeeringSite {
     /// The download page rather than the home page: it is one tap further from a visitor who has
     /// not decided and one tap closer to the file for somebody who has.
