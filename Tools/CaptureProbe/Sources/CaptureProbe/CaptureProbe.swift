@@ -1,5 +1,6 @@
 import AppKit
 import AVFoundation
+import CoreImage
 import CoreGraphics
 import CoreMedia
 import CoreVideo
@@ -69,6 +70,8 @@ struct CaptureProbe {
         var mosaic: [String] = []
         /// The canvas to ask for, for checking what a Mac does with one it will not build.
         var canvas = CGSize(width: 1280, height: 720)
+        /// Check where the compositor puts two known colours, which needs nothing at all.
+        var composeCheck = false
         /// Ask the system for Screen Recording, which puts a prompt on screen.
         var requestAccess = false
 
@@ -128,6 +131,9 @@ struct CaptureProbe {
                         throw ProbeError(message: "--mosaic needs at least one source")
                     }
 
+                case "--compose-check":
+                    composeCheck = true
+
                 case "--request-access":
                     requestAccess = true
 
@@ -145,7 +151,8 @@ struct CaptureProbe {
             """
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
-                                [--mosaic A,B,…] [--canvas WxH] [--request-access]
+                                [--mosaic A,B,…] [--canvas WxH] [--compose-check]
+                                [--request-access]
 
               --seconds N      how long to capture for (default 3)
               --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
@@ -159,6 +166,8 @@ struct CaptureProbe {
                                without Screen Recording permission
               --canvas WxH     the canvas to ask for (default 1280x720), so what a Mac does
                                with one larger than it will build can be seen
+              --compose-check  place two known colours through the compositor's own arithmetic
+                               and read the canvas back, which needs no Screen Recording
               --mosaic A,B,…   composite the named sources — stable ids or title fragments —
                                into one canvas through the host's MosaicCompositor, and write
                                the result. This is the only check that runs more than one
@@ -196,7 +205,9 @@ struct CaptureProbe {
             return
         }
 
-        if !options.mosaic.isEmpty {
+        if options.composeCheck {
+            try await runComposeCheck()
+        } else if !options.mosaic.isEmpty {
             try await runMosaic(options)
         } else if options.pipeline {
             try await runPipeline(options)
@@ -274,6 +285,101 @@ struct CaptureProbe {
         report(pipeline: statistics, writer: summary, url: url)
         log(geometry.summary)
         try await playback(url: url)
+    }
+
+    /// Where two known colours land on the canvas, through the compositor's own arithmetic.
+    ///
+    /// **The one part of a mosaic that can be checked with no display, no TCC and no
+    /// ScreenCaptureKit**, and the part most likely to be wrong in a way nothing else notices:
+    /// a tile's rectangle is measured from the top left of the canvas while CoreImage puts its
+    /// origin at the bottom left, and a flip that is the wrong way round draws a picture of
+    /// windows in the wrong places rather than anything that looks broken.
+    ///
+    /// Two solid colours, then the canvas is read back at three points: the top-left tile's
+    /// centre, the bottom-right tile's, and a corner neither of them touches.
+    static func runComposeCheck() async throws {
+        let canvas = CGSize(width: 64, height: 64)
+        let red = CIImage(color: .red).cropped(to: CGRect(x: 0, y: 0, width: 32, height: 32))
+        let green = CIImage(color: .green).cropped(to: CGRect(x: 0, y: 0, width: 32, height: 32))
+
+        // The client's rectangles: the first tile at the canvas's top left, the second at its
+        // bottom right, both a quarter of it.
+        var composed = CIImage(color: .black).cropped(to: CGRect(origin: .zero, size: canvas))
+        composed = MosaicCompositor.place(
+            red, in: CGRect(x: 0, y: 0, width: 32, height: 32), canvas: canvas
+        ).composited(over: composed)
+        composed = MosaicCompositor.place(
+            green, in: CGRect(x: 32, y: 32, width: 32, height: 32), canvas: canvas
+        ).composited(over: composed)
+
+        guard let pixels = render(composed, size: canvas) else {
+            throw ProbeError(message: "the canvas could not be rendered")
+        }
+
+        // Sampling well inside each tile, so a border pixel of antialiasing cannot decide this.
+        let topLeft = pixel(in: pixels, at: CGPoint(x: 16, y: 16))
+        let bottomRight = pixel(in: pixels, at: CGPoint(x: 48, y: 48))
+        let untouched = pixel(in: pixels, at: CGPoint(x: 48, y: 16))
+
+        log("compose check: top left \(topLeft), bottom right \(bottomRight), top right \(untouched)")
+
+        func isRed(_ colour: (r: Int, g: Int, b: Int)) -> Bool { colour.r > 180 && colour.g < 80 && colour.b < 80 }
+        func isGreen(_ colour: (r: Int, g: Int, b: Int)) -> Bool { colour.g > 150 && colour.r < 80 && colour.b < 80 }
+        func isBlack(_ colour: (r: Int, g: Int, b: Int)) -> Bool { colour.r < 60 && colour.g < 60 && colour.b < 60 }
+
+        guard isRed(topLeft) else {
+            throw ProbeError(message: "the first tile was asked for the canvas's top left and is at its bottom left: the vertical flip is the wrong way round")
+        }
+        guard isGreen(bottomRight) else {
+            throw ProbeError(message: "the second tile is not where its rectangle said it would be")
+        }
+        guard isBlack(untouched) else {
+            throw ProbeError(message: "the corner neither tile covers is not the canvas's own black")
+        }
+        log("compose check passed: the first tile is at the top left, the second at the bottom right, the rest is canvas")
+    }
+
+    /// Renders an image to a `BGRA` buffer and reads it, at the size it was given.
+    ///
+    /// `BGRA` rather than the canvas's own `420v`: this is checking where things are, and a
+    /// colour space conversion between the check and the answer would be one more thing that
+    /// could be what is wrong.
+    private static func render(_ image: CIImage, size: CGSize) -> (data: Data, stride: Int, size: CGSize)? {
+        var buffer: CVPixelBuffer?
+        let attributes: [CFString: Any] = [
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+        ]
+        guard CVPixelBufferCreate(
+            kCFAllocatorDefault, Int(size.width), Int(size.height),
+            kCVPixelFormatType_32BGRA, attributes as CFDictionary, &buffer
+        ) == kCVReturnSuccess, let buffer else { return nil }
+
+        CIContext().render(
+            image,
+            to: buffer,
+            bounds: CGRect(origin: .zero, size: size),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)
+        )
+
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return nil }
+        let stride = CVPixelBufferGetBytesPerRow(buffer)
+        let data = Data(bytes: base, count: stride * Int(size.height))
+        return (data, stride, size)
+    }
+
+    /// One pixel of a rendered check, at a point measured from the image's top left.
+    private static func pixel(in rendered: (data: Data, stride: Int, size: CGSize), at point: CGPoint) -> (r: Int, g: Int, b: Int) {
+        let x = min(max(Int(point.x), 0), Int(rendered.size.width) - 1)
+        let y = min(max(Int(point.y), 0), Int(rendered.size.height) - 1)
+        let offset = y * rendered.stride + x * 4
+        guard offset + 3 < rendered.data.count else { return (0, 0, 0) }
+        return (
+            r: Int(rendered.data[offset + 2]),
+            g: Int(rendered.data[offset + 1]),
+            b: Int(rendered.data[offset])
+        )
     }
 
     /// Several real sources composited into one canvas, through the host's own compositor.

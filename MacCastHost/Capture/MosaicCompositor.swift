@@ -426,7 +426,12 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     /// left of the canvas, which is the client's space and the one the whole layout is expressed
     /// in, while CoreImage puts its origin at the bottom left. Converting once, at the point the
     /// two spaces meet, is what keeps every other line in this file thinking in one of them.
-    private static func place(_ image: CIImage, in rect: CGRect, canvas: CGSize) -> CIImage {
+    ///
+    /// **Internal rather than private so the probe can check it**, which it does with two solid
+    /// colours and no ScreenCaptureKit at all: a flip that is wrong puts the first tile in the
+    /// bottom-left of the canvas, and nothing above this function can tell that from a Mac
+    /// showing something upside down. See `Tools/CaptureProbe --compose-check`.
+    static func place(_ image: CIImage, in rect: CGRect, canvas: CGSize) -> CIImage {
         let extent = image.extent
         guard extent.width > 0, extent.height > 0, rect.width > 0, rect.height > 0 else { return image }
 
