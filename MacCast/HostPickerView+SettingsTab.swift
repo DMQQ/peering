@@ -43,6 +43,9 @@ struct SettingsTab: View {
                         notificationsSection
                         if !model.pairedHostIDs.isEmpty { trustedMacsSection }
                         identitySection
+#if DEBUG
+                        developerSection
+#endif
                         moreSection
                         legalSection
                     }
@@ -385,6 +388,60 @@ struct SettingsTab: View {
     /// whoever found the button a fresh free allowance. Do not put it back. What is left is the
     /// half that was always worth reading — which ID the Macs know this phone by, where the key
     /// lives, and how many Macs have paired with it.
+#if DEBUG
+    /// A developer's way to see the app on a plan they have not bought.
+    ///
+    /// **Behind `#if DEBUG` and second from the bottom**, which are two rules doing the same job:
+    /// it is not something a user should find by scrolling, and it is not in any build one ever
+    /// receives. `Tools/install-iphone.sh` builds Debug, so this is on a phone installed from this
+    /// repository and never in an App Store build.
+    ///
+    /// **It changes the app and not the wire.** Every gate, padlock and plan card reads
+    /// ``StoreManager/access``, which is what this overrides; what a session *states* to the relay
+    /// is ``StoreManager/relayPlan``, read from the real entitlement either way. So the gated
+    /// surfaces can be looked at on any plan, and a session is still metered as whatever the
+    /// account actually pays for — which is the half of this that would otherwise be a way to
+    /// spend relay allowance, and is not the half being tested.
+    private var developerSection: some View {
+        Controls.card(
+            "Developer",
+            footer: """
+                Changes what this app shows, not what the relay is told: sessions stay metered at \
+                whatever this Apple Account pays for.
+                """
+        ) {
+            Controls.row("Plan override", systemImage: "hammer") {
+                Menu {
+                    Button("Off") { model.storeManager.setPlanOverride(nil) }
+                    ForEach(RelayPlan.allCases, id: \.self) { plan in
+                        Button {
+                            model.storeManager.setPlanOverride(plan)
+                        } label: {
+                            if model.storeManager.planOverride == plan {
+                                Label(plan.name, systemImage: "checkmark")
+                            } else {
+                                Text(plan.name)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(model.storeManager.planOverride?.name ?? "Real")
+                            .foregroundStyle(model.storeManager.planOverride == nil ? .secondary : .primary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .tint(.white.opacity(0.72))
+                .font(.subheadline)
+                .accessibilityLabel("Plan override")
+                .accessibilityValue(model.storeManager.planOverride?.name ?? "Real")
+            }
+        }
+    }
+#endif
+
     private var identitySection: some View {
         Controls.card(
             "Device identity",

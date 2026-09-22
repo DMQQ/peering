@@ -124,7 +124,16 @@ final class StoreManager {
     /// `unknown` rather than a default of free until ``refreshEntitlement()`` has run, and read
     /// off the *entitlement* rather than off ``products``, which is a network fetch that can
     /// answer a minute late, or never, on a plane or before App Store Connect has the products.
-    var access: PlanAccess { hasReadEntitlement ? .known(relayPlan) : .unknown }
+    var access: PlanAccess {
+#if DEBUG
+        // Ahead of the entitlement, and ahead of ``hasReadEntitlement`` too: a developer who has
+        // set this has said what the answer is, and a gate that showed `unknown` — which locks
+        // nothing and so shows nothing either — until StoreKit answered would make the override
+        // look like it had not taken effect for the first moment of every launch.
+        if let planOverride { return .known(planOverride) }
+#endif
+        return hasReadEntitlement ? .known(relayPlan) : .unknown
+    }
     /// The signed transaction for whatever ``activeTier`` is, or `nil` when there is nothing to
     /// prove.
     ///
@@ -147,7 +156,48 @@ final class StoreManager {
     /// spinner that never stopped, which is worse than an error: it looks like the app is thinking.
     private(set) var productsUnavailable = false
 
+#if DEBUG
+    /// Where a hand-picked plan is remembered. See ``planOverride``.
+    nonisolated static let planOverrideKey = "Peering.developerPlanOverride"
+
+    /// A plan chosen by hand, for looking at what a plan includes without buying it.
+    ///
+    /// **It changes what this app shows and nothing on the wire.** ``relayPlan`` is what a session
+    /// states to the relay and what the relay meters by, and it goes on being read from the real
+    /// entitlement while this is set: every gate, padlock and plan card behaves as the chosen
+    /// plan, and a session is still metered as whatever the Apple Account actually pays for.
+    ///
+    /// That split is the point rather than a limitation. A switch that also told the relay would
+    /// be a switch that spends relay allowance, and what is being tested here is the app's own
+    /// gating — which is the half that can be wrong in a way the App Store cannot see.
+    ///
+    /// `#if DEBUG`, so it is in every build `Tools/install-iphone.sh` writes and in no build the
+    /// App Store ever receives. It is kept in `UserDefaults` because the screens it unlocks are
+    /// several taps in, and one that reset on every install would be re-set on every install.
+    private(set) var planOverride: RelayPlan? {
+        didSet {
+            UserDefaults.standard.set(planOverride?.rawValue, forKey: Self.planOverrideKey)
+        }
+    }
+
+    /// Sets or clears ``planOverride``. A method rather than a writable property, so the only way
+    /// to reach it is the one the developer section uses.
+    func setPlanOverride(_ plan: RelayPlan?) {
+        planOverride = plan
+        storeLog.notice("""
+            developer plan override \(plan?.rawValue ?? "cleared", privacy: .public)
+            """)
+    }
+#endif
+
     init() {
+#if DEBUG
+        // Read rather than assigned through ``setPlanOverride(_:)``, so loading it does not write
+        // back what it just read.
+        planOverride = UserDefaults.standard
+            .string(forKey: Self.planOverrideKey)
+            .flatMap(RelayPlan.init(rawValue:))
+#endif
         Task { [weak self] in
             for await result in Transaction.updates {
                 await self?.handleVerification(result)
