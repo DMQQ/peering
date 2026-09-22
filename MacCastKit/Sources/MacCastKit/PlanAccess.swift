@@ -11,7 +11,8 @@ import Foundation
 /// is a change owed to both of them in the same commit.
 ///
 /// **Eleven rows, and everything else in the app is free.** Every display, app and window as a
-/// source, the desktops panel, the clipboard itself, the pointer and the keyboard, observe
+/// source, every Space of every screen as a picture, the clipboard itself, the pointer and the
+/// keyboard, observe
 /// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, the banners a
 /// session's own state puts up, session history, wake on LAN, saving SSH servers, one Mac at a
 /// time, one shell at a time, one source at a time and the whole file browser including editing,
@@ -249,5 +250,14 @@ public enum PlanAccess: Sendable, Equatable {
         case .unknown: return nil
         case .known(let plan): return plan
         }
+    }
+
+    /// Whether the Sessions screen has a relay allowance to show.
+    ///
+    /// Paid plans are unlimited, so a relay-time meter is not useful account information for
+    /// them. An unread entitlement is hidden too: treating that short loading state as free would
+    /// flash a free-plan limit at every subscriber while StoreKit answers.
+    public var showsRelayAllowance: Bool {
+        self == .known(.free)
     }
 }

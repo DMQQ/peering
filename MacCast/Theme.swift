@@ -53,6 +53,27 @@ enum ChromeMetrics {
     static let bottomInset: CGFloat = 22
     /// Between two stacked panels in one column.
     static let panelGap: CGFloat = 8
+    /// How much of the screen the picture keeps to itself, each side, in landscape.
+    ///
+    /// **The picture is drawn at 75% of a landscape screen, and it is the rails that ask for it.**
+    /// Held sideways the chrome is two columns of buttons down the edges, and a mosaic drawn to the
+    /// screen's own edges runs *under* them: a tile's leftmost hundred points are behind a rail,
+    /// and what is under the rail is the part of a window a person is trying to read. The mosaic
+    /// fills a landscape screen almost exactly now that its canvas takes the arrangements's shape,
+    /// which is what turned this from a latent thing into a visible one.
+    ///
+    /// Portrait has none of it, and the asymmetry is the chrome's rather than a preference: the
+    /// pill and the dock sit above and below the middle of the screen, and the canvas of an
+    /// arrangement is a band across that middle. The one arrangement that would meet them — a
+    /// single column of tiles, which is the shape of the phone — is one tile wide and two or three
+    /// deep, and it is worth saying that nothing here protects it.
+    ///
+    /// Applied to the *bounds* the picture is laid out in rather than by padding the video alone:
+    /// every rectangle in this app that lands on a window — the tiles, the cursor, the tap that
+    /// resolves to a tile, the zoom a tap travels with — is the letterboxed rect moved by the
+    /// canvas's transform, and all of them have to be measured against the same rectangle the
+    /// pixels are actually drawn in.
+    static let pictureInset: CGFloat = 0.125
     /// Between two buttons inside one panel.
     static let buttonGap: CGFloat = 2
     /// Above the first and below the last item inside a panel.
@@ -145,10 +166,47 @@ enum ChromeMetrics {
 /// makes an interface feel mechanical: a thing that arrives on screen wants to be seen arriving,
 /// and a thing reacting under a finger wants to have already reacted.
 enum Motion {
+    /// The spring behind ``settle``, as two numbers rather than as an `Animation`.
+    ///
+    /// They are on their own here because one thing in this app has to *evaluate* this curve
+    /// rather than hand it to SwiftUI. The picture's zoom and pan reach the screen as a layer
+    /// transform on a `UIView`, written frame by frame (see
+    /// ``VideoLayerView/updateUIView(_:context:)``), so there is no SwiftUI value in an animation
+    /// of them for `withAnimation` to interpolate — the curve has to be evaluated a step at a
+    /// time instead. See ``settleProgress(at:)``.
+    static let settleResponse: Double = 0.34
+    static let settleDamping: Double = 0.84
+
     /// Panels, overlays, anything that appears or disappears. A spring rather than a curve — it
     /// settles into place instead of stopping, which is the difference between a panel that was
     /// pushed up and one that was switched on.
-    static let settle = Animation.spring(response: 0.34, dampingFraction: 0.84)
+    static let settle = Animation.spring(response: settleResponse, dampingFraction: settleDamping)
+
+    /// Where ``settle`` has got to `time` seconds in, from 0 to just over 1.
+    ///
+    /// **The spring's own solution, not a curve that looks like it.** The animation system is
+    /// handed the two numbers above and does this arithmetic internally; an animation that
+    /// cannot go through the animation system has to do it here, or it is a different movement
+    /// wearing the same name.
+    ///
+    /// It passes 1 and comes back, which is what `settle` is: the give that says the thing has
+    /// weight. A step that stopped at 1 would be the flat version of the same movement, and the
+    /// two would be visibly different when a panel and a picture move in the same breath.
+    ///
+    /// At the damping ``settle`` uses this is the underdamped solution. A damping of 1 or more is
+    /// treated as 1 — the critically damped one, where the give stops — because nothing in the
+    /// app uses anything else and a fourth branch would be arithmetic nobody executes.
+    static func settleProgress(at time: Double) -> Double {
+        guard time > 0 else { return 0 }
+        let omega = 2 * Double.pi / settleResponse
+        let zeta = min(max(settleDamping, 0), 1)
+        guard zeta < 1 else {
+            return 1 - exp(-omega * time) * (1 + omega * time)
+        }
+        let damped = omega * (1 - zeta * zeta).squareRoot()
+        return 1 - exp(-zeta * omega * time)
+            * (cos(damped * time) + (zeta * omega / damped) * sin(damped * time))
+    }
 
     /// A control changing state. Shorter than `settle`, so the feedback lands with the tap
     /// rather than after it.

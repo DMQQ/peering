@@ -98,7 +98,6 @@ struct HostStatusView: View {
     /// is rebuilt every time its section is opened, while the readings' baseline has to survive
     /// as long as there is something to subtract from. `Resources` in
     /// `HostStatusView+Resources.swift` is where it is fed.
-    @State var sampler = HostResourceSampler()
 
     /// The pane's own inset from the window edge.
     ///
@@ -237,12 +236,6 @@ struct HostStatusView: View {
             // moment a device attaches — see `connectSection`.
             VStack(alignment: .leading, spacing: 24) {
                 nowShowingSection
-                // Directly under the picture, because it is about the picture: what the session
-                // on screen is costing the Mac it is running on. It is also the only answer in
-                // this window to a question a person asks *while* something heavy is happening,
-                // and a panel that has to be found by scrolling is read after the moment has
-                // passed.
-                resourcesSection
                 connectSection
                 overviewLowerDeck
             }

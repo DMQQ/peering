@@ -447,12 +447,85 @@ final class MacSession: Identifiable {
     /// its tiles keeps it, because that is the gesture the back control exists to undo.
     var mosaicChoices: [MosaicChoice] = []
 
+    /// The re-ask a rotation has scheduled, if the phone is still settling from one.
+    ///
+    /// On the session rather than on the model because the model outlives a session: a rotation
+    /// that was pending when a connection ended would otherwise be delivered to the next Mac, as a
+    /// mosaic of windows that are not there. See ``SessionModel/refreshMosaicForViewport()``.
+    var mosaicViewportTask: Task<Void, Never>?
+
+    /// The "has anything gone" check a catalogue change schedules.
+    ///
+    /// On the session for the same reason the rotation's is: a check pending when the connection
+    /// ended would otherwise be run against the next Mac, and it is a question about *this* one's
+    /// windows. See ``SessionModel/scheduleMosaicGapCheck()``.
+    var mosaicGapTask: Task<Void, Never>?
+
+    /// Whether the picture the user asked for is an arrangement rather than one of its tiles.
+    ///
+    /// **The fact that has to survive the screen changing shape.** ``mosaicLayout`` is built from
+    /// ``mosaicChoices`` and the *live* screen size, so the layout — and therefore its identifier,
+    /// which is derived from the rectangles in it — is different after the phone is turned. And
+    /// ``isShowingMosaic`` is the equality of that identifier with ``activeSourceID``, which was
+    /// written when the arrangement was asked for. Turn the phone and the two stop matching: the
+    /// tile borders disappear, the pill loses the picture's name, and the Mac goes on sending the
+    /// canvas it was asked for at the old shape. Nothing was wrong with the picture; the app had
+    /// simply forgotten it had asked for an arrangement.
+    ///
+    /// So the asking is recorded separately from the arithmetic. It is set by ``selectSource(_:)``
+    /// from the source itself, which is why it cannot drift: every way of choosing a source goes
+    /// through there, and a mosaic is the only one that sets it.
+    ///
+    /// It was written for a canvas that took the screen's shape, taken out again when the canvas
+    /// stopped depending on the orientation, and is back because the canvas does again: see
+    /// ``MosaicGrid/canvas(for:)``.
+    var isAskingForMosaic = false
+
     /// The arrangement as the Mac is being asked for it, built from those choices.
     var mosaicLayout: MosaicLayout? {
-        MosaicGrid.layout(choices: mosaicChoices, viewport: mosaicViewport)
+        MosaicGrid.layout(
+            choices: mosaicChoices,
+            viewport: mosaicViewport,
+            tileAspect: mosaicTileAspect
+        )
     }
 
-    /// The canvas a mosaic is asked for: the phone's own screen in pixels.
+    /// How wide the things in the arrangement are, which is what its tiles are shaped by.
+    ///
+    /// **The median of what the catalogue knows, and a window if it knows nothing.** An
+    /// arrangement is usually several windows of about the same shape and one that is not — a
+    /// terminal, a tall palette, a browser window dragged narrow — and a canvas built from the
+    /// average would be a compromise that fits none of them. The middle value ignores the odd one
+    /// rather than being dragged by it, and the sources the catalogue cannot describe are left
+    /// out of the count rather than guessed at: a source that has gone is a tile with a card in
+    /// it, and it should not be reshaping the windows that are still there.
+    var mosaicTileAspect: Double {
+        let aspects = mosaicChoices
+            .compactMap { catalog?.descriptor(for: $0.source)?.pixelSize }
+            .filter { $0.width > 0 && $0.height > 0 }
+            .map { Double($0.width / $0.height) }
+            .sorted()
+        guard !aspects.isEmpty else { return MosaicGrid.windowAspect }
+        // Clamped, because one pathological source should not ask a Mac for a canvas of a shape
+        // nothing in the picture is: a 40-pixel strip of a window is a real thing to capture and
+        // a bad thing to build a grid out of.
+        return min(max(aspects[aspects.count / 2], 0.5), 3.0)
+    }
+
+    /// The canvas a mosaic is asked for: the phone's own screen in pixels, the way up it is being
+    /// held.
+    ///
+    /// **The shape comes from the interface and the pixels from the screen**, and the split is the
+    /// whole of why this does not simply read `bounds`. The two numbers in `bounds` are the screen's
+    /// own measurements and do not change when the phone turns — what changes is which of them is
+    /// the width, and iOS takes about two seconds to say so. The interface, on the other hand,
+    /// knows which way up it is going from the first frame of the movement: so the longer and the
+    /// shorter are taken as they are, and only their arrangement is asked about.
+    ///
+    /// Reading it the other way round is what made a rotation take two seconds to begin: the canvas
+    /// could not be built until `bounds` had turned, so the arrangement the Mac was asked for could
+    /// not be asked for until long after the phone had stopped moving — and the animation that
+    /// should have been part of the turn arrived on its own, seconds later.
     ///
     /// Read from the window scene rather than from `UIScreen.main`, which is deprecated and, on
     /// a device with more than one scene, is not necessarily the one being looked at.
@@ -466,14 +539,35 @@ final class MacSession: Identifiable {
         }
         let bounds = scene.screen.bounds
         let scale = scene.screen.scale
-        return CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        let longer = max(bounds.width, bounds.height) * scale
+        let shorter = min(bounds.width, bounds.height) * scale
+        return scene.effectiveGeometry.interfaceOrientation.isLandscape
+            ? CGSize(width: longer, height: shorter)
+            : CGSize(width: shorter, height: longer)
     }
 
+    /// The arrangement the picture on screen is *of*, or `nil` when the picture is a single source.
+    ///
+    /// **Recorded when the Mac answers, not when the app asks.** ``mosaicLayout`` is built from
+    /// the choices and the live screen size, so it changes the instant the phone is turned, and
+    /// the ask goes out at the same moment — but the Mac takes a second or two to tear down six
+    /// tile streams and build six more, and until it does the picture on screen is the *old*
+    /// canvas. Everything drawn over the picture has to agree with the picture: the tile borders,
+    /// the tap that resolves to a tile, the zoom a tap travels with. A grid laid out for an
+    /// arrangement that has not arrived yet is a grid drawn on top of the wrong picture, which is
+    /// what "the tiles resize late and then again" was.
+    ///
+    /// Set from the video config, which is the Mac's answer to whatever this end last asked for —
+    /// the same event ``picture`` is published on, and for the same reason. See
+    /// ``MacSession/apply(video:)``.
+    var pictureMosaicLayout: MosaicLayout?
+
     /// Whether the picture on screen is that arrangement rather than one of its tiles.
-    var isShowingMosaic: Bool {
-        guard let mosaicLayout else { return false }
-        return activeSourceID == CaptureSource.mosaic(mosaicLayout).stableID
-    }
+    ///
+    /// Read off the arrangement that has *arrived* rather than off the one being asked for, which
+    /// is the difference between a grid that belongs to the picture and a grid that belongs to the
+    /// request. See ``pictureMosaicLayout``.
+    var isShowingMosaic: Bool { pictureMosaicLayout != nil }
 
     /// What this Mac said about building a mosaic. See ``MosaicSupport/maySend(hostDeclared:)``.
     ///
@@ -900,7 +994,13 @@ final class MacSession: Identifiable {
         // for it and never will: it is not something the Mac offers, it is something the app
         // asked for. Without this the pill would say nothing at all while a canvas was up,
         // which reads as a session that has lost track of what it is showing.
-        if let layout = mosaicLayout, isShowingMosaic {
+        //
+        // **Named from the ask as well as the answer**, because the two say different things and
+        // both of them are "this is an arrangement": an arrangement on screen is the one the Mac
+        // built, and one on its way is the one the user just asked for. Answered from the answer
+        // alone, the pill went on naming the window the user had just left for as long as the Mac
+        // took to build the mosaic around it.
+        if isAskingForMosaic, let layout = mosaicLayout {
             return "\(layout.tiles.count) windows"
         }
         guard let activeSourceID,
@@ -914,22 +1014,49 @@ final class MacSession: Identifiable {
     /// The one condition the back control is drawn on, so it cannot be drawn in a session that
     /// has no mosaic (a button that took the user nowhere) or while the mosaic is on screen
     /// (a button that would do nothing at all).
+    ///
+    /// **The answer rather than the ask, and that is a reversal worth recording.** Asked of what
+    /// the user asked *for*, this hid the control the instant the way back was pressed, which is
+    /// the right reading of "they are already going there" and the wrong answer when the Mac does
+    /// not go: a mosaic the Mac refuses to build — every window in it closed, which is the ordinary
+    /// way an arrangement dies — left the button gone and the arrangement unreachable for the rest
+    /// of the session, with switching to a display the only way out and the way back lost with it.
+    /// A control that lingers a second is a smaller fault than a control that never comes back.
     var canReturnToMosaic: Bool { mosaicLayout != nil && !isShowingMosaic }
 
     /// The size of the captured content in pixels, if it is known.
     ///
-    /// The catalog is preferred over the video config: the catalog describes the source
-    /// before any picture arrives, so the canvas can be laid out correctly while the Mac is
-    /// still switching capture sources.
+    /// **The picture that is *on screen*, not the one being asked for.** Everything drawn over
+    /// the picture is measured against this — the tile borders, the remote cursor, the zoom a tap
+    /// travels with — and a rectangle measured against a picture that has not arrived is a
+    /// rectangle drawn on the wrong one.
+    ///
+    /// ``picture`` is that picture, and it is asked first: it is published from the same video
+    /// config ``pictureMosaicLayout`` is recorded from — the Mac's answer, carrying the size of the
+    /// stream it has just built. Asked through the renderer's own snapshot instead, the answer
+    /// would go missing for the instant between the renderer flushing and reconfiguring, and a
+    /// single frame of the incoming source's geometry is a single frame of the borders in the
+    /// wrong place.
+    ///
+    /// The catalogue is asked second, which is the other half of the same rule: it describes a
+    /// source *before* any picture of it arrives, so it is the answer only when there is no picture
+    /// at all — the first second of a session, or the moment after a drop. It used to be asked
+    /// *first*, on the reasoning that it lays the canvas out correctly while the Mac switches, and
+    /// what that produced was the geometry of the incoming source applied to the outgoing picture:
+    /// leaving a mosaic for one of its tiles, the tile borders were redrawn against the *window's*
+    /// letterbox while the mosaic was still what the screen was showing, which is the flash of
+    /// frame lines that arrives the instant the zoom finishes.
+    ///
+    /// See ``capturePointSize``, which is this halved, and ``pictureMosaicLayout``, which is the
+    /// same decision made about the arrangement rather than about the size.
     var capturePixelSize: CGSize? {
+        if let picture, picture.pixelSize.width > 0, picture.pixelSize.height > 0 {
+            return picture.pixelSize
+        }
         if let activeSourceID,
            let descriptor = catalog?.all.first(where: { $0.id == activeSourceID }),
            descriptor.pixelSize.width > 0, descriptor.pixelSize.height > 0 {
             return descriptor.pixelSize
-        }
-        let snapshot = renderer.currentSnapshot
-        if snapshot.hasConfig, snapshot.pixelWidth > 0, snapshot.pixelHeight > 0 {
-            return CGSize(width: snapshot.pixelWidth, height: snapshot.pixelHeight)
         }
         if let first = catalog?.displays.first { return first.pixelSize }
         return nil

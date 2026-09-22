@@ -308,6 +308,13 @@ final class CapturePipeline: @unchecked Sendable {
         frameRate: Int = 60,
         resolution: CaptureResolution = .full
     ) async throws {
+        // **Before the stop, because the captures are the thing being kept.** A mosaic asked for
+        // again with the same windows in different rectangles — a phone that has been turned, a
+        // return to the arrangement from one of its tiles — is the same six captures drawn
+        // somewhere else, and stopping them first is what made that change cost a second and a
+        // half of black. See ``recompose(_:)``.
+        if await recompose(source) { return }
+
         await stop()
 
         switch backend {
@@ -325,6 +332,20 @@ final class CapturePipeline: @unchecked Sendable {
                     throw CaptureError.sourceUnavailable(
                         "None of the windows in this mosaic are still open."
                     )
+                }
+                // **A tile whose window has gone is said out loud.** The phone's catalogue still
+                // lists it — nothing tells anyone when an application closes one of its windows —
+                // and a rectangle around a card is a window the user cannot open and space nobody
+                // is using. The catalogue is what this end can offer instead, and a push of it is
+                // what lets the phone take that window out of the arrangement. It is deliberately
+                // not pushed from here: the push is coalesced and driven by the notifications that
+                // invalidate the list, and adding a second driver to that was a second thing that
+                // could storm. See ``VideoCoordinator/refreshCatalog()``.
+                if plan.tiles.count < layout.tiles.count {
+                    pipelineLog.notice("""
+                        \(layout.tiles.count - plan.tiles.count, privacy: .public) of \
+                        \(layout.tiles.count, privacy: .public) windows in this mosaic have gone
+                        """)
                 }
                 // Built for the canvas, at the canvas's own rate, and **not** through
                 // ``CaptureResolution``: the client's rectangles describe a picture it chose the
@@ -423,6 +444,30 @@ final class CapturePipeline: @unchecked Sendable {
         encoder: VideoEncoder,
         source: CaptureSource
     ) async throws {
+        attach(engine: engine, encoder: encoder, source: source)
+
+        do {
+            try await engine.start(request)
+        } catch {
+            await stop()
+            throw error
+        }
+
+        encoder.requestKeyframe()
+    }
+
+    /// Points the pipeline's callbacks at a source and an encoder, without starting anything.
+    ///
+    /// **Split out of ``begin(_:request:encoder:source:)`` so that a mosaic which is rearranged
+    /// rather than started goes through the same wiring.** Every one of these assignments is a
+    /// thing that can be got wrong in a way that shows up as a picture that never arrives, and the
+    /// one path that must not differ from a started session is the one taken by a session that is
+    /// already running.
+    private func attach(
+        engine: any CaptureFrameSource,
+        encoder: VideoEncoder,
+        source: CaptureSource
+    ) {
         // Copyable because a `let` existential's settable properties cannot be assigned to,
         // even when every conforming type is a class.
         var engine = engine
@@ -449,15 +494,55 @@ final class CapturePipeline: @unchecked Sendable {
                 self.lock.withLock { self._onAudio }?(buffer)
             }
         }
+    }
+
+    /// Re-asks a running mosaic for a different arrangement of the same captures.
+    ///
+    /// **Says whether it could, rather than throwing**, because every reason it cannot is a reason
+    /// the ordinary path handles properly: no mosaic running, a different set of windows, a
+    /// catalogue that has gone. Returning `false` sends the caller down ``stop()`` and the usual
+    /// build, which is what a mosaic that genuinely changed wants and what this is a shortcut past
+    /// when it has not.
+    ///
+    /// The encoder is new either way: it is built for a canvas, and the canvas is what changed.
+    /// Everything else — the six ScreenCaptureKit streams, their filters, the retained frames —
+    /// belongs to the tiles rather than to the canvas, and those are what the second and a half
+    /// was being spent on.
+    private func recompose(_ source: CaptureSource) async -> Bool {
+        guard case .mosaic(let requested) = source,
+              let layout = requested.validated, !layout.tiles.isEmpty,
+              case .capture(let resolver, _, let compositor) = backend,
+              currentSource?.isMosaic == true
+        else { return false }
+        // The compositor has to be what is running, and not merely what exists: a pipeline whose
+        // backend holds one is a pipeline that is showing a display or a window through the other
+        // engine at this moment. Written out here rather than folded into the guard above, where
+        // the type checker gave up on it.
+        guard (lock.withLock { runningEngine } as? MosaicCompositor) === compositor else { return false }
+
+        guard let catalog = try? await resolver.catalog() else { return false }
+        let plan = MosaicPlan.make(layout: layout, catalog: catalog, resolver: resolver)
+        guard !plan.tiles.isEmpty, compositor.canReuseCaptures(for: plan) else { return false }
+
+        guard let encoder = try? VideoEncoder(
+            codec: codec,
+            pixelSize: plan.canvas,
+            frameRate: plan.frameRate
+        ) else { return false }
 
         do {
-            try await engine.start(request)
+            try await compositor.replan(plan)
         } catch {
-            await stop()
-            throw error
+            pipelineLog.error("""
+                a mosaic could not be rearranged, so it is being rebuilt: \
+                \(String(describing: error), privacy: .public)
+                """)
+            return false
         }
 
+        attach(engine: compositor, encoder: encoder, source: source)
         encoder.requestKeyframe()
+        return true
     }
 
     func stop() async {

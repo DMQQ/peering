@@ -60,6 +60,9 @@ extension SessionModel {
     /// ``MacSession/mosaicLayout``, which is where it is built.
     var mosaicLayout: MosaicLayout? { activeSession?.mosaicLayout }
 
+    /// The arrangement the picture on screen is of. See ``MacSession/pictureMosaicLayout``.
+    var pictureMosaicLayout: MosaicLayout? { activeSession?.pictureMosaicLayout }
+
     /// What the arrangement is made of: the sources, their order, and their sizes. See
     /// ``MacSession/mosaicChoices``.
     var mosaicChoices: [MosaicChoice] {
@@ -76,6 +79,16 @@ extension SessionModel {
     /// Whether the picture on screen is an arrangement rather than one of its tiles. See
     /// ``MacSession/isShowingMosaic``.
     var isShowingMosaic: Bool { activeSession?.isShowingMosaic ?? false }
+
+    /// Whether an arrangement is what the user last asked for, whether or not it has arrived.
+    /// See ``MacSession/isAskingForMosaic``.
+    ///
+    /// The screen needs the ask as well as the answer, and the two are not the same thing for as
+    /// long as the Mac takes to build six captures: everything the user has just done — the way
+    /// back to an arrangement, the reorder they have just dropped, the control they have just
+    /// pressed — is about the arrangement being asked for, while everything drawn on the picture
+    /// is about the one that has arrived.
+    var isAskingForMosaic: Bool { activeSession?.isAskingForMosaic ?? false }
 
     /// Whether this Mac can composite several sources into one picture. See
     /// ``MacSession/hostSupportsMosaic``.

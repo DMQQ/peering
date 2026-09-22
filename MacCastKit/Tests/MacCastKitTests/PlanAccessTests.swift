@@ -147,6 +147,17 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertFalse(PlanAccess.known(.free).includes(.macros))
     }
 
+    /// The relay allowance is a free-plan limit, not a feature of the Sessions screen for every
+    /// subscriber. Paid plans have no allowance to inspect, and an unanswered entitlement must
+    /// not briefly draw the free user's meter while StoreKit is still loading.
+    func testOnlyAKnownFreePlanShowsTheRelayAllowance() {
+        XCTAssertFalse(PlanAccess.unknown.showsRelayAllowance)
+        XCTAssertTrue(PlanAccess.known(.free).showsRelayAllowance)
+        XCTAssertFalse(PlanAccess.known(.relay).showsRelayAllowance)
+        XCTAssertFalse(PlanAccess.known(.plus).showsRelayAllowance)
+        XCTAssertFalse(PlanAccess.known(.pro).showsRelayAllowance)
+    }
+
     /// The ladder is `allCases` order, which is what the paywall draws its cards in and what the
     /// app reads to pick the best of several live subscriptions.
     func testTheLadderIsTheOrderOfAllCases() {

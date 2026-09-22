@@ -137,6 +137,14 @@ struct OnboardingView: View {
                 keeps your Mac in view, while Live Activities keep the session close at hand.
                 """
         ),
+        Page(
+            content: .feature(icon: "square.grid.2x2", screenshot: "AppMosaic"),
+            title: "See everything at once",
+            body: """
+                Lay out windows, apps and displays side by side and watch them all live. Tap any \
+                tile to take control, and come back to the arrangement when you are done.
+                """
+        ),
         // **The one claim the landing moved here and the tour did not already make.**
         //
         // Four claims left the landing page for this tour. Three of them — "come back from
@@ -346,12 +354,18 @@ struct OnboardingView: View {
                         MacDrawing(displayHeight: laid.macDisplay ?? 1) { deviceScreen }
                             .offset(laid.macOffset)
                             .transition(.opacity)
-                    }
 
-                    PhoneStage { phoneScreen }
-                        .scaleEffect(laid.phoneScale, anchor: .center)
-                        .offset(laid.phoneOffset)
-                        .transition(.opacity.animation(.easeOut(duration: 0.14)))
+                        // The companion phone still shows the iPhone app on the Mac page: that page
+                        // is about installing the Mac host, and the phone beside it is the device
+                        // the reader is holding, not a second kind of iPad stage.
+                        PhoneStage { phoneScreen }
+                            .scaleEffect(laid.phoneScale, anchor: .center)
+                            .offset(laid.phoneOffset)
+                            .transition(.opacity.animation(.easeOut(duration: 0.14)))
+                    } else {
+                        TabletStage { tabletScreen }
+                            .transition(.opacity.animation(.easeOut(duration: 0.14)))
+                    }
                 }
                 .frame(width: box.width, height: box.height)
                 .position(x: 48 + columnWidth / 2, y: proxy.size.height / 2)
@@ -844,6 +858,23 @@ struct OnboardingView: View {
         }
     }
 
+    /// What the tablet frame holds on regular-width layouts.
+    ///
+    /// Prefers the page's `tabletScreenshot` when one exists, and falls back to the phone screenshot
+    /// so that a page without a tablet capture yet is not left with a glyph on iPad while it has a
+    /// real picture on iPhone.
+    @ViewBuilder
+    private var tabletScreen: some View {
+        switch Self.pages[index].content {
+        case .feature(let icon, let screenshot, let tabletScreenshot):
+            picture(icon: icon, screenshot: tabletScreenshot ?? screenshot)
+                .id(index)
+                .transition(.opacity)
+        case .plans:
+            Color.black
+        }
+    }
+
     /// What the device is holding while a given page is on screen.
     ///
     /// The frame is the constant and this is the variable, which is the same arrangement the file
@@ -852,7 +883,7 @@ struct OnboardingView: View {
     @ViewBuilder
     private func screen(for offset: Int) -> some View {
         switch Self.pages[offset].content {
-        case .feature(let icon, let screenshot):
+        case .feature(let icon, let screenshot, _):
             picture(icon: icon, screenshot: screenshot)
 
         case .plans:
@@ -1202,9 +1233,10 @@ struct OnboardingView: View {
         /// and the one that asks for money — are told apart by the same list, in the same order,
         /// with the same page dots, rather than by an index comparison somewhere in the body.
         enum Content {
-            /// A page about something the app does. `screenshot` is `nil` until one has been taken,
-            /// in which case the page shows its glyph.
-            case feature(icon: String, screenshot: String? = nil)
+            /// A page about something the app does. `screenshot` is the phone capture; `tabletScreenshot`
+            /// is the iPad capture shown on regular-width layouts. Either is `nil` until taken, in which
+            /// case the frame shows its glyph.
+            case feature(icon: String, screenshot: String? = nil, tabletScreenshot: String? = nil)
             /// The last page: what there is to buy.
             case plans
         }
@@ -1355,6 +1387,90 @@ private struct PhoneDrawing<Screen: View>: View {
                 body.strokeBorder(PhoneStageMetrics.rim, lineWidth: PhoneStageMetrics.rimWidth)
             }
             .shadow(color: .black.opacity(0.55), radius: 22, y: 10)
+    }
+}
+
+// MARK: - Tablet frame
+
+/// The iPad frame's numbers, matched to the site's phone mockup in method: every dimension is a
+/// fraction of the screen width so the drawing stays in proportion at any size.
+///
+/// Dimensions are based on a portrait iPad Pro 11-inch (834×1194 points). The bezel is proportionally
+/// thinner than the phone's — an iPad's front face has less glass around its display — and the corner
+/// radius is more moderate. Everything else (black body, machined rim, same shadow) keeps the two
+/// frames reading as the same family rather than as two unrelated shapes.
+private enum TabletStageMetrics {
+    /// Portrait screenshot proportions for an 11-inch iPad Pro (834×1194 points).
+    static var aspect: CGFloat { 834.0 / 1194.0 }
+
+    /// Bezel as a fraction of the screen width. Thinner than the phone's 7/290 because an iPad's
+    /// display sits closer to its edges.
+    static let bezel: CGFloat = 10.0 / 834.0
+
+    /// Body and screen corners as fractions of the body's width and screen's width respectively.
+    /// Smaller than the phone's 0.148, matching the gentler radius of a real iPad.
+    static let bodyCorner: CGFloat = 0.068
+    static let screenCorner: CGFloat = 0.056
+
+    static let body = Color.black
+
+    /// The screen's height given the box the whole device has to fit inside.
+    static func screenHeight(in box: CGSize) -> CGFloat {
+        let byHeight = box.height / (1 + 2 * aspect * bezel)
+        let byWidth = box.width / (aspect * (1 + 2 * bezel))
+        return max(min(byHeight, byWidth), 1)
+    }
+}
+
+/// The iPad's body, bezel and screen at a width the caller has already solved for.
+///
+/// Parallel to ``PhoneDrawing``: same construction logic, same rim treatment, same shadow, different
+/// proportions. The tablet has no Dynamic Island so none is drawn here.
+private struct TabletDrawing<Screen: View>: View {
+    let screenWidth: CGFloat
+    @ViewBuilder var screen: () -> Screen
+
+    var body: some View {
+        let screenHeight = screenWidth / TabletStageMetrics.aspect
+        let bezel = screenWidth * TabletStageMetrics.bezel
+        let bodyWidth = screenWidth + bezel * 2
+        let bodyHeight = screenHeight + bezel * 2
+        let bodyShape = RoundedRectangle(
+            cornerRadius: bodyWidth * TabletStageMetrics.bodyCorner,
+            style: .continuous
+        )
+
+        bodyShape
+            .fill(TabletStageMetrics.body)
+            .overlay {
+                screen()
+                    .frame(width: screenWidth, height: screenHeight)
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: screenWidth * TabletStageMetrics.screenCorner,
+                            style: .continuous
+                        )
+                    )
+            }
+            .frame(width: bodyWidth, height: bodyHeight)
+            .overlay {
+                bodyShape.strokeBorder(PhoneStageMetrics.rim, lineWidth: PhoneStageMetrics.rimWidth)
+            }
+            .shadow(color: .black.opacity(0.55), radius: 22, y: 10)
+    }
+}
+
+/// The iPad the regular-width tour holds up: one frame on every non-Mac page, with only its screen
+/// changing. Parallel to ``PhoneStage`` but uses ``TabletStageMetrics`` for its proportions.
+private struct TabletStage<Screen: View>: View {
+    @ViewBuilder var screen: () -> Screen
+
+    var body: some View {
+        GeometryReader { proxy in
+            let screenHeight = TabletStageMetrics.screenHeight(in: proxy.size)
+            TabletDrawing(screenWidth: screenHeight * TabletStageMetrics.aspect) { screen() }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 

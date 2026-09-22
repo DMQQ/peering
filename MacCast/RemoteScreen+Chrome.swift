@@ -44,7 +44,6 @@ extension RemoteScreen {
                             shortcutsButton
                             modeButton
                             sourcesButton
-                            desktopsButton
                             settingsButton
                         }
                         .reportChromeFrame(.leadingRail, into: $chromeFrames)
@@ -70,9 +69,10 @@ extension RemoteScreen {
                 // The pill's own width plus the dots, so the cap goes on doing what it was for —
                 // keeping the pill from crossing a landscape screen — to the pill. Left at 420
                 // it would have started constraining the status rows instead, since the dots
-                // moved inside it.
+                // moved inside it. How many dots that is comes from ``sessionDotsWidth``, which
+                // counts them: the mosaic's is only up while an arrangement is being watched.
                 statusBar
-                    .frame(maxWidth: Self.pillMaxWidth + Self.sessionDotsWidth)
+                    .frame(maxWidth: Self.pillMaxWidth + sessionDotsWidth)
                     .tourAnchor(.screenStatus)
                 // Under the pill rather than beside it, in both orientations: the pill is about
                 // the connection the user is watching and the strip is about the others, and

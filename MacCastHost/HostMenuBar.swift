@@ -1,4 +1,5 @@
 import AppKit
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -117,6 +118,10 @@ struct HostMenuBarContent: View {
             }
         }
 
+        Divider()
+
+        resourceReadings
+
         Button(model.permissions.allRequiredGranted ? "Open Peering" : "Finish Setup…") {
             openWindow(id: MacCastHostApp.mainWindowID)
             // The window may open behind whatever has focus; a menu bar item that appears to do
@@ -171,6 +176,46 @@ struct HostMenuBarContent: View {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    /// What this app is costing the Mac, in the menu, where somebody watching a mosaic is already
+    /// looking.
+    ///
+    /// **Moved here from the window, and not merely relocated.** These were a card in the
+    /// Overview section, which meant opening a window and finding the right part of it to answer a
+    /// question that arrives while a session is running — is this heavy because of what I am doing,
+    /// or is it always like this. The menu is where a menu bar app is actually met, and it is the
+    /// same one gesture from anywhere.
+    ///
+    /// Menu rows are one string each rather than a label and a value, so the caption the tiles
+    /// carried underneath their figures is folded into the line: "12% of this Mac" is the whole
+    /// reading, and the part that says *of this Mac* is the part that matters, because every other
+    /// CPU figure a person has seen is about the machine rather than about one process in it.
+    ///
+    /// `Text` is a disabled menu item, which is what a reading should be — it is not a thing to
+    /// click, and a menu of things that look pressable and do nothing is worse than a menu of
+    /// facts.
+    @ViewBuilder
+    private var resourceReadings: some View {
+        let rates = model.resources.rates
+        Text("Resources")
+        Text("CPU \(rates.map(HostResourceSampler.cpuPercent) ?? "…") of this Mac")
+        Text("Memory \(model.resources.memoryBytes > 0 ? HostResourceSampler.memoryText(model.resources.memoryBytes) : "…") in use")
+        Text("Network \(rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…") sent")
+        Text(resourceNote)
+    }
+
+    /// The sentence the card used to carry, cut to the one claim a menu line can hold.
+    ///
+    /// The full version — that the figures are this process's rather than the Mac's — is the whole
+    /// reason these numbers are worth reading at all: without it a CPU figure in a menu reads as
+    /// the machine's, which is a different number by an order of magnitude and the one every other
+    /// menu bar utility is showing.
+    private var resourceNote: String {
+        if let source = model.capturingSource, case .mosaic = source {
+            return "Measured in this app alone · a mosaic is its heaviest work"
+        }
+        return "Measured in this app alone, not in the Mac"
     }
 
     /// The lid switch, or the way to set it up, depending on whether the rule is already in place.

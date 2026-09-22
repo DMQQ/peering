@@ -173,11 +173,17 @@ public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
     ///
     /// **A limit on the Mac rather than on the phone.** Every tile is a ScreenCaptureKit stream
     /// of its own, so a mosaic is the one thing in this app that makes the host work N times as
-    /// hard, and the client asking for it is a paired device rather than a trusted one. Six is
-    /// where a 1080p canvas still gives each tile about 640×360, which is the point at which a
-    /// tile is still readable on a phone; the host trims to it rather than refusing, so a
-    /// request from a newer client is a smaller mosaic rather than no picture at all.
-    public static let maximumTileCount = 6
+    /// hard, and the client asking for it is a paired device rather than a trusted one. The host
+    /// trims to it rather than refusing, so a request from a newer client is a smaller mosaic
+    /// rather than no picture at all.
+    ///
+    /// **Nine, because a grid is square and nine is the largest square that still fits.** The
+    /// canvas is capped at 2560×1440 (see ``maximumCanvasPixels``), so nine tiles are 853×480
+    /// each: a window's title is still legible in one, which is the only test that matters for a
+    /// tile nobody can see the contents of anyway. Sixteen would be 640×360 a tile and sixteen
+    /// captures at once on a laptop, which is where this stops being a picture of a Mac and
+    /// starts being a Mac asked to encode a contact sheet.
+    public static let maximumTileCount = 9
 
     /// The most pixels a canvas may be built at, in total.
     ///
@@ -336,7 +342,15 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
     /// Icons are PNGs rendered by the host at picker size. Keeping a hard ceiling here
     /// prevents an application with a pathological icon from turning one catalogue into a
     /// multi-megabyte control message.
-    public static let maximumIconByteCount = 8 * 1_024
+    ///
+    /// **Raised with the render size, and the two belong together.** The host draws these at 128
+    /// pixels because that is a third of what the picker's grid shows on a phone; at 48 the ceiling
+    /// of 8 KB was never reached and at 128 an ordinary application's artwork lands near 20 KB, so
+    /// a ceiling left where it was would have silently blanked the icon of every application whose
+    /// artwork is detailed — which is the ones worth looking at. It is still a ceiling: the whole
+    /// catalogue is one control message, and an application with a pathological icon must not be
+    /// able to make it megabytes.
+    public static let maximumIconByteCount = 48 * 1_024
 
     public enum Kind: String, Codable, Sendable {
         case display, application, window

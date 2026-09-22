@@ -369,6 +369,20 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
             throw CaptureError.from(error)
         }
 
+        // **A stop that arrived while this was starting.** The stream is no longer the one this
+        // engine holds, so nobody is going to tear it down: left running it captures the whole
+        // screen for the life of the process, spending the machine's battery on frames that go
+        // nowhere. This is reachable from the compositor, which starts its tile streams together
+        // and can be stopped in the middle of doing it.
+        let abandoned = lock.withLock { self.stream !== stream }
+        if abandoned {
+            engineLog.notice("a stream started after the capture was stopped; stopping it")
+            try? await stream.stopCapture()
+            try? stream.removeStreamOutput(self, type: .screen)
+            try? stream.removeStreamOutput(self, type: .audio)
+            return
+        }
+
         engineLog.notice("""
             capture started · \(configuration.width, privacy: .public)×\
             \(configuration.height, privacy: .public) \
@@ -393,6 +407,24 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
             // wrong object, and saying so is better than starting nothing in silence.
             throw CaptureError.streamFailed("a mosaic is started by the compositor that owns its streams, not by one stream")
         }
+    }
+
+    /// Points a running stream at a different configuration, without stopping it.
+    ///
+    /// **The one thing ScreenCaptureKit offers that makes a mosaic's rearrangement cheap**, and the
+    /// reason it matters is what a stop and a start cost: a stream that is torn down and built
+    /// again takes a second or more of black, and every tile of a mosaic does it at once. Changing
+    /// the size of the surface each tile is captured at is all that an arrangement of the same
+    /// windows across a turn of the phone actually needs, and this is that change without the
+    /// teardown.
+    ///
+    /// Nothing when there is no stream: a caller that reached here with nothing running is asking
+    /// for a change to a stream it does not have, and the next ``start(filter:configuration:)`` is
+    /// what it wants.
+    func reconfigure(_ configuration: SCStreamConfiguration) async throws {
+        let stream = lock.withLock { self.stream }
+        guard let stream else { return }
+        try await stream.updateConfiguration(configuration)
     }
 
     /// Stops the stream and waits for it to be gone, so a new one can be started after.

@@ -62,8 +62,22 @@ extension RemoteScreen {
             // compress to, being circles with one glyph in them.
             lockDot.layoutPriority(1)
             statusPill
+            // Between the pill and the terminal, so the two controls that are *about the picture*
+            // — how it is drawn and where it goes back to — are the two nearest the thing it is
+            // reported on, and the terminal keeps the outside edge it has always had.
+            mosaicDot.layoutPriority(1)
             terminalDot.layoutPriority(1)
         }
+        // **The one animation on this bar, and it is for the dot that comes and goes.** The mosaic
+        // dot exists only while a tile of an arrangement is the picture, so it is drawn and removed
+        // as the user opens a tile and comes back — and everything beside it moves when it does,
+        // because the row is centred: the pill shifts and the terminal dot shifts with it. Without
+        // this they all jump a dot's width in the frame the picture changes, which reads as the
+        // screen flinching at the exact moment the picture does something else.
+        //
+        // Keyed on the one condition, so nothing else about the bar is animated by it: the pill's
+        // own opening has its own spring, and a second one here would fight it.
+        .animation(Motion.settle, value: model.canReturnToMosaic)
         // Narrower than the rails' own inset, on purpose: every point taken off the sides is a
         // point the pill's rows get, and the pill is the one piece of chrome that has to hold
         // three rows of other things.
@@ -264,6 +278,22 @@ extension RemoteScreen {
                                     // exists in the code and nowhere on the screen.
                                     .layoutPriority(0)
                             }
+                            // **What the window is one of, while it is one of several.** A window
+                            // opened out of an arrangement leaves the arrangement behind it, and
+                            // the control that goes back to it is a bare symbol in the row above:
+                            // nothing on this screen said there was anything to go back *to*. This
+                            // says it in the app's own word — the same "N windows" a mosaic is
+                            // named with — and the way back is then the thing beside it rather
+                            // than a symbol to be discovered. See ``MacSession/canReturnToMosaic``.
+                            if model.canReturnToMosaic, model.mosaicChoicesList.count > 1 {
+                                Text("in \(model.mosaicChoicesList.count) windows")
+                                    .font(.caption2.weight(.bold))
+                                    .tracking(0.5)
+                                    .pillChip()
+                                    .accessibilityLabel(
+                                        "One of \(model.mosaicChoicesList.count) windows in a mosaic"
+                                    )
+                            }
                             connectionPathChip
                         }
                         // Under the Mac's name rather than under the dot, which is what makes the
@@ -305,8 +335,18 @@ extension RemoteScreen {
         .glassSurface(in: pillShape)
     }
 
-    /// What the two dots add to the pill's width: a dot and a gap on each side.
-    static let sessionDotsWidth: CGFloat = (48 + 7) * 2
+    /// One dot's slot: the circle, and the gap that separates it from whatever is beside it.
+    static let sessionDotWidth: CGFloat = 48 + 7
+
+    /// What the dots add to the pill's width, counted rather than assumed.
+    ///
+    /// The mosaic dot is the one of the three that comes and goes, so the number is read off the
+    /// same condition the dot is drawn from. Left at a constant this would be the pill's cap
+    /// spending a dot's worth of width it does not have the moment the third one appears, which
+    /// is the pill's contents getting squeezed by chrome that is not there.
+    var sessionDotsWidth: CGFloat {
+        Self.sessionDotWidth * (model.canReturnToMosaic ? 3 : 2)
+    }
 
     /// How wide the pill itself is allowed to get.
     ///
@@ -365,6 +405,40 @@ extension RemoteScreen {
         }
         .accessibilityLabel("Lock the Mac")
         .accessibilityHint("Touch and hold for Lock Screen or Dim Displays")
+    }
+
+    /// The way back into an arrangement, for as long as one of its tiles is the picture.
+    ///
+    /// **A dot and not a chip in the pill**, which is where this control has been twice. It was
+    /// taken out of the pill on the argument that the pill reports on the session and a control
+    /// that navigates is not a report, and that argument still holds — what it left behind was a
+    /// way back that only existed inside the sources panel, three taps and a scroll away, for a
+    /// mode the user is *in*. The dots beside the pill are already the session's occasional
+    /// actions: the lock, the terminal. Being one tap from the arrangement you are inside is
+    /// exactly that kind of thing, and it is not a report, so nothing is being contradicted.
+    ///
+    /// Drawn only while the picture is one tile of a standing arrangement — see
+    /// ``SessionModel/canReturnToMosaic`` — because a dot that was always there would be a button
+    /// that goes nowhere for the whole of a session on a single window. Tinted with the accent
+    /// rather than the ink the other dots use, for the one reason the accent exists: this dot is
+    /// not a tool, it is a state the user is in.
+    @ViewBuilder
+    var mosaicDot: some View {
+        if model.canReturnToMosaic {
+            sessionDot(
+                symbol: "rectangle.split.2x2",
+                label: "Back to the mosaic",
+                enabled: true,
+                tint: ColorPalette.accent
+            ) {
+                // **The window shrinks into the tile it is about to hold.** The picture is asked
+                // for at the end of that movement rather than here, so the canvas arrives around
+                // a window that is already where it belongs; the borders come back with it and
+                // fade in over the picture they describe. See ``mosaicOverlay``.
+                animateBackToMosaic()
+            }
+            .transition(.scale.combined(with: .opacity))
+        }
     }
 
     /// The terminal, and the two things about it worth knowing from the session screen: that

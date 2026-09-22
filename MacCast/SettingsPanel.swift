@@ -308,9 +308,10 @@ struct SettingsPanel: View {
             }
             .tint(ColorPalette.accent)
             Text("""
-                Desktops and sources put themselves away once you have picked one. Shortcuts \
-                stays open either way. Its buttons are key presses rather than choices, and a \
-                panel that shut after every one would have to be reopened for the next.
+                The Apps panel puts itself away once you have picked a source, a desktop or an \
+                application. Shortcuts stays open either way. Its buttons are key presses rather \
+                than choices, and a panel that shut after every one would have to be reopened \
+                for the next.
                 """)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

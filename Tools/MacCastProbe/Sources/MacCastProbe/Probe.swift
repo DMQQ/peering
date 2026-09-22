@@ -768,6 +768,12 @@ struct Probe {
         case .display(let id): return "display \(id)"
         case .application(let pid): return "application \(pid)"
         case .window(let id): return "window \(id)"
+        case .mosaic(let layout):
+            // The tiles as well as the canvas, because the interesting thing about an arrangement
+            // in a log is what is in it. See ``CaptureSource/mosaic(_:)``.
+            let tiles = layout.tiles.map { describe($0.source) }.joined(separator: " + ")
+            return "mosaic of \(layout.tiles.count) at "
+                + "\(Int(layout.canvas.width))x\(Int(layout.canvas.height)): \(tiles)"
         }
     }
 

@@ -264,6 +264,12 @@ extension MacSession {
             }
         case .catalog(let catalog):
             self.catalog = catalog
+            // **A catalogue that has changed may have lost a window.** The Mac re-sends one when an
+            // application quits, when the arrangement was built with a window that had already
+            // gone, and when a tile stops while a mosaic is running — which is every way this end
+            // can learn that one of the arrangement's windows is not there any more. What it does
+            // about it is not immediate: see ``scheduleMosaicGapCheck()`` for why the grace exists.
+            if !mosaicChoices.isEmpty { model.scheduleMosaicGapCheck() }
             if activeSourceID == nil {
                 // **An arrangement the user left behind comes back before the default does**, and
                 // the decision has to be made here rather than after: the fallback below picks the
@@ -438,6 +444,20 @@ extension MacSession {
             // decide. It is a value, so a config that describes the stream it already described
             // (a change of lane, a re-attach) leaves it equal and costs nothing.
             picture = pictureIdentity(of: config)
+            // **And the arrangement the picture is of, recorded here for the same reason.** A
+            // config is the Mac answering the ask — the mosaic it built, or the single source it
+            // switched back to — so it is the moment the picture and this end's idea of it agree
+            // again, and the moment everything drawn over the picture is allowed to move. See
+            // ``pictureMosaicLayout``.
+            //
+            // **Not animated, and the attempt is worth recording.** The borders travelling from
+            // where they were to where they now belong reads as an explanation of the change in
+            // the abstract; over a picture that has *already* changed it reads as six rectangles
+            // shuffling around on their own, because the thing they describe is not moving at all.
+            // A canvas that arrives is a new picture, and the borders belong to the picture: they
+            // are drawn for the new one in the frame it arrives in, or they are describing the old
+            // one for as long as they are travelling.
+            pictureMosaicLayout = isAskingForMosaic ? mosaicLayout : nil
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.

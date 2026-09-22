@@ -101,6 +101,12 @@ final class VideoCoordinator: @unchecked Sendable {
     /// and a later silence is left alone because it is not evidence of anything.
     private var watchdog: DispatchWorkItem?
 
+    /// The catalogue push a burst of invalidations is already owed. See ``refreshCatalog()``.
+    private var pendingCatalogPush: Task<Void, Never>?
+
+    /// When the last one went out, so a burst cannot become a storm. See ``refreshCatalog()``.
+    private var lastCatalogPushAt: Date?
+
     /// How long capture may go without producing a single frame before it is called dead.
     /// Generous: the first frame has to survive encoder creation and a stream start, and a
     /// false accusation here sends the user to System Settings for no reason.
@@ -476,9 +482,34 @@ final class VideoCoordinator: @unchecked Sendable {
     /// at which a client can be told the list is unavailable — but a failure here is not
     /// worth interrupting anyone over: the picker is a convenience, and a client that never
     /// receives a catalogue is still served the default display.
+    /// **Coalesced, because every caller is a notification and notifications arrive in bursts.**
+    /// An application launching, a Space changing and a change of screen parameters all invalidate
+    /// the list, and any one of them can arrive several times while the others are being handled.
+    /// Each push is a full enumeration of the Mac's applications, its windows and its desktops,
+    /// with a screenshot of every Space in it, and it runs on the same machine that is compositing
+    /// the picture: a burst that goes uncoalesced is a Mac that stops answering its phone, which
+    /// is what "the view is stale, nothing responds" is made of. The last request is always
+    /// honoured, so nothing is skipped that was genuinely asked for — it is only never *paid for*
+    /// more than a few times a second.
     func refreshCatalog() {
-        Task { [weak self] in await self?.pushCatalog() }
+        lock.withLock {
+            guard pendingCatalogPush == nil else { return }
+            let since = lastCatalogPushAt.map { Date().timeIntervalSince($0) } ?? .infinity
+            let wait = max(0, Self.catalogPushInterval - since)
+            pendingCatalogPush = Task { [weak self] in
+                if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+                guard let self else { return }
+                self.lock.withLock {
+                    self.lastCatalogPushAt = Date()
+                    self.pendingCatalogPush = nil
+                }
+                await self.pushCatalog()
+            }
+        }
     }
+
+    /// The shortest gap between two catalogue pushes. See ``refreshCatalog()``.
+    private static let catalogPushInterval: TimeInterval = 3
 
     private func pushCatalog() async {
         do {

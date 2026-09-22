@@ -67,7 +67,9 @@ struct ActivityTab: View {
                             "Sessions",
                             detail: "Recent sessions and relay use."
                         )
-                        relayCard
+                        if model.storeManager.access.showsRelayAllowance {
+                            relayCard
+                        }
                         // Only once a session has had to leave this network. Until then there is
                         // no figure to draw, and a card whose whole content is "nothing yet" is
                         // the absence of an answer drawn as one.
@@ -93,61 +95,18 @@ struct ActivityTab: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Controls.sectionLabel("Relay", systemImage: "network")
-                Spacer()
-                // The plan's own name rather than a generic badge. It used to say PRO for anyone
-                // who had bought anything, which became wrong the moment there was more than one
-                // paid tier: a subscriber who bought Relay would have been told they were on Pro,
-                // and the two do not meter the same.
-                if let tier = model.storeManager.activeTier {
-                    Text(tier.name.uppercased())
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(0.8)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.blue.opacity(0.25), in: Capsule())
-                        .foregroundStyle(.blue)
-                }
             }
             .foregroundStyle(.secondary)
 
-            if model.storeManager.relayPlan.isUnlimited {
-                HStack(spacing: 12) {
-                    Image(systemName: "infinity")
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundStyle(.blue)
-                        .frame(width: 42, height: 42)
-                        .background {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.blue.opacity(0.12))
-                        }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Unlimited relay")
-                            .font(.subheadline.weight(.semibold))
-                        Text("Your subscription removes the daily cap.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 0)
-                }
-            } else {
-                // The whole allowance becomes the way to buy more of it. This card is where the
-                // limit is felt — it is the one place in the app that counts the minutes down — so
-                // it is the one place where "and here is how to stop counting" belongs. The
-                // chevron is what says so: every other row in the app that pushes somewhere has
-                // one, and a card that opens something without looking like it does is a card
-                // nobody taps.
-                //
-                // Drawn for a Relay subscriber as well as for a free user, because Relay has an
-                // allowance rather than no limit: the plan that is metered is the plan that needs a
-                // meter, and the one it is metered against is read from the plan rather than
-                // assumed to be free's.
-                Button(action: openUpgradePaywall) {
-                    relayMeterDetail
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(RailButtonStyle(scale: 0.99))
+            // The whole allowance becomes the way to buy more of it. This card is where the
+            // limit is felt — it is the one place in the app that counts the minutes down — so
+            // it is the one place where "and here is how to stop counting" belongs. Paid plans
+            // never reach this view because they have no relay allowance to inspect.
+            Button(action: openUpgradePaywall) {
+                relayMeterDetail
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(RailButtonStyle(scale: 0.99))
         }
         .cardSurface()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -156,7 +115,7 @@ struct ActivityTab: View {
     private var relayMeterDetail: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Text(model.storeManager.relayPlan == .free ? "Free relay time" : "Daily relay time")
+                Text("Free relay time")
                     .font(.subheadline.weight(.semibold))
                 Spacer(minLength: 8)
                 Text(relayRemainingLabel)

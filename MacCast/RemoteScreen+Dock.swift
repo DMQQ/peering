@@ -50,7 +50,7 @@ private extension Array {
 enum DockControl: String, CaseIterable, Identifiable {
     // The controls that open something.
     case mode, sources, keys, shortcuts
-    case desktops, escape, tab, settings
+    case escape, tab, settings
     // The five that move about the Mac, which the landscape rail keeps below its fold.
     case up, down, left, right, delete
 
@@ -373,9 +373,12 @@ extension RemoteScreen {
     /// Every sheet of the dock, in the order they are swiped through.
     ///
     /// Controls first and edits after, each cut into runs of as many buttons as the dock has cells
-    /// for. Shut that is five, so the thirteen controls are three sheets and the eight edits two;
+    /// for. Shut that is five, so the twelve controls are three sheets and the eight edits two;
     /// open it is fifteen, so each set is one sheet. The dots follow from this rather than being a
     /// fixed pair, which is the point: what a swipe moves by is the same in both states.
+    ///
+    /// The count is twelve since the desktops button went, and the sheet sums are unchanged by it:
+    /// twelve still cuts into three runs of five and below.
     var dockSheets: [DockSheet] {
         let capacity = ChromeMetrics.dockColumns * (dockExpanded ? ChromeMetrics.dockExpandedRows : 1)
         let controls = rankedControls.chunked(into: capacity).enumerated().map { index, chunk in
@@ -416,7 +419,6 @@ extension RemoteScreen {
         case .sources: sourcesButton
         case .keys: keysButton
         case .shortcuts: shortcutsButton
-        case .desktops: desktopsSlot
         case .escape: escapeButton
         case .tab: tabButton
         case .settings: settingsButton

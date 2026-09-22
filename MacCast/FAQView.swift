@@ -224,7 +224,7 @@ struct FAQView: View {
                 ),
                 QA(
                     question: "Can I switch between the Mac's desktops?",
-                    answer: "Yes. The desktops panel draws every Space the Mac has as a picture rather than a list of names, and tapping one brings it forward, which is the only practical way to move between them from a phone."
+                    answer: "Yes. The Apps panel draws every Space each screen has as a picture rather than a list of names, and tapping one brings it forward and moves the picture to that screen, which is the only practical way to move between them from a phone."
                 ),
             ]
         ),

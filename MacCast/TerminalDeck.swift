@@ -1,21 +1,14 @@
+import MacCastKit
 import SSHCore
 import SwiftUI
-import MacCastKit
 
-/// Everything a shell can be told to do without typing it, in one row.
+/// Everything a shell can be told to do without typing it, in two rows.
 ///
-/// **One row, where there were two**, and the reason is what the terminal looked like: the saved
-/// commands and the control keys were strips of their own stacked under a third — the input field
-/// — and the three of them took a third of the screen and read as three unrelated widgets that
-/// happened to be in a column. They are one kind of thing: a chip you tap to send bytes.
-///
-/// The order inside the row was the only thing that had to be decided. The saved commands come
-/// first, because they are the ones not in a place the thumb already knows — the list changes,
-/// and a chip the user added themselves is a chip they have to look for. The keys follow in the
-/// fixed order they have always had. The cost is that a user with a great many saved commands
-/// pushes ⌃C to the right, and that is a real cost; it is paid because the alternative is the
-/// second row this exists to remove, and because a command list long enough to matter is its own
-/// problem.
+/// **Two rows.** The first is fixed across the full width: the eight keys that a phone terminal
+/// reaches for most, always visible without scrolling — return and the four arrows you want the
+/// moment a program asks a question, flanked by the two that cancel things and the two that
+/// navigate menus. The second scrolls, holding quick commands and the keys that are useful but
+/// not instant-reach: word jumps, line-editing sequences, and the navigation cluster.
 ///
 /// The keys are shared by both terminals and always have been, and why they can be is worth
 /// keeping: every escape sequence here is what the *shell* reads, and a shell reads the same bytes
@@ -25,7 +18,7 @@ struct TerminalDeck: View {
     let commands: [SSHQuickCommand]
     let run: (SSHQuickCommand) -> Void
     let remove: (SSHQuickCommand) -> Void
-    /// What the button at the head of the row does: open the editor.
+    /// What the button at the head of the scrollable row does: open the editor.
     ///
     /// **One closure rather than two, because there is one button.** The button that makes a
     /// command and the button that sells the plan to make one are the same button in the same
@@ -38,10 +31,45 @@ struct TerminalDeck: View {
     var isEnabled = true
 
     var body: some View {
+        VStack(spacing: 0) {
+            fixedRow
+            scrollableRow
+        }
+        .background(Color.white.opacity(0.05))
+        .overlay(alignment: .top) { hairline }
+        .disabled(!isEnabled)
+    }
+
+    // MARK: - Fixed row
+
+    /// The eight keys a phone terminal reaches for most, stretched to fill the full width so every
+    /// one of them is visible and tappable without scrolling.
+    private var fixedRow: some View {
+        HStack(spacing: 6) {
+            // Sending a bare newline to a running program, confirming a prompt, or running the
+            // command the user just typed in with the key strip rather than the field.
+            flexKey("enter", label: "Enter", bytes: "\r")
+            flexKey("⌃C", label: "Interrupt", bytes: "\u{03}")
+            flexKey("tab", label: "Tab", bytes: "\t")
+            flexKey("esc", label: "Escape", bytes: "\u{1B}")
+            // History (↑↓) and cursor (←→). Reaching for history is the first thing a phone
+            // keyboard cannot do that a physical one can, so those two sit before the cursor pair.
+            flexKey("↑", label: "Up", bytes: "\u{1B}[A")
+            flexKey("↓", label: "Down", bytes: "\u{1B}[B")
+            flexKey("←", label: "Left", bytes: "\u{1B}[D")
+            flexKey("→", label: "Right", bytes: "\u{1B}[C")
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .overlay(alignment: .bottom) { hairline }
+    }
+
+    // MARK: - Scrollable row
+
+    /// Quick commands and the remaining keys that are useful but not instant-reach.
+    private var scrollableRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            // Eight rather than six, which is what the browser's row of the same chips uses: the
-            // two rows are the same object and a thumb has no way to know they were written a
-            // fortnight apart.
             HStack(spacing: 8) {
                 ForEach(commands) { command in
                     TerminalKeyChip(
@@ -60,15 +88,9 @@ struct TerminalDeck: View {
 
                 // Drawn even when there is nothing saved. A control that appears only once you
                 // already have one teaches nothing the first time it is needed, and this is the
-                // only way to make the first one, and it is drawn on the plans that do not
-                // include making one as well: the same slider glyph in the same 46 points,
-                // dimmed, with the plan's name on its corner. That is how somebody finds out the
-                // feature is there to want, and the glyph is what tells them which feature it is.
-                //
-                // The badge on the corner rather than beside the chip is worth more here than
-                // anywhere else it appears: the chip is 46 points, the badge that used to stand
-                // after it was 53, and the row it pushed aside is a row of keys a thumb is
-                // reaching into by feel. What a locked chip costs the deck now is nothing at all.
+                // only way to make the first one. Drawn on restricted plans as the same glyph,
+                // dimmed, with the plan name on its corner — so the feature is discoverable whether
+                // or not the plan covers making one.
                 PlanLocked(
                     capability: .macros,
                     title: commands.isEmpty ? "Add a quick command" : "Edit quick commands",
@@ -79,7 +101,7 @@ struct TerminalDeck: View {
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(ColorPalette.ink)
                             .frame(width: 46, height: 40)
-                            .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
+                            .terminalKeyBackground(cornerRadius: 10)
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.88))
                     .accessibilityLabel(commands.isEmpty ? "Add a quick command" : "Edit quick commands")
@@ -87,64 +109,55 @@ struct TerminalDeck: View {
 
                 divider
 
-                // Editing and the shell's own control keys first, then a group of navigation
-                // keys, then the two that end a line. The order is the order they are reached
-                // for: ⌃C is the one key a phone terminal cannot do without, so it is near the
-                // front — see the note on the row itself for the commands sitting in front of it.
-                key("esc", label: "Escape", bytes: "\u{1B}")
-                key("tab", label: "Tab", bytes: "\t")
-                key("⇧tab", label: "Back tab", bytes: "\u{1B}[Z")
-                key("⌃C", label: "Interrupt", bytes: "\u{03}")
-                key("⌃D", label: "End of input", bytes: "\u{04}")
-                key("⌃Z", label: "Suspend", bytes: "\u{1A}")
-                key("⌃L", label: "Clear screen", bytes: "\u{0C}")
-                key("⌃R", label: "Search history", bytes: "\u{12}")
+                // Word jumps first: the closest things to the fixed row's arrow keys.
+                // Option rather than Control because that is what macOS Terminal binds, and the
+                // escape sequences it produces are what bash and zsh read as "a word".
+                key("⌥←", label: "Word left", bytes: "\u{1B}b")
+                key("⌥→", label: "Word right", bytes: "\u{1B}f")
+
+                divider
+
+                // Line-editing control sequences.
                 key("⌃A", label: "Start of line", bytes: "\u{01}")
                 key("⌃E", label: "End of line", bytes: "\u{05}")
                 key("⌃K", label: "Delete to end of line", bytes: "\u{0B}")
                 key("⌃U", label: "Delete to start of line", bytes: "\u{15}")
                 key("⌃W", label: "Delete word before", bytes: "\u{17}")
+                key("⌫", label: "Backspace", bytes: "\u{7F}")
+                key("⌃D", label: "End of input", bytes: "\u{04}")
+                key("⌃Z", label: "Suspend", bytes: "\u{1A}")
+                key("⌃L", label: "Clear screen", bytes: "\u{0C}")
+                key("⌃R", label: "Search history", bytes: "\u{12}")
+                key("⇧tab", label: "Back tab", bytes: "\u{1B}[Z")
 
                 divider
 
-                key("↑", label: "Up", bytes: "\u{1B}[A")
-                key("↓", label: "Down", bytes: "\u{1B}[B")
-                key("←", label: "Left", bytes: "\u{1B}[D")
-                key("→", label: "Right", bytes: "\u{1B}[C")
-                // Word at a time. Option rather than Control because that is what macOS Terminal
-                // binds, and the escape sequences it produces are what bash and zsh read as "a
-                // word" — ⌃← would move by a word in some shells and by a character in others.
-                key("⌥←", label: "Word left", bytes: "\u{1B}b")
-                key("⌥→", label: "Word right", bytes: "\u{1B}f")
+                // Navigation and editing keys that a phone keyboard cannot produce.
                 key("home", label: "Home", bytes: "\u{1B}[H")
                 key("end", label: "End", bytes: "\u{1B}[F")
                 key("pg↑", label: "Page up", bytes: "\u{1B}[5~")
                 key("pg↓", label: "Page down", bytes: "\u{1B}[6~")
-
-                divider
-
                 key("ins", label: "Insert", bytes: "\u{1B}[2~")
                 key("del", label: "Delete forward", bytes: "\u{1B}[3~")
-                key("⌫", label: "Backspace", bytes: "\u{7F}")
-                key("return", label: "Return", bytes: "\r")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .background(Color.white.opacity(0.05))
-        .overlay(alignment: .top) { hairline }
-        .disabled(!isEnabled)
     }
 
-    /// One key, drawn by ``TerminalKeyChip`` — which the browser's own row draws too, for the
-    /// three keys that have to stay reachable when this row is not on screen.
+    // MARK: - Helpers
+
     private func key(_ title: String, label: String, bytes: String) -> some View {
         TerminalKeyChip(title: title, label: label) { send(bytes) }
     }
 
-    /// Between the groups. The row is long, and a wall of two dozen chips is one a thumb has to
-    /// read from the left every time; four groups, split by what they are for, is a row where you
-    /// know roughly how far to travel.
+    /// A key that fills an equal share of the fixed row's width.
+    private func flexKey(_ title: String, label: String, bytes: String) -> some View {
+        TerminalKeyChip(title: title, label: label, flexible: true) { send(bytes) }
+    }
+
+    /// Between groups in the scrollable row. A wall of two dozen chips is one a thumb has to
+    /// read from the left every time; groups split by purpose give it a rough map.
     private var divider: some View {
         Rectangle()
             .frame(width: 1, height: 22)
@@ -170,6 +183,10 @@ struct TerminalKeyChip: View {
     /// The deck's chips are a full row's height; the browser's row is the terminal's input row,
     /// which is a shorter one.
     var height: CGFloat = 40
+    /// When true, the chip fills its share of an `HStack`'s available width rather than sizing
+    /// to its content. Used by the fixed row in ``TerminalDeck``, where all eight keys divide
+    /// the screen equally.
+    var flexible: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -177,23 +194,31 @@ struct TerminalKeyChip: View {
             Text(title)
                 // Monospaced, because these are the characters the shell prints rather than words:
                 // "esc" and "tab" line up with the arrows beside them, and "⌃C" is the same glyph
-                // the control bar's caption uses for the same key. A saved command wears it for
-                // the same reason a command is read at all: by its shape.
+                // the control bar's caption uses for the same key.
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(ColorPalette.ink)
                 .lineLimit(1)
-                // Inside the floor rather than outside it, and the order is the whole of this.
-                // A key is two or three characters and the 46 points are what give it its shape;
-                // a saved command is a word or three, and without this its label runs to the
-                // rounded corners of its own tile. Padded *before* the floor, `esc` is still 46
-                // and `Memory left` gets the same 9 points of air each side that every other tile
-                // has — rather than the keys growing by 18 to pay for the commands' padding.
-                .padding(.horizontal, 9)
-                .frame(minWidth: 46)
+                .padding(.horizontal, flexible ? 2 : 9)
+                .frame(minWidth: flexible ? nil : 46, maxWidth: flexible ? .infinity : nil)
                 .frame(height: height)
-                .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
+                .terminalKeyBackground(cornerRadius: 7)
         }
         .buttonStyle(RailButtonStyle(scale: 0.88))
         .accessibilityLabel(label)
+    }
+}
+
+private extension View {
+    /// The flat tile a terminal key wears. No glass, no blur — the terminal is black and the keys
+    /// are dark tiles on it, the same material at a different brightness.
+    func terminalKeyBackground(cornerRadius: CGFloat) -> some View {
+        background {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 0.5)
+                }
+        }
     }
 }

@@ -71,16 +71,14 @@ struct HostPickerView: View {
                         item == .servers && servers.selectedTerminal != nil ? .hidden : .visible,
                         for: .tabBar
                     )
-                    // The session accessory: a native bottom toolbar that lists whatever Mac and
-                    // SSH sessions are running, so the user can tap straight back to one from
-                    // wherever in the picker they happen to be.
+                    // The session accessory: a bottom toolbar listing whatever Mac and SSH
+                    // sessions are running.
                     //
-                    // Hidden on the Servers tab while a terminal screen is up — the tab bar itself
-                    // is gone then, and a toolbar above where it was would float over the terminal.
-                    // Also hidden while there is nothing to show, so the toolbar does not reserve
-                    // any space and the separator line does not appear for an empty bar.
-                    .toolbar(sessionAccessoryVisibility(for: item), for: .bottomBar)
-                    .toolbar { sessionAccessory }
+                    // **Built only when there is something to put in it.** Content added to a bar
+                    // wins over a `Visibility` asked for on the same bar, so asking for this one to
+                    // be hidden still drew an empty toolbar reserving its height and separator. No
+                    // item, no bar.
+                    .toolbar { sessionAccessory(for: item) }
                     .tabItem { Label(item.title, systemImage: item.symbol) }
                     .tag(item)
             }
@@ -91,48 +89,50 @@ struct HostPickerView: View {
         .tabBarMinimizeOnScrollIfAvailable()
     }
 
-    /// Whether the bottom toolbar should appear on a given tab.
-    private func sessionAccessoryVisibility(for item: Screen) -> Visibility {
+    /// Whether a given tab has a session bar to carry at all. See the call site.
+    private func showsSessionAccessory(for item: Screen) -> Bool {
         let hasSessions = !model.openSessions.isEmpty || !servers.openShells.isEmpty
         let terminalIsUp = item == .servers && servers.selectedTerminal != nil
-        return hasSessions && !terminalIsUp ? .visible : .hidden
+        return hasSessions && !terminalIsUp
     }
 
-    /// The scrollable row of session chips the bottom toolbar carries.
+    /// The scrollable row of session chips the bottom toolbar carries, where there is one.
     @ToolbarContentBuilder
-    private var sessionAccessory: some ToolbarContent {
-        ToolbarItem(placement: .bottomBar) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(model.openSessions) { session in
-                        Button {
-                            model.activateSession(session.id)
-                        } label: {
-                            sessionChip(
-                                dot: macDotFill(session),
-                                name: macName(session)
-                            )
+    private func sessionAccessory(for item: Screen) -> some ToolbarContent {
+        if showsSessionAccessory(for: item) {
+            ToolbarItem(placement: .bottomBar) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(model.openSessions) { session in
+                            Button {
+                                model.activateSession(session.id)
+                            } label: {
+                                sessionChip(
+                                    dot: macDotFill(session),
+                                    name: macName(session)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Return to \(macName(session))")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Return to \(macName(session))")
-                    }
-                    ForEach(servers.openShells) { terminal in
-                        Button {
-                            servers.selectedTerminalID = terminal.id
-                            screen = .servers
-                        } label: {
-                            sessionChip(
-                                dot: sshDotFill(terminal),
-                                name: terminal.title
-                            )
+                        ForEach(servers.openShells) { terminal in
+                            Button {
+                                servers.selectedTerminalID = terminal.id
+                                screen = .servers
+                            } label: {
+                                sessionChip(
+                                    dot: sshDotFill(terminal),
+                                    name: terminal.title
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Return to \(terminal.title)")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Return to \(terminal.title)")
                     }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
         }
     }
 

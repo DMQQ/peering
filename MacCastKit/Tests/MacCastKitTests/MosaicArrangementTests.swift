@@ -5,7 +5,12 @@ import Testing
 
 @testable import MacCastKit
 
-@Suite("Remembering an arrangement")
+/// Serialized, like the suite next door that remembers a source and for the same reason: these
+/// tests write one key in `UserDefaults.standard` and read it back, and Swift Testing runs them in
+/// parallel by default, so two of them overlap on that key and one reads the other's arrangement.
+/// The failure is a round trip that came back with something else, which reads as a broken store
+/// rather than as a test that raced itself.
+@Suite("Remembering an arrangement", .serialized)
 struct MosaicArrangementTests {
     private func descriptor(_ source: CaptureSource, title: String = "A window") -> CaptureSourceDescriptor {
         CaptureSourceDescriptor(

@@ -108,21 +108,35 @@ public enum MosaicGrid {
     /// wanted anyway.
     public static let defaultFrameRate = 15
 
-    /// The fewest columns that hold this many tiles.
+    /// The shape a tile is drawn at when nothing in the arrangement says otherwise.
     ///
-    /// The square root, rounded up, so a 3×2 grid is what six tiles get on a landscape screen and
-    /// four get a 2×2. Deliberately not a function of the canvas's aspect: a rule that changed
-    /// with the phone's rotation would rearrange a layout nobody asked to rearrange.
-    public static func columns(for count: Int) -> Int {
+    /// A Mac's window, near enough. Sixteen by ten covers the great majority of them, and it is
+    /// the aspect the canvas falls back to when the catalogue cannot describe what is in the
+    /// arrangement — a source that has gone, or a mosaic put together before any catalogue
+    /// arrived. See ``MosaicGrid/canvas(columns:tiles:tileAspect:viewport:)``.
+    public static let windowAspect: Double = 1.6
+
+    /// The fewest columns that hold this many tiles, on a phone held this way.
+    ///
+    /// **The square root, rounded to the side the phone has room for.** A grid of tiles is as
+    /// square as it can be, and which way the rounding goes is the phone's business: held
+    /// sideways it has the width for another column, and held up it has the height for another row
+    /// instead.
+    ///
+    /// So a phone held up rounds *down*: six tiles are two across and three down, where rounding
+    /// up would be three across and two down. The canvas follows the arrangement rather than the
+    /// screen — see ``canvas(columns:tiles:tileAspect:viewport:)`` — so this is the whole of what
+    /// the orientation decides, and the tiles come out the shape of windows either way.
+    public static func columns(for count: Int, portrait: Bool) -> Int {
         guard count > 1 else { return 1 }
-        var columns = 1
-        while columns * columns < count { columns += 1 }
-        return columns
+        let root = Double(count).squareRoot()
+        let rounded = portrait ? root.rounded(.down) : root.rounded(.up)
+        return max(1, min(Int(rounded), count))
     }
 
     /// Where each tile sits, in reading order, all of them given the same room.
-    public static func rects(count: Int) -> [NormalizedRect] {
-        rects(weights: Array(repeating: 1, count: count))
+    public static func rects(count: Int, portrait: Bool) -> [NormalizedRect] {
+        rects(weights: Array(repeating: 1, count: count), portrait: portrait)
     }
 
     /// The same, where each tile may ask for more room than its neighbours.
@@ -136,7 +150,7 @@ public enum MosaicGrid {
     ///
     /// Equal weights are the even grid above, exactly, and that is asserted rather than assumed:
     /// a user who has not touched the size control gets the layout this feature shipped with.
-    public static func rects(weights: [Int]) -> [NormalizedRect] {
+    public static func rects(weights: [Int], portrait: Bool) -> [NormalizedRect] {
         let weights = weights.map { max($0, 1) }
         let count = weights.count
         guard count > 0 else { return [] }
@@ -151,7 +165,7 @@ public enum MosaicGrid {
         // is not full is therefore shorter rather than padded, and the tiles in it share its
         // width between them — so five tiles are three across the top and two wider ones under
         // them, with no empty quarter of the picture for a tap to land on and do nothing.
-        let columns = columns(for: count)
+        let columns = columns(for: count, portrait: portrait)
         let rowCount = Int((Double(count) / Double(columns)).rounded(.up))
         let rows: [[Int]] = (0..<rowCount).map { row in
             let start = row * columns
@@ -178,45 +192,78 @@ public enum MosaicGrid {
         return rects
     }
 
-    /// The canvas pixel size to ask a Mac for, from the screen the mosaic is drawn on.
+    /// The canvas to ask a Mac for: the shape of the arrangement, at the screen's own pixels.
     ///
-    /// **The screen's own pixels, so a tile is as sharp as the pixels it lands on.** Each tile
-    /// gets a fraction of the canvas, so a canvas smaller than the display would make every tile
-    /// soft before the encoder ever saw it; and the host trims a canvas that is larger than it
-    /// will build. Both numbers are rounded to even here rather than left for the host, because
-    /// the encoder rounds down to even and a client that asked for an odd canvas would have its
-    /// rectangles measured against a picture a pixel narrower than the one it described.
-    public static func canvas(for viewport: CGSize) -> CGSize {
+    /// **The shape of the arrangement and not the shape of the phone**, which is the third answer
+    /// to this question and the one that holds.
+    ///
+    /// A canvas is divided into a grid, so the canvas's aspect *is* the shape of every tile in it.
+    /// Take the phone's shape and the tiles inherit it: held up, that is 0.56 to 1, and a window
+    /// photographed into a tile like that is a band across the middle with black above and below
+    /// it — 45% of every tile spent on nothing, on all six of them, and all of it captured,
+    /// composited, encoded and paid for over the air. Held sideways it happens to look right,
+    /// because a landscape phone and a landscape window are the same shape by luck.
+    ///
+    /// So the tiles are given the shape they want — the arrangement's own, from what its windows
+    /// actually are, see ``MosaicGrid/windowAspect`` — and the canvas is built to whatever shape
+    /// that makes: two columns of windows are 3.2 to 1, two columns by three rows of them are
+    /// 1.07 to 1. The phone's orientation still decides the *grid*: see
+    /// ``columns(for:portrait:)``, which gives a phone held up fewer columns and the same window
+    /// size, and a phone held sideways a wider arrangement that fills its screen exactly.
+    ///
+    /// **The size is the screen's, though, and that half is unchanged in spirit.** The canvas is
+    /// the largest picture of its shape that the screen could show at the screen's own pixels —
+    /// whichever axis the fit would bind on gets the screen's full measurement — so a tile is
+    /// never softer than the pixels it lands on, and never carries more than those either. The
+    /// area cap is applied after, by scaling both sides together, so a shape a Mac will not build
+    /// comes back smaller rather than reshaped.
+    ///
+    /// Both numbers are rounded to even here rather than left for the host, because the encoder
+    /// rounds down to even and a client that asked for an odd canvas would have its rectangles
+    /// measured against a picture a pixel narrower than the one it described.
+    ///
+    /// **Turning the phone therefore re-asks for the arrangement**, and the Mac tears down and
+    /// rebuilds every tile's stream: a short stop in the picture, once, at the moment the user
+    /// turned the phone. That is the price of a grid that follows the phone at all, and the fix
+    /// for the stop is on the Mac — keeping the tile streams when only the rectangles change.
+    /// - Parameters:
+    ///   - columns: how many tiles are across, from ``columns(for:portrait:)``.
+    ///   - tiles: how many there are in total, which is not `columns × rows`: a mosaic of eight is
+    ///     three across and three down, and the row that is not full shares its own width rather
+    ///     than leaving a slot empty. A tile is `1/columns` of the width and `columns/tiles` of the
+    ///     height, and the canvas has to be the shape that makes those two a window — which is
+    ///     why this takes the count and not the row count.
+    public static func canvas(
+        columns: Int,
+        tiles: Int,
+        tileAspect: Double,
+        viewport: CGSize
+    ) -> CGSize {
+        let columns = max(columns, 1)
+        let tiles = max(tiles, 1)
+        let aspect = min(max(Double(columns) * Double(columns) / Double(tiles) * tileAspect, 0.05), 20)
+
+        // Whichever axis the fit would bind on is the one that gets the screen's full size: a
+        // canvas wider than the screen is drawn as wide as the screen, and one taller than the
+        // screen is drawn as tall as it.
+        var width = min(viewport.width, viewport.height * CGFloat(aspect))
+        var height = width / CGFloat(aspect)
+
+        let budget = CGFloat(MosaicLayout.maximumCanvasPixels)
+        let area = width * height
+        if area > budget {
+            let scale = (budget / area).squareRoot()
+            width *= scale
+            height *= scale
+        }
+
         // The rounding is `floor then halve then floor`, not `divide by two and multiply back`:
         // in floating point those are not the same, and the shorter one leaves an odd number
         // odd. 1179 / 2 * 2 is 1179, which is the whole rule failing silently.
         func even(_ value: CGFloat) -> CGFloat {
             max(2, (value / 2).rounded(.down) * 2)
         }
-
-        // **The canvas is 16:9, and it is the same 16:9 whichever way the phone is held.**
-        //
-        // Two things wrong with taking the screen's own shape, and one fix for both.
-        //
-        // The first is the tiles. The canvas's aspect decides the aspect of every tile in it,
-        // because the tiles are fractions of the canvas — so a phone held up, which is 9:19.5,
-        // handed back tiles taller than they were wide for windows that are wider than they are
-        // tall. Every window in the picture was letterboxed inside its own tile, and a Mac's
-        // windows are all landscape.
-        //
-        // The second is that the screen's shape is not a constant. Turning the phone changed the
-        // canvas, which changed every rectangle in the layout, which changed the layout's
-        // identifier — and the Mac then had to tear down every tile's stream and build a new
-        // mosaic, which is a visible stop in the picture. Nothing about the arrangement had
-        // changed. A canvas that does not depend on the orientation cannot do that.
-        //
-        // So the size comes from the screen's **longer** side, which is the same number in both
-        // orientations, at 16:9, capped by what a Mac will build. On an iPhone 15 Pro Max that is
-        // the cap itself: 2560×1440, which a 2×2 splits into four 1280×720 tiles — exactly the
-        // shape of the windows being photographed.
-        let longerSide = max(viewport.width, viewport.height)
-        let width = min(longerSide, 2560)
-        return CGSize(width: even(width), height: even(width * 9 / 16))
+        return CGSize(width: even(width), height: even(height))
     }
 
     /// A whole layout: the sources the user picked, arranged on a canvas built for this screen.
@@ -233,15 +280,27 @@ public enum MosaicGrid {
     }
 
     /// The same, for an arrangement whose tiles are not all the same size.
+    ///
+    /// **The order is the whole of it**: the phone's orientation says how many columns, the grid
+    /// says how many rows that makes, the number of tiles and their shape say what the canvas is,
+    /// and the canvas is what the rectangles are fractions of.
+    ///
+    /// `tileAspect` is how wide the things in the arrangement are — the caller's business rather
+    /// than this function's, because it is a fact about the sources and this is arithmetic about
+    /// rectangles. See ``MosaicGrid/windowAspect`` for where a caller that does not know starts.
     public static func layout(
         choices: [MosaicChoice],
         viewport: CGSize,
+        tileAspect: Double = MosaicGrid.windowAspect,
         frameRate: Int = MosaicGrid.defaultFrameRate
     ) -> MosaicLayout? {
-        let rects = rects(weights: choices.map(\.weight))
+        let portrait = viewport.height > viewport.width
+        let columns = columns(for: choices.count, portrait: portrait)
+        let rows = Int((Double(choices.count) / Double(columns)).rounded(.up))
+        let rects = rects(weights: choices.map(\.weight), portrait: portrait)
         let tiles = zip(choices, rects).map { MosaicTile(source: $0.source, rect: $1) }
         return MosaicLayout(
-            canvas: canvas(for: viewport),
+            canvas: canvas(columns: columns, tiles: choices.count, tileAspect: tileAspect, viewport: viewport),
             tiles: tiles,
             frameRate: frameRate
         ).validated

@@ -140,4 +140,66 @@ public enum CanvasGeometry {
             y: (content.y - centre.y) * zoom + centre.y + pan.height
         )
     }
+
+    /// The zoom and the pan that move one rectangle of the picture onto another.
+    ///
+    /// **The mapping above, run backwards.** `rect` is somewhere on screen — a tile of a mosaic,
+    /// as it happens — and the answer is what `zoom` and `pan` would have to become for that
+    /// rectangle to land on `target`. It is the inverse of the same expression, in the same file,
+    /// for the same reason ``rect(normalized:bounds:pixelSize:zoom:pan:)`` calls ``point`` rather
+    /// than repeating its arithmetic: a version of this that was one sign out would send the
+    /// picture the wrong way, and it would do it during the one movement in the app that is meant
+    /// to explain what a tap did.
+    ///
+    /// **A target rectangle rather than "the screen", because the thing being moved is smaller
+    /// than the screen it will end on.** Tapping a window in a mosaic should end with that window
+    /// exactly where it will be when it is the whole picture — the same size, in the same place,
+    /// so the moment the real stream arrives nothing moves — and that is a rectangle inside the
+    /// screen, not the screen itself. Handing it `bounds` fills the screen instead, which is the
+    /// right answer for the same call made about a rectangle that *is* the shape of a phone and
+    /// the wrong one for a window.
+    ///
+    /// **The larger of the two ratios.** Where the two rectangles have the same shape the choice
+    /// does not arise, and where they differ by a rounding — which is the ordinary case, since
+    /// both come from the same aspect — taking the larger means the picture still covers what it
+    /// is moving onto rather than leaving a hairline of the old one behind it.
+    ///
+    /// The result is a *drawn* scale, in the same terms `zoom` is used in by that function. A
+    /// caller whose picture is drawn at some other scale than the value it stores — the app's Fill
+    /// setting does exactly that — has to convert, and only it knows by how much.
+    ///
+    /// `nil` when there is nothing to work with: no rectangle, no screen, no target, or a zoom of
+    /// zero, which has no inverse.
+    public static func transform(
+        of rect: CGRect,
+        mappingTo target: CGRect,
+        bounds: CGSize,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> (zoom: CGFloat, pan: CGSize)? {
+        guard bounds.width > 0, bounds.height > 0,
+              rect.width > 0, rect.height > 0,
+              target.width > 0, target.height > 0,
+              zoom > 0
+        else { return nil }
+
+        let centre = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+        // The rectangle in the picture's own coordinates: ``point(normalized:bounds:pixelSize:zoom:pan:)``
+        // solved for its input.
+        let content = CGRect(
+            x: (rect.minX - centre.x - pan.width) / zoom + centre.x,
+            y: (rect.minY - centre.y - pan.height) / zoom + centre.y,
+            width: rect.width / zoom,
+            height: rect.height / zoom
+        )
+
+        let scale = max(target.width / content.width, target.height / content.height)
+        return (
+            scale,
+            CGSize(
+                width: target.midX - centre.x - (content.midX - centre.x) * scale,
+                height: target.midY - centre.y - (content.midY - centre.y) * scale
+            )
+        )
+    }
 }

@@ -212,4 +212,23 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return false
         }
     }
+
+    /// The subset of ``isUserInput`` that a mosaic on screen blocks.
+    ///
+    /// A mosaic blocks what carries a point or a keystroke, because it does not know which window
+    /// a point landed in. Switching Space carries neither, and blocking it silently meant the
+    /// picker could show a desktop and not choose it. Keys are in despite carrying no point:
+    /// during a mosaic, typing goes to whichever window the Mac has focused.
+    public var isBlockedByMosaic: Bool {
+        switch self {
+        case .mouseMove, .mouseDown, .mouseUp, .scroll, .keyDown, .keyUp, .textInput,
+             .joystickMove:
+            return true
+        case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
+             .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
+             .refreshSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard,
+             .pushClipboard, .pushClipboardImage:
+            return false
+        }
+    }
 }

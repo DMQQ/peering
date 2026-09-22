@@ -225,12 +225,12 @@ public enum Tour: String, CaseIterable, Identifiable, Sendable {
                 TourStep(
                     target: .screenDock,
                     title: "The controls",
-                    detail: "Keys, shortcuts, sources and the Mac's desktops, along the bottom. The chevron opens the rest."
+                    detail: "Keys, shortcuts and everything this Mac can show, along the bottom. The chevron opens the rest."
                 ),
                 TourStep(
                     target: .screenRail,
                     title: "The controls",
-                    detail: "Keys, shortcuts, sources and the Mac's desktops, in the two rails at the edges of the picture."
+                    detail: "Keys, shortcuts and everything this Mac can show, in the two rails at the edges of the picture."
                 ),
                 TourStep(
                     target: .screenPointer,

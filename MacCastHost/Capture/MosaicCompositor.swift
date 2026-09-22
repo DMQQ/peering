@@ -2,6 +2,7 @@ import CoreImage
 import CoreMedia
 import CoreVideo
 import Foundation
+import MacCastKit
 import RemoteCore
 import ScreenCaptureKit
 import os
@@ -26,19 +27,39 @@ struct MosaicPlan: @unchecked Sendable {
         let pixelSize: CGSize
         let filter: SCContentFilter
         let configuration: SCStreamConfiguration
+        /// What to draw in this tile when it has no picture of its own: a stream that will not
+        /// start, or one that has stopped before it ever produced a frame. See
+        /// ``MosaicPlaceholder``.
+        let card: CIImage?
+    }
+
+    /// A tile the plan could not build a capture for, and the card that stands in for it.
+    ///
+    /// **Kept out of `tiles` because there is no stream to keep in step with one.** Everything
+    /// above that array treats a tile as a capture — an engine each, an entry each in the held
+    /// frame array, an index each in the dead set — so a tile with no filter would be an engine
+    /// that can never start and an index nothing will ever fill. What it needs is the one thing
+    /// the compositor does with any tile in the end: somewhere to draw a card.
+    struct Placeholder: @unchecked Sendable {
+        let rect: CGRect
+        let card: CIImage?
     }
 
     let canvas: CGSize
     let frameRate: Int
     let tiles: [Tile]
+    let placeholders: [Placeholder]
 }
 
 extension MosaicPlan {
     /// Resolves a client's layout into streams, one per tile.
     ///
-    /// **A tile whose source has gone is left out rather than failing the plan**, and its
-    /// rectangle stays black: a window closed between the phone drawing the arrangement and the
-    /// Mac building it is the ordinary way a mosaic starts, not an error worth showing anybody.
+    /// **A tile whose source has gone is left out of the captures and kept on the canvas**, as a
+    /// card that says so: a window closed between the phone drawing the arrangement and the Mac
+    /// building it is the ordinary way a mosaic starts, not an error worth failing the plan over —
+    /// and a black rectangle with a border around it tells the user nothing at all. See
+    /// ``Placeholder`` and ``MosaicPlaceholder``.
+    ///
     /// The exception is every tile, which is a mosaic with nothing in it, and the caller says so.
     static func make(
         layout: MosaicLayout,
@@ -46,30 +67,48 @@ extension MosaicPlan {
         resolver: CaptureSourceResolver
     ) -> MosaicPlan {
         var tiles: [Tile] = []
+        var placeholders: [Placeholder] = []
 
         for tile in layout.tiles {
-            guard let descriptor = catalog.descriptor(for: tile.source),
-                  let filterPlan = try? resolver.makeFilter(for: tile.source)
-            else { continue }
-
             let rect = tile.rect.pixels(in: layout.canvas)
-            // **Never more pixels than the source has, and never more than the tile is drawn
-            // at.** The first is what keeps a mosaic from asking the WindowServer to scale a
-            // 400-point window up to a tile's worth of pixels nobody can see more of; the
-            // second is the whole cost control, because it makes a six-tile canvas six small
-            // captures rather than six display-sized ones.
-            //
-            // Even, both ways, and this is load-bearing rather than tidiness: ScreenCaptureKit
-            // delivers a surface of exactly the configured size, the encoder rounds down to
-            // even, and the pipeline's resize check compares the two — so an odd tile is an
-            // encoder rebuilt on every frame of every tile. See ``CapturePipeline/encode(_:)``.
-            func even(_ value: CGFloat) -> CGFloat {
-                max(2, (value.rounded(.down) / 2).rounded(.down) * 2)
+            let descriptor = catalog.descriptor(for: tile.source)
+
+            guard let descriptor,
+                  let filterPlan = try? resolver.makeFilter(for: tile.source)
+            else {
+                // **The source is still in the client's arrangement and not in the catalogue**,
+                // which is what "there is nothing to capture here" means at this end. The card is
+                // built whether or not the descriptor was found: the process table still knows the
+                // name and the icon of an application that is running with nothing open, and that
+                // is the case this exists for.
+                placeholders.append(Placeholder(
+                    rect: rect,
+                    card: MosaicPlaceholder.image(
+                        .missing(tile.source, descriptor: descriptor),
+                        size: rect.size
+                    )
+                ))
+                continue
             }
-            let pixelSize = CGSize(
-                width: min(even(rect.width), even(descriptor.pixelSize.width)),
-                height: min(even(rect.height), even(descriptor.pixelSize.height))
-            )
+
+            // **The window's own shape, contained in the tile's pixels.** Not each axis clamped
+            // separately, which is what this was: that produces a surface whose shape is neither
+            // the tile's nor the window's, leaves ScreenCaptureKit a crop to choose, and puts the
+            // picture somewhere other than where the phone works out that it is — which is the
+            // rectangle the zoom a tap travels with is aimed at. See ``MosaicTileFit`` for the
+            // rule and why the two ends have to read the same one.
+            guard let pixelSize = MosaicTileFit.surface(
+                sourceSize: descriptor.pixelSize,
+                tilePixels: rect
+            ) else {
+                // A source with no size, or a tile with none. There is nothing to capture into,
+                // and the card says what the tile holds rather than leaving a hole in the canvas.
+                placeholders.append(Placeholder(
+                    rect: rect,
+                    card: MosaicPlaceholder.image(.empty(descriptor: descriptor), size: rect.size)
+                ))
+                continue
+            }
 
             guard var configuration = try? CaptureEngine.configuration(
                 for: descriptor,
@@ -79,7 +118,16 @@ extension MosaicPlan {
                 // app's overlay: on a mosaic there are N windows the pointer can be inside and
                 // no single screen rectangle saying where it is in the composite.
                 showsCursor: true
-            ) else { continue }
+            ) else {
+                // A configuration ScreenCaptureKit will not accept is the same answer as a source
+                // it will not filter: this tile has no picture, and the card says so rather than
+                // leaving a hole in the canvas that looks like a bug in the picture.
+                placeholders.append(Placeholder(
+                    rect: rect,
+                    card: MosaicPlaceholder.image(.empty(descriptor: descriptor), size: rect.size)
+                ))
+                continue
+            }
 
             // The rectangle belongs to the filter, so it is set here rather than built into the
             // configuration. See ``CaptureFilterPlan``.
@@ -93,12 +141,20 @@ extension MosaicPlan {
                     rect: rect,
                     pixelSize: pixelSize,
                     filter: filterPlan.filter,
-                    configuration: configuration
+                    configuration: configuration,
+                    // A tile whose stream starts and then stops, or delivers frames with no content
+                    // in them, has this drawn in it instead of a stale picture. See ``draw``.
+                    card: MosaicPlaceholder.image(.empty(descriptor: descriptor), size: rect.size)
                 )
             )
         }
 
-        return MosaicPlan(canvas: layout.canvas, frameRate: layout.frameRate, tiles: tiles)
+        return MosaicPlan(
+            canvas: layout.canvas,
+            frameRate: layout.frameRate,
+            tiles: tiles,
+            placeholders: placeholders
+        )
     }
 }
 
@@ -159,8 +215,26 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         let buffer: CVPixelBuffer
     }
 
+    /// The captures, in the order they were built, which is the order they are always in.
+    ///
+    /// **This array is an identity, not a place.** It is built once per ``start(_:)`` and never
+    /// reordered, and each tile's callbacks close over their own index into it — so an engine's
+    /// index is the only thing about a tile that a rearrangement leaves alone. Which rectangle
+    /// its picture belongs in is ``engineForSlot``'s question, and that has a different answer
+    /// after every reorder.
     private var engines: [CaptureEngine] = []
     private var plan: MosaicPlan?
+    /// Which engine stands behind each tile of ``plan``, in the plan's own order.
+    ///
+    /// **The mapping the rearrangement was relying on and did not have.** The tiles are the
+    /// client's order; the engines are the order the streams were built in; a reorder changes the
+    /// first and not the second. Held implicitly — by permuting the retained frames and trusting
+    /// the callbacks to follow — a reorder left every engine writing into another window's slot,
+    /// so the canvas came back in the old arrangement as soon as each engine had delivered once,
+    /// and mixed while they arrived one at a time. Which is a reorder that does not reorder, and
+    /// a shuffle.
+    private var engineForSlot: [Int] = []
+    /// A tile's last picture, by **engine** index. See ``engines``.
     private var held: [HeldFrame?] = []
     /// Set when a tile's picture has arrived since the canvas was last drawn.
     private var dirty = false
@@ -169,8 +243,27 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     private var frameIndex: Int64 = 0
     private var deliveredCount = 0
     private var skippedTicks = 0
+    /// Tiles whose own capture has stopped, by **engine** index. See ``engines``.
     private var deadTiles: Set<Int> = []
-
+    /// Bumped by every start and every stop, so work that is mid-flight can tell whether the
+    /// state it is about to publish is still wanted.
+    ///
+    /// **A stop that lands inside a start used to leave everything behind.** The engines were
+    /// published after all of them had started, so a `stop()` arriving during that loop stopped
+    /// the *previous* generation — or nothing at all on the first start — and the new streams
+    /// finished coming up with nothing holding them: six captures and a timer, running for the
+    /// life of the process, copying every frame of every window into a buffer nobody draws.
+    private var generation = 0
+    /// Tiles whose own capture says it has nothing in it, by **engine** index. See ``engines``.
+    ///
+    /// **From the frame's geometry rather than from the colour of it**, and that distinction is
+    /// the whole of why this is honest. A capture that is running and has nothing to photograph —
+    /// an application whose windows have all been closed, which ScreenCaptureKit goes on streaming
+    /// as a frame with an empty content rectangle — says so in the frame's own attachment. The
+    /// colour of the picture says nothing: a window is allowed to be black, and a tile that
+    /// announced "nothing to show" over somebody's dark editor would be the app being confidently
+    /// wrong about a picture it can see perfectly well.
+    private var emptyTiles: Set<Int> = []
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
     private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
@@ -232,45 +325,99 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
 
         let pool = try Self.makePool(for: plan.canvas)
 
-        lock.withLock {
+        // A timer from a start that was never stopped. Cancelled here rather than left for
+        // ``startTimer(_:)`` to overwrite: a resumed dispatch source that nothing holds is not
+        // deallocated, it goes on firing ticks at a plan this object no longer has.
+        let stale = lock.withLock { () -> DispatchSourceTimer? in
+            let current = self.timer
+            self.timer = nil
+            return current
+        }
+        stale?.cancel()
+
+        let generation = lock.withLock { () -> Int in
+            self.generation += 1
             self.plan = plan
             self.pool = pool
             self.held = Array(repeating: nil, count: plan.tiles.count)
+            // Identity, and the only moment the two domains are the same thing: engine `i` was
+            // built for tile `i` of the arrangement that is being started. See ``engineForSlot``.
+            self.engineForSlot = MosaicRearrangement.identity(count: plan.tiles.count)
             self.dirty = false
             self.frameIndex = 0
             self.deliveredCount = 0
             self.skippedTicks = 0
             self.deadTiles = []
+            self.emptyTiles = []
+            return self.generation
         }
 
-        // The streams, one per tile, built and started before the timer so the first tick has
-        // something to draw. Each engine delivers on its own queue, so arrival order between
-        // tiles is not an order at all — which is exactly why the canvas is composed on a tick
-        // rather than on arrival.
-        var engines: [CaptureEngine] = []
-        for (index, tile) in plan.tiles.enumerated() {
+        // The streams, one per tile. Each engine delivers on its own queue, so arrival order
+        // between tiles is not an order at all — which is exactly why the canvas is composed on a
+        // tick rather than on arrival.
+        let engines: [CaptureEngine] = plan.tiles.indices.map { index in
             let engine = CaptureEngine()
             engine.onFrame = { [weak self] frame in
-                self?.retain(frame.pixelBuffer, at: index)
+                self?.retain(frame.pixelBuffer, geometry: frame.geometry, at: index)
             }
             engine.onStop = { [weak self] _ in
                 self?.tileStopped(index)
             }
-            engines.append(engine)
-            do {
-                try await engine.start(.stream(filter: tile.filter, configuration: tile.configuration))
-            } catch {
-                // A tile that will not start leaves its rectangle black and the rest of the
-                // mosaic running. It is already counted as dead, so nothing waits for it.
+            return engine
+        }
+
+        // **Published before they are started, so a stop can reach them.** Held back until every
+        // stream was up, a `stop()` arriving in the middle of the loop below had nothing to stop:
+        // it cleared an array that was still empty, the tiles came up anyway, and they went on
+        // capturing with nothing holding a reference to them. See ``generation``.
+        lock.withLock {
+            guard self.generation == generation else { return }
+            self.engines = engines
+        }
+
+        // **The timer before the streams, not after them.** A tick with no picture yet is already
+        // a no-op — see ``tick``, which waits for one tile — so starting it here costs nothing and
+        // buys the whole difference between a mosaic that appears when the first window is up and
+        // one that appears when the slowest of six has started. ScreenCaptureKit takes a few
+        // hundred milliseconds per stream, and they used to be taken one after another.
+        startTimer(plan)
+
+        // **Together rather than one at a time**, and that is the difference between a mosaic
+        // arriving in the time of one stream and in the time of six. They are independent by
+        // construction: a filter, a configuration and a queue each, and nothing shared.
+        await withTaskGroup(of: (index: Int, error: CaptureError?).self) { group in
+            for (index, tile) in plan.tiles.enumerated() {
+                group.addTask { [weak self] in
+                    guard self?.isCurrent(generation) == true else { return (index, nil) }
+                    do {
+                        try await engines[index].start(
+                            .stream(filter: tile.filter, configuration: tile.configuration)
+                        )
+                        return (index, nil)
+                    } catch {
+                        return (index, CaptureError.from(error))
+                    }
+                }
+            }
+
+            for await (index, error) in group {
+                guard let error else { continue }
+                // A tile that will not start leaves its rectangle black and the rest of the mosaic
+                // running. It is counted as dead, so nothing waits for it.
                 mosaicLog.error("mosaic tile \(index, privacy: .public) did not start: \(String(describing: error), privacy: .public)")
-                markDead(index)
+                if isCurrent(generation) { markDead(index) }
             }
         }
 
-        lock.withLock { self.engines = engines }
+        mosaicLog.notice("mosaic started: \(plan.tiles.count, privacy: .public) tiles, \(plan.placeholders.count, privacy: .public) empty, at \(Int(plan.canvas.width), privacy: .public)×\(Int(plan.canvas.height), privacy: .public)")
+    }
 
-        startTimer(plan)
-        mosaicLog.notice("mosaic started: \(plan.tiles.count, privacy: .public) tiles at \(Int(plan.canvas.width), privacy: .public)×\(Int(plan.canvas.height), privacy: .public)")
+    /// Whether the work that was started under `generation` is still the work that is wanted.
+    ///
+    /// One question, asked at every point a start could otherwise publish state a stop has already
+    /// given up on. See ``generation``.
+    private func isCurrent(_ generation: Int) -> Bool {
+        lock.withLock { self.generation == generation }
     }
 
     func stop() async {
@@ -287,13 +434,26 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             queue.sync {}
         }
 
+        // **Before the engines are taken, so a start in flight knows at the same moment.** Taking
+        // them and bumping the generation are one decision — "this generation is over" — and a
+        // start that checked in between the two would go on building its streams.
         let engines = lock.withLock { () -> [CaptureEngine] in
+            self.generation += 1
             let current = self.engines
             self.engines = []
+            self.engineForSlot = []
             return current
         }
-        for engine in engines {
-            await engine.stop()
+        // **Together, and this one is on the critical path of every source switch.** Leaving a
+        // mosaic for one of its windows stops every tile's stream before the new one is built, and
+        // one at a time that is the teardown multiplied by the number of windows — half a second
+        // or more of the user looking at a picture that has not changed yet. Nothing here depends
+        // on the order, and the frames that arrive while it runs are dropped by a compositor with
+        // no plan. See ``stop()``'s note on what the drain above is for.
+        await withTaskGroup(of: Void.self) { group in
+            for engine in engines {
+                group.addTask { await engine.stop() }
+            }
         }
 
         lock.withLock {
@@ -302,7 +462,143 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             self.held = []
             self.dirty = false
             self.deadTiles = []
+            self.emptyTiles = []
         }
+    }
+
+    // MARK: - Rearranging
+
+    /// Whether a new arrangement is the same captures in different rectangles.
+    ///
+    /// **The captures are the expensive part and none of them belongs to the canvas.** Turning the
+    /// phone keeps every window exactly where it was on the Mac and changes only where its picture
+    /// is drawn on the phone — and the same is true of going back to an arrangement from one of its
+    /// tiles. What that *should* cost is arithmetic, and what it cost was six streams stopped and
+    /// six started, which is a second and a half of black over a change nothing about the Mac had
+    /// made.
+    ///
+    /// So the question this asks is the narrowest one that is still safe: the same sources, in the
+    /// same order, at the same frame rate. The tile's own surface size is deliberately *not* part
+    /// of it — a tile that changed shape is a stream that needs re-pointing, not a stream that
+    /// needs replacing, and ``replan(_:)`` does exactly that.
+    /// **Order does not matter**, which is a change of mind worth recording: a reorder is the same
+    /// captures in the same rectangles as each other, and the whole point of the check is that the
+    /// *captures* are what is expensive. Which of them goes in which rectangle belongs to the
+    /// canvas, and ``replan(_:)`` reads the new arrangement to find out — so a tile dragged from
+    /// one corner to another costs a re-composite rather than six streams built again.
+    func canReuseCaptures(for plan: MosaicPlan) -> Bool {
+        let (current, engines) = lock.withLock { (self.plan, self.engines) }
+        guard let current,
+              engines.count == plan.tiles.count,
+              current.frameRate == plan.frameRate,
+              current.tiles.count == plan.tiles.count
+        else { return false }
+        return Set(current.tiles.map(\.source)) == Set(plan.tiles.map(\.source))
+    }
+
+    /// Redraws the same captures into a different canvas.
+    ///
+    /// **A tile whose shape changed is re-pointed rather than restarted**, which is the whole point
+    /// of the exercise: an arrangement of the same windows on a phone that has been turned is the
+    /// same six captures at six new surface shapes, and ScreenCaptureKit can change a stream's
+    /// shape in place. A tile that will not take the new shape keeps the old one — its picture
+    /// letterboxed into a rectangle of a different aspect is a slightly soft tile, where stopping
+    /// the stream would be a tile that is black until everything is built again.
+    func replan(_ plan: MosaicPlan) async throws {
+        let pool = try Self.makePool(for: plan.canvas)
+        let (current, engines, previous) = lock.withLock {
+            (self.plan, self.engines, self.engineForSlot)
+        }
+
+        // **Each engine is found by its source, not by its place.** An engine belongs to a window
+        // and not to a rectangle: the compositor draws whatever arrives from it into wherever the
+        // client says, so a window that has moved to another slot keeps the stream it had.
+        //
+        // Found through the *previous* arrangement and its mapping rather than by counting slots,
+        // which is the same answer after one rearrangement and a different one after two. A slot
+        // is not an engine, and the second rearrangement of a session is where the two were
+        // assumed to still be the same thing. See ``MacCastKit/MosaicRearrangement``.
+        //
+        // Nothing to rearrange onto: every window in this plan would have to be drawn from an
+        // engine nobody can name. The caller's answer is to build the mosaic again rather than to
+        // draw six windows into six arbitrary slots, so the arrangement goes on being one the
+        // compositor can describe. Unreachable through ``canReuseCaptures(for:)``, which is why it
+        // is stated rather than handled.
+        guard let current, current.tiles.count == plan.tiles.count,
+              let engineForSlot = MosaicRearrangement.engineOrder(
+                  previous: previous,
+                  sources: current.tiles.map(\.source.stableID),
+                  slots: plan.tiles.map(\.source.stableID)
+              ),
+              engineForSlot.allSatisfy({ $0 < engines.count })
+        else {
+            throw CaptureError.streamFailed(
+                "This rearrangement is not the same windows as the mosaic that is running."
+            )
+        }
+
+        // **Together, for the same reason the streams are started together.** A turn of the phone
+        // changes the shape of every tile at once, and one re-shape at a time is that change
+        // multiplied by the number of windows: eight tiles, eight awaits, and the new canvas
+        // arrives a third of a second after the phone has finished turning rather than during it.
+        // Each of these is a call into ScreenCaptureKit for one stream and nothing is shared
+        // between them.
+        // The tiles that need re-pointing, as an index and the engine for it. The configuration
+        // itself is read inside the task from the plan — both of these are sendable and a
+        // `SCStreamConfiguration` is not, and the plan is the one place the whole of it lives.
+        let reshaping: [(index: Int, engine: CaptureEngine)] = plan.tiles.enumerated().compactMap { index, tile in
+            guard let was = current.tiles.firstIndex(where: { $0.source == tile.source }) else {
+                return nil
+            }
+            let old = current.tiles[was]
+            guard old.pixelSize != tile.pixelSize || current.frameRate != plan.frameRate else {
+                return nil
+            }
+            return (index, engines[engineForSlot[index]])
+        }
+
+        await withTaskGroup(of: (index: Int, error: Error?).self) { group in
+            for reshape in reshaping {
+                group.addTask {
+                    do {
+                        try await reshape.engine.reconfigure(plan.tiles[reshape.index].configuration)
+                        return (reshape.index, nil)
+                    } catch {
+                        return (reshape.index, error)
+                    }
+                }
+            }
+            for await (index, error) in group {
+                guard let error else { continue }
+                mosaicLog.error("""
+                    mosaic tile \(index, privacy: .public) kept its old shape: \
+                    \(String(describing: error), privacy: .public)
+                    """)
+            }
+        }
+
+        lock.withLock {
+            // **The frames are not moved, and that is the whole of the fix.** They are held by
+            // engine, and an engine goes on being the same engine; what changes is which slot it
+            // is drawn in, which is one array of indices. The rearrangement used to permute the
+            // held frames into the new slot order instead — and the callbacks, which are indexed
+            // by engine, went on writing in the order the streams had been built in, so each tile
+            // was overwritten by another window's picture as the next frame from each engine
+            // arrived.
+            self.engineForSlot = engineForSlot
+            self.plan = plan
+            self.pool = pool
+            // The canvas is new and so is the encoder behind it, so the timeline starts again with
+            // it — a counter left running would put the first frame of the new canvas at a
+            // timestamp the encoder has not been told to expect.
+            self.frameIndex = 0
+            self.dirty = true
+        }
+
+        mosaicLog.notice("""
+            mosaic rearranged: \(plan.tiles.count, privacy: .public) tiles on a \
+            \(Int(plan.canvas.width), privacy: .public)×\(Int(plan.canvas.height), privacy: .public) canvas
+            """)
     }
 
     // MARK: - Tiles
@@ -314,11 +610,30 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     /// reads it on a later tick, so taking the reference would be reading memory that has since
     /// become something else. Two planes of `420v` at tile size is a few hundred kilobytes, and
     /// the alternative is a picture made of two different moments.
-    private func retain(_ buffer: CVPixelBuffer, at index: Int) {
+    ///
+    /// The frame's geometry comes with it for the one question the buffer cannot answer: whether
+    /// there is anything in the picture. See ``emptyTiles``.
+    ///
+    /// **`index` is the engine's, which is the one index here that means the same thing for the
+    /// whole life of the tile.** A rearrangement moves windows between slots and moves no engines
+    /// at all, so a callback that wrote by slot would be writing into another window's rectangle
+    /// from the moment the arrangement changed.
+    private func retain(_ buffer: CVPixelBuffer, geometry: FrameGeometry?, at index: Int) {
         guard let copy = Self.copy(buffer) else { return }
+        // An empty content rectangle is the capture saying "there is nothing here", which is what
+        // an application whose last window has closed reports. A frame with no geometry at all is
+        // a different answer — nobody said — and leaves the tile as it was: a card drawn over a
+        // picture because an attachment was missing would be this app inventing a fault.
+        let empty = geometry?.contentRect?.isEmpty ?? false
+
         lock.withLock {
             guard index < held.count else { return }
             held[index] = HeldFrame(buffer: copy)
+            if empty {
+                emptyTiles.insert(index)
+            } else {
+                emptyTiles.remove(index)
+            }
             dirty = true
         }
     }
@@ -397,15 +712,51 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     }
 
     /// Draws every tile into the canvas, each scaled to fit its rectangle.
+    ///
+    /// **A tile with no picture gets a card instead of a hole**, and there are three ways to have
+    /// no picture: the plan could not build a capture for the tile at all (``MosaicPlan/Placeholder``),
+    /// the tile's stream has ended, or the capture is running and its own content rectangle says
+    /// it has nothing to show (``emptyTiles``). All three used to be a black rectangle or a
+    /// frozen picture, neither of which says anything — and the rectangle is the one thing a user
+    /// can only read as this app having failed at something.
+    ///
+    /// **A tile whose stream has ended loses its last picture to the card**, which is deliberate
+    /// and is the case this was written for: a window closed while the mosaic was on screen stops
+    /// its stream, and what was left was a photograph of a window that no longer exists with
+    /// nothing on it to say so. The last frame is not a picture of anything any more.
     private func draw(plan: MosaicPlan, into canvas: CVPixelBuffer) {
         let bounds = CGRect(origin: .zero, size: plan.canvas)
-        let frames = lock.withLock { held }
+        let (frames, empty, dead, mapping) = lock.withLock {
+            (held, emptyTiles, deadTiles, engineForSlot)
+        }
 
         var image = CIImage(color: .black).cropped(to: bounds)
         for (index, tile) in plan.tiles.enumerated() {
-            guard index < frames.count, let frame = frames[index] else { continue }
+            // **Two index spaces meet here, and this is the only line that has to know.** The loop
+            // is over the arrangement the client asked for; the picture, the dead flag and the
+            // empty flag all belong to an engine, which is a window rather than a slot. See
+            // ``engineForSlot``.
+            guard index < mapping.count else { continue }
+            let engine = mapping[index]
+
+            if empty.contains(engine) || dead.contains(engine),
+               let card = tile.card.map({ Self.place($0, in: tile.rect, canvas: plan.canvas) }) {
+                image = card.composited(over: image)
+                continue
+            }
+            // Nothing has arrived yet. Not a card: a tile that is merely slow to start is a
+            // mosaic still coming up, and a card over it would be this app reporting a fault
+            // that lasts a few hundred milliseconds.
+            guard engine < frames.count, let frame = frames[engine] else { continue }
             let picture = CIImage(cvPixelBuffer: frame.buffer)
             image = Self.place(picture, in: tile.rect, canvas: plan.canvas).composited(over: image)
+        }
+
+        // The tiles that have no stream at all, which are not in the loop above because there is
+        // nothing to hold a frame for them.
+        for placeholder in plan.placeholders {
+            guard let card = placeholder.card else { continue }
+            image = Self.place(card, in: placeholder.rect, canvas: plan.canvas).composited(over: image)
         }
 
         context.render(

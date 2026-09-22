@@ -124,6 +124,19 @@ extension SessionModel {
         // dropped and would arm a ladder that can never finish, leaving them in the strip as tabs
         // that never come back. See ``MacSession/userEndedDeliberately``.
         for session in sessions { session.endSession(deliberate: deliberate) }
+
+        // **The arrangement is forgotten when the user says they are done with this Mac.** What
+        // the arrangement is remembered *for* is coming back to it: a phone that dropped, or that
+        // iOS suspended, should find the windows it was looking at still arranged. A user who
+        // pressed Disconnect has said the opposite — they are finished with these windows — and
+        // what they were left with otherwise was an arrangement that reappeared on every
+        // connection and could not be got rid of: asking for a single display was answered with
+        // the mosaic again the next time the app opened. See ``MosaicArrangementStore``.
+        if deliberate {
+            for session in sessions {
+                if let hostID = session.hostID { MosaicArrangementStore.save([], hostID: hostID) }
+            }
+        }
         // A non-deliberate end is followed by the reconnect ladder, and the RemoteScreen is
         // deliberately kept mounted across that handover. Detaching here severs the renderer
         // from that still-mounted view; SwiftUI does not call `makeUIView` again, so the new

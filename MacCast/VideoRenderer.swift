@@ -119,9 +119,14 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.deferredKeyframe.reset()
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
-            // The old pictures are in the old format. Flushing before the new frames arrive
-            // is what stops the layer rendering a frame whose SPS it has already replaced.
-            self.renderer?.flush()
+            // The *queue* is discarded, because the old pictures are in the old format and a
+            // decoder holding them would render one against an SPS that has been replaced. The
+            // image already on screen is not: it was decoded against the description it was
+            // encoded with, and it is the picture the user is looking at until the new stream's
+            // first frame arrives. Throwing it away is a black screen in the middle of a source
+            // switch — a flash on every tap of a mosaic's tile, between the arrangement being
+            // left and the window arriving, with the window's own position already worked out.
+            self.renderer?.flush(removingDisplayedImage: false)
 
             self.lock.withLock {
                 self.snapshot.hasConfig = true
@@ -348,6 +353,76 @@ final class VideoDisplayView: UIView {
     required init?(coder: NSCoder) { fatalError("not used") }
 }
 
+/// Holds the first frames of a new picture until the screen is ready to draw them.
+///
+/// **The one race in this app that a user can see, and they have to look at it every time they open
+/// a tile.** A source switch arrives as a video config with a keyframe right behind it, and the
+/// picture those describe is a different picture — a canvas the size of six windows becomes one
+/// window. The zoom and the pan on screen were chosen for the old one and mean something else
+/// against the new one: the magnification that made a tile fill the screen is, for the window that
+/// replaces the canvas, three screens' worth of window. The screen resets them the moment it learns
+/// the picture has changed, which is a SwiftUI update, while the keyframe is decoded on the
+/// renderer's own queue — and the decoder can win. What that looks like is the window arriving
+/// enormously magnified and snapping back a frame later.
+///
+/// So nothing is drawn until the update that says where it goes has been applied. The gate is
+/// closed when the config arrives, everything that follows it is held, and the lot is handed over
+/// in order once the screen has had its turn: the frames are still in the order the wire put them
+/// in, so the keyframe is still the first thing the decoder sees.
+/// `nonisolated` because the whole point of it is to be called from the wire's own queue: the gate
+/// exists between that queue and the main actor, and one that could only be called from the main
+/// actor would be the race it was built to close.
+nonisolated final class PictureGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var held: [EncodedVideoFrame] = []
+    private var isHolding = false
+
+    /// Closes the gate, throwing away anything a previous change was holding.
+    ///
+    /// A second config replacing a first is the case that matters: the frames behind the first
+    /// belong to a picture that is not going to be drawn at all, and the first one's keyframe is
+    /// the only frame in that batch anyone needed.
+    func hold() {
+        lock.withLock {
+            isHolding = true
+            held.removeAll()
+        }
+    }
+
+    /// How many frames may be held before the gate gives up and lets the picture through.
+    ///
+    /// **A cap rather than trust**, because the thing that opens this gate is the main actor, and a
+    /// main actor busy enough to miss a fifth of a second of frames is a main actor this should not
+    /// be able to fill up with pixels. Twelve frames at sixty a second is two hundred milliseconds;
+    /// past that the race it prevents is the smaller of the two problems, and letting the picture
+    /// arrive late is better than holding it forever.
+    private static let limit = 12
+
+    /// Takes a frame, or holds it. `true` when the caller must not draw it yet.
+    func stash(_ frame: EncodedVideoFrame) -> Bool {
+        lock.withLock {
+            guard isHolding else { return false }
+            guard held.count < Self.limit else {
+                isHolding = false
+                held.removeAll()
+                return false
+            }
+            held.append(frame)
+            return true
+        }
+    }
+
+    /// Opens the gate and hands back what arrived while it was closed, oldest first.
+    func release() -> [EncodedVideoFrame] {
+        lock.withLock {
+            isHolding = false
+            let frames = held
+            held.removeAll()
+            return frames
+        }
+    }
+}
+
 /// Hosts ``VideoDisplayView`` in SwiftUI and hands its layer to the renderer.
 struct VideoLayerView: UIViewRepresentable {
     let renderer: VideoRenderer
@@ -415,6 +490,10 @@ final class VideoHostView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
+        // The picture is scaled inside this view, and the scaled content view paints outside the
+        // bounds unless it is clipped: a sublayer is not clipped by its parent by default, and
+        // this one is a sibling of the chrome's layers.
+        clipsToBounds = true
         contentView.frame = bounds
         addSubview(contentView)
 
@@ -437,6 +516,7 @@ final class VideoHostView: UIView {
         contentView.bounds = CGRect(origin: .zero, size: bounds.size)
         contentView.center = CGPoint(x: bounds.midX, y: bounds.midY)
     }
+
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }

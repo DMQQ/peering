@@ -69,45 +69,11 @@ extension RemoteScreen {
         }
     }
 
-    /// Absent when the Mac has one desktop: a control that can only ever do nothing is clutter,
-    /// and this is the one button that can drop out without leaving a hole in the meaning of the
-    /// ones around it.
-    @ViewBuilder
-    var desktopsButton: some View {
-        if let info = model.catalog?.spaceInfo, DesktopsPanel.showsDesktops(info) {
-            RailButton(
-                icon: "rectangle.split.3x1",
-                label: "Desktops",
-                selected: openPanel == .desktops
-            ) {
-                withAnimation(Motion.settle) {
-                    openPanel = openPanel == .desktops ? nil : .desktops
-                }
-            }
-        }
-    }
-
-    /// Desktops, or the room it would have taken.
-    ///
-    /// The dock's open rows divide their width equally, which is what keeps the second row's
-    /// buttons under the first row's. Desktops drops out when the Mac has one desktop and one
-    /// screen, and a row of three where the row above has four would then have divided the width
-    /// three ways and put its buttons half a button left of the ones they sit under. An empty
-    /// cell is the same size as a full one, which is the whole of the fix.
-    ///
-    /// Here and not in the landscape rail, which is a column: a hole in that one would be a gap
-    /// between two buttons rather than a column that stays in step.
-    var desktopsSlot: some View {
-        ZStack { desktopsButton }
-            .frame(maxWidth: .infinity)
-            .frame(height: ChromeMetrics.buttonHeight)
-    }
-
     /// A column of the dock with nothing in it.
     ///
-    /// The same reasoning as ``desktopsSlot``, reached from the other side: an empty cell is the
-    /// same size as a full one, and a row that dropped a column would divide its width between
-    /// what was left and put every button in it under the gap between the two above.
+    /// An empty cell is the same size as a full one, and a row that dropped a column would divide
+    /// its width between what was left and put every button in it under the gap between the two
+    /// above.
     ///
     /// Its height is pinned for the reason the rest of the cell is drawn: a cell is one button
     /// tall, and a cell that can be *any* height is one the layout will happily make tall. A view
@@ -122,11 +88,6 @@ extension RemoteScreen {
             .allowsHitTesting(false)
     }
 
-    /// Whether the desktops panel is worth offering at all.
-    ///
-    /// More than one desktop, **or** more than one screen. A second screen qualifies on its own
-    /// even with a single desktop on it, because tapping that desktop is how the picture is moved
-    /// to it — a control that can only ever do nothing is clutter, and this one can do something.
     var keysButton: some View {
         RailButton(
             icon: model.showKeyboard ? "keyboard.fill" : "keyboard",
@@ -268,9 +229,11 @@ extension RemoteScreen {
         // they are tall — the pointer column alone is 168 points, the dock another 70 — so they
         // are reserved, or the panel would cover controls that are still meant to be usable.
         //
-        // Over-reserving in landscape is what kept the desktop tiles small: the ceiling was 279
-        // points, two rows of chips and captions take 144 of it, and what was left made a tile 108
-        // points wide however much width the panel had going spare.
+        // Reaching for the larger reserve in landscape is a mistake worth naming, because it
+        // looks like the safe one. It is not: the ceiling is what a panel's contents are squeezed
+        // into, and a panel that reserves for controls it is drawn *over* is a panel whose
+        // contents are too short. That is what once held the desktop grid's tiles down to the
+        // minimum however much width they had going spare.
         let reserved: CGFloat
         if isLandscape {
             reserved = ChromeMetrics.edgeInset * 2 + Self.statusBarHeight
@@ -294,23 +257,6 @@ extension RemoteScreen {
         return max(140, available.height - reserved)
     }
 
-    /// The width a floating panel's contents have to work with.
-    ///
-    /// Worked out here rather than measured inside the panel: measuring it there made the number
-    /// depend on the thing being sized, which is how the desktop tiles came out the same size as
-    /// before the change that was supposed to grow them.
-    /// The width the panels' contents are laid out in.
-    ///
-    /// **The panel's own insets, taken off the width it is given** — and it is the whole of them,
-    /// which is the correction. This used to subtract a flat 20, which is only the padding inside
-    /// the glass card; the margin outside it was never accounted for. Nothing noticed while every
-    /// panel that used this scrolled or sized its own contents flexibly, because an overestimate
-    /// is absorbed by a view that can grow. The desktops grid cannot, and hung its second column
-    /// off the edge of the screen.
-    func panelContentWidth(_ available: CGSize) -> CGFloat {
-        max(min(Self.panelWidth, available.width) - DesktopsPanel.horizontalInset, 0)
-    }
-
     /// The status pill, which is the one thing a panel must not be drawn over the top of.
     static let statusBarHeight: CGFloat = 44
 
@@ -322,7 +268,7 @@ extension RemoteScreen {
 
     /// The one floating panel, whichever it is.
     ///
-    /// One place, because four panels across two orientations is eight arrangements to keep in
+    /// One place, because three panels across two orientations is six arrangements to keep in
     /// step, and the difference between them is what they contain rather than how they are framed.
     @ViewBuilder
     func floatingPanel(_ available: CGSize, isLandscape: Bool) -> some View {
@@ -335,14 +281,6 @@ extension RemoteScreen {
         case .shortcuts:
             shortcutsPanel
                 .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
-        case .desktops:
-            DesktopsPanel(
-                chromeFrames: $chromeFrames,
-                onSelect: closePanelAfterSelection,
-                maximumHeight: ceiling(available, isLandscape),
-                contentWidth: panelContentWidth(available)
-            )
-            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .sources:
             SourcesPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
                 .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)

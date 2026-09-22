@@ -78,6 +78,10 @@ struct CaptureProbe {
         var canvas = CGSize(width: 1280, height: 720)
         /// Check where the compositor puts two known colours, which needs nothing at all.
         var composeCheck = false
+        /// Draw the card that stands in for a tile with no picture, and read it back.
+        var placeholderCheck = false
+        /// Rearrange a running mosaic onto a canvas of a different shape. See ``runMosaicRearrange(_:)``.
+        var mosaicRearrange = false
         /// Photograph every running application and read the pictures back off the catalogue.
         var thumbnails = false
         /// Make a display that exists only in software, hold it, and take it away.
@@ -155,6 +159,22 @@ struct CaptureProbe {
                 case "--compose-check":
                     composeCheck = true
 
+                case "--placeholder-check":
+                    placeholderCheck = true
+
+                case "--mosaic-rearrange":
+                    // The same list shape as --mosaic, because it is the same list: the sources
+                    // are the thing both modes are given, and two parsers for one list is two
+                    // parsers that can disagree about what a comma means.
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--mosaic-rearrange needs a comma-separated list of ids or title fragments")
+                    }
+                    mosaic = value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                    guard mosaic.count >= 2 else {
+                        throw ProbeError(message: "--mosaic-rearrange needs two or more sources")
+                    }
+                    mosaicRearrange = true
+
                 case "--thumbnails":
                     thumbnails = true
 
@@ -224,6 +244,17 @@ struct CaptureProbe {
                                with one larger than it will build can be seen
               --compose-check  place two known colours through the compositor's own arithmetic
                                and read the canvas back, which needs no Screen Recording
+              --placeholder-check
+                               draw the card a tile with no picture gets — an application with
+                               no windows, a window that has closed — at three tile sizes, read
+                               each one back to prove something was drawn, and leave the PNGs
+                               in /tmp for the eye. Needs no Screen Recording
+              --mosaic-rearrange A,B
+                               start a mosaic of the named sources, then ask for the same
+                               windows on a canvas of a different shape — a phone turned, as
+                               the Mac sees it — and check that the captures were kept: the
+                               tiles live before the change are still live after it, and the
+                               canvas is the new one. Needs Screen Recording
               --thumbnails     photograph every application the way opening the Apps panel
                                makes the host do, read the pictures back off the catalogue, and
                                fail if not one of them arrived. Needs Screen Recording
@@ -298,6 +329,10 @@ struct CaptureProbe {
             try await runThumbnails()
         } else if options.composeCheck {
             try await runComposeCheck()
+        } else if options.placeholderCheck {
+            try await runPlaceholderCheck()
+        } else if options.mosaicRearrange {
+            try await runMosaicRearrange(options)
         } else if !options.mosaic.isEmpty {
             try await runMosaic(options)
         } else if options.pipeline {
@@ -602,6 +637,244 @@ struct CaptureProbe {
             throw ProbeError(message: "the corner neither tile covers is not the canvas's own black")
         }
         log("compose check passed: the first tile is at the top left, the second at the bottom right, the rest is canvas")
+    }
+
+    // MARK: - Rearranging a mosaic
+
+    /// The same captures drawn into a canvas of a different shape: a phone turned, as the Mac
+    /// sees it.
+    ///
+    /// **What this is for is the second and a half.** A rotation, or a return to an arrangement
+    /// from one of its tiles, re-asks for the same windows in different rectangles — and until the
+    /// rearrangement path existed the Mac answered by stopping a ScreenCaptureKit stream per tile
+    /// and starting a new one, which is a visible stop in the picture for arithmetic the client had
+    /// already done.
+    ///
+    /// So what is checked is not that it is faster, which a stopwatch would say and a bad week
+    /// would disagree with: it is that the tiles were **never stopped**. A tile that is live
+    /// before the rearrangement and still live immediately after it is a capture that survived,
+    /// which is a thing no rebuild can be quick enough to imitate. The canvas is checked too,
+    /// because a rearrangement that did not change what it draws would pass the first test and be
+    /// no use to anybody. Needs Screen Recording.
+    static func runMosaicRearrange(_ options: Options) async throws {
+        let resolver = ScreenCaptureSourceResolver()
+        let descriptors = try await resolver.catalog().all
+        let chosen = options.mosaic.compactMap { fragment in
+            descriptors.first {
+                $0.id == fragment || $0.title.localizedCaseInsensitiveContains(fragment)
+            }
+        }
+        guard chosen.count >= 2 else {
+            throw ProbeError(message: """
+                --mosaic-rearrange needs two or more capturable sources, given as stable ids or \
+                title fragments after it. The catalogue has \(descriptors.count).
+                """)
+        }
+        let catalog = try await resolver.catalog()
+
+        /// One arrangement of the chosen windows, in a grid of the given shape.
+        func plan(columns: Int, rows: Int, canvas: CGSize) -> MosaicPlan? {
+            let tiles = chosen.enumerated().map { index, descriptor in
+                MosaicTile(
+                    source: descriptor.source,
+                    rect: NormalizedRect(
+                        x: Double(index % columns) / Double(columns),
+                        y: Double(index / columns) / Double(rows),
+                        width: 1 / Double(columns),
+                        height: 1 / Double(rows)
+                    )
+                )
+            }
+            guard let layout = MosaicLayout(canvas: canvas, tiles: tiles, frameRate: 15).validated
+            else { return nil }
+            return MosaicPlan.make(layout: layout, catalog: catalog, resolver: resolver)
+        }
+
+        guard let sideways = plan(columns: 2, rows: 1, canvas: CGSize(width: 1280, height: 720)),
+              let upright = plan(columns: 1, rows: 2, canvas: CGSize(width: 720, height: 1280)),
+              !sideways.tiles.isEmpty, upright.tiles.count == sideways.tiles.count
+        else {
+            throw ProbeError(message: "two arrangements of those sources could not be built")
+        }
+
+        let drawn = FrameCanvasRecorder()
+
+        let compositor = MosaicCompositor()
+        compositor.onFrame = { frame in
+            drawn.record(CGSize(
+                width: CVPixelBufferGetWidth(frame.pixelBuffer),
+                height: CVPixelBufferGetHeight(frame.pixelBuffer)
+            ))
+        }
+
+        try await compositor.start(.mosaic(sideways))
+        try await waitForFrames(drawn, atLeast: 1, describing: "a first canvas")
+        // A little longer, because a tile's stream only sends a frame when its window changes: a
+        // window nobody has touched may take a second or two to produce its first picture, and what
+        // is being measured is the survival of the tiles that did.
+        try await Task.sleep(for: .seconds(2))
+
+        // **Only what has actually produced a picture counts**, and the number of them is the whole
+        // of the measurement: a window that has sent nothing has no capture whose loss could be
+        // detected, and requiring all of them would make this check fail on a quiet screen rather
+        // than on a Mac that dropped its streams.
+        let liveBefore = compositor.liveTileCount
+        log("\(liveBefore) of \(sideways.tiles.count) tiles produced a picture on the \(Int(sideways.canvas.width))×\(Int(sideways.canvas.height)) canvas")
+        guard liveBefore > 0 else {
+            throw ProbeError(message: """
+                not one of those sources produced a picture in two seconds, so there is nothing whose \
+                survival the rearrangement could be measured by. Try sources that are doing something.
+                """)
+        }
+
+        try await compositor.replan(upright)
+        // **At the new size, not merely one more frame.** A tick that was already in flight when
+        // the canvas changed draws the old one, and it arrives after the rearrangement — so
+        // "something was drawn since" is satisfied by exactly the frame that proves nothing. What
+        // is waited for is the first canvas that comes out the shape of the one asked for.
+        try await waitForCanvas(drawn, toBe: upright.canvas)
+
+        let survivors = compositor.liveTileCount
+        log("\(survivors) tiles live on a \(Int(upright.canvas.width))×\(Int(upright.canvas.height)) canvas")
+        guard survivors >= liveBefore else {
+            throw ProbeError(message: """
+                the rearrangement lost \(liveBefore - survivors) of its \(liveBefore) captures. The \
+                tiles are supposed to be kept and only the canvas replaced — see \
+                MosaicCompositor.replan.
+                """)
+        }
+        guard let canvas = drawn.last, canvas == upright.canvas else {
+            throw ProbeError(message: """
+                the frame after the rearrangement came out \(drawn.last.map { "\(Int($0.width))×\(Int($0.height))" } ?? "not at all") \
+                and the new canvas is \(Int(upright.canvas.width))×\(Int(upright.canvas.height))
+                """)
+        }
+
+        // **And again with the windows moved between the slots**, which is what a long press on a
+        // tile does: the same canvas, the same rectangles, and a different window in each. A
+        // rearrangement that matched captures by their place in the plan would call this six new
+        // captures and build six new streams, so the check that the tiles are still live is exactly
+        // the check that a reorder costs a re-composite.
+        guard var swapped = plan(columns: 1, rows: 2, canvas: CGSize(width: 720, height: 1280)) else {
+            throw ProbeError(message: "the reordered arrangement could not be built")
+        }
+        swapped = MosaicPlan(
+            canvas: swapped.canvas,
+            frameRate: swapped.frameRate,
+            tiles: swapped.tiles.reversed(),
+            placeholders: swapped.placeholders
+        )
+        try await compositor.replan(swapped)
+        try await waitForCanvas(drawn, toBe: swapped.canvas)
+
+        let afterSwap = compositor.liveTileCount
+        guard afterSwap >= liveBefore else {
+            throw ProbeError(message: """
+                a reorder lost \(liveBefore - afterSwap) of its \(liveBefore) captures. The windows \
+                take their streams with them — see MosaicCompositor.canReuseCaptures.
+                """)
+        }
+        log("\(afterSwap) tiles still live after moving every window to the other slot")
+
+        await compositor.stop()
+        log("mosaic rearrange check passed: the captures were kept, the canvas is the new one, and a reorder kept them too")
+    }
+
+    /// Waits for the canvas to have been drawn a given number of times, or gives up.
+    ///
+    /// Generous, because the thing being waited for is a screen that may be perfectly still: a
+    /// compositor draws on its own tick whether or not anything moved, so this is a wait on a timer
+    /// rather than on a change, and a slow Mac is not a failure.
+    private static func waitForFrames(
+        _ drawn: FrameCanvasRecorder,
+        atLeast target: Int,
+        describing what: String
+    ) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while drawn.count < target {
+            if Date() >= deadline {
+                throw ProbeError(message: "no \(what) arrived within ten seconds")
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    /// Waits for a canvas of a given size to have been drawn, or gives up.
+    private static func waitForCanvas(_ drawn: FrameCanvasRecorder, toBe canvas: CGSize) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while drawn.last != canvas {
+            if Date() >= deadline { return }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    // MARK: - The empty tile's card
+
+    /// The card that stands in for a tile with no picture, drawn and read back.
+    ///
+    /// **The failure this catches is silence.** A card is a symbol and two lines of text drawn
+    /// into a bitmap, and every way of getting it wrong has the same result as the black
+    /// rectangle it replaced: a symbol that does not exist on this macOS, a font size that rounds
+    /// to nothing at tile scale, a block measured in the wrong direction, a flip that puts the
+    /// text above the top edge. None of those would ever be read as a bug in the card — the user
+    /// would see a black tile in a mosaic and conclude the app had failed at something.
+    ///
+    /// So each card is drawn at three tile sizes, read back off a render, and required to have
+    /// something bright down its middle. The PNGs are left in /tmp as well, because "not uniformly
+    /// black" is a much weaker claim than "reads as a card", and only an eye can settle that.
+    static func runPlaceholderCheck() async throws {
+        let cards: [(name: String, content: MosaicPlaceholder.Content, size: CGSize)] = [
+            (
+                "application",
+                MosaicPlaceholder.Content(title: "Numbers", message: "No windows open", icon: nil),
+                CGSize(width: 853, height: 480)
+            ),
+            (
+                "window",
+                MosaicPlaceholder.Content(title: nil, message: "This window has closed", icon: nil),
+                CGSize(width: 480, height: 270)
+            ),
+            // Nine tiles on a landscape canvas, which is the smallest a card is drawn in today.
+            (
+                "ninth",
+                MosaicPlaceholder.Content(title: "Mail", message: "No windows open", icon: nil),
+                CGSize(width: 853, height: 480 - 480 / 3)
+            ),
+        ]
+
+        for card in cards {
+            guard let image = MosaicPlaceholder.image(card.content, size: card.size) else {
+                throw ProbeError(message: """
+                    the \(card.name) card could not be drawn at \
+                    \(Int(card.size.width))×\(Int(card.size.height))
+                    """)
+            }
+            guard let pixels = render(image, size: card.size) else {
+                throw ProbeError(message: "the \(card.name) card could not be rendered")
+            }
+
+            // Down the middle, because the block is centred: the mark, the name and the reason
+            // are all crossed by that line, and a card that drew nothing is black the whole way.
+            let brightest = stride(from: 0.08, through: 0.92, by: 0.04)
+                .map { pixel(in: pixels, at: CGPoint(x: card.size.width / 2, y: card.size.height * $0)) }
+                .map { max($0.r, max($0.g, $0.b)) }
+                .max() ?? 0
+            guard brightest > 90 else {
+                throw ProbeError(message: """
+                    the \(card.name) card came out black: nothing was drawn in it, which on a \
+                    phone is indistinguishable from the tile it was meant to explain
+                    """)
+            }
+
+            let url = URL(fileURLWithPath: "/tmp/maccast-card-\(card.name).png")
+            if let cgImage = CIContext().createCGImage(image, from: image.extent),
+               let data = NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:]) {
+                try? data.write(to: url)
+            }
+            log("\(card.name) card at \(Int(card.size.width))×\(Int(card.size.height)): brightest \(brightest)/255, written to \(url.path)")
+        }
+
+        log("placeholder check passed: every card drew something, and the pictures are in /tmp")
     }
 
     // MARK: - Virtual display
@@ -1207,6 +1480,21 @@ final class GeometryRecorder: @unchecked Sendable {
 }
 
 /// Timestamped lines, so a run can be read as a sequence of events rather than a list.
+/// The canvases a compositor drew, in order, from whichever queue drew them.
+///
+/// A class with a lock rather than an array captured in a closure: the compositor delivers on its
+/// own serial queue and the check reads from the main actor, which is the same pair of threads that
+/// made this necessary everywhere else in this app.
+final class FrameCanvasRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sizes: [CGSize] = []
+
+    func record(_ size: CGSize) { lock.withLock { sizes.append(size) } }
+
+    var count: Int { lock.withLock { sizes.count } }
+    var last: CGSize? { lock.withLock { sizes.last } }
+}
+
 func log(_ message: String) {
     let elapsed = Date().timeIntervalSince(start)
     print(String(format: "[%6.2fs] %@", elapsed, message))

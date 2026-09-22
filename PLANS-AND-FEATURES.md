@@ -151,7 +151,7 @@ is why it sits here and not higher.
 |---|---|---|---|---|
 | Share a whole display | ✅ | ✅ | ✅ | ✅ |
 | Share one running app, or a single window | ✅ | ✅ | ✅ | ✅ |
-| Every Space / desktop as a picture (desktops panel) | ✅ | ✅ | ✅ | ✅ |
+| Every Space / desktop as a picture (in the Apps panel) | ✅ | ✅ | ✅ | ✅ |
 | Adaptive quality, fit vs fill | ✅ | ✅ | ✅ | ✅ |
 | Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
 | Picture in Picture | · | ✅ | ✅ | ✅ |

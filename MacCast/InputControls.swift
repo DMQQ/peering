@@ -262,33 +262,11 @@ struct JoystickView: View {
 /// Split out because the `Menu`s that sit in a rail take a label rather than a button as their
 /// content, and a menu that did not match the buttons beside it would read as a different kind
 /// of control. Built from one view, the two cannot disagree.
-/// A fixed width for rail buttons, set by a row that has to divide evenly.
-///
-/// An environment value rather than a parameter, because the buttons in the portrait dock are
-/// separate computed properties and one of them — Desktops — a `@ViewBuilder` may not produce at
-/// all. Threading a width through all of them would still leave that case applying a width to a
-/// view that is not there, which in an `HStack` is a gap the width of a button. Set on the row,
-/// it reaches every button that exists and nothing else.
-private struct RailButtonWidthKey: EnvironmentKey {
-    static let defaultValue: CGFloat? = nil
-}
-
-extension EnvironmentValues {
-    var railButtonWidth: CGFloat? {
-        get { self[RailButtonWidthKey.self] }
-        set { self[RailButtonWidthKey.self] = newValue }
-    }
-}
-
 struct RailButtonLabel: View {
     let icon: String
     let label: String
     var selected: Bool = false
     var enabled: Bool = true
-
-    /// Set by a row of buttons that have to be the same width as each other. Nil fills whatever
-    /// the button is given, which is what a rail wants.
-    @Environment(\.railButtonWidth) private var fixedWidth: CGFloat?
 
     /// Narrow enough that the rail does not eat into the picture, wide enough that the caption
     /// stays legible — the label shrinks before the rail grows.
@@ -305,8 +283,7 @@ struct RailButtonLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .frame(width: fixedWidth)
-        .frame(minWidth: Self.minimumWidth, maxWidth: fixedWidth == nil ? .infinity : nil)
+        .frame(minWidth: Self.minimumWidth, maxWidth: .infinity)
         .frame(height: ChromeMetrics.buttonHeight)
         // A stadium, like the rail it sits in. A 10pt corner inside a capsule is a shape borrowed
         // from somewhere else — the rail's ends and the button's ends are the only two curves on

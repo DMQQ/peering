@@ -17,12 +17,31 @@ import SwiftUI
 struct MosaicOverlay: View {
     /// One tile, where it is on screen and what to call it.
     struct Placed: Identifiable, Equatable {
-        let id: Int
+        /// **The window, not its place in the arrangement.** Two tiles of one arrangement are two
+        /// windows in two rectangles, and a reorder is the same rectangles holding different
+        /// windows — so an identity that is the *place* cannot tell the app that anything has
+        /// happened, and the drawing has nothing to animate. Identified by the window, the outline
+        /// being carried and the ones it displaces are all things that move. See
+        /// ``RemoteScreen/dropHeldTile()``.
+        let id: String
         let rect: CGRect
         let title: String?
     }
 
     let placed: [Placed]
+
+    /// The canvas every rectangle in ``placed`` was mapped into. Also the size this view claims:
+    /// see the note on the body.
+    var bounds: CGSize = .zero
+
+    /// The window a long press is holding, if one is being moved. See ``Placed/id``.
+    var held: String?
+    /// Where the finger holding it is. The held tile is drawn here rather than around its slot, so
+    /// that the thing being moved is under the thumb — the picture cannot follow it, because the
+    /// windows are one composited surface on the Mac, so the outline and the name are what travel.
+    var heldPoint: CGPoint?
+    /// The window under the finger, which is where the held one would go if it were let go.
+    var target: String?
 
     /// How far the name sits from its tile's corner.
     private static let labelInset: CGFloat = 6
@@ -33,10 +52,44 @@ struct MosaicOverlay: View {
                 // An outline rather than a fill: a filled tint over live video would tint the
                 // thing the user is trying to read, and the picture inside a tile is the whole
                 // point of the tile.
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
-                    .frame(width: max(tile.rect.width, 0), height: max(tile.rect.height, 0))
-                    .position(x: tile.rect.midX, y: tile.rect.midY)
+                //
+                // **Two of them are drawn differently while a tile is being moved**, and they are
+                // the whole of the feedback the gesture has: which one is in the hand, and where it
+                // would land. The second is in the accent because it is a state rather than a
+                // place, which is the only thing this app spends that colour on.
+                let isHeld = tile.id == held
+                let isTarget = tile.id == target && held != nil && target != held
+
+                // **The tile in hand is drawn where the finger is**, not where its slot is: it has
+                // been picked up, and a frame that stayed behind would be the app saying it had not
+                // been. Everything else about it is the same shape and the same name, so what the
+                // user is holding is recognisably the window they pressed. Around the slot it came
+                // from there is nothing to draw: the gap it left is not a place in the picture.
+                let drawn = isHeld ? (heldPoint.map { CGRect(
+                    x: $0.x - tile.rect.width / 2,
+                    y: $0.y - tile.rect.height / 2,
+                    width: tile.rect.width,
+                    height: tile.rect.height
+                ) } ?? tile.rect) : tile.rect
+
+                // **Corners are square, and rounded ones were a mistake worth naming.** These
+                // lines are not the outlines of cards — they are where one window's picture stops
+                // and the next one's begins, and the tiles share those edges. A corner radius on
+                // each tile separately draws four little arcs wherever four tiles meet, which is
+                // every interior junction in the arrangement: the grid looks like a tray of
+                // buttons rather than a picture cut into six, and the corners have nothing to
+                // round *against* on an edge that is shared.
+                Rectangle()
+                    .strokeBorder(
+                        isTarget ? ColorPalette.accent : Color.white.opacity(isHeld ? 0.9 : 0.22),
+                        lineWidth: isHeld || isTarget ? 2 : 1
+                    )
+                    // A shadow only on the one being carried, which is the whole of what makes it
+                    // read as lifted rather than as another tile's edge: it is the one shape here
+                    // that is over the picture instead of a part of it.
+                    .shadow(color: .black.opacity(isHeld ? 0.6 : 0), radius: isHeld ? 10 : 0)
+                    .frame(width: max(drawn.width, 0), height: max(drawn.height, 0))
+                    .position(x: drawn.midX, y: drawn.midY)
 
                 if let title = tile.title, tile.rect.width > 120 {
                     // Named only where there is room for a name. A tile smaller than this is a
@@ -54,11 +107,20 @@ struct MosaicOverlay: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(.black.opacity(0.45), in: Capsule())
-                        .frame(width: max(tile.rect.width - Self.labelInset * 2, 0), alignment: .leading)
-                        .offset(x: tile.rect.minX + Self.labelInset, y: tile.rect.minY + Self.labelInset)
+                        .frame(width: max(drawn.width - Self.labelInset * 2, 0), alignment: .leading)
+                        .offset(x: drawn.minX + Self.labelInset, y: drawn.minY + Self.labelInset)
                 }
             }
         }
+        // **A size, not what is offered.** A `ZStack` is as big as its largest child, and the
+        // names below are as wide as their tiles, so at a zoom this reported a size of several
+        // screens. It is a sibling of the chrome in the screen's own stack, so the chrome was laid
+        // out into that imaginary screen and drawn off the edge. `maxWidth: .infinity` does not
+        // bound it: with no proposal to take, it falls back to the child's ideal size.
+        //
+        // Tiles that overflow are still drawn, they just cannot be measured, which is what a pan
+        // bringing one back from off screen needs.
+        .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
         .allowsHitTesting(false)
     }
 }

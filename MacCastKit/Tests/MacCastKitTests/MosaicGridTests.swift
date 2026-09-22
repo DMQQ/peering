@@ -8,25 +8,130 @@ import Testing
 struct MosaicGridTests {
     /// A phone in landscape, in its own pixels.
     private let phone = CGSize(width: 2556, height: 1179)
+    /// The same phone held up.
+    private let heldUp = CGSize(width: 1179, height: 2556)
+
+    /// Six windows of the shape a window is, laid out for a phone held up.
+    private var portrait: MosaicLayout {
+        MosaicGrid.layout(choices: choices(6), viewport: heldUp, tileAspect: 1.6)!
+    }
+
+    /// The same, held sideways.
+    private var landscape: MosaicLayout {
+        MosaicGrid.layout(choices: choices(6), viewport: phone, tileAspect: 1.6)!
+    }
+
+    private func choices(_ count: Int) -> [MosaicChoice] {
+        (0..<count).map { MosaicChoice(source: .window(UInt32($0 + 1))) }
+    }
 
     private func close(_ value: Double, _ expected: Double) -> Bool {
         abs(value - expected) < 0.0001
     }
 
-    @Test("the grid is the fewest square columns that hold the tiles")
+    @Test("the grid is the square root, rounded to the side the phone has room for")
     func gridShape() {
-        #expect(MosaicGrid.columns(for: 1) == 1)
-        #expect(MosaicGrid.columns(for: 2) == 2)
-        #expect(MosaicGrid.columns(for: 3) == 2)
-        #expect(MosaicGrid.columns(for: 4) == 2)
-        #expect(MosaicGrid.columns(for: 5) == 3)
-        #expect(MosaicGrid.columns(for: 6) == 3)
+        // Sideways it has the width for another column, so it rounds up.
+        #expect(MosaicGrid.columns(for: 1, portrait: false) == 1)
+        #expect(MosaicGrid.columns(for: 2, portrait: false) == 2)
+        #expect(MosaicGrid.columns(for: 3, portrait: false) == 2)
+        #expect(MosaicGrid.columns(for: 4, portrait: false) == 2)
+        #expect(MosaicGrid.columns(for: 5, portrait: false) == 3)
+        #expect(MosaicGrid.columns(for: 6, portrait: false) == 3)
+
+        // **Held up it has the height for another row, so it rounds down.** Two columns and three
+        // rows of windows make a canvas 1.07:1 — nearly square, and every tile in it the shape of
+        // the window it holds. Three columns would make a canvas 1.6:1 whose tiles are three
+        // times as wide as they are tall, which is not a shape any Mac window has.
+        #expect(MosaicGrid.columns(for: 1, portrait: true) == 1)
+        #expect(MosaicGrid.columns(for: 2, portrait: true) == 1)
+        #expect(MosaicGrid.columns(for: 3, portrait: true) == 1)
+        #expect(MosaicGrid.columns(for: 4, portrait: true) == 2)
+        #expect(MosaicGrid.columns(for: 5, portrait: true) == 2)
+        #expect(MosaicGrid.columns(for: 6, portrait: true) == 2)
+        #expect(MosaicGrid.columns(for: 9, portrait: true) == 3)
+    }
+
+    @Test("every tile in a canvas is the shape the arrangement was built for")
+    func canvasesAreShapedByTheArrangement() {
+        // **The property the whole rule exists for.** Whatever the arrangement, whatever the
+        // phone's orientation, a tile's width divided by its height is the aspect that was asked
+        // for — which is what stops a landscape window being letterboxed inside its own tile with
+        // most of the tile spent on black. Checked over the counts and shapes that actually occur.
+        for viewport in [phone, heldUp] {
+            for scenario in [(count: 2, aspect: 1.6), (count: 6, aspect: 1.6), (count: 9, aspect: 1.6),
+                             (count: 4, aspect: 1.33), (count: 6, aspect: 2.0), (count: 8, aspect: 1.5)] {
+                guard let layout = MosaicGrid.layout(
+                    choices: choices(scenario.count), viewport: viewport, tileAspect: scenario.aspect
+                ) else {
+                    Issue.record("no layout for \(scenario.count) tiles at \(scenario.aspect)")
+                    return
+                }
+                let columns = MosaicGrid.columns(
+                    for: scenario.count, portrait: viewport.height > viewport.width
+                )
+                for (index, tile) in layout.tiles.enumerated() {
+                    let aspect = (tile.rect.width * layout.canvas.width)
+                        / (tile.rect.height * layout.canvas.height)
+
+                    // **The last row is the exception, and it is the grid's oldest rule.** A row
+                    // that is not full shares its own width among the tiles in it rather than
+                    // leaving a slot empty, so eight tiles in three columns end with two tiles
+                    // wider than a window where six are exactly right. The alternative is a hole
+                    // in the picture that a tap lands in and selects nothing.
+                    let inAFullRow = index < (scenario.count / columns) * columns
+                    if inAFullRow {
+                        #expect(
+                            abs(aspect - scenario.aspect) < 0.02,
+                            "\(scenario.count) tiles at \(scenario.aspect) on \(viewport) gave a tile of \(aspect)"
+                        )
+                    } else {
+                        #expect(aspect >= scenario.aspect - 0.02, "a short row's tiles came out narrower than a window")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("a canvas is the largest picture of its shape the screen could show")
+    func canvasSize() {
+        // Six windows held sideways: three columns by two rows is 2.4:1, which on a 2556x1179
+        // screen is the screen's own width and a little over half its height. The canvas is the
+        // largest 2.4:1 picture the screen could show, which is that same shape at the screen's
+        // pixels — no more than the screen, because nothing draws it larger than that.
+        let wide = MosaicGrid.canvas(columns: 3, tiles: 6, tileAspect: 1.6, viewport: phone)
+        #expect(abs(Double(wide.width / wide.height) - 2.4) < 0.02)
+        #expect(wide.width == 2556)
+        #expect(wide.height == 1064)
+
+        // The same six held up: two columns by three rows is 1.07:1, a canvas nearly square, and
+        // the width is what binds on a phone this tall.
+        let upright = MosaicGrid.canvas(columns: 2, tiles: 6, tileAspect: 1.6, viewport: heldUp)
+        #expect(abs(Double(upright.width / upright.height) - 2.0 / 3 * 1.6) < 0.02)
+        #expect(upright.width == 1178)
+        #expect(upright.height == 1104)
+
+        // **Never more pixels than a Mac will build**, whichever way round it is, and the shape
+        // survives the trimming because both sides are scaled together.
+        for aspect in [0.4, 1.0, 1.6, 3.0] {
+            let huge = MosaicGrid.canvas(columns: 4, tiles: 4, tileAspect: aspect, viewport: CGSize(width: 6016, height: 3384))
+            #expect(Int(huge.width * huge.height) <= MosaicLayout.maximumCanvasPixels)
+            #expect(abs(Double(huge.width / huge.height) - 4 * aspect) < 0.05, "a \(aspect) arrangement was reshaped")
+            #expect(huge.width.truncatingRemainder(dividingBy: 2) == 0)
+            #expect(huge.height.truncatingRemainder(dividingBy: 2) == 0)
+        }
     }
 
     @Test("every tile is inside the canvas, and no two of them overlap")
     func rectanglesCoverTheCanvas() {
+        for portrait in [false, true] {
+            rectanglesCover(portrait)
+        }
+    }
+
+    private func rectanglesCover(_ portrait: Bool) {
         for count in 1...MosaicLayout.maximumTileCount {
-            let rects = MosaicGrid.rects(count: count)
+            let rects = MosaicGrid.rects(count: count, portrait: portrait)
             #expect(rects.count == count)
 
             for rect in rects {
@@ -50,13 +155,25 @@ struct MosaicGridTests {
         }
     }
 
-    @Test("six tiles on a landscape phone are three across and two down")
+    @Test("six tiles are three across on a landscape phone and two across on an upright one")
     func sixTiles() {
-        let rects = MosaicGrid.rects(count: 6)
-        #expect(close(rects[0].width, 1.0 / 3))
-        #expect(close(rects[0].height, 0.5))
-        #expect(close(rects[5].x, 2.0 / 3))
-        #expect(close(rects[5].y, 0.5))
+        let wide = MosaicGrid.rects(count: 6, portrait: false)
+        #expect(close(wide[0].width, 1.0 / 3))
+        #expect(close(wide[0].height, 0.5))
+        #expect(close(wide[5].x, 2.0 / 3))
+        #expect(close(wide[5].y, 0.5))
+
+        let upright = MosaicGrid.rects(count: 6, portrait: true)
+        #expect(close(upright[0].width, 0.5))
+        #expect(close(upright[0].height, 1.0 / 3))
+        #expect(close(upright[5].x, 0.5))
+        #expect(close(upright[5].y, 2.0 / 3))
+
+        // And what that shape is *for*: a tile the shape of the window in it, on a canvas built
+        // to make that so. See ``canvasesAreShapedByTheArrangement``.
+        let uprightCanvas = MosaicGrid.canvas(columns: 2, tiles: 6, tileAspect: 1.6, viewport: heldUp)
+        let tile = Double(upright[0].width * uprightCanvas.width) / Double(upright[0].height * uprightCanvas.height)
+        #expect(abs(tile - 1.6) < 0.01, "a portrait tile came out \(tile):1")
     }
 
     @Test("a row that is not full is shorter, and fills its own width")
@@ -68,7 +185,7 @@ struct MosaicGridTests {
         // And those two share their own row rather than keeping a third each: a row that left a
         // third of itself empty would put a tap on the canvas in a place that selects nothing.
         // See ``MosaicGrid/rects(weights:)``.
-        let rects = MosaicGrid.rects(count: 5)
+        let rects = MosaicGrid.rects(count: 5, portrait: false)
         for index in 0...2 {
             #expect(close(rects[index].width, 1.0 / 3))
             #expect(close(rects[index].height, 0.6))
@@ -90,7 +207,7 @@ struct MosaicGridTests {
         // arithmetic is for: a row's height is its tiles' share of the whole, and inside a row
         // each tile takes its own share of the width.
         for weights in [[2, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 1, 1, 1, 1, 1, 1]] {
-            let rects = MosaicGrid.rects(weights: weights)
+            let rects = MosaicGrid.rects(weights: weights, portrait: false)
             let total = Double(weights.reduce(0, +))
             for (index, rect) in rects.enumerated() {
                 let expected = Double(weights[index]) / total
@@ -103,47 +220,20 @@ struct MosaicGridTests {
 
         // Weight cannot be zero or negative: the arithmetic divides by it, and a tile that is
         // set to nothing is a window the user can no longer see at all.
-        let clamped = MosaicGrid.rects(weights: [0, -3])
+        let clamped = MosaicGrid.rects(weights: [0, -3], portrait: false)
         #expect(close(clamped[0].width, 0.5))
         #expect(close(clamped[1].width, 0.5))
     }
 
     @Test("any weights at all still tile the canvas exactly")
     func weightsAlwaysFillTheCanvas() {
-        for weights in [[1, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 2, 2, 2, 2, 2, 2]] {
-            let rects = MosaicGrid.rects(weights: weights)
-            let area = rects.reduce(0.0) { $0 + $1.width * $1.height }
-            #expect(abs(area - 1) < 0.0001, "weights \(weights) left \(1 - area) of the canvas unclaimed")
+        for portrait in [false, true] {
+            for weights in [[1, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 2, 2, 2, 2, 2, 2]] {
+                let rects = MosaicGrid.rects(weights: weights, portrait: portrait)
+                let area = rects.reduce(0.0) { $0 + $1.width * $1.height }
+                #expect(abs(area - 1) < 0.0001, "weights \(weights) left \(1 - area) of the canvas unclaimed")
+            }
         }
-    }
-
-    @Test("a canvas is 16:9 from the screen's longer side, rounded to even, and capped")
-    func canvasSize() {
-        let canvas = MosaicGrid.canvas(for: phone)
-        // 2556 is the longer side, and 2556 * 9 / 16 is 1437.75, rounded down to even.
-        #expect(canvas.width == 2556)
-        #expect(canvas.height == 1436)
-        #expect(canvas.height.truncatingRemainder(dividingBy: 2) == 0)
-
-        // **The whole point: the same canvas whichever way the phone is held.** A canvas that
-        // changed on rotation changed every rectangle in the layout, which changed the layout's
-        // identifier, which made the Mac tear down every tile and build a new mosaic — a visible
-        // stop in the picture for an arrangement that had not changed at all.
-        let portrait = MosaicGrid.canvas(for: CGSize(width: 1179, height: 2556))
-        #expect(portrait == canvas)
-
-        // And the tiles come out the shape of the windows in them: a 2x2 on this canvas is four
-        // 1278x718 tiles, which is 16:9 to within the two pixels the rounding took off. The
-        // screen's own shape would have made them 1278x589 on its side and 589x1278 held up —
-        // taller than they are wide, for windows that are all wider than they are tall.
-        let rects = MosaicGrid.rects(weights: [1, 1, 1, 1])
-        let tile = Double(rects[0].width * canvas.width) / Double(rects[0].height * canvas.height)
-        #expect(abs(tile - 16.0 / 9.0) < 0.01, "a 2x2 tile came out \(tile):1")
-
-        // A screen larger than a Mac will build is asked for at the cap, not refused.
-        let huge = MosaicGrid.canvas(for: CGSize(width: 6016, height: 3384))
-        #expect(huge.width == 2560)
-        #expect(huge.height == 1440)
     }
 
     @Test("hit testing names one tile, the seam belongs to one of them, and a gap names none")
@@ -196,6 +286,112 @@ struct MosaicGridTests {
         ) == nil)
     }
 
+    @Test("the transform that fills the screen with a tile lands the tile on the screen")
+    func fillingTransform() {
+        // A picture that is the whole screen at rest, so the numbers are readable: a canvas of
+        // 800x400 shown in 800x400 with no zoom and no pan.
+        let bounds = CGSize(width: 800, height: 400)
+        let pixels = CGSize(width: 800, height: 400)
+
+        // **Checked by mapping the tile back through the transform that was chosen for it**, which
+        // is the only claim that matters: the tile has to end up centred on the screen and
+        // covering all of it. A sign out sends the picture the wrong way, and it would do it
+        // during the one movement in the app that exists to explain what a tap did.
+        //
+        // Covering rather than matching, for the two tiles that are not the screen's shape: the
+        // scale is the larger of the two the axes want, so the tile comes out wider or taller than
+        // the screen and the overflow is off the edges. That crop is what a zoom is, and asserting
+        // the corners would have been asserting that a 1:1 tile shown on a 2:1 screen is not
+        // cropped, which is the one thing it cannot be.
+        for tile in [
+            NormalizedRect(x: 0.5, y: 0, width: 0.5, height: 1),
+            NormalizedRect(x: 0, y: 0.5, width: 1, height: 0.5),
+            NormalizedRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5),
+        ] {
+            guard let rect = CanvasGeometry.rect(
+                normalized: tile, bounds: bounds, pixelSize: pixels, zoom: 1, pan: .zero
+            ), let target = CanvasGeometry.transform(
+                of: rect, mappingTo: CGRect(origin: .zero, size: bounds), bounds: bounds, zoom: 1, pan: .zero
+            ), let mapped = CanvasGeometry.rect(
+                normalized: tile, bounds: bounds, pixelSize: pixels,
+                zoom: target.zoom, pan: target.pan
+            ) else {
+                Issue.record("the tile at \(tile) could not be mapped or filled")
+                return
+            }
+
+            let screen = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
+            #expect(abs(mapped.midX - screen.x) < 0.01, "the tile at \(tile) landed at \(mapped)")
+            #expect(abs(mapped.midY - screen.y) < 0.01, "the tile at \(tile) landed at \(mapped)")
+            #expect(mapped.width >= bounds.width - 0.01, "the tile at \(tile) left the screen uncovered")
+            #expect(mapped.height >= bounds.height - 0.01, "the tile at \(tile) left the screen uncovered")
+
+            // The one tile that is the screen's own shape fills it exactly, which is the case a
+            // user gets most of the time: a 2x2 grid on a landscape phone is four 16:9 tiles on a
+            // 16:9 canvas, and the window in it should land edge to edge.
+            if tile.width == 0.5, tile.height == 0.5 {
+                #expect(abs(mapped.minX) < 0.01 && abs(mapped.minY) < 0.01)
+                #expect(abs(mapped.maxX - bounds.width) < 0.01 && abs(mapped.maxY - bounds.height) < 0.01)
+            }
+        }
+
+        // **The case this exists for: a window inside a tile, moved to where that window will be.**
+        // A window keeps its own shape inside whatever rectangle the grid gave it — it is
+        // letterboxed, so it is a band across the middle of its tile — and what the animation has
+        // to land on is the framing that same window has when it *is* the picture. Two rectangles
+        // of the same shape, so the movement between them is one scale and one offset, and when
+        // the real stream arrives nothing moves at all.
+        // The picture at rest is the whole screen (canvas 800x400 shown in 800x400), so a screen
+        // point is a picture point and the normalized position of one is the arithmetic below.
+        let video = CanvasGeometry.videoRect(bounds: bounds, pixelSize: pixels)
+        func whereItLanded(_ corner: CGPoint, _ transform: (zoom: CGFloat, pan: CGSize)) -> CGPoint? {
+            CanvasGeometry.point(
+                normalized: NormalizedPoint(
+                    x: Double((corner.x - video.minX) / video.width),
+                    y: Double((corner.y - video.minY) / video.height)
+                ),
+                bounds: bounds, pixelSize: pixels, zoom: transform.zoom, pan: transform.pan
+            )
+        }
+
+        let wide = CGSize(width: 1920, height: 1080)
+        // A window's own picture letterboxed into a 300x400 tile: 16:9, centred, with the tile's
+        // black above and below it.
+        let insideTile = CGRect(x: 0, y: (400 - 300 * 9.0 / 16) / 2, width: 300, height: 300 * 9.0 / 16)
+        let destination = CanvasGeometry.videoRect(bounds: bounds, pixelSize: wide)
+        guard let moved = CanvasGeometry.transform(
+            of: insideTile, mappingTo: destination, bounds: bounds, zoom: 1, pan: .zero
+        ), let topLeft = whereItLanded(insideTile.origin, moved),
+           let bottomRight = whereItLanded(CGPoint(x: insideTile.maxX, y: insideTile.maxY), moved)
+        else {
+            Issue.record("the window inside a tile could not be moved")
+            return
+        }
+
+        // **It lands on the framing it will have as the picture, to the pixel.** That is the whole
+        // claim: the animation ends where the window is going to be, so the moment the Mac's own
+        // stream arrives the picture sharpens in place instead of jumping.
+        #expect(abs(topLeft.x - destination.minX) < 0.01, "the window landed at \(topLeft)")
+        #expect(abs(topLeft.y - destination.minY) < 0.01, "the window landed at \(topLeft)")
+        #expect(abs(bottomRight.x - destination.maxX) < 0.01, "the window landed at \(bottomRight)")
+        #expect(abs(bottomRight.y - destination.maxY) < 0.01, "the window landed at \(bottomRight)")
+
+        // And a transform that cannot be worked out says so rather than returning zeroes, which
+        // would be a picture drawn at no size in the corner of the screen.
+        #expect(CanvasGeometry.transform(
+            of: .zero, mappingTo: CGRect(origin: .zero, size: bounds), bounds: bounds, zoom: 1, pan: .zero
+        ) == nil)
+        #expect(CanvasGeometry.transform(
+            of: CGRect(x: 0, y: 0, width: 10, height: 10),
+            mappingTo: CGRect(origin: .zero, size: bounds), bounds: bounds, zoom: 0, pan: .zero
+        ) == nil)
+        // A source with no target: nothing to move onto, so nothing to say.
+        #expect(CanvasGeometry.transform(
+            of: CGRect(x: 0, y: 0, width: 10, height: 10),
+            mappingTo: .zero, bounds: bounds, zoom: 1, pan: .zero
+        ) == nil)
+    }
+
     @Test("no sources is no mosaic, and one source is a mosaic of one")
     func counts() {
         #expect(MosaicGrid.layout(sources: [], viewport: phone) == nil)
@@ -211,6 +407,8 @@ struct MosaicGridTests {
         let layout = MosaicGrid.layout(sources: sources, viewport: phone)
         #expect(layout?.tiles.map(\.source) == sources)
         #expect(layout?.frameRate == MosaicGrid.defaultFrameRate)
-        #expect(layout?.canvas == MosaicGrid.canvas(for: phone))
+        // Three sources sideways are two columns, which is the canvas the layout is
+        // a set of fractions of. See ``MosaicGrid/canvas(columns:rows:tileAspect:viewport:)``.
+        #expect(layout?.canvas == MosaicGrid.canvas(columns: 2, tiles: 3, tileAspect: 1.6, viewport: phone))
     }
 }

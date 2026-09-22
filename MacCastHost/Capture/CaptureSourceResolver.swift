@@ -951,8 +951,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     /// Downsamples before PNG encoding. Sending an app bundle's original 1024-point icon
     /// would make a small picker row need megabytes of control-channel data.
+    ///
+    /// **128 rather than 48, which is what the panel actually draws.** The picker's grid shows an
+    /// icon at 74 points, and a phone draws that at three times the pixels — so a 48-pixel icon was
+    /// being stretched nearly five times over, and read as a blurred square rather than as the
+    /// application's own artwork. This is three times the pixels of the old one and a third of what
+    /// the grid would need to be exact: the largest step that does not multiply the catalogue by
+    /// more than a megabyte, and the difference between an icon that is soft and one that is
+    /// unrecognisable.
     private static func iconPNGData(for icon: NSImage) -> Data? {
-        let dimension = 48
+        let dimension = 128
         guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(
                 data: nil,

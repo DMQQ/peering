@@ -933,6 +933,9 @@ final class SessionModel {
         // to flag — and the renderer is read from the network queue, where no actor is going to
         // help. It is a `let` of a `Sendable` type, so it is reachable from there.
         let renderer = self.renderer
+        // One per connection, because it holds the frames of *this* session's picture changes.
+        let changeGate = PictureGate()
+
         let wire = ClientSession(
             identity: identity,
             clientID: device.id,
@@ -956,11 +959,32 @@ final class SessionModel {
                 // wire said it was.
                 switch event {
                 case .video(.frame(let frame)):
-                    renderer.enqueue(frame)
+                    // **Unless a picture change is in flight.** The first frames of a new picture
+                    // are decoded on the renderer's own queue and can be on screen before the
+                    // screen has taken its zoom and its pan back to rest — which draws them at the
+                    // *old* picture's magnification, a window at three times the size of the
+                    // screen, for a frame or two. Everything that arrives in the meantime is held
+                    // here and handed over in order once the screen is ready. See ``PictureGate``.
+                    if !changeGate.stash(frame) {
+                        renderer.enqueue(frame)
+                    }
                     return
                 case .video(.config(let config)):
-                    renderer.reset()
-                    renderer.configure(config)
+                    changeGate.hold()
+                    Task { @MainActor in
+                        session?.apply(event)
+                        // The screen's update — the picture published above, and the reset of the
+                        // transform that answers to it — is laid out by the time this returns, and
+                        // one more turn of the run loop is what it takes for the layer to have been
+                        // given it. Then the picture can be drawn.
+                        try? await Task.sleep(for: .milliseconds(24))
+                        renderer.reset()
+                        renderer.configure(config)
+                        for frame in changeGate.release() {
+                            renderer.enqueue(frame)
+                        }
+                    }
+                    return
                 default:
                     break
                 }

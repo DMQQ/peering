@@ -42,6 +42,13 @@ struct CanvasGestureView: UIViewRepresentable {
     /// Called when a tap lands on a mosaic, with the point in this view's coordinates: the
     /// caller is the one that knows where the picture is inside it.
     var onMosaicTap: (CGPoint) -> Void = { _ in }
+    /// A tile lifted by a long press, at the point the finger is holding it: what the user picked
+    /// up, and the start of the drag that will put it somewhere else.
+    var onMosaicLift: (CGPoint) -> Void = { _ in }
+    /// Where the finger holding a tile is now.
+    var onMosaicDrag: (CGPoint) -> Void = { _ in }
+    /// The finger came up, or the lift was cancelled.
+    var onMosaicDrop: () -> Void = {}
     /// Whether a floating panel is open. A tap on the picture then closes it instead of clicking
     /// the Mac — see ``GestureSurfaceView/handleTap(_:)``.
     var isPanelOpen: Bool = false
@@ -79,7 +86,10 @@ struct CanvasGestureView: UIViewRepresentable {
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
             onSizeChange: onSizeChange,
-            onMosaicTap: onMosaicTap
+            onMosaicTap: onMosaicTap,
+            onMosaicLift: onMosaicLift,
+            onMosaicDrag: onMosaicDrag,
+            onMosaicDrop: onMosaicDrop
         )
         return view
     }
@@ -106,7 +116,10 @@ struct CanvasGestureView: UIViewRepresentable {
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
             onSizeChange: onSizeChange,
-            onMosaicTap: onMosaicTap
+            onMosaicTap: onMosaicTap,
+            onMosaicLift: onMosaicLift,
+            onMosaicDrag: onMosaicDrag,
+            onMosaicDrop: onMosaicDrop
         )
     }
 }
@@ -124,6 +137,10 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         var onSizeChange: (CGSize) -> Void
         /// A tap on a mosaic, which selects the tile it landed in rather than clicking the Mac.
         var onMosaicTap: (CGPoint) -> Void
+        /// A tile lifted out of an arrangement by a long press. See ``GestureSurfaceView/mosaicLift``.
+        var onMosaicLift: (CGPoint) -> Void
+        var onMosaicDrag: (CGPoint) -> Void
+        var onMosaicDrop: () -> Void
     }
 
     var handlers: Handlers?
@@ -233,6 +250,26 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
     }()
 
+    /// Holding a tile in an arrangement, to move it to another slot.
+    ///
+    /// **Only ever armed while an arrangement is on screen**, which is what `gestureRecognizerShouldBegin`
+    /// is for below: a long press that could begin on a single window would sit between every drag
+    /// and every tap for no reason, and the failure it would cause — a pointer that does not move
+    /// until the finger has been held down — is one nobody would connect to reordering.
+    ///
+    /// `allowableMovement` is what makes it work at all beside the drag. A press that has not moved
+    /// more than this is still a press, so a finger that goes down and stays still for the duration
+    /// lifts a tile; a finger that moves is a drag, and the press fails before anything has been
+    /// lifted. That is also why the drag is made to wait for this one to fail rather than the other
+    /// way round — see the `require(toFail:)` below.
+    private lazy var mosaicLift: UILongPressGestureRecognizer = {
+        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleMosaicLift))
+        gesture.minimumPressDuration = 0.4
+        gesture.allowableMovement = 12
+        gesture.numberOfTouchesRequired = 1
+        return gesture
+    }()
+
     private var lastReportedSize: CGSize = .zero
 
     override init(frame: CGRect) {
@@ -245,12 +282,21 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         addGestureRecognizer(pinch)
         addGestureRecognizer(twoFingerTap)
         addGestureRecognizer(oneFingerTap)
+        addGestureRecognizer(mosaicLift)
 
         // A tap must not be recognised in the middle of a drag, and a two-finger tap must not
         // fire at the end of a two-finger scroll. Both are "the gesture that moved wins".
         oneFingerTap.require(toFail: oneFingerPan)
         twoFingerTap.require(toFail: twoFingerPan)
         twoFingerTap.require(toFail: pinch)
+        // **The one-finger pair waits for the lift to fail, and the lift fails immediately** —
+        // on the first movement past `allowableMovement`, or the moment the finger comes up short
+        // of the press. So a drag and a tap wait for nothing they can feel, and the two gestures
+        // that must not happen at the same time as a lift cannot. The other order — the lift
+        // waiting for the drag to fail — would delay every lift by however long the drag takes to
+        // decide it is not a drag, which is most of the press.
+        oneFingerPan.require(toFail: mosaicLift)
+        oneFingerTap.require(toFail: mosaicLift)
 
         // Pinch and two-finger pan must fire at the same time so the user can zoom-and-reposition
         // in one gesture. Without this, iOS picks whichever started first and cancels the other,
@@ -285,6 +331,11 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         let point = gestureRecognizer.location(in: self)
         let blocked = CanvasGeometry.isBlocked(point, regions: blockedRegions)
+        // The lift only exists in an arrangement, and says so here rather than inside its handler:
+        // a recogniser that begins and then decides to do nothing has already held up the tap and
+        // the drag behind it. A refusal here is a failure, which is what the two `require(toFail:)`
+        // above are waiting for.
+        if gestureRecognizer === mosaicLift, !isMosaicShowing { return false }
         return !blocked
     }
 
@@ -381,6 +432,32 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
             handlers?.onTouchMove(point)
         case .ended, .cancelled, .failed:
             handlers?.onTouchUp(point)
+        default:
+            break
+        }
+    }
+
+    /// A tile held, dragged, or let go of, in an arrangement.
+    ///
+    /// **One recogniser, three moments, and no state of its own.** Which tile is in the hand and
+    /// where it would land is the *screen's* business — it is the only side that knows where the
+    /// picture is inside this view and what the arrangement is — so this reports the point and lets
+    /// the caller work it out, exactly as the tap does. Nothing here needs to remember anything:
+    /// UIKit's own recogniser hands over `.began`, `.changed` and `.ended` in order, and the fail
+    /// before any of it is what keeps the tap and the drag out of the way.
+    ///
+    /// `.failed` is deliberately not a drop. A press that failed is one that never lifted anything
+    /// — the finger moved, or came up too soon — and telling the screen that a tile was let go when
+    /// none was picked up would be a message about a gesture that did not happen.
+    @objc private func handleMosaicLift(_ gesture: UILongPressGestureRecognizer) {
+        let point = gesture.location(in: self)
+        switch gesture.state {
+        case .began:
+            handlers?.onMosaicLift(point)
+        case .changed:
+            handlers?.onMosaicDrag(point)
+        case .ended, .cancelled:
+            handlers?.onMosaicDrop()
         default:
             break
         }

@@ -36,13 +36,12 @@ extension SessionModel {
     }
 
     func send(_ command: RemoteCommand) {
-        // **Two reasons a command is not sent, and they are different reasons.** Observe mode is
-        // the user saying they do not want to touch the Mac; a mosaic is the app saying it does
-        // not yet know *which* Mac window a point means, because that is decided by which tile
-        // it landed in and the tile is chosen here rather than posted over there. Both resolve to
-        // the same rule, which is why they share the one guard rather than sitting in two places
-        // that could drift.
-        guard (!isObserving && !isShowingMosaic) || !command.isUserInput else { return }
+        // **Two different rules, and they were one.** Observe mode is the user saying they do not
+        // want the Mac touched at all, so it means the whole of `isUserInput`. A mosaic only means
+        // it does not know which window a point landed in, so it means the part that carries a
+        // point or a keystroke, and not switching Space. See ``RemoteCommand/isBlockedByMosaic``.
+        guard !isObserving || !command.isUserInput else { return }
+        guard !isShowingMosaic || !command.isBlockedByMosaic else { return }
         session?.send(command)
     }
 
@@ -110,6 +109,9 @@ extension SessionModel {
     /// display and then refuse to come back.
     func selectSource(_ source: CaptureSource) {
         activeSourceID = source.stableID
+        // Recorded from the source rather than from the call site, so it cannot be set by one
+        // door into this and missed by another. See ``MacSession/isAskingForMosaic``.
+        activeSession?.isAskingForMosaic = source.isMosaic
 
         // **What the user was looking at is what the next connection to this Mac opens on**, and
         // this is the only place that can be said: every source the user asks for arrives here,
@@ -230,9 +232,14 @@ extension SessionModel {
     /// from that moment the session is the session it always was — full resolution, the whole
     /// input path, the adaptive quality. What is kept is the arrangement, so the tile can be
     /// given back.
-    func focusMosaicTile(_ index: Int) {
-        guard let layout = mosaicLayout, layout.tiles.indices.contains(index) else { return }
-        selectSource(layout.tiles[index].source)
+    ///
+    /// **A window rather than a slot, and the turn is the screen's to make.** The tap resolved an
+    /// index against the arrangement *it was drawn for*, and since a reorder the Mac's answer
+    /// describes the arrangement the user has just left: resolving the index here, against
+    /// whatever the Mac last said, would open the window that is in that slot rather than the one
+    /// under the finger. See ``RemoteScreen/shownMosaicLayout``.
+    func focusMosaicTile(_ source: CaptureSource) {
+        selectSource(source)
     }
 
     /// What the arrangement is made of, in the order it is laid out. See
@@ -277,29 +284,117 @@ extension SessionModel {
         showMosaic(choices)
     }
 
+    /// Asks the Mac for the arrangement again, at the shape the phone is now held at.
+    ///
+    /// **For the rotation, which is the one thing that changes a layout's identifier without
+    /// anybody choosing anything.** The canvas is built for the arrangement and the screen, so
+    /// turning the phone makes the layout different — different rectangles, a different identifier
+    /// — and the source the Mac is capturing keeps the old one. Left alone the app reads that as
+    /// "not showing a mosaic", which is why the tile borders vanish on a turned phone while the
+    /// picture goes on being an arrangement. See ``MacSession/isAskingForMosaic``.
+    ///
+    /// **Once the phone has stopped moving, and not while it is starting to.** The viewport changes
+    /// the instant the rotation begins, so asking immediately puts the Mac's answer — a different
+    /// canvas, which is a different picture, and a decoder flush before the first frame of it
+    /// arrives — inside the system's own rotation animation. The result is a turn of the phone
+    /// that stutters: the chrome is moving, and in the middle of it the picture goes black and
+    /// comes back a different shape. Waiting a little longer than that animation costs a fifth of
+    /// a second on a change that is fast now, and buys a rotation that is one movement.
+    ///
+    /// The wait is also a debounce, which is the second reason for it: a screen that changes size
+    /// twice — a rotation reported in two steps — would otherwise be two asks, two rearrangements
+    /// and two black frames.
+    ///
+    /// Nothing happens unless an arrangement is what the user asked for: a session on a single
+    /// window with a remembered arrangement behind it must not have a mosaic put back in front of
+    /// them because they turned the phone.
+    func refreshMosaicForViewport() {
+        mosaicViewportTask?.cancel()
+        mosaicViewportTask = Task { @MainActor [weak self] in
+            // Short, and it is a settle rather than a wait for a measurement. The canvas can be
+            // built the moment the interface knows which way it is going, which it does at the
+            // start of the movement — see ``MacSession/mosaicViewport`` — so the only question is
+            // how much of the movement to overlap. A fifth of a second plus the Mac's own hundred
+            // milliseconds puts the picture's own movement at the end of the screen's, which is
+            // where a turn should hand over: earlier than this the two movements play at once, and
+            // later is a picture that sits still while the phone finishes turning and then moves on
+            // its own, which is the delay this replaced.
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled, let self else { return }
+            guard activeSession?.isAskingForMosaic == true, !mosaicChoicesList.isEmpty else { return }
+            showMosaic(mosaicChoicesList)
+        }
+    }
+
+    /// The pending re-ask, so a rotation that is still settling can replace it rather than queue
+    /// behind it. See ``refreshMosaicForViewport()``.
+    private var mosaicViewportTask: Task<Void, Never>? {
+        get { activeSession?.mosaicViewportTask }
+        set { activeSession?.mosaicViewportTask = newValue }
+    }
+
+    /// The pending gap check, so a catalogue that changes twice in a row is looked at once and
+    /// then. See ``scheduleMosaicGapCheck()``.
+    private var mosaicGapTask: Task<Void, Never>? {
+        get { activeSession?.mosaicGapTask }
+        set { activeSession?.mosaicGapTask = newValue }
+    }
+
+    /// Waits a moment, then closes the arrangement's gaps. See ``dropClosedMosaicTiles()``.
+    ///
+    /// **The grace is not politeness, it is a catalogue that is wrong more often than it looks.**
+    /// One arrives for a launch, a quit, a change of Spaces and a change of screen, and it is
+    /// rebuilt from a fresh enumeration each time — so a window can be missing from one and back in
+    /// the next. An arrangement thinned on the first would lose the tile, re-ask the Mac for a
+    /// smaller canvas, and then have to put it back: three pictures and two re-layouts for a window
+    /// that never went anywhere. Two seconds is longer than any of those turns over, and short
+    /// enough that a window which really has gone is gone before the user wonders about it.
+    func scheduleMosaicGapCheck() {
+        mosaicGapTask?.cancel()
+        mosaicGapTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self else { return }
+            self.dropClosedMosaicTiles()
+        }
+    }
+
+    /// Takes the windows that have gone out of the arrangement, and gives their space to the rest.
+    ///
+    /// **Thinned rather than discarded: the order and the sizes survive.** A tile with a card in it
+    /// is a window nobody can open and room nobody is using, and what the user arranged was "these
+    /// windows, in this order, with this one bigger" — the windows that are still there keep saying
+    /// that, and the grid gives their space to the ones that remain.
+    ///
+    /// Re-asked only when the arrangement is what is showing, because that is the only case where
+    /// freeing the space is something the user can see. An arrangement thinned while one of its
+    /// tiles is open is kept for the way back, which is the moment it is next drawn.
+    ///
+    /// Fewer than two survivors is no arrangement at all, which is the same rule a restored one is
+    /// held to: a canvas with one window in it is not what a mosaic is for. See
+    /// ``MacSession/mosaicToRestore(hostID:catalog:)``.
+    func dropClosedMosaicTiles() {
+        guard !mosaicChoices.isEmpty, let catalog = activeSession?.catalog else { return }
+
+        let living = mosaicChoices.filter { catalog.descriptor(for: $0.source) != nil }
+        // **Nothing is thrown away.** Fewer than two survivors is not an arrangement to redraw, and
+        // it is not an arrangement to forget either: a catalogue can be missing a window for
+        // reasons that have nothing to do with the window, and the one time this emptied the
+        // arrangement the way back to it went with it, for the rest of the session. What is left
+        // alone is the arrangement the user built, waiting for the windows to come back; what is
+        // still an arrangement is redrawn without the gaps. See ``scheduleMosaicGapCheck()``.
+        guard living.count > 1, living.count != mosaicChoices.count else { return }
+
+        if isShowingMosaic || isAskingForMosaic {
+            showMosaic(living)
+        } else {
+            mosaicChoices = living
+        }
+    }
+
     /// Goes back to the whole arrangement.
     func returnToMosaic() {
         guard let layout = mosaicLayout else { return }
         selectSource(.mosaic(layout))
-    }
-
-    /// The phone's screen in pixels, which is the canvas a mosaic is asked for.
-    ///
-    /// Read from the window scene rather than from `UIScreen.main`, which is deprecated and,
-    /// on a device with more than one scene, is not necessarily the one being looked at.
-    private var mosaicCanvasPixels: CGSize {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        else {
-            // No scene at all, which is a state the app cannot act in rather than a case to
-            // handle: a canvas that a Mac will accept, so nothing downstream has to.
-            return CGSize(width: 1280, height: 720)
-        }
-        let bounds = scene.screen.bounds
-        let scale = scene.screen.scale
-        return MosaicGrid.canvas(
-            for: CGSize(width: bounds.width * scale, height: bounds.height * scale)
-        )
     }
 
     func launchApplication(_ descriptor: InstalledApplicationDescriptor) {
