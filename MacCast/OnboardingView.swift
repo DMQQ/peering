@@ -137,27 +137,16 @@ struct OnboardingView: View {
                 keeps your Mac in view, while Live Activities keep the session close at hand.
                 """
         ),
-        // **The two the landing page used to claim and the tour never said.**
+        // **The one claim the landing moved here and the tour did not already make.**
         //
-        // Both arrived here when the landing page gave up its list. Every other claim it made was
-        // already a page below in the same words — which is what the list was for, and why it was
-        // the worse of the two places to read them — but these two were nowhere else in the
-        // product, so removing the list would have removed them. A page rather than a paragraph
-        // because that is the shape this screen reads in, and neither needs a drawing: the glyph
-        // is what a page without a screenshot of its own shows.
+        // Four claims left the landing page for this tour. Three of them — "come back from
+        // anywhere", "control it like it is in front of you", "it stays with you" — are pages
+        // below in the same words and were not duplicated; this one was nowhere else in the
+        // product, so it is a page now rather than something the move would have deleted.
         //
-        // Privacy before the notification, in the order a person deciding would weigh them: what
-        // the app cannot see is a fact about the whole design, and being told a shell is waiting
-        // is a convenience on top of it.
-        Page(
-            content: .feature(icon: "lock.shield"),
-            title: "Private by design",
-            body: """
-                The two devices authenticate each other and the picture is encrypted end to end. \
-                There is no account, and the relay carries the session without being able to read \
-                it.
-                """
-        ),
+        // A glyph page rather than one with a screenshot, which is what a page with no picture of
+        // its own draws. It is about a moment when nobody is looking at the phone, so there is no
+        // screen of this app to photograph for it.
         Page(
             content: .feature(icon: "bell.badge"),
             title: "Told when a shell is waiting",

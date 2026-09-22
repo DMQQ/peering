@@ -121,7 +121,64 @@ private struct LandingView: View {
     @State private var viewportMidY: CGFloat = 0
     @State private var entranceStarted = false
 
+    /// How long between one claim and the next.
+    ///
+    /// Small, and it has to be: a claim per beat is most of a second of
+    /// watching a list assemble itself, which is a thing to sit through rather than a thing to
+    /// read. This is the whole difference between the page introducing itself and the page
+    /// performing.
+    private static let stagger: Double = 0.055
 
+    /// What this does, in the order someone deciding would ask.
+    ///
+    /// Every line is checkable against the app, and the two that most often need correcting are
+    /// answered here rather than only in the FAQ: there is a relay, and it is named as one; and
+    /// the encryption is described as what it is — the two devices authenticating each other,
+    /// not a promise about a server that cannot read what it carries anyway.
+    private struct ClaimLine {
+        let icon: String
+        let title: String
+        let detail: String
+    }
+
+    /// **Three, and the rest are pages of the tour.**
+    ///
+    /// This page used to carry seven, and four of them said what a tour page already says: "come
+    /// back from anywhere" is the tour's second page, "control it like it is in front of you" its
+    /// fourth, "it stays with you" its fifth — in the same words and at length, with a drawing
+    /// each. A claim on this page is read on the way to a button, and the same claim on a tour
+    /// page is read because somebody asked for it, so the page is the worse of the two places to
+    /// make an argument. The four moved; the tour gained one page for the one of them that was
+    /// nowhere else ("told when a shell is waiting").
+    ///
+    /// What is left is what a visitor deciding needs before they have decided to look further:
+    /// that there is something to install on the Mac, that the Mac is what they get rather than
+    /// some cut-down version of it, and that none of it goes through anybody's account.
+    private static let claimLines: [ClaimLine] = [
+        // First because it is the fact the rest of the page depends on, and the one a visitor is
+        // most likely not to have: this is not an app that finds Macs by itself. Something has to
+        // be running on the Mac, and until this line existed nothing on this screen said so:
+        // the first mention was the picker's empty state, which is a screen they only reach after
+        // deciding, and only after deciding that nothing had been found.
+        ClaimLine(
+            icon: "macbook.and.iphone",
+            title: "Set it up once",
+            detail: "Install Peering on your Mac, compare a six-digit code, and you are connected."
+        ),
+        ClaimLine(
+            icon: "macwindow",
+            title: "Your whole Mac, not a compromise",
+            detail: "Open any display, app, window, or Space and switch between them without reconnecting."
+        ),
+        // Kept here rather than moved with the others, because it is not a feature to be
+        // demonstrated later: it is a fact about the whole design, and the one a person handing
+        // their Mac to a stranger's phone is asking about before anything else on the page.
+        ClaimLine(
+            icon: "lock.shield",
+            title: "Private by design",
+            detail: "End-to-end encrypted, with no account and nothing for the relay to read."
+        )
+    ]
 
     var body: some View {
         ZStack {
@@ -193,31 +250,31 @@ private struct LandingView: View {
     }
 
     /// The phone composition, kept intact for compact iPad windows as well.
-    ///
-    /// **The identity and nothing else.** This page used to carry seven claims under the hero, and
-    /// every one of them is a page of the tour: "set it up once" is the tour's first page, "your
-    /// whole Mac" its third, "it stays with you" its fifth, in the same words and at length. So
-    /// the two screens said the same thing twice — once as a list to be skimmed past on the way to
-    /// the button, once as steps with their own drawings — and the list was the worse of the two,
-    /// because a claim the reader has not asked for is a claim they read as marketing. What this
-    /// page has to do is say what the app is and offer the way in. The tour is one tap away and is
-    /// where the argument belongs.
     private var compactWidthContent: some View {
-        hero
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                updateHeroGeometry(frame)
-            }
+        VStack(alignment: .leading, spacing: 26) {
+            hero
+            claims
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            updateHeroGeometry(frame)
+        }
     }
 
-    /// A readable iPad composition: the identity, centred, with the extra width as margin.
+    /// A readable iPad composition: the identity holds one column and the proof points another.
+    /// Extra width becomes margin instead of turning each claim into a full-screen strip.
     private var regularWidthContent: some View {
-        hero
-            .frame(maxWidth: 360)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                updateHeroGeometry(frame)
-            }
-            .frame(maxWidth: 1_032)
-            .frame(maxWidth: .infinity)
+        HStack(alignment: .center, spacing: 72) {
+            hero
+                .frame(maxWidth: 360)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                    updateHeroGeometry(frame)
+                }
+
+            claims
+                .frame(maxWidth: 600)
+        }
+        .frame(maxWidth: 1_032)
+        .frame(maxWidth: .infinity)
     }
 
     private func updateHeroGeometry(_ frame: CGRect) {
@@ -359,6 +416,26 @@ private struct LandingView: View {
         .offset(y: heroStartOffset)
     }
 
+    /// What it does, in the order someone deciding would ask.
+    ///
+    /// Every line is checkable against the app, and the two that most often need correcting are
+    /// answered here rather than only in the FAQ: there is a relay, and it is named as one; and
+    /// the encryption is described as what it is — the two devices authenticating each other,
+    /// not a promise about a server that cannot read what it carries anyway.
+    private var claims: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(Array(Self.claimLines.enumerated()), id: \.offset) { index, line in
+                Claim(icon: line.icon, title: line.title, detail: line.detail)
+                    .opacity(arrived ? 1 : 0)
+                    .offset(y: arrived ? 0 : 14)
+                    // Each one a little after the last, so the list arrives in the order it asks
+                    // to be read rather than all at once. The first waits for the name above it.
+                    .animation(entrance(delay: 0.14 + Self.stagger * Double(index)), value: arrived)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     /// The way forward, which arrives last.
     ///
     /// It used to be on screen from the first frame, and that was deliberate — a landing whose
@@ -479,6 +556,35 @@ struct SkipButton: View {
             .buttonStyle(RailButtonStyle(scale: 0.98))
             .padding(.horizontal, 18)
             .padding(.top, 6)
+    }
+}
+
+/// One claim: a glyph, a phrase, and the sentence that makes it true.
+private struct Claim: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(ColorPalette.ink)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 13)
+        .rowSurface()
     }
 }
 

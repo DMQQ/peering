@@ -299,14 +299,23 @@ extension RemoteScreen {
                                     // movement: the button going and the grid arriving.
                                     withAnimation(Motion.settle) { model.returnToMosaic() }
                                 } label: {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: "rectangle.split.2x2")
-                                            .font(.system(size: 9, weight: .semibold))
+                                    // **Filled, not tinted.** It was accent-coloured caption
+                                    // text with a 9-point glyph — the smallest mark the pill can
+                                    // draw, on the one control in the session that takes the user
+                                    // somewhere they cannot otherwise get to. Filled, it is the
+                                    // loudest thing on that line, which is what a way out of a
+                                    // mode should be.
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "chevron.backward")
+                                            .font(.system(size: 11, weight: .bold))
                                         Text("Mosaic")
-                                            .font(.caption2.weight(.semibold))
+                                            .font(.caption.weight(.bold))
                                     }
-                                    .foregroundStyle(ColorPalette.accent)
-                                    .contentShape(Rectangle())
+                                    .foregroundStyle(ColorPalette.onInk)
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 4)
+                                    .background(ColorPalette.accent, in: Capsule())
+                                    .contentShape(Capsule())
                                 }
                                 // Takes the width it needs and nothing offers to give any back,
                                 // which is the other half of the name yielding above. A control

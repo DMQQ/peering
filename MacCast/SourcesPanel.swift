@@ -281,14 +281,31 @@ struct SourcesPanel: View {
             }
 
             HStack(spacing: 8) {
-                Button("Cancel") {
+                // **A way back rather than a way to give up.** This said "Cancel", which is what
+                // a sheet says when it is about to throw your work away — and it does throw the
+                // picks away, which is right, but "Cancel" is not a word anybody reads as "back
+                // to the list I came from". The chevron and the name of the thing it goes back to
+                // are, and they are the same control the rest of the app uses for it.
+                Button {
                     withAnimation(Motion.settle) {
                         buildingMosaic = false
                         picked = []
                     }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 12, weight: .bold))
+                        Text("Sources")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .foregroundStyle(ColorPalette.ink)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(ColorPalette.ink.opacity(0.12), in: Capsule())
+                    .contentShape(Capsule())
                 }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .buttonStyle(RailButtonStyle(scale: 0.94))
+                .accessibilityLabel("Back to the source list")
 
                 Spacer(minLength: 8)
 
@@ -392,6 +409,14 @@ struct SourcesPanel: View {
                 caption(descriptor, isLive: placed.isLive)
             }
         }
+        // **A tile that has just become the picture steps forward and stays there.** Tapping a
+        // source used to change the accent edge and nothing else, which is a mark appearing on a
+        // control the user has already finished looking at — the face of the thing they are now
+        // watching should be the part that moves. It is the only movement in either grid, and it
+        // is small on purpose: a quarter of the gutter either side, so a tile that grows into
+        // the gap reads as arriving rather than as a grid that has gone ragged.
+        .scaleEffect(placed.isLive ? 1.045 : 1)
+        .animation(Motion.settle, value: placed.isLive)
         .buttonStyle(RailButtonStyle(scale: 0.94))
         // The picture is the point of the tile and carries no text of its own, so the label is
         // what a screen reader announces instead of a wall of unlabelled images.
@@ -490,61 +515,6 @@ struct SourcesPanel: View {
             guard !windows.isEmpty else { return nil }
             return group.narrowing(to: windows)
         }
-    }
-
-    /// A section of the things that are an *identity*: applications, as icons.
-    @ViewBuilder
-    private func iconGrid(
-        _ title: String, _ descriptors: [CaptureSourceDescriptor], fallbackIcon: String
-    ) -> some View {
-        let matches = filtered(descriptors)
-        if !matches.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel(title)
-                LazyVGrid(columns: Self.iconColumns, alignment: .leading, spacing: Self.iconGap) {
-                    ForEach(matches) { iconTile($0, fallbackIcon: fallbackIcon) }
-                }
-            }
-        }
-    }
-
-    /// One application, as its icon with its name under it.
-    ///
-    /// The shape a Home Screen uses, and for the same reason: a grid of icons is a thing people
-    /// read by shape and colour before they read the word under it, and squeezing the icon to
-    /// leave room for a longer caption takes away the half that does the work.
-    private func iconTile(
-        _ descriptor: CaptureSourceDescriptor, fallbackIcon: String
-    ) -> some View {
-        let placed = placement(of: descriptor)
-
-        return Button {
-            choose(descriptor)
-        } label: {
-            VStack(spacing: 6) {
-                ZStack {
-                    // The mark is a filled edge behind the icon rather than a stroke around it,
-                    // because the icon draws its own rounded background and a stroke outside it
-                    // would be a second frame around the first.
-                    if placed.marked {
-                        RoundedRectangle(
-                            cornerRadius: Self.iconCorner + 5, style: .continuous
-                        )
-                        .fill(ColorPalette.accent)
-                    }
-                    ApplicationIcon(
-                        data: descriptor.iconPNGData,
-                        fallback: fallbackIcon,
-                        size: Self.iconSize
-                    )
-                }
-                .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
-
-                caption(descriptor, isLive: placed.isLive, alignment: .center)
-            }
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.94))
-        .accessibilityLabel(spoken(descriptor))
     }
 
     /// The applications installed on the Mac but not running, as icons.
