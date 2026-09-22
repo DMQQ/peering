@@ -111,6 +111,24 @@ extension SessionModel {
     func selectSource(_ source: CaptureSource) {
         activeSourceID = source.stableID
 
+        // **What the user was looking at is what the next connection to this Mac opens on**, and
+        // this is the only place that can be said: every source the user asks for arrives here,
+        // and a save at each of the doors into it is a save one of them can be missing. See
+        // ``ChosenSourceStore``.
+        //
+        // The default a session picks for itself never comes through here, which is the rule
+        // rather than an oversight: the app choosing the first display is not the user choosing
+        // anything, so a Mac that was opened, looked at and left remembers nothing and picks a
+        // display the same way next time. See ``sourceToRestore(hostID:catalog:)``.
+        //
+        // A mosaic is passed over. An arrangement has a store that understands it, and a copy of
+        // it here would be a second answer to the same question; leaving the remembered single
+        // source untouched beside it is what lets a Mac whose arrangement has since lost a window
+        // fall back to the one the user was last looking at on its own.
+        if !source.isMosaic, let hostID = currentHostID {
+            ChosenSourceStore.save(source, hostID: hostID)
+        }
+
         // **A remembered arrangement lasts exactly as long as the user is inside it.** Selecting
         // one of its tiles is how the mosaic is left, so that choice keeps it and the back
         // control stays on offer; selecting anything else is leaving it behind, and a "back to
@@ -172,6 +190,21 @@ extension SessionModel {
             MosaicArrangementStore.load(hostID: hostID),
             into: catalog
         )
+    }
+
+    /// The one source this Mac was last left on, if the Mac still has it.
+    ///
+    /// **Asked at the same moment as the arrangement, and answered second**: an arrangement is
+    /// what the user built here, and a single source is only what they were looking at, so where
+    /// both are remembered the arrangement is the one they meant. What is left when both have
+    /// gone is the first display, as it always was. See ``ChosenSource``.
+    ///
+    /// A pure lookup rather than something that sends, exactly like
+    /// ``mosaicToRestore(hostID:catalog:)`` above it: the caller is deciding *instead of* the
+    /// default source, and a function that both answered and acted could not be used that way.
+    func sourceToRestore(hostID: String?, catalog: CaptureCatalog?) -> CaptureSource? {
+        guard let hostID else { return nil }
+        return ChosenSource.restored(ChosenSourceStore.load(hostID: hostID), into: catalog)
     }
 
     /// Gives one tile more or less room, cycling through the sizes the control offers.

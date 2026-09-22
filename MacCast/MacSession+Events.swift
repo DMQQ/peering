@@ -261,6 +261,20 @@ extension MacSession {
                 let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
                 if !remembered.isEmpty {
                     model.showMosaic(remembered)
+                } else if let source = model.sourceToRestore(hostID: hostID, catalog: catalog) {
+                    // **After the arrangement, before the first display.** One source is the
+                    // weaker statement of what an arrangement says: a Mac the user arranged is a
+                    // Mac they meant to arrange, while the source they last left it on is where
+                    // they happened to be, and the first display is what is left when they have
+                    // said nothing at all.
+                    //
+                    // Through the door rather than assigned here, and not for the sake of the
+                    // write it makes: a remembered source is one the Mac has to be *told* about.
+                    // The default below only has to be recorded, because a Mac nobody has asked
+                    // for anything falls back to a display of its own; a remembered window is not
+                    // what it is showing, and a session that knew the source without asking for it
+                    // would go on describing a picture the Mac is not sending.
+                    model.selectSource(source)
                 } else if let first = catalog.displays.first ?? catalog.all.first {
                     activeSourceID = first.id
                 }
