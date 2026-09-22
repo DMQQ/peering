@@ -10,14 +10,14 @@ import Foundation
 /// the same map in prose, and they are the two that cannot be compiled against it: a change here
 /// is a change owed to both of them in the same commit.
 ///
-/// **Ten rows, and everything else in the app is free.** Every display, app and window as a
+/// **Eleven rows, and everything else in the app is free.** Every display, app and window as a
 /// source, the desktops panel, the clipboard itself, the pointer and the keyboard, observe
 /// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, the banners a
 /// session's own state puts up, session history, wake on LAN, saving SSH servers, one Mac at a
-/// time, one shell at a time and the whole file browser including editing, making, renaming,
-/// deleting and running what it lists. None of those are here, and none of them should be. A
-/// capability that is not on this list cannot be gated by accident, because the question a gate
-/// asks is this type and there is no case for it.
+/// time, one shell at a time, one source at a time and the whole file browser including editing,
+/// making, renaming, deleting and running what it lists. None of those are here, and none of them
+/// should be. A capability that is not on this list cannot be gated by accident, because the
+/// question a gate asks is this type and there is no case for it.
 ///
 /// **SSH servers were a seventh and were removed.** The gate said the app was holding the user's own
 /// saved machines behind a subscription: a host they typed in themselves, kept in their keychain
@@ -124,6 +124,23 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// that most people see first.
     case highBitrate
 
+    /// Several of the Mac's windows drawn into one picture, arranged by the user.
+    ///
+    /// **The only row here that costs the Mac rather than the service.** Every tile is a
+    /// ScreenCaptureKit stream of its own — the Mac captures each one, draws them into a single
+    /// canvas every frame and encodes the result — so what a plan buys is the *one* machine the
+    /// user is looking at being asked to work several times as hard. Nothing about it crosses
+    /// the relay that does not cross it for one source, which is why it is not sold beside the
+    /// bandwidth and the clock.
+    ///
+    /// **Pro, and by the same argument macros are.** This is the rung for the user who runs the
+    /// machine rather than looks at it: one source, one shell and one Mac at a time are all free
+    /// on every plan, and what the top rung sells is *more at once* — more Macs, more shells in a
+    /// window, more windows in a picture. It would be the weakest thing on the entry rung to sell
+    /// (a user who has never held two windows side by side is not looking for a third) and the
+    /// strongest reason to climb for the user who has.
+    case mosaic
+
     /// The cheapest plan that includes this, which is the whole of the map.
     ///
     /// A `RelayPlan` rather than a `StoreManager.Tier`, and deliberately: the tiers are what the
@@ -155,7 +172,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // second Mac that costs and the first that must not, which is why the gate is asked
             // against an empty list as well as a paid plan.
             return .pro
-        case .macros, .highBitrate:
+        case .macros, .highBitrate, .mosaic:
             // The toolbox. Macros are the only genuinely power-user controls in the app, and the
             // rung somebody buys to have the tool rather than to run out of it. The picture's
             // ceiling is here for a different reason and belongs beside them anyway: it is the one
@@ -182,6 +199,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .fileTransfer: return "Moving files between the phone and the Mac"
         case .clipboardHistory: return "The clipboard history"
         case .terminalAlerts: return "Knowing when a terminal needs you"
+        case .mosaic: return "Several windows at once"
         case .shellTabs: return "Several shells at once"
         case .macros: return "Macros, snippets and quick commands"
         case .highBitrate: return "The sharpest picture"

@@ -1,3 +1,4 @@
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -19,9 +20,27 @@ struct SourcesPanel: View {
 
     @State private var query = ""
 
+    /// Whether the panel is picking several sources rather than one.
+    ///
+    /// **A mode rather than a second panel.** Choosing a mosaic is the same act as choosing a
+    /// source — the same list, the same rows — with one difference: the tapping accumulates
+    /// instead of switching. A separate picker would be the same list twice, and the second one
+    /// would be the one that falls behind when a window opens.
+    @State private var buildingMosaic = false
+
+    /// What has been picked, in the order it was picked. The order is the arrangement: the grid
+    /// is filled in reading order, so a tile's place is the place it was chosen in.
+    @State private var picked: [CaptureSourceDescriptor] = []
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             searchField
+
+            if buildingMosaic {
+                mosaicPicker
+            } else {
+                mosaicEntry
+            }
 
             if let catalog = model.catalog, !catalog.all.isEmpty {
                 ScrollView(.vertical, showsIndicators: false) {
@@ -29,7 +48,7 @@ struct SourcesPanel: View {
                         section("Displays", catalog.displays, fallbackIcon: "display")
                         section("Applications", catalog.applications, fallbackIcon: "app")
                         section("Windows", catalog.windows, fallbackIcon: "macwindow")
-                        installedSection
+                        if !buildingMosaic { installedSection }
                     }
                 }
             } else {
@@ -68,6 +87,90 @@ struct SourcesPanel: View {
         .background(ColorPalette.surface, in: Capsule())
     }
 
+    /// The way in, offered only where it can actually be used.
+    ///
+    /// Two things can refuse it and they are different refusals. A **plan** without the mosaic
+    /// draws the row as itself, dimmed, with the badge on its corner and the paywall behind the
+    /// tap, which is what every gated control in this app does. A **Mac** that does not know the
+    /// request exists gets no row at all: there is nothing to sell and nothing to try, and the
+    /// command it would send is one an older host cannot decode. See ``MosaicSupport``.
+    @ViewBuilder
+    private var mosaicEntry: some View {
+        if model.hostSupportsMosaic {
+            PlanLocked(capability: .mosaic, placement: .trailing) {
+                Button {
+                    buildingMosaic = true
+                    picked = []
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "rectangle.split.2x2")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(ColorPalette.ink)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Mosaic")
+                                .font(.subheadline.weight(.medium))
+                            Text("Pick several, and see them all at once")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .rowSurface()
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// Building one: what has been picked, how many may be, and the way to see it.
+    @ViewBuilder
+    private var mosaicPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(picked.isEmpty ? "Pick two or more" : "\(picked.count) picked")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Text("up to \(MosaicLayout.maximumTileCount)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            HStack(spacing: 8) {
+                Button("Cancel") {
+                    buildingMosaic = false
+                    picked = []
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+                Spacer(minLength: 8)
+
+                Button {
+                    model.showMosaic(picked.map(\.source))
+                    buildingMosaic = false
+                    picked = []
+                    onSelect()
+                } label: {
+                    Text("Show mosaic")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ColorPalette.accent)
+                // Two is the fewest that is a mosaic at all, and the cap is the Mac's own: it
+                // runs one capture per tile, so the number is the Mac's to decide, and it is
+                // read from the same constant the host trims to rather than copied here.
+                .disabled(picked.count < 2 || picked.count > MosaicLayout.maximumTileCount)
+            }
+        }
+        .padding(10)
+        .glassSurface(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
     @ViewBuilder
     private func section(
         _ title: String,
@@ -80,14 +183,31 @@ struct SourcesPanel: View {
                 SectionLabel(title)
                 ForEach(matches) { descriptor in
                     Button {
-                        model.selectSource(descriptor)
-                        onSelect()
+                        if buildingMosaic {
+                            toggle(descriptor)
+                        } else {
+                            model.selectSource(descriptor)
+                            onSelect()
+                        }
                     } label: {
                         row(descriptor, fallbackIcon: fallbackIcon)
                     }
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    /// Adds or removes one source from the arrangement being built.
+    ///
+    /// The cap is enforced here rather than by greying rows out: a row that cannot be added is
+    /// a row that looks broken, and the honest answer to "why not" is that the Mac is already
+    /// capturing as many as it will. Picking past it replaces nothing, it simply does not add.
+    private func toggle(_ descriptor: CaptureSourceDescriptor) {
+        if let index = picked.firstIndex(where: { $0.source == descriptor.source }) {
+            picked.remove(at: index)
+        } else if picked.count < MosaicLayout.maximumTileCount {
+            picked.append(descriptor)
         }
     }
 

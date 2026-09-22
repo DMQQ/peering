@@ -40,6 +40,7 @@ final class PlanAccessTests: XCTestCase {
         .shellTabs: .plus,
         .macros: .pro,
         .highBitrate: .pro,
+        .mosaic: .pro,
     ]
 
     /// The row above, as a table, because that is how three of the four copies of this map are
@@ -66,7 +67,7 @@ final class PlanAccessTests: XCTestCase {
     }
 
     /// The free plan includes nothing on the map. Everything free is free by not being a case of
-    /// ``PlanCapability`` at all, so this is the guard on the ten that are.
+    /// ``PlanCapability`` at all, so this is the guard on the eleven that are.
     func testFreeIncludesNoneOfTheGatedFeatures() {
         for capability in PlanCapability.allCases {
             XCTAssertFalse(
@@ -104,6 +105,9 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertTrue(RelayPlan.plus.includes(.terminalAlerts))
 
         XCTAssertFalse(RelayPlan.plus.includes(.macros))
+        // And the mosaic is not something a middle rung gives away either: what it buys is the
+        // Mac doing several things at once, which is the top rung's whole argument.
+        XCTAssertFalse(RelayPlan.plus.includes(.mosaic))
     }
 
     /// The top rung leaves nothing on the map locked, so a Pro subscriber can never be shown a

@@ -22,6 +22,7 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 | Several shells at once | | | yes | yes |
 | Several Macs at once | | | | yes |
 | Macros, snippets, quick commands | | | | yes |
+| Several of the Mac's windows in one picture | | | | yes |
 | The sharpest picture over the relay | | | | yes |
 
 Several Macs at once is the row that is about how many may be *live* rather than how many may be
@@ -112,6 +113,7 @@ there is one list and no second place to drift from.
 | Several shells at once, as tabs | `shellTabs` | Relay Plus |
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
+| Several of the Mac's windows in one picture | `mosaic` | Pro |
 | The sharpest picture over the relay | `highBitrate` | Pro |
 
 **Everything else is free on every plan**, and the tables below say so row by row. Two of those
@@ -153,6 +155,7 @@ is why it sits here and not higher.
 | Adaptive quality, fit vs fill | ✅ | ✅ | ✅ | ✅ |
 | Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
 | Picture in Picture | · | ✅ | ✅ | ✅ |
+| Several windows in one picture (the mosaic) | · | · | · | ✅ |
 | The sharpest picture over the relay (the bitrate ceiling) | · | · | · | ✅ |
 | Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ | ✅ |
 | Screenshot with the system share sheet | ✅ | ✅ | ✅ | ✅ |
@@ -245,6 +248,14 @@ map in `PlanAccess.swift`, and every gate in the app draws itself through `PlanL
 - **Terminal tabs** (`shellTabs`) are counted client-side at "New shell".
 - **Sound, Picture in Picture, moving files, macros and the bitrate ceiling** are each one check at
   their own entry point.
+- **The mosaic** (`mosaic`) is checked on the phone where it is asked for, and the Mac then decides
+  what it will actually build: it trims the tile count to six, the canvas to a 2560×1440 budget and
+  the rate to 30, because every tile is a ScreenCaptureKit stream of its own and the client asking
+  is a paired device rather than a trusted one. A Mac that has not been updated does not get asked
+  at all — the request is a capture source an older host cannot decode, so it is negotiated with
+  `ServerHello.supportsMosaic` rather than sent blind. The host also refuses *input* while a mosaic
+  is the current source, at the single guard the input path passes through: a point on a canvas has
+  no meaning on the Mac until a tile has been chosen for it, and that choice is made on the phone.
 - **Terminal alerts** (`terminalAlerts`) are two checks on the phone, and neither of them is a
   control the user is looking at. A session that comes up refuses to register its APNs device token
   with the Mac on a plan without it, and a shell that stops refuses to raise its banner. The first
@@ -301,6 +312,15 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
   video socket; on the relay path it is only a rate reduction, because video is already there.
 - **Per-plan relay allowances** — the relay learns the plan from the handshake; free gets one hour
   and every paid plan is unlimited.
+- **The mosaic** — several of the Mac's windows in one picture, Pro. The Mac half is built and
+  proved on its own (one ScreenCaptureKit stream per tile, composited with CoreImage into a single
+  encoded canvas, `Tools/CaptureProbe --mosaic`), and the phone half is built: pick several sources
+  in the sources panel, tap a tile to go into it, a back control in the status pill to return. What
+  is not yet done is the arrangement editor (dragging and resizing tiles), and one thing still has
+  to be seen with a real client: **that the iOS renderer decodes a composited canvas**. The file the
+  probe writes plays back, which retires the timestamps and the pixel format, but the client's own
+  surface is where a host-made frame failed once before. A tile for a window that is on another
+  Space is black and always will be, because nothing is rendering it.
 
 **Not started** ❌
 - Feature gating (§2 and §3 above)

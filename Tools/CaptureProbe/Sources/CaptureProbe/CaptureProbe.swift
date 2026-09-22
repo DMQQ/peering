@@ -65,6 +65,8 @@ struct CaptureProbe {
         var synthetic = false
         /// Drive a real `CapturePipeline` over a generated source. See ``runPipeline(_:)``.
         var pipeline = false
+        /// Composite several real sources into one canvas. See ``runMosaic(_:)``.
+        var mosaic: [String] = []
         /// Ask the system for Screen Recording, which puts a prompt on screen.
         var requestAccess = false
 
@@ -105,6 +107,15 @@ struct CaptureProbe {
                 case "--pipeline":
                     pipeline = true
 
+                case "--mosaic":
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--mosaic needs a comma-separated list of ids or title fragments")
+                    }
+                    mosaic = value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+                    guard !mosaic.isEmpty else {
+                        throw ProbeError(message: "--mosaic needs at least one source")
+                    }
+
                 case "--request-access":
                     requestAccess = true
 
@@ -122,7 +133,7 @@ struct CaptureProbe {
             """
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
-                                [--request-access]
+                                [--mosaic A,B,…] [--request-access]
 
               --seconds N      how long to capture for (default 3)
               --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
@@ -134,6 +145,10 @@ struct CaptureProbe {
               --pipeline       drive the host's real CapturePipeline over a generated source,
                                so the pipeline itself — not just its encoder — is exercised
                                without Screen Recording permission
+              --mosaic A,B,…   composite the named sources — stable ids or title fragments —
+                               into one canvas through the host's MosaicCompositor, and write
+                               the result. This is the only check that runs more than one
+                               capture at a time, and it needs Screen Recording
               --request-access ask the system for Screen Recording, which puts a prompt on
                                screen and blocks until it is answered
             """
@@ -167,7 +182,9 @@ struct CaptureProbe {
             return
         }
 
-        if options.pipeline {
+        if !options.mosaic.isEmpty {
+            try await runMosaic(options)
+        } else if options.pipeline {
             try await runPipeline(options)
         } else if options.synthetic {
             try await runSynthetic(options)
@@ -242,6 +259,83 @@ struct CaptureProbe {
         let summary = try await writer.finish()
         report(pipeline: statistics, writer: summary, url: url)
         log(geometry.summary)
+        try await playback(url: url)
+    }
+
+    /// Several real sources composited into one canvas, through the host's own compositor.
+    ///
+    /// **The only check in this probe that runs more than one capture at a time**, and the one
+    /// that answers the question a client would ask first: does a canvas built out of other
+    /// people's pixel buffers encode into something that plays. Everything about it is the
+    /// host's — one `SCStream` per tile, the retained copy, the CoreImage composite, the canvas
+    /// pool, the encoder — and the only thing the probe supplies is the layout.
+    static func runMosaic(_ options: Options) async throws {
+        let resolver = ScreenCaptureSourceResolver()
+        let descriptors = try await resolver.catalog().all
+
+        var chosen: [CaptureSourceDescriptor] = []
+        for spec in options.mosaic {
+            guard let descriptor = pick(spec, from: descriptors) else {
+                let available = descriptors.map(\.id).joined(separator: ", ")
+                throw ProbeError(message: "no source matches “\(spec)”. Available: \(available)")
+            }
+            chosen.append(descriptor)
+        }
+
+        // A grid of the probe's own, and deliberately not `MosaicGrid`: that lives in the app's
+        // kit, which this target does not link, and what is being proved here is the Mac's half
+        // of the feature. Any rectangles would do; these are the ones the phone would send for
+        // the same count.
+        let count = chosen.count
+        let columns = Int(ceil(Double(count).squareRoot()))
+        let rows = Int(ceil(Double(count) / Double(columns)))
+        let tiles = chosen.enumerated().map { index, descriptor in
+            MosaicTile(
+                source: descriptor.source,
+                rect: NormalizedRect(
+                    x: Double(index % columns) / Double(columns),
+                    y: Double(index / columns) / Double(rows),
+                    width: 1 / Double(columns),
+                    height: 1 / Double(rows)
+                )
+            )
+        }
+
+        let canvas = CGSize(width: 1280, height: 720)
+        guard let layout = MosaicLayout(canvas: canvas, tiles: tiles, frameRate: min(options.frameRate, 30)).validated else {
+            throw ProbeError(message: "the mosaic had no tiles")
+        }
+
+        let names = chosen.map { "\($0.title) [\($0.id)]" }.joined(separator: " + ")
+        log("""
+            mosaic mode: \(count) sources — \(names) — in a \(Int(layout.canvas.width))×\(Int(layout.canvas.height)) \
+            canvas at \(layout.frameRate) fps, each tile its own SCStream
+            """)
+
+        let url = URL(fileURLWithPath: options.output)
+        let writer = try MovieWriter(url: url, pixelSize: layout.canvas, frameRate: layout.frameRate)
+
+        let pipeline = CapturePipeline(resolver: resolver)
+        pipeline.onFrame = { frame in writer.append(frame) }
+        pipeline.onFailure = { error in
+            log("!! pipeline failure: \(error.errorDescription ?? "\(error)")")
+        }
+
+        try await pipeline.start(source: .mosaic(layout))
+        log("mosaic source started; capturing for \(options.seconds)s")
+
+        do {
+            try await captureLoop(pipeline: pipeline, writer: writer, options: options)
+        } catch {
+            await pipeline.stop()
+            throw error
+        }
+
+        let statistics = pipeline.statistics
+        await pipeline.stop()
+
+        let summary = try await writer.finish()
+        report(pipeline: statistics, writer: summary, url: url)
         try await playback(url: url)
     }
 

@@ -426,6 +426,7 @@ final class StoreManager {
                     "Everything in Relay Plus",
                     "Several Macs open at the same time",
                     "Macros, snippets and quick commands",
+                    "Several of the Mac's windows in one picture",
                     "The sharpest picture over the relay",
                     "Every feature added while you are subscribed",
                 ]

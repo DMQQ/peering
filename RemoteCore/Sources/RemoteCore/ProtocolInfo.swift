@@ -74,6 +74,13 @@ public enum ProtocolInfo {
     /// not know the case ends the session tens of milliseconds after it opens, and the phone
     /// redials into the same wall. The version is what turns that into "update whichever is
     /// older" at the door, which is where the push token should have been caught.
+    ///
+    /// **Not 18, and the mosaic is why.** The next change in this file was expected to be the
+    /// mosaic, since `CaptureSource` gains a case an older host cannot decode. It does not need
+    /// a bump: the case is only ever *sent by the client*, so a Mac that has not said it can take
+    /// one never receives one, and nothing already on the wire changes shape. That is the
+    /// `supportsVideoPause` argument exactly, and the entry that would have gone here is in
+    /// ``ServerHello/supportsMosaic`` instead.
     public static let version: UInt16 = 17
 
     /// The largest payload a control-channel message may carry.

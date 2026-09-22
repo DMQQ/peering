@@ -668,6 +668,17 @@ final class HostModel {
                 }
                 return
             }
+            // **A mosaic takes no input, and this is where that is true.** Every other source
+            // is something a click can mean on; a canvas is not, because which machine
+            // coordinate a point means depends on which tile it landed in, and that is decided
+            // by the app rather than posted at the Mac. The client sends nothing while a canvas
+            // is up, so this is the belt to that brace: a stray input would otherwise be placed
+            // through the last single-source transform, which is a click on a window nobody is
+            // looking at. Selecting a tile is an ordinary source switch, and input works again
+            // the moment that arrives.
+            if command.isUserInput, coordinator.isShowingMosaic {
+                return
+            }
             input.perform(command)
         }
 

@@ -266,6 +266,28 @@ extension RemoteScreen {
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
                             }
+                            // **The way back, and the only new control the mosaic adds to a
+                            // session.** It appears when the picture is one tile of an
+                            // arrangement and disappears the moment the arrangement is left for
+                            // anything else, so it is never a button that goes nowhere: see
+                            // ``MacSession/canReturnToMosaic``. Beside the source's own name
+                            // because that is what it acts on, and small because the whole mosaic
+                            // is a mode the user asked for and not a place the app put them.
+                            if model.canReturnToMosaic {
+                                Button {
+                                    model.returnToMosaic()
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "rectangle.split.2x2")
+                                            .font(.system(size: 9, weight: .semibold))
+                                        Text("Mosaic")
+                                            .font(.caption2.weight(.semibold))
+                                    }
+                                    .foregroundStyle(ColorPalette.accent)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
                             connectionPathChip
                         }
                         // Under the Mac's name rather than under the dot, which is what makes the

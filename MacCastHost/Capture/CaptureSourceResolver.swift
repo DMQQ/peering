@@ -908,6 +908,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 filter: SCContentFilter(desktopIndependentWindow: window),
                 sourceRect: nil
             )
+
+        case .mosaic:
+            // **Reachable only by mistake, and it says so.** A mosaic is captured as one filter
+            // per *tile*, and each of those comes through the cases above as the source it
+            // names. There is no filter for the canvas, because nothing on the Mac shows a
+            // canvas. If this is ever hit, the caller has asked the wrong object, and a
+            // sentence is better than the black picture it would otherwise get.
+            throw CaptureError.sourceUnavailable(
+                "A mosaic is composited from its tiles rather than captured in one piece."
+            )
         }
     }
 
@@ -984,6 +994,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         case .window(let id):
             let window = content.windows.first { $0.windowID == id }
             return transform(for: window?.frame)
+
+        case .mosaic:
+            // There is no point in a mosaic for a click to be at: the tile under it decides
+            // which machine coordinate it means, and a tile is chosen in the app rather than
+            // posted at the Mac. A degenerate transform is the honest answer, and the host
+            // refuses input outright while a mosaic is the source. See
+            // ``VideoCoordinator``'s input guard.
+            return .degenerate
         }
     }
 

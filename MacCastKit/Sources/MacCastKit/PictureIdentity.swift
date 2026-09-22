@@ -103,13 +103,28 @@ extension PictureIdentity {
     public static func forStream(
         _ config: VideoStreamConfig,
         activeSourceID: String?,
-        catalog: CaptureCatalog?
+        catalog: CaptureCatalog?,
+        // The source itself where the caller has it, which is the one case the catalogue cannot
+        // answer for. Optional so that the two ends that build a picture from a config and a
+        // catalogue alone do not have to invent one.
+        source: CaptureSource? = nil
     ) -> PictureIdentity {
         let descriptor = activeSourceID.flatMap { id in catalog?.all.first { $0.id == id } }
+
+        // **A mosaic is known without the catalogue, because this end is the one that built it.**
+        // It has no row in the catalogue and never will: it is something the app asked the Mac
+        // for rather than something the Mac offers. Left to the descriptor lookup below it would
+        // take the unknown answer, which reads as a window, and a window keeps its magnification
+        // when the picture changes size — so a canvas that was rearranged would go on holding a
+        // zoom chosen for the arrangement that is gone. See ``CaptureSource/contentMovesOnItsOwn``.
+        let movesOnItsOwn = source?.isMosaic == true
+            ? false
+            : descriptor?.source.contentMovesOnItsOwn ?? true
+
         return PictureIdentity(
             sourceID: activeSourceID,
             pixelSize: CGSize(width: config.pixelWidth, height: config.pixelHeight),
-            contentMovesOnItsOwn: descriptor?.source.contentMovesOnItsOwn ?? true
+            contentMovesOnItsOwn: movesOnItsOwn
         )
     }
 }

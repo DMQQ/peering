@@ -36,6 +36,12 @@ struct CanvasGestureView: UIViewRepresentable {
     var isZoomed: Bool = false
     /// The window's own chrome, in the canvas's coordinates. See ``CanvasGeometry/isBlocked``.
     var blockedRegions: [CGRect] = []
+    /// Whether a mosaic is on screen. A tap then selects the tile it landed in. See
+    /// ``GestureSurfaceView/isMosaicShowing``.
+    var isMosaicShowing: Bool = false
+    /// Called when a tap lands on a mosaic, with the point in this view's coordinates: the
+    /// caller is the one that knows where the picture is inside it.
+    var onMosaicTap: (CGPoint) -> Void = { _ in }
     /// Whether a floating panel is open. A tap on the picture then closes it instead of clicking
     /// the Mac — see ``GestureSurfaceView/handleTap(_:)``.
     var isPanelOpen: Bool = false
@@ -63,6 +69,7 @@ struct CanvasGestureView: UIViewRepresentable {
         view.onCollapseStatusBar = onCollapseStatusBar
         view.isKeyboardOpen = isKeyboardOpen
         view.onDismissKeyboard = onDismissKeyboard
+        view.isMosaicShowing = isMosaicShowing
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -71,7 +78,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onScroll: onScroll,
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
-            onSizeChange: onSizeChange
+            onSizeChange: onSizeChange,
+            onMosaicTap: onMosaicTap
         )
         return view
     }
@@ -88,6 +96,7 @@ struct CanvasGestureView: UIViewRepresentable {
         view.onCollapseStatusBar = onCollapseStatusBar
         view.isKeyboardOpen = isKeyboardOpen
         view.onDismissKeyboard = onDismissKeyboard
+        view.isMosaicShowing = isMosaicShowing
         view.handlers = .init(
             onTouchDown: onTouchDown,
             onTouchMove: onTouchMove,
@@ -96,7 +105,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onScroll: onScroll,
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
-            onSizeChange: onSizeChange
+            onSizeChange: onSizeChange,
+            onMosaicTap: onMosaicTap
         )
     }
 }
@@ -112,6 +122,8 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         var onZoom: (CGFloat, CGPoint) -> Void
         var onPanCanvas: (CGSize) -> Void
         var onSizeChange: (CGSize) -> Void
+        /// A tap on a mosaic, which selects the tile it landed in rather than clicking the Mac.
+        var onMosaicTap: (CGPoint) -> Void
     }
 
     var handlers: Handlers?
@@ -122,6 +134,11 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// Whether the picture is drawn larger than this view. Decides whether a two-finger drag
     /// has anywhere to pan to, or should go on scrolling the Mac.
     var isZoomed = false
+
+    /// Whether what is on screen is a mosaic. A tap then selects a tile rather than reaching the
+    /// Mac, because a point on a canvas has no meaning over there until a window has been chosen
+    /// for it here. See ``MosaicGrid/tileIndex(at:in:)``.
+    var isMosaicShowing = false
 
     /// Where the window's own chrome is, in this view's coordinates. A touch that starts inside
     /// one of these belongs to a button and is never sent to the Mac.
@@ -394,9 +411,21 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
             onCollapseStatusBar?()
             return
         }
-        // Nothing reaches the Mac in observe mode.
-        guard interactionMode.tapsReachTheMac else { return }
+        // A tap inside chrome belongs to the button that is there, whichever mode this is.
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
+
+        // **A mosaic comes before the mode guard, and that is not an oversight.** Selecting a
+        // tile sends no input: it asks the Mac for that one source, which is the same kind of
+        // command as opening a panel or choosing from the sources list, and both of those work
+        // in observe mode. What observe mode refuses is *touching* the Mac, and this is the app
+        // deciding what to show rather than a finger landing on a window.
+        if isMosaicShowing {
+            handlers?.onMosaicTap(point)
+            return
+        }
+
+        // Nothing else reaches the Mac in observe mode.
+        guard interactionMode.tapsReachTheMac else { return }
         handlers?.onTouchDown(point)
         handlers?.onTouchUp(point)
     }

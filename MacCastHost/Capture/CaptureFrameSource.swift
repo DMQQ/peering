@@ -84,4 +84,8 @@ protocol CaptureFrameSource: Sendable {
 enum CaptureStartRequest: @unchecked Sendable {
     case stream(filter: SCContentFilter, configuration: SCStreamConfiguration)
     case synthetic
+    /// Several streams of the source's own, composited into one canvas. See ``MosaicCompositor``,
+    /// which is the only thing that takes this: it owns those streams rather than being handed
+    /// one, which is why the plan is a value here and the engines are its business.
+    case mosaic(MosaicPlan)
 }

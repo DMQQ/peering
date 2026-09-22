@@ -91,6 +91,24 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// two names for one fact and a way for them to disagree.
     public var supportsClipboardImages: Bool?
 
+    /// Whether this Mac can composite several sources into one picture.
+    ///
+    /// **A capability rather than a version bump, which is the decision this field *is*.** The
+    /// mosaic is the first thing the client can ask for that an older host cannot even decode:
+    /// `CaptureSource` gains a case, and a Mac that has not heard of it throws on the command,
+    /// in the middle of a session, leaving the phone looking at its last picture while every tap
+    /// lands on a source the Mac never switched to. The bump doctrine at ``ProtocolInfo/version``
+    /// says to declare that incompatible — but it also says why: a bump is for a change "a host
+    /// of version N cannot decode" *that the host will receive anyway*. This one it will not,
+    /// because the case is only ever sent by a client, and only to a Mac that has said it
+    /// understands it. So the mosaic is negotiated rather than versioned, exactly as
+    /// ``RemoteCommand/setVideoEnabled`` is, and a Mac that has not updated simply keeps showing
+    /// one source at a time while the app says so.
+    ///
+    /// Optional and additive, so a Mac older than this field decodes with it `nil`, which reads
+    /// as "no". The client sends a mosaic only on an explicit `true`.
+    public var supportsMosaic: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -98,7 +116,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         alreadyPaired: Bool,
         macAddresses: [String]? = nil,
         supportsVideoPause: Bool? = nil,
-        supportsClipboardImages: Bool? = nil
+        supportsClipboardImages: Bool? = nil,
+        supportsMosaic: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -107,6 +126,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.macAddresses = macAddresses
         self.supportsVideoPause = supportsVideoPause
         self.supportsClipboardImages = supportsClipboardImages
+        self.supportsMosaic = supportsMosaic
     }
 }
 

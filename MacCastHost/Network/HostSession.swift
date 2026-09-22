@@ -402,7 +402,12 @@ final class HostSession: @unchecked Sendable {
             // Declared on the same terms and for the same reason, and it covers both directions:
             // this Mac can put a picture on the phone's pasteboard and can take one off it, so a
             // client that sees this may send the command and may expect the answer.
-            supportsClipboardImages: true
+            supportsClipboardImages: true,
+            // And this Mac can build a mosaic, which is declared on exactly the same terms: a
+            // client that has not seen this may not send one, because the request is a capture
+            // source an older Mac cannot decode and the failure would land in the middle of a
+            // session. See ``ServerHello/supportsMosaic``.
+            supportsMosaic: true
         ))
 
         if alreadyPaired {

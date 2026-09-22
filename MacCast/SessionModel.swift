@@ -1336,7 +1336,12 @@ final class SessionModel {
 
     /// The picture a video config describes, named as far as this end can name it.
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
-        PictureIdentity.forStream(config, activeSourceID: activeSourceID, catalog: catalog)
+        PictureIdentity.forStream(
+            config,
+            activeSourceID: activeSourceID,
+            catalog: catalog,
+            source: mosaicLayout.map { CaptureSource.mosaic($0) }
+        )
     }
 }
 

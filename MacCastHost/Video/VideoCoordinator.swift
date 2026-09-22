@@ -242,6 +242,13 @@ final class VideoCoordinator: @unchecked Sendable {
     /// The capture source being captured, if any.
     var source: CaptureSource? { lock.withLock { currentSource } }
 
+    /// Whether what is being captured is a canvas rather than one of the Mac's sources.
+    ///
+    /// Read by the input path, which refuses user input while one is up: a point on a canvas
+    /// means nothing on the Mac until a tile has been chosen for it, and the tile is chosen on
+    /// the phone. See ``CaptureSource/isMosaic``.
+    var isShowingMosaic: Bool { lock.withLock { currentSource?.isMosaic ?? false } }
+
     // MARK: - Video clients
 
     /// A client has opened a video connection, and the host has already checked that a live
@@ -898,6 +905,9 @@ extension CaptureSource {
         case .display(let id): return "display \(id)"
         case .application(let pid): return "application \(pid)"
         case .window(let id): return "window \(id)"
+        // The count rather than the tiles: this ends up in status lines a person reads, and six
+        // window numbers is a sentence nobody can hold. See the note on the type.
+        case .mosaic(let layout): return "a mosaic of \(layout.tiles.count) sources"
         }
     }
 }

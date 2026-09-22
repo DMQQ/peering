@@ -1,6 +1,7 @@
 import MacCastKit
 import RemoteCore
 import SwiftUI
+import UIKit
 
 /// What a gesture or a keystroke turns into on the wire.
 ///
@@ -35,29 +36,40 @@ extension SessionModel {
     }
 
     func send(_ command: RemoteCommand) {
-        guard !isObserving || !command.isUserInput else { return }
+        // **Two reasons a command is not sent, and they are different reasons.** Observe mode is
+        // the user saying they do not want to touch the Mac; a mosaic is the app saying it does
+        // not yet know *which* Mac window a point means, because that is decided by which tile
+        // it landed in and the tile is chosen here rather than posted over there. Both resolve to
+        // the same rule, which is why they share the one guard rather than sitting in two places
+        // that could drift.
+        guard (!isObserving && !isShowingMosaic) || !command.isUserInput else { return }
         session?.send(command)
     }
 
     func setObserveOnly(_ enabled: Bool) {
         guard enabled != isObserving else { return }
-
-        // A modifier that was latched before Observe was selected must be released on the Mac.
-        // Clearing only the phone's visual state would leave Command/Shift held remotely with
-        // Observe mode deliberately blocking the button that could release it.
-        if enabled {
-            let held: [(Modifiers, UInt16)] = [
-                (.command, 55),
-                (.shift, 56),
-                (.option, 58),
-                (.control, 59),
-            ]
-            for (modifier, keyCode) in held where latchedModifiers.contains(modifier) {
-                session?.send(.keyUp(keyCode: keyCode, modifiers: []))
-            }
-            latchedModifiers = []
-        }
+        if enabled { releaseLatchedModifiers() }
         isObserving = enabled
+    }
+
+    /// Lets go of any modifier the Mac still believes is held.
+    ///
+    /// Called by every mode that stops the user's keys reaching the Mac, and it has to be: a
+    /// modifier that was latched before the mode was entered cannot be released by the button
+    /// that would release it, because that button's key-up is exactly what the mode is refusing
+    /// to send. Clearing only the phone's visual state leaves Command or Shift held on the far
+    /// end, which the next session's typing then inherits.
+    private func releaseLatchedModifiers() {
+        let held: [(Modifiers, UInt16)] = [
+            (.command, 55),
+            (.shift, 56),
+            (.option, 58),
+            (.control, 59),
+        ]
+        for (modifier, keyCode) in held where latchedModifiers.contains(modifier) {
+            session?.send(.keyUp(keyCode: keyCode, modifiers: []))
+        }
+        latchedModifiers = []
     }
 
     func setPrivacyMode(_ enabled: Bool) {
@@ -72,8 +84,10 @@ extension SessionModel {
     }
 
     func selectSource(_ descriptor: CaptureSourceDescriptor) {
-        activeSourceID = descriptor.id
-        session?.selectCaptureSource(descriptor.source)
+        // Through the source rather than beside it: a descriptor's id *is* its source's stable
+        // id, and the one thing this must not do is send the command without recording the
+        // choice. See ``selectSource(_:)`` for what happens when those two come apart.
+        selectSource(descriptor.source)
     }
 
     /// The same, for a caller holding a ``CaptureSource`` rather than the descriptor it was
@@ -96,7 +110,75 @@ extension SessionModel {
     /// display and then refuse to come back.
     func selectSource(_ source: CaptureSource) {
         activeSourceID = source.stableID
+
+        // **A remembered arrangement lasts exactly as long as the user is inside it.** Selecting
+        // one of its tiles is how the mosaic is left, so that choice keeps it and the back
+        // control stays on offer; selecting anything else is leaving it behind, and a "back to
+        // the mosaic" that still appeared an hour and three sources later would be a button that
+        // lies about where it goes. The mosaic itself is not a source outside the arrangement,
+        // so asking for one again keeps it by the same rule.
+        if !source.isMosaic,
+           mosaicLayout?.tiles.contains(where: { $0.source == source }) != true {
+            mosaicLayout = nil
+        }
+
         session?.selectCaptureSource(source)
+    }
+
+    // MARK: - The mosaic
+
+    /// Draws several of the Mac's sources into one picture and shows it.
+    ///
+    /// **The canvas is the phone's own screen**, in pixels: each tile gets a fraction of the
+    /// canvas, so a canvas smaller than the display would make every tile soft before the encoder
+    /// ever saw it, and the Mac trims one that is larger than it will build. The rectangles come
+    /// from ``MosaicGrid``, which is where the whole arrangement is decided.
+    func showMosaic(_ sources: [CaptureSource]) {
+        guard let layout = MosaicGrid.layout(sources: sources, viewport: mosaicCanvasPixels) else {
+            return
+        }
+        // Anything held down on the Mac is let go first, for the same reason changing the source
+        // releases it: what is on screen is about to be a picture with no input at all, and a
+        // modifier latched before that would be one nothing here can release.
+        releaseLatchedModifiers()
+        mosaicLayout = layout
+        selectSource(.mosaic(layout))
+    }
+
+    /// Selects one of the tiles, which is how the arrangement is left.
+    ///
+    /// An ordinary source switch, deliberately: the client asks the Mac for that one source, and
+    /// from that moment the session is the session it always was — full resolution, the whole
+    /// input path, the adaptive quality. What is kept is the arrangement, so the tile can be
+    /// given back.
+    func focusMosaicTile(_ index: Int) {
+        guard let layout = mosaicLayout, layout.tiles.indices.contains(index) else { return }
+        selectSource(layout.tiles[index].source)
+    }
+
+    /// Goes back to the whole arrangement.
+    func returnToMosaic() {
+        guard let layout = mosaicLayout else { return }
+        selectSource(.mosaic(layout))
+    }
+
+    /// The phone's screen in pixels, which is the canvas a mosaic is asked for.
+    ///
+    /// Read from the window scene rather than from `UIScreen.main`, which is deprecated and,
+    /// on a device with more than one scene, is not necessarily the one being looked at.
+    private var mosaicCanvasPixels: CGSize {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        else {
+            // No scene at all, which is a state the app cannot act in rather than a case to
+            // handle: a canvas that a Mac will accept, so nothing downstream has to.
+            return CGSize(width: 1280, height: 720)
+        }
+        let bounds = scene.screen.bounds
+        let scale = scene.screen.scale
+        return MosaicGrid.canvas(
+            for: CGSize(width: bounds.width * scale, height: bounds.height * scale)
+        )
     }
 
     func launchApplication(_ descriptor: InstalledApplicationDescriptor) {

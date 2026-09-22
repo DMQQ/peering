@@ -438,6 +438,31 @@ final class MacSession: Identifiable {
     /// quietly does nothing.
     var hostSupportsClipboardImages = false
 
+    /// The arrangement the user put together, for as long as they are inside it.
+    ///
+    /// **Held per Mac and not per app**, with the same lifetime rule as the source itself: an
+    /// arrangement is a place on *this* Mac, and a session that comes back to a different one
+    /// must not offer to return to a mosaic of windows that are not there.
+    ///
+    /// It is what makes "back to the mosaic" mean anything, and it is cleared the moment a source
+    /// outside the arrangement is chosen: see ``SessionModel/selectSource(_:)``. Selecting one of
+    /// its tiles keeps it, because that is the gesture the back control exists to undo.
+    var mosaicLayout: MosaicLayout?
+
+    /// Whether the picture on screen is that arrangement rather than one of its tiles.
+    var isShowingMosaic: Bool {
+        guard let mosaicLayout else { return false }
+        return activeSourceID == CaptureSource.mosaic(mosaicLayout).stableID
+    }
+
+    /// What this Mac said about building a mosaic. See ``MosaicSupport/maySend(hostDeclared:)``.
+    ///
+    /// Read off the handshake and never assumed, which matters more here than anywhere else on
+    /// this list: every other gated request that reaches an un-updated Mac is a command it cannot
+    /// decode, and this one is a *capture source* it cannot decode, sent at the moment the user
+    /// asks for a whole arrangement of windows. Sending it anyway ends the session.
+    var hostSupportsMosaic = false
+
     /// Whether the picture is stopped because this client asked for it to be.
     ///
     /// **Not the same as the picture being stopped.** A Mac whose screen is asleep, a stream that
@@ -824,11 +849,25 @@ final class MacSession: Identifiable {
     // MARK: - The captured picture
 
     var activeSourceTitle: String? {
+        // **A mosaic is named before the catalogue is asked**, because the catalogue has no row
+        // for it and never will: it is not something the Mac offers, it is something the app
+        // asked for. Without this the pill would say nothing at all while a canvas was up,
+        // which reads as a session that has lost track of what it is showing.
+        if let layout = mosaicLayout, isShowingMosaic {
+            return "\(layout.tiles.count) windows"
+        }
         guard let activeSourceID,
               let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })
         else { return nil }
         return descriptor.title
     }
+
+    /// Whether there is an arrangement to go back to, and the picture is not already it.
+    ///
+    /// The one condition the back control is drawn on, so it cannot be drawn in a session that
+    /// has no mosaic (a button that took the user nowhere) or while the mosaic is on screen
+    /// (a button that would do nothing at all).
+    var canReturnToMosaic: Bool { mosaicLayout != nil && !isShowingMosaic }
 
     /// The size of the captured content in pixels, if it is known.
     ///
@@ -873,7 +912,14 @@ final class MacSession: Identifiable {
         // The rule is ``MacCastKit/PictureIdentity/forStream(_:activeSourceID:catalog:)``; this
         // reads the two things it needs off the session, which is the only part of it a test
         // cannot supply for itself.
-        PictureIdentity.forStream(config, activeSourceID: activeSourceID, catalog: catalog)
+        PictureIdentity.forStream(
+            config,
+            activeSourceID: activeSourceID,
+            catalog: catalog,
+            // **The arrangement as well as its name**, because a mosaic has no catalogue row and
+            // the name alone cannot say what it is. See ``PictureIdentity/forStream(_:activeSourceID:catalog:source:)``.
+            source: mosaicLayout.map { CaptureSource.mosaic($0) }
+        )
     }
 
     // MARK: - Notes

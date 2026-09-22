@@ -15,6 +15,25 @@ public enum CaptureSource: Codable, Sendable, Hashable {
     /// A single window. `UInt32` is a `CGWindowID` raw value.
     case window(UInt32)
 
+    /// Several sources drawn into one picture, at the rectangles the client asked for.
+    ///
+    /// **The only source here that is not a source.** Everything else in this enum names
+    /// something macOS is already showing; this one names a canvas the host builds out of
+    /// several of them, because the phone has one video layer and cannot be sent N streams. The
+    /// Mac opens one capture per distinct tile, draws each into its rectangle, and encodes the
+    /// result once, so a mosaic costs one stream on the wire and several on the Mac.
+    ///
+    /// **It takes no input.** A tap in a mosaic is a tap on the arrangement rather than on the
+    /// Mac, and what a tile's picture means as a coordinate depends on which tile it lands in.
+    /// Selecting a tile is what gives a source back its input: the client asks for that source
+    /// on its own, which is an ordinary source switch. See ``MosaicTile``.
+    ///
+    /// `pixelSize` is the canvas in pixels, chosen by the client from the screen it is drawing
+    /// on and clamped by the host. `frameRate` is the canvas's own, which is not the setting a
+    /// single source is streamed at: a mosaic is several captures composited per frame, so its
+    /// rate is the one number that multiplies the host's whole cost.
+    case mosaic(MosaicLayout)
+
     /// Stable string used as the `Identifiable` id and in persisted selections,
     /// so a client's chosen source survives a reconnect.
     public var stableID: String {
@@ -22,7 +41,42 @@ public enum CaptureSource: Codable, Sendable, Hashable {
         case .display(let id): return "display:\(id)"
         case .application(let pid): return "application:\(pid)"
         case .window(let id): return "window:\(id)"
+        case .mosaic(let layout):
+            // **The canvas as well as the tiles.** Two arrangements of the same tiles at
+            // different canvas sizes are two different pictures, and the tiles alone would give
+            // them one name, which is the collision that makes a source switch silently not
+            // happen. The frame rate is deliberately not here: redrawing the same arrangement
+            // faster is the same arrangement.
+            let name = "\(layout.canvas.width)x\(layout.canvas.height)"
+                + layout.tiles.map { "|\($0.stableID)" }.joined()
+
+            // Hashed by hand rather than with `Hasher`, which is seeded per process: this string
+            // is what a persisted selection and ``PictureIdentity`` are kept by, and a name that
+            // changed on every launch would make the same arrangement a new picture every time
+            // the app opened. FNV-1a, the cheap one that is stable across processes forever.
+            var hash: UInt64 = 0xcbf2_9ce4_8422_2325
+            for byte in name.utf8 {
+                hash = (hash ^ UInt64(byte)) &* 0x100_0000_01b3
+            }
+            return "mosaic:\(String(hash, radix: 16))"
         }
+    }
+
+    /// Whether this source is a canvas the host builds rather than something the Mac is showing.
+    ///
+    /// Asked in the two places the difference is not about pixels: the host refuses input while
+    /// one is up, and the client's picker has no row to tick because a mosaic is never offered
+    /// *by* the Mac, only asked for. Written as a property rather than as an `if case` at each
+    /// of them so the reason lives in one place.
+    public var isMosaic: Bool {
+        if case .mosaic = self { return true }
+        return false
+    }
+
+    /// The layout of a mosaic source, or `nil` for anything else.
+    public var mosaicLayout: MosaicLayout? {
+        if case .mosaic(let layout) = self { return layout }
+        return nil
     }
 
     /// Whether the captured content moves without anything announcing it.
@@ -36,7 +90,184 @@ public enum CaptureSource: Codable, Sendable, Hashable {
         switch self {
         case .display: return false
         case .application, .window: return true
+        // **A mosaic is a display, not a window.** Its canvas is a size the client asked for and
+        // keeps until it asks for another one, while the tiles inside it come and go and their
+        // windows are dragged around without the canvas changing shape at all. That is the same
+        // rule a display follows, and it is the rule the client's zoom and pan want: a tile
+        // resizing inside a fixed canvas is not a reason to throw away where the user was
+        // looking, and a different arrangement is a different picture and is.
+        case .mosaic: return false
         }
+    }
+}
+
+/// A rectangle in the canvas's own space: (0,0) at the top left of the canvas and (1,1) at its
+/// bottom right, whatever the canvas's aspect ratio.
+///
+/// **Normalized rather than in pixels**, for the same reason ``NormalizedPoint`` is: the client
+/// decides how much of its screen a tile gets and the Mac decides what pixel size the canvas is
+/// built at, so neither end can name the other's units. The host is the one that multiplies this
+/// by the canvas's pixels when it composites, and the client is the one that multiplies it by
+/// the picture's rect on screen when it draws the borders and hit-tests a tap.
+public struct NormalizedRect: Codable, Sendable, Equatable, Hashable {
+    public var x: Double
+    public var y: Double
+    public var width: Double
+    public var height: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+
+    /// Clamped copy, so a layout can describe nothing outside the canvas it is drawn in.
+    ///
+    /// The width and the height are clamped first and the origin against what is left, rather
+    /// than each of the four against 0…1: a rect of `x: 0.9, width: 0.5` clamped that way would
+    /// run from 0.9 to 1.4 and be drawn past the edge of the canvas, which is the one thing a
+    /// layout must not be able to do. A rect that is entirely outside clamps to nothing rather
+    /// than to a corner.
+    public var clamped: NormalizedRect {
+        let width = min(max(self.width, 0), 1)
+        let height = min(max(self.height, 0), 1)
+        return NormalizedRect(
+            x: min(max(x, 0), 1 - width),
+            y: min(max(y, 0), 1 - height),
+            width: width,
+            height: height
+        )
+    }
+
+    /// The rect in a canvas of the given pixel size, for the host's compositor.
+    public func pixels(in size: CGSize) -> CGRect {
+        let rect = clamped
+        return CGRect(
+            x: rect.x * size.width,
+            y: rect.y * size.height,
+            width: rect.width * size.width,
+            height: rect.height * size.height
+        )
+    }
+
+    /// Whether a normalized point lands inside this rect.
+    ///
+    /// Half-open on the far edges, so the point where two tiles meet belongs to exactly one of
+    /// them rather than to both, which is what a hit test has to answer.
+    public func contains(_ point: NormalizedPoint) -> Bool {
+        let rect = clamped
+        return point.x >= rect.x && point.x < rect.x + rect.width
+            && point.y >= rect.y && point.y < rect.y + rect.height
+    }
+}
+
+/// What a mosaic is: the canvas it is drawn in, what sits on it, and how often it is redrawn.
+///
+/// The client builds one of these and sends it as a capture source; the host composites it. It
+/// travels as one value rather than as three parameters because the canvas is part of what a
+/// mosaic *is*: two layouts of the same tiles at different canvas sizes are two different
+/// pictures, and ``CaptureSource/stableID`` has to tell them apart.
+public struct MosaicLayout: Codable, Sendable, Equatable, Hashable {
+    /// The most tiles one mosaic may have, and the number both ends read.
+    ///
+    /// **A limit on the Mac rather than on the phone.** Every tile is a ScreenCaptureKit stream
+    /// of its own, so a mosaic is the one thing in this app that makes the host work N times as
+    /// hard, and the client asking for it is a paired device rather than a trusted one. Six is
+    /// where a 1080p canvas still gives each tile about 640×360, which is the point at which a
+    /// tile is still readable on a phone; the host trims to it rather than refusing, so a
+    /// request from a newer client is a smaller mosaic rather than no picture at all.
+    public static let maximumTileCount = 6
+
+    /// The most pixels a canvas may be built at, in total.
+    ///
+    /// The other half of the same limit, because the count alone bounds nothing: one tile over
+    /// the whole of a 7680×4320 canvas is one stream and a quarter of a billion pixels per
+    /// second to composite. 2560×1440 is twice a 1080p canvas and still less than the smallest
+    /// display this app captures.
+    public static let maximumCanvasPixels = 2560 * 1440
+
+    /// The canvas in pixels, as the client wants it drawn on its own screen.
+    public let canvas: CGSize
+    public let tiles: [MosaicTile]
+    /// How often the canvas is redrawn, which is every tile's frame rate as well as the
+    /// encoder's. See ``minimumFrameRate``.
+    public let frameRate: Int
+
+    /// **A mosaic's frame rate is its cost, multiplied.** Six tiles composited at 60 is six
+    /// captures and six composites per frame at 60, which is a Mac doing nothing else. The
+    /// floor is what still reads as motion; the ceiling is what a laptop should be asked for.
+    public static let minimumFrameRate = 5
+    public static let maximumFrameRate = 30
+
+    public init(canvas: CGSize, tiles: [MosaicTile], frameRate: Int) {
+        self.canvas = canvas
+        self.tiles = tiles
+        self.frameRate = frameRate
+    }
+
+    /// What a host will actually build, or `nil` when there is no mosaic in this at all.
+    ///
+    /// **Trimmed rather than refused**, and this is the whole of the host's defence: the layout
+    /// arrives from a device the Mac has paired with and does not control, and a request that
+    /// names twenty tiles or a wall-sized canvas is a Mac asked to melt. Trimming keeps the
+    /// picture honest (the first tiles are the ones the user put there), keeps the limits in one
+    /// place both ends read, and means a client that is newer than its Mac gets a smaller mosaic
+    /// rather than an error it cannot do anything about.
+    ///
+    /// The canvas is clamped by area rather than by each side, so an odd aspect ratio is kept:
+    /// a 4000×300 canvas is trimmed to fit the budget, not reshaped into a television.
+    public var validated: MosaicLayout? {
+        guard !tiles.isEmpty else { return nil }
+
+        let width = max(2, canvas.width.rounded(.down))
+        let height = max(2, canvas.height.rounded(.down))
+        let pixels = width * height
+        let budget = CGFloat(Self.maximumCanvasPixels)
+        let scale = pixels > budget ? (budget / pixels).squareRoot() : 1
+        // Even, because the encoder rounds down to even and the client's tile rects were
+        // measured against what it asked for: an odd canvas is a picture a pixel narrower than
+        // the one the tiles describe. Halved and floored rather than divided by two and
+        // multiplied back, which in floating point leaves an odd number odd.
+        func even(_ value: CGFloat) -> CGFloat {
+            max(2, ((value * scale).rounded(.down) / 2).rounded(.down) * 2)
+        }
+
+        return MosaicLayout(
+            canvas: CGSize(width: even(width), height: even(height)),
+            tiles: Array(tiles.prefix(Self.maximumTileCount)).map {
+                MosaicTile(source: $0.source, rect: $0.rect.clamped)
+            },
+            frameRate: min(max(frameRate, Self.minimumFrameRate), Self.maximumFrameRate)
+        )
+    }
+}
+
+/// One source's place in a mosaic.
+public struct MosaicTile: Codable, Sendable, Equatable, Hashable {
+    public let source: CaptureSource
+    public let rect: NormalizedRect
+
+    public init(source: CaptureSource, rect: NormalizedRect) {
+        self.source = source
+        self.rect = rect
+    }
+
+    /// This tile's own name: which source, and where it sits.
+    ///
+    /// The rectangle is part of it because two tiles of one source in two places are two tiles,
+    /// and an arrangement that moved one of them is a different arrangement from the one a zoom
+    /// and a pan were chosen against.
+    ///
+    /// The numbers are rounded to a thousandth before they are printed, because a rect that has
+    /// been through floating-point arithmetic twice, once on each end, is not bit-for-bit the
+    /// rect that was sent: without this, a layout would be a slightly different name each time
+    /// it made the round trip, and the client would treat its own arrangement as a new picture.
+    var stableID: String {
+        func thousandths(_ value: Double) -> Int { Int((value * 1000).rounded()) }
+        let rect = rect.clamped
+        return "\(source.stableID)@\(thousandths(rect.x)),\(thousandths(rect.y)),"
+            + "\(thousandths(rect.width)),\(thousandths(rect.height))"
     }
 }
 

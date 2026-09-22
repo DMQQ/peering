@@ -89,6 +89,19 @@ extension RemoteScreen {
             // fitted and gives the two-finger drag back to the Mac.
             isZoomed: effectiveZoom > 1.01,
             blockedRegions: blockedRegions,
+            isMosaicShowing: model.isShowingMosaic,
+            onMosaicTap: { point in
+                // The point is turned into canvas coordinates by the same helper every other
+                // gesture uses, so the zoom and the pan are accounted for exactly once, in the
+                // one place that knows about both. Then the arrangement says which tile it is,
+                // and a tap in a gap between tiles is a tap on nothing: that does nothing, which
+                // is the honest answer for a place that is neither window.
+                guard let layout = model.mosaicLayout,
+                      let normalized = normalized(point),
+                      let index = MosaicGrid.tileIndex(at: normalized, in: layout)
+                else { return }
+                model.focusMosaicTile(index)
+            },
             isPanelOpen: openPanel != nil,
             onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
             isStatusBarExpanded: statusBarExpanded,

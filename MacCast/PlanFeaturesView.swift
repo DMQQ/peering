@@ -336,6 +336,16 @@ struct PlanFeaturesView: View {
                 detail: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while the session is open and through the Mac when it is not. The terminal and the mark on its own tab are on every plan.",
                 capability: .terminalAlerts
             ),
+            // The same sentence the paywall's door for it uses, and the same care about what it
+            // promises: the tiles are live pictures rather than stills, and the one thing a
+            // reader has to know before buying is that the Mac is doing more work than it does
+            // for one window.
+            PlanFeature(
+                icon: "rectangle.split.2x2",
+                title: "Several windows at once",
+                detail: "Pick several of the Mac's windows, apps or displays and see them together, arranged on this screen. Each tile is captured live on the Mac rather than being a still, and tapping one takes you into it, with the whole arrangement waiting behind a back control.",
+                capability: .mosaic
+            ),
             PlanFeature(
                 icon: "clock.arrow.circlepath",
                 title: "Commands you ran before",

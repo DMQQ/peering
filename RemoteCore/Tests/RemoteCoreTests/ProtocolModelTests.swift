@@ -318,3 +318,143 @@ struct RemoteCommandTests {
         #expect(sessionControls.allSatisfy { !$0.isUserInput })
     }
 }
+
+@Suite("Mosaic")
+struct MosaicWireTests {
+    private func tile(
+        _ source: CaptureSource,
+        _ x: Double,
+        _ y: Double,
+        size: Double = 0.5
+    ) -> MosaicTile {
+        MosaicTile(source: source, rect: NormalizedRect(x: x, y: y, width: size, height: size))
+    }
+
+    private func layout(
+        _ tiles: [MosaicTile],
+        canvas: CGSize = CGSize(width: 1920, height: 1080),
+        frameRate: Int = 15
+    ) -> MosaicLayout {
+        MosaicLayout(canvas: canvas, tiles: tiles, frameRate: frameRate)
+    }
+
+    @Test("round-trips through JSON")
+    func codec() throws {
+        let value = layout([tile(.window(42), 0, 0), tile(.application(9), 0.5, 0.5)])
+        let encoded = try JSONEncoder().encode(CaptureSource.mosaic(value))
+        #expect(try JSONDecoder().decode(CaptureSource.self, from: encoded) == .mosaic(value))
+    }
+
+    @Test("a name that survives a relaunch, and that tells two arrangements apart")
+    func identity() {
+        let one = layout([tile(.window(42), 0, 0)])
+        let again = layout([tile(.window(42), 0, 0)])
+        // **The reason this is written by hand rather than with `Hasher`.** The name is what a
+        // persisted selection and the client's picture identity are kept by, so the same
+        // arrangement has to answer the same string in a later process.
+        #expect(CaptureSource.mosaic(one).stableID == CaptureSource.mosaic(again).stableID)
+
+        // Moved, reordered, or drawn on a different canvas: three different pictures.
+        #expect(CaptureSource.mosaic(one).stableID != CaptureSource.mosaic(layout([tile(.window(42), 0.5, 0)])).stableID)
+        let two = [tile(.window(42), 0, 0), tile(.application(9), 0.5, 0)]
+        let swapped = [tile(.application(9), 0.5, 0), tile(.window(42), 0, 0)]
+        #expect(CaptureSource.mosaic(layout(two)).stableID != CaptureSource.mosaic(layout(swapped)).stableID)
+        #expect(CaptureSource.mosaic(one).stableID != CaptureSource.mosaic(
+            layout([tile(.window(42), 0, 0)], canvas: CGSize(width: 1280, height: 720))
+        ).stableID)
+
+        // And the frame rate is *not* part of it: the same arrangement redrawn faster is the
+        // same arrangement, and a client that changed the rate has not changed the picture.
+        #expect(CaptureSource.mosaic(one).stableID == CaptureSource.mosaic(layout([tile(.window(42), 0, 0)], frameRate: 30)).stableID)
+    }
+
+    @Test("a canvas is fixed, so the picture identity treats it as a display")
+    func doesNotMoveOnItsOwn() {
+        // The one-line decision with no compile error behind it: a mosaic is not a window. Its
+        // tiles are dragged around inside a canvas that never changes shape, so the client keeps
+        // the zoom and the pan it was given rather than resetting them under a moving finger.
+        #expect(CaptureSource.mosaic(layout([tile(.window(42), 0, 0)])).contentMovesOnItsOwn == false)
+    }
+
+    @Test("the host trims what a client asks for rather than refusing it")
+    func limits() {
+        // More tiles than a Mac will run streams for: the first ones are kept, which are the
+        // ones the user put there. The alternative is a Mac asked to melt by a device it paired
+        // with and does not control.
+        let many = (0..<9).map { tile(.window(UInt32($0 + 1)), Double($0) / 10, 0, size: 0.1) }
+        #expect(layout(many).validated?.tiles.count == MosaicLayout.maximumTileCount)
+
+        // A canvas over the pixel budget is scaled to fit, keeping its shape: a 4K canvas is
+        // still 16:9 afterwards, and no larger than the budget.
+        let huge = layout([tile(.display(1), 0, 0, size: 1)])
+        let trimmed = MosaicLayout(
+            canvas: CGSize(width: 7680, height: 4320),
+            tiles: huge.tiles,
+            frameRate: 60
+        ).validated
+        #expect(trimmed != nil)
+        if let trimmed {
+            let pixels = trimmed.canvas.width * trimmed.canvas.height
+            #expect(pixels <= CGFloat(MosaicLayout.maximumCanvasPixels))
+            #expect(abs(trimmed.canvas.width / trimmed.canvas.height - 16.0 / 9.0) < 0.01)
+            // Even, because the encoder rounds down to even and the client's rects were
+            // measured against what it asked for.
+            #expect(trimmed.canvas.width.truncatingRemainder(dividingBy: 2) == 0)
+            #expect(trimmed.canvas.height.truncatingRemainder(dividingBy: 2) == 0)
+            #expect(trimmed.frameRate == MosaicLayout.maximumFrameRate)
+        }
+
+        // A rate that is a slideshow or a space heater is pulled back rather than refused.
+        #expect(layout([tile(.window(1), 0, 0)], frameRate: 1).validated?.frameRate == MosaicLayout.minimumFrameRate)
+        #expect(layout([tile(.window(1), 0, 0)], frameRate: 0).validated?.frameRate == MosaicLayout.minimumFrameRate)
+
+        // Nothing to draw is not a mosaic.
+        #expect(layout([]).validated == nil)
+    }
+
+    @Test("a rectangle cannot describe anything outside its canvas")
+    func rectClamping() {
+        // The origin is clamped against what the size leaves, not against 1: a rect of
+        // x 0.9 with width 0.5 would otherwise run to 1.4 and be drawn past the edge.
+        let overhanging = NormalizedRect(x: 0.9, y: 0.9, width: 0.5, height: 0.5).clamped
+        #expect(overhanging.x == 0.5)
+        #expect(overhanging.y == 0.5)
+        #expect(overhanging.x + overhanging.width <= 1)
+        #expect(overhanging.y + overhanging.height <= 1)
+
+        // A rect wider than the canvas is the canvas, and one that is nothing is empty.
+        #expect(NormalizedRect(x: 0, y: 0, width: 4, height: 4).clamped == NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        #expect(NormalizedRect(x: 0.2, y: 0.2, width: 0, height: 0.4).clamped.width == 0)
+
+        // The host's side of it: a normalized rect becomes pixels in the canvas.
+        let rect = NormalizedRect(x: 0.25, y: 0.5, width: 0.5, height: 0.5)
+        #expect(rect.pixels(in: CGSize(width: 1920, height: 1080)) == CGRect(x: 480, y: 540, width: 960, height: 540))
+
+        // And the client's side: the point where two tiles meet belongs to exactly one.
+        let left = NormalizedRect(x: 0, y: 0, width: 0.5, height: 1)
+        let right = NormalizedRect(x: 0.5, y: 0, width: 0.5, height: 1)
+        #expect(left.contains(NormalizedPoint(x: 0.49, y: 0.5)))
+        #expect(!left.contains(NormalizedPoint(x: 0.5, y: 0.5)))
+        #expect(right.contains(NormalizedPoint(x: 0.5, y: 0.5)))
+    }
+
+    @Test("an older Mac's hello still decodes, and reads as no")
+    func capabilityIsAdditive() throws {
+        // The field is optional precisely so that a Mac built before it existed sends a hello
+        // this build reads as "no mosaic here", rather than failing to decode at the door.
+        let older = """
+            {"serverID":"mac","hostName":"Studio","protocolVersion":17,"alreadyPaired":true}
+            """
+        let decoded = try JSONDecoder().decode(ServerHello.self, from: Data(older.utf8))
+        #expect(decoded.supportsMosaic == nil)
+        #expect(decoded.supportsMosaic != true)
+
+        // And one that has it says so, through a round trip.
+        let hello = ServerHello(
+            serverID: "mac", hostName: "Studio", protocolVersion: 17,
+            alreadyPaired: true, supportsMosaic: true
+        )
+        let encoded = try JSONEncoder().encode(hello)
+        #expect(try JSONDecoder().decode(ServerHello.self, from: encoded).supportsMosaic == true)
+    }
+}

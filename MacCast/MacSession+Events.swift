@@ -224,6 +224,10 @@ extension MacSession {
             // The same shape for the clipboard, and the same three states on the flag. See
             // ``ClipboardImages``, which both ends read.
             hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)
+            // And what it said about compositing several sources into one picture, which is the
+            // first request this client can make that an older Mac cannot decode at all. See
+            // ``MosaicSupport``.
+            hostSupportsMosaic = MosaicSupport.maySend(hostDeclared: hello.supportsMosaic)
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.

@@ -293,10 +293,15 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     ///   or half of it — passed in rather than read off the descriptor because at half
     ///   resolution the stream is deliberately not the size the source is, and the caller is
     ///   the one that decided that. See ``CaptureResolution/pixelSize(for:)``.
+    /// - Parameter showsCursor: Whether ScreenCaptureKit draws the pointer into this stream.
+    ///   `false` everywhere except a mosaic's tiles, where the pointer is a real pointer in a
+    ///   real window and the alternative — the overlay this app draws itself — has no single
+    ///   screen rectangle to place one in. See ``MosaicCompositor``.
     static func configuration(
         for descriptor: CaptureSourceDescriptor,
         pixelSize: CGSize,
-        frameRate: Int
+        frameRate: Int,
+        showsCursor: Bool = false
     ) throws -> SCStreamConfiguration {
         let width = Int(pixelSize.width.rounded())
         let height = Int(pixelSize.height.rounded())
@@ -314,7 +319,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         configuration.width = width
         configuration.height = height
         configuration.backgroundColor = CGColor.black
-        configuration.showsCursor = false
+        configuration.showsCursor = showsCursor
 
         // Caps the capture rate rather than the encode rate, and it is the stream's half of
         // ``CaptureFrameRate`` — the encoder is built with the same number, because the two
@@ -381,6 +386,12 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
 
         case .synthetic:
             throw CaptureError.streamFailed("a stream cannot be started without a filter and a configuration")
+
+        case .mosaic:
+            // Same shape, one level up: a mosaic is N streams, and the object that owns them
+            // is ``MosaicCompositor``. An engine handed this is a caller that has addressed the
+            // wrong object, and saying so is better than starting nothing in silence.
+            throw CaptureError.streamFailed("a mosaic is started by the compositor that owns its streams, not by one stream")
         }
     }
 

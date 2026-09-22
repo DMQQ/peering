@@ -59,6 +59,24 @@ extension SessionModel {
         set { activeSession?.notes = newValue }
     }
 
+    /// The arrangement the session is inside, or `nil` when it is not inside one. See
+    /// ``MacSession/mosaicLayout``.
+    var mosaicLayout: MosaicLayout? {
+        get { activeSession?.mosaicLayout }
+        set { activeSession?.mosaicLayout = newValue }
+    }
+
+    /// Whether there is an arrangement to go back to. See ``MacSession/canReturnToMosaic``.
+    var canReturnToMosaic: Bool { activeSession?.canReturnToMosaic ?? false }
+
+    /// Whether the picture on screen is an arrangement rather than one of its tiles. See
+    /// ``MacSession/isShowingMosaic``.
+    var isShowingMosaic: Bool { activeSession?.isShowingMosaic ?? false }
+
+    /// Whether this Mac can composite several sources into one picture. See
+    /// ``MacSession/hostSupportsMosaic``.
+    var hostSupportsMosaic: Bool { activeSession?.hostSupportsMosaic ?? false }
+
     var activeSessionHistoryID: UUID? {
         get { activeSession?.activeSessionHistoryID }
         set { activeSession?.activeSessionHistoryID = newValue }

@@ -32,7 +32,15 @@ final class CapturePipeline: @unchecked Sendable {
     /// gets the process killed when Screen Recording has not been granted, and a path that
     /// cannot compile a call to them cannot be tempted into one.
     private enum Backend {
-        case capture(resolver: CaptureSourceResolver, engine: CaptureEngine)
+        /// A real Mac's sources: one at a time, or several drawn into one canvas.
+        ///
+        /// **Both live here rather than in a backend each, because they are the same session.**
+        /// A mosaic is a capture source like any other — the client asks for it with the same
+        /// command, and selecting one of its tiles is an ordinary source switch — so a pipeline
+        /// that could only be one of the two would have to be torn down and rebuilt every time
+        /// the user tapped a tile or came back to the whole view. The compositor is built
+        /// alongside the engine and does nothing at all until a mosaic is started on it.
+        case capture(resolver: CaptureSourceResolver, engine: CaptureEngine, compositor: MosaicCompositor)
         case synthetic(engine: SyntheticCaptureEngine)
     }
 
@@ -85,16 +93,36 @@ final class CapturePipeline: @unchecked Sendable {
         set { lock.withLock { _onFailure = newValue } }
     }
 
-    /// The source of frames, whichever kind it is.
+    /// The source that is running, which on a capture pipeline is one of two.
+    ///
+    /// Held rather than derived: the engine and the compositor are both alive for the life of
+    /// the pipeline, and only the last ``start(source:frameRate:resolution:)`` says which of
+    /// them the session is currently reading. Nil while stopped, where the answer is whatever
+    /// the pipeline's own diagnostics should be reading — see ``engine``.
+    private var runningEngine: (any CaptureFrameSource)?
+
+    /// Whether the session in flight is a canvas rather than a single source.
+    ///
+    /// Read from the recorded source rather than from the running engine, because the answer is
+    /// needed on the frame path where taking the lock for it would be one more lock in the
+    /// hottest code in the host.
+    private var isMosaic: Bool { lock.withLock { source }?.isMosaic ?? false }
+
+    /// The source of frames, whichever kind it is, and whichever of the two it is.
     private var engine: any CaptureFrameSource {
+        if let runningEngine { return runningEngine }
         switch backend {
-        case .capture(_, let engine): return engine
+        case .capture(_, let engine, _): return engine
         case .synthetic(let engine): return engine
         }
     }
 
     init(resolver: CaptureSourceResolver, codec: VideoCodec = .h264, overlay: CursorOverlay? = nil) {
-        self.backend = .capture(resolver: resolver, engine: CaptureEngine())
+        self.backend = .capture(
+            resolver: resolver,
+            engine: CaptureEngine(),
+            compositor: MosaicCompositor()
+        )
         self.codec = codec
         self.overlay = overlay
     }
@@ -183,7 +211,12 @@ final class CapturePipeline: @unchecked Sendable {
     /// which backend is underneath.
     func inputTransform() -> InputTransform? {
         switch backend {
-        case .capture(let resolver, _):
+        case .capture(let resolver, _, _):
+            // The resolver answers ``InputTransform/degenerate`` for a mosaic, which is the
+            // honest answer rather than a missing one: a tile under a tap decides which machine
+            // coordinate it means, and the host refuses input outright while a mosaic is up.
+            // When the client has selected a tile, this is that tile's transform, which is the
+            // same answer it gave before the mosaic existed.
             return lock.withLock { source }.map { resolver.inputTransform(for: $0) }
         case .synthetic:
             return lock.withLock { source }.map { _ in .degenerate }
@@ -199,7 +232,7 @@ final class CapturePipeline: @unchecked Sendable {
     /// A synthetic pipeline has no screen behind it and answers by doing nothing, the same way
     /// it answers ``inputTransform()`` with a degenerate transform.
     func refreshSpacePreviews() {
-        guard case .capture(let resolver, _) = backend else { return }
+        guard case .capture(let resolver, _, _) = backend else { return }
         Task { await resolver.refreshSpacePreviews() }
     }
 
@@ -212,8 +245,12 @@ final class CapturePipeline: @unchecked Sendable {
     /// A synthetic pipeline has no screen behind it and answers `nil`, the same way it answers
     /// ``inputTransform()`` with a degenerate transform.
     func snapshot(maxWidth: Int) async -> CGImage? {
-        guard case .capture(let resolver, _) = backend,
-              let source = lock.withLock({ source })
+        guard case .capture(let resolver, _, _) = backend,
+              let source = lock.withLock({ source }),
+              // A canvas is not a source anything can photograph: it exists only as the frames
+              // this pipeline composites. The host window shows nothing rather than a picture of
+              // one window pretending to be the mosaic.
+              !source.isMosaic
         else { return nil }
         return await resolver.snapshot(of: source, maxWidth: maxWidth)
     }
@@ -226,7 +263,11 @@ final class CapturePipeline: @unchecked Sendable {
     /// a client could ask for by name.
     func catalog() async throws -> CaptureCatalog {
         switch backend {
-        case .capture(let resolver, _): return try await resolver.catalog()
+        // The same catalogue either way, and deliberately not a filtered one while a mosaic is
+        // up: the client choosing a tile to focus is looking at exactly this list, and a Mac
+        // that stopped offering its windows because a canvas is on screen would be a picker
+        // that empties itself the moment it is used.
+        case .capture(let resolver, _, _): return try await resolver.catalog()
         case .synthetic: return CaptureCatalog()
         }
     }
@@ -261,7 +302,36 @@ final class CapturePipeline: @unchecked Sendable {
         await stop()
 
         switch backend {
-        case .capture(let resolver, let engine):
+        case .capture(let resolver, let engine, let compositor):
+            // **A mosaic is a source, not a backend.** It is asked for with the same command as
+            // anything else, and leaving it for one of its tiles is an ordinary source switch,
+            // so it is handled here rather than in a start of its own.
+            if case .mosaic(let requested) = source {
+                guard let layout = requested.validated, !layout.tiles.isEmpty else {
+                    throw CaptureError.sourceUnavailable("That mosaic has no windows in it.")
+                }
+                let catalog = try await resolver.catalog()
+                let plan = MosaicPlan.make(layout: layout, catalog: catalog, resolver: resolver)
+                guard !plan.tiles.isEmpty else {
+                    throw CaptureError.sourceUnavailable(
+                        "None of the windows in this mosaic are still open."
+                    )
+                }
+                // Built for the canvas, at the canvas's own rate, and **not** through
+                // ``CaptureResolution``: the client's rectangles describe a picture it chose the
+                // size of, so halving it here would draw every tile into a canvas nobody asked
+                // for. The host window's resolution setting therefore does nothing while a
+                // mosaic is up, which is the honest consequence of the phone owning the layout.
+                let encoder = try VideoEncoder(
+                    codec: codec,
+                    pixelSize: plan.canvas,
+                    frameRate: plan.frameRate
+                )
+                try await begin(engine: compositor, request: .mosaic(plan), encoder: encoder, source: source)
+                pipelineLog.notice("mosaic source started with \(plan.tiles.count, privacy: .public) of \(layout.tiles.count, privacy: .public) tiles")
+                return
+            }
+
             let catalog = try await resolver.catalog()
             guard let descriptor = catalog.all.first(where: { $0.source == source }) else {
                 throw CaptureError.sourceUnavailable("That capture source is no longer available.")
@@ -352,6 +422,10 @@ final class CapturePipeline: @unchecked Sendable {
             self.source = source
             self.encoder = encoder
             self.awaitsKeyframe = true
+            // Which of the capture pipeline's two sources this session is reading, so that the
+            // statistics, the stop, and the input transform all answer about the one that is
+            // actually running rather than about the engine that is not.
+            self.runningEngine = engine
         }
         encoder.onFrame = { [weak self] encoded in self?.deliver(encoded) }
         encoder.onFailure = { [weak self] error in self?.report(error) }
@@ -378,12 +452,16 @@ final class CapturePipeline: @unchecked Sendable {
     }
 
     func stop() async {
-        await engine.stop()
+        // Read before the stop, because it is what is being stopped: the engine that is not
+        // running must not be stopped in its place, and on a mosaic pipeline both exist.
+        let running = lock.withLock { runningEngine } ?? engine
+        await running.stop()
         let encoder = lock.withLock { () -> VideoEncoder? in
             let current = self.encoder
             self.encoder = nil
             self.source = nil
             self.awaitsKeyframe = false
+            self.runningEngine = nil
             return current
         }
         encoder?.shutdown()
@@ -420,7 +498,14 @@ final class CapturePipeline: @unchecked Sendable {
         // the frame and the geometry saying where its content sits on screen, which is what
         // placing a pointer takes. Silent when there is no overlay, and when the overlay
         // decides not to draw — see ``CursorOverlay/draw(into:geometry:)``.
-        overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
+        //
+        // **Not on a mosaic.** A canvas is of no screen, so there is no rectangle for a pointer
+        // to be placed in, and nothing to place: each tile's stream has the real pointer drawn
+        // into it by ScreenCaptureKit, at that tile's own coordinates, which is where it
+        // actually is. See ``MosaicPlan``.
+        if !isMosaic {
+            overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
+        }
 
         encode(frame)
     }

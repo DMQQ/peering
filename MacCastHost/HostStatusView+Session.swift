@@ -236,6 +236,9 @@ extension HostStatusView {
         case .display: return "display"
         case .application: return "macwindow.on.rectangle"
         case .window: return "macwindow"
+        // The same symbol the client's mosaic row wears, so the two ends of one feature look
+        // like the same feature.
+        case .mosaic: return "rectangle.split.2x2"
         // Not `display.slash`: that symbol does not exist in SF Symbols, and a name that resolves
         // to nothing draws nothing — the chip came out as an empty rounded square, which reads as
         // a rendering fault rather than as a state. `rectangle.slash` is the one that is there.
@@ -262,6 +265,10 @@ extension HostStatusView {
         case .display: return "The whole screen, streaming live."
         case .application: return "One application, streaming live."
         case .window: return "One window, streaming live."
+        case .mosaic(let layout):
+            // The count, because it is the one number that says how much work this window is
+            // asking of the Mac: every tile is a ScreenCaptureKit stream of its own.
+            return "\(layout.tiles.count) windows, composited live."
         }
     }
 
