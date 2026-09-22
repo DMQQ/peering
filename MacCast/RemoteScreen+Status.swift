@@ -157,6 +157,25 @@ extension RemoteScreen {
                         // who wants the number to the millisecond has the Sessions tab, which is
                         // where a figure that is being *studied* belongs, rather than a header
                         // somebody is reading while they look at their Mac.
+                        //
+                        // The way back out of a mosaic is here as well as on the collapsed face,
+                        // and it was the omission that mattered: the pill opens on a tap, and a
+                        // user who opened it to find their way out of a single window found the
+                        // one control that would do it was on the face they had just left.
+                        if model.canReturnToMosaic {
+                            Button {
+                                withAnimation(Motion.settle) { model.returnToMosaic() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "rectangle.split.2x2")
+                                        .font(.system(size: 10, weight: .semibold))
+                                    Text("Mosaic")
+                                }
+                                .pillChip(selected: true)
+                            }
+                            .buttonStyle(RailButtonStyle(scale: 0.9))
+                            .accessibilityLabel("Back to the mosaic")
+                        }
                         connectionPathChip
                         qualityChip
                         soundButton
@@ -255,6 +274,14 @@ extension RemoteScreen {
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                     .lineLimit(1)
+                                    // **The name yields, and the control does not.** This row is
+                                    // a window's title and then the controls that act on it, and
+                                    // a window's title is unbounded — the one on this Mac is 74
+                                    // characters of a terminal's own status line. Laid out as
+                                    // equals, that title took the row and squeezed the way back
+                                    // out of the mosaic to nothing, which is a control that
+                                    // exists in the code and nowhere on the screen.
+                                    .layoutPriority(0)
                             }
                             // **The way back, and the only new control the mosaic adds to a
                             // session.** It appears when the picture is one tile of an
@@ -281,6 +308,12 @@ extension RemoteScreen {
                                     .foregroundStyle(ColorPalette.accent)
                                     .contentShape(Rectangle())
                                 }
+                                // Takes the width it needs and nothing offers to give any back,
+                                // which is the other half of the name yielding above. A control
+                                // that can be squeezed to nothing is a control that is missing on
+                                // exactly the windows whose titles are long enough to matter.
+                                .fixedSize()
+                                .layoutPriority(1)
                                 .buttonStyle(.plain)
                             }
                             connectionPathChip

@@ -193,9 +193,32 @@ public enum MosaicGrid {
         func even(_ value: CGFloat) -> CGFloat {
             max(2, (value / 2).rounded(.down) * 2)
         }
+
+        // **A landscape screen is shaped down to 16:9, and a portrait one is left alone.**
+        //
+        // The canvas's aspect decides the aspect of every tile in it, because the tiles are
+        // fractions of the canvas. A phone on its side is about 19.5:9 — wider than a Mac's own
+        // screen — so the fractions hand back windows that are wider and shorter than any window
+        // the Mac is actually showing: two tiles across on 2560×1290 are 1280×645, and a Mac
+        // window is nothing like that shape. Held up, the same phone gives 1290×1440 and tiles
+        // that are tall, which is the right shape for a picture on a portrait screen and is why
+        // this only applies on its side.
+        //
+        // So the largest 16:9 rectangle the screen can hold is what is asked for. On a 2796×1290
+        // landscape screen that is 2292×1290 — full height, and the width that makes a 2×2 come
+        // out as four 16:9 windows. The cost is a strip of letterbox either side of the picture,
+        // which is the trade the mosaic is already making at every other aspect.
+        let shaped: CGSize
+        if viewport.width > viewport.height {
+            let height = min(viewport.height, viewport.width * 9 / 16)
+            shaped = CGSize(width: height * 16 / 9, height: height)
+        } else {
+            shaped = viewport
+        }
+
         return CGSize(
-            width: min(even(viewport.width), 2560),
-            height: min(even(viewport.height), 1440)
+            width: min(even(shaped.width), 2560),
+            height: min(even(shaped.height), 1440)
         )
     }
 

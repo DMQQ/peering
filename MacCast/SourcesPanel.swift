@@ -34,49 +34,58 @@ struct SourcesPanel: View {
     @State private var picked: [CaptureSourceDescriptor] = []
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            searchField
+        // **Everything scrolls, and only the picking controls are pinned.**
+        //
+        // The panel used to hold a search field and the mosaic block above a scroll view. In
+        // landscape that is fatal rather than untidy: the panel is as tall as the screen less the
+        // status pill — about 370 points — and an arrangement of five tiles is 250 of them, so
+        // the source grids underneath were left a strip too short to show a row of anything,
+        // which reads as the picker having gone missing. Nothing is fixed-height now, so there is
+        // no arrangement of contents that can squeeze another part of the panel out of existence.
+        //
+        // What stays put is the pair of controls that end the mode. Those are the way out, they
+        // have to be reachable from anywhere in a list the user is scrolling, and a "Cancel" that
+        // scrolled off the top is the same defect as a back button that is not drawn.
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 12) {
+                searchField
 
-            // **Three arrangements of one slot, and they cross-fade into each other.** The state
-            // that chooses between them is written inside `withAnimation` at each of the four
-            // places that moves it, so the panel reads as one thing changing what it is showing
-            // rather than as a section being torn out and another dropped in. A default
-            // transition is the whole of it: these are three different lists in the same place,
-            // and anything that moved would be moving *within* a panel whose other contents are
-            // not.
-            if buildingMosaic {
-                mosaicPicker
-            } else if !model.mosaicChoicesList.isEmpty {
-                mosaicArrangement
-            } else {
-                mosaicEntry
-            }
+                // **Two arrangements of one slot, and they cross-fade into each other.** The
+                // state that chooses between them is written inside `withAnimation` at each of
+                // the places that moves it, so the panel reads as one thing changing what it is
+                // showing rather than as a section being torn out and another dropped in.
+                if !buildingMosaic {
+                    if model.mosaicChoicesList.isEmpty { mosaicEntry } else { mosaicArrangement }
+                }
 
-            if let catalog = model.catalog, !catalog.all.isEmpty {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        previewGrid(
-                            "Displays", catalog.displays, fallbackIcon: "display"
-                        )
-                        iconGrid("Applications", catalog.applications, fallbackIcon: "app")
-                        previewGrid(
-                            "Windows", catalog.windows, fallbackIcon: "macwindow"
-                        )
-                        if !buildingMosaic { installedGrid }
+                if let catalog = model.catalog, !catalog.all.isEmpty {
+                    previewGrid("Displays", catalog.displays, fallbackIcon: "display")
+                    // **One section per application, with its windows under it.** The catalogue
+                    // offers applications and windows as two flat lists, which is what the Mac
+                    // can enumerate rather than what anybody is looking for: a Mac with ten
+                    // applications and twenty-five windows becomes two lists of two different
+                    // things, and finding your browser means reading both and working out which
+                    // window belongs to what. See ``SourceGrouping``.
+                    ForEach(filteredGroups) { group in
+                        applicationSection(group)
                     }
+                    if !buildingMosaic { installedGrid }
+                } else {
+                    HStack(spacing: 12) {
+                        Image(systemName: "rectangle.on.rectangle.slash")
+                            .foregroundStyle(.secondary)
+                        Text("The Mac has not sent its list of displays and windows yet.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 6)
                 }
-            } else {
-                HStack(spacing: 12) {
-                    Image(systemName: "rectangle.on.rectangle.slash")
-                        .foregroundStyle(.secondary)
-                    Text("The Mac has not sent its list of displays and windows yet.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, 6)
             }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if buildingMosaic { mosaicPicker }
         }
         .padding(10)
         .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -389,6 +398,100 @@ struct SourcesPanel: View {
         .accessibilityLabel(spoken(descriptor))
     }
 
+    /// One application: what it is, and every window it is showing.
+    ///
+    /// The heading is the application itself and is a control — tapping it captures the whole
+    /// application, every window composited, which is what the separate Applications list used
+    /// to offer. The tiles under it are that application's windows, one each. So the two things a
+    /// person can want are one above the other: "this whole application" and "that one window of
+    /// it", with nothing to work out about which belongs to what.
+    ///
+    /// A heading with no application row behind it is not tappable — see
+    /// ``SourceGrouping/applicationGroups(applications:windows:)`` for the catalogue shape that
+    /// produces one. Its windows are still offered, which is the point.
+    @ViewBuilder
+    private func applicationSection(_ group: ApplicationGroup) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let application = group.application {
+                Button { choose(application) } label: {
+                    applicationHeading(group)
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.97))
+                .accessibilityLabel(spoken(application))
+            } else {
+                applicationHeading(group)
+            }
+
+            LazyVGrid(columns: Self.previewColumns, alignment: .leading, spacing: Self.tileGap) {
+                ForEach(group.windows) { previewTile($0, fallbackIcon: "macwindow") }
+            }
+        }
+    }
+
+    /// An application's name, its icon, and how many windows it is showing.
+    ///
+    /// **Marked on the same terms as a tile**, because a heading is one too: in the accumulating
+    /// mode tapping it picks the whole application, and a heading that took the tap without
+    /// showing that it had would be the one control in the panel with no answer.
+    private func applicationHeading(_ group: ApplicationGroup) -> some View {
+        let placed = group.application.map { placement(of: $0) }
+        let marked = placed?.marked ?? false
+
+        return HStack(spacing: 8) {
+            ApplicationIcon(data: group.iconPNGData, fallback: "app", size: 22)
+            Text(group.title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(marked ? ColorPalette.accent : ColorPalette.ink)
+                .lineLimit(1)
+            if marked, placed?.place == nil {
+                // The ordinary pick, where the mark says which source the phone is showing. In
+                // the accumulating mode the number says it instead — see below — and the two are
+                // never drawn together.
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(ColorPalette.accent)
+            }
+            if let place = placed?.place {
+                Text("\(place)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(ColorPalette.onInk)
+                    .frame(width: 16, height: 16)
+                    .background(ColorPalette.accent, in: Circle())
+                    .transition(Self.badge)
+            }
+            Spacer(minLength: 8)
+            Text(group.windows.count == 1 ? "1 window" : "\(group.windows.count) windows")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+    }
+
+    /// The groups the query leaves showing.
+    ///
+    /// **A window match keeps its application's heading**, so a search finds a window without
+    /// stranding it under a name nobody typed — and a heading match keeps every window under it,
+    /// because somebody who typed "Safari" is asking about Safari rather than about the one window
+    /// whose title happens to contain it.
+    private var filteredGroups: [ApplicationGroup] {
+        let catalog = model.catalog
+        let groups = SourceGrouping.applicationGroups(
+            applications: catalog?.applications ?? [],
+            windows: catalog?.windows ?? []
+        )
+        guard !query.isEmpty else { return groups }
+
+        return groups.compactMap { group in
+            if group.title.localizedStandardContains(query) { return group }
+            let windows = group.windows.filter {
+                $0.title.localizedStandardContains(query)
+                    || ($0.subtitle?.localizedStandardContains(query) ?? false)
+            }
+            guard !windows.isEmpty else { return nil }
+            return group.narrowing(to: windows)
+        }
+    }
+
     /// A section of the things that are an *identity*: applications, as icons.
     @ViewBuilder
     private func iconGrid(
@@ -507,7 +610,10 @@ struct SourcesPanel: View {
 
     private func choose(_ descriptor: CaptureSourceDescriptor) {
         if buildingMosaic {
-            withAnimation(Motion.tap) { toggle(descriptor) }
+            // `morph` rather than `tap`, because a pick is a control gaining something rather
+            // than one changing state: the badge has to arrive with enough give to be seen
+            // arriving, or picking a fifth window is a tap with no answer. See ``placeBadge``.
+            withAnimation(Motion.morph) { toggle(descriptor) }
         } else {
             // Animated because of the one case where this leaves a standing mosaic: the tile
             // borders drawn over the picture fade out as the arrangement is given up, and that
@@ -517,6 +623,14 @@ struct SourcesPanel: View {
         }
     }
 
+    /// The tile's place in the arrangement being built, springing in as it is picked.
+    ///
+    /// **The badge is the selection's only movement, and that is deliberate.** The accent edge
+    /// changes colour under `Motion.tap` and says which tiles are in; this says *where* each of
+    /// them landed, and it is the one thing that appears where nothing was. A tile that slid or
+    /// scaled would be moving in a grid the user is still choosing from, so the number is what
+    /// arrives — over `Motion.morph`, the app's curve for a control that changes shape rather
+    /// than one that changes state.
     @ViewBuilder
     private func placeBadge(_ place: Int?) -> some View {
         if let place {
@@ -526,8 +640,15 @@ struct SourcesPanel: View {
                 .frame(width: 18, height: 18)
                 .background(ColorPalette.accent, in: Circle())
                 .padding(5)
+                .transition(Self.badge)
         }
     }
+
+    /// How a place badge arrives and leaves: from nothing, with a little give.
+    ///
+    /// One definition for the two grids, so a number cannot appear one way on a window and
+    /// another way on a heading.
+    private static let badge = AnyTransition.scale(scale: 0.4).combined(with: .opacity)
 
     private func caption(
         _ descriptor: CaptureSourceDescriptor,
@@ -576,11 +697,20 @@ struct SourcesPanel: View {
     private static let tileAspect: CGFloat = 16.0 / 10.0
 
     /// The size of a Home Screen icon, which is what this grid is quoting.
-    private static let iconSize: CGFloat = 60
+    ///
+    /// **Close to the width of a column, and that is the number that matters.** An adaptive grid
+    /// gives every cell at least ``iconMinimumWidth`` and then spreads the leftover width evenly
+    /// between them, so a small icon in a wide cell is not a small icon — it is the same icon with
+    /// a gutter either side of it, and a row of those reads as a grid with something missing
+    /// rather than as a grid. 74 in a cell that comes out around 86 leaves the few points a
+    /// Home Screen leaves and no more.
+    private static let iconSize: CGFloat = 74
     /// The corner `ApplicationIcon` derives from ``iconSize``, needed here for the mark behind it.
     private static let iconCorner: CGFloat = iconSize * (11.0 / 42.0)
-    private static let iconMinimumWidth: CGFloat = 76
-    private static let iconGap: CGFloat = 10
+    /// Just the icon and its gutter. Anything more and the grid spends its leftover width on gaps
+    /// it does not need, which is exactly the state this number is here to prevent.
+    private static let iconMinimumWidth: CGFloat = iconSize + 8
+    private static let iconGap: CGFloat = 8
 
     /// Adds or removes one source from the arrangement being built.
     ///
