@@ -29,6 +29,10 @@ extension HostStatusView {
 
                 Divider().padding(.leading, 52)
 
+                virtualDisplayRow
+
+                Divider().padding(.leading, 52)
+
                 clientPointerRow
 
                 Divider().padding(.leading, 52)
@@ -88,6 +92,54 @@ extension HostStatusView {
                 // only by which end the knob is at. Blue for "on" is both what macOS means by it
                 // and what this app's own accent already means everywhere else.
                 .tint(HostPalette.accent)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// The switch for the display the host makes out of nothing, for a phone-shaped desktop.
+    ///
+    /// **The one setting here that changes the user's Mac rather than this app**, which is why it
+    /// is off until it is turned on, why it says what it does to the Mac rather than what it does
+    /// for the phone, and why it can be turned off again in the same place. It is also the only
+    /// row whose switch can fail: the display is a private API with a window server on the far
+    /// side of it, so the switch is bound to the model's own state rather than to a stored
+    /// preference, and it reads off when the display is not there.
+    var virtualDisplayRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "display.2")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(model.virtualDisplayEnabled ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Phone display")
+                    .font(.subheadline.weight(.medium))
+                Text(model.virtualDisplayFailure ?? """
+                    A second display, \(model.virtualDisplaySize), that exists only in software. \
+                    Put windows on it by hand and they are shown on the iPhone in the shape it \
+                    already has, with no bars, and the phone can pick it like any other screen. \
+                    It leaves when this is turned off, when the host stops, or when Peering quits.
+                    """)
+                    .font(.caption)
+                    .foregroundStyle(model.virtualDisplayFailure == nil ? HostPalette.muted : HostPalette.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: Binding(
+                get: { model.virtualDisplayEnabled },
+                set: { model.setVirtualDisplay($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            // The accent, for the reason the preview row's switch carries it: a switch is not a
+            // button, and with no colour an on one and an off one differ only by which end the
+            // knob is at.
+            .tint(HostPalette.accent)
+            .disabled(!model.canShowVirtualDisplay)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

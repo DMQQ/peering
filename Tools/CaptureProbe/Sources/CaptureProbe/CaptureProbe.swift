@@ -72,6 +72,12 @@ struct CaptureProbe {
         var canvas = CGSize(width: 1280, height: 720)
         /// Check where the compositor puts two known colours, which needs nothing at all.
         var composeCheck = false
+        /// Make a display that exists only in software, hold it, and take it away.
+        var virtualDisplay = false
+        /// Stream the virtual display for the hold, instead of leaving it empty.
+        var captureVirtualDisplay = false
+        /// The size to make it at, defaulting to the shape the host builds for a phone.
+        var virtualSize = VirtualDisplay.phoneShaped
         /// Ask the system for Screen Recording, which puts a prompt on screen.
         var requestAccess = false
 
@@ -134,6 +140,22 @@ struct CaptureProbe {
                 case "--compose-check":
                     composeCheck = true
 
+                case "--virtual-display":
+                    virtualDisplay = true
+
+                case "--capture":
+                    captureVirtualDisplay = true
+
+                case "--virtual-size":
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--virtual-size needs WIDTHxHEIGHT")
+                    }
+                    let parts = value.lowercased().split(separator: "x").compactMap { Double($0) }
+                    guard parts.count == 2, parts[0] > 1, parts[1] > 1 else {
+                        throw ProbeError(message: "--virtual-size needs WIDTHxHEIGHT, like 1290x2796")
+                    }
+                    virtualSize = CGSize(width: parts[0], height: parts[1])
+
                 case "--request-access":
                     requestAccess = true
 
@@ -152,7 +174,7 @@ struct CaptureProbe {
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
                                 [--mosaic A,B,…] [--canvas WxH] [--compose-check]
-                                [--request-access]
+                                [--virtual-display [--virtual-size WxH]] [--request-access]
 
               --seconds N      how long to capture for (default 3)
               --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
@@ -168,6 +190,18 @@ struct CaptureProbe {
                                with one larger than it will build can be seen
               --compose-check  place two known colours through the compositor's own arithmetic
                                and read the canvas back, which needs no Screen Recording
+              --virtual-display
+                               make a display that exists only in software, print the display
+                               list before, during and after it, hold it for --seconds, and
+                               take it away. Fails if it never appears or never goes away.
+                               This is the host's phone-shaped second monitor, which is a
+                               private API with three silent failure modes
+              --virtual-size WxH
+                               the size to make the virtual display at (default 1290x2796,
+                               the shape the host builds for a phone)
+              --capture        stream the virtual display for the whole hold through the
+                               ordinary capture path, so the frames and the file it writes
+                               are the proof that it is captureable at all
               --mosaic A,B,…   composite the named sources — stable ids or title fragments —
                                into one canvas through the host's MosaicCompositor, and write
                                the result. This is the only check that runs more than one
@@ -205,7 +239,9 @@ struct CaptureProbe {
             return
         }
 
-        if options.composeCheck {
+        if options.virtualDisplay {
+            try await runVirtualDisplay(options)
+        } else if options.composeCheck {
             try await runComposeCheck()
         } else if !options.mosaic.isEmpty {
             try await runMosaic(options)
@@ -337,6 +373,161 @@ struct CaptureProbe {
             throw ProbeError(message: "the corner neither tile covers is not the canvas's own black")
         }
         log("compose check passed: the first tile is at the top left, the second at the bottom right, the rest is canvas")
+    }
+
+    // MARK: - Virtual display
+
+    /// Makes a display that exists only in software, and proves that it appeared and went away.
+    ///
+    /// **The check is the whole exercise.** `CGVirtualDisplay` is a private CoreGraphics class
+    /// with no header, and every one of its failure modes is quiet: a selector that has been
+    /// renamed upstream raises an `NSException` this process cannot catch, a descriptor with a
+    /// field the system wants and does not get is accepted and never shows a display, and a
+    /// display that is made and never removed is a monitor on the user's Mac with no switch
+    /// attached to it. So this mode asks the window server for its display list three times, at
+    /// the three moments that matter, and exits non-zero if the second is the same as the first
+    /// or the third is not empty of it.
+    static func runVirtualDisplay(_ options: Options) async throws {
+        guard VirtualDisplay.isAvailable else {
+            throw ProbeError(message: """
+                this Mac's system software has no CGVirtualDisplay class, so the host's virtual \
+                display cannot exist here. There is no fallback to look for either: a display that \
+                is not a panel is a thing only the window server can make.
+                """)
+        }
+
+        // AppKit's screen list is read before the display exists, on purpose: that is the state
+        // every running host is in, because it reads the list to build the catalogue for the
+        // first client that connects. **A process that has already materialised its `NSScreen`
+        // list does not see a virtual display appear in it afterwards** (measured, with an
+        // `NSApplication` and its run loop turning), while a process that reads the list for the
+        // first time after the display exists does see it. So this one line is the difference
+        // between checking what a host sees and checking what a fresh process sees, and it is
+        // what makes the naming below a real test of ``VirtualDisplay/name(for:)``.
+        _ = NSScreen.screens
+
+        let before = VirtualDisplay.activeDisplayIDs()
+        log("displays before: \(described(before))")
+
+        let display = try VirtualDisplay(size: options.virtualSize)
+        let displayID = display.displayID
+        let after = VirtualDisplay.activeDisplayIDs()
+        log("displays after:  \(described(after))")
+
+        // `init` already waited for this. Asked again because the exit criterion is stated in
+        // terms of the display list, and the list is the thing a reader has to be able to see.
+        guard after.contains(displayID) else {
+            throw ProbeError(message: """
+                a display was created as \(displayID) and the window server's list does not have \
+                it: \(described(after))
+                """)
+        }
+
+        let bounds = CGDisplayBounds(displayID)
+        let millimetres = CGDisplayScreenSize(displayID)
+        log("""
+            display \(displayID) at \(Int(bounds.origin.x)),\(Int(bounds.origin.y)) · \
+            \(Int(bounds.width))×\(Int(bounds.height)) points · \
+            \(CGDisplayPixelsWide(displayID))×\(CGDisplayPixelsHigh(displayID)) pixels · \
+            panel \(Int(millimetres.width))×\(Int(millimetres.height)) mm
+            """)
+
+        // Whether the display is still invisible to AppKit, which is the reason the host names
+        // it from its own registry rather than from `NSScreen` (see the note above).
+        let inAppKit = NSScreen.screens.contains { screen in
+            let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+            return number?.uint32Value == displayID
+        }
+        log("AppKit: \(inAppKit ? "in NSScreen.screens" : "not in NSScreen.screens, so the catalogue must name it")")
+
+        try await checkCatalogueHas(displayID)
+
+        if options.captureVirtualDisplay {
+            // The hold, spent streaming it. Everything downstream is the probe's ordinary capture
+            // path, reached with the display the host would have offered: that is the point of
+            // asking for it this way, because a stream that went through a special case for
+            // virtual displays would prove the special case and not the feature.
+            var capture = options
+            capture.source = "display:\(displayID)"
+            log("streaming it for \(String(format: "%.1f", options.seconds))s")
+            try await runCapture(capture)
+        } else {
+            log("holding for \(String(format: "%.1f", options.seconds))s")
+            try await Task.sleep(for: .seconds(options.seconds))
+        }
+
+        let removed = display.remove()
+        let end = VirtualDisplay.activeDisplayIDs()
+        log("displays after teardown: \(described(end))")
+        guard removed, !end.contains(displayID) else {
+            throw ProbeError(message: """
+                the virtual display was torn down and is still there: \(described(end)). A display \
+                that outlives its object is a monitor the user cannot get rid of, and once this \
+                process has exited there is nothing left holding a switch for it.
+                """)
+        }
+
+        log("""
+            virtual display OK · \(Int(options.virtualSize.width))×\(Int(options.virtualSize.height)) \
+            appeared as \(displayID) and left when it was released
+            """)
+    }
+
+    /// Whether the capture pipeline is offered the display, which is the difference between a
+    /// second monitor and a second monitor the phone can be shown.
+    ///
+    /// ScreenCaptureKit keeps a list of its own, and every filter the pipeline builds comes out
+    /// of that list: a display the window server has and ScreenCaptureKit does not is one the
+    /// catalogue cannot offer and no stream can be started from. Asked repeatedly rather than
+    /// once, because a display made a moment ago may not be in an enumeration cached on the far
+    /// side of a daemon, and reading the catalogue at all takes Screen Recording permission,
+    /// which is a reason to report that this went unchecked rather than to fail.
+    private static func checkCatalogueHas(_ displayID: CGDirectDisplayID) async throws {
+        let deadline = Date().addingTimeInterval(5)
+
+        while true {
+            let displays: [CaptureSourceDescriptor]
+            do {
+                displays = try await ScreenCaptureSourceResolver().catalog().displays
+            } catch {
+                log("catalogue: not checked, \(error.localizedDescription)")
+                return
+            }
+
+            if let row = displays.first(where: { $0.source == .display(displayID) }) {
+                log("""
+                    catalogue: offered as “\(row.title)” at \
+                    \(Int(row.pixelSize.width))×\(Int(row.pixelSize.height))
+                    """)
+                return
+            }
+
+            if Date() >= deadline {
+                let ids = displays.compactMap { descriptor -> UInt32? in
+                    if case .display(let id) = descriptor.source { return id }
+                    return nil
+                }.sorted()
+                throw ProbeError(message: """
+                    the display is on screen and ScreenCaptureKit does not enumerate it, so the \
+                    host would offer the phone every display except the one it made on purpose. \
+                    Displays it does list: \(ids.map(String.init).joined(separator: ", "))
+                    """)
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+    }
+
+    /// A display list as one line: each display's id, where macOS put it, and how big it is.
+    ///
+    /// The origin as well as the size, because where a new display lands is how the user finds
+    /// it: a display placed on top of another one comes with every window on top of it.
+    static func described(_ displays: [CGDirectDisplayID]) -> String {
+        guard !displays.isEmpty else { return "none" }
+        return displays.map { displayID in
+            let bounds = CGDisplayBounds(displayID)
+            return "\(displayID)@\(Int(bounds.origin.x)),\(Int(bounds.origin.y)) "
+                + "\(Int(bounds.width))×\(Int(bounds.height))"
+        }.joined(separator: " · ")
     }
 
     /// Renders an image to a `BGRA` buffer and reads it, at the size it was given.

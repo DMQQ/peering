@@ -1032,13 +1032,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// The user-facing name of a display, e.g. "Built-in Retina Display".
     ///
     /// `NSScreen` is the only source of these names — CoreGraphics reports a model number,
-    /// not a name. A panel that has no `NSScreen` (an unusual configuration, or a headless
-    /// process that never brought up AppKit) falls back to its identifier.
+    /// not a name. A panel that has no `NSScreen` (an unusual configuration, a headless
+    /// process that never brought up AppKit, or the virtual display the host made itself, which
+    /// AppKit never adopts at all) falls back to the name this process gave it and then to its
+    /// identifier. See ``VirtualDisplay/name(for:)``.
     private static func screenName(for displayID: CGDirectDisplayID) -> String? {
-        NSScreen.screens.first { screen in
+        let screen = NSScreen.screens.first { screen in
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
             return number?.uint32Value == displayID
-        }?.localizedName
+        }
+        return screen?.localizedName ?? VirtualDisplay.name(for: displayID)
     }
 }
 

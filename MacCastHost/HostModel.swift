@@ -326,6 +326,13 @@ final class HostModel {
     /// milliseconds without asking anything. See ``LidCloseSleepControl/restoreSleepSilently()``.
     func prepareForTermination() {
         publishHostWidgetState(listening: false)
+        // First, because it is the one thing here that changes the user's Mac in a way they would
+        // have to repair from outside this app: everything below is a setting being put back, and
+        // this is a monitor being taken away. The window server does collect a virtual display
+        // when the process holding it dies (measured on macOS 27, by killing one), but that is an
+        // undocumented courtesy of a private API, and the one outcome worth spending a few
+        // hundred milliseconds to not depend on.
+        removeVirtualDisplay()
         // Cancelled before the restore rather than after, so a check that is already in flight
         // cannot land on a model that is on its way out and put the switch back on.
         batteryWatchdog?.cancel()
@@ -435,6 +442,118 @@ final class HostModel {
     /// different moments.
     private func applyCaptureFormat() {
         coordinator?.setCaptureFormat(resolution: captureResolution, frameRate: captureFrameRate)
+    }
+
+    // MARK: - Virtual display
+
+    private static let virtualDisplayKey = "hostVirtualDisplay"
+
+    /// Whether this Mac is showing the phone-shaped display that exists only in software.
+    ///
+    /// Stored, because it is a change to the user's Mac rather than to a session: the display
+    /// comes back at the next launch if it was on at the last one, exactly as the switch says.
+    /// There is no case where the switch is on and the display is not: a failed creation turns the
+    /// switch back off and says why, because a monitor the user cannot see and a switch that
+    /// claims it is there are worse than either on its own.
+    private(set) var virtualDisplayEnabled = UserDefaults.standard.bool(forKey: HostModel.virtualDisplayKey)
+
+    /// Why the last attempt failed, if it did, for the row to show.
+    private(set) var virtualDisplayFailure: String?
+
+    /// Whether this Mac's system software has the API at all.
+    ///
+    /// Read by the row so the switch can be offered as off-and-unavailable rather than thrown and
+    /// failing, and by ``start()`` so a Mac that never had it does not try at every launch.
+    var canShowVirtualDisplay: Bool { VirtualDisplay.isAvailable }
+
+    /// What the virtual display is, which is also the size the row promises.
+    var virtualDisplaySize: String {
+        "\(Int(VirtualDisplay.phoneShaped.width))×\(Int(VirtualDisplay.phoneShaped.height))"
+    }
+
+    /// The display this host made, held for as long as it should exist.
+    ///
+    /// **The model is the owner, and that is the whole teardown design.** The display goes away
+    /// when the last reference to it does, so everything that has to take it down (the switch,
+    /// Stop, quitting, and a process that dies without either) comes down to this property
+    /// reaching `nil` or the process ending. Keeping it anywhere else (a view, a task, a static)
+    /// would be a monitor the user cannot get rid of.
+    private var virtualDisplay: VirtualDisplay?
+
+    /// Turns the phone-shaped display on or off, at the user's request.
+    ///
+    /// Synchronous, and deliberately: the display arrives in well under a second and the row's
+    /// switch has to end up where the display actually is, not where it was asked to be. The
+    /// only thing that makes this slow enough to notice is the wait for the window server to
+    /// take the display, which is bounded at three seconds by ``VirtualDisplay``.
+    func setVirtualDisplay(_ wanted: Bool) {
+        guard wanted != virtualDisplayEnabled else { return }
+
+        guard wanted else {
+            // The switch stays on if the display would not leave, and the row says why. A switch
+            // that reads off over a monitor that is still on screen is the one lie this row is
+            // arranged to make impossible, and it is the state the user cannot get out of.
+            guard removeVirtualDisplay() else { return }
+            virtualDisplayFailure = nil
+            virtualDisplayEnabled = false
+            UserDefaults.standard.set(false, forKey: Self.virtualDisplayKey)
+            record("Phone display removed")
+            // The catalogue is what the phone's picker is drawn from, and a source that is gone
+            // has to leave it as visibly as it arrived.
+            coordinator?.refreshCatalog()
+            return
+        }
+
+        guard canShowVirtualDisplay else {
+            let message = "This Mac's system software does not have the virtual display API."
+            virtualDisplayFailure = message
+            record("Phone display unavailable: \(message)", level: .failure)
+            return
+        }
+
+        do {
+            let display = try VirtualDisplay()
+            // Stored before anything else can fail, so a display that is on screen is one the
+            // model can always take away again.
+            virtualDisplay = display
+            virtualDisplayEnabled = true
+            virtualDisplayFailure = nil
+            UserDefaults.standard.set(true, forKey: Self.virtualDisplayKey)
+            record("""
+                Phone display on screen as \(display.displayID) · \
+                \(virtualDisplaySize) · pick it on the iPhone to arrange windows on
+                """)
+            coordinator?.refreshCatalog()
+        } catch {
+            virtualDisplay = nil
+            virtualDisplayEnabled = false
+            UserDefaults.standard.set(false, forKey: Self.virtualDisplayKey)
+            let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+            virtualDisplayFailure = message
+            record("Could not make the phone display: \(message)", level: .failure)
+        }
+    }
+
+    /// Takes the display away before the process does, and reports whether it went.
+    ///
+    /// Called from the switch, from Stop, and from the termination hook, because a display that
+    /// outlives the app is the one failure of this feature the user cannot repair from inside it.
+    /// The wait is inside ``VirtualDisplay/remove()``; at quit there is time for it, and the
+    /// alternative is a phantom monitor.
+    ///
+    /// **Kept rather than dropped when it will not leave.** This property is the app's only handle
+    /// on the display, so forgetting a display that is still on screen would be forgetting the
+    /// monitor the user is looking at, which is the one thing here that cannot be undone.
+    @discardableResult
+    private func removeVirtualDisplay() -> Bool {
+        guard let display = virtualDisplay else { return true }
+        guard display.remove() else {
+            virtualDisplayFailure = "The phone display is still on screen and did not go away."
+            record("The phone display did not go away when it was released", level: .failure)
+            return false
+        }
+        virtualDisplay = nil
+        return true
     }
 
     // MARK: - Lifecycle
@@ -716,6 +835,25 @@ final class HostModel {
             record(message)
             self.server = nil
         }
+
+        // Last, deliberately. The display takes a few hundred milliseconds to appear and this
+        // waits for it, and nothing above is waiting on the display: a client that connects during
+        // those milliseconds is served a catalogue without it and pushed a second one when it
+        // arrives, which is the path a display made by hand takes as well.
+        restoreVirtualDisplay()
+    }
+
+    /// Brings back the phone-shaped display if the switch was on when this Mac was last quit.
+    ///
+    /// Two lines rather than one because the switch is turned off first: ``setVirtualDisplay(_:)``
+    /// refuses a request that matches the state it already believes, and at this point the belief
+    /// comes from `UserDefaults` while the display itself is known not to exist. Turning the flag
+    /// off first is what makes this a request to *show* the display rather than a no-op, and it
+    /// leaves the two in step if that request fails.
+    private func restoreVirtualDisplay() {
+        guard virtualDisplayEnabled, virtualDisplay == nil else { return }
+        virtualDisplayEnabled = false
+        setVirtualDisplay(true)
     }
 
     func stop() {
@@ -726,6 +864,9 @@ final class HostModel {
         // depending on how far their handshake had got, so this does not wait on them.
         input.releaseAll()
         setPrivacyMode(false)
+        // Before the listener goes, and before the process can outlive it: a stopped host that
+        // has left a monitor behind is the one state the user cannot repair from the window.
+        removeVirtualDisplay()
         server?.stop()
         server = nil
         relayRegistration?.stop()
