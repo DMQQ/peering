@@ -14,7 +14,7 @@ import RemoteCore
 /// `CapturePipeline`, its real `CaptureEngine` and its real `VideoEncoder`, and then asks
 /// AVFoundation to decode what came out.
 ///
-/// Four modes, and the two pairs are the point:
+/// The capture modes, and the pairs among them, are the point:
 ///
 /// - `--source` (the default) is the real thing: ScreenCaptureKit, TCC, a display or a
 ///   window. It needs Screen Recording permission, and without it, it fails loudly.
@@ -25,6 +25,11 @@ import RemoteCore
 ///   intake, the keyframe bookkeeping, the statistics, the hand-off of encoded frames —
 ///   and nothing below it. Neither can prove ScreenCaptureKit itself, which is exactly
 ///   what the real mode is for.
+/// - `--resources` is the one mode whose subject is this process rather than the screen: it
+///   samples the app's own CPU, memory and network on the host window's own timer and prints
+///   each reading, then what the sampler costs per reading. No permission, no catalogue, no
+///   client, and `--burn` gives it a known load so a reading that does not move is visible as
+///   the failure it is.
 ///
 /// Everything it prints is a fact about the machine it ran on. The two failure modes it is
 /// built to make loud are the ones that are otherwise silent:
@@ -74,6 +79,13 @@ struct CaptureProbe {
         var composeCheck = false
         /// Ask the system for Screen Recording, which puts a prompt on screen.
         var requestAccess = false
+        /// Sample this process's own CPU, memory and network, and print what it costs.
+        var resources = false
+        /// How many threads to keep busy in this process while sampling it. See
+        /// ``runResources(_:)`` for why the probe loads itself.
+        var burners = 0
+        /// The interval between resource samples, in seconds.
+        var interval: Double = 2
 
         mutating func parse(_ arguments: ArraySlice<String>) throws {
             var iterator = arguments.makeIterator()
@@ -134,6 +146,21 @@ struct CaptureProbe {
                 case "--compose-check":
                     composeCheck = true
 
+                case "--resources":
+                    resources = true
+
+                case "--burn":
+                    guard let value = iterator.next(), let count = Int(value), count >= 0 else {
+                        throw ProbeError(message: "--burn needs a thread count, zero or more")
+                    }
+                    burners = count
+
+                case "--interval":
+                    guard let value = iterator.next(), let seconds = Double(value), seconds > 0 else {
+                        throw ProbeError(message: "--interval needs a positive number of seconds")
+                    }
+                    interval = seconds
+
                 case "--request-access":
                     requestAccess = true
 
@@ -152,7 +179,7 @@ struct CaptureProbe {
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
                                 [--mosaic A,B,…] [--canvas WxH] [--compose-check]
-                                [--request-access]
+                                [--request-access] [--resources [--burn N] [--interval S]]
 
               --seconds N      how long to capture for (default 3)
               --output PATH    where to write the movie (default /tmp/maccast-capture-probe.mov)
@@ -174,6 +201,14 @@ struct CaptureProbe {
                                capture at a time, and it needs Screen Recording
               --request-access ask the system for Screen Recording, which puts a prompt on
                                screen and blocks until it is answered
+              --resources      sample this process's own CPU, memory and network for --seconds
+                               and print each reading, then what the sampler itself costs. The
+                               same code the host window runs, over a synthetic byte counter
+                               rising at a known rate. Needs no permission
+              --burn N         keep N threads busy inside this process while sampling it, so a
+                               figure that rose is this process's own work and a figure that
+                               stayed flat while the machine was busy is the point of the panel
+              --interval S     seconds between resource samples (default 2)
             """
         }
     }
@@ -185,6 +220,14 @@ struct CaptureProbe {
         try options.parse(CommandLine.arguments.dropFirst())
 
         log("host capture probe")
+
+        // Before the preflight, because this mode measures the process and not the screen: it
+        // works with Screen Recording denied, which is also the state a Mac is in the first time
+        // somebody wonders whether the app is heavy.
+        if options.resources {
+            try await runResources(options)
+            return
+        }
 
         // Preflight only reports; it never asks. An app that only ever preflights can sit
         // there permanently denied and show a generic failure. `--request-access` is the one
@@ -241,6 +284,92 @@ struct CaptureProbe {
             // in the picker, and identical in the protocol. Only here do they differ.
             let icon = descriptor.iconPNGData.map { "\($0.count) B" } ?? "none"
             log("  \(descriptor.id.padding(toLength: 24, withPad: " ", startingAt: 0)) \(size.padding(toLength: 12, withPad: " ", startingAt: 0)) \(icon.padding(toLength: 7, withPad: " ", startingAt: 0)) \(descriptor.title)")
+        }
+    }
+
+    // MARK: - Resources
+
+    /// What this process costs, sampled the way the host window samples it.
+    ///
+    /// **The run that matters is the one where the Mac is busy and these numbers stay flat.** A
+    /// figure that was really about the machine would look right in every idle run and be
+    /// useless in the only situation the panel exists for, which is somebody wondering whether
+    /// the thing running is this app or the ten other things they have open. `--burn` loads
+    /// *this process*, and the check is that the figure rises; run it against a busy Mac with no
+    /// load of its own and the check is that it does not move at all.
+    ///
+    /// The byte counter is synthetic, because in the host it comes from the streamer and there
+    /// is no streamer here. It rises at a fixed 250 KB/s, so every rate this prints has an
+    /// answer known in advance: the arithmetic between two readings being exactly the part
+    /// that is silently wrong whenever it is wrong.
+    static func runResources(_ options: Options) async throws {
+        let cores = ProcessInfo.processInfo.activeProcessorCount
+        let syntheticBytesPerSecond = 250_000.0
+        log("resource probe · this process only · \(cores) cores")
+        log("""
+            sampling every \(options.interval)s for \(options.seconds)s\
+            \(options.burners > 0 ? ", with \(options.burners) thread(s) burning CPU here" : "")
+            """)
+
+        let burners = startBurners(options.burners)
+        defer { burners.forEach { $0.cancel() } }
+
+        var sampler = HostResourceSampler()
+        let began = ProcessInfo.processInfo.systemUptime
+        // One reading before the first sleep, so the interval that is being measured starts
+        // here. Sleeping first would throw away the first figure and make every run take one
+        // interval longer than it says it does, which is the window's own arrangement too.
+        sampler.sample(bytesSent: 0)
+        while ProcessInfo.processInfo.systemUptime - began < options.seconds {
+            try? await Task.sleep(for: .seconds(options.interval))
+            let elapsed = ProcessInfo.processInfo.systemUptime - began
+            sampler.sample(bytesSent: UInt64(elapsed * syntheticBytesPerSecond))
+            log(reading(sampler))
+        }
+
+        burners.forEach { $0.cancel() }
+
+        // What the sampler itself costs, which is worth an answer because it runs on the same
+        // machine as the encoder. A thousand readings rather than one: a single `task_info` is
+        // below the resolution of anything here that could time it.
+        var counter = HostResourceSampler()
+        let iterations = 1000
+        let costBegan = ProcessInfo.processInfo.systemUptime
+        for index in 0..<iterations {
+            counter.sample(bytesSent: UInt64(index))
+        }
+        let each = (ProcessInfo.processInfo.systemUptime - costBegan) / Double(iterations)
+        log(String(format: "sampler cost: %.2f µs per reading", each * 1_000_000))
+    }
+
+    /// One line per sample, in the words and the format the host window uses.
+    private static func reading(_ sampler: HostResourceSampler) -> String {
+        guard let rates = sampler.rates else {
+            return "warming up · no interval yet"
+        }
+        return "cpu \(HostResourceSampler.cpuPercent(rates)) of this Mac "
+            + "(\(HostResourceSampler.percent(rates.cpuOfOneCore)) of one core) · "
+            + "memory \(HostResourceSampler.memoryText(sampler.memoryBytes)) · "
+            + "sent \(HostResourceSampler.networkText(rates.bytesPerSecond))"
+    }
+
+    /// Keeps `count` threads busy in this process until they are cancelled.
+    ///
+    /// A detached task per burner rather than one task doing arithmetic in a loop: CPU time is
+    /// charged per thread, so one thread burning loses in the figure to the eight cores it is
+    /// not using, and the whole point of the mode is a reading that moves.
+    private static func startBurners(_ count: Int) -> [Task<UInt64, Never>] {
+        (0..<count).map { _ in
+            Task.detached(priority: .high) {
+                var value: UInt64 = 0x9E37_79B9_7F4A_7C15
+                while !Task.isCancelled {
+                    // A linear congruential step per spin, and the value is returned rather
+                    // than discarded: the compiler is free to delete a loop whose result
+                    // nothing wants, and a deleted loop is a burner that measures nothing.
+                    value = value &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+                }
+                return value
+            }
         }
     }
 

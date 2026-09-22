@@ -185,6 +185,22 @@ final class HostModel {
         return catalog.all.first { $0.source == capturingSource }?.title
     }
 
+    /// Everything this app has put on the network since it started, picture and sound.
+    ///
+    /// A counter rather than a rate, because a rate is a subtraction between two readings and
+    /// the resources panel is where that subtraction happens: see `ResourceMeter`, which is
+    /// where it is tested. `nil` before there is a coordinator at all, which is a different
+    /// answer from a coordinator that has sent nothing: the first is "this app is not hosting
+    /// yet", the second is a zero the panel can print.
+    var streamedBytes: UInt64? {
+        guard let stats = coordinator?.streamStatistics else { return nil }
+        // The two are counted separately because they are different kinds of traffic, and added
+        // here because a user asking what this app sends is asking about the total. Widened on
+        // the way out: the streamer counts in `Int`, and a byte count that has reached the
+        // panel is a byte count with a sign it does not want.
+        return UInt64(max(0, stats.bytesSent + stats.audioBytesSent))
+    }
+
     /// The last name each device gave when it connected.
     ///
     /// A trusted device is stored as a pin, and a pin is a public key — there is no name in it.
