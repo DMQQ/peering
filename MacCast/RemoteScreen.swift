@@ -239,6 +239,7 @@ struct RemoteScreen: View {
                 Color.black.ignoresSafeArea()
 
                 video
+                mosaicOverlay
                 clientCursor
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)

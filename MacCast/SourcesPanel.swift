@@ -38,6 +38,8 @@ struct SourcesPanel: View {
 
             if buildingMosaic {
                 mosaicPicker
+            } else if !model.mosaicTiles.isEmpty {
+                mosaicArrangement
             } else {
                 mosaicEntry
             }
@@ -123,6 +125,86 @@ struct SourcesPanel: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    /// The arrangement that is on screen, as a list that can be rearranged.
+    ///
+    /// **A row per tile, because the order is the picture.** Moving a source up this list moves
+    /// it up the mosaic, so the arrangement is edited by editing a list rather than by dragging
+    /// over live video — which is the same control for a thumb, works with VoiceOver, and needs
+    /// no geometry at all. Sizes are what a freeform editor would add; positions are already
+    /// here.
+    @ViewBuilder
+    private var mosaicArrangement: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("This mosaic")
+
+            ForEach(Array(model.mosaicTiles.enumerated()), id: \.offset) { index, source in
+                HStack(spacing: 10) {
+                    // The number is the tile's place in the grid, which is the thing being
+                    // changed, rather than a decorative index.
+                    Text("\(index + 1)")
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(ColorPalette.accent)
+                        .frame(width: 20, height: 20)
+                        .overlay(Circle().stroke(ColorPalette.accent, lineWidth: 1.5))
+
+                    // The catalogue's own name for it, and a plain word when there is none: a
+                    // window that has closed leaves a tile behind, and a row that went blank
+                    // would be the one thing in this list with nothing to act on.
+                    Text(model.catalog?.descriptor(for: source)?.title ?? "A window")
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    // Up and down rather than a drag handle: the grid is filled in reading
+                    // order, so up and down along the list *is* left to right and top to
+                    // bottom across the picture, and a button says which way it will go.
+                    Button {
+                        model.moveMosaicTile(from: index, to: index - 1)
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index == 0)
+                    .opacity(index == 0 ? 0.3 : 1)
+
+                    Button {
+                        model.moveMosaicTile(from: index, to: index + 1)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index == model.mosaicTiles.count - 1)
+                    .opacity(index == model.mosaicTiles.count - 1 ? 0.3 : 1)
+
+                    Button {
+                        model.removeMosaicTile(at: index)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .rowSurface()
+            }
+
+            Button {
+                picked = model.mosaicTiles.compactMap { model.catalog?.descriptor(for: $0) }
+                buildingMosaic = true
+            } label: {
+                Text("Add or remove windows")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(ColorPalette.accent)
+            }
+            .buttonStyle(.plain)
         }
     }
 

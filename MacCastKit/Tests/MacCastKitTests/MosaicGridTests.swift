@@ -116,6 +116,41 @@ struct MosaicGridTests {
         #expect(MosaicGrid.tileIndex(at: NormalizedPoint(x: 1.2, y: 0.5), in: layout) == nil)
     }
 
+    @Test("a tile's rectangle on screen is the cursor mapping, applied to a rect")
+    func rectMapping() {
+        let bounds = CGSize(width: 800, height: 400)
+        let pixels = CGSize(width: 1920, height: 1080)
+        let rect = NormalizedRect(x: 0.5, y: 0, width: 0.5, height: 0.5)
+
+        // **One mapping, two shapes.** The borders are drawn around the same picture the cursor
+        // is drawn on, so a rect that did not go through the cursor's own function would be the
+        // one thing on screen that is a zoom factor out.
+        for (zoom, pan) in [(CGFloat(1), CGSize.zero), (2.5, CGSize(width: -30, height: 12))] {
+            let mapped = CanvasGeometry.rect(
+                normalized: rect, bounds: bounds, pixelSize: pixels, zoom: zoom, pan: pan
+            )
+            let topLeft = CanvasGeometry.point(
+                normalized: NormalizedPoint(x: 0.5, y: 0), bounds: bounds, pixelSize: pixels, zoom: zoom, pan: pan
+            )
+            let bottomRight = CanvasGeometry.point(
+                normalized: NormalizedPoint(x: 1, y: 0.5), bounds: bounds, pixelSize: pixels, zoom: zoom, pan: pan
+            )
+            #expect(mapped != nil)
+            guard let mapped, let topLeft, let bottomRight else { return }
+            #expect(abs(mapped.minX - topLeft.x) < 0.001)
+            #expect(abs(mapped.minY - topLeft.y) < 0.001)
+            #expect(abs(mapped.maxX - bottomRight.x) < 0.001)
+            #expect(abs(mapped.maxY - bottomRight.y) < 0.001)
+            #expect(mapped.width > 0 && mapped.height > 0)
+        }
+
+        // And with nothing to map into it says so rather than returning a rect at the origin,
+        // which would be a border drawn around the corner of the screen.
+        #expect(CanvasGeometry.rect(
+            normalized: rect, bounds: .zero, pixelSize: pixels, zoom: 1, pan: .zero
+        ) == nil)
+    }
+
     @Test("no sources is no mosaic, and one source is a mosaic of one")
     func counts() {
         #expect(MosaicGrid.layout(sources: [], viewport: phone) == nil)

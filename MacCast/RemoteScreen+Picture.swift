@@ -97,6 +97,37 @@ extension RemoteScreen {
         .ignoresSafeArea()
     }
 
+    /// The tiles' edges and names, when what is on screen is an arrangement.
+    ///
+    /// **Mapped through the same call the cursor goes through**, with the same zoom and pan, so
+    /// the borders cannot drift from the picture they are drawn around: both are the letterboxed
+    /// rect moved by the canvas's transform, and there is one expression of that in the app.
+    ///
+    /// Drawn only while the mosaic is the picture. Selecting a tile leaves the arrangement behind
+    /// in every way that matters, and a border drawn around a single window would be the app
+    /// describing a grid that is no longer on screen.
+    var mosaicOverlay: some View {
+        Group {
+            if let layout = model.mosaicLayout, model.isShowingMosaic {
+                MosaicOverlay(placed: layout.tiles.enumerated().compactMap { index, tile in
+                    guard let rect = CanvasGeometry.rect(
+                        normalized: tile.rect,
+                        bounds: canvasSize,
+                        pixelSize: model.capturePixelSize,
+                        zoom: effectiveZoom,
+                        pan: pan
+                    ) else { return nil }
+                    return MosaicOverlay.Placed(
+                        id: index,
+                        rect: rect,
+                        title: model.catalog?.descriptor(for: tile.source)?.title
+                    )
+                })
+            }
+        }
+        .ignoresSafeArea()
+    }
+
     /// How much the picture has to grow to reach the screen's edges.
     ///
     /// A captured window is usually a different shape from a phone held sideways, so the fitted

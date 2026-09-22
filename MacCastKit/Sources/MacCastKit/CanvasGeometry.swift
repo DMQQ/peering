@@ -86,6 +86,37 @@ public enum CanvasGeometry {
         return NormalizedPoint(x: Double(min(max(x, 0), 1)), y: Double(min(max(y, 0), 1)))
     }
 
+    /// The same mapping as ``point(normalized:bounds:pixelSize:zoom:pan:)``, for a rectangle.
+    ///
+    /// Two corners through that function rather than the arithmetic written out a second time.
+    /// The zoom and the pan have to be applied to a rect exactly as they are to a point, and a
+    /// second copy of the mapping is how the drawn tile borders and the drawn remote cursor come
+    /// apart — one of them one zoom factor out from the picture, which is the kind of wrong that
+    /// reads as a rendering bug rather than as a coordinate bug.
+    public static func rect(
+        normalized: NormalizedRect,
+        bounds: CGSize,
+        pixelSize: CGSize?,
+        zoom: CGFloat,
+        pan: CGSize
+    ) -> CGRect? {
+        let rect = normalized.clamped
+        guard let topLeft = point(
+            normalized: NormalizedPoint(x: rect.x, y: rect.y),
+            bounds: bounds, pixelSize: pixelSize, zoom: zoom, pan: pan
+        ), let bottomRight = point(
+            normalized: NormalizedPoint(x: rect.x + rect.width, y: rect.y + rect.height),
+            bounds: bounds, pixelSize: pixelSize, zoom: zoom, pan: pan
+        ) else { return nil }
+
+        return CGRect(
+            x: min(topLeft.x, bottomRight.x),
+            y: min(topLeft.y, bottomRight.y),
+            width: abs(bottomRight.x - topLeft.x),
+            height: abs(bottomRight.y - topLeft.y)
+        )
+    }
+
     /// Places a normalized remote pointer back into the exact canvas coordinate space used by
     /// ``normalized(point:bounds:pixelSize:zoom:pan:)``.
     public static func point(

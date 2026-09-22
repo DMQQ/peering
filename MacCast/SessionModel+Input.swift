@@ -156,6 +156,46 @@ extension SessionModel {
         selectSource(layout.tiles[index].source)
     }
 
+    /// The sources in the arrangement that is on screen, in the order they are laid out.
+    var mosaicTiles: [CaptureSource] { mosaicLayout?.tiles.map(\.source) ?? [] }
+
+    /// Moves a tile within the arrangement.
+    ///
+    /// **The order *is* the arrangement.** The grid is filled in reading order, so moving a
+    /// source up the list moves it up the picture, and there is no second thing to keep in step:
+    /// no rectangle to store per tile, no drag to interpret over live video, and nothing a
+    /// freeform editor would have to replace later. What a full editor would add on top of this
+    /// is *sizes* rather than positions, which is why this is worth having on its own.
+    func moveMosaicTile(from source: Int, to destination: Int) {
+        guard var sources = mosaicLayout?.tiles.map(\.source),
+              sources.indices.contains(source),
+              sources.indices.contains(destination),
+              source != destination
+        else { return }
+        let moved = sources.remove(at: source)
+        sources.insert(moved, at: destination)
+        showMosaic(sources)
+    }
+
+    /// Takes one window out of the arrangement and redraws the rest.
+    func removeMosaicTile(at index: Int) {
+        guard var sources = mosaicLayout?.tiles.map(\.source),
+              sources.indices.contains(index)
+        else { return }
+        sources.remove(at: index)
+
+        // **A mosaic of one is not a mosaic.** Taking the second-to-last tile away leaves one
+        // window on screen, and the honest thing to show is that window on its own — an ordinary
+        // source switch, with the input and the sharpness that come with it — rather than a
+        // canvas holding a single tile in the corner of a grid built for two. The arrangement is
+        // dropped with it, by the same rule that drops it when any other source is chosen.
+        guard sources.count > 1 else {
+            if let only = sources.first { selectSource(only) }
+            return
+        }
+        showMosaic(sources)
+    }
+
     /// Goes back to the whole arrangement.
     func returnToMosaic() {
         guard let layout = mosaicLayout else { return }
