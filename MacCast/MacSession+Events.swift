@@ -92,6 +92,14 @@ extension MacSession {
                 videoStatus = "Disconnected"
             }
             if phase == .ready {
+                // **Read here because the line below is about to overwrite it, and used further
+                // down.** `hasBeenReady` is how a reconnect is told from a connection, and the
+                // record a drop filed is continued by the first and a new one started by the
+                // second. The line below records that *this attempt* came up, which is a different
+                // fact and is true of every connection by the time its record is begun. What is
+                // read here is the value the ladder carried onto this object; see
+                // ``SessionModel/connect(to:replacing:)``, which is where it crosses the dial.
+                let hadBeenReady = hasBeenReady
                 hasBeenReady = true
                 // A session that came up is not a session that was cut, whatever the last one
                 // did. Cleared here so a drop that was followed by a working reconnect cannot
@@ -103,7 +111,9 @@ extension MacSession {
                 if previous != .ready {
                     model.reconnectAttempt = 0
                     sessionStartedAt = Date()
-                    beginSessionHistory()
+                    // The one place the two facts meet: this Mac is up, and whether it had been up
+                    // before decides whether that is a session being filed or one being continued.
+                    beginSessionHistory(resuming: hadBeenReady)
                     UserDefaults.standard.set(true, forKey: SessionModel.resumeKey)
                     // Record the last-connected timestamp for the Trusted Macs list.
                     if let id = hostID {

@@ -1049,8 +1049,9 @@ final class SessionOfferPolicyTests: XCTestCase {
 @MainActor
 final class ClientSessionRecordTests: XCTestCase {
     private func encodedWithoutDirectPath() -> Data {
-        // Exactly what this app wrote before `usedDirectPath` existed: every key the type had,
-        // and no key for the new one.
+        // Exactly what this app wrote before any of the fields it has grown since: every key the
+        // type had then, and no key for `usedDirectPath`, `connectedSeconds` or
+        // `endedDeliberately`.
         let json = """
         {
           "id": "3B4E4A5C-0000-4000-8000-000000000001",
@@ -1082,6 +1083,31 @@ final class ClientSessionRecordTests: XCTestCase {
         XCTAssertFalse(record.usedDirectPath, "an old record has to decode as one that did not punch")
     }
 
+    /// **A record written before a session could be continued.** Nothing was merged when these
+    /// were written, so the only answer available for its connected time is its span; and it has
+    /// to *behave* as one too, which is what the meter is asked below, because a default that only
+    /// decodes is a default that stops a session being charged for.
+    func testARecordWrittenWithoutConnectedTimeDecodesAsItsSpan() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let record = try decoder.decode(
+            ClientSessionRecord.self, from: encodedWithoutDirectPath()
+        )
+
+        XCTAssertEqual(record.duration, 90, "the two dates the fixture carries")
+        XCTAssertEqual(record.connectedSeconds, record.duration)
+        XCTAssertEqual(
+            RelayAllowance.secondsUsed(records: [record], windowStart: .distantPast, liveRelaySeconds: []),
+            90,
+            "and the allowance spends all of it, which is what this record's app believed"
+        )
+        XCTAssertTrue(
+            record.endedDeliberately,
+            "no reconnect may claim a record written before a session could be continued"
+        )
+    }
+
     /// And the new field round-trips, or filing it would be pointless.
     func testThePathSurvivesBeingWrittenAndReadBack() throws {
         let encoder = JSONEncoder()
@@ -1107,5 +1133,36 @@ final class ClientSessionRecordTests: XCTestCase {
 
         XCTAssertTrue(decoded.usedDirectPath)
         XCTAssertEqual(decoded.path, .relay, "a punched session is still a relay session to the meter")
+    }
+
+    /// And the two fields a continued session is filed with round-trip as well, because a record
+    /// that came back from disk without them would be charged for its whole span and could be
+    /// continued a second time.
+    func testConnectedTimeSurvivesBeingWrittenAndReadBack() throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .secondsSince1970
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let record = ClientSessionRecord(
+            id: UUID(),
+            hostID: "3B4E4A5C",
+            hostName: "Studio",
+            startedAt: Date(timeIntervalSince1970: 760_000_000),
+            endedAt: Date(timeIntervalSince1970: 760_003_600),
+            path: .relay,
+            videoBytesReceived: 0,
+            logs: [],
+            connectedSeconds: 300,
+            endedDeliberately: true
+        )
+
+        let decoded = try decoder.decode(
+            ClientSessionRecord.self, from: encoder.encode(record)
+        )
+
+        XCTAssertEqual(decoded.connectedSeconds, 300, "an hour of span, five minutes of it connected")
+        XCTAssertEqual(decoded.duration, 3_600)
+        XCTAssertTrue(decoded.endedDeliberately)
     }
 }

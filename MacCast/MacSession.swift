@@ -521,11 +521,29 @@ final class MacSession: Identifiable {
 
     // MARK: - Session history
 
+    /// How many notes a record's log keeps.
+    ///
+    /// One number for a session that is up and for the record it becomes, because the record is
+    /// written to `UserDefaults` and read back at launch, so this is a size as much as a limit.
+    /// Shared rather than written twice at the two ceilings, which is what a session continued
+    /// across a drop would otherwise grow past, one segment at a time.
+    static let sessionLogLimit = 40
+
     var activeSessionHistoryID: UUID?
     var activeSessionHistoryStartedAt: Date?
     var activeSessionBytes: Int64 = 0
     var lastBandwidthSampleBytes: Int64 = 0
     var activeSessionLogs: [String] = []
+
+    /// The record a dropped session left in the history that this session is going on being, if
+    /// this session is a reconnect rather than a connection.
+    ///
+    /// **Held as the record's identity and totals rather than as its index**, because the history
+    /// is not frozen while a session is up: another Mac can finish and file while this one is
+    /// running, and the list moves under anything positional. It is read once, when the record
+    /// starts, and spent when the record is filed. See ``SessionContinuation`` for the rule that
+    /// decides whether there is one at all.
+    var activeSessionContinuation: SessionContinuation?
 
     /// Whether this is the Mac the user is looking at.
     var isActive: Bool { model.activeSessionID == id }
@@ -956,8 +974,8 @@ final class MacSession: Identifiable {
         if notes.count > 12 { notes.removeFirst(notes.count - 12) }
         if activeSessionHistoryID != nil {
             activeSessionLogs.append(note)
-            if activeSessionLogs.count > 40 {
-                activeSessionLogs.removeFirst(activeSessionLogs.count - 40)
+            if activeSessionLogs.count > Self.sessionLogLimit {
+                activeSessionLogs.removeFirst(activeSessionLogs.count - Self.sessionLogLimit)
             }
         }
     }
