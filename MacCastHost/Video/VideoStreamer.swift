@@ -30,6 +30,10 @@ final class VideoStreamer: @unchecked Sendable {
         var bytesSent = 0
         var audioFramesSent = 0
         var audioFramesDropped = 0
+        /// Sound's share of ``bytesSent``, counted the same way and apart from it so that a
+        /// session's total can be reported as one figure while this one is still there to be
+        /// checked when a stream costs more than the picture explains.
+        var audioBytesSent = 0
         /// Frames discarded because they arrived while a keyframe was owed. Counted apart
         /// from ``dropped`` because the two say different things: `dropped` means the link
         /// is behind, and this means the stream is waiting to restart. A number that is
@@ -592,8 +596,13 @@ final class VideoStreamer: @unchecked Sendable {
                         self._stats.sent += 1
                         self._stats.bytesSent += frame.data.count + EncodedVideoFrame.headerSize
                         if frame.isKeyframe { self._stats.keyframesSent += 1 }
-                    case .audio:
+                    case .audio(let frame):
                         self._stats.audioFramesSent += 1
+                        // Counted here rather than at the encoder for the same reason the video
+                        // bytes are: a frame that was offered but never left is not bandwidth.
+                        // Sound is a small share of the total and it is the share that is
+                        // easiest to forget, which is exactly why it is worth the line.
+                        self._stats.audioBytesSent += frame.samples.count + EncodedAudioFrame.headerSize
                     case .audioConfig:
                         break
                     }

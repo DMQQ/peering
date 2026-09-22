@@ -24,6 +24,7 @@
 		D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FF02305B000100ABF943 /* SSHCore */; };
 		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
 		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
+		D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* MacCastKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -183,6 +184,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C2B2281E306093ED008FB38C /* Sparkle in Frameworks */,
+				D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */,
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -352,6 +354,7 @@
 			name = MacCastHost;
 			packageProductDependencies = (
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
+				D4C0FFA7305B000100ABF943 /* MacCastKit */,
 				E1A00002305B000100ABF943 /* Sparkle */,
 			);
 			productName = MacCastHost;
@@ -1167,6 +1170,10 @@
 			productName = MacCastKit;
 		};
 		D4C0FFA3305B000100ABF943 /* MacCastKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MacCastKit;
+		};
+		D4C0FFA7305B000100ABF943 /* MacCastKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MacCastKit;
 		};

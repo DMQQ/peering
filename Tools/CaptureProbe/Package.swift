@@ -19,11 +19,18 @@ let package = Package(
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(path: "../../RemoteCore"),
+        // The host's own resource sampler is compiled here too, and it takes its arithmetic
+        // from MacCastKit, so the probe measures this process with the same subtraction, the
+        // same reset handling and the same rounding the window shows.
+        .package(path: "../../MacCastKit"),
     ],
     targets: [
         .executableTarget(
             name: "CaptureProbe",
-            dependencies: [.product(name: "RemoteCore", package: "RemoteCore")],
+            dependencies: [
+                .product(name: "RemoteCore", package: "RemoteCore"),
+                .product(name: "MacCastKit", package: "MacCastKit"),
+            ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
