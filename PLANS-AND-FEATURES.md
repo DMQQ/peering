@@ -443,19 +443,42 @@ get. (A "Report an issue" row now exists in Settings, in both the iOS app and th
    and it is the difference between hearing about an outage from a monitor and from a user.
 3. **Test the file browser for real.** Nothing in either phase has ever run against a live
    server: enable Remote Login on the Mac or point a shell at a VPS.
-4. Implement the gates in §2 against the single plan value.
-5. Set the real prices in App Store Connect, then update the site.
+4. ~~**Implement the gates in §2 against the single plan value.**~~ **Done.** Every gate in the app
+   asks `PlanCapability`, the badges and the lock messages read `minimumPlan` from it, and the map
+   is held to the cards by `PlanAccessTests`.
+5. **Set the real prices in App Store Connect, then update the site.** Open, and the two copies in
+   this repository disagree with this document: `Relay/site/index.html` and `Config/Products.storekit`
+   both say $2.99 / $5.99 / $9.99 a month and $19.99 / $44.99 / $79.99 a year, while the note below
+   states $4.99 / $14.99 / $39.99. One of the two is wrong and only the owner can say which, because
+   App Store Connect is the authority and neither file is. Do not change one without the other.
 6. Wire the relay's UDP video path (see the correction in §5) — the server half is finished.
-7. Consider hole punching before a second relay.
+7. ~~**Consider hole punching before a second relay.**~~ **Shipped.** The direct path is built and
+   default-on: the video socket is an unconnected BSD socket on one local port with two
+   destinations, and both ends knock. What it buys is on `ClientSessionRecord`: `path` says whether
+   a session went over the LAN, the relay or a punched path, and `usedDirectPath` says whether the
+   picture went around the relay on a session the relay is still splicing. Nothing reads those two
+   as a number yet, which is the first thing a second region should be decided on.
 
 **Done since this document was written:** the relay ships a systemd unit and a `/healthz` (both
 tested, the endpoint verified running); the Mac host has an "Open at login" setting (it had none,
 so a reboot silently ended remote access); and both apps have a "Copy diagnostics" button.
 
-**Done since (20 September):** the site and `Config/Products.storekit` now agree on the same three
-prices, $4.99 a month, $14.99 a month and $39.99 a year, so local testing shows what a visitor is
-told. Neither of them is the authority: **App Store Connect is**, and it has not been set. Type
-these three in there, or change both files together, but do not change one alone.
+**Done since (22 September), on `welcome-flow-and-fixes`:** the connection screen is three tabs with
+the layout decisions a wide display needs in `AdaptiveLayout`; **terminal alerts** became a paid row
+(`terminalAlerts`, Relay) gated over both deliveries, the banner the phone raises and the push the
+Mac sends through the relay when no session is open; the plan is re-read when the app comes back to
+the front, which is what stops a subscription that lapsed under a running app from keeping its
+gates; **the mosaic** (`mosaic`, Pro) composites several of the Mac's windows into one picture on
+the Mac side and arranges them on the phone; and 202609220 was pulled, with the DMG's missing
+Applications alias and the edge cache that was serving the previous image both fixed in
+`Tools/deploy-site.sh` and the release notes.
+
+**On the prices, corrected:** the note that used to sit here claimed the site and
+`Config/Products.storekit` agree at $4.99 / $14.99 / $39.99. They agree on nothing of the sort.
+Both files say **$2.99 / $5.99 / $9.99 a month** and **$19.99 / $44.99 / $79.99 a year**, and this
+document was the only place the other three numbers appeared. Neither file is the authority:
+**App Store Connect is**, and it has not been set. Type the three in there, or change both files
+together to match it, but do not change one alone, and do not trust this paragraph over the files.
 
 **Done since, and verified:** the relay now verifies the StoreKit transaction instead of trusting
 the plan the client claims — the JWS is checked against Apple Root CA - G3, pinned in this
