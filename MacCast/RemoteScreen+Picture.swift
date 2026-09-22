@@ -106,6 +106,40 @@ extension RemoteScreen {
     /// Drawn only while the mosaic is the picture. Selecting a tile leaves the arrangement behind
     /// in every way that matters, and a border drawn around a single window would be the app
     /// describing a grid that is no longer on screen.
+    /// Where one tile of the arrangement is on screen, or `nil` when there is no arrangement.
+    ///
+    /// The same ``CanvasGeometry`` call the borders are drawn with and the cursor is mapped
+    /// through, so a tile's outline and the tap that opened it cannot disagree about where the
+    /// tile is.
+    func mosaicTileRect(_ index: Int) -> CGRect? {
+        guard let layout = model.mosaicLayout, layout.tiles.indices.contains(index) else {
+            return nil
+        }
+        return CanvasGeometry.rect(
+            normalized: layout.tiles[index].rect,
+            bounds: canvasSize,
+            pixelSize: model.capturePixelSize,
+            zoom: effectiveZoom,
+            pan: pan
+        )
+    }
+
+    /// A tile being opened: its outline travelling out to the edges of the screen.
+    ///
+    /// **Outside the `isShowingMosaic` branch on purpose**, because by the time this is drawn the
+    /// arrangement has already been left — that is what choosing a tile means — so a drawing
+    /// inside that branch would be removed in the same update that started it.
+    @ViewBuilder
+    var openingTileOutline: some View {
+        if let opening = openingTile, opening.width > 0, opening.height > 0 {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(ColorPalette.accent.opacity(0.85), lineWidth: 2)
+                .frame(width: opening.width, height: opening.height)
+                .position(x: opening.midX, y: opening.midY)
+                .allowsHitTesting(false)
+        }
+    }
+
     var mosaicOverlay: some View {
         // **A `ZStack` and not a `Group`**, which is the difference between this animating and
         // this appearing. A `Group` has no layout of its own — every modifier on one lands on

@@ -157,25 +157,6 @@ extension RemoteScreen {
                         // who wants the number to the millisecond has the Sessions tab, which is
                         // where a figure that is being *studied* belongs, rather than a header
                         // somebody is reading while they look at their Mac.
-                        //
-                        // The way back out of a mosaic is here as well as on the collapsed face,
-                        // and it was the omission that mattered: the pill opens on a tap, and a
-                        // user who opened it to find their way out of a single window found the
-                        // one control that would do it was on the face they had just left.
-                        if model.canReturnToMosaic {
-                            Button {
-                                withAnimation(Motion.settle) { model.returnToMosaic() }
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "rectangle.split.2x2")
-                                        .font(.system(size: 10, weight: .semibold))
-                                    Text("Mosaic")
-                                }
-                                .pillChip(selected: true)
-                            }
-                            .buttonStyle(RailButtonStyle(scale: 0.9))
-                            .accessibilityLabel("Back to the mosaic")
-                        }
                         connectionPathChip
                         qualityChip
                         soundButton
@@ -282,48 +263,6 @@ extension RemoteScreen {
                                     // out of the mosaic to nothing, which is a control that
                                     // exists in the code and nowhere on the screen.
                                     .layoutPriority(0)
-                            }
-                            // **The way back, and the only new control the mosaic adds to a
-                            // session.** It appears when the picture is one tile of an
-                            // arrangement and disappears the moment the arrangement is left for
-                            // anything else, so it is never a button that goes nowhere: see
-                            // ``MacSession/canReturnToMosaic``. Beside the source's own name
-                            // because that is what it acts on, and small because the whole mosaic
-                            // is a mode the user asked for and not a place the app put them.
-                            if model.canReturnToMosaic {
-                                Button {
-                                    // The picture is about to become the canvas again, so the tile
-                                    // borders fade back in over it — see ``mosaicOverlay``. The
-                                    // animation is started here rather than left to that view's
-                                    // own `.animation(value:)` alone, because the two are one
-                                    // movement: the button going and the grid arriving.
-                                    withAnimation(Motion.settle) { model.returnToMosaic() }
-                                } label: {
-                                    // **Filled, not tinted.** It was accent-coloured caption
-                                    // text with a 9-point glyph — the smallest mark the pill can
-                                    // draw, on the one control in the session that takes the user
-                                    // somewhere they cannot otherwise get to. Filled, it is the
-                                    // loudest thing on that line, which is what a way out of a
-                                    // mode should be.
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "chevron.backward")
-                                            .font(.system(size: 11, weight: .bold))
-                                        Text("Mosaic")
-                                            .font(.caption.weight(.bold))
-                                    }
-                                    .foregroundStyle(ColorPalette.onInk)
-                                    .padding(.horizontal, 9)
-                                    .padding(.vertical, 4)
-                                    .background(ColorPalette.accent, in: Capsule())
-                                    .contentShape(Capsule())
-                                }
-                                // Takes the width it needs and nothing offers to give any back,
-                                // which is the other half of the name yielding above. A control
-                                // that can be squeezed to nothing is a control that is missing on
-                                // exactly the windows whose titles are long enough to matter.
-                                .fixedSize()
-                                .layoutPriority(1)
-                                .buttonStyle(.plain)
                             }
                             connectionPathChip
                         }

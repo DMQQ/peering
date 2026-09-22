@@ -100,7 +100,7 @@ extension RemoteScreen {
                       let normalized = normalized(point),
                       let index = MosaicGrid.tileIndex(at: normalized, in: layout)
                 else { return }
-                model.focusMosaicTile(index)
+                openMosaicTile(index)
             },
             isPanelOpen: openPanel != nil,
             onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
@@ -110,6 +110,43 @@ extension RemoteScreen {
             onDismissKeyboard: { model.showKeyboard = false }
         )
         .ignoresSafeArea()
+    }
+
+    /// Opens one tile of the arrangement: the picture becomes that window, and the outline the
+    /// tile was drawn with grows to the edges of the screen on its way out.
+    ///
+    /// Two beats rather than one, and the second is what makes it read as an opening rather than
+    /// as a flourish. The outline starts at the tile's own rect — so what moves is the tile's own
+    /// edge, travelling — and only then travels outward; set to the full size in the same update
+    /// that created it, there is no starting value for SwiftUI to interpolate from and the shape
+    /// simply appears at full size. It fades once it has arrived, by which time the Mac has
+    /// switched capture and the window it outlines is the one on screen.
+    func openMosaicTile(_ index: Int) {
+        openingTileTask?.cancel()
+
+        guard let start = mosaicTileRect(index) else {
+            // No rectangle to travel from — a tap that resolved to a tile the screen cannot
+            // place. The switch still happens; only the drawing is skipped.
+            model.focusMosaicTile(index)
+            return
+        }
+
+        openingTile = start
+        model.focusMosaicTile(index)
+
+        openingTileTask = Task { @MainActor in
+            // One frame at the tile's own size before anything moves. A shorter sleep than this
+            // is the same frame, and a longer one is a pause the eye reads as a delay.
+            try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.settle) {
+                openingTile = CGRect(origin: .zero, size: canvasSize)
+            }
+
+            try? await Task.sleep(for: .milliseconds(380))
+            guard !Task.isCancelled else { return }
+            withAnimation(Motion.tap) { openingTile = nil }
+        }
     }
 
     /// The regions a touch must not reach the Mac through.

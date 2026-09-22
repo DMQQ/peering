@@ -104,6 +104,20 @@ struct RemoteScreen: View {
     /// drag on the Mac underneath — moving its pointer to wherever the finger happened to be.
     @State var chromeFrames: [ChromeRegion: CGRect] = [:]
 
+    /// The outline of a tile that is being opened, on its way to filling the screen.
+    ///
+    /// **The one piece of chrome that is drawn from a tap and then leaves.** Tapping a tile in an
+    /// arrangement used to change the picture with nothing in between: the borders vanished
+    /// because the arrangement had been left, and a different window was simply there. What was
+    /// missing is the connection between the two — the thing under the finger and the thing that
+    /// fills the screen are the same window, and nothing said so.
+    ///
+    /// So the outline the tile was drawn with grows to the edges and fades. It is a drawing over
+    /// live video and nothing else: the picture underneath is changing source on its own
+    /// schedule, and this is timed to be gone by the time it has.
+    @State var openingTile: CGRect?
+    @State var openingTileTask: Task<Void, Never>?
+
     let minimumZoom: CGFloat = 0.5
     let maximumZoom: CGFloat = 8
 
@@ -240,6 +254,7 @@ struct RemoteScreen: View {
 
                 video
                 mosaicOverlay
+                openingTileOutline
                 clientCursor
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
