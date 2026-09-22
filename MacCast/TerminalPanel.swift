@@ -218,7 +218,7 @@ struct TerminalPanel: View {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") {
-                        inputFocused = false
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                         renameFocused = false
                     }
                 }
@@ -633,6 +633,20 @@ struct TerminalPanel: View {
 
     private func input(_ terminal: RemoteTerminal) -> some View {
         HStack(spacing: 8) {
+            // Leftmost: keyboard dismiss — the far end of the row from send so the two actions
+            // cannot be confused. Always shown so there is no layout jump as focus changes.
+            Button {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.secondary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Hide keyboard")
+
             // The history, one tap from the field it fills.
             //
             // It used to be a strip of its own, always up, under the output — which along with
@@ -677,9 +691,6 @@ struct TerminalPanel: View {
                 Image(systemName: "arrow.up.circle.fill").font(.title2)
             }
             .disabled(!terminal.isRunning || command.isEmpty)
-            // The keyboard's dismiss key is in the keyboard's own toolbar — see `body`. It used
-            // to be a second button here, half an inch from send, and two buttons of different
-            // meaning that close together is a row you have to aim in.
         }
         // Away from the edge. At 10 the field's text started close enough to the screen's edge
         // that the caret sat against it, which reads as clipped rather than as inset.
@@ -1009,7 +1020,13 @@ struct TerminalCommandField: UIViewRepresentable {
 
     func updateUIView(_ field: UITextField, context: Context) {
         context.coordinator.parent = self
-        if field.text != text { field.text = text }
+        // Use attributedText so syntax colouring is not lost on re-render. Plain `field.text =`
+        // would strip every attribute on the next SwiftUI pass.
+        if (field.attributedText?.string ?? "") != text {
+            let sel = field.selectedTextRange
+            field.attributedText = Self.highlighted(text)
+            field.selectedTextRange = sel
+        }
         field.placeholder = placeholder
         field.isEnabled = isEnabled
         if isFocused, !field.isFirstResponder {
@@ -1019,13 +1036,104 @@ struct TerminalCommandField: UIViewRepresentable {
         }
     }
 
+    /// Syntax-coloured version of the command string.
+    ///
+    /// Three things are coloured, and everything else is white:
+    /// - Flags (`-x`, `--long`) are dimmed — they are structure, not the point of the command.
+    /// - Quoted strings get the caution amber — the boundaries of a string are what go wrong.
+    /// - Shell operators (`|`, `>`, `;`, `&&`, ...) get the accent blue — they are the seams.
+    /// Variables (`$VAR`) are slightly dimmed as well.
+    static func highlighted(_ text: String) -> NSAttributedString {
+        let base: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedSystemFont(ofSize: 17, weight: .regular),
+            .foregroundColor: UIColor.white
+        ]
+        guard !text.isEmpty else { return NSAttributedString(string: text, attributes: base) }
+        let out = NSMutableAttributedString(string: text, attributes: base)
+
+        var i = text.startIndex
+        while i < text.endIndex {
+            // Quoted string: "..." or '...'
+            if text[i] == "\"" || text[i] == "'" {
+                let q = text[i]; let start = i
+                i = text.index(after: i)
+                while i < text.endIndex && text[i] != q {
+                    if text[i] == "\\" {
+                        i = text.index(after: i)
+                        if i < text.endIndex { i = text.index(after: i) }
+                    } else {
+                        i = text.index(after: i)
+                    }
+                }
+                if i < text.endIndex { i = text.index(after: i) }
+                out.addAttribute(.foregroundColor,
+                    value: UIColor(red: 0.97, green: 0.75, blue: 0.35, alpha: 0.90),
+                    range: NSRange(start..<i, in: text))
+                continue
+            }
+
+            // Shell operators: | ; & > < ( )
+            if "|;&><()".contains(text[i]) {
+                let start = i
+                i = text.index(after: i)
+                // Two-character operators: || && >>
+                if i < text.endIndex && (text[i] == text[start] || (text[start] == ">" && text[i] == ">")) {
+                    i = text.index(after: i)
+                }
+                out.addAttribute(.foregroundColor, value: UIColor.systemBlue,
+                    range: NSRange(start..<i, in: text))
+                continue
+            }
+
+            // Variable: $VAR or ${VAR}
+            if text[i] == "$" {
+                let start = i
+                i = text.index(after: i)
+                if i < text.endIndex && text[i] == "{" {
+                    i = text.index(after: i)
+                    while i < text.endIndex && text[i] != "}" { i = text.index(after: i) }
+                    if i < text.endIndex { i = text.index(after: i) }
+                } else {
+                    while i < text.endIndex && (text[i].isLetter || text[i].isNumber || text[i] == "_") {
+                        i = text.index(after: i)
+                    }
+                }
+                out.addAttribute(.foregroundColor, value: UIColor.white.withAlphaComponent(0.65),
+                    range: NSRange(start..<i, in: text))
+                continue
+            }
+
+            // Word: command name, argument, or flag
+            if !text[i].isWhitespace {
+                let start = i
+                while i < text.endIndex && !text[i].isWhitespace && !"\"'|;&><$()".contains(text[i]) {
+                    i = text.index(after: i)
+                }
+                if String(text[start..<i]).hasPrefix("-") {
+                    out.addAttribute(.foregroundColor, value: UIColor.white.withAlphaComponent(0.50),
+                        range: NSRange(start..<i, in: text))
+                }
+                continue
+            }
+
+            i = text.index(after: i)
+        }
+
+        return out
+    }
+
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: TerminalCommandField
 
         init(_ parent: TerminalCommandField) { self.parent = parent }
 
         @objc func changed(_ field: UITextField) {
-            parent.text = field.text ?? ""
+            let text = field.text ?? ""
+            parent.text = text
+            // Re-colour after the text changes, preserving the cursor.
+            let sel = field.selectedTextRange
+            field.attributedText = TerminalCommandField.highlighted(text)
+            field.selectedTextRange = sel
         }
 
         // Feed UIKit focus events back into the SwiftUI binding. Without these, updateUIView

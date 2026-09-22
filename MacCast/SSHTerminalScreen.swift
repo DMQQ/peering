@@ -636,7 +636,19 @@ struct SSHTerminalScreen: View {
     // MARK: - Input
 
     private var input: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
+            Button {
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.secondary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Hide keyboard")
+
             TerminalCommandField(
                 text: $command,
                 isFocused: $inputFocused,
