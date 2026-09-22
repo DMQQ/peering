@@ -7,6 +7,10 @@ import MacCastKit
 /// counter, so the estimate of what is left is a sum over every session that is up and every
 /// session that has finished — not a figure belonging to any one Mac. See ``MacSession`` for
 /// the per-session half: the record of a single connection in flight.
+///
+/// ``directPathSummary`` is here for the same reason rather than because it is part of the
+/// allowance: it too is a reading over every finished session on this phone, it too belongs to no
+/// one Mac, and the same card in the Sessions tab is what draws both.
 extension SessionModel {
     /// The client's half of the relay's allowance, and it has to agree with the other half.
     ///
@@ -71,6 +75,18 @@ extension SessionModel {
             + sessions
                 .filter { $0.connectionPath == .relay }
                 .reduce(0) { $0 + $1.activeSessionBytes }
+    }
+
+    /// What the finished sessions on this phone say about the direct path.
+    ///
+    /// Read off ``sessionHistory`` alone, which is the store's own window: the last thirty sessions
+    /// this phone recorded, and no more. A session still up is not one of them — it has no record
+    /// yet, and its outcome is exactly the thing that is not yet known — so a punch that is working
+    /// right now shows up here when it ends rather than while it runs. The arithmetic, the
+    /// denominator and what an empty history does are all in
+    /// ``DirectPathSummary/init(over:)``, where they can be checked with no device.
+    var directPathSummary: DirectPathSummary? {
+        DirectPathSummary(over: sessionHistory)
     }
 
     /// Which 24-hour window the relay is counting in: epoch seconds divided into days.

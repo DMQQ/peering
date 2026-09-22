@@ -32,6 +32,24 @@ private enum RecentConnection: Identifiable {
     }
 }
 
+/// One fact about a session: what it is on the left, what it came to on the right.
+///
+/// A free function rather than a method on either screen, because two screens in this file are made
+/// of these — a past session's detail, and the direct path's two rates — and a second copy of a
+/// row is where the two start drifting apart. It is the same reasoning the app's shared controls
+/// were lifted for, one size down.
+private func detailRow(_ label: String, _ value: String) -> some View {
+    HStack(alignment: .firstTextBaseline, spacing: 12) {
+        Text(label)
+            .foregroundStyle(.secondary)
+        Spacer(minLength: 12)
+        Text(value)
+            .multilineTextAlignment(.trailing)
+            .lineLimit(2)
+    }
+    .font(.subheadline)
+}
+
 struct ActivityTab: View {
     @Environment(SessionModel.self) private var model
     /// Read only for the shells: this tab is where everything that has connected is listed, and a
@@ -50,6 +68,12 @@ struct ActivityTab: View {
                             detail: "Recent sessions and relay use."
                         )
                         relayCard
+                        // Only once a session has had to leave this network. Until then there is
+                        // no figure to draw, and a card whose whole content is "nothing yet" is
+                        // the absence of an answer drawn as one.
+                        if let summary = model.directPathSummary {
+                            directPathCard(summary)
+                        }
                         recentConnectionsCard
                     }
                     .adaptiveContentColumn()
@@ -245,6 +269,68 @@ struct ActivityTab: View {
     }
 
 
+    // MARK: Direct path card
+
+    /// How often the picture went around the relay, and what the two ways of getting it cost.
+    ///
+    /// **The one figure in this tab that the list below it cannot give.** A finished session is
+    /// drawn under its connection's path, and a session the relay spliced reads as `Relay` whether
+    /// or not the picture went around it, so counting the rows by eye answers a different question
+    /// from the one the direct path is judged on.
+    ///
+    /// Written from what the records hold and nothing else: no sentence here explains *why* a
+    /// direct picture costs what it does, because the records do not say. What is counted, and what
+    /// is deliberately left out of it, is ``DirectPathSummary``.
+    private func directPathCard(_ summary: DirectPathSummary) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Controls.sectionLabel(
+                "Direct path",
+                systemImage: "point.topleft.down.to.point.bottomright.curvepath"
+            )
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Text("Picture went around the relay")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 8)
+                    Text(shareLabel(summary.directShare))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+
+                // The count under the share, and not a second percentage. The history is a few
+                // dozen sessions at most, so "3 of 12" is the figure and a rounded one above it is
+                // only a reading of it — but a reading is what "how often" is asked for, and the
+                // count is what it can be checked against.
+                Text(shareDetail(summary))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // Both rates or neither. One of them on its own is not the comparison this block
+                // exists for, and the relay's own bytes are already reported on the card above.
+                if let direct = summary.directBytesPerSecond,
+                   let relayed = summary.relayedBytesPerSecond {
+                    Controls.divider
+                    detailRow("Direct picture", bytesPerSecondLabel(direct))
+                    detailRow("Relayed picture", bytesPerSecondLabel(relayed))
+                }
+
+                // The one thing the records cannot say for themselves, and the reason it is here
+                // rather than left in the code: a history from before the app could tell the paths
+                // apart reads as a relayed one, and a card showing somebody no direct sessions at
+                // all would be contradicting what they watched happen.
+                Text("Sessions recorded before the app could tell which way the picture went count as relayed.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .cardSurface()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+
     // MARK: Recent connections
 
     private var recentConnectionsCard: some View {
@@ -410,6 +496,33 @@ struct ActivityTab: View {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
+    /// A picture's rate, in the unit this screen already prints bytes in.
+    private func bytesPerSecondLabel(_ bytesPerSecond: Double) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(bytesPerSecond), countStyle: .file) + "/s"
+    }
+
+    /// How often the picture avoided the relay, as the card prints it.
+    ///
+    /// Whole percent. The count behind it is a few dozen sessions, so a decimal would be a figure
+    /// nobody asked for, and the count itself is on the line underneath for anyone who wants the
+    /// figure rather than the reading.
+    private func shareLabel(_ share: Double) -> String {
+        "\(Int((share * 100).rounded()))%"
+    }
+
+    /// The same figure the share above it came from, in sessions, which is the number a reader can
+    /// check it against.
+    ///
+    /// Spelled out rather than counted down, because the history is small enough for the small
+    /// numbers to be the ordinary case: a first session that punched leaves "1 of the 1 sessions
+    /// that left this network", which is a line telling the reader nobody looked.
+    private func shareDetail(_ summary: DirectPathSummary) -> String {
+        let offNetwork = summary.sessionsOffNetwork == 1
+            ? "1 session"
+            : "\(summary.sessionsOffNetwork) sessions"
+        return "\(summary.sessionsDirect) of the \(offNetwork) that left this network."
+    }
+
     private func durationLabel(_ duration: TimeInterval) -> String {
         let seconds = Int(duration.rounded())
         if seconds < 60 { return "\(seconds)s" }
@@ -527,18 +640,6 @@ private struct SessionHistoryDetail: View {
             ? ["No diagnostic events were recorded for this session."]
             : session.logs
         return lines.joined(separator: "\n")
-    }
-
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Text(value)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(2)
-        }
-        .font(.subheadline)
     }
 
     private var durationLabel: String {
