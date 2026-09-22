@@ -107,7 +107,11 @@ extension RemoteScreen {
     /// in every way that matters, and a border drawn around a single window would be the app
     /// describing a grid that is no longer on screen.
     var mosaicOverlay: some View {
-        Group {
+        // **A `ZStack` and not a `Group`**, which is the difference between this animating and
+        // this appearing. A `Group` has no layout of its own — every modifier on one lands on
+        // each branch separately — so there is nothing for a transition to be attached to and
+        // the two states just swap. The `ZStack` is the container the fade belongs to.
+        ZStack {
             if let layout = model.mosaicLayout, model.isShowingMosaic {
                 MosaicOverlay(placed: layout.tiles.enumerated().compactMap { index, tile in
                     guard let rect = CanvasGeometry.rect(
@@ -123,8 +127,15 @@ extension RemoteScreen {
                         title: model.catalog?.descriptor(for: tile.source)?.title
                     )
                 })
+                // **Opacity, and nothing that moves.** Every other entrance in this app slides or
+                // scales, and none of them can here: these borders are drawn on the tiles they
+                // outline, and a line travelling into place would spend the whole animation
+                // somewhere the tile is not. What fades is the app's account of where the windows
+                // are; the picture underneath never moved.
+                .transition(.opacity)
             }
         }
+        .animation(Motion.settle, value: model.isShowingMosaic)
         .ignoresSafeArea()
     }
 

@@ -230,22 +230,28 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 """)
         }
 
-        // The applications, each with the picture the client last asked for. A row that has no
-        // picture carries none and the client draws its own outline — which is the honest state
-        // both before anything has been taken and for an application the host could not
+        // The displays and the windows, each with the picture the client last asked for. A row
+        // that has no picture carries none and the client draws its own outline — which is the
+        // honest state both before anything has been taken and for a window the host could not
         // photograph, so there is no need to tell the two apart here.
-        let applications = descriptors.filter { $0.kind == .application }
-        // Pruned against what this build actually offers, so a picture outlives neither the
-        // application that quit nor the last window it had. See
+        //
+        // **Applications carry none, deliberately.** Their rows are icons on the client, which is
+        // what an application's identity is; see ``refreshSourceThumbnails()`` for why the
+        // photograph that used to go here is gone.
+        let pictured = descriptors.filter { $0.kind == .display || $0.kind == .window }
+        // Pruned against what this build actually offers, so a picture outlives neither a display
+        // that was unplugged nor a window that was closed. See
         // ``SourceThumbnailCache/keep(only:)``.
-        sourceThumbnails.keep(only: Set(applications.map(\.id)))
+        sourceThumbnails.keep(only: Set(pictured.map(\.id)))
+
+        let withPictures = pictured.map {
+            $0.withThumbnail(sourceThumbnails.thumbnail(for: $0.source))
+        }
 
         return CaptureCatalog(
-            displays: descriptors.filter { $0.kind == .display },
-            applications: applications.map {
-                $0.withThumbnail(sourceThumbnails.thumbnail(for: $0.source))
-            },
-            windows: descriptors.filter { $0.kind == .window },
+            displays: withPictures.filter { $0.kind == .display },
+            applications: descriptors.filter { $0.kind == .application },
+            windows: withPictures.filter { $0.kind == .window },
             installedApplications: offered,
             spaceInfo: spaceInfo
         )
@@ -368,13 +374,19 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         await captureActiveSpacePreview(force: true)
     }
 
-    /// Photographs every application the catalogue is offering, and files what it gets.
+    /// Photographs every display and window the catalogue is offering, and files what it gets.
+    ///
+    /// **Displays and windows, and not applications.** What the picker draws a picture of is the
+    /// two kinds of source that are a *place* — a screen, a window — and what it draws as a plain
+    /// icon is the two that are an *identity*: an application, and an application not yet running.
+    /// An application's own picture was taken here first and is not wanted: the icon says what it
+    /// is, which is the question a grid of applications answers, and a photograph of one window of
+    /// it answers a question nobody asked in a list of names.
     ///
     /// **The same enumeration the catalogue is built from**, so the pictures are of exactly the
     /// rows the client is looking at rather than of a second list that could disagree with it —
-    /// including the two filters that matter here: an application with no user-facing window is
-    /// not offered and is therefore not photographed, and a system surface like the Dock's own
-    /// process is skipped on the same terms.
+    /// including the filter that matters here: a window ScreenCaptureKit will not offer is not in
+    /// the catalogue and is therefore not photographed.
     ///
     /// **Concurrent, and bounded.** Every one of these is a round trip through the window server.
     /// In sequence, a Mac with twenty applications would leave the client looking at empty tiles
@@ -399,7 +411,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         markStale()
         guard let content = try? await shareableContent() else { return }
         let sources = Self.descriptors(from: content)
-            .filter { $0.kind == .application }
+            .filter { $0.kind == .display || $0.kind == .window }
             .map(\.source)
         guard !sources.isEmpty else { return }
 

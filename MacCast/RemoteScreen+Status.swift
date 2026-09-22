@@ -151,14 +151,12 @@ extension RemoteScreen {
                     // height for two short strings. They fit together on a portrait phone with
                     // the chips a little tighter, and the pill is a line shorter for it.
                     HStack(spacing: 7) {
-                        if let latency = model.shownLatency {
-                            Text(String(format: "%3d ms", Int(latency.rounded())))
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(ColorPalette.reading(latency))
-                                .frame(width: 46, alignment: .trailing)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
+                        // **No figure here.** It was a millisecond count and then a word, and
+                        // both are gone: the pill reports whether the session is working, and
+                        // the dot on its collapsed face is the whole of that answer. Somebody
+                        // who wants the number to the millisecond has the Sessions tab, which is
+                        // where a figure that is being *studied* belongs, rather than a header
+                        // somebody is reading while they look at their Mac.
                         connectionPathChip
                         qualityChip
                         soundButton
@@ -203,71 +201,52 @@ extension RemoteScreen {
                 .transition(Self.pillContents)
             } else {
                 HStack(spacing: 8) {
-                    // Green when the Mac is connected and sending, red when it is connected and
-                    // has stopped. It was white, which said nothing: a dot that is always the
-                    // same colour is decoration, and this one sits in the pill that already
-                    // carries the Mac's name and the latency — the two facts whose whole purpose
-                    // is to be read at a glance.
-                    //
-                    // Green rather than the palette's white because the host picker already
-                    // spends green on "this Mac is reachable", and a second colour for the same
-                    // fact would be two vocabularies for one thing.
                     // Two lines, where this was one running line of everything at once.
                     //
                     // The source's name is a whole sentence — "Built-in Retina Display" is
                     // seventeen characters of it — and it was being asked to share a single row
-                    // with the Mac's name, the path, the frame rate and the latency. What that
-                    // produced was four things competing for a line and the longest one losing:
-                    // the row either truncated the answer to "what am I looking at" or pushed the
-                    // latency off the end of it, depending on which Mac was connected.
+                    // with the Mac's name, the path and the frame rate. What that produced was
+                    // four things competing for a line and the longest one losing. So the line is
+                    // split by what it is about: who it is answers "is this working" and belongs
+                    // on the first line, and what is being shown and over which path answers
+                    // "what am I looking at" and goes under it.
                     //
-                    // So the line is split by what it is about. Who and how fast it is going
-                    // answers "is this working" and belongs on the first line; what is being
-                    // shown and over which path answers "what am I looking at" and goes under it,
-                    // indented past the dot so the two read as one block rather than as two rows
-                    // that happen to be adjacent.
                     // The dot is part of the name's line rather than a mark floating beside the
                     // block. Centred against both lines it sat between them with a gap either
                     // side, which reads as a dot that lost its label — and the label is the Mac
                     // it is reporting on.
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 7) {
+                            // **The pill's whole report on whether the session is working.**
+                            //
                             // Green when the Mac is connected and sending, red when it is
                             // connected and has stopped. It was white, which said nothing: a dot
-                            // that is always the same colour is decoration, and this one sits in
-                            // the pill that already carries the Mac's name and the latency — the
-                            // two facts whose whole purpose is to be read at a glance.
+                            // that is always the same colour is decoration.
                             //
                             // Green rather than the palette's white because the host picker
                             // already spends green on "this Mac is reachable", and a second
                             // colour for the same fact would be two vocabularies for one thing.
+                            //
+                            // A latency figure used to sit after the name — a number first, then
+                            // a word — and both are gone. This is the one line in the app that is
+                            // read without being asked for, and a figure here reads as a warning
+                            // even at 90 ms, which frightens people into closing a session they
+                            // did not need to close. What the pill has to answer is whether the
+                            // Mac is there, and the dot is that answer.
+                            //
+                            // The figure is not lost. The session's Settings panel reports it
+                            // twice — the control channel's own round trip, and the path's, the
+                            // second labelled direct or relay — which is a screen somebody opens
+                            // on purpose rather than a header they glance at.
                             Circle()
                                 .fill(model.isVideoStreaming ? Color.green : Color.red)
                                 .frame(width: 6, height: 6)
+                                .accessibilityLabel(
+                                    model.isVideoStreaming ? "Connected" : "Not streaming"
+                                )
                             Text(model.hostName ?? "Mac")
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
-                            // No spacer, for the reason Row 1 has none: the collapsed pill
-                            // should be the width of what it says.
-                            //
-                            // **A word and not a number, and only when there is one to say.**
-                            // This is the one line in the app that is read without being asked
-                            // for, so a figure here reads as a warning even at 90 ms: "812 ms"
-                            // on a connection that is working fine is a number that frightens
-                            // people into closing a session they did not need to close. What a
-                            // user can act on is "it is slow", and the figure itself is one tap
-                            // away in the expanded pill, which is where somebody who wants the
-                            // number looks anyway. See ``LatencyQuality``.
-                            if let latency = model.shownLatency,
-                               let word = LatencyQuality.of(milliseconds: latency).pillLabel {
-                                Text(word)
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(ColorPalette.reading(latency))
-                                    .lineLimit(1)
-                                    .accessibilityLabel(
-                                        LatencyQuality.of(milliseconds: latency).spokenLabel
-                                    )
-                            }
                         }
 
                         HStack(spacing: 6) {
@@ -286,7 +265,12 @@ extension RemoteScreen {
                             // is a mode the user asked for and not a place the app put them.
                             if model.canReturnToMosaic {
                                 Button {
-                                    model.returnToMosaic()
+                                    // The picture is about to become the canvas again, so the tile
+                                    // borders fade back in over it — see ``mosaicOverlay``. The
+                                    // animation is started here rather than left to that view's
+                                    // own `.animation(value:)` alone, because the two are one
+                                    // movement: the button going and the grid arriving.
+                                    withAnimation(Motion.settle) { model.returnToMosaic() }
                                 } label: {
                                     HStack(spacing: 3) {
                                         Image(systemName: "rectangle.split.2x2")

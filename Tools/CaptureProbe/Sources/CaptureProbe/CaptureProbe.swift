@@ -337,40 +337,45 @@ struct CaptureProbe {
 
     // MARK: - Thumbnails
 
-    /// Photographs every running application, the way opening the Apps panel makes the host do.
+    /// Photographs every display and window, the way opening the Apps panel makes the host do.
     ///
     /// **The half of that feature no client can check.** The phone only ever sees the pictures
     /// arrive, so a host that produced none and a host that produced twenty that were all
     /// dropped by the byte budget look the same from there: a grid of empty tiles. This walks
-    /// the whole host half in one run — the enumeration, one screenshot per application, the
-    /// JPEG under the budget, and the attach to the catalogue the client actually reads — and
-    /// fails if they do not line up.
+    /// the whole host half in one run — the enumeration, one screenshot per source, the JPEG
+    /// under the budget, and the attach to the catalogue the client actually reads — and fails
+    /// if they do not line up.
     ///
     /// The second catalogue read is the point of the check rather than a convenience. A
     /// thumbnail that was captured and never attached is exactly as good as one that was never
     /// taken, and it is the failure the cache's key has to be right for: the pictures are filed
     /// by ``CaptureSource/stableID`` and looked up by ``CaptureSourceDescriptor/id``, which are
     /// the same string only as long as both ends keep deriving it the same way.
+    ///
+    /// Displays and windows rather than applications: the picker draws an application as its
+    /// icon, and a picture of one is only ever taken here to prove the path. See
+    /// ``ScreenCaptureSourceResolver/refreshSourceThumbnails()``.
     static func runThumbnails() async throws {
         let resolver = ScreenCaptureSourceResolver()
-        let applications = try await resolver.catalog().applications
+        let catalog = try await resolver.catalog()
+        let sources = (catalog.displays + catalog.windows)
 
-        guard !applications.isEmpty else {
+        guard !sources.isEmpty else {
             throw ProbeError(message: """
-                the catalogue offers no applications at all, so there is nothing to photograph. \
-                That is the enumeration failing rather than the pictures: it needs Screen \
-                Recording granted, and at least one regular application running with a window \
-                on screen.
+                the catalogue offers no displays and no windows, so there is nothing to \
+                photograph. That is the enumeration failing rather than the pictures: it needs \
+                Screen Recording granted, and it should always offer at least one display.
                 """)
         }
-        log("\(applications.count) application(s) offered")
+        log("\(catalog.displays.count) display(s) and \(catalog.windows.count) window(s) offered")
 
         let began = ProcessInfo.processInfo.systemUptime
         await resolver.refreshSourceThumbnails()
         let elapsed = ProcessInfo.processInfo.systemUptime - began
 
         // Read back through the catalog, so the attach is part of what this proves.
-        let pictured = try await resolver.catalog().applications
+        let readBack = try await resolver.catalog()
+        let pictured = readBack.displays + readBack.windows
 
         var taken = 0
         var largest = 0

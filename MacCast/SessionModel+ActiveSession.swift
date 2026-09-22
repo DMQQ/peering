@@ -45,9 +45,6 @@ extension SessionModel {
         set { activeSession?.pathLatencyIsDirect = newValue }
     }
 
-    /// The one number the status chip shows.
-    var shownLatency: Double? { activeSession?.shownLatency }
-
     var catalog: CaptureCatalog? {
         get { activeSession?.catalog }
         set { activeSession?.catalog = newValue }

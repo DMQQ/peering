@@ -115,13 +115,6 @@ final class MacSession: Identifiable {
     var pathLatencyMilliseconds: Double?
     var pathLatencyIsDirect = false
 
-    /// The one number the status chip shows.
-    ///
-    /// The picture's round trip when there is a lane to measure it on, and the control channel's
-    /// otherwise — which is not a fallback but the honest answer in that case: with no datagram
-    /// lane the picture is on the control channel, so its round trip is the picture's.
-    var shownLatency: Double? { pathLatencyMilliseconds ?? latencyMilliseconds }
-
     /// When the session that is up now came up, for the elapsed-time readout.
     ///
     /// A `Date` and not a counter: the view formats it with `Text(_:style:.timer)`, which the

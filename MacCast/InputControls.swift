@@ -1037,9 +1037,20 @@ private struct ClipboardButton: View {
 ///
 /// Shared rather than private to the picker, because the source list and the settings panel both
 /// draw rows of them.
+///
+/// **One shape at two sizes, and the numbers are ratios of `size` rather than values.** The rows
+/// this was written for draw it at 42; the picker's grid draws it at 60, where the same shape has
+/// to keep its corner and its padding or an icon grid is a row that got bigger rather than a
+/// different arrangement. Each ratio is the shipped 42-point value divided by 42, so the size it
+/// has always been drawn at comes out identical to the point.
 struct ApplicationIcon: View {
     let data: Data?
     let fallback: String
+
+    /// Edge length in points, the one number the rest are derived from.
+    var size: CGFloat = 42
+
+    private var corner: CGFloat { size * (11.0 / 42.0) }
 
     var body: some View {
         Group {
@@ -1049,13 +1060,16 @@ struct ApplicationIcon: View {
                     .scaledToFit()
             } else {
                 Image(systemName: fallback)
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: size * (20.0 / 42.0), weight: .medium))
                     .foregroundStyle(.secondary)
-                    .padding(8)
+                    .padding(size * (8.0 / 42.0))
             }
         }
-        .frame(width: 42, height: 42)
-        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .frame(width: size, height: size)
+        .background(
+            .white.opacity(0.07),
+            in: RoundedRectangle(cornerRadius: corner, style: .continuous)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
     }
 }

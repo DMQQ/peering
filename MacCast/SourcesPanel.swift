@@ -37,6 +37,13 @@ struct SourcesPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             searchField
 
+            // **Three arrangements of one slot, and they cross-fade into each other.** The state
+            // that chooses between them is written inside `withAnimation` at each of the four
+            // places that moves it, so the panel reads as one thing changing what it is showing
+            // rather than as a section being torn out and another dropped in. A default
+            // transition is the whole of it: these are three different lists in the same place,
+            // and anything that moved would be moving *within* a panel whose other contents are
+            // not.
             if buildingMosaic {
                 mosaicPicker
             } else if !model.mosaicChoicesList.isEmpty {
@@ -48,10 +55,14 @@ struct SourcesPanel: View {
             if let catalog = model.catalog, !catalog.all.isEmpty {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 14) {
-                        section("Displays", catalog.displays, fallbackIcon: "display")
-                        applicationsGrid(catalog.applications)
-                        section("Windows", catalog.windows, fallbackIcon: "macwindow")
-                        if !buildingMosaic { installedSection }
+                        previewGrid(
+                            "Displays", catalog.displays, fallbackIcon: "display"
+                        )
+                        iconGrid("Applications", catalog.applications, fallbackIcon: "app")
+                        previewGrid(
+                            "Windows", catalog.windows, fallbackIcon: "macwindow"
+                        )
+                        if !buildingMosaic { installedGrid }
                     }
                 }
             } else {
@@ -102,8 +113,13 @@ struct SourcesPanel: View {
         if model.hostSupportsMosaic {
             PlanLocked(capability: .mosaic, placement: .trailing) {
                 Button {
-                    buildingMosaic = true
-                    picked = []
+                    // Animated rather than assigned, because this swaps three whole sections of
+                    // the panel for another arrangement of them. See the note on the panel's own
+                    // body for why the transition is here and not on the view.
+                    withAnimation(Motion.settle) {
+                        buildingMosaic = true
+                        picked = []
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "rectangle.split.2x2")
@@ -228,8 +244,10 @@ struct SourcesPanel: View {
             }
 
             Button {
-                picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
-                buildingMosaic = true
+                withAnimation(Motion.settle) {
+                    picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
+                    buildingMosaic = true
+                }
             } label: {
                 Text("Add or remove windows")
                     .font(.subheadline.weight(.semibold))
@@ -255,8 +273,10 @@ struct SourcesPanel: View {
 
             HStack(spacing: 8) {
                 Button("Cancel") {
-                    buildingMosaic = false
-                    picked = []
+                    withAnimation(Motion.settle) {
+                        buildingMosaic = false
+                        picked = []
+                    }
                 }
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
@@ -264,9 +284,11 @@ struct SourcesPanel: View {
                 Spacer(minLength: 8)
 
                 Button {
-                    model.showMosaic(picked.map(\.source))
-                    buildingMosaic = false
-                    picked = []
+                    withAnimation(Motion.settle) {
+                        model.showMosaic(picked.map(\.source))
+                        buildingMosaic = false
+                        picked = []
+                    }
                     onSelect()
                 } label: {
                     Text("Show mosaic")
@@ -284,91 +306,41 @@ struct SourcesPanel: View {
         .glassSurface(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    /// A section of the sources that are a *place*: displays and windows, as pictures.
+    ///
+    /// **The panel's four sections are two kinds of thing, and they are drawn two ways.** A
+    /// display and a window are somewhere you are looking, and the question somebody opens this
+    /// panel with is "which one had the thing I was on it" — which only a picture answers, because
+    /// every Mac's windows are a different arrangement of the same few greys. An application and
+    /// an application that is not running yet are identities: its icon says which one it is in a
+    /// way a photograph of one of its windows does not, since the window may be showing anything.
+    ///
+    /// Both grids are the same in both modes. Choosing one source and assembling a mosaic are the
+    /// same act with one difference — the tapping accumulates rather than switches — and a second
+    /// arrangement of the same list is the one that falls behind the day a window opens.
     @ViewBuilder
-    private func section(
-        _ title: String,
-        _ descriptors: [CaptureSourceDescriptor],
-        fallbackIcon: String
+    private func previewGrid(
+        _ title: String, _ descriptors: [CaptureSourceDescriptor], fallbackIcon: String
     ) -> some View {
         let matches = filtered(descriptors)
         if !matches.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(title)
-                ForEach(matches) { descriptor in
-                    Button {
-                        if buildingMosaic {
-                            toggle(descriptor)
-                        } else {
-                            model.selectSource(descriptor)
-                            onSelect()
-                        }
-                    } label: {
-                        row(descriptor, fallbackIcon: fallbackIcon)
-                    }
-                    .buttonStyle(.plain)
+                LazyVGrid(columns: Self.previewColumns, alignment: .leading, spacing: Self.tileGap) {
+                    ForEach(matches) { previewTile($0, fallbackIcon: fallbackIcon) }
                 }
             }
         }
     }
 
-    /// The running applications, as pictures.
-    ///
-    /// **A grid rather than a row each, and the thumbnails are the reason.** A row answers "what
-    /// is this called", which the icon and the title had already answered; twenty of them is a
-    /// list of twenty names. The question somebody actually opens this panel with is "which one
-    /// had the thing I was looking at on it", and only a picture answers that. The shape is
-    /// ``DesktopsPanel``'s, one level down: a picture in a rounded tile, a caption under it, and
-    /// an edge in the accent on the one the phone is showing.
-    ///
-    /// **The same grid in both modes.** Choosing one source and assembling a mosaic are the same
-    /// act with one difference — the tapping accumulates rather than switches — and a second
-    /// arrangement of the same list is the one that falls behind the day a window opens. What
-    /// the mosaic mode adds is the mark: a tile that has been picked carries its place in the
-    /// arrangement, which is the same number the arrangement list and the finished mosaic show.
-    @ViewBuilder
-    private func applicationsGrid(_ descriptors: [CaptureSourceDescriptor]) -> some View {
-        let matches = filtered(descriptors)
-        if !matches.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Applications")
-                LazyVGrid(
-                    // Adaptive rather than a fixed count: the panel is a fixed fraction of a
-                    // phone, but the phones are not all the same width, and a count that suits
-                    // one leaves a second column hanging off the edge of another. See
-                    // ``DesktopsPanel/horizontalInset`` for the day that happened.
-                    columns: [GridItem(.adaptive(minimum: Self.tileMinimumWidth), spacing: Self.tileGap)],
-                    alignment: .leading,
-                    spacing: Self.tileGap
-                ) {
-                    ForEach(matches) { descriptor in
-                        applicationTile(descriptor)
-                    }
-                }
-            }
-        }
-    }
-
-    /// One application, as a picture with its name under it.
-    private func applicationTile(_ descriptor: CaptureSourceDescriptor) -> some View {
-        // **One mark per mode, never two.** In the ordinary pick the accent edge says which
-        // source the phone is showing, which is what ``DesktopsPanel`` means by it and what this
-        // panel's checkmarks say on the rows above and below. In the accumulating one the same
-        // edge says which tiles have been picked, and the badge says where each of them landed —
-        // the arrangement is filled in reading order, so that number is the tile's place in the
-        // finished picture. Both at once would be one border meaning two things.
-        let isLive = !buildingMosaic && descriptor.id == model.activeSourceID
-        let place = buildingMosaic
-            ? picked.firstIndex { $0.source == descriptor.source }.map { $0 + 1 }
-            : nil
-        let marked = isLive || place != nil
+    /// One display or window, as a picture with its name under it.
+    private func previewTile(
+        _ descriptor: CaptureSourceDescriptor, fallbackIcon: String
+    ) -> some View {
+        let placed = placement(of: descriptor)
 
         return Button {
-            if buildingMosaic {
-                toggle(descriptor)
-            } else {
-                model.selectSource(descriptor)
-                onSelect()
-            }
+            choose(descriptor)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 ZStack {
@@ -379,18 +351,20 @@ struct SourcesPanel: View {
                        let image = UIImage(data: thumbnail.jpegData) {
                         Image(uiImage: image)
                             .resizable()
-                            // Filled rather than fitted, so every tile is the same shape and
-                            // the grid stays a grid. An application's windows are whatever
-                            // shape the user last left them, and letting each tile take its
-                            // own would be a mosaic of pictures rather than a row of cells.
+                            // Filled rather than fitted, so every tile is the same shape and the
+                            // grid stays a grid. A window is whatever shape the user left it, and
+                            // letting each tile take its own would be a mosaic of pictures rather
+                            // than a row of cells.
                             .aspectRatio(contentMode: .fill)
                     } else {
-                        // What the tile can honestly show before there is a picture, and this
-                        // is an ordinary state rather than a failure: the host takes these when
-                        // it is asked and not before, so the first second after the panel opens
-                        // looks like this, and a Mac too old to be asked always will. The icon
-                        // is what identifies the application without one.
-                        ApplicationIcon(data: descriptor.iconPNGData, fallback: "app")
+                        // What the tile can honestly show before there is a picture, and this is
+                        // an ordinary state rather than a failure: the host takes these when it is
+                        // asked and not before, and a window that is not on the desktop this Mac
+                        // is showing has no picture to take at all. See the handover on
+                        // `SCScreenshotManager` photographing only what is on screen.
+                        Image(systemName: fallbackIcon)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 .aspectRatio(Self.tileAspect, contentMode: .fit)
@@ -398,43 +372,215 @@ struct SourcesPanel: View {
                 .overlay {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .strokeBorder(
-                            marked ? ColorPalette.accent : ColorPalette.ink.opacity(0.18),
-                            lineWidth: marked ? 2 : 1
+                            placed.marked
+                                ? ColorPalette.accent
+                                : ColorPalette.ink.opacity(0.18),
+                            lineWidth: placed.marked ? 2 : 1
                         )
                 }
-                .overlay(alignment: .topTrailing) {
-                    if let place {
-                        Text("\(place)")
-                            .font(.caption2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(ColorPalette.onInk)
-                            .frame(width: 18, height: 18)
-                            .background(ColorPalette.accent, in: Circle())
-                            .padding(5)
-                    }
-                }
+                .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
 
-                Text(descriptor.title)
-                    .font(.system(size: 10, weight: isLive ? .semibold : .regular))
-                    .foregroundStyle(isLive ? ColorPalette.accent : ColorPalette.ink)
-                    .lineLimit(1)
+                caption(descriptor, isLive: placed.isLive)
             }
         }
         .buttonStyle(RailButtonStyle(scale: 0.94))
         // The picture is the point of the tile and carries no text of its own, so the label is
-        // what a screen reader announces instead of twenty unlabelled images.
-        .accessibilityLabel(
-            [descriptor.title, descriptor.subtitle].compactMap { $0 }.joined(separator: ", ")
-        )
+        // what a screen reader announces instead of a wall of unlabelled images.
+        .accessibilityLabel(spoken(descriptor))
     }
 
-    /// The grid's own numbers.
+    /// A section of the things that are an *identity*: applications, as icons.
+    @ViewBuilder
+    private func iconGrid(
+        _ title: String, _ descriptors: [CaptureSourceDescriptor], fallbackIcon: String
+    ) -> some View {
+        let matches = filtered(descriptors)
+        if !matches.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel(title)
+                LazyVGrid(columns: Self.iconColumns, alignment: .leading, spacing: Self.iconGap) {
+                    ForEach(matches) { iconTile($0, fallbackIcon: fallbackIcon) }
+                }
+            }
+        }
+    }
+
+    /// One application, as its icon with its name under it.
     ///
-    /// A tile wide enough for a window to be recognisable and narrow enough that three fit
-    /// across the narrowest phone this runs on. The aspect is the shape a Mac window usually
-    /// is, which is the one the captions and the crop are both chosen against.
+    /// The shape a Home Screen uses, and for the same reason: a grid of icons is a thing people
+    /// read by shape and colour before they read the word under it, and squeezing the icon to
+    /// leave room for a longer caption takes away the half that does the work.
+    private func iconTile(
+        _ descriptor: CaptureSourceDescriptor, fallbackIcon: String
+    ) -> some View {
+        let placed = placement(of: descriptor)
+
+        return Button {
+            choose(descriptor)
+        } label: {
+            VStack(spacing: 6) {
+                ZStack {
+                    // The mark is a filled edge behind the icon rather than a stroke around it,
+                    // because the icon draws its own rounded background and a stroke outside it
+                    // would be a second frame around the first.
+                    if placed.marked {
+                        RoundedRectangle(
+                            cornerRadius: Self.iconCorner + 5, style: .continuous
+                        )
+                        .fill(ColorPalette.accent)
+                    }
+                    ApplicationIcon(
+                        data: descriptor.iconPNGData,
+                        fallback: fallbackIcon,
+                        size: Self.iconSize
+                    )
+                }
+                .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
+
+                caption(descriptor, isLive: placed.isLive, alignment: .center)
+            }
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.94))
+        .accessibilityLabel(spoken(descriptor))
+    }
+
+    /// The applications installed on the Mac but not running, as icons.
+    ///
+    /// The same grid as the running ones and deliberately so: a name in this list becomes a row in
+    /// the one above the moment it is opened, and two arrangements would make that look like the
+    /// entry moved rather than started. What differs is the tap — one switches a source, this one
+    /// launches an application — and the sentence under the grid saying so.
+    @ViewBuilder
+    private var installedGrid: some View {
+        let installed = filteredInstalled
+        if !installed.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel("Installed on your Mac")
+                LazyVGrid(columns: Self.iconColumns, alignment: .leading, spacing: Self.iconGap) {
+                    ForEach(installed) { application in
+                        Button {
+                            model.launchApplication(application)
+                            onSelect()
+                        } label: {
+                            VStack(spacing: 6) {
+                                ApplicationIcon(
+                                    data: application.iconPNGData,
+                                    fallback: "app.dashed",
+                                    size: Self.iconSize
+                                )
+                                Text(application.title)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(ColorPalette.ink)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .buttonStyle(RailButtonStyle(scale: 0.94))
+                        .accessibilityLabel(application.title)
+                    }
+                }
+                Text("Not running yet. Choosing one opens it on the Mac.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// What a tile has to draw about its source: whether it is marked, and where it sits in an
+    /// arrangement being built.
+    ///
+    /// **One mark per mode, never two.** In the ordinary pick the accent says which source the
+    /// phone is showing, which is what ``DesktopsPanel`` means by it. In the accumulating one the
+    /// same accent says which tiles have been picked, and the badge says where each of them
+    /// landed — the arrangement is filled in reading order, so that number is the tile's place in
+    /// the finished picture. Both at once would be one mark meaning two things.
+    private func placement(
+        of descriptor: CaptureSourceDescriptor
+    ) -> (marked: Bool, isLive: Bool, place: Int?) {
+        let isLive = !buildingMosaic && descriptor.id == model.activeSourceID
+        let place = buildingMosaic
+            ? picked.firstIndex { $0.source == descriptor.source }.map { $0 + 1 }
+            : nil
+        return (isLive || place != nil, isLive, place)
+    }
+
+    private func choose(_ descriptor: CaptureSourceDescriptor) {
+        if buildingMosaic {
+            withAnimation(Motion.tap) { toggle(descriptor) }
+        } else {
+            // Animated because of the one case where this leaves a standing mosaic: the tile
+            // borders drawn over the picture fade out as the arrangement is given up, and that
+            // fade belongs to the tap that caused it.
+            withAnimation(Motion.settle) { model.selectSource(descriptor) }
+            onSelect()
+        }
+    }
+
+    @ViewBuilder
+    private func placeBadge(_ place: Int?) -> some View {
+        if let place {
+            Text("\(place)")
+                .font(.caption2.weight(.bold).monospacedDigit())
+                .foregroundStyle(ColorPalette.onInk)
+                .frame(width: 18, height: 18)
+                .background(ColorPalette.accent, in: Circle())
+                .padding(5)
+        }
+    }
+
+    private func caption(
+        _ descriptor: CaptureSourceDescriptor,
+        isLive: Bool,
+        alignment: HorizontalAlignment = .leading
+    ) -> some View {
+        VStack(alignment: alignment, spacing: 1) {
+            Text(descriptor.title)
+                .font(.system(size: 10, weight: isLive ? .semibold : .regular))
+                .foregroundStyle(isLive ? ColorPalette.accent : ColorPalette.ink)
+                .lineLimit(1)
+            if let subtitle = descriptor.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
+    }
+
+    private func spoken(_ descriptor: CaptureSourceDescriptor) -> String {
+        [descriptor.title, descriptor.subtitle].compactMap { $0 }.joined(separator: ", ")
+    }
+
+    /// The grids' own numbers.
+    ///
+    /// **Pictures and icons are two grids rather than one with two skins.** A picture wants a wide
+    /// tile and as much of the panel as it can have; an icon is square, smaller, and wants its
+    /// neighbours close, because a grid of icons is read as one shape at a glance.
+    ///
+    /// Adaptive rather than a fixed count: the panel is a fixed fraction of a phone, but the
+    /// phones are not all the same width, and a count that suits one leaves a second column
+    /// hanging off the edge of another. See ``DesktopsPanel/horizontalInset`` for the day that
+    /// happened.
+    private static var previewColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: tileMinimumWidth), spacing: tileGap)]
+    }
+
+    private static var iconColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: iconMinimumWidth), spacing: iconGap)]
+    }
+
     private static let tileMinimumWidth: CGFloat = 104
     private static let tileGap: CGFloat = 8
     private static let tileAspect: CGFloat = 16.0 / 10.0
+
+    /// The size of a Home Screen icon, which is what this grid is quoting.
+    private static let iconSize: CGFloat = 60
+    /// The corner `ApplicationIcon` derives from ``iconSize``, needed here for the mark behind it.
+    private static let iconCorner: CGFloat = iconSize * (11.0 / 42.0)
+    private static let iconMinimumWidth: CGFloat = 76
+    private static let iconGap: CGFloat = 10
 
     /// Adds or removes one source from the arrangement being built.
     ///
@@ -447,70 +593,6 @@ struct SourcesPanel: View {
         } else if picked.count < MosaicLayout.maximumTileCount {
             picked.append(descriptor)
         }
-    }
-
-    @ViewBuilder
-    private var installedSection: some View {
-        let installed = filteredInstalled
-        if !installed.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Installed on your Mac")
-                ForEach(installed) { application in
-                    Button {
-                        model.launchApplication(application)
-                        onSelect()
-                    } label: {
-                        HStack(spacing: 10) {
-                            ApplicationIcon(data: application.iconPNGData, fallback: "app.dashed")
-                            Text(application.title)
-                                .font(.subheadline.weight(.medium))
-                                .lineLimit(1)
-                            Spacer(minLength: 8)
-                            Text("Open")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(ColorPalette.accent)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .rowSurface()
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                Text("Not running yet. Choosing one opens it on the Mac.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func row(_ source: CaptureSourceDescriptor, fallbackIcon: String) -> some View {
-        HStack(spacing: 10) {
-            ApplicationIcon(data: source.iconPNGData, fallback: fallbackIcon)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(source.title)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                if let subtitle = source.subtitle {
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 8)
-            if source.id == model.activeSourceID {
-                // A checkmark and nothing else: tapping a row switches to it immediately, so a
-                // chevron promising another screen would be a lie.
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(ColorPalette.accent)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .rowSurface()
-        .contentShape(Rectangle())
     }
 
     private var filteredInstalled: [InstalledApplicationDescriptor] {
