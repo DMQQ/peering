@@ -248,6 +248,7 @@ struct Response {
     status: u16,
     reason: &'static str,
     content_type: &'static str,
+    cache_control: &'static str,
     /// Extra headers, already formatted, without the trailing CRLF.
     extra: Vec<String>,
     body: Body,
@@ -285,6 +286,7 @@ impl Response {
             status,
             reason: reason_for(status),
             content_type: "text/plain; charset=utf-8",
+            cache_control: "no-cache",
             extra: Vec::new(),
             body: Body::Bytes(format!("{message}\n").into_bytes()),
         }
@@ -369,6 +371,7 @@ async fn respond(head: &str, root: &Path) -> Response {
             status: 304,
             reason: reason_for(304),
             content_type: content_type(&file),
+            cache_control: cache_control_for(&file),
             extra: vec![format!("ETag: {etag}")],
             body: Body::Bytes(Vec::new()),
         };
@@ -425,6 +428,7 @@ async fn respond(head: &str, root: &Path) -> Response {
         status,
         reason: reason_for(status),
         content_type: content_type(&file),
+        cache_control: cache_control_for(&file),
         extra,
         body: Body::File { file: handle, len },
     }
@@ -490,10 +494,7 @@ async fn write_response(
         head.push_str("\r\n");
     }
 
-    // Revalidated on every request rather than cached on a timer. The files are small, the whole
-    // site is seven of them, and a 304 costs about two hundred bytes — which is a better trade than
-    // a visitor seeing last week's stylesheet against this week's markup after a deploy.
-    head.push_str("Cache-Control: no-cache\r\n");
+    head.push_str(&format!("Cache-Control: {}\r\n", response.cache_control));
 
     // No inline scripts or styles anywhere on the site, so the policy can be this strict without
     // anything to relax it for. See the note in `styles.css`.
@@ -589,6 +590,19 @@ fn percent_decode(input: &str) -> Option<String> {
     }
 
     String::from_utf8(out).ok()
+}
+
+fn cache_control_for(file: &Path) -> &'static str {
+    match file.extension().and_then(|e| e.to_str()) {
+        // Hash-stamped by deploy-site.sh and the font URL is versioned by name, so these are safe
+        // to hold for a year.
+        Some("css" | "js" | "woff2") => "max-age=31536000, immutable",
+        // Images change rarely; a week is enough buffer between a deploy and cache expiry.
+        Some("webp" | "png" | "svg" | "avif" | "jpg" | "jpeg" | "ico") => "max-age=604800",
+        // Everything else — HTML, XML (appcast), DMG — is either user-visible content that should
+        // reflect the latest deploy, or a download whose URL is already versioned.
+        _ => "no-cache",
+    }
 }
 
 fn content_type(file: &Path) -> &'static str {
