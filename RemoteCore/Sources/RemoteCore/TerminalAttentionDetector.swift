@@ -35,6 +35,14 @@ public struct TerminalAttentionDetector: Sendable {
         isAwaitingResponse = false
     }
 
+    /// Scans plain visible text for patterns that require the user's response.
+    ///
+    /// Accepts text that has already been rendered (no ANSI codes), as returned by
+    /// the Accessibility API when reading a native terminal emulator's text area.
+    public static func scan(_ text: String) -> TerminalAttentionKind? {
+        detect(in: text)
+    }
+
     private static func detect(in rawText: String) -> TerminalAttentionKind? {
         let withoutCSI = rawText.replacingOccurrences(
             of: "\u{001B}\\[[0-?]*[ -/]*[@-~]",

@@ -127,6 +127,7 @@ final class HostModel {
     /// exactly that launch.
     init() {
         Task { await adoptLidCloseSleepSetting() }
+        startResourceSampling()
     }
 
     /// Whether a given trusted device is attached right now.
@@ -201,6 +202,33 @@ final class HostModel {
         return UInt64(max(0, stats.bytesSent + stats.audioBytesSent))
     }
 
+    /// What this app is costing the Mac, for the menu's readings.
+    ///
+    /// **On the model rather than on the window it used to be read in**, because the menu is where
+    /// these are read now and a menu bar app is usually run with its window closed. It is sampled
+    /// on a timer from the moment the app launches, which is the one place this differs from the
+    /// panel it replaces: that sampled only while its card was on screen, and a menu cannot do the
+    /// same thing, because a rate is a difference between two readings — sampling when the menu
+    /// opens would show nothing at all the first time and a figure for the interval since the last
+    /// time somebody looked on the second.
+    ///
+    /// The cost of always sampling is the one the sampler's own note describes: two syscalls and
+    /// a subtraction every two seconds, next to an encoder that is producing sixty frames of it.
+    var resources = HostResourceSampler()
+
+    /// Keeps ``resources`` current. Started once, and never stopped: an app that is not hosting is
+    /// still an app somebody may open the menu to ask about, and "nothing measurable" is a real
+    /// answer that a blank row is not.
+    private func startResourceSampling() {
+        Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                resources.sample(bytesSent: streamedBytes ?? 0)
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
     /// The last name each device gave when it connected.
     ///
     /// A trusted device is stored as a pin, and a pin is a public key — there is no name in it.
@@ -250,6 +278,7 @@ final class HostModel {
 
     private var server: HostServer?
     private var relayRegistration: RelayHostRegistration?
+    private var nativeTerminalWatcher: NativeTerminalWatcher?
     private var pins: PinStore?
     private var identity: SelfSignedIdentity?
     private var spaceObserver: NSObjectProtocol?
@@ -851,6 +880,15 @@ final class HostModel {
             }
             relayRegistration = registration
             registration.start()
+
+            let watcher = NativeTerminalWatcher()
+            watcher.onAttention = { [weak server, weak registration] message in
+                for token in server?.allPushTokens() ?? [] {
+                    registration?.notifyDevice(token: token, title: "Terminal needs you", body: message)
+                }
+            }
+            watcher.start()
+            nativeTerminalWatcher = watcher
         } catch {
             let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             status = .failed(message)
@@ -893,6 +931,8 @@ final class HostModel {
         server = nil
         relayRegistration?.stop()
         relayRegistration = nil
+        nativeTerminalWatcher?.stop()
+        nativeTerminalWatcher = nil
         coordinator?.stop()
         coordinator = nil
         if let observer = spaceObserver {

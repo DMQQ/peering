@@ -171,6 +171,10 @@ final class HostServer: @unchecked Sendable {
 
     // MARK: - Lifecycle
 
+    func allPushTokens() -> [String] {
+        terminalManager.allPushTokens()
+    }
+
     func start() throws {
         guard listener == nil else { return }
         terminalManager.onPushNeeded = { [weak self] token, message, _ in

@@ -126,6 +126,16 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// the phone is no longer connected over the control channel. Token is the APNs hex token;
     /// message is the human-readable sentence for the notification body.
     var onPushNeeded: (@Sendable (String, String, TerminalAttentionKind) -> Void)?
+
+    /// The APNs tokens of clients that have registered for push but are not currently connected
+    /// over the control channel. Used by native-terminal watching to push outside of Peering sessions.
+    func allPushTokens() -> [String] {
+        lock.withLock {
+            pushTokenByClientID.compactMap { clientID, token in
+                sinks[clientID] == nil ? token : nil
+            }
+        }
+    }
     private static let maximumHistoryBytes = 512 * 1024
     private static let maximumSessionsPerClient = 10
 
