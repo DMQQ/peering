@@ -19,6 +19,20 @@ extension MacSession {
         return Date().timeIntervalSince(activeSessionHistoryStartedAt)
     }
 
+    /// The same fact with a start on it, which is what the allowance needs.
+    ///
+    /// **A stretch rather than a number of seconds, because the window is the relay's and not this
+    /// phone's.** The relay charges a splice as it runs, against a bucket that turns over at the
+    /// epoch day, so a session that was open when the day turned over is charged for its minutes
+    /// either side of it out of two allowances, and a figure with no times in it cannot be placed
+    /// against either. See ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySegments:)``.
+    ///
+    /// `nil` before the session comes up, which is a session spending nothing.
+    var activeSessionConnectedSegment: DateInterval? {
+        guard let activeSessionHistoryStartedAt else { return nil }
+        return DateInterval(start: activeSessionHistoryStartedAt, duration: activeSessionDuration)
+    }
+
     /// Opens the record for the session that has just come up, or takes up the one a drop filed.
     ///
     /// - Parameter resuming: whether this Mac's session had already come up before this attempt,

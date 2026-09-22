@@ -31,20 +31,52 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
     /// punch", which is what the app believed at the time.
     public var usedDirectPath: Bool = false
 
-    /// The seconds of that span the session was actually up for, which is not the span.
+    /// The stretches of the span the session was actually up for, which is not the whole span.
     ///
-    /// **A field of its own, and the reason a record could not simply be merged from its span.**
-    /// A session the app puts back is one row from the first connect to the last disconnect, so
-    /// the span now covers the minutes the phone spent backgrounded, the ladder spent retrying,
-    /// and the Mac spent unreachable, and the relay is splicing none of that. The meter is the
-    /// allowance, so a merged record summed by its span would charge a free user for the gap and
-    /// cut them off early, on the one screen they would go to in order to find out why. So the
-    /// span is what the row shows and what the window is decided by, and this is what is spent.
+    /// **Where the time went, and not only how much of it there was.** A session the app puts back
+    /// is one row from the first connect to the last disconnect, so its span covers the minutes the
+    /// phone spent backgrounded, the ladder spent retrying and the Mac spent unreachable, and the
+    /// relay is splicing none of that. The meter is the allowance, so a merged record summed by its
+    /// span would charge a free user for the gap and cut them off early, on the one screen they
+    /// would go to in order to find out why. One interval per stretch the session was up, then: a
+    /// session that never dropped has one, and a resumed one has as many as it was put back.
     ///
-    /// Defaulted, so a record written before this existed decodes as one whose every second was
-    /// connected, which is the truth about it: nothing was merged then, and its span *was* its
-    /// uptime. See ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySeconds:)``.
-    public let connectedSeconds: TimeInterval
+    /// **The times and not the total, because the allowance is metered in windows.** The relay
+    /// charges as it splices (`Relay/src/quota.rs`), against a bucket that turns over at the epoch
+    /// day, so a session that was up across that turnover pays for its minutes either side of it
+    /// out of two different allowances. A record that knew only how many connected seconds it had
+    /// could not be told apart from one that spent them all yesterday, and the phone's bar would
+    /// go on saying there was time left that the relay was never going to give. See
+    /// ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySegments:)``.
+    ///
+    /// Defaulted, and the two shapes a record written before this can have are both answered on the
+    /// way in: a record from before any of it becomes one stretch covering everything it has, which
+    /// is the truth about it, and one from the build that kept the total and not the times keeps
+    /// that total exactly and has it placed at the end of the span. See the decoder.
+    public let connectedSegments: [DateInterval]
+
+    /// The total of those stretches, which is what a reader wants and what a row shows.
+    public var connectedSeconds: TimeInterval {
+        connectedSegments.reduce(0) { $0 + max(0, $1.duration) }
+    }
+
+    /// Seconds of the span the session was not up for, which only a session the app put back has.
+    public var disconnectedSeconds: TimeInterval { max(0, duration - connectedSeconds) }
+
+    /// Whether the two figures are worth showing apart.
+    ///
+    /// **The comparison is made where the screen prints, which is whole seconds.** Two figures that
+    /// print the same second are one figure to the reader, and a second row reading the first one
+    /// back is noise; two that print differently are two facts about the session, however close
+    /// together they are, and hiding one of them would be the app keeping a number to itself.
+    /// Nearly every record has them equal, because nearly every session was never dropped, and
+    /// those are the rows that must not grow a line beneath them.
+    ///
+    /// Comparing the gap itself would be the near miss: a session interrupted for half a second
+    /// rounds to one second of gap and would print two rows reading the same thing.
+    public var wasInterrupted: Bool {
+        Int(duration.rounded()) != Int(connectedSeconds.rounded())
+    }
 
     /// Whether the session ended because the user asked it to, rather than because it dropped.
     ///
@@ -62,8 +94,8 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
 
     public var duration: TimeInterval { max(0, endedAt.timeIntervalSince(startedAt)) }
 
-    /// - Parameter connectedSeconds: left out for a session that was never dropped, where the
-    ///   answer is the span and there is nothing to say.
+    /// - Parameter connectedSegments: left out for a session that was never dropped, where the
+    ///   answer is one stretch covering the span and there is nothing to say.
     public init(
         id: UUID,
         hostID: String?,
@@ -74,7 +106,7 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
         videoBytesReceived: Int64,
         logs: [String],
         usedDirectPath: Bool = false,
-        connectedSeconds: TimeInterval? = nil,
+        connectedSegments: [DateInterval]? = nil,
         endedDeliberately: Bool = false
     ) {
         self.id = id
@@ -86,13 +118,24 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
         self.videoBytesReceived = videoBytesReceived
         self.logs = logs
         self.usedDirectPath = usedDirectPath
-        self.connectedSeconds = connectedSeconds ?? max(0, endedAt.timeIntervalSince(startedAt))
+        self.connectedSegments = connectedSegments ?? [.stretch(from: startedAt, to: endedAt)]
         self.endedDeliberately = endedDeliberately
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, hostID, hostName, startedAt, endedAt, path, videoBytesReceived, logs
-        case usedDirectPath, connectedSeconds, endedDeliberately
+        case usedDirectPath, connectedSegments, endedDeliberately
+    }
+
+    /// The key of a field this type no longer writes and still reads.
+    ///
+    /// **A container of its own, because a coding key has to belong to a stored property.** The
+    /// connected seconds became the total of ``connectedSegments``, which is derived rather than
+    /// stored, so the key they were written under has nothing left to name, and a decoder that
+    /// listed it beside the others would take the synthesized encoder down with it. What it is
+    /// still good for is a record filed by the build in between. See the decoder.
+    private enum LegacyCodingKeys: String, CodingKey {
+        case connectedSeconds
     }
 
     /// Written out rather than synthesized, for the three fields this type has grown since records
@@ -103,7 +146,7 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
     /// written by an earlier build has no key for it and decoding throws `keyNotFound`. That would
     /// not be a visible failure: ``SessionHistoryStore/load()`` reads a decode failure as "nothing
     /// was stored", so the whole thirty-session history would quietly empty itself on the first
-    /// launch after an update. Four tests in `MacCastPolicyTests` hold this down, two of them
+    /// launch after an update. Five tests in `MacCastPolicyTests` hold this down, three of them
     /// decoding a record written without the keys.
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -121,10 +164,20 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
         logs = try values.decode([String].self, forKey: .logs)
         // Absent is "did not punch", which is what the app believed before it could tell.
         usedDirectPath = try values.decodeIfPresent(Bool.self, forKey: .usedDirectPath) ?? false
-        // Absent is the span, which is what a record filed by an earlier build was: one segment,
-        // connected from end to end. See the notes on the two fields themselves.
-        connectedSeconds = try values.decodeIfPresent(TimeInterval.self, forKey: .connectedSeconds)
-            ?? max(0, ended.timeIntervalSince(began))
+        // **Three answers, and the older two are exact about what they can be.** A record filed
+        // before this field existed has one stretch, connected from end to end, because nothing was
+        // continued and nothing was metered in windows; a record filed by the build that kept the
+        // total and not the times has its seconds preserved to the second, and where they fell is
+        // answered by putting them at the end of the span, which is where the last stretch of a
+        // session that was put back is.
+        let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+        if let segments = try values.decodeIfPresent([DateInterval].self, forKey: .connectedSegments) {
+            connectedSegments = segments
+        } else if let total = try legacy.decodeIfPresent(TimeInterval.self, forKey: .connectedSeconds) {
+            connectedSegments = [.stretch(from: ended.addingTimeInterval(-max(0, total)), to: ended)]
+        } else {
+            connectedSegments = [.stretch(from: began, to: ended)]
+        }
         endedDeliberately = try values.decodeIfPresent(Bool.self, forKey: .endedDeliberately) ?? true
     }
 }
@@ -156,7 +209,7 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
 public struct SessionContinuation: Equatable {
     public let id: UUID
     public let startedAt: Date
-    public let connectedSeconds: TimeInterval
+    public let connectedSegments: [DateInterval]
     public let videoBytesReceived: Int64
     public let logs: [String]
 
@@ -171,14 +224,14 @@ public struct SessionContinuation: Equatable {
     public init(
         id: UUID,
         startedAt: Date,
-        connectedSeconds: TimeInterval = 0,
+        connectedSegments: [DateInterval] = [],
         videoBytesReceived: Int64 = 0,
         logs: [String] = [],
         usedDirectPath: Bool = false
     ) {
         self.id = id
         self.startedAt = startedAt
-        self.connectedSeconds = connectedSeconds
+        self.connectedSegments = connectedSegments
         self.videoBytesReceived = videoBytesReceived
         self.logs = logs
         self.usedDirectPath = usedDirectPath
@@ -188,7 +241,7 @@ public struct SessionContinuation: Equatable {
         self.init(
             id: record.id,
             startedAt: record.startedAt,
-            connectedSeconds: record.connectedSeconds,
+            connectedSegments: record.connectedSegments,
             videoBytesReceived: record.videoBytesReceived,
             logs: record.logs,
             usedDirectPath: record.usedDirectPath
@@ -220,9 +273,9 @@ public struct SessionContinuation: Equatable {
     /// bytes added to what the continuation carried.
     ///
     /// The arithmetic the whole file is about, in one place: the record keeps the continuation's
-    /// identity and start, and its totals are the two segments' summed. Everything the caller
-    /// cannot get wrong is decided here, including the span, which is the distance from the
-    /// *record's* start and so contains the gap on purpose.
+    /// identity and start, its stretches of connected time are the ones it carried plus the one
+    /// ending now, and its span is the distance from the *record's* start, which is what puts the
+    /// gap on the row and keeps it out of the meter.
     public func filed(
         endedAt: Date,
         segmentStartedAt: Date,
@@ -244,9 +297,25 @@ public struct SessionContinuation: Equatable {
             videoBytesReceived: videoBytesReceived + segmentBytes,
             logs: logs,
             usedDirectPath: usedDirectPath || self.usedDirectPath,
-            connectedSeconds: connectedSeconds + max(0, endedAt.timeIntervalSince(segmentStartedAt)),
+            // **One more stretch, and never a total.** The stretch just ended is placed where it
+            // happened, which is the whole of what the meter's window needs; the seconds are the
+            // record's own sum of them. See ``ClientSessionRecord/connectedSegments``.
+            connectedSegments: connectedSegments + [.stretch(from: segmentStartedAt, to: endedAt)],
             endedDeliberately: endedDeliberately
         )
+    }
+}
+
+extension DateInterval {
+    /// One stretch, in the direction time runs.
+    ///
+    /// **Every stretch of connected time is built through here.** The phone's clock is corrected
+    /// while sessions are running, so a start that arrives after its own end is a thing that
+    /// happens rather than a thing that cannot; without this it would file an interval whose
+    /// duration subtracts from the session's own connected time, and the meter would take seconds
+    /// off somebody's allowance for it.
+    static func stretch(from start: Date, to end: Date) -> DateInterval {
+        DateInterval(start: min(start, end), end: end)
     }
 }
 
@@ -265,19 +334,32 @@ public enum RelayAllowance {
     /// the control channel either way, which is what ``ClientSessionRecord/usedDirectPath`` is
     /// filed beside the path rather than folded into it for.
     ///
-    /// **Connected seconds and not the span**, which is the one thing about this sum that a
-    /// reader has to be told: a session the app put back is one record covering a gap it was not
-    /// connected for, and the relay charges by what it spliced. See
-    /// ``ClientSessionRecord/connectedSeconds``.
+    /// **What is counted is the time inside the window, and not the sessions that began in it.**
+    /// The relay charges a splice as it runs (`Relay/src/quota.rs`), against a bucket that turns
+    /// over at the epoch day, so a session that was up across that turnover pays for its minutes
+    /// on either side of it out of two different allowances, and the second of those is the one
+    /// this is being asked about. A session that started before the window and was still running
+    /// after it began therefore spends here exactly the part of itself that falls inside, which is
+    /// what ``ClientSessionRecord/connectedSegments`` exists to make answerable. The old rule read
+    /// the record's start and nothing else, which lost every minute a session spent on this side
+    /// of a boundary it crossed, and told the user they had an allowance the relay had already
+    /// spent.
+    ///
+    /// - Parameter liveRelaySegments: one stretch per session that is up on the relay now, each
+    ///   from the moment it came up to this one. Clipped the same way, so that a session is
+    ///   counted by the same rule while it runs as after it ends.
     public static func secondsUsed(
         records: [ClientSessionRecord],
         windowStart: Date,
-        liveRelaySeconds: [TimeInterval]
+        liveRelaySegments: [DateInterval]
     ) -> TimeInterval {
-        records
-            .filter { $0.path == .relay && $0.startedAt >= windowStart }
-            .reduce(0) { $0 + $1.connectedSeconds }
-            + liveRelaySeconds.reduce(0, +)
+        let window = DateInterval(start: windowStart, duration: windowLength)
+        let recorded = records
+            .filter { $0.path == .relay }
+            .reduce(0) { total, record in
+                total + record.connectedSegments.reduce(0) { $0 + overlap(of: $1, with: window) }
+            }
+        return recorded + liveRelaySegments.reduce(0) { $0 + overlap(of: $1, with: window) }
     }
 
     /// Seconds of the allowance left, or `nil` on a plan that has none to spend.
@@ -285,14 +367,29 @@ public enum RelayAllowance {
         allowance: TimeInterval?,
         records: [ClientSessionRecord],
         windowStart: Date,
-        liveRelaySeconds: [TimeInterval]
+        liveRelaySegments: [DateInterval]
     ) -> TimeInterval? {
         guard let allowance else { return nil }
         return max(0, allowance - secondsUsed(
             records: records,
             windowStart: windowStart,
-            liveRelaySeconds: liveRelaySeconds
+            liveRelaySegments: liveRelaySegments
         ))
+    }
+
+    /// How long the window is, which is the relay's own number: `WINDOW_SECS` in
+    /// `Relay/src/quota.rs`, one day.
+    public static let windowLength: TimeInterval = 24 * 3_600
+
+    /// Seconds two stretches of time have in common.
+    ///
+    /// `max(0, ...)` rather than a guard, so a stretch that ended before the window began and one
+    /// that has not begun yet both come out as nothing rather than as a negative number of seconds
+    /// subtracted from somebody's allowance.
+    private static func overlap(of stretch: DateInterval, with window: DateInterval) -> TimeInterval {
+        let began = max(stretch.start, window.start)
+        let ended = min(stretch.end, window.end)
+        return max(0, ended.timeIntervalSince(began))
     }
 
     /// Which 24-hour window the relay is counting in: epoch seconds divided into days.
@@ -301,7 +398,7 @@ public enum RelayAllowance {
     /// this way — so the meter, the bar and the server's own counter all turn over at the same
     /// instant.
     public static func windowNumber(at moment: Date) -> Double {
-        (moment.timeIntervalSince1970 / 86_400).rounded(.down)
+        (moment.timeIntervalSince1970 / windowLength).rounded(.down)
     }
 
     /// The start of the window the relay is counting against.
@@ -310,7 +407,7 @@ public enum RelayAllowance {
     /// calendar and does not know what time zone the phone is in, so a bar drawn against local
     /// midnight would show a fresh allowance while the relay was still refusing connections.
     public static func windowStart(windowNumber: Double) -> Date {
-        Date(timeIntervalSince1970: windowNumber * 86_400)
+        Date(timeIntervalSince1970: windowNumber * windowLength)
     }
 }
 

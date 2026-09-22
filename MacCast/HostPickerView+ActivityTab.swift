@@ -562,6 +562,17 @@ private struct SessionHistoryDetail: View {
                         detailRow("Started", session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         Controls.divider
                         detailRow("Duration", durationLabel)
+                        // **The second figure, for the sessions where there are two.** A session the
+                        // app put back after a drop covers the minutes it was not connected for, and
+                        // this is the one screen that can say so: the relay meter counts the other
+                        // figure, so without this row a user reading "2h 10m" here and watching
+                        // their allowance fall by forty minutes has been told two things and given
+                        // nothing to reconcile them with. Shown only when the two differ, which for
+                        // a session that was never interrupted they do not.
+                        if session.wasInterrupted {
+                            Controls.divider
+                            detailRow("Connected", connectedLabel)
+                        }
                         Controls.divider
                         detailRow(
                             "Video received",
@@ -633,17 +644,31 @@ private struct SessionHistoryDetail: View {
             "Path: \(session.path.rawValue)",
             "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))",
             "Duration: \(durationLabel)",
-            "Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))",
-            "",
         ]
+        // The same second row the card draws, and for the same reason: this is what somebody pastes
+        // into a message about a session, and a paste that says three hours about a session the
+        // meter charged forty minutes for is the confusion the row above exists to remove.
+        if session.wasInterrupted { lines.append("Connected: \(connectedLabel)") }
+        lines.append("Video received: \(ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file))")
+        lines.append("")
         lines += session.logs.isEmpty
             ? ["No diagnostic events were recorded for this session."]
             : session.logs
         return lines.joined(separator: "\n")
     }
 
-    private var durationLabel: String {
-        let seconds = Int(session.duration.rounded())
-        return seconds < 60 ? "\(seconds) seconds" : "\(seconds / 60)m \(seconds % 60)s"
+    private var durationLabel: String { secondsLabel(session.duration) }
+
+    /// The seconds the session was actually up for, which is the figure the allowance spends.
+    private var connectedLabel: String { secondsLabel(session.connectedSeconds) }
+
+    /// A stretch of time as this screen prints one.
+    ///
+    /// One spelling for both rows, because they sit on top of each other and are the same kind of
+    /// figure: two spellings would read as two different measurements rather than as the same one
+    /// taken twice.
+    private func secondsLabel(_ seconds: TimeInterval) -> String {
+        let total = Int(seconds.rounded())
+        return total < 60 ? "\(total) seconds" : "\(total / 60)m \(total % 60)s"
     }
 }

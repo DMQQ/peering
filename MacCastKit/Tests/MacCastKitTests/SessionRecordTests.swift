@@ -59,7 +59,7 @@ final class SessionRecordTests: XCTestCase {
                 record(path: .relay, startedAt: start, duration: 300),
             ],
             windowStart: start,
-            liveRelaySeconds: []
+            liveRelaySegments: []
         )
         XCTAssertEqual(used, 900)
     }
@@ -72,7 +72,10 @@ final class SessionRecordTests: XCTestCase {
         let used = RelayAllowance.secondsUsed(
             records: [],
             windowStart: start,
-            liveRelaySeconds: [600, 300]
+            liveRelaySegments: [
+                DateInterval(start: start, duration: 600),
+                DateInterval(start: start, duration: 300),
+            ]
         )
         XCTAssertEqual(used, 900)
     }
@@ -87,25 +90,144 @@ final class SessionRecordTests: XCTestCase {
         let used = RelayAllowance.secondsUsed(
             records: [
                 // Two hours of span, ten minutes of which the session was up.
-                record(path: .relay, startedAt: start, duration: 7_200, connectedSeconds: 600)
+                record(
+                    path: .relay,
+                    startedAt: start,
+                    duration: 7_200,
+                    connectedSegments: [DateInterval(start: start, duration: 600)]
+                )
             ],
             windowStart: start,
-            liveRelaySeconds: []
+            liveRelaySegments: []
         )
         XCTAssertEqual(used, 600)
     }
 
-    /// The same sum over a live session, where the seconds are this segment's: the half of a
+    /// The same sum over a live session, where the stretch is this segment's: the half of a
     /// continued session that has already happened is in the history, still, as the record the
     /// live one continues, and counting it in both places would spend the allowance twice.
     func testALiveSessionAddsOnlyTheSegmentItIsRunning() {
         let start = Date(timeIntervalSince1970: 1_000_000)
         let used = RelayAllowance.secondsUsed(
-            records: [record(path: .relay, startedAt: start, duration: 3_600, connectedSeconds: 300)],
+            records: [
+                record(
+                    path: .relay,
+                    startedAt: start,
+                    duration: 3_600,
+                    connectedSegments: [DateInterval(start: start, duration: 300)]
+                )
+            ],
             windowStart: start,
-            liveRelaySeconds: [120]
+            liveRelaySegments: [DateInterval(start: start, duration: 120)]
         )
         XCTAssertEqual(used, 420)
+    }
+
+    // MARK: - What a window spends
+
+    /// **The boundary case the record's own times exist for.** The relay charges a splice as it
+    /// runs, against a bucket that turns over at the epoch day, so a session that was up when the
+    /// day turned over is charged for its minutes either side of it out of two allowances. The
+    /// meter has to answer the same question the same way: half of this session is inside the
+    /// window and half is not, and only the half inside is spending this window.
+    ///
+    /// A rule that read the record's start instead lost the whole of it, which told the user they
+    /// had an allowance the relay had already spent, and the app would go on saying so until they
+    /// were refused.
+    func testARecordSpanningTheWindowIsCountedFromItsStart() {
+        let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
+        let used = RelayAllowance.secondsUsed(
+            records: [
+                // Up ten minutes before the day turned over, and twenty after it.
+                record(
+                    path: .relay,
+                    startedAt: windowStart.addingTimeInterval(-600),
+                    duration: 1_800
+                )
+            ],
+            windowStart: windowStart,
+            liveRelaySegments: []
+        )
+        XCTAssertEqual(used, 1_200, "the twenty minutes on this side of the boundary")
+    }
+
+    /// A record that ended before the window began belongs to the previous one, which the relay
+    /// has already forgotten. Nothing of it is inside, so nothing of it is spent.
+    func testARecordThatEndedBeforeTheWindowIsNotCounted() {
+        let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
+        let used = RelayAllowance.secondsUsed(
+            records: [
+                record(
+                    path: .relay,
+                    startedAt: windowStart.addingTimeInterval(-1_200),
+                    duration: 600
+                )
+            ],
+            windowStart: windowStart,
+            liveRelaySegments: []
+        )
+        XCTAssertEqual(used, 0)
+    }
+
+    /// **The session that was put back, which is the case the merge widened.** Its first stretch
+    /// is yesterday's and its second is today's, and only the second is spending today's
+    /// allowance. A rule that read the record's start would have counted neither.
+    func testOnlyTheStretchOfAResumedSessionInsideTheWindowIsCounted() {
+        let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
+        let used = RelayAllowance.secondsUsed(
+            records: [
+                record(
+                    path: .relay,
+                    startedAt: windowStart.addingTimeInterval(-3_600),
+                    duration: 4_800,
+                    connectedSegments: [
+                        DateInterval(
+                            start: windowStart.addingTimeInterval(-3_600),
+                            end: windowStart.addingTimeInterval(-3_000)
+                        ),
+                        DateInterval(
+                            start: windowStart.addingTimeInterval(600),
+                            end: windowStart.addingTimeInterval(1_200)
+                        ),
+                    ]
+                )
+            ],
+            windowStart: windowStart,
+            liveRelaySegments: []
+        )
+        XCTAssertEqual(used, 600)
+    }
+
+    /// A session that is up right now is clipped the same way, so that it is metered by the same
+    /// rule while it runs as after it ends. This one came up before the day turned over.
+    func testALiveSessionIsCountedFromTheWindowAndNotFromItsStart() {
+        let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
+        let used = RelayAllowance.secondsUsed(
+            records: [],
+            windowStart: windowStart,
+            liveRelaySegments: [
+                DateInterval(
+                    start: windowStart.addingTimeInterval(-600),
+                    end: windowStart.addingTimeInterval(900)
+                )
+            ]
+        )
+        XCTAssertEqual(used, 900)
+    }
+
+    /// And clipping the other end too: a stretch cannot spend more of a window than falls in it.
+    /// Unreachable from the app, which only ever reads the window it is standing in, and pinned
+    /// here because the arithmetic is what decides what a user is told.
+    func testAStretchRunningPastTheWindowIsCountedToTheEndOfIt() {
+        let windowStart = Date(timeIntervalSince1970: 86_400 * 20_000)
+        let used = RelayAllowance.secondsUsed(
+            records: [
+                record(path: .relay, startedAt: windowStart, duration: 7 * 86_400)
+            ],
+            windowStart: windowStart,
+            liveRelaySegments: []
+        )
+        XCTAssertEqual(used, RelayAllowance.windowLength)
     }
 
     /// A session over the LAN spends nothing, and neither does one that took a direct path:
@@ -115,19 +237,7 @@ final class SessionRecordTests: XCTestCase {
         let used = RelayAllowance.secondsUsed(
             records: [record(path: .lan, startedAt: start, duration: 600)],
             windowStart: start,
-            liveRelaySeconds: []
-        )
-        XCTAssertEqual(used, 0)
-    }
-
-    /// A record from before the window began belongs to the previous one, which the relay has
-    /// already forgotten.
-    func testRecordsFromAnEarlierWindowAreNotCounted() {
-        let windowStart = Date(timeIntervalSince1970: 1_000_000)
-        let used = RelayAllowance.secondsUsed(
-            records: [record(path: .relay, startedAt: windowStart.addingTimeInterval(-60), duration: 600)],
-            windowStart: windowStart,
-            liveRelaySeconds: []
+            liveRelaySegments: []
         )
         XCTAssertEqual(used, 0)
     }
@@ -138,7 +248,7 @@ final class SessionRecordTests: XCTestCase {
             allowance: 1800,
             records: [record(path: .relay, startedAt: start, duration: 600)],
             windowStart: start,
-            liveRelaySeconds: [300]
+            liveRelaySegments: [DateInterval(start: start, duration: 300)]
         )
         XCTAssertEqual(remaining, 900)
     }
@@ -151,7 +261,7 @@ final class SessionRecordTests: XCTestCase {
             allowance: 1800,
             records: [record(path: .relay, startedAt: start, duration: 2000)],
             windowStart: start,
-            liveRelaySeconds: []
+            liveRelaySegments: []
         )
         XCTAssertEqual(remaining, 0)
     }
@@ -163,7 +273,7 @@ final class SessionRecordTests: XCTestCase {
             allowance: nil,
             records: [],
             windowStart: start,
-            liveRelaySeconds: [600]
+            liveRelaySegments: [DateInterval(start: start, duration: 600)]
         )
         XCTAssertNil(remaining)
     }
@@ -173,9 +283,7 @@ final class SessionRecordTests: XCTestCase {
     /// The row the user already had, continued rather than a second one started beside it.
     func testAResumeContinuesTheRecordTheDropFiled() {
         let start = Date(timeIntervalSince1970: 1_000_000)
-        let dropped = record(
-            path: .relay, startedAt: start, duration: 300, connectedSeconds: 300, bytes: 4_096
-        )
+        let dropped = record(path: .relay, startedAt: start, duration: 300, bytes: 4_096)
 
         let continuation = SessionContinuation.continued(
             in: [dropped], hostID: "A1B2C3", path: .relay
@@ -183,8 +291,11 @@ final class SessionRecordTests: XCTestCase {
 
         XCTAssertEqual(continuation?.id, dropped.id)
         XCTAssertEqual(continuation?.startedAt, dropped.startedAt)
-        XCTAssertEqual(continuation?.connectedSeconds, 300)
         XCTAssertEqual(continuation?.videoBytesReceived, 4_096)
+        XCTAssertEqual(
+            continuation?.connectedSegments, dropped.connectedSegments,
+            "the stretches it was up for go with the row, so the meter can still place them"
+        )
     }
 
     /// **The arithmetic the whole thing is for.** The record filed when the session finally ends
@@ -219,6 +330,14 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(filed?.videoBytesReceived, 6_144, "the session's bytes, not this segment's")
         XCTAssertEqual(filed?.connectedSeconds, 900, "ten minutes of the three hours was connected")
         XCTAssertEqual(filed?.duration, 3 * 3_600 + 600, "the gap is in the span, and only there")
+        XCTAssertEqual(
+            filed?.connectedSegments.count, 2,
+            "one stretch per time it was up, and not one covering the gap"
+        )
+        XCTAssertEqual(
+            filed?.connectedSegments.last?.duration, 600,
+            "the one that just ended is the ten minutes, timed where it happened"
+        )
     }
 
     /// A session that never dropped is a continuation of nothing, and the record it files has to
@@ -322,6 +441,70 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(filed?.usedDirectPath, true)
     }
 
+    // MARK: - The two figures a row can show
+
+    /// **The rule that decides whether the screen says it twice.** A session that was never
+    /// dropped was connected for the whole of its span, so a second row reading the first one back
+    /// is noise; a session the app put back covers minutes it was not connected for, and the row
+    /// that says so is the only place the two figures that come out of one session can be told
+    /// apart. Nearly every record is the first kind.
+    func testASessionThatWasNeverInterruptedHasNothingToSay() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let whole = record(path: .relay, startedAt: start, duration: 600)
+
+        XCTAssertEqual(whole.connectedSeconds, whole.duration)
+        XCTAssertEqual(whole.disconnectedSeconds, 0)
+        XCTAssertFalse(whole.wasInterrupted)
+    }
+
+    func testASessionThatWasPutBackShowsBothFigures() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let resumed = record(
+            path: .relay,
+            startedAt: start,
+            duration: 7_200,
+            connectedSegments: [DateInterval(start: start, duration: 600)]
+        )
+
+        XCTAssertEqual(resumed.connectedSeconds, 600)
+        XCTAssertEqual(resumed.disconnectedSeconds, 6_600)
+        XCTAssertTrue(resumed.wasInterrupted)
+    }
+
+    /// Whole seconds, because whole seconds are what the screen prints. A difference the reader
+    /// cannot see is the same figure twice, and a row that reads "Connected 10m 0s" under
+    /// "Duration 10m 0s" is the noise this rule exists to keep off the card.
+    func testADifferenceTheReaderCannotSeeIsNotShown() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let nearlyWhole = record(
+            path: .relay,
+            startedAt: start,
+            duration: 600,
+            connectedSegments: [DateInterval(start: start, duration: 599.6)]
+        )
+
+        XCTAssertEqual(
+            Int(nearlyWhole.duration.rounded()), Int(nearlyWhole.connectedSeconds.rounded()),
+            "which is the whole of the reason"
+        )
+        XCTAssertFalse(nearlyWhole.wasInterrupted)
+    }
+
+    /// And the other near miss: a difference of a fraction of a second that *does* cross a printed
+    /// second is a difference the reader can see, so it is shown. Half a second is the case where
+    /// comparing the gap instead would have rounded to one and printed the same figure twice.
+    func testADifferenceThatCrossesAPrintedSecondIsShown() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let halfASecondShort = record(
+            path: .relay,
+            startedAt: start,
+            duration: 600,
+            connectedSegments: [DateInterval(start: start, duration: 599.4)]
+        )
+
+        XCTAssertTrue(halfASecondShort.wasInterrupted)
+    }
+
     // MARK: - The window
 
     /// The window is the relay's arithmetic and not a calendar's: epoch days, so the meter and
@@ -340,15 +523,15 @@ final class SessionRecordTests: XCTestCase {
 
     /// A record as it was filed, with the ordinary answer for everything the test is not about.
     ///
-    /// `connectedSeconds` is left out for the records that are not about a gap: the answer is then
-    /// the span, which is only ever true of a session that was never dropped.
+    /// `connectedSegments` is left out for the records that are not about a gap: the answer is then
+    /// one stretch covering the span, which is only ever true of a session that was never dropped.
     private func record(
         id: UUID = UUID(),
         hostID: String? = "A1B2C3",
         path: ClientSessionRecord.Path,
         startedAt: Date,
         duration: TimeInterval,
-        connectedSeconds: TimeInterval? = nil,
+        connectedSegments: [DateInterval]? = nil,
         bytes: Int64 = 0,
         usedDirectPath: Bool = false,
         endedDeliberately: Bool = false
@@ -363,7 +546,7 @@ final class SessionRecordTests: XCTestCase {
             videoBytesReceived: bytes,
             logs: [],
             usedDirectPath: usedDirectPath,
-            connectedSeconds: connectedSeconds ?? duration,
+            connectedSegments: connectedSegments,
             endedDeliberately: endedDeliberately
         )
     }

@@ -27,28 +27,36 @@ extension SessionModel {
         storeManager.relayPlan.allowanceSeconds
     }
 
-    /// Every second the relay is charging for, live sessions included.
+    /// Every second the relay is charging for in this window, live sessions included.
     ///
     /// **A sum over ``sessions`` and not over a single running one**, which is the correctness
     /// bug the split fixes: the relay splices every open connection to one allowance, so a meter
     /// that added the one session it happened to consider live would under-count by exactly the
     /// Macs it was not looking at — and over-state what is left. The arithmetic itself is
-    /// ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySeconds:)``, which is where the
+    /// ``RelayAllowance/secondsUsed(records:windowStart:liveRelaySegments:)``, which is where the
     /// test for it lives.
     var relaySecondsUsedThisPeriod: TimeInterval {
         RelayAllowance.secondsUsed(
             records: sessionHistory,
             windowStart: relayPeriodStart,
-            liveRelaySeconds: relayLiveSeconds
+            liveRelaySegments: relayLiveSegments
         )
     }
 
-    /// What each session that is up on the relay has spent so far.
+    /// The stretch of time each session that is up on the relay has been up for.
     ///
     /// Read off ``sessions`` rather than off the active one, and only the relayed ones: a session
     /// over the LAN is not spending an allowance, and a session that is up but idle still is.
-    private var relayLiveSeconds: [TimeInterval] {
-        sessions.filter { $0.connectionPath == .relay }.map(\.activeSessionDuration)
+    ///
+    /// **A stretch rather than a number of seconds**, because the window is the relay's and not
+    /// this phone's: the relay charges a splice as it runs, so a session that was open when the
+    /// day turned over is charged for its minutes either side of it out of two allowances, and a
+    /// figure with no times in it cannot be placed against either. See
+    /// ``MacSession/activeSessionConnectedSegment``.
+    private var relayLiveSegments: [DateInterval] {
+        sessions
+            .filter { $0.connectionPath == .relay }
+            .compactMap(\.activeSessionConnectedSegment)
     }
 
     /// Seconds left in this window's allowance, or `nil` when the plan has no allowance to spend.
@@ -57,7 +65,7 @@ extension SessionModel {
             allowance: relayAllowanceSeconds,
             records: sessionHistory,
             windowStart: relayPeriodStart,
-            liveRelaySeconds: relayLiveSeconds
+            liveRelaySegments: relayLiveSegments
         )
     }
 

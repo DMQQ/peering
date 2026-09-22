@@ -1050,7 +1050,7 @@ final class SessionOfferPolicyTests: XCTestCase {
 final class ClientSessionRecordTests: XCTestCase {
     private func encodedWithoutDirectPath() -> Data {
         // Exactly what this app wrote before any of the fields it has grown since: every key the
-        // type had then, and no key for `usedDirectPath`, `connectedSeconds` or
+        // type had then, and no key for `usedDirectPath`, `connectedSegments` or
         // `endedDeliberately`.
         let json = """
         {
@@ -1061,6 +1061,26 @@ final class ClientSessionRecordTests: XCTestCase {
           "path": "Relay",
           "videoBytesReceived": 1024,
           "logs": []
+        }
+        """
+        return Data(json.utf8)
+    }
+
+    /// The shape one build wrote and no other: the connected seconds without the times they fell
+    /// at. The field was replaced by the stretches it was always the total of, so this is what a
+    /// record written in between looks like on disk.
+    private func encodedWithATotalAndNoTimes() -> Data {
+        let json = """
+        {
+          "id": "3B4E4A5C-0000-4000-8000-000000000002",
+          "hostName": "Studio",
+          "startedAt": 760000000,
+          "endedAt": 760000090,
+          "path": "Relay",
+          "videoBytesReceived": 1024,
+          "logs": [],
+          "connectedSeconds": 30,
+          "endedDeliberately": false
         }
         """
         return Data(json.utf8)
@@ -1097,14 +1117,50 @@ final class ClientSessionRecordTests: XCTestCase {
 
         XCTAssertEqual(record.duration, 90, "the two dates the fixture carries")
         XCTAssertEqual(record.connectedSeconds, record.duration)
+        XCTAssertEqual(record.connectedSegments.count, 1, "one stretch, covering it end to end")
+        XCTAssertEqual(record.connectedSegments.first?.start, record.startedAt)
+        XCTAssertEqual(record.connectedSegments.first?.end, record.endedAt)
+        // The window has to be the one the record is in, or this would be testing the clock
+        // rather than the default: what is asserted is that the allowance spends the whole of it.
         XCTAssertEqual(
-            RelayAllowance.secondsUsed(records: [record], windowStart: .distantPast, liveRelaySeconds: []),
+            RelayAllowance.secondsUsed(
+                records: [record],
+                windowStart: record.startedAt.addingTimeInterval(-60),
+                liveRelaySegments: []
+            ),
             90,
             "and the allowance spends all of it, which is what this record's app believed"
         )
         XCTAssertTrue(
             record.endedDeliberately,
             "no reconnect may claim a record written before a session could be continued"
+        )
+    }
+
+    /// **The middling shape, and the one that has to stay exact.** A record written while the type
+    /// kept the total and not the times cannot say where its seconds fell, and the app answers that
+    /// by putting them at the end of the span, which is where the last stretch of a session that
+    /// was put back is. What it must never do is change the figure: the seconds are the session's
+    /// own, and charging it for its gap instead would be the defect this whole field exists to
+    /// remove.
+    func testARecordWrittenWithATotalAndNoTimesKeepsItsSeconds() throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+
+        let record = try decoder.decode(
+            ClientSessionRecord.self, from: encodedWithATotalAndNoTimes()
+        )
+
+        XCTAssertEqual(record.connectedSeconds, 30, "the total it was filed with, to the second")
+        XCTAssertEqual(record.duration, 90)
+        XCTAssertTrue(record.wasInterrupted, "ninety seconds of span, thirty of them connected")
+        XCTAssertEqual(
+            RelayAllowance.secondsUsed(
+                records: [record],
+                windowStart: record.startedAt.addingTimeInterval(-60),
+                liveRelaySegments: []
+            ),
+            30
         )
     }
 
@@ -1135,25 +1191,30 @@ final class ClientSessionRecordTests: XCTestCase {
         XCTAssertEqual(decoded.path, .relay, "a punched session is still a relay session to the meter")
     }
 
-    /// And the two fields a continued session is filed with round-trip as well, because a record
-    /// that came back from disk without them would be charged for its whole span and could be
-    /// continued a second time.
+    /// And the fields a continued session is filed with round-trip as well, because a record that
+    /// came back from disk without them would be charged for its whole span, metered in the wrong
+    /// window, and could be continued a second time.
     func testConnectedTimeSurvivesBeingWrittenAndReadBack() throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .secondsSince1970
 
+        let startedAt = Date(timeIntervalSince1970: 760_000_000)
+        let resumedAt = Date(timeIntervalSince1970: 760_003_000)
         let record = ClientSessionRecord(
             id: UUID(),
             hostID: "3B4E4A5C",
             hostName: "Studio",
-            startedAt: Date(timeIntervalSince1970: 760_000_000),
+            startedAt: startedAt,
             endedAt: Date(timeIntervalSince1970: 760_003_600),
             path: .relay,
             videoBytesReceived: 0,
             logs: [],
-            connectedSeconds: 300,
+            connectedSegments: [
+                DateInterval(start: startedAt, duration: 300),
+                DateInterval(start: resumedAt, duration: 600),
+            ],
             endedDeliberately: true
         )
 
@@ -1161,8 +1222,10 @@ final class ClientSessionRecordTests: XCTestCase {
             ClientSessionRecord.self, from: encoder.encode(record)
         )
 
-        XCTAssertEqual(decoded.connectedSeconds, 300, "an hour of span, five minutes of it connected")
+        XCTAssertEqual(decoded.connectedSeconds, 900, "the two stretches, and not the hour of span")
         XCTAssertEqual(decoded.duration, 3_600)
+        XCTAssertEqual(decoded.connectedSegments.count, 2, "and where they fell, or the window lies")
+        XCTAssertEqual(decoded.connectedSegments.last?.start, resumedAt)
         XCTAssertTrue(decoded.endedDeliberately)
     }
 }
