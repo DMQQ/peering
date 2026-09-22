@@ -465,8 +465,7 @@ extension RemoteScreen {
                         rect: rect,
                         title: model.catalog?.descriptor(for: tile.source)?.title
                     )
-                }, bounds: canvasSize,
-                   held: window(at: heldTile, in: layout),
+                }, held: window(at: heldTile, in: layout),
                    heldPoint: heldPoint,
                    target: window(at: targetTile, in: layout))
                 // **Opacity, and nothing that moves.** Every other entrance in this app slides or

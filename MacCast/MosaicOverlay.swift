@@ -30,10 +30,6 @@ struct MosaicOverlay: View {
 
     let placed: [Placed]
 
-    /// The canvas every rectangle in ``placed`` was mapped into. Also the size this view claims:
-    /// see the note on the body.
-    var bounds: CGSize = .zero
-
     /// The window a long press is holding, if one is being moved. See ``Placed/id``.
     var held: String?
     /// Where the finger holding it is. The held tile is drawn here rather than around its slot, so
@@ -96,31 +92,42 @@ struct MosaicOverlay: View {
                     // label with a window behind it, and the user picked these windows knowing
                     // which was which.
                     //
-                    // Offset from the canvas's own top-left rather than positioned by its
-                    // centre: the label belongs to the tile's corner, and its width is whatever
-                    // the window's name happens to be, so centring it would make it move when
-                    // the text did.
-                    Text(title)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(.black.opacity(0.45), in: Capsule())
-                        .frame(width: max(drawn.width - Self.labelInset * 2, 0), alignment: .leading)
+                    // **A point, with the name drawn over it.** The name is given the width of its
+                    // tile so a long one truncates where the tile ends. That is a *layout* claim,
+                    // and a tile zoomed into is wider than the screen, so the claim grew with the
+                    // canvas while the rectangles above are computed from the size the canvas ends
+                    // up as: a `ZStack` is as big as its largest child, so the overlay grew the
+                    // screen, the screen grew the gesture surface, and the surface reported a
+                    // bigger canvas. Measured at 59 points a frame until it hit four thousand, for
+                    // as long as anyone left it running. An overlay takes no part in layout, which
+                    // is the same trick the source tiles use for their pictures.
+                    //
+                    // Offset from the canvas's own top-left rather than positioned by its centre:
+                    // the label belongs to the tile's corner, and its width is whatever the name
+                    // happens to be, so centring it would make it move when the text did.
+                    Color.clear
+                        .frame(width: 1, height: 1)
+                        .overlay(alignment: .topLeading) {
+                            Text(title)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.45), in: Capsule())
+                                .frame(
+                                    width: max(drawn.width - Self.labelInset * 2, 0),
+                                    alignment: .leading
+                                )
+                        }
                         .offset(x: drawn.minX + Self.labelInset, y: drawn.minY + Self.labelInset)
                 }
             }
         }
-        // **A size, not what is offered.** A `ZStack` is as big as its largest child, and the
-        // names below are as wide as their tiles, so at a zoom this reported a size of several
-        // screens. It is a sibling of the chrome in the screen's own stack, so the chrome was laid
-        // out into that imaginary screen and drawn off the edge. `maxWidth: .infinity` does not
-        // bound it: with no proposal to take, it falls back to the child's ideal size.
-        //
-        // Tiles that overflow are still drawn, they just cannot be measured, which is what a pan
-        // bringing one back from off screen needs.
-        .frame(width: bounds.width, height: bounds.height, alignment: .topLeading)
+        // **Nothing here claims a size.** Every child below is either positioned, which fills, or
+        // drawn over a one-point anchor, so this reports the space it is given and cannot be the
+        // reason the screen it lives on got bigger. Sizing it from the canvas instead was tried and
+        // is what set the loop off: the canvas is the size this view ends up as.
         .allowsHitTesting(false)
     }
 }
