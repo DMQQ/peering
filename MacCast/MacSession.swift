@@ -447,6 +447,22 @@ final class MacSession: Identifiable {
     /// its tiles keeps it, because that is the gesture the back control exists to undo.
     var mosaicChoices: [MosaicChoice] = []
 
+    /// Whether the picture the user asked for is an arrangement rather than one of its tiles.
+    ///
+    /// **The fact that has to survive the screen changing shape.** ``mosaicLayout`` is built from
+    /// ``mosaicChoices`` and the *live* screen size, so the layout — and therefore its identifier,
+    /// which is derived from the rectangles in it — is different after the phone is turned. And
+    /// ``isShowingMosaic`` is the equality of that identifier with ``activeSourceID``, which was
+    /// written when the arrangement was asked for. Turn the phone and the two stop matching: the
+    /// tile borders disappear, the pill loses the picture's name, and the Mac goes on sending the
+    /// canvas it was asked for at the old size. Nothing was wrong with the picture; the app had
+    /// simply forgotten it had asked for an arrangement.
+    ///
+    /// So the asking is recorded separately from the arithmetic. It is set by ``selectSource(_:)``
+    /// from the source itself, which is why it cannot drift: every way of choosing a source goes
+    /// through there, and a mosaic is the only one that sets it.
+    var isAskingForMosaic = false
+
     /// The arrangement as the Mac is being asked for it, built from those choices.
     var mosaicLayout: MosaicLayout? {
         MosaicGrid.layout(choices: mosaicChoices, viewport: mosaicViewport)

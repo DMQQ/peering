@@ -361,6 +361,14 @@ struct RemoteScreen: View {
                 resetPicture()
             }
         }
+        // **Turning the phone re-asks for the arrangement.** The canvas is the screen, so a
+        // rotation makes a different layout with a different identifier, and the Mac goes on
+        // capturing the one it was asked for before — which the app then reads as "not showing a
+        // mosaic", losing the tile borders and the picture's name on a turned phone. See
+        // ``SessionModel/refreshMosaicForViewport()``.
+        .onChange(of: deviceIsLandscape) { _, _ in
+            model.refreshMosaicForViewport()
+        }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
 

@@ -55,7 +55,7 @@ struct SourcesPanel: View {
                 // the places that moves it, so the panel reads as one thing changing what it is
                 // showing rather than as a section being torn out and another dropped in.
                 if !buildingMosaic {
-                    if model.mosaicChoicesList.isEmpty { mosaicEntry } else { mosaicArrangement }
+                    if model.mosaicChoicesList.isEmpty { mosaicEntry } else { mosaicEdit }
                 }
 
                 if let catalog = model.catalog, !catalog.all.isEmpty {
@@ -160,110 +160,35 @@ struct SourcesPanel: View {
     /// it up the mosaic, so the arrangement is edited by editing a list rather than by dragging
     /// over live video — which is the same control for a thumb, works with VoiceOver, and needs
     /// no geometry at all. Sizes are what a freeform editor would add; positions are already
-    /// here.
+    /// The way back into the picker, once there is an arrangement.
+    ///
+    /// **Everything else this block used to hold is gone.** It was a numbered list of the tiles
+    /// with a size stepper, up and down arrows and a remove button on each row — seven controls
+    /// per tile, none of which said anything the picture does not already say. What is left is the
+    /// one thing a list can do that a picture cannot: get you back to the picker to add or remove
+    /// a window. Reordering is a hold on the tile itself, where the arrangement is.
     @ViewBuilder
-    private var mosaicArrangement: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("This mosaic")
-
-            ForEach(Array(model.mosaicChoicesList.enumerated()), id: \.offset) { index, choice in
-                HStack(spacing: 10) {
-                    // The number is the tile's place in the grid, which is the thing being
-                    // changed, rather than a decorative index.
-                    Text("\(index + 1)")
-                        .font(.caption.weight(.bold).monospacedDigit())
-                        .foregroundStyle(ColorPalette.accent)
-                        .frame(width: 20, height: 20)
-                        .overlay(Circle().stroke(ColorPalette.accent, lineWidth: 1.5))
-
-                    // The catalogue's own name for it, and a plain word when there is none: a
-                    // window that has closed leaves a tile behind, and a row that went blank
-                    // would be the one thing in this list with nothing to act on.
-                    Text(model.catalog?.descriptor(for: choice.source)?.title ?? "A window")
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    // **The size control, and it is two buttons rather than a drag.** How much
-                    // of the picture a tile gets is the one thing about an arrangement that
-                    // cannot be read off a list, so the row shows what it is set to ("2×") and
-                    // steps it: bigger and smaller are unambiguous in a way a handle on live
-                    // video is not, and both are reachable with a thumb on the edge of a phone.
-                    Button {
-                        model.stepMosaicTileSize(at: index, by: -1)
-                    } label: {
-                        Image(systemName: "minus.magnifyingglass")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(choice.weight <= MosaicChoice.minimumWeight)
-                    .opacity(choice.weight <= MosaicChoice.minimumWeight ? 0.3 : 1)
-
-                    Text("\(choice.weight)×")
-                        .font(.caption.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(choice.weight > 1 ? ColorPalette.accent : .secondary)
-                        .frame(width: 22)
-
-                    Button {
-                        model.stepMosaicTileSize(at: index, by: 1)
-                    } label: {
-                        Image(systemName: "plus.magnifyingglass")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(choice.weight >= MosaicChoice.maximumWeight)
-                    .opacity(choice.weight >= MosaicChoice.maximumWeight ? 0.3 : 1)
-
-                    // Up and down rather than a drag handle: the grid is filled in reading
-                    // order, so up and down along the list *is* left to right and top to
-                    // bottom across the picture, and a button says which way it will go.
-                    Button {
-                        model.moveMosaicTile(from: index, to: index - 1)
-                    } label: {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(index == 0)
-                    .opacity(index == 0 ? 0.3 : 1)
-
-                    Button {
-                        model.moveMosaicTile(from: index, to: index + 1)
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(index == model.mosaicChoicesList.count - 1)
-                    .opacity(index == model.mosaicChoicesList.count - 1 ? 0.3 : 1)
-
-                    Button {
-                        model.removeMosaicTile(at: index)
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .rowSurface()
+    private var mosaicEdit: some View {
+        Button {
+            withAnimation(Motion.settle) {
+                picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
+                buildingMosaic = true
             }
-
-            Button {
-                withAnimation(Motion.settle) {
-                    picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
-                    buildingMosaic = true
-                }
-            } label: {
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "rectangle.split.2x2")
+                    .font(.system(size: 13, weight: .medium))
                 Text("Add or remove windows")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(ColorPalette.accent)
+                Spacer(minLength: 8)
             }
-            .buttonStyle(.plain)
+            .foregroundStyle(ColorPalette.accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(ColorPalette.accent.opacity(0.14), in: Capsule())
+            .contentShape(Capsule())
         }
+        .buttonStyle(RailButtonStyle(scale: 0.97))
     }
 
     /// Building one: what has been picked, how many may be, and the way to see it.
