@@ -40,18 +40,6 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$SITE_DIR" "$STAGE/site"
 
-echo "==> minifying CSS"
-python3 - "$STAGE/site/styles.css" <<'PYEOF'
-import re, sys
-text = open(sys.argv[1]).read()
-text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
-text = re.sub(r'[ \t]*\n[ \t]*', '\n', text)
-text = re.sub(r'\n{2,}', '\n', text)
-text = re.sub(r' *([{};,>~+]) *', r'\1', text)
-text = re.sub(r': +', ': ', text)
-open(sys.argv[1], 'w').write(text.strip() + '\n')
-PYEOF
-
 echo "==> stamping asset URLs"
 # A hash of the contents, shortened to ten hex characters. Long enough that two real revisions
 # will not collide, short enough to stay readable in a URL.
