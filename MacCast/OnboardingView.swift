@@ -137,6 +137,35 @@ struct OnboardingView: View {
                 keeps your Mac in view, while Live Activities keep the session close at hand.
                 """
         ),
+        // **The two the landing page used to claim and the tour never said.**
+        //
+        // Both arrived here when the landing page gave up its list. Every other claim it made was
+        // already a page below in the same words — which is what the list was for, and why it was
+        // the worse of the two places to read them — but these two were nowhere else in the
+        // product, so removing the list would have removed them. A page rather than a paragraph
+        // because that is the shape this screen reads in, and neither needs a drawing: the glyph
+        // is what a page without a screenshot of its own shows.
+        //
+        // Privacy before the notification, in the order a person deciding would weigh them: what
+        // the app cannot see is a fact about the whole design, and being told a shell is waiting
+        // is a convenience on top of it.
+        Page(
+            content: .feature(icon: "lock.shield"),
+            title: "Private by design",
+            body: """
+                The two devices authenticate each other and the picture is encrypted end to end. \
+                There is no account, and the relay carries the session without being able to read \
+                it.
+                """
+        ),
+        Page(
+            content: .feature(icon: "bell.badge"),
+            title: "Told when a shell is waiting",
+            body: """
+                A build that finishes, a prompt for a password, a command that wants an answer: \
+                the Mac tells you, on the Lock Screen and with the app closed.
+                """
+        ),
         Page(
             content: .plans,
             title: "Start free. Go farther when you need.",
