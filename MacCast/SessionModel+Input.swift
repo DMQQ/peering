@@ -110,9 +110,6 @@ extension SessionModel {
     /// display and then refuse to come back.
     func selectSource(_ source: CaptureSource) {
         activeSourceID = source.stableID
-        // Recorded from the source rather than from the call site, so it cannot be set by one
-        // door into this and missed by another. See ``MacSession/isAskingForMosaic``.
-        activeSession?.isAskingForMosaic = source.isMosaic
 
         // **What the user was looking at is what the next connection to this Mac opens on**, and
         // this is the only place that can be said: every source the user asks for arrives here,
@@ -278,23 +275,6 @@ extension SessionModel {
             return
         }
         showMosaic(choices)
-    }
-
-    /// Asks the Mac for the arrangement again, at the size the phone is now held at.
-    ///
-    /// **For the rotation, which is the one thing that changes a layout's identifier without
-    /// anybody choosing anything.** The canvas is the phone's own screen, so turning it makes the
-    /// layout different — different rectangles, a different identifier — and the source the Mac
-    /// is capturing keeps the old one. Left alone the app reads that as "not showing a mosaic",
-    /// which is why the tile borders vanished on a turned phone while the picture went on being
-    /// an arrangement. See ``MacSession/isAskingForMosaic``.
-    ///
-    /// Nothing happens unless an arrangement is what the user asked for: a session on a single
-    /// window with a remembered arrangement behind it must not have a mosaic put back in front of
-    /// them because they turned the phone.
-    func refreshMosaicForViewport() {
-        guard activeSession?.isAskingForMosaic == true, !mosaicChoicesList.isEmpty else { return }
-        showMosaic(mosaicChoicesList)
     }
 
     /// Goes back to the whole arrangement.

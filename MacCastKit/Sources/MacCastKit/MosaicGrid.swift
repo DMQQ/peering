@@ -194,32 +194,29 @@ public enum MosaicGrid {
             max(2, (value / 2).rounded(.down) * 2)
         }
 
-        // **A landscape screen is shaped down to 16:9, and a portrait one is left alone.**
+        // **The canvas is 16:9, and it is the same 16:9 whichever way the phone is held.**
         //
-        // The canvas's aspect decides the aspect of every tile in it, because the tiles are
-        // fractions of the canvas. A phone on its side is about 19.5:9 — wider than a Mac's own
-        // screen — so the fractions hand back windows that are wider and shorter than any window
-        // the Mac is actually showing: two tiles across on 2560×1290 are 1280×645, and a Mac
-        // window is nothing like that shape. Held up, the same phone gives 1290×1440 and tiles
-        // that are tall, which is the right shape for a picture on a portrait screen and is why
-        // this only applies on its side.
+        // Two things wrong with taking the screen's own shape, and one fix for both.
         //
-        // So the largest 16:9 rectangle the screen can hold is what is asked for. On a 2796×1290
-        // landscape screen that is 2292×1290 — full height, and the width that makes a 2×2 come
-        // out as four 16:9 windows. The cost is a strip of letterbox either side of the picture,
-        // which is the trade the mosaic is already making at every other aspect.
-        let shaped: CGSize
-        if viewport.width > viewport.height {
-            let height = min(viewport.height, viewport.width * 9 / 16)
-            shaped = CGSize(width: height * 16 / 9, height: height)
-        } else {
-            shaped = viewport
-        }
-
-        return CGSize(
-            width: min(even(shaped.width), 2560),
-            height: min(even(shaped.height), 1440)
-        )
+        // The first is the tiles. The canvas's aspect decides the aspect of every tile in it,
+        // because the tiles are fractions of the canvas — so a phone held up, which is 9:19.5,
+        // handed back tiles taller than they were wide for windows that are wider than they are
+        // tall. Every window in the picture was letterboxed inside its own tile, and a Mac's
+        // windows are all landscape.
+        //
+        // The second is that the screen's shape is not a constant. Turning the phone changed the
+        // canvas, which changed every rectangle in the layout, which changed the layout's
+        // identifier — and the Mac then had to tear down every tile's stream and build a new
+        // mosaic, which is a visible stop in the picture. Nothing about the arrangement had
+        // changed. A canvas that does not depend on the orientation cannot do that.
+        //
+        // So the size comes from the screen's **longer** side, which is the same number in both
+        // orientations, at 16:9, capped by what a Mac will build. On an iPhone 15 Pro Max that is
+        // the cap itself: 2560×1440, which a 2×2 splits into four 1280×720 tiles — exactly the
+        // shape of the windows being photographed.
+        let longerSide = max(viewport.width, viewport.height)
+        let width = min(longerSide, 2560)
+        return CGSize(width: even(width), height: even(width * 9 / 16))
     }
 
     /// A whole layout: the sources the user picked, arranged on a canvas built for this screen.

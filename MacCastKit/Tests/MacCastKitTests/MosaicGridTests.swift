@@ -117,31 +117,30 @@ struct MosaicGridTests {
         }
     }
 
-    @Test("a landscape screen is shaped to 16:9, rounded to even, and capped")
+    @Test("a canvas is 16:9 from the screen's longer side, rounded to even, and capped")
     func canvasSize() {
         let canvas = MosaicGrid.canvas(for: phone)
-        // Full height, and the width that makes the tiles Mac-shaped rather than phone-shaped.
-        // 1179 * 16 / 9 is 2096, and the height rounds down to even.
-        #expect(canvas.width == 2096)
-        #expect(canvas.height == 1178)
+        // 2556 is the longer side, and 2556 * 9 / 16 is 1437.75, rounded down to even.
+        #expect(canvas.width == 2556)
+        #expect(canvas.height == 1436)
         #expect(canvas.height.truncatingRemainder(dividingBy: 2) == 0)
-        // The whole point of it: a 2x2 on this canvas is four tiles of 1048x589 — 1.779 against
-        // 16:9's 1.778, the difference being the two pixels the rounding to even took off the
-        // height. The screen's own canvas would have made them 1278x589, half again as wide as
-        // any window the Mac is showing. A per-cent rather than the exact tolerance used above,
-        // because that one is for arithmetic and this is for a shape.
+
+        // **The whole point: the same canvas whichever way the phone is held.** A canvas that
+        // changed on rotation changed every rectangle in the layout, which changed the layout's
+        // identifier, which made the Mac tear down every tile and build a new mosaic — a visible
+        // stop in the picture for an arrangement that had not changed at all.
+        let portrait = MosaicGrid.canvas(for: CGSize(width: 1179, height: 2556))
+        #expect(portrait == canvas)
+
+        // And the tiles come out the shape of the windows in them: a 2x2 on this canvas is four
+        // 1278x718 tiles, which is 16:9 to within the two pixels the rounding took off. The
+        // screen's own shape would have made them 1278x589 on its side and 589x1278 held up —
+        // taller than they are wide, for windows that are all wider than they are tall.
         let rects = MosaicGrid.rects(weights: [1, 1, 1, 1])
         let tile = Double(rects[0].width * canvas.width) / Double(rects[0].height * canvas.height)
         #expect(abs(tile - 16.0 / 9.0) < 0.01, "a 2x2 tile came out \(tile):1")
 
-        // A portrait screen is left as it is: tiles there are meant to be tall, and shaping the
-        // canvas would leave a band of mosaic on a screen with room for a picture.
-        let portrait = MosaicGrid.canvas(for: CGSize(width: 1179, height: 2556))
-        #expect(portrait.width == 1178)
-        #expect(portrait.height == 1440)
-
-        // And a screen larger than a Mac will build is asked for at the cap, not refused. This
-        // one is already 16:9, so the cap is the only thing acting on it.
+        // A screen larger than a Mac will build is asked for at the cap, not refused.
         let huge = MosaicGrid.canvas(for: CGSize(width: 6016, height: 3384))
         #expect(huge.width == 2560)
         #expect(huge.height == 1440)

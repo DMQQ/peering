@@ -169,26 +169,62 @@ struct SourcesPanel: View {
     /// a window. Reordering is a hold on the tile itself, where the arrangement is.
     @ViewBuilder
     private var mosaicEdit: some View {
-        Button {
-            withAnimation(Motion.settle) {
-                picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
-                buildingMosaic = true
+        VStack(alignment: .leading, spacing: 8) {
+            // **The way back, and it is not in the pill.** Leaving an arrangement by tapping one
+            // of its windows used to leave a chip in the status pill that returned to it; that
+            // chip is gone, and without this there was no way back at all. It belongs here rather
+            // than in the pill for the same reason the rest of this panel exists: choosing what
+            // the picture shows is what this panel is for, and the arrangement is one of the
+            // things it can show.
+            //
+            // Drawn only when the arrangement is *not* the picture. While it is, the heading
+            // below already says so, and a button that goes where you already are is the "button
+            // that goes nowhere" this app refuses everywhere else.
+            if !model.isShowingMosaic {
+                Button {
+                    withAnimation(Motion.settle) { model.returnToMosaic() }
+                    onSelect()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "rectangle.split.2x2")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Back to the mosaic")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer(minLength: 8)
+                        Text("\(model.mosaicChoicesList.count)")
+                            .font(.caption.weight(.bold).monospacedDigit())
+                    }
+                    .foregroundStyle(ColorPalette.onInk)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(ColorPalette.accent, in: Capsule())
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.97))
+                .accessibilityLabel("Back to the mosaic")
             }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "rectangle.split.2x2")
-                    .font(.system(size: 13, weight: .medium))
-                Text("Add or remove windows")
-                    .font(.subheadline.weight(.semibold))
-                Spacer(minLength: 8)
+
+            Button {
+                withAnimation(Motion.settle) {
+                    picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
+                    buildingMosaic = true
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "rectangle.split.2x2")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Add or remove windows")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer(minLength: 8)
+                }
+                .foregroundStyle(ColorPalette.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(ColorPalette.accent.opacity(0.14), in: Capsule())
+                .contentShape(Capsule())
             }
-            .foregroundStyle(ColorPalette.accent)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(ColorPalette.accent.opacity(0.14), in: Capsule())
-            .contentShape(Capsule())
+            .buttonStyle(RailButtonStyle(scale: 0.97))
         }
-        .buttonStyle(RailButtonStyle(scale: 0.97))
     }
 
     /// Building one: what has been picked, how many may be, and the way to see it.

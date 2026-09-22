@@ -124,19 +124,31 @@ extension RemoteScreen {
         )
     }
 
-    /// A tile being opened: its outline travelling out to the edges of the screen.
+    /// A tile being opened: everything that is not it fades out as it grows to fill the screen.
+    ///
+    /// **A hole opening, not a border travelling.** What the tap means is "this one, not the
+    /// others", so what moves is the *rest of the picture* going away — the border that was drawn
+    /// around the tile was the tile's own edge moving, which says where the tile was rather than
+    /// what it is becoming.
+    ///
+    /// Drawn as one even-odd path — the whole screen with the tile knocked out of it — filled with
+    /// black, so the hole can grow by animating a single rectangle. At the end the hole is the
+    /// screen and the black is nothing, which is the window that has just arrived.
     ///
     /// **Outside the `isShowingMosaic` branch on purpose**, because by the time this is drawn the
     /// arrangement has already been left — that is what choosing a tile means — so a drawing
     /// inside that branch would be removed in the same update that started it.
     @ViewBuilder
-    var openingTileOutline: some View {
+    var openingTileScrim: some View {
         if let opening = openingTile, opening.width > 0, opening.height > 0 {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(ColorPalette.accent.opacity(0.85), lineWidth: 2)
-                .frame(width: opening.width, height: opening.height)
-                .position(x: opening.midX, y: opening.midY)
-                .allowsHitTesting(false)
+            Path { path in
+                path.addRect(CGRect(origin: .zero, size: canvasSize))
+                path.addRoundedRect(in: opening, cornerSize: CGSize(width: 6, height: 6))
+            }
+            .fill(Color.black, style: FillStyle(eoFill: true))
+            .opacity(openingTileVeil)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
         }
     }
 

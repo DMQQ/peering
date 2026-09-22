@@ -132,6 +132,7 @@ extension RemoteScreen {
         }
 
         openingTile = start
+        openingTileVeil = 0
         model.focusMosaicTile(index)
 
         openingTileTask = Task { @MainActor in
@@ -139,13 +140,22 @@ extension RemoteScreen {
             // is the same frame, and a longer one is a pause the eye reads as a delay.
             try? await Task.sleep(for: .milliseconds(16))
             guard !Task.isCancelled else { return }
+            // The rest of the picture goes first: dimmed where it stands, which is the tap
+            // saying which one of them was meant.
+            withAnimation(Motion.tap) { openingTileVeil = 1 }
+
+            try? await Task.sleep(for: .milliseconds(140))
+            guard !Task.isCancelled else { return }
+            // Then the tile's hole opens out to the whole screen, which is the tile growing into
+            // the picture the Mac is switching to.
             withAnimation(Motion.settle) {
                 openingTile = CGRect(origin: .zero, size: canvasSize)
             }
 
             try? await Task.sleep(for: .milliseconds(380))
             guard !Task.isCancelled else { return }
-            withAnimation(Motion.tap) { openingTile = nil }
+            openingTile = nil
+            openingTileVeil = 0
         }
     }
 

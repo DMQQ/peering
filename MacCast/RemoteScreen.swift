@@ -116,6 +116,14 @@ struct RemoteScreen: View {
     /// live video and nothing else: the picture underneath is changing source on its own
     /// schedule, and this is timed to be gone by the time it has.
     @State var openingTile: CGRect?
+    /// How far the scrim that hides the rest of the picture has come up.
+    ///
+    /// Two states where one shape would do, because the two halves of this are different
+    /// movements: the rest of the picture dims in place, and then the tile's hole opens out to
+    /// the whole screen. Fading a black *out* would be the same arithmetic and the wrong reading
+    /// — what the tap says is "this one, not the others", and the others going is the first thing
+    /// that should happen.
+    @State var openingTileVeil: Double = 0
     @State var openingTileTask: Task<Void, Never>?
 
     let minimumZoom: CGFloat = 0.5
@@ -254,7 +262,7 @@ struct RemoteScreen: View {
 
                 video
                 mosaicOverlay
-                openingTileOutline
+                openingTileScrim
                 clientCursor
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
@@ -360,14 +368,6 @@ struct RemoteScreen: View {
             case .replaced:
                 resetPicture()
             }
-        }
-        // **Turning the phone re-asks for the arrangement.** The canvas is the screen, so a
-        // rotation makes a different layout with a different identifier, and the Mac goes on
-        // capturing the one it was asked for before — which the app then reads as "not showing a
-        // mosaic", losing the tile borders and the picture's name on a turned phone. See
-        // ``SessionModel/refreshMosaicForViewport()``.
-        .onChange(of: deviceIsLandscape) { _, _ in
-            model.refreshMosaicForViewport()
         }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
