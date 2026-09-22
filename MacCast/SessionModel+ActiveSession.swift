@@ -84,6 +84,10 @@ extension SessionModel {
     /// ``MacSession/hostSupportsMosaic``.
     var hostSupportsMosaic: Bool { activeSession?.hostSupportsMosaic ?? false }
 
+    /// Whether this Mac can photograph its running applications. See
+    /// ``MacSession/hostSupportsSourceThumbnails``.
+    var hostSupportsSourceThumbnails: Bool { activeSession?.hostSupportsSourceThumbnails ?? false }
+
     var activeSessionHistoryID: UUID? {
         get { activeSession?.activeSessionHistoryID }
         set { activeSession?.activeSessionHistoryID = newValue }

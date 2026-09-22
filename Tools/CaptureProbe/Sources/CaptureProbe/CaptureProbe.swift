@@ -6,6 +6,7 @@ import CoreMedia
 import CoreVideo
 import Foundation
 import RemoteCore
+import ScreenCaptureKit
 
 /// Captures the screen, encodes it, writes a playable file, and plays it back.
 ///
@@ -77,6 +78,8 @@ struct CaptureProbe {
         var canvas = CGSize(width: 1280, height: 720)
         /// Check where the compositor puts two known colours, which needs nothing at all.
         var composeCheck = false
+        /// Photograph every running application and read the pictures back off the catalogue.
+        var thumbnails = false
         /// Make a display that exists only in software, hold it, and take it away.
         var virtualDisplay = false
         /// Stream the virtual display for the hold, instead of leaving it empty.
@@ -152,6 +155,9 @@ struct CaptureProbe {
                 case "--compose-check":
                     composeCheck = true
 
+                case "--thumbnails":
+                    thumbnails = true
+
                 case "--virtual-display":
                     virtualDisplay = true
 
@@ -201,7 +207,7 @@ struct CaptureProbe {
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
                                 [--mosaic A,B,…] [--canvas WxH] [--compose-check]
-                                [--virtual-display [--virtual-size WxH]]
+                                [--thumbnails] [--virtual-display [--virtual-size WxH]]
                                 [--resources [--burn N] [--interval S]] [--request-access]
 
               --seconds N      how long to capture for (default 3)
@@ -218,6 +224,9 @@ struct CaptureProbe {
                                with one larger than it will build can be seen
               --compose-check  place two known colours through the compositor's own arithmetic
                                and read the canvas back, which needs no Screen Recording
+              --thumbnails     photograph every application the way opening the Apps panel
+                               makes the host do, read the pictures back off the catalogue, and
+                               fail if not one of them arrived. Needs Screen Recording
               --virtual-display
                                make a display that exists only in software, print the display
                                list before, during and after it, hold it for --seconds, and
@@ -285,6 +294,8 @@ struct CaptureProbe {
 
         if options.virtualDisplay {
             try await runVirtualDisplay(options)
+        } else if options.thumbnails {
+            try await runThumbnails()
         } else if options.composeCheck {
             try await runComposeCheck()
         } else if !options.mosaic.isEmpty {
@@ -321,6 +332,89 @@ struct CaptureProbe {
             // in the picker, and identical in the protocol. Only here do they differ.
             let icon = descriptor.iconPNGData.map { "\($0.count) B" } ?? "none"
             log("  \(descriptor.id.padding(toLength: 24, withPad: " ", startingAt: 0)) \(size.padding(toLength: 12, withPad: " ", startingAt: 0)) \(icon.padding(toLength: 7, withPad: " ", startingAt: 0)) \(descriptor.title)")
+        }
+    }
+
+    // MARK: - Thumbnails
+
+    /// Photographs every running application, the way opening the Apps panel makes the host do.
+    ///
+    /// **The half of that feature no client can check.** The phone only ever sees the pictures
+    /// arrive, so a host that produced none and a host that produced twenty that were all
+    /// dropped by the byte budget look the same from there: a grid of empty tiles. This walks
+    /// the whole host half in one run — the enumeration, one screenshot per application, the
+    /// JPEG under the budget, and the attach to the catalogue the client actually reads — and
+    /// fails if they do not line up.
+    ///
+    /// The second catalogue read is the point of the check rather than a convenience. A
+    /// thumbnail that was captured and never attached is exactly as good as one that was never
+    /// taken, and it is the failure the cache's key has to be right for: the pictures are filed
+    /// by ``CaptureSource/stableID`` and looked up by ``CaptureSourceDescriptor/id``, which are
+    /// the same string only as long as both ends keep deriving it the same way.
+    static func runThumbnails() async throws {
+        let resolver = ScreenCaptureSourceResolver()
+        let applications = try await resolver.catalog().applications
+
+        guard !applications.isEmpty else {
+            throw ProbeError(message: """
+                the catalogue offers no applications at all, so there is nothing to photograph. \
+                That is the enumeration failing rather than the pictures: it needs Screen \
+                Recording granted, and at least one regular application running with a window \
+                on screen.
+                """)
+        }
+        log("\(applications.count) application(s) offered")
+
+        let began = ProcessInfo.processInfo.systemUptime
+        await resolver.refreshSourceThumbnails()
+        let elapsed = ProcessInfo.processInfo.systemUptime - began
+
+        // Read back through the catalog, so the attach is part of what this proves.
+        let pictured = try await resolver.catalog().applications
+
+        var taken = 0
+        var largest = 0
+        var missing: [String] = []
+        for descriptor in pictured {
+            guard let thumbnail = descriptor.thumbnail else {
+                missing.append(descriptor.title)
+                continue
+            }
+            taken += 1
+            largest = max(largest, thumbnail.jpegData.count)
+            log("""
+                  \(descriptor.id.padding(toLength: 24, withPad: " ", startingAt: 0)) \
+                \("\(thumbnail.width)×\(thumbnail.height)".padding(toLength: 12, withPad: " ", startingAt: 0)) \
+                \("\(thumbnail.jpegData.count) B".padding(toLength: 8, withPad: " ", startingAt: 0)) \
+                \(descriptor.title)
+                """)
+        }
+
+        log("""
+            \(taken) of \(pictured.count) photographed in \(String(format: "%.2f", elapsed))s, \
+            largest \(largest) B of \(SourceThumbnail.maximumByteCount) B
+            """)
+
+        guard taken > 0 else {
+            throw ProbeError(message: """
+                not one application produced a picture. **Check which Space is showing \
+                before anything else**: ScreenCaptureKit photographs only windows that are on \
+                screen, and the host offers every application on every Space by design, so a \
+                Mac sitting on a desktop with no application windows on it produces exactly \
+                this and nothing is wrong. Every refusal is logged under subsystem \
+                pl.dmq.peering.host, category capture.
+                """)
+        }
+        // Named rather than counted, because an application with no picture is the ordinary
+        // case rather than a fault — see below — and the question worth answering is *which*,
+        // not how many.
+        if !missing.isEmpty {
+            log("no picture for: \(missing.joined(separator: ", "))")
+            log("""
+                these are most often applications with no window on the Space this Mac is \
+                showing: the catalogue lists windows on every desktop, and a window that is \
+                not on screen has no picture to take
+                """)
         }
     }
 

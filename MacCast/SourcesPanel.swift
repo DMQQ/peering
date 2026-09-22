@@ -1,6 +1,7 @@
 import MacCastKit
 import RemoteCore
 import SwiftUI
+import UIKit
 
 /// What the Mac can be made to share, as a floating panel.
 ///
@@ -48,7 +49,7 @@ struct SourcesPanel: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 14) {
                         section("Displays", catalog.displays, fallbackIcon: "display")
-                        section("Applications", catalog.applications, fallbackIcon: "app")
+                        applicationsGrid(catalog.applications)
                         section("Windows", catalog.windows, fallbackIcon: "macwindow")
                         if !buildingMosaic { installedSection }
                     }
@@ -309,6 +310,131 @@ struct SourcesPanel: View {
             }
         }
     }
+
+    /// The running applications, as pictures.
+    ///
+    /// **A grid rather than a row each, and the thumbnails are the reason.** A row answers "what
+    /// is this called", which the icon and the title had already answered; twenty of them is a
+    /// list of twenty names. The question somebody actually opens this panel with is "which one
+    /// had the thing I was looking at on it", and only a picture answers that. The shape is
+    /// ``DesktopsPanel``'s, one level down: a picture in a rounded tile, a caption under it, and
+    /// an edge in the accent on the one the phone is showing.
+    ///
+    /// **The same grid in both modes.** Choosing one source and assembling a mosaic are the same
+    /// act with one difference — the tapping accumulates rather than switches — and a second
+    /// arrangement of the same list is the one that falls behind the day a window opens. What
+    /// the mosaic mode adds is the mark: a tile that has been picked carries its place in the
+    /// arrangement, which is the same number the arrangement list and the finished mosaic show.
+    @ViewBuilder
+    private func applicationsGrid(_ descriptors: [CaptureSourceDescriptor]) -> some View {
+        let matches = filtered(descriptors)
+        if !matches.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel("Applications")
+                LazyVGrid(
+                    // Adaptive rather than a fixed count: the panel is a fixed fraction of a
+                    // phone, but the phones are not all the same width, and a count that suits
+                    // one leaves a second column hanging off the edge of another. See
+                    // ``DesktopsPanel/horizontalInset`` for the day that happened.
+                    columns: [GridItem(.adaptive(minimum: Self.tileMinimumWidth), spacing: Self.tileGap)],
+                    alignment: .leading,
+                    spacing: Self.tileGap
+                ) {
+                    ForEach(matches) { descriptor in
+                        applicationTile(descriptor)
+                    }
+                }
+            }
+        }
+    }
+
+    /// One application, as a picture with its name under it.
+    private func applicationTile(_ descriptor: CaptureSourceDescriptor) -> some View {
+        // **One mark per mode, never two.** In the ordinary pick the accent edge says which
+        // source the phone is showing, which is what ``DesktopsPanel`` means by it and what this
+        // panel's checkmarks say on the rows above and below. In the accumulating one the same
+        // edge says which tiles have been picked, and the badge says where each of them landed —
+        // the arrangement is filled in reading order, so that number is the tile's place in the
+        // finished picture. Both at once would be one border meaning two things.
+        let isLive = !buildingMosaic && descriptor.id == model.activeSourceID
+        let place = buildingMosaic
+            ? picked.firstIndex { $0.source == descriptor.source }.map { $0 + 1 }
+            : nil
+        let marked = isLive || place != nil
+
+        return Button {
+            if buildingMosaic {
+                toggle(descriptor)
+            } else {
+                model.selectSource(descriptor)
+                onSelect()
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(ColorPalette.surface)
+
+                    if let thumbnail = descriptor.thumbnail,
+                       let image = UIImage(data: thumbnail.jpegData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            // Filled rather than fitted, so every tile is the same shape and
+                            // the grid stays a grid. An application's windows are whatever
+                            // shape the user last left them, and letting each tile take its
+                            // own would be a mosaic of pictures rather than a row of cells.
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        // What the tile can honestly show before there is a picture, and this
+                        // is an ordinary state rather than a failure: the host takes these when
+                        // it is asked and not before, so the first second after the panel opens
+                        // looks like this, and a Mac too old to be asked always will. The icon
+                        // is what identifies the application without one.
+                        ApplicationIcon(data: descriptor.iconPNGData, fallback: "app")
+                    }
+                }
+                .aspectRatio(Self.tileAspect, contentMode: .fit)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(
+                            marked ? ColorPalette.accent : ColorPalette.ink.opacity(0.18),
+                            lineWidth: marked ? 2 : 1
+                        )
+                }
+                .overlay(alignment: .topTrailing) {
+                    if let place {
+                        Text("\(place)")
+                            .font(.caption2.weight(.bold).monospacedDigit())
+                            .foregroundStyle(ColorPalette.onInk)
+                            .frame(width: 18, height: 18)
+                            .background(ColorPalette.accent, in: Circle())
+                            .padding(5)
+                    }
+                }
+
+                Text(descriptor.title)
+                    .font(.system(size: 10, weight: isLive ? .semibold : .regular))
+                    .foregroundStyle(isLive ? ColorPalette.accent : ColorPalette.ink)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.94))
+        // The picture is the point of the tile and carries no text of its own, so the label is
+        // what a screen reader announces instead of twenty unlabelled images.
+        .accessibilityLabel(
+            [descriptor.title, descriptor.subtitle].compactMap { $0 }.joined(separator: ", ")
+        )
+    }
+
+    /// The grid's own numbers.
+    ///
+    /// A tile wide enough for a window to be recognisable and narrow enough that three fit
+    /// across the narrowest phone this runs on. The aspect is the shape a Mac window usually
+    /// is, which is the one the captions and the crop are both chosen against.
+    private static let tileMinimumWidth: CGFloat = 104
+    private static let tileGap: CGFloat = 8
+    private static let tileAspect: CGFloat = 16.0 / 10.0
 
     /// Adds or removes one source from the arrangement being built.
     ///

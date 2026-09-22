@@ -48,6 +48,14 @@ protocol CaptureSourceResolver: Sendable {
     /// to. Asked for by a client that is about to show the pictures.
     func refreshSpacePreviews() async
 
+    /// Photographs each running application, for a client that is about to draw them.
+    ///
+    /// Asked for by ``RemoteCommand/refreshSourceThumbnails``, and unlike the previews above
+    /// this is the *only* thing that ever takes these: there is no schedule behind it and no
+    /// age check, because a grid of thumbnails is the only thing that draws one and the client
+    /// is the only end that knows one is on screen.
+    func refreshSourceThumbnails() async
+
     /// A still of one source, at most `maxWidth` pixels across.
     ///
     /// A screenshot rather than a copy of a frame from the stream. The stream's frames are the
@@ -89,6 +97,15 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// desktop keeps its picture when the user reorders or removes the ones around it — see
     /// ``orderedSpacePreviews(ids:activeID:shots:)``.
     private let spacePreviews = SpacePreviewCache()
+
+    /// What each running application looked like when a client last asked. Keyed by
+    /// ``CaptureSource/stableID``, so an application keeps its picture across the catalogue
+    /// rebuilds that every other launch and quit causes.
+    ///
+    /// Unlike the previews above, nothing refreshes these on a schedule: they are taken when a
+    /// client asks, because a grid of thumbnails is the only thing that ever draws them and the
+    /// client is the only end that knows one is on screen.
+    private let sourceThumbnails = SourceThumbnailCache()
 
     /// Which Space each display was last seen showing.
     ///
@@ -213,9 +230,21 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 """)
         }
 
+        // The applications, each with the picture the client last asked for. A row that has no
+        // picture carries none and the client draws its own outline — which is the honest state
+        // both before anything has been taken and for an application the host could not
+        // photograph, so there is no need to tell the two apart here.
+        let applications = descriptors.filter { $0.kind == .application }
+        // Pruned against what this build actually offers, so a picture outlives neither the
+        // application that quit nor the last window it had. See
+        // ``SourceThumbnailCache/keep(only:)``.
+        sourceThumbnails.keep(only: Set(applications.map(\.id)))
+
         return CaptureCatalog(
             displays: descriptors.filter { $0.kind == .display },
-            applications: descriptors.filter { $0.kind == .application },
+            applications: applications.map {
+                $0.withThumbnail(sourceThumbnails.thumbnail(for: $0.source))
+            },
             windows: descriptors.filter { $0.kind == .window },
             installedApplications: offered,
             spaceInfo: spaceInfo
@@ -249,6 +278,16 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             isStale = false
         }
         return fresh
+    }
+
+    /// Marks the enumeration out of date **without announcing it**.
+    ///
+    /// ``invalidate()``'s first half, for a caller that is about to read ``shareableContent()``
+    /// itself. The notification is what makes the *host* push a new catalogue, and a push that
+    /// went out while this call was still working would be a second catalogue with the same
+    /// contents arriving behind the one this call produces.
+    private func markStale() {
+        lock.withLock { isStale = true }
     }
 
     private func invalidate() {
@@ -329,6 +368,89 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         await captureActiveSpacePreview(force: true)
     }
 
+    /// Photographs every application the catalogue is offering, and files what it gets.
+    ///
+    /// **The same enumeration the catalogue is built from**, so the pictures are of exactly the
+    /// rows the client is looking at rather than of a second list that could disagree with it —
+    /// including the two filters that matter here: an application with no user-facing window is
+    /// not offered and is therefore not photographed, and a system surface like the Dock's own
+    /// process is skipped on the same terms.
+    ///
+    /// **Concurrent, and bounded.** Every one of these is a round trip through the window server.
+    /// In sequence, a Mac with twenty applications would leave the client looking at empty tiles
+    /// for several seconds; all twenty at once would put twenty simultaneous captures on the same
+    /// hardware the live stream is already encoding on, which is the one queue this must not
+    /// disturb.
+    ///
+    /// **A failure leaves the last picture alone rather than clearing it.** A nil here is not
+    /// only "there is nothing to photograph" — that application is not in the list at all — it is
+    /// also a capture that timed out or was refused. Blanking a good picture because one attempt
+    /// failed is the worse of the two mistakes, and the closed-window case is covered anyway, by
+    /// the prune in ``catalog()``.
+    func refreshSourceThumbnails() async {
+        // **A fresh enumeration first, because of what this command is.** It arrives when a
+        // client opens the picker, which is the one place a stale list is visible as a fault,
+        // and it is the only moment anything looks at a thumbnail. Window opens and closes
+        // inside a running application post no notification at all — see
+        // ``registerObservers()`` — so a window made since the last push is missing from the
+        // list the client is drawing, and no amount of pushing can fix that from the Mac's
+        // side. Re-reading here costs one enumeration on an action the user has just taken by
+        // hand, and it is what makes the picker show what is on the Mac *now*.
+        markStale()
+        guard let content = try? await shareableContent() else { return }
+        let sources = Self.descriptors(from: content)
+            .filter { $0.kind == .application }
+            .map(\.source)
+        guard !sources.isEmpty else { return }
+
+        let landed = await withTaskGroup(
+            of: (source: CaptureSource, thumbnail: SourceThumbnail?).self
+        ) { group in
+            var next = 0
+            var stored = 0
+
+            // Adds one more capture, or none when they have all been added. Called once for
+            // each slot and then once per completion, which is what keeps the number in flight
+            // at the limit without a semaphore.
+            func addNext() {
+                guard next < sources.count else { return }
+                let source = sources[next]
+                next += 1
+                group.addTask {
+                    guard let image = await self.snapshot(
+                        of: source, maxWidth: SourceThumbnailCache.pixelWidth
+                    ) else { return (source, nil) }
+                    return (source, SourceThumbnailCache.thumbnail(from: image))
+                }
+            }
+
+            for _ in 0..<min(Self.thumbnailConcurrency, sources.count) { addNext() }
+            while let result = await group.next() {
+                if let thumbnail = result.thumbnail {
+                    self.sourceThumbnails.store(thumbnail, for: result.source)
+                    stored += 1
+                }
+                addNext()
+            }
+            return stored
+        }
+
+        resolverLog.notice("""
+            source thumbnails: \(landed, privacy: .public) of \
+            \(sources.count, privacy: .public) photographed
+            """)
+        // The same signal a Space preview uses, and for the same reason: this is a change to
+        // the catalogue that no notification about the source list covers. See
+        // ``previewLanded()``.
+        previewLanded()
+    }
+
+    /// How many application screenshots may be in flight at once.
+    ///
+    /// Four, which is enough that a typical Mac's worth of applications is photographed in one
+    /// round trip's time and few enough that a large one cannot crowd out the live stream.
+    private static let thumbnailConcurrency = 4
+
     func snapshot(of source: CaptureSource, maxWidth: Int) async -> CGImage? {
         // The same transform input is mapped through, which is the one thing in this file that
         // already knows how big a source is — a display's pixel dimensions, a window's frame
@@ -341,6 +463,17 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         do {
             plan = try makeFilter(for: source)
         } catch {
+            // **Said out loud, because nothing else does.** A still that could not be taken is
+            // indistinguishable from one that was never asked for, and the two have entirely
+            // different causes: the first is a capture problem worth reading about, the second
+            // is the ordinary state of the picker. This was silent until the thumbnails gave it
+            // a caller that takes one per application on every panel open, at which point a
+            // single application that could never be photographed looked like a panel that had
+            // simply skipped it.
+            resolverLog.notice("""
+                snapshot of \(source.stableID, privacy: .public) has no filter: \
+                \(error.localizedDescription, privacy: .public)
+                """)
             return nil
         }
 
@@ -355,10 +488,18 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             configuration.sourceRect = sourceRect
         }
 
-        return try? await SCScreenshotManager.captureImage(
-            contentFilter: plan.filter,
-            configuration: configuration
-        )
+        do {
+            return try await SCScreenshotManager.captureImage(
+                contentFilter: plan.filter,
+                configuration: configuration
+            )
+        } catch {
+            resolverLog.notice("""
+                snapshot of \(source.stableID, privacy: .public) was refused: \
+                \(error.localizedDescription, privacy: .public)
+                """)
+            return nil
+        }
     }
 
     /// Photographs the Space showing on each display, where that is worth doing.

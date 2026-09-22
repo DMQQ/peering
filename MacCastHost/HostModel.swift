@@ -784,6 +784,12 @@ final class HostModel {
                 coordinator.refreshSpacePreviews()
                 return
             }
+            if case .refreshSourceThumbnails = command {
+                // The same shape again: the screenshots are taken on the resolver's own tasks
+                // and the answer travels on the catalogue push, so nothing here waits.
+                coordinator.refreshSourceThumbnails()
+                return
+            }
             if case .setPrivacyMode(let enabled) = command {
                 Task { @MainActor [weak self] in self?.setPrivacyMode(enabled) }
                 return

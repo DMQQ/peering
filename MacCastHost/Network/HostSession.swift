@@ -407,7 +407,12 @@ final class HostSession: @unchecked Sendable {
             // client that has not seen this may not send one, because the request is a capture
             // source an older Mac cannot decode and the failure would land in the middle of a
             // session. See ``ServerHello/supportsMosaic``.
-            supportsMosaic: true
+            supportsMosaic: true,
+            // And this Mac can photograph its running applications, declared on the same terms
+            // once more. The failure this one prevents lands when somebody opens the Apps
+            // panel, which is an ordinary thing to do, and it would end the session rather
+            // than show a grid of names. See ``ServerHello/supportsSourceThumbnails``.
+            supportsSourceThumbnails: true
         ))
 
         if alreadyPaired {

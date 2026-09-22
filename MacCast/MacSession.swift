@@ -490,6 +490,15 @@ final class MacSession: Identifiable {
     /// asks for a whole arrangement of windows. Sending it anyway ends the session.
     var hostSupportsMosaic = false
 
+    /// What this Mac said about photographing its running applications. See
+    /// ``SourceThumbnailSupport/maySend(hostDeclared:)``.
+    ///
+    /// Gated for the same reason as the mosaic above and at a moment that is easier to reach:
+    /// the request goes out when the Apps panel opens, so sending it to a Mac that cannot decode
+    /// it would end the session for asking to see a thumbnail. A Mac without it draws the same
+    /// grid with no pictures in it, which is what that Mac has always been able to show.
+    var hostSupportsSourceThumbnails = false
+
     /// Whether the picture is stopped because this client asked for it to be.
     ///
     /// **Not the same as the picture being stopped.** A Mac whose screen is asleep, a stream that

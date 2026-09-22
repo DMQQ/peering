@@ -271,6 +271,62 @@ public struct MosaicTile: Codable, Sendable, Equatable, Hashable {
     }
 }
 
+/// A picture of one source, for the picker's grid.
+///
+/// The same idea as ``SpacePreview`` one level down: a photograph taken when the host was asked,
+/// not a live view. An application's thumbnail is a picture of *its windows*, which is what a
+/// capture of that application shows — so the tile answers "what is this app showing" rather
+/// than only "what is this app called", which the icon and the title already answered.
+///
+/// JPEG rather than PNG, for the reason ``SpacePreview`` gives: this is a photograph of a screen
+/// shown at a couple of hundred points, and PNG of the same frame costs several times as much to
+/// say the same thing.
+public struct SourceThumbnail: Codable, Sendable, Equatable, Hashable {
+    /// The largest thumbnail worth carrying.
+    ///
+    /// The catalogue is re-sent whenever anything in it changes — every application launch, every
+    /// Space switch — so one pathological thumbnail is a cost paid by every push for as long as
+    /// the host runs. It is half what a desktop preview is allowed, because this one is drawn in
+    /// a grid tile rather than across a panel and there are more of them on one screen.
+    public static let maximumByteCount = 32 * 1_024
+
+    /// Pixels, not points, and the pair the tile uses to keep its shape before the image is
+    /// decoded — a grid that sized its rows from the pictures would reflow as they arrived.
+    public let width: Int
+    public let height: Int
+    public let jpegData: Data
+
+    public init(width: Int, height: Int, jpegData: Data) {
+        self.width = width
+        self.height = height
+        self.jpegData = jpegData
+    }
+
+    /// Refuses an oversize picture **rather than truncating it**.
+    ///
+    /// Throwing here is what makes the descriptor's decode lenient without a second rule: the
+    /// caller reads this with `try?` and a thumbnail that fails is simply absent, so one bad
+    /// picture costs one tile instead of the catalogue. See
+    /// ``CaptureSourceDescriptor/init(from:)``.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        width = try values.decode(Int.self, forKey: .width)
+        height = try values.decode(Int.self, forKey: .height)
+        jpegData = try values.decode(Data.self, forKey: .jpegData)
+        guard jpegData.count <= Self.maximumByteCount else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .jpegData,
+                in: values,
+                debugDescription: "Source thumbnail exceeds the protocol limit."
+            )
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case width, height, jpegData
+    }
+}
+
 /// One entry in the list of things the host can capture, as pushed to the client.
 ///
 /// The host enumerates its own reality (displays attached, apps running, windows open)
@@ -296,6 +352,18 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
     public let bundleIdentifier: String?
     /// A small, render-ready PNG. `nil` means the client should use its fallback symbol.
     public let iconPNGData: Data?
+    /// A photograph of this source's content, or `nil` when the host has not taken one.
+    ///
+    /// **Only ever set for an application**, and absent is the ordinary state: the host takes
+    /// these when a client that is about to draw them asks, not on a schedule, so a tile is
+    /// briefly its own outline and then fills in. `nil` is also the honest answer for an
+    /// application with no windows on screen to photograph.
+    ///
+    /// A separate field from ``iconPNGData`` rather than a replacement for it. They answer two
+    /// different questions — what this application *is*, and what it is *showing* — and a grid
+    /// tile carries both: the icon identifies a small dark picture whose contents are illegible
+    /// at tile size, and the thumbnail is the reason the grid exists.
+    public let thumbnail: SourceThumbnail?
     public let source: CaptureSource
     /// Real pixel dimensions of the captured content — **not** points.
     ///
@@ -310,6 +378,7 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         subtitle: String? = nil,
         bundleIdentifier: String? = nil,
         iconPNGData: Data? = nil,
+        thumbnail: SourceThumbnail? = nil,
         source: CaptureSource,
         pixelSize: CGSize
     ) {
@@ -319,8 +388,29 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         self.subtitle = subtitle
         self.bundleIdentifier = bundleIdentifier
         self.iconPNGData = Self.boundedIcon(iconPNGData)
+        self.thumbnail = thumbnail
         self.source = source
         self.pixelSize = pixelSize
+    }
+
+    /// This descriptor with a thumbnail attached, or itself when there is none.
+    ///
+    /// A modifier rather than an argument to the initializer above, because the two are produced
+    /// at different times and in different places: the rows are built synchronously from one
+    /// enumeration, and the pictures are taken later, off the capture path, by a task that may
+    /// not have finished. The catalogue build is where they meet.
+    public func withThumbnail(_ thumbnail: SourceThumbnail?) -> CaptureSourceDescriptor {
+        guard let thumbnail else { return self }
+        return CaptureSourceDescriptor(
+            kind: kind,
+            title: title,
+            subtitle: subtitle,
+            bundleIdentifier: bundleIdentifier,
+            iconPNGData: iconPNGData,
+            thumbnail: thumbnail,
+            source: source,
+            pixelSize: pixelSize
+        )
     }
 
     private static func boundedIcon(_ data: Data?) -> Data? {
@@ -329,7 +419,7 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, title, subtitle, bundleIdentifier, iconPNGData, source, pixelSize
+        case id, kind, title, subtitle, bundleIdentifier, iconPNGData, thumbnail, source, pixelSize
     }
 
     public init(from decoder: any Decoder) throws {
@@ -341,6 +431,12 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         subtitle = try values.decodeIfPresent(String.self, forKey: .subtitle)
         bundleIdentifier = try values.decodeIfPresent(String.self, forKey: .bundleIdentifier)
         pixelSize = try values.decode(CGSize.self, forKey: .pixelSize)
+
+        // **Lenient, unlike the icon above.** One oversize picture drops one tile and the rest
+        // of the catalogue arrives; a throw here would cost the client its whole source list,
+        // and with it the session, over a thumbnail. See ``SourceThumbnail/init(from:)`` for
+        // where the limit itself is enforced.
+        thumbnail = (try? values.decodeIfPresent(SourceThumbnail.self, forKey: .thumbnail)) ?? nil
 
         let icon = try values.decodeIfPresent(Data.self, forKey: .iconPNGData)
         guard icon == nil || icon!.count <= Self.maximumIconByteCount else {

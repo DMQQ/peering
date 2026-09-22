@@ -77,6 +77,23 @@ against `/usr/bin/time -l`; 178 plus 32 tests.
 - **`task_info(TASK_BASIC_INFO)` returns `KERN_SUCCESS` and its CPU fields never move on Darwin
   27.** Two seconds of burning four threads moved them by zero. The resource card uses `getrusage`.
   A 0.0% CPU reading is the kind of wrong that looks like good news.
+- **`SCScreenshotManager` photographs only windows that are on screen, and the host offers every
+  window on every Space.** An application whose windows are all on another desktop is listed,
+  selectable and streamable, and its still is refused with *"Failed to start stream due to
+  audio/video capture failure"* — the same error a denied permission gives, which is what makes it
+  a trap. Measured with `Tools/CaptureProbe --thumbnails`: with Chrome, Mail, Notes and Terminal
+  running, the only application photographed was the one whose window the window server listed as
+  on screen, and the failed set changed as the user changed desktops. `isOnScreen` on every
+  window is the tell, and it is **false for all of them** on a Mac showing one desktop. This is the
+  same rule `captureActiveSpacePreview()` already documents from the other direction — "a desktop
+  in front is the only one ScreenCaptureKit can photograph" — and the fallback is the source's
+  icon, which is what a tile draws when there is no picture.
+- **It is not a rate limit and not the crop.** Four concurrent captures, one at a time, and one
+  per 300ms all produced the same failures and the same successes; taking `sourceRect` out of the
+  configuration changed nothing. The filter shape is not the cause either: a two-window
+  application on screen photographs fine through `display + including:[application] + sourceRect`.
+  An application *off* screen fails through every filter, including
+  `desktopIndependentWindow`.
 - **`CGVirtualDisplay` has no `setTerminalID:` on macOS 27** (it is `setSerialNumber:`, and sending
   the other raises an uncatchable exception), and `hiDPI` does not make a display dense. Selectors
   were read off the class rather than copied from the header everyone copies from.

@@ -701,6 +701,12 @@ final class VideoCoordinator: @unchecked Sendable {
         pipeline.refreshSpacePreviews()
     }
 
+    /// Photographs every running application. See
+    /// ``RemoteCommand/refreshSourceThumbnails``.
+    func refreshSourceThumbnails() {
+        pipeline.refreshSourceThumbnails()
+    }
+
     /// A still of what is being streamed. See ``CapturePipeline/snapshot(maxWidth:)``.
     func snapshot(maxWidth: Int) async -> CGImage? {
         await pipeline.snapshot(maxWidth: maxWidth)

@@ -83,6 +83,96 @@ struct CaptureSourceTests {
         #expect(bounded.iconPNGData == nil)
     }
 
+    @Test("a thumbnail rides on the descriptor and comes back")
+    func thumbnailRoundTrip() throws {
+        let picture = SourceThumbnail(width: 320, height: 200, jpegData: Data([0xff, 0xd8, 0xff]))
+        let app = CaptureSourceDescriptor(
+            kind: .application,
+            title: "Xcode",
+            thumbnail: picture,
+            source: .application(42),
+            pixelSize: CGSize(width: 1200, height: 800)
+        )
+
+        let decoded = try roundTrip(app)
+        #expect(decoded.thumbnail == picture)
+        #expect(decoded.thumbnail?.width == 320)
+        // The picture is part of the value, which is what makes the host's per-session
+        // "already sent this catalogue" check notice a set of new thumbnails.
+        #expect(decoded == app)
+    }
+
+    @Test("a descriptor with no thumbnail carries no key")
+    func noThumbnailIsAbsent() throws {
+        let app = CaptureSourceDescriptor(
+            kind: .application, title: "Notes", source: .application(7),
+            pixelSize: CGSize(width: 800, height: 600)
+        )
+        #expect(app.thumbnail == nil)
+        // Decoded from a payload written by a host that has never taken one, which is what a
+        // client predating this field sends itself.
+        #expect(try roundTrip(app).thumbnail == nil)
+    }
+
+    @Test("withThumbnail attaches, and a nil leaves the descriptor alone")
+    func attaching() {
+        let app = CaptureSourceDescriptor(
+            kind: .application, title: "Notes", source: .application(7),
+            pixelSize: CGSize(width: 800, height: 600)
+        )
+        let picture = SourceThumbnail(width: 20, height: 10, jpegData: Data([1, 2, 3]))
+
+        let withPicture = app.withThumbnail(picture)
+        #expect(withPicture.thumbnail == picture)
+        // Everything else survives the copy, or the catalogue would silently lose a row's name
+        // the moment a picture landed on it.
+        #expect(withPicture.id == app.id)
+        #expect(withPicture.title == app.title)
+        #expect(withPicture.pixelSize == app.pixelSize)
+
+        #expect(app.withThumbnail(nil) == app)
+    }
+
+    @Test("an oversize thumbnail costs its tile and not the catalogue")
+    func oversizeThumbnailIsDropped() throws {
+        let app = CaptureSourceDescriptor(
+            kind: .application, title: "Notes", source: .application(7),
+            pixelSize: CGSize(width: 800, height: 600)
+        )
+        let oversize = Data(repeating: 1, count: SourceThumbnail.maximumByteCount + 1)
+
+        // The type itself refuses it, which is where the limit is enforced.
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(
+                SourceThumbnail.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "width": 10, "height": 10,
+                    "jpegData": oversize.base64EncodedString(),
+                ])
+            )
+        }
+
+        // And the descriptor survives it, which is the half that matters: a throw here would
+        // cost the client its whole source list, and with it the session, over a picture.
+        guard var json = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(app)
+        ) as? [String: Any] else {
+            Issue.record("the descriptor did not encode to an object")
+            return
+        }
+        json["thumbnail"] = [
+            "width": 10, "height": 10,
+            "jpegData": oversize.base64EncodedString(),
+        ]
+        let decoded = try JSONDecoder().decode(
+            CaptureSourceDescriptor.self,
+            from: JSONSerialization.data(withJSONObject: json)
+        )
+        #expect(decoded.thumbnail == nil)
+        #expect(decoded.title == "Notes")
+        #expect(decoded.source == .application(7))
+    }
+
     @Test("catalog separates installed apps and filters running duplicates")
     func installedApplications() throws {
         let running = CaptureSourceDescriptor(
@@ -310,6 +400,10 @@ struct RemoteCommandTests {
             // allowed to touch.
             .setVideoEnabled(false),
             .refreshSpacePreviews,
+            // Asking for pictures changes what the picker shows and nothing about the Mac, so
+            // a session in observe mode may do it — the same reading ``refreshSpacePreviews``
+            // gets two lines up.
+            .refreshSourceThumbnails,
             .setPrivacyMode(enabled: true),
             .lockScreen,
             .requestClipboard,

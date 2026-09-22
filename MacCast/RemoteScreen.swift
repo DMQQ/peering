@@ -355,6 +355,16 @@ struct RemoteScreen: View {
             // moment to ask. The answer does not come back through this call: the host pushes
             // a catalogue when a picture lands, the same way it does for any other change.
             if panel == .desktops { model.send(.refreshSpacePreviews) }
+
+            // And the same for the grid of applications, which is stale in the same way for a
+            // stronger reason: the host never takes those on its own, so without this the grid
+            // shows nothing but outlines for the whole session. Guarded on what the Mac said it
+            // can take — the request is a command an older one cannot decode, and it would go
+            // out at the moment somebody opened an ordinary panel. See
+            // ``SourceThumbnailSupport``.
+            if panel == .sources, model.hostSupportsSourceThumbnails {
+                model.send(.refreshSourceThumbnails)
+            }
         }
         .confirmationDialog(
             "Quit the active Mac app?",

@@ -109,6 +109,25 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// as "no". The client sends a mosaic only on an explicit `true`.
     public var supportsMosaic: Bool?
 
+    /// Whether this Mac can photograph its running applications for the picker's grid.
+    /// See ``RemoteCommand/refreshSourceThumbnails``.
+    ///
+    /// **A capability on the same argument as the three above, and the client-side failure is
+    /// the one that decides it.** A Mac that has not heard of the command throws on it, in the
+    /// middle of a session, and this command is sent from `onChange(of: openPanel)` — so the
+    /// failure would land the moment somebody opened the Apps panel, which is an ordinary thing
+    /// to do, and the session would end for asking to see a thumbnail. Gated, that Mac simply
+    /// offers its rows with no pictures, which is exactly what it did before.
+    ///
+    /// Malformed *data* is survivable in a way a malformed command is not, and the catalogue
+    /// half needs no flag at all: ``CaptureSourceDescriptor/thumbnail`` is an optional field
+    /// read with `decodeIfPresent`, so a client that predates it ignores it and one that has it
+    /// reads `nil` from a Mac that has none. Only the asking needs negotiating.
+    ///
+    /// Optional and additive, so a Mac older than this field decodes with it `nil`, which reads
+    /// as "no". The client sends the command only on an explicit `true`.
+    public var supportsSourceThumbnails: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -117,7 +136,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         macAddresses: [String]? = nil,
         supportsVideoPause: Bool? = nil,
         supportsClipboardImages: Bool? = nil,
-        supportsMosaic: Bool? = nil
+        supportsMosaic: Bool? = nil,
+        supportsSourceThumbnails: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -127,6 +147,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsVideoPause = supportsVideoPause
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsMosaic = supportsMosaic
+        self.supportsSourceThumbnails = supportsSourceThumbnails
     }
 }
 

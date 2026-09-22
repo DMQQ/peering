@@ -130,6 +130,20 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// desktops panel is the one moment a user can see how old the pictures are, and the host
     /// has no way to know it has been opened — this is the client saying so.
     case refreshSpacePreviews
+    /// Asks the host to photograph each running application, for the picker's grid.
+    ///
+    /// **The same shape as ``refreshSpacePreviews`` and for the same reason**: the pictures
+    /// arrive the way every other preview does, on the catalogue the host pushes when they land,
+    /// and what this buys is *timing*. The host takes these off a schedule of its own — never, in
+    /// fact, unless asked — and it cannot see that the Apps panel has just been opened, which is
+    /// the only moment anybody looks at a thumbnail.
+    ///
+    /// **A capability rather than a version bump.** A Mac built before this command existed
+    /// cannot decode it, and an unknown command is a decode failure in the middle of a session —
+    /// but that Mac is never sent one, because the client asks only after
+    /// ``ServerHello/supportsSourceThumbnails``. See that field for the argument; it is the one
+    /// ``ServerHello/supportsMosaic`` makes.
+    case refreshSourceThumbnails
     /// Dims supported physical displays to zero brightness while leaving capture running.
     /// `false` restores the levels saved when the mode was enabled.
     case setPrivacyMode(enabled: Bool)
@@ -166,8 +180,9 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return .accumulate
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
-             .setVideoEnabled, .refreshSpacePreviews, .setPrivacyMode, .lockScreen,
-             .requestClipboard, .pushClipboard, .pushClipboardImage:
+             .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails,
+             .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
+             .pushClipboardImage:
             return .none
         }
     }
@@ -192,8 +207,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchSpace, .switchToSpace, .joystickMove:
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
-             .refreshSpacePreviews, .setPrivacyMode, .lockScreen, .requestClipboard,
-             .pushClipboard, .pushClipboardImage:
+             .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode, .lockScreen,
+             .requestClipboard, .pushClipboard, .pushClipboardImage:
             return false
         }
     }

@@ -236,6 +236,15 @@ final class CapturePipeline: @unchecked Sendable {
         Task { await resolver.refreshSpacePreviews() }
     }
 
+    /// Photographs every running application, for a client drawing the picker's grid.
+    ///
+    /// Detached on exactly the terms above: the pictures come back on the catalogue push, and
+    /// there is nothing for the caller to wait for.
+    func refreshSourceThumbnails() {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        Task { await resolver.refreshSourceThumbnails() }
+    }
+
     /// A still of what is being streamed, or `nil` when nothing is.
     ///
     /// Asked for by the host window, which shows it. Deliberately not the frames the stream

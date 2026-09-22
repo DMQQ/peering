@@ -174,20 +174,16 @@ final class SpacePreviewCache: @unchecked Sendable {
     /// A screenshot, encoded as the JPEG that travels in a preview.
     ///
     /// Split from the capture above so that the encoding has no ScreenCaptureKit in it: this
-    /// half can be handed any image.
+    /// half can be handed any image. The encode itself now lives in `encodeJPEG`, which the
+    /// source thumbnails reach for too — see it for why the budget is stepped down rather than
+    /// refused.
     static func shot(from image: CGImage) -> SpaceShot? {
-        let data = NSBitmapImageRep(cgImage: image).representation(
-            using: .jpeg,
-            properties: [.compressionFactor: jpegQuality]
-        )
-        guard let data else { return nil }
-        guard data.count <= maximumByteCount else {
-            previewLog.notice("""
-                space preview dropped at \(data.count, privacy: .public) bytes, \
-                over the \(maximumByteCount, privacy: .public) byte budget
-                """)
-            return nil
-        }
+        guard let data = encodeJPEG(
+            image,
+            quality: jpegQuality,
+            maximumBytes: maximumByteCount,
+            what: "space preview"
+        ) else { return nil }
         return SpaceShot(width: image.width, height: image.height, jpegData: data)
     }
 }
