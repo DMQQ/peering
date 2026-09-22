@@ -1,3 +1,4 @@
+import MacCastKit
 import SwiftUI
 
 /// Every measurement the in-session chrome is built from.
@@ -273,10 +274,14 @@ enum ColorPalette {
         // palette's own rule. The rule exists because a picture is the only thing here
         // entitled to a colour; a latency figure is a measurement, and the whole point of
         // showing it is to be noticed — three shades of white at arm's length are one shade.
-        switch milliseconds {
-        case ..<40: return .green
-        case ..<120: return .yellow
-        default: return .orange
+        //
+        // **The bands live in ``LatencyQuality``**, which is also what decides the word the
+        // collapsed pill uses when the connection is not behaving. One set of thresholds: a
+        // colour that changed bands somewhere else would be the pill saying "Slow" in green.
+        switch LatencyQuality.of(milliseconds: milliseconds) {
+        case .good: return .green
+        case .fair: return .yellow
+        case .poor: return .orange
         }
     }
 }

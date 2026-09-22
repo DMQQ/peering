@@ -249,13 +249,24 @@ extension RemoteScreen {
                                 .lineLimit(1)
                             // No spacer, for the reason Row 1 has none: the collapsed pill
                             // should be the width of what it says.
-                            if let latency = model.shownLatency {
-                                Text(String(format: "%3d ms", Int(latency.rounded())))
-                                    .font(.caption2.monospacedDigit())
+                            //
+                            // **A word and not a number, and only when there is one to say.**
+                            // This is the one line in the app that is read without being asked
+                            // for, so a figure here reads as a warning even at 90 ms: "812 ms"
+                            // on a connection that is working fine is a number that frightens
+                            // people into closing a session they did not need to close. What a
+                            // user can act on is "it is slow", and the figure itself is one tap
+                            // away in the expanded pill, which is where somebody who wants the
+                            // number looks anyway. See ``LatencyQuality``.
+                            if let latency = model.shownLatency,
+                               let word = LatencyQuality.of(milliseconds: latency).pillLabel {
+                                Text(word)
+                                    .font(.caption2.weight(.semibold))
                                     .foregroundStyle(ColorPalette.reading(latency))
-                                    .frame(width: 46, alignment: .trailing)
                                     .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
+                                    .accessibilityLabel(
+                                        LatencyQuality.of(milliseconds: latency).spokenLabel
+                                    )
                             }
                         }
 
