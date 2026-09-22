@@ -19,7 +19,7 @@ import RemoteCore
 /// make stale; what the user actually chose is "these windows, in this order, with this one
 /// bigger". Storing that and deriving the rectangles is one copy of the arrangement instead of
 /// two that can disagree. See ``MacSession/mosaicChoices``.
-public struct MosaicChoice: Equatable, Sendable {
+public struct MosaicChoice: Codable, Equatable, Sendable {
     public var source: CaptureSource
     /// How much of the picture this one gets, relative to the others. 1 is "the same as
     /// everyone", and the control on screen steps between 1 and 3.
@@ -34,6 +34,67 @@ public struct MosaicChoice: Equatable, Sendable {
     /// disagree about how big a tile may get.
     public static let maximumWeight = 3
     public static let minimumWeight = 1
+}
+
+/// The arrangements this phone has put together, remembered per Mac.
+///
+/// **Kept as the choices rather than as the rectangles**, which is the whole reason this can be
+/// restored at all: a saved layout would describe windows at positions in a canvas of the shape
+/// this phone had when it was saved, and the phone in a different orientation, or a mosaic asked
+/// for after an update that changed the padding, would draw the wrong picture from it. What the
+/// user chose is "these windows, in this order, with this one bigger", and that survives all of
+/// it. See ``MosaicChoice``.
+///
+/// A source that has gone is dropped on the way back rather than refusing the whole arrangement:
+/// a window is closed, an application is quit, and the other five were the point. See
+/// ``MosaicArrangement/restored(into:)``.
+public enum MosaicArrangementStore {
+    private static let key = "Peering.mosaicArrangements"
+
+    /// Every Mac's arrangement, by the Mac's own id.
+    ///
+    /// One dictionary rather than a key per Mac, because a key built from an id could collide
+    /// with anything else in the defaults and because the ids are not known until a Mac answers.
+    private static func arrangements() -> [String: [MosaicChoice]] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let stored = try? JSONDecoder().decode([String: [MosaicChoice]].self, from: data)
+        else { return [:] }
+        return stored
+    }
+
+    /// What is remembered for one Mac, or nothing when there is no arrangement.
+    public static func load(hostID: String) -> [MosaicChoice] {
+        arrangements()[hostID] ?? []
+    }
+
+    public static func save(_ choices: [MosaicChoice], hostID: String) {
+        var stored = arrangements()
+        if choices.count > 1 {
+            stored[hostID] = choices
+        } else {
+            // **Emptying it is how an arrangement is forgotten**, rather than a separate call
+            // that could be left out: a session with one tile is a session with no mosaic in it,
+            // and the next connection to that Mac should not open on a canvas holding one
+            // window.
+            stored.removeValue(forKey: hostID)
+        }
+        guard let data = try? JSONEncoder().encode(stored) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
+public enum MosaicArrangement {
+    /// The remembered arrangement, thinned to the sources this Mac still has.
+    ///
+    /// **The catalogue is the filter.** A window ID or a process ID outlives neither a restart
+    /// nor a quit, so what comes back is a list of sources that may or may not still exist, and
+    /// the only thing in a session that says which is the catalogue the Mac has just sent. Fewer
+    /// than two survivors is not a mosaic, so that is nothing rather than one.
+    public static func restored(_ choices: [MosaicChoice], into catalog: CaptureCatalog?) -> [MosaicChoice] {
+        guard let catalog else { return [] }
+        let living = choices.filter { catalog.descriptor(for: $0.source) != nil }
+        return living.count > 1 ? living : []
+    }
 }
 
 public enum MosaicGrid {

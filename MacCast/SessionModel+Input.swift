@@ -148,7 +148,30 @@ extension SessionModel {
         // modifier latched before that would be one nothing here can release.
         releaseLatchedModifiers()
         mosaicChoices = choices
+        // Remembered as the *choices*, not as the rectangles the Mac is being sent: an
+        // arrangement is a place the user returns to, and what it was for windows is what
+        // survives a restart and a rotation. See ``MosaicArrangementStore``.
+        if let hostID = currentHostID {
+            MosaicArrangementStore.save(choices, hostID: hostID)
+        }
         selectSource(.mosaic(layout))
+    }
+
+    /// The arrangement this Mac was last left in, thinned to what it still has.
+    ///
+    /// **Asked when the catalogue arrives**, which is the first moment anything knows which of the
+    /// remembered windows still exist. A window ID outlives neither a restart nor a quit, so the
+    /// list comes back as a question and the catalogue is the answer; fewer than two survivors is
+    /// nothing, which is the same rule that stops a one-tile canvas being a mosaic at all.
+    ///
+    /// A pure lookup rather than something that sends: the caller is deciding *instead of* the
+    /// default source, and a function that both answered and acted could not be used that way.
+    func mosaicToRestore(hostID: String?, catalog: CaptureCatalog?) -> [MosaicChoice] {
+        guard let hostID else { return [] }
+        return MosaicArrangement.restored(
+            MosaicArrangementStore.load(hostID: hostID),
+            into: catalog
+        )
     }
 
     /// Gives one tile more or less room, cycling through the sizes the control offers.

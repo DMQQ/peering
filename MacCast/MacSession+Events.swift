@@ -249,8 +249,21 @@ extension MacSession {
             }
         case .catalog(let catalog):
             self.catalog = catalog
-            if activeSourceID == nil, let first = catalog.displays.first ?? catalog.all.first {
-                activeSourceID = first.id
+            if activeSourceID == nil {
+                // **An arrangement the user left behind comes back before the default does**, and
+                // the decision has to be made here rather than after: the fallback below picks the
+                // first display, and a mosaic asked for on top of that would be a second capture
+                // built in the time it takes to notice the user had a mosaic at all.
+                //
+                // Only when nothing has been chosen yet, which is a session that has just
+                // connected: a session that was already showing something keeps showing it, and a
+                // resumed one still has the mosaic's own id as its source.
+                let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
+                if !remembered.isEmpty {
+                    model.showMosaic(remembered)
+                } else if let first = catalog.displays.first ?? catalog.all.first {
+                    activeSourceID = first.id
+                }
             }
         case .video(let event):
             apply(video: event)
