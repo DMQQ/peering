@@ -169,4 +169,17 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertEqual(RelayPlan.plus.name, "Relay Plus")
         XCTAssertEqual(RelayPlan.pro.name, "Pro")
     }
+
+    /// These values feed the paywall, onboarding and Sessions meter. Keeping the number and its
+    /// spelling in one test prevents a copy-only edit from promising a different allowance than
+    /// the relay enforces.
+    func testThePlanAllowancesMatchTheProductPromise() {
+        XCTAssertEqual(RelayPlan.free.allowanceSeconds, 60 * 60)
+        XCTAssertEqual(RelayPlan.free.allowanceSpelling, "one hour")
+
+        for plan in [RelayPlan.relay, .plus, .pro] {
+            XCTAssertNil(plan.allowanceSeconds, "\(plan.name) should be unlimited")
+            XCTAssertEqual(plan.allowanceSpelling, "unlimited relay")
+        }
+    }
 }

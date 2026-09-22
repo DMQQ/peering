@@ -353,7 +353,7 @@ extension MacSession {
                 userEndedDeliberately = true
                 model.stopReconnecting()
             } else {
-                // Free, or on Relay with the day's three hours spent, and the user tapped Connect
+                // Free with the day's allowance spent, and the user tapped Connect
                 // into it. A wall they walked into rather than one that took a session away, which
                 // is the whole of why this branch is the paywall and the one above is not.
                 model.paywallReason = .quotaExhausted

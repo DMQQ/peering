@@ -477,10 +477,11 @@ struct VideoKeyMessageTests {
     /// back makes the number something a person has to change deliberately.
     @Test("the two ends of the exchange agree about the protocol version")
     func theVersionWasBumped() {
-        // 16 lets the browser change things, not only read them: `changeFile` and the two events
-        // that answer it. A 15 host cannot decode the request, so the tap lands nowhere and the
-        // row stays on screen — a delete that silently did not happen, looking exactly like one
-        // that is still in the post.
-        #expect(ProtocolInfo.version == 16)
+        // 17 is the phone handing the Mac its APNs device token. A 16 host cannot decode
+        // `registerPushToken`, and unlike every request before it this one is sent the moment a
+        // session becomes ready, so the failure is not a tap that lands nowhere: the session ends
+        // and the phone dials again, on a loop, which is the shape the version exists to keep out
+        // of a session.
+        #expect(ProtocolInfo.version == 17)
     }
 }

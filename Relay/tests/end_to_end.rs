@@ -44,8 +44,8 @@ struct Session {
     video_token: String,
 }
 
-/// Every test's relay, metered by the defaults: a quarter of an hour free, three hours on Relay,
-/// and a splice charged every `CHARGE_PERIOD`.
+/// Every test's relay, metered by the defaults: one hour free, paid plans unlimited, and a splice
+/// charged every `CHARGE_PERIOD`.
 async fn start() -> TestRelay {
     start_with(Arc::new(QuotaTracker::new(
         PlanAllowances::default(),
@@ -895,7 +895,7 @@ async fn an_unlimited_plan_is_never_ended_by_the_meter() {
         .remaining("phone", None, Plan::Free)
         .expect("a free plan is metered");
     assert!(
-        left < 15 * 60 - 1,
+        left < 60 * 60 - 1,
         "an unlimited session is still charged for the log: less than a free allowance is left, {left} seconds"
     );
 }

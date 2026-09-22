@@ -113,8 +113,8 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory:
             // The remote working set: away from your own network, with every Mac you own, its
             // sound, its picture floating over another app, and files that move both ways. The
-            // entry rung used to differ from free in exactly one number, three hours against half
-            // an hour, which made it the hardest thing on the ladder to sell. See the note in
+            // entry rung used to differ from free mainly by a larger clock, which made it the
+            // hardest thing on the ladder to sell. See the note in
             // `PLANS-AND-FEATURES.md` on why these four moved down to it.
             return .relay
         case .shellTabs:

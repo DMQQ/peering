@@ -33,7 +33,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Three hours of relay a day.",
+              "description" : "Unlimited relay every day.",
               "displayName" : "Relay",
               "locale" : "en_US"
             }
@@ -58,7 +58,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Three hours of relay a day, billed yearly.",
+              "description" : "Unlimited relay every day, billed yearly.",
               "displayName" : "Relay (Yearly)",
               "locale" : "en_US"
             }
@@ -83,7 +83,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited relay, terminals, and widgets.",
+              "description" : "Everything in Relay, plus several shells at once.",
               "displayName" : "Relay Plus",
               "locale" : "en_US"
             }
@@ -108,7 +108,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited relay, terminals and widgets, billed yearly.",
+              "description" : "Everything in Relay, plus several shells at once, billed yearly.",
               "displayName" : "Relay Plus (Yearly)",
               "locale" : "en_US"
             }
@@ -133,7 +133,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Every Mac you own, every display and window as a source, terminals, snippets, audio, and relay without a limit.",
+              "description" : "Everything in Relay Plus, several Macs at once, macros, and the sharpest relayed picture.",
               "displayName" : "Peering Pro",
               "locale" : "en_US"
             }
@@ -158,7 +158,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Every Mac you own, every display and window as a source, terminals, snippets, audio, and relay without a limit, billed yearly.",
+              "description" : "Everything in Relay Plus, several Macs at once, macros, and the sharpest relayed picture, billed yearly.",
               "displayName" : "Peering Pro (Yearly)",
               "locale" : "en_US"
             }

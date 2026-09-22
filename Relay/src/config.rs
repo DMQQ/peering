@@ -196,7 +196,7 @@ const DEFAULT_RELAY_MINUTES: u64 = 180;
 /// not configured the relay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlanAllowances {
-    /// `PEERINGD_FREE_MINUTES`, 15 by default. `None` would mean unlimited; nothing sets it.
+    /// `PEERINGD_FREE_MINUTES`, 60 by default. `None` would mean unlimited; nothing sets it.
     pub free_seconds: Option<u64>,
     /// `PEERINGD_RELAY_MINUTES`, 180 by default.
     pub relay_seconds: Option<u64>,

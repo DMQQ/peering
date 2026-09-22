@@ -65,7 +65,7 @@ struct OnboardingView: View {
     /// What the free row says, built from the number the relay actually meters.
     ///
     /// Read off ``RelayPlan`` for the reason every other allowance claim in the app is: "half an
-    /// hour" typed onto a screen beside a server configured for fifteen minutes is the drift that
+    /// hour" typed onto a screen beside a server configured for one hour is the drift that
     /// turns a promise into a support email.
     private static var freeLine: String {
         "\(RelayPlan.free.allowanceSpelling.capitalized) of relay a day, on one Mac"

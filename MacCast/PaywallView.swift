@@ -49,9 +49,9 @@ struct PaywallView: View {
     /// the review. Same products either way; only the reason changes.
     ///
     /// It changes twice over, in fact, because there are two ways to hit the quota now: a free user
-    /// who has spent the free allowance, and a Relay subscriber who has spent their three hours. Telling
-    /// the second one that their *free* allowance is gone reads as the app having forgotten they
-    /// paid, which is worse than saying nothing.
+    /// who has spent the free allowance, or an impossible paid-plan quota response. Telling a
+    /// subscriber that their *free* allowance is gone reads as the app having forgotten they paid,
+    /// which is worse than saying nothing.
     /// Six doors now, and the two the app opens by itself are the ones that are not the user's
     /// doing. Of the other four, three are somewhere the user went; the newest is a control they
     /// pressed that did nothing, which is the one door opened by somebody who was not asking to buy
@@ -864,7 +864,7 @@ private struct PlanCard: View {
                 }
 
                 // The tier's own tagline used to sit here, and it was the third place on the card
-                // saying the same thing: "three hours of relay a day, on every Mac you own" is the
+                // saying the same thing: "unlimited relay, on every Mac you own" is the
                 // first two lines of the list below it, in fewer words and with a full stop. The
                 // site's columns carry no such sentence either, and the sentence itself is still
                 // what the confirmation screen says to somebody who has just bought.

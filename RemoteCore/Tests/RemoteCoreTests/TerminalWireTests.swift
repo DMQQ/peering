@@ -64,6 +64,10 @@ struct TerminalWireTests {
                 sessionID: id,
                 operation: .delete(path: "/Users/someone/Desktop/New Folder")
             ),
+            // The one request that is not about a terminal at all, and the one that is sent
+            // without being asked for: every session that becomes ready offers its token. Bytes
+            // that are not text, because that is what a device token is.
+            .registerPushToken(Data([0x9B, 0x00, 0xFF, 0x7A])),
         ]
 
         for request in requests {

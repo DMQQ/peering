@@ -851,9 +851,8 @@ mod tests {
         }
     }
 
-    /// The allowances the app states, which are the relay's defaults: a quarter of an hour free
-    /// and three hours on Relay. Two numbers rather than one, so a test that confuses the plans
-    /// fails.
+    /// The allowances the app states, which are the relay's defaults: one hour free and no limit
+    /// on paid plans.
     fn default_settings() -> Settings {
         settings_with(Arc::new(QuotaTracker::new(
             PlanAllowances::default(),

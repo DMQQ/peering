@@ -8,14 +8,13 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 
 ## 1. Where the plans stand
 
-**Superseded on 20 September.** Everything below this line in section 1 is the older shape, kept
-because the reasoning in it still holds in places. The live ladder is:
+**Updated on 21 September.** The live ladder is:
 
 | | Free | Relay | Relay Plus | Pro |
 |---|---|---|---|---|
 | Monthly | $0 | **$2.99** | **$5.99** | **$9.99** |
 | Yearly | $0 | **$19.99** | **$44.99** | **$79.99** |
-| Relay per 24h | 15 min | 3 h | unlimited | unlimited |
+| Relay per 24h | 1 hour | unlimited | unlimited | unlimited |
 | Paired Macs | 1 | every | every | every |
 | Sound, Picture in Picture | | yes | yes | yes |
 | Moving files both ways | | yes | yes | yes |
@@ -55,24 +54,18 @@ Measured against the field rather than chosen. Screens 5 is $3.99/mo and $29.99/
 permanent free tier and no audio at all; Splashtop charges $23.99/yr just to leave the LAN and
 $99/yr for its Pro tier; RealVNC Essentials is $8.25/mo; Astropad Workbench, the closest product to
 this one, gives 20 minutes a day free and charges $99.99/yr. Pro at $99.99/yr sits level with
-Astropad and below Splashtop Pro. The free allowance here is 15 minutes a day, which is five under
-Astropad's, and that is a deliberate trade: the path between two devices on the same network is
-unlimited on every plan and costs nothing to serve, so the free allowance is only ever answering
-"does this work when I am out", and an allowance generous enough to work with is one nobody pays to
-raise.
+Astropad and below Splashtop Pro. The free allowance here is one hour a day. That is deliberately
+long enough for a real session rather than only a demo; the paid plans sell unlimited relay and
+the working features around it rather than a slightly larger clock.
 
 ### What moved, and why
 
-- **The free relay allowance is fifteen minutes rather than thirty.** Measured against what free is
-  for rather than against the field. Half an hour answered the question above and then went on
-  answering it: a free user with a commute spent the whole allowance every day and never reached a
-  wall they would pay to remove, which is a sample that has stopped sampling. Fifteen still covers a
-  first proper try away from home, and runs out somewhere in the middle of regular use.
+- **The free relay allowance is one hour.** It covers a real session and still leaves a clear
+  reason to subscribe for regular remote work. Paid plans remove the clock entirely.
 
 - **Sound, Picture in Picture, moving files and the Mac count moved down to the entry rung.** The
-  entry rung used to differ from free in exactly one number, three hours against the free
-  allowance,
-  which made it the hardest thing on the ladder to sell. These four are what the field charges for:
+  entry rung used to differ from free mainly by a larger allowance, which made it the hardest thing
+  on the ladder to sell. These four are what the field charges for:
   file transfer is the single most consistent paywall in remote desktop, audio is off entirely on
   TeamViewer's free tier and Performance-tier at Splashtop, and device count is the field's
   favourite axis.
@@ -138,7 +131,7 @@ their own network gets the full picture and unlimited time.
 | Nearby discovery (Bonjour), connect by address | ✅ | ✅ | ✅ | ✅ |
 | Trusted Macs list: rename, forget, choose LAN or relay | ✅ | ✅ | ✅ | ✅ |
 | Local network sessions, unlimited and unmetered | ✅ | ✅ | ✅ | ✅ |
-| Relay sessions | 15 min/day | 3 h/day | unlimited | unlimited |
+| Relay sessions | 1 h/day | unlimited | unlimited | unlimited |
 | Paired Macs | one | every Mac you own | every Mac you own | every Mac you own |
 | Wake on LAN | ✅ | ✅ | ✅ | ✅ |
 | Face ID lock on launch | ✅ | ✅ | ✅ | ✅ |
@@ -286,7 +279,7 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
 - File browser on **both** terminals (phase 1 and 2), including SFTP with an exec fallback
 - Live Activity, widgets (iOS + macOS host), session history, Siri intents
 - Relay: metering per device per day, three products in one subscription group
-- Free tier at 15 min/day, relay copy across app, site, terms
+- Free tier at 1 h/day; every paid plan unlimited; relay copy aligned across app, site and terms
 
 **In flight** 🔧
 - **A video "lane" and a fallback** (protocol v12). See the correction in §5 first: the premise I
@@ -294,8 +287,8 @@ and its tap opens the paywall, which is as much of the rule as a menu row can ho
   video onto the control channel, chunking so a keyframe fits, a rate cap while it is there, and a
   probe of the lane it left. On the direct path that is a genuine fallback from the dedicated
   video socket; on the relay path it is only a rate reduction, because video is already there.
-- **Per-plan relay allowances** — the relay learns the plan from the handshake; free 15 min,
-  Relay 3 h, Plus/Pro unlimited.
+- **Per-plan relay allowances** — the relay learns the plan from the handshake; free gets one hour
+  and every paid plan is unlimited.
 
 **Not started** ❌
 - Feature gating (§2 and §3 above)
@@ -388,8 +381,8 @@ reporting — a promise in the privacy policy — a bug report or a review is th
 get. (A "Report an issue" row now exists in Settings, in both the iOS app and the Mac host.)
 
 ### Traps that will bite on the next release
-- **The relay enforces nothing new until it is redeployed.** The app and site say 15 minutes/day
-  and per-plan allowances; the running server has whatever it was started with.
+- **The relay enforces nothing new until it is redeployed.** The app and site say one hour/day for
+  Free and unlimited for paid plans; the running server has whatever it was started with.
 - **The site's prices are stale** ($4.99/$14.99/$79.99) until App Store Connect moves. Do not
   change the site first, or it advertises a price the store will not honour.
 - **Video shares the control channel on relay sessions** — head-of-line blocking, input behind

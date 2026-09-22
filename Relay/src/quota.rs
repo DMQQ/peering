@@ -450,9 +450,9 @@ impl QuotaTracker {
     ///
     /// **Usage is not per plan.** The counter is relay time spent in this window and the allowance
     /// is what the plan permits, so a client that spends twenty minutes on free and then subscribes
-    /// has its remaining Relay allowance reduced by those twenty minutes rather than being handed a
-    /// fresh three hours. That is the honest reading of a metered day, and it is also what makes an
-    /// upgrade take effect mid-window with no state to migrate.
+    /// keeps that usage in the log after subscribing. Paid plans are unlimited, so the counter no
+    /// longer bounds the session. That is also what makes an upgrade take effect mid-window with no
+    /// state to migrate.
     pub fn remaining(&self, client_id: &str, api_key: Option<&str>, plan: Plan) -> Option<u64> {
         if self.is_paid(api_key) {
             return None;
@@ -743,8 +743,7 @@ impl Drop for Meter {
 mod tests {
     use super::*;
 
-    /// Fifteen minutes free and three hours on Relay, which is what the defaults are in the small:
-    /// two different numbers, so a test that confuses the two plans fails rather than passes.
+    /// Small fixture allowances for quota arithmetic. These are deliberately not product defaults.
     fn tracker(free_minutes: u64, relay_minutes: u64) -> QuotaTracker {
         QuotaTracker::new(
             PlanAllowances {

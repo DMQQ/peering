@@ -68,7 +68,13 @@ public enum ProtocolInfo {
     /// nothing ever answers. A delete that silently does not happen is survivable; the version
     /// that makes its absence indistinguishable from a slow reply is not, so this is declared
     /// incompatible like the rest.
-    public static let version: UInt16 = 16
+    /// 17: the phone tells the Mac where to reach it when no session is up. `registerPushToken`
+    /// carries the APNs device token, and it is the first request whose absence of a decoder is
+    /// fatal rather than quiet: it is sent on every session becoming ready, so a host that does
+    /// not know the case ends the session tens of milliseconds after it opens, and the phone
+    /// redials into the same wall. The version is what turns that into "update whichever is
+    /// older" at the door, which is where the push token should have been caught.
+    public static let version: UInt16 = 17
 
     /// The largest payload a control-channel message may carry.
     ///

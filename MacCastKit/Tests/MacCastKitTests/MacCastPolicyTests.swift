@@ -895,9 +895,8 @@ final class SessionOfferPolicyTests: XCTestCase {
         )
     }
 
-    /// A window whose free relay allowance is nearly gone: three of the plan's fifteen minutes
-    /// left, which is under the quarter that ``SessionOfferPolicy/lowRelayAllowanceFraction``
-    /// calls running low.
+    /// A window whose free relay allowance is nearly gone: three minutes left, which is under the
+    /// quarter that ``SessionOfferPolicy/lowRelayAllowanceFraction`` calls running low.
     ///
     /// Read off ``RelayPlan`` rather than typed in, because this number has already moved once and
     /// a fixture that has to be remembered is a fixture that will be missed.
@@ -940,8 +939,7 @@ final class SessionOfferPolicyTests: XCTestCase {
         ))
     }
 
-    /// Free is fifteen minutes a day, so twelve minutes spent leaves three, under the quarter
-    /// that ``SessionOfferPolicy/lowRelayAllowanceFraction`` calls running low.
+    /// Three minutes remaining is under a quarter of Free's one-hour allowance.
     func testARelaySessionThatLeavesTheAllowanceLowIsOffered() {
         let decision = SessionOfferPolicy.decision(
             after: record(path: .relay, duration: 60),

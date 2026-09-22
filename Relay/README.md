@@ -57,8 +57,8 @@ video, and serves signalling in plaintext. That is exactly right for pointing bo
 | `PEERINGD_MAX_CONNECTIONS` | `4096` | Sockets that may be open on the signalling listener at once. Has to be larger than the number of registered Macs, since each holds its registration socket open for as long as it runs. A connection beyond it is closed rather than queued |
 | `PEERINGD_HANDSHAKE_SECONDS` | `10` | How long a socket has to finish becoming a WebSocket, counting the TLS handshake. Without it a peer that opens a connection and says nothing holds a task and a file descriptor indefinitely |
 | `PEERINGD_IDLE_SECONDS` | `90` | How long an established signalling connection may sit silent. Comfortably longer than the Mac's 25-second keepalive on purpose: a registered Mac is idle between pings and must not be dropped for it |
-| `PEERINGD_FREE_MINUTES` | `30` | Relay minutes per device in each rolling 24-hour window for a client on the free plan. The app draws its "free relay time" bar from its own copy of this number and its own copy of the window arithmetic (`RelayPlan.allowanceSeconds`, `SessionModel.relayPeriodStart`) — change the relay and those together, or the bar lies |
-| `PEERINGD_RELAY_MINUTES` | `180` | The same, for a client the Relay plan applies to: one whose receipt proves it, or one whose claim is believed because the switch below is on. `0` turns a plan off rather than making it unlimited; Relay Plus and Pro are not metered and have no setting |
+| `PEERINGD_FREE_MINUTES` | `60` | Relay minutes per device in each rolling 24-hour window for a client on the free plan. The app draws its "free relay time" bar from its own copy of this number and its own copy of the window arithmetic (`RelayPlan.allowanceSeconds`, `SessionModel.relayPeriodStart`) — change the relay and those together, or the bar lies |
+| `PEERINGD_RELAY_MINUTES` | `180` | Legacy compatibility setting. Paid plans are unlimited and the quota check does not use this value. |
 | `PEERINGD_PAID_KEYS` | — | Comma-separated API keys that bypass the quota entirely. See the note under "Plans" below |
 | `PEERINGD_TRUST_CLAIMED_PLANS` | `0` | Whether a client's own statement of its plan is believed when no verifiable receipt arrives. **Closed by default**, because a claim is not evidence. `1` is for beta testing, where a TestFlight build's receipt is a sandbox one and is refused by name, so a tester is metered by what they claim instead. See "Plans" below |
 | `PEERINGD_WEB_ADDR` | `127.0.0.1:8080` | Where the site is served. **Loopback by default** — see below |
@@ -109,8 +109,8 @@ client is metered on:
 
 | Plan | Wire name | Allowance |
 |---|---|---|
-| Free | `free` | 15 minutes a day |
-| Relay | `relay` | 3 hours a day |
+| Free | `free` | 1 hour a day |
+| Relay | `relay` | unlimited |
 | Relay Plus | `plus` | unlimited |
 | Pro | `pro` | unlimited |
 
@@ -166,7 +166,7 @@ set to `1`, a client that sends no receipt, or one that does not verify, is mete
 claims. The reason an operator sets it is TestFlight: a beta build's receipt is a **sandbox** one,
 and the relay refuses those by name (`not_a_real_purchase`) rather than treating them as proof,
 because Apple hands sandbox transactions out for nothing to anyone with a developer account. So a
-tester on a `pro` build is metered as free: fifteen minutes a day on a build that says it is
+tester on a `pro` build is metered as free: one hour a day on a build that says it is
 unlimited, until someone sets the variable and restarts. That is what a beta looks like from the
 relay's side rather than a fault in the receipt check, and it is worth knowing before reading a
 log, because a session line saying `receipt refused` with `reason=not_a_real_purchase` is Apple's
@@ -178,8 +178,8 @@ through this code yet, only ones minted by the tests, so the first production re
 real test of it. If real receipts turn out to be refused, and a paying subscriber reports being
 metered as free, `PEERINGD_TRUST_CLAIMED_PLANS=1` and a restart is the way back to the behaviour
 that shipped before any of this: every client metered by the plan it claims. That is a bad state to
-stay in and a much better one to be in for an hour than a fleet of subscribers on fifteen minutes a
-day.
+stay in and a much better one to be in briefly than a fleet of subscribers incorrectly limited to
+the free plan's one hour a day.
 
 **What a false plan does not buy is *access*.** The relay carries a TLS session belonging to the two
 ends and cannot read it or forge it, and a Mac is reached only by passing its own pairing

@@ -87,11 +87,10 @@ public struct SessionOfferPolicy: Sendable {
 
     /// How much of the window's allowance has to be left before the app offers to raise it.
     ///
-    /// A fraction rather than a number of minutes, because the two metered plans are six times
-    /// apart: a quarter of free's half hour is seven minutes and a quarter of Relay's three hours is
-    /// forty-five. Written in minutes it would be either an alarm for one of them or nothing for the
-    /// other, and what this is really marking is the point where the figure on the meter stops being
-    /// comfortable and starts being a deadline, which is a proportion, not a duration.
+    /// A fraction rather than a number of minutes, so the threshold follows the allowance if the
+    /// free plan changes again. What this is really marking is the point where the figure on the
+    /// meter stops being comfortable and starts being a deadline, which is a proportion, not a
+    /// duration. Paid plans are unlimited and never reach this policy.
     public static let lowRelayAllowanceFraction: Double = 0.25
 
     /// The shortest session that counts as having used the app.
