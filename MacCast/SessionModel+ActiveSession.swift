@@ -59,12 +59,19 @@ extension SessionModel {
         set { activeSession?.notes = newValue }
     }
 
-    /// The arrangement the session is inside, or `nil` when it is not inside one. See
-    /// ``MacSession/mosaicLayout``.
-    var mosaicLayout: MosaicLayout? {
-        get { activeSession?.mosaicLayout }
-        set { activeSession?.mosaicLayout = newValue }
+    /// The arrangement the session is inside, derived from what the user chose. See
+    /// ``MacSession/mosaicLayout``, which is where it is built.
+    var mosaicLayout: MosaicLayout? { activeSession?.mosaicLayout }
+
+    /// What the arrangement is made of: the sources, their order, and their sizes. See
+    /// ``MacSession/mosaicChoices``.
+    var mosaicChoices: [MosaicChoice] {
+        get { activeSession?.mosaicChoices ?? [] }
+        set { activeSession?.mosaicChoices = newValue }
     }
+
+    /// The canvas a mosaic is asked for. See ``MacSession/mosaicViewport``.
+    var mosaicViewport: CGSize { activeSession?.mosaicViewport ?? CGSize(width: 1280, height: 720) }
 
     /// Whether there is an arrangement to go back to. See ``MacSession/canReturnToMosaic``.
     var canReturnToMosaic: Bool { activeSession?.canReturnToMosaic ?? false }

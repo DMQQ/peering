@@ -12,6 +12,30 @@ import RemoteCore
 /// The rectangles are always a grid in this version. A freeform arrangement is a different
 /// function of the same return type rather than a change to the wire, which is why the wire
 /// carries rectangles rather than a tile count.
+/// One thing the user asked for, before the arithmetic turns it into a rectangle.
+///
+/// **The intent, kept rather than the result.** A layout is rectangles in a canvas of a
+/// particular shape, which is what the Mac needs and what a different phone or a rotation would
+/// make stale; what the user actually chose is "these windows, in this order, with this one
+/// bigger". Storing that and deriving the rectangles is one copy of the arrangement instead of
+/// two that can disagree. See ``MacSession/mosaicChoices``.
+public struct MosaicChoice: Equatable, Sendable {
+    public var source: CaptureSource
+    /// How much of the picture this one gets, relative to the others. 1 is "the same as
+    /// everyone", and the control on screen steps between 1 and 3.
+    public var weight: Int
+
+    public init(source: CaptureSource, weight: Int = 1) {
+        self.source = source
+        self.weight = weight
+    }
+
+    /// The weights the size control steps through, so the button and the arithmetic cannot
+    /// disagree about how big a tile may get.
+    public static let maximumWeight = 3
+    public static let minimumWeight = 1
+}
+
 public enum MosaicGrid {
     /// The rate a mosaic is asked for unless the user says otherwise.
     ///
@@ -35,27 +59,62 @@ public enum MosaicGrid {
         return columns
     }
 
-    /// Where each tile sits, in reading order.
-    ///
-    /// Every cell is the same size and the last row is left-aligned rather than stretched: five
-    /// tiles are three across the top and two under them, with the gap at the end where a sixth
-    /// would go. Stretching the remainder to fill the row would give those two a different shape
-    /// from the three above them, which reads as a bug rather than as a decision.
+    /// Where each tile sits, in reading order, all of them given the same room.
     public static func rects(count: Int) -> [NormalizedRect] {
-        guard count > 0 else { return [] }
-        let columns = columns(for: count)
-        let rows = Int((Double(count) / Double(columns)).rounded(.up))
-        let width = 1.0 / Double(columns)
-        let height = 1.0 / Double(rows)
+        rects(weights: Array(repeating: 1, count: count))
+    }
 
-        return (0..<count).map { index in
-            NormalizedRect(
-                x: Double(index % columns) * width,
-                y: Double(index / columns) * height,
-                width: width,
-                height: height
-            )
+    /// The same, where each tile may ask for more room than its neighbours.
+    ///
+    /// **A weight rather than a size**, because a size is what the canvas happens to give it: the
+    /// user says "this one matters more" and the arithmetic decides what that means on a canvas of
+    /// this shape, with this many tiles beside it. Doubling a tile's weight doubles the room it
+    /// gets, both along its row and in the height of that row, and every other tile keeps its own
+    /// share of what is left — which is what makes the control understandable without a number
+    /// appearing anywhere on screen.
+    ///
+    /// Equal weights are the even grid above, exactly, and that is asserted rather than assumed:
+    /// a user who has not touched the size control gets the layout this feature shipped with.
+    public static func rects(weights: [Int]) -> [NormalizedRect] {
+        let weights = weights.map { max($0, 1) }
+        let count = weights.count
+        guard count > 0 else { return [] }
+
+        // **Every pixel of the canvas belongs to exactly one tile**, with no gaps to hit-test and
+        // nothing to clamp, which is what keeps the rectangles honest under any weights at all.
+        // A row takes its tiles' combined share of the height, and inside a row each tile takes
+        // its own share of the width.
+        //
+        // The rows are the reading-order rows of the even grid, so a weight never reorders
+        // anything: the shape of the arrangement changes and the arrangement does not. A row that
+        // is not full is therefore shorter rather than padded, and the tiles in it share its
+        // width between them — so five tiles are three across the top and two wider ones under
+        // them, with no empty quarter of the picture for a tap to land on and do nothing.
+        let columns = columns(for: count)
+        let rowCount = Int((Double(count) / Double(columns)).rounded(.up))
+        let rows: [[Int]] = (0..<rowCount).map { row in
+            let start = row * columns
+            return Array(start..<min(start + columns, count))
         }
+        let total = Double(weights.reduce(0, +))
+
+        var rects: [NormalizedRect] = []
+        var y = 0.0
+        for row in rows {
+            // A row's height is its tiles' share of the whole, and within the row each tile takes
+            // its share of the width. Slice and dice: every pixel of the canvas belongs to
+            // exactly one tile, with no gap to hit-test and nothing to clamp.
+            let rowWeight = Double(row.reduce(0) { $0 + weights[$1] })
+            let height = rowWeight / total
+            var x = 0.0
+            for index in row {
+                let width = Double(weights[index]) / rowWeight
+                rects.append(NormalizedRect(x: x, y: y, width: width, height: height))
+                x += width
+            }
+            y += height
+        }
+        return rects
     }
 
     /// The canvas pixel size to ask a Mac for, from the screen the mosaic is drawn on.
@@ -85,9 +144,21 @@ public enum MosaicGrid {
         viewport: CGSize,
         frameRate: Int = MosaicGrid.defaultFrameRate
     ) -> MosaicLayout? {
-        let tiles = zip(sources, rects(count: sources.count)).map {
-            MosaicTile(source: $0, rect: $1)
-        }
+        layout(
+            choices: sources.map { MosaicChoice(source: $0) },
+            viewport: viewport,
+            frameRate: frameRate
+        )
+    }
+
+    /// The same, for an arrangement whose tiles are not all the same size.
+    public static func layout(
+        choices: [MosaicChoice],
+        viewport: CGSize,
+        frameRate: Int = MosaicGrid.defaultFrameRate
+    ) -> MosaicLayout? {
+        let rects = rects(weights: choices.map(\.weight))
+        let tiles = zip(choices, rects).map { MosaicTile(source: $0.source, rect: $1) }
         return MosaicLayout(
             canvas: canvas(for: viewport),
             tiles: tiles,

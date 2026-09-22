@@ -438,7 +438,12 @@ final class MacSession: Identifiable {
     /// quietly does nothing.
     var hostSupportsClipboardImages = false
 
-    /// The arrangement the user put together, for as long as they are inside it.
+    /// What the user put together: these windows, in this order, with these sizes.
+    ///
+    /// **The intent rather than the rectangles.** A layout is rectangles in a canvas of one
+    /// particular shape — stale the moment the phone rotates or the viewport changes — while what
+    /// the user chose is the list above. Keeping the choice and deriving the rectangles is one
+    /// copy of the arrangement instead of two that can disagree. See ``MosaicGrid``.
     ///
     /// **Held per Mac and not per app**, with the same lifetime rule as the source itself: an
     /// arrangement is a place on *this* Mac, and a session that comes back to a different one
@@ -447,7 +452,29 @@ final class MacSession: Identifiable {
     /// It is what makes "back to the mosaic" mean anything, and it is cleared the moment a source
     /// outside the arrangement is chosen: see ``SessionModel/selectSource(_:)``. Selecting one of
     /// its tiles keeps it, because that is the gesture the back control exists to undo.
-    var mosaicLayout: MosaicLayout?
+    var mosaicChoices: [MosaicChoice] = []
+
+    /// The arrangement as the Mac is being asked for it, built from those choices.
+    var mosaicLayout: MosaicLayout? {
+        MosaicGrid.layout(choices: mosaicChoices, viewport: mosaicViewport)
+    }
+
+    /// The canvas a mosaic is asked for: the phone's own screen in pixels.
+    ///
+    /// Read from the window scene rather than from `UIScreen.main`, which is deprecated and, on
+    /// a device with more than one scene, is not necessarily the one being looked at.
+    var mosaicViewport: CGSize {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
+        else {
+            // No scene at all, which is a state the app cannot act in rather than a case to
+            // handle: a canvas a Mac will accept, so nothing downstream has to.
+            return CGSize(width: 1280, height: 720)
+        }
+        let bounds = scene.screen.bounds
+        let scale = scene.screen.scale
+        return CGSize(width: bounds.width * scale, height: bounds.height * scale)
+    }
 
     /// Whether the picture on screen is that arrangement rather than one of its tiles.
     var isShowingMosaic: Bool {

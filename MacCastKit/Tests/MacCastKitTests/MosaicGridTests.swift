@@ -59,29 +59,61 @@ struct MosaicGridTests {
         #expect(close(rects[5].y, 0.5))
     }
 
-    @Test("the last row is left aligned rather than stretched")
+    @Test("a row that is not full is shorter, and fills its own width")
     func remainderIsNotStretched() {
-        // Five tiles are three across and two under them, and those two are the same shape as
-        // the three above: stretching them to fill the row would make them a different size
-        // from their neighbours, which reads as a bug rather than as a decision. The row is
-        // left aligned, so the two under it are the first two columns, and the gap is at the
-        // end where the sixth tile would have been.
+        // Five tiles are three across and two under them. The rows are sized by what they hold,
+        // so the last one is two fifths of the height rather than a half — there is no empty slot
+        // in the picture, which is what makes every point on the canvas belong to a tile.
+        //
+        // And those two share their own row rather than keeping a third each: a row that left a
+        // third of itself empty would put a tap on the canvas in a place that selects nothing.
+        // See ``MosaicGrid/rects(weights:)``.
         let rects = MosaicGrid.rects(count: 5)
-        #expect(close(rects[3].x, 0))
-        #expect(close(rects[4].x, 1.0 / 3))
-        for index in 3...4 {
+        for index in 0...2 {
             #expect(close(rects[index].width, 1.0 / 3))
-            #expect(close(rects[index].y, 0.5))
+            #expect(close(rects[index].height, 0.6))
         }
-        // And nothing sits in the third column of that row, so a tap there is a gap rather than
-        // the nearest window.
-        let layout = MosaicGrid.layout(
-            sources: (1...5).map { CaptureSource.window(UInt32($0)) },
-            viewport: phone
-        )
-        #expect(layout != nil)
-        if let layout {
-            #expect(MosaicGrid.tileIndex(at: NormalizedPoint(x: 0.9, y: 0.75), in: layout) == nil)
+        #expect(close(rects[3].x, 0))
+        #expect(close(rects[4].x, 0.5))
+        for index in 3...4 {
+            #expect(close(rects[index].width, 0.5))
+            #expect(close(rects[index].y, 0.6))
+            #expect(close(rects[index].height, 0.4))
+        }
+    }
+
+    @Test("a heavier tile takes its share of the whole canvas")
+    func weights() {
+        // **The contract, and the only one worth stating: area is the share of the weights.**
+        // That is what "this one matters more" has to mean for the control to be one thing rather
+        // than a different thing in every arrangement, and it is what the slice-and-dice
+        // arithmetic is for: a row's height is its tiles' share of the whole, and inside a row
+        // each tile takes its own share of the width.
+        for weights in [[2, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 1, 1, 1, 1, 1, 1]] {
+            let rects = MosaicGrid.rects(weights: weights)
+            let total = Double(weights.reduce(0, +))
+            for (index, rect) in rects.enumerated() {
+                let expected = Double(weights[index]) / total
+                #expect(
+                    abs(rect.width * rect.height - expected) < 0.0001,
+                    "tile \(index) of \(weights) took \(rect.width * rect.height), not \(expected)"
+                )
+            }
+        }
+
+        // Weight cannot be zero or negative: the arithmetic divides by it, and a tile that is
+        // set to nothing is a window the user can no longer see at all.
+        let clamped = MosaicGrid.rects(weights: [0, -3])
+        #expect(close(clamped[0].width, 0.5))
+        #expect(close(clamped[1].width, 0.5))
+    }
+
+    @Test("any weights at all still tile the canvas exactly")
+    func weightsAlwaysFillTheCanvas() {
+        for weights in [[1, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 2, 2, 2, 2, 2, 2]] {
+            let rects = MosaicGrid.rects(weights: weights)
+            let area = rects.reduce(0.0) { $0 + $1.width * $1.height }
+            #expect(abs(area - 1) < 0.0001, "weights \(weights) left \(1 - area) of the canvas unclaimed")
         }
     }
 

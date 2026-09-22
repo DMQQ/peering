@@ -38,7 +38,7 @@ struct SourcesPanel: View {
 
             if buildingMosaic {
                 mosaicPicker
-            } else if !model.mosaicTiles.isEmpty {
+            } else if !model.mosaicChoicesList.isEmpty {
                 mosaicArrangement
             } else {
                 mosaicEntry
@@ -140,7 +140,7 @@ struct SourcesPanel: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("This mosaic")
 
-            ForEach(Array(model.mosaicTiles.enumerated()), id: \.offset) { index, source in
+            ForEach(Array(model.mosaicChoicesList.enumerated()), id: \.offset) { index, choice in
                 HStack(spacing: 10) {
                     // The number is the tile's place in the grid, which is the thing being
                     // changed, rather than a decorative index.
@@ -153,11 +153,41 @@ struct SourcesPanel: View {
                     // The catalogue's own name for it, and a plain word when there is none: a
                     // window that has closed leaves a tile behind, and a row that went blank
                     // would be the one thing in this list with nothing to act on.
-                    Text(model.catalog?.descriptor(for: source)?.title ?? "A window")
+                    Text(model.catalog?.descriptor(for: choice.source)?.title ?? "A window")
                         .font(.subheadline.weight(.medium))
                         .lineLimit(1)
 
                     Spacer(minLength: 8)
+
+                    // **The size control, and it is two buttons rather than a drag.** How much
+                    // of the picture a tile gets is the one thing about an arrangement that
+                    // cannot be read off a list, so the row shows what it is set to ("2×") and
+                    // steps it: bigger and smaller are unambiguous in a way a handle on live
+                    // video is not, and both are reachable with a thumb on the edge of a phone.
+                    Button {
+                        model.stepMosaicTileSize(at: index, by: -1)
+                    } label: {
+                        Image(systemName: "minus.magnifyingglass")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(choice.weight <= MosaicChoice.minimumWeight)
+                    .opacity(choice.weight <= MosaicChoice.minimumWeight ? 0.3 : 1)
+
+                    Text("\(choice.weight)×")
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(choice.weight > 1 ? ColorPalette.accent : .secondary)
+                        .frame(width: 22)
+
+                    Button {
+                        model.stepMosaicTileSize(at: index, by: 1)
+                    } label: {
+                        Image(systemName: "plus.magnifyingglass")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(choice.weight >= MosaicChoice.maximumWeight)
+                    .opacity(choice.weight >= MosaicChoice.maximumWeight ? 0.3 : 1)
 
                     // Up and down rather than a drag handle: the grid is filled in reading
                     // order, so up and down along the list *is* left to right and top to
@@ -179,8 +209,8 @@ struct SourcesPanel: View {
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .buttonStyle(.plain)
-                    .disabled(index == model.mosaicTiles.count - 1)
-                    .opacity(index == model.mosaicTiles.count - 1 ? 0.3 : 1)
+                    .disabled(index == model.mosaicChoicesList.count - 1)
+                    .opacity(index == model.mosaicChoicesList.count - 1 ? 0.3 : 1)
 
                     Button {
                         model.removeMosaicTile(at: index)
@@ -197,7 +227,7 @@ struct SourcesPanel: View {
             }
 
             Button {
-                picked = model.mosaicTiles.compactMap { model.catalog?.descriptor(for: $0) }
+                picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
                 buildingMosaic = true
             } label: {
                 Text("Add or remove windows")

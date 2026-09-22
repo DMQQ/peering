@@ -118,8 +118,8 @@ extension SessionModel {
         // lies about where it goes. The mosaic itself is not a source outside the arrangement,
         // so asking for one again keeps it by the same rule.
         if !source.isMosaic,
-           mosaicLayout?.tiles.contains(where: { $0.source == source }) != true {
-            mosaicLayout = nil
+           !mosaicChoices.contains(where: { $0.source == source }) {
+            mosaicChoices = []
         }
 
         session?.selectCaptureSource(source)
@@ -134,15 +134,38 @@ extension SessionModel {
     /// ever saw it, and the Mac trims one that is larger than it will build. The rectangles come
     /// from ``MosaicGrid``, which is where the whole arrangement is decided.
     func showMosaic(_ sources: [CaptureSource]) {
-        guard let layout = MosaicGrid.layout(sources: sources, viewport: mosaicCanvasPixels) else {
+        showMosaic(sources.map { MosaicChoice(source: $0) })
+    }
+
+    /// The same, keeping whatever sizes the tiles already had: adding or removing a window is not
+    /// a reason to reset the arrangement's shape.
+    func showMosaic(_ choices: [MosaicChoice]) {
+        guard let layout = MosaicGrid.layout(choices: choices, viewport: mosaicViewport) else {
             return
         }
         // Anything held down on the Mac is let go first, for the same reason changing the source
         // releases it: what is on screen is about to be a picture with no input at all, and a
         // modifier latched before that would be one nothing here can release.
         releaseLatchedModifiers()
-        mosaicLayout = layout
+        mosaicChoices = choices
         selectSource(.mosaic(layout))
+    }
+
+    /// Gives one tile more or less room, cycling through the sizes the control offers.
+    ///
+    /// **A weight rather than a size.** The user says "this one matters more" and the arithmetic
+    /// decides what that means on a canvas of this shape with this many tiles beside it, which is
+    /// the only version of the control that survives the user adding a seventh window afterwards.
+    /// See ``MosaicGrid/rects(weights:)``.
+    func stepMosaicTileSize(at index: Int, by step: Int) {
+        guard mosaicChoices.indices.contains(index) else { return }
+        let current = mosaicChoices[index].weight
+        let next = min(max(current + step, MosaicChoice.minimumWeight), MosaicChoice.maximumWeight)
+        guard next != current else { return }
+
+        var choices = mosaicChoices
+        choices[index].weight = next
+        showMosaic(choices)
     }
 
     /// Selects one of the tiles, which is how the arrangement is left.
@@ -156,8 +179,9 @@ extension SessionModel {
         selectSource(layout.tiles[index].source)
     }
 
-    /// The sources in the arrangement that is on screen, in the order they are laid out.
-    var mosaicTiles: [CaptureSource] { mosaicLayout?.tiles.map(\.source) ?? [] }
+    /// What the arrangement is made of, in the order it is laid out. See
+    /// ``MacSession/mosaicChoices``.
+    var mosaicChoicesList: [MosaicChoice] { mosaicChoices }
 
     /// Moves a tile within the arrangement.
     ///
@@ -167,33 +191,34 @@ extension SessionModel {
     /// freeform editor would have to replace later. What a full editor would add on top of this
     /// is *sizes* rather than positions, which is why this is worth having on its own.
     func moveMosaicTile(from source: Int, to destination: Int) {
-        guard var sources = mosaicLayout?.tiles.map(\.source),
-              sources.indices.contains(source),
-              sources.indices.contains(destination),
+        guard mosaicChoices.indices.contains(source),
+              mosaicChoices.indices.contains(destination),
               source != destination
         else { return }
-        let moved = sources.remove(at: source)
-        sources.insert(moved, at: destination)
-        showMosaic(sources)
+        // The whole choice moves, size and all: moving a window in the picture is moving the
+        // thing the user arranged, not just its place in a list of names.
+        var choices = mosaicChoices
+        let moved = choices.remove(at: source)
+        choices.insert(moved, at: destination)
+        showMosaic(choices)
     }
 
     /// Takes one window out of the arrangement and redraws the rest.
     func removeMosaicTile(at index: Int) {
-        guard var sources = mosaicLayout?.tiles.map(\.source),
-              sources.indices.contains(index)
-        else { return }
-        sources.remove(at: index)
+        guard mosaicChoices.indices.contains(index) else { return }
+        var choices = mosaicChoices
+        choices.remove(at: index)
 
         // **A mosaic of one is not a mosaic.** Taking the second-to-last tile away leaves one
         // window on screen, and the honest thing to show is that window on its own — an ordinary
         // source switch, with the input and the sharpness that come with it — rather than a
         // canvas holding a single tile in the corner of a grid built for two. The arrangement is
         // dropped with it, by the same rule that drops it when any other source is chosen.
-        guard sources.count > 1 else {
-            if let only = sources.first { selectSource(only) }
+        guard choices.count > 1 else {
+            if let only = choices.first { selectSource(only.source) }
             return
         }
-        showMosaic(sources)
+        showMosaic(choices)
     }
 
     /// Goes back to the whole arrangement.
