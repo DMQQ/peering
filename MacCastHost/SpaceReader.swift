@@ -403,6 +403,15 @@ private let chordKeyGapMilliseconds = 25
 /// Deliberately not a loop with sleeps between the events. Four Accessibility round trips with
 /// pauses in them, run inline, is a visible stall in the host's window — and this happens while
 /// someone is waiting to see a desktop appear.
+/// The middle of a display, in the global coordinates a pointer position is expressed in.
+///
+/// The middle rather than a corner, because a chord acts on whichever display holds the pointer
+/// and the centre is the one point that cannot be outside the display it is the centre of.
+private func spaceCentre(of displayID: UInt32) -> CGPoint {
+    let bounds = CGDisplayBounds(displayID)
+    return CGPoint(x: bounds.midX, y: bounds.midY)
+}
+
 private func postSpaceChord(_ direction: SpaceDirection) {
     let arrow = direction == .left ? chordLeftKeyCode : chordRightKeyCode
     let events: [(key: CGKeyCode, down: Bool)] = [
@@ -515,8 +524,26 @@ private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
     }
 
     let displayID = display.displayID
+
+    // **A chord acts on the display the pointer is on, and this Mac may have several.** Left
+    // wherever the user last had it, the chord moves the *other* screen's Space: the display
+    // being switched stays on the neighbour, the check below reads that as a chord that never
+    // landed, and the direct setter is used — which is the stacked picture this whole route
+    // exists to avoid. Measured on a two-display Mac, every switch took that path.
+    let pointerWas = CGEvent(source: nil)?.location
+    CGWarpMouseCursorPosition(spaceCentre(of: displayID))
+
     DispatchQueue.main.asyncAfter(deadline: .now() + chordApproachDelay) {
         postSpaceChord(approach.direction)
+
+        // Back where it was once the chord has been posted rather than immediately: the four
+        // events go out over the next few dozen milliseconds, and the display each of them is
+        // matched against is read as it arrives.
+        if let pointerWas {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(chordKeyGapMilliseconds * 6)) {
+                CGWarpMouseCursorPosition(pointerWas)
+            }
+        }
 
         // A chord that was dropped — the permission withdrawn mid-session, a Space removed
         // between the two reads — leaves the display sitting on the neighbour. Looked at once
