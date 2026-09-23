@@ -10,35 +10,20 @@ private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session"
 
 /// One Mac, connected.
 ///
-/// **The unit the app is being rearranged around.** Everything that describes a single Mac —
-/// its phase, its wire, its picture, its shells, its folders, the record of the time spent on
-/// it — lives here rather than on ``SessionModel``, so that a second Mac can exist without the
-/// two sharing a phase or a terminal list. ``SessionModel/sessions`` holds these; today it can
-/// only ever hold one.
-///
-/// **It is a part of the model, not a peer of it.** The app-wide things a session needs, and
-/// cannot own — the plan the user bought, the store the history is filed in, the paywall, the
-/// renderer every session draws through — are reached through ``model``. That reference is
-/// `unowned` because the ownership runs the other way and is total: a session is created by the
-/// model and its life ends with the model's. See ``SessionModel/connect(to:)``.
+/// Holds everything about a single Mac (phase, wire, picture, shells, folders, the record of the time
+/// spent on it) so a second Mac can exist without the two sharing state. ``model`` is `unowned`: the
+/// ownership runs the other way and is total, and the model outlives every session it makes.
 @Observable
 @MainActor
 final class MacSession: Identifiable {
     /// Which way the control connection is being carried.
     ///
-    /// **Declared in ``MacCastKit`` and merely named here**, like ``StreamQuality``: the cases
-    /// and what a finished record makes of each are storage policy, and there is a test for the
-    /// mapping that runs without an app bundle. Per Mac rather than per app, because the answer
-    /// genuinely differs between two Macs at the same moment: one can be on this network while
-    /// the other is on the other side of the country, and the picture ceiling differs between
-    /// them. See ``videoCeiling``.
+    /// Declared in ``MacCastKit`` and merely named here. Per Mac, because one can be on this network
+    /// while the other is across the country, and the picture ceiling differs. See ``videoCeiling``.
     typealias ConnectionPath = MacCastKit.ConnectionPath
 
-    /// The same three cases in the card's spelling.
-    ///
-    /// Mapped rather than shared because the raw values differ on purpose: this one is shouted
-    /// at a diagnostics panel, and the card's is set in a chip beside a sentence. A single enum
-    /// serving both would have to be named for one of them.
+    /// The same three cases in the card's spelling, mapped because the raw values differ on purpose:
+    /// this one is shouted at a diagnostics panel, the card's is set in a chip beside a sentence.
     static func activityPath(_ path: ConnectionPath?) -> SessionActivityAttributes.Path? {
         switch path {
         case .lan: return .lan
@@ -53,8 +38,8 @@ final class MacSession: Identifiable {
     /// This session's own identity, which is what ``SessionModel/activeSessionID`` names.
     ///
     /// Not the Mac's ID: a Mac can be connected to twice over the life of a launch (a drop, a
-    /// reconnect), and the tab strip has to be able to tell one of those apart from the other.
-    /// It is also not a host ID, which is not known at all until the handshake arrives.
+    /// reconnect), and the tab strip has to tell one of those apart from the other. Not a host ID
+    /// either, which is not known until the handshake arrives.
     let id = UUID()
 
     /// The app-wide half of the session, which this is a part of.
@@ -62,9 +47,8 @@ final class MacSession: Identifiable {
 
     /// The one decoder every session draws through.
     ///
-    /// **Shared on purpose.** A session is a connection, and a renderer is the expensive thing a
-    /// connection feeds; giving each one its own would mean two hardware decoders running for
-    /// one pair of eyes, which is the cost this whole arrangement exists to avoid.
+    /// Shared on purpose: a renderer is the expensive thing a connection feeds, and one per session
+    /// would run two hardware decoders for one pair of eyes.
     @ObservationIgnored let renderer: VideoRenderer
 
     init(model: SessionModel, renderer: VideoRenderer) {
@@ -87,20 +71,16 @@ final class MacSession: Identifiable {
 
     /// The quality the user is set to, as this session reads it.
     ///
-    /// **On the session, not on the app, though the choice is stored app-wide.** What the Mac
-    /// is told depends on this session's path and this session's plan — see ``videoCeiling`` —
-    /// so the number that reaches the wire is per Mac even though the preference behind it is
-    /// not. The preference itself is ``SessionModel/streamQuality``.
+    /// Stored app-wide, but the bitrate that reaches the wire depends on this session's path and
+    /// this session's plan, so it is resolved per Mac.
     var connectionPath: ConnectionPath?
     var usedDirectPath = false
     var directPathStatus: ClientSession.DirectPath = .notTried
 
     /// What the relay's datagram lane carried, kept after the session ends.
     ///
-    /// Kept rather than cleared, like ``directPathStatus`` beside it and for the same reason:
-    /// Settings cannot be opened while a session runs, so the only moment anybody can read this
-    /// is just after one, which is exactly when it is worth reading. A session with no datagram
-    /// lane, on the LAN or on the relay's control channel, leaves it `nil` rather than zeroed.
+    /// Kept rather than cleared because Settings cannot be opened while a session runs, so the only
+    /// moment it can be read is just after one. `nil` when there was no datagram lane.
     var datagramCounts: ClientSession.DatagramCounts?
 
     /// Round trip of the control channel, which goes through the relay in every session.
@@ -108,25 +88,21 @@ final class MacSession: Identifiable {
 
     /// Round trip of the lane the picture is arriving on, and whether that lane is the direct one.
     ///
-    /// **The figure worth showing, and the reason it exists separately.** ``latencyMilliseconds``
-    /// is the relay's even when the picture found a path of its own, because the control
-    /// connection carries input and always goes the long way. `nil` until a datagram lane exists,
-    /// which is most sessions at their start and some for their whole life.
+    /// ``latencyMilliseconds`` is the relay's even then, because the control connection carries input
+    /// and always goes the long way. `nil` until a datagram lane exists.
     var pathLatencyMilliseconds: Double?
     var pathLatencyIsDirect = false
 
     /// When the session that is up now came up, for the elapsed-time readout.
     ///
-    /// A `Date` and not a counter: the view formats it with `Text(_:style:.timer)`, which the
-    /// system advances on its own. A `Timer` here would wake the main actor once a second to
-    /// update a number that the screen can already count by itself.
+    /// A `Date` and not a counter, so the view can use `Text(_:style:.timer)`, which the system
+    /// advances itself; a `Timer` here would wake the main actor once a second to count.
     var sessionStartedAt: Date?
 
     /// Whether this connection ever reached a Mac.
     ///
-    /// Kept for the one question the phase cannot answer: a dropped session and a session that
-    /// never got past the handshake are both `.failed`, and only the first is one the ladder
-    /// should keep trying to put back. See ``resumeIfNeeded()``.
+    /// The phase cannot answer it: a dropped session and one that never got past the handshake are
+    /// both `.failed`, and only the first should be retried. See ``resumeIfNeeded()``.
     var hasBeenReady = false
 
     /// Optimistic state for this session's physical-display privacy command. The host always
@@ -141,15 +117,13 @@ final class MacSession: Identifiable {
 
     /// Something the Mac wants said about the picture, or `nil`.
     ///
-    /// Kept apart from `videoStatus`, which describes the *stream*. This describes the Mac
-    /// behind a perfectly healthy stream: the frames are arriving on time and every one of
-    /// them is black, because the screen they are of is asleep. From the phone those two look
-    /// identical, and only the Mac knows which it is.
+    /// Apart from `videoStatus`, which describes the stream: this describes a healthy stream whose
+    /// every frame is black because the screen is asleep, and from the phone the two look identical.
     var remoteNotice: NoticePayload?
     var videoStatus = "No video stream"
 
-    /// The frames per second arriving, as measured by the last two polls — see
-    /// ``updateFrameRate(from:)``. Zero until there have been two samples to compare.
+    /// The frames per second arriving, as measured by the last two polls. Zero until there have been
+    /// two samples to compare. See ``updateFrameRate(from:)``.
     var videoFramesPerSecond: Double = 0
 
     /// The frame count and the moment it was read, for the difference above.
@@ -158,43 +132,27 @@ final class MacSession: Identifiable {
     /// True while the video channel is delivering frames (not ended/absent).
     var isVideoStreaming = false
 
-    /// Which channel the picture is arriving on. `.control` means the Mac's network is not
-    /// letting video through and the session has fallen back — see ``VideoFallbackPolicy``.
+    /// Which channel the picture is arriving on. `.control` means the Mac's network is not letting
+    /// video through and the session has fallen back. See ``VideoFallbackPolicy``.
     var videoTransport: VideoTransport = .primary
 
     var videoPoll: Task<Void, Never>?
-    /// The task inside the current attempt, retained so a user ending or replacing the session
-    /// also cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
+    /// The task inside the current attempt, retained so a user ending or replacing the session also
+    /// cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
     var connectTask: Task<Void, Never>?
 
-    /// Whether the *user* asked for this session to end, read and cleared by the transition that
+    /// Whether the user asked for this session to end, read and cleared by the transition that
     /// follows.
     ///
-    /// **Per Mac, where this was one flag on the container, and that was a bug rather than a
-    /// tidiness.** A dropped link and a deliberate end arrive as the same phase, so intent has to
-    /// be carried across rather than worked out afterwards; it is then read and cleared by the
-    /// first transition to see it. Ending one Mac is one transition and one flag, which is why one
-    /// shared flag went unnoticed for so long. `disconnect()` ends every Mac at once, and each one
-    /// answers with its own transition: the first consumed the flag, and every Mac after it was
-    /// read as having *dropped*, so its reconnect ladder armed, `isReconnecting` stuck true, and
-    /// the Mac stayed in the strip as a tab that never came back.
-    ///
-    /// The banner is untouched by this. Whether the end was the user's or iOS's is still decided
-    /// once by the caller and handed to every session that ends, so the Macs cannot disagree about
-    /// it; what is per-session is the record of the decision, because the ladder reads it later and
-    /// there is no later left for a single record to serve two Macs.
+    /// Per Mac: `disconnect()` ends every Mac at once and each answers with its own transition, so
+    /// with one shared flag the first consumed it and every Mac after that read as having dropped.
     var userEndedDeliberately = false
 
     /// Takes this Mac's connection apart, and leaves the object for its last figures to be read.
     ///
-    /// **Not a disconnect of its own**: whether the end was the user's or iOS's is decided once by
-    /// the caller and said once in the banner. What it takes is the caller's answer, kept for the
-    /// transition that follows. See ``userEndedDeliberately``.
-    ///
-    /// The record is filed first, because everything it describes — the path, the name, the
-    /// bytes — is cleared below. The player is released rather than kept: its `deinit` stops the
-    /// engine, and holding one past its session leaves an audio engine running for a Mac nobody
-    /// is connected to.
+    /// Not a disconnect of its own: the caller decides once whether the end was the user's or iOS's,
+    /// and that answer is what is kept here. The record is filed first, because everything it
+    /// describes is cleared below, and the player is released because its `deinit` stops the engine.
     func endSession(deliberate: Bool) {
         userEndedDeliberately = deliberate
         finishSessionHistory()
@@ -216,47 +174,17 @@ final class MacSession: Identifiable {
 
     /// Whether there is a live connection behind this session, or an attempt to put one back.
     ///
-    /// **The question the strip, the ceiling and the gate all ask**, and deliberately not
-    /// `phase.holdsSession` on its own: a Mac that has dropped and is being retried is a Mac the
-    /// user still has open, and letting go of it the moment its socket failed is how a session
-    /// disappears from the app while the ladder is quietly rebuilding it.
-    ///
-    /// **A Mac that has never been connected is not that Mac, which is what `hasBeenReady` is doing
-    /// in a question about liveness.** A dial that failed before its handshake arms the same ladder
-    /// (the failure card promises a few more attempts, and they are worth making), but nothing was
-    /// ever open, and counting it as an open Mac is how a Mac that was merely unreachable came to
-    /// be reported as a second one. The free plan's one-Mac allowance was spent by an attempt, so
-    /// the Connect row for that same Mac went behind ``PlanCapability/concurrentSessions`` and the
-    /// way past it was to buy a plan for a Mac that had never answered. ``SessionModel/isBusy`` asks
-    /// the same list, so the picker's other rows were dead for the length of the ladder too.
-    ///
-    /// The flag survives the ladder's own dial (see ``SessionModel/reconnect(_:to:)``), so a Mac
-    /// that really did drop and is being put back is still live for the whole of its ladder.
+    /// Not `phase.holdsSession` on its own: a Mac that dropped and is being retried is one the user
+    /// still has open. `hasBeenReady` is what stops a dial that failed before its handshake, which
+    /// arms the same ladder, from counting as an open Mac and spending the free plan's allowance.
     var isLive: Bool { phase.holdsSession || (hasBeenReady && isReconnecting) }
 
     /// Whether this Mac dropped and is being put back, rather than being opened for the first time
     /// or dialled again by hand.
     ///
-    /// **The one question neither the phase nor ``isLive`` can answer.** A network switch and a
-    /// first connection both pass through `phase.holdsSession` and both run the same ladder, so
-    /// those two say the same thing about either. What separates them is that this Mac has been
-    /// ready before and the user did not end it, which is why ``hasBeenReady`` has to survive the
-    /// dial that ``SessionModel/connect(to:replacing:)`` makes, and why it is carried there.
-    ///
-    /// **`hasGivenUpResuming` is here because the phases cannot tell two moments apart.** The
-    /// instant a drop lands, and the instant the ladder finally runs out, the session is in the
-    /// same state: `.failed`, `isReconnecting` false, a Mac that had been ready. The first of those
-    /// is a resume about to be armed and the second is a resume that has ended, so "an attempt is
-    /// in flight" is not the question, and asking it either way would put the connecting theatre
-    /// back on screen for a network blip or leave a dead session's picture up for ever. The answer
-    /// is a fact worth storing rather than a state worth inferring.
-    ///
-    /// Everything that should behave differently for a blip than for a connection keys off this:
-    /// the remote screen staying up rather than handing over to the picker, the connecting card
-    /// staying down, the failure banner staying quiet, and the shorter ladder.
-    ///
-    /// The rule itself lives in ``SessionResume``, where it can be tested: it takes five facts and
-    /// the phases are two of them, which is not obvious enough to leave unverified.
+    /// Neither the phase nor ``isLive`` can tell a drop from a first connection, nor one that has
+    /// just landed from a ladder that has run out; `hasGivenUpResuming` is that distinction. The rule
+    /// lives in ``SessionResume``, where it can be tested.
     var isResumingAfterDrop: Bool {
         SessionResume.isUnderWay(
             hasBeenReady: hasBeenReady,
@@ -277,47 +205,34 @@ final class MacSession: Identifiable {
 
     /// How many attempts this Mac's ladder has made, and the task waiting to make the next one.
     ///
-    /// **Per Mac, which is the whole reason these moved here.** Two Macs on one phone drop for
-    /// two different reasons at two different times, and a shared counter means the second Mac's
-    /// failure resets the first one's backoff, so a Mac that is switched off is dialled every
-    /// second forever because the Mac in the user's hand keeps failing too.
+    /// Per Mac: with a shared counter the second Mac's failure resets the first one's backoff, so a
+    /// Mac that is switched off is dialled every second forever.
     var reconnectAttempt = 0
     var reconnectTask: Task<Void, Never>?
 
     /// Puts this Mac back, if it dropped and the user did not end it.
     ///
-    /// **This Mac and no other**, which is what the ladder being here is for. The host is known —
-    /// it is the one this session was dialled for — so the resume is a dial to a named Mac rather
-    /// than "whatever was open last", and a second Mac dropping at the same moment runs its own
-    /// ladder beside this one without either resetting the other's backoff.
-    ///
-    /// The wire is the evidence that an attempt is already in flight, and it is assigned
-    /// synchronously in ``SessionModel/connect(to:)`` before the phase has heard anything, while
-    /// the browser fires on its own schedule. Without that guard the retry and the browser can
-    /// both start one, and each silently closes the other's connection.
+    /// The host is known, so this dials a named Mac, and each Mac runs its own ladder without
+    /// resetting another's backoff. The `wire == nil` guard stops the retry and the browser both
+    /// starting an attempt, since the wire is assigned synchronously in ``SessionModel/connect(to:)``.
     func resumeIfNeeded() {
         guard wire == nil, !phase.holdsSession else {
             if phase.holdsSession { stopReconnecting() }
             return
         }
-        // **Only a Mac that was actually connected.** A connection that failed at the handshake,
-        // or a first pairing with a mistyped ID, is an attempt that has ended rather than a
-        // session waiting to come back, and retrying it forever is what the failure card is for.
+        // Only a Mac that was actually connected: an attempt that failed at the handshake has ended
+        // rather than waiting to come back, and retrying it forever is what the failure card is for.
         guard hasBeenReady || isReconnecting else { return }
         guard UserDefaults.standard.bool(forKey: SessionModel.resumeKey) else {
-            // **Nothing is going to put this Mac back, so it stops claiming that one will.** This
-            // switch is the user's own answer to "resume when reachable", and a ladder that armed
-            // itself and then found the answer was no left `isReconnecting` set with no task behind
-            // it. That is a session the app has no way to finish: live by its own definition, with
-            // nothing left that will ever clear the flag, so the Mac holds a session slot and a tab
-            // for the rest of the launch and cannot be opened again. Turning the switch off is not
-            // meant to cost a Mac.
+            // Nothing is going to put this Mac back, so it stops claiming one will. Without this,
+            // `isReconnecting` stays set with no task behind it, so the Mac holds a session slot and
+            // a tab for the rest of the launch with nothing that will ever clear the flag.
             stopReconnecting()
             return
         }
         guard let hostID else {
-            // A connection that never reached a handshake has no Mac to dial. That is the case
-            // for a first pairing whose ID was mistyped, and there is nothing to retry.
+            // No handshake means no Mac to dial, which is the case for a first pairing whose ID was
+            // mistyped, and there is nothing to retry.
             stopReconnecting()
             return
         }
@@ -331,20 +246,17 @@ final class MacSession: Identifiable {
             model.isResuming = true
             model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? "A Mac"))
         } else {
-            // The LAN-only case: the Mac is paired and simply not here yet. The ladder keeps
-            // asking until it appears, which is the whole of what "wait for it to come back"
-            // means — stopping at the first attempt that found nothing would end a resume that
-            // has not failed, only not succeeded yet.
+            // The LAN-only case: the Mac is paired and simply not here yet. The ladder keeps asking
+            // until it appears; stopping at the first attempt that found nothing would end a resume
+            // that has not failed, only not succeeded yet.
             scheduleReconnect()
         }
     }
 
     /// Arms the next attempt, if there is one left to make.
     ///
-    /// **A resume gets the shorter ladder, and it is chosen here rather than kept in the session**
-    /// because it has to match the counter: `reconnectAttempt` indexes into whichever ladder is
-    /// being used, and it is carried across a dial precisely so that this one can run out. A
-    /// ladder that is swapped half way through would index the wrong list.
+    /// A resume gets the shorter ladder, chosen here rather than kept in the session because it has
+    /// to match the counter: `reconnectAttempt` indexes into whichever ladder is being used.
     func scheduleReconnect() {
         guard reconnectTask == nil else { return }
         let delays = isResumingAfterDrop
@@ -352,26 +264,18 @@ final class MacSession: Identifiable {
             : SessionModel.reconnectDelays
         guard reconnectAttempt < delays.count else {
             isReconnecting = false
-            // **Said out loud, because nothing else will say it.** With the banner suppressed for
-            // the whole of a resume, running out is the moment the app has to stop behaving like a
-            // session that is coming back: this flag is what turns the remote screen over to the
-            // picker so that the failure is on screen rather than behind a frozen picture.
-            //
-            // The banner is not re-posted here. `SessionAwareness` refuses a repeat of the phase it
-            // is already in, and the phase has been `.failed` since the drop, so the failure
-            // reaches the user as the Connect screen's own card, which is the app's main way of
-            // saying it.
+            // Running out is the moment the app stops behaving like a session that is coming back:
+            // this flag turns the remote screen over to the picker. The banner is not re-posted,
+            // because `SessionAwareness` refuses a repeat of the phase it is already in.
             hasGivenUpResuming = true
-            // The screen is about to leave and no replacement stream will reuse its display.
-            // Non-deliberate teardown kept this attachment alive for the retry; this is the
-            // terminal path that releases it. A background Mac shares the active Mac's renderer
-            // and therefore must not detach it.
+            // The screen is about to leave and no replacement stream will reuse its display, so this
+            // is the terminal path that releases the attachment non-deliberate teardown kept alive
+            // for the retry. A background Mac shares the active Mac's renderer and must not detach
+            // it.
             if isActive { renderer.detach() }
-            // The reconnect ladder gave up. `sessionMoved` is not called again because there is
-            // no phase change — the phase is already `.failed` or `.disconnected` — so the Live
-            // Activity has to be told directly, or it stays on "Reconnecting…" indefinitely.
-            //
-            // Only for the Mac on screen: a background Mac giving up is a banner, not a card.
+            // No phase change happened, so `sessionMoved` is not called again and the Live Activity
+            // has to be told directly or it stays on "Reconnecting…". Only for the Mac on screen: a
+            // background Mac giving up is a banner, not a card.
             if isActive {
                 SessionActivity.shared.sessionDropped(
                     hostName: hostName ?? "the Mac",
@@ -391,22 +295,17 @@ final class MacSession: Identifiable {
             self.resumeIfNeeded()
         }
 
-        // **The network may already have moved, and this is the case where it usually has.** A
-        // relay socket can hang for the whole of the ten seconds the silence watchdog allows, and
-        // the phone's own change of network is reported long before the drop is: at a moment when
-        // nothing was being put back, which is no reason to dial and so was not acted on. Asked
-        // here because this is the only place a wait begins, and deferred by a turn because the
-        // answer can dial: this runs inside the handling of a phase change, and the rest of that
-        // handling has to finish against the session it started with.
-        //
-        // Only for a Mac being put back. A first connection's ladder is a wait with nothing behind
-        // it to hurry.
+        // The phone's network may already have moved and gone unacted on, because at that moment
+        // nothing was being put back, and a relay socket can hang for the whole of the silence
+        // watchdog. Asked here because this is the only place a wait begins, and deferred by a turn
+        // because the answer can dial: the rest of the phase change has to finish first. Only for a
+        // Mac being put back, since a first connection's ladder is a wait with nothing to hurry.
         if isResumingAfterDrop {
             Task { @MainActor [model] in model.considerNetworkChange() }
         }
     }
 
-    /// Stops the retry, *without* resetting the backoff. See
+    /// Stops the retry, without resetting the backoff. See
     /// ``SessionModel/stopReconnecting()`` for why the counter is not cleared here.
     func stopReconnecting() {
         reconnectTask?.cancel()
@@ -418,64 +317,41 @@ final class MacSession: Identifiable {
 
     /// What this Mac said about being asked to pause. See ``PicturePause/mayAsk(hostDeclared:)``.
     ///
-    /// Read off the handshake and never assumed: `false` is a Mac too old to have been asked, and
-    /// the command means a dropped session on one of those rather than a picture that stops.
+    /// Never assumed: `false` is a Mac too old to have been asked, where the command means a dropped
+    /// session rather than a picture that stops.
     var hostSupportsVideoPause = false
 
     /// What this Mac said about carrying a picture on the clipboard. See
     /// ``ClipboardImages/maySend(toHostDeclared:)``.
     ///
-    /// Read off the handshake and never assumed, for the same reason and with a starker cost: the
-    /// command that pushes a picture is one a Mac this old does not understand at all, and an
-    /// unknown command is a decode failure in the middle of a session rather than a copy that
-    /// quietly does nothing.
+    /// Never assumed: the command is one a Mac this old cannot decode at all, so sending it is a
+    /// mid-session failure rather than a copy that quietly does nothing.
     var hostSupportsClipboardImages = false
 
     /// What the user put together: these windows, in this order, with these sizes.
     ///
-    /// **The intent rather than the rectangles.** A layout is rectangles in a canvas of one
-    /// particular shape — stale the moment the phone rotates or the viewport changes — while what
-    /// the user chose is the list above. Keeping the choice and deriving the rectangles is one
-    /// copy of the arrangement instead of two that can disagree. See ``MosaicGrid``.
-    ///
-    /// **Held per Mac and not per app**, with the same lifetime rule as the source itself: an
-    /// arrangement is a place on *this* Mac, and a session that comes back to a different one
-    /// must not offer to return to a mosaic of windows that are not there.
-    ///
-    /// It is what makes "back to the mosaic" mean anything, and it is cleared the moment a source
-    /// outside the arrangement is chosen: see ``SessionModel/selectSource(_:)``. Selecting one of
-    /// its tiles keeps it, because that is the gesture the back control exists to undo.
+    /// The intent rather than the rectangles, which are stale the moment the phone rotates (see
+    /// ``MosaicGrid``). Held per Mac: an arrangement is a place on this Mac, so a session that comes
+    /// back to a different one must not offer a mosaic of windows that are not there.
     var mosaicChoices: [MosaicChoice] = []
 
     /// The re-ask a rotation has scheduled, if the phone is still settling from one.
     ///
-    /// On the session rather than on the model because the model outlives a session: a rotation
-    /// that was pending when a connection ended would otherwise be delivered to the next Mac, as a
-    /// mosaic of windows that are not there. See ``SessionModel/refreshMosaicForViewport()``.
+    /// On the session because the model outlives it: a rotation pending when a connection ended
+    /// would otherwise be delivered to the next Mac, as a mosaic of windows that are not there.
     var mosaicViewportTask: Task<Void, Never>?
 
     /// The "has anything gone" check a catalogue change schedules.
     ///
-    /// On the session for the same reason the rotation's is: a check pending when the connection
-    /// ended would otherwise be run against the next Mac, and it is a question about *this* one's
-    /// windows. See ``SessionModel/scheduleMosaicGapCheck()``.
+    /// On the session for the same reason the rotation's is: it is a question about this Mac's
+    /// windows and must not be run against the next one.
     var mosaicGapTask: Task<Void, Never>?
 
     /// Sources whose asking has already produced nothing, by ``CaptureSource/stableID``.
     ///
-    /// **A tile the Mac cannot capture looks exactly like one it can.** That tile's card is drawn
-    /// into the canvas by the Mac, so the phone cannot see it, and the window is still in the
-    /// catalogue, which is the only test this screen has for a tile that is not a window: see
-    /// ``RemoteScreen/openMosaicTile(_:in:)``. ScreenCaptureKit goes on listing a window it will
-    /// not render, so nothing the catalogue says can separate the two.
-    ///
-    /// The tap is therefore the only way to learn it, and this is where the answer is kept: a tile
-    /// that was asked for and never answered is one this screen will not ask for again. Emptied by
-    /// ``SessionModel/showMosaic(_:)``, which is the user asking for the arrangement afresh and
-    /// therefore the moment to try again.
-    ///
-    /// On the session rather than on the model for the usual reason: it is about *this* Mac's
-    /// windows, and it must not outlive the connection that found them out.
+    /// A tile the Mac cannot capture looks exactly like one it can: its card is drawn into the canvas
+    /// by the Mac and ScreenCaptureKit goes on listing a window it will not render, so the tap is the
+    /// only way to learn it. Emptied by ``SessionModel/showMosaic(_:)``, the user asking afresh.
     var sourcesThatOpenedNothing: Set<String> = []
 
     /// The pending wait for a tapped tile to open. See ``RemoteScreen/watchTileOpening(_:)``.
@@ -483,22 +359,9 @@ final class MacSession: Identifiable {
 
     /// Whether the picture the user asked for is an arrangement rather than one of its tiles.
     ///
-    /// **The fact that has to survive the screen changing shape.** ``mosaicLayout`` is built from
-    /// ``mosaicChoices`` and the *live* screen size, so the layout — and therefore its identifier,
-    /// which is derived from the rectangles in it — is different after the phone is turned. And
-    /// ``isShowingMosaic`` is the equality of that identifier with ``activeSourceID``, which was
-    /// written when the arrangement was asked for. Turn the phone and the two stop matching: the
-    /// tile borders disappear, the pill loses the picture's name, and the Mac goes on sending the
-    /// canvas it was asked for at the old shape. Nothing was wrong with the picture; the app had
-    /// simply forgotten it had asked for an arrangement.
-    ///
-    /// So the asking is recorded separately from the arithmetic. It is set by ``selectSource(_:)``
-    /// from the source itself, which is why it cannot drift: every way of choosing a source goes
-    /// through there, and a mosaic is the only one that sets it.
-    ///
-    /// It was written for a canvas that took the screen's shape, taken out again when the canvas
-    /// stopped depending on the orientation, and is back because the canvas does again: see
-    /// ``MosaicGrid/canvas(for:)``.
+    /// It has to survive a rotation: ``mosaicLayout`` is built from the live screen size, so its
+    /// identifier stops matching ``activeSourceID`` once the phone turns. Set by ``selectSource(_:)``
+    /// from the source itself, so it cannot drift.
     var isAskingForMosaic = false
 
     /// The arrangement as the Mac is being asked for it, built from those choices.
@@ -512,13 +375,9 @@ final class MacSession: Identifiable {
 
     /// How wide the things in the arrangement are, which is what its tiles are shaped by.
     ///
-    /// **The median of what the catalogue knows, and a window if it knows nothing.** An
-    /// arrangement is usually several windows of about the same shape and one that is not — a
-    /// terminal, a tall palette, a browser window dragged narrow — and a canvas built from the
-    /// average would be a compromise that fits none of them. The middle value ignores the odd one
-    /// rather than being dragged by it, and the sources the catalogue cannot describe are left
-    /// out of the count rather than guessed at: a source that has gone is a tile with a card in
-    /// it, and it should not be reshaping the windows that are still there.
+    /// The median of what the catalogue knows, and a window if it knows nothing: the median ignores
+    /// the one odd window rather than being dragged by it, and sources the catalogue cannot describe
+    /// are left out of the count rather than guessed at.
     var mosaicTileAspect: Double {
         let aspects = mosaicChoices
             .compactMap { catalog?.descriptor(for: $0.source)?.pixelSize }
@@ -535,26 +394,16 @@ final class MacSession: Identifiable {
     /// The canvas a mosaic is asked for: the phone's own screen in pixels, the way up it is being
     /// held.
     ///
-    /// **The shape comes from the interface and the pixels from the screen**, and the split is the
-    /// whole of why this does not simply read `bounds`. The two numbers in `bounds` are the screen's
-    /// own measurements and do not change when the phone turns — what changes is which of them is
-    /// the width, and iOS takes about two seconds to say so. The interface, on the other hand,
-    /// knows which way up it is going from the first frame of the movement: so the longer and the
-    /// shorter are taken as they are, and only their arrangement is asked about.
-    ///
-    /// Reading it the other way round is what made a rotation take two seconds to begin: the canvas
-    /// could not be built until `bounds` had turned, so the arrangement the Mac was asked for could
-    /// not be asked for until long after the phone had stopped moving — and the animation that
-    /// should have been part of the turn arrived on its own, seconds later.
-    ///
-    /// Read from the window scene rather than from `UIScreen.main`, which is deprecated and, on
-    /// a device with more than one scene, is not necessarily the one being looked at.
+    /// The shape comes from the interface and the pixels from the screen: `bounds` does not change
+    /// when the phone turns, only which number is the width, and iOS takes about two seconds to say
+    /// so, while the interface knows from the first frame. Read from the window scene, not
+    /// `UIScreen.main`.
     var mosaicViewport: CGSize {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
         else {
-            // No scene at all, which is a state the app cannot act in rather than a case to
-            // handle: a canvas a Mac will accept, so nothing downstream has to.
+            // No scene at all, which is a state the app cannot act in rather than a case to handle:
+            // a canvas a Mac will accept, so nothing downstream has to.
             return CGSize(width: 1280, height: 720)
         }
         let bounds = scene.screen.bounds
@@ -566,79 +415,50 @@ final class MacSession: Identifiable {
             : CGSize(width: shorter, height: longer)
     }
 
-    /// The arrangement the picture on screen is *of*, or `nil` when the picture is a single source.
+    /// The arrangement the picture on screen is of, or `nil` when the picture is a single source.
     ///
-    /// **Recorded when the Mac answers, not when the app asks.** ``mosaicLayout`` is built from
-    /// the choices and the live screen size, so it changes the instant the phone is turned, and
-    /// the ask goes out at the same moment — but the Mac takes a second or two to tear down six
-    /// tile streams and build six more, and until it does the picture on screen is the *old*
-    /// canvas. Everything drawn over the picture has to agree with the picture: the tile borders,
-    /// the tap that resolves to a tile, the zoom a tap travels with. A grid laid out for an
-    /// arrangement that has not arrived yet is a grid drawn on top of the wrong picture, which is
-    /// what "the tiles resize late and then again" was.
-    ///
-    /// Set from the video config, which is the Mac's answer to whatever this end last asked for —
-    /// the same event ``picture`` is published on, and for the same reason. See
-    /// ``MacSession/apply(video:)``.
+    /// Recorded when the Mac answers, not when the app asks: the Mac takes a second or two to build
+    /// the new tiles, and until it does the picture is the old canvas. Everything drawn over the
+    /// picture has to agree with the picture. See ``MacSession/apply(video:)``.
     var pictureMosaicLayout: MosaicLayout?
 
     /// The arrangement this end last asked the Mac for, frozen at the moment it asked.
     ///
-    /// **Frozen, because ``mosaicLayout`` is not.** That is built from the live screen and the live
-    /// catalogue every time it is read, so it moves on its own: the canvas is derived from the
-    /// median window aspect, and the median moves whenever the catalogue does. Reading it when the
-    /// Mac answers therefore records an arrangement the Mac may never have built, and everything
-    /// drawn over the picture is then mapped through a canvas that is not on screen. Traced, over a
-    /// picture of 1290x1208:
-    ///
-    ///     overlay arrived=1290x1088/6  asked=1290x1088/5  picture=1290x1208  same=false
-    ///
-    /// which the user saw as one long tile with two dismissal buttons on it.
-    ///
-    /// **What the Mac built is what was asked for at the time**, so the ask is the thing worth
-    /// keeping. Set by ``SessionModel/selectSource(_:)``, which is the one door every ask goes
-    /// through, and read when the answer arrives. See ``MacSession/apply(video:)``.
+    /// Frozen, because ``mosaicLayout`` is not: it is rebuilt from the live screen and catalogue on
+    /// every read, so reading it when the Mac answers records an arrangement the Mac may never have
+    /// built. Set by ``SessionModel/selectSource(_:)``, the one door every ask goes through.
     var askedMosaicLayout: MosaicLayout?
 
     /// Whether the picture on screen is that arrangement rather than one of its tiles.
     ///
-    /// Read off the arrangement that has *arrived* rather than off the one being asked for, which
-    /// is the difference between a grid that belongs to the picture and a grid that belongs to the
-    /// request. See ``pictureMosaicLayout``.
+    /// Read off the arrangement that has arrived rather than off the one being asked for. See
+    /// ``pictureMosaicLayout``.
     var isShowingMosaic: Bool { pictureMosaicLayout != nil }
 
     /// What this Mac said about building a mosaic. See ``MosaicSupport/maySend(hostDeclared:)``.
     ///
-    /// Read off the handshake and never assumed, which matters more here than anywhere else on
-    /// this list: every other gated request that reaches an un-updated Mac is a command it cannot
-    /// decode, and this one is a *capture source* it cannot decode, sent at the moment the user
-    /// asks for a whole arrangement of windows. Sending it anyway ends the session.
+    /// Never assumed, which matters more here than anywhere else on this list: an un-updated Mac
+    /// cannot decode a capture source, and the request goes out when the user asks for a whole
+    /// arrangement. Sending it anyway ends the session.
     var hostSupportsMosaic = false
 
     /// What this Mac said about photographing its running applications. See
     /// ``SourceThumbnailSupport/maySend(hostDeclared:)``.
     ///
-    /// Gated for the same reason as the mosaic above and at a moment that is easier to reach:
-    /// the request goes out when the Apps panel opens, so sending it to a Mac that cannot decode
-    /// it would end the session for asking to see a thumbnail. A Mac without it draws the same
-    /// grid with no pictures in it, which is what that Mac has always been able to show.
+    /// Gated at an easier moment to reach than the mosaic: the request goes out when the Apps panel
+    /// opens, so sending it to a Mac that cannot decode it ends the session.
     var hostSupportsSourceThumbnails = false
 
     /// Whether the picture is stopped because this client asked for it to be.
     ///
-    /// **Not the same as the picture being stopped.** A Mac whose screen is asleep, a stream that
-    /// failed, and a pause this end requested all look alike on screen and are three different
-    /// facts; only the third is something this end may undo.
+    /// Not the same as the picture being stopped: a sleeping screen, a failed stream and a pause this
+    /// end requested all look alike, and only the third is something this end may undo.
     var picturePaused = false
 
     /// When the picture was last asked for again, and how long it took to come back.
     ///
-    /// **The number the whole feature has to be judged on.** A design whose promise is that
-    /// switching Macs is instant has to be able to say how long the first frame takes after the
-    /// ask, and nothing else in the app can measure it: the request goes out here and the frames
-    /// come back to the renderer, so this is the only place both ends of the interval are visible.
-    /// Reported into the notes and into Diagnostics rather than shown standing, because it is a
-    /// fact about the plumbing and the screen is for the picture.
+    /// The request goes out here and the frames come back to the renderer, so this is the only place
+    /// both ends of the interval are visible. Reported into the notes and Diagnostics, not shown.
     var pictureResumedAt: Date?
     var pictureResumeBaselineFrames: Int?
     var lastResumeMilliseconds: Double?
@@ -648,9 +468,8 @@ final class MacSession: Identifiable {
 
     /// A note about this Mac, newest last.
     ///
-    /// Per Mac, and that is the point of it moving: the notes are what the session's own log is
-    /// made of, and a diagnosis of the Mac on the left of the strip must not be carrying
-    /// sentences about the one on the right.
+    /// Per Mac, because the notes are what the session's own log is made of, and one Mac's diagnosis
+    /// must not carry sentences about another.
     var notes: [String] = []
 
     // MARK: - Session history
@@ -659,8 +478,6 @@ final class MacSession: Identifiable {
     ///
     /// One number for a session that is up and for the record it becomes, because the record is
     /// written to `UserDefaults` and read back at launch, so this is a size as much as a limit.
-    /// Shared rather than written twice at the two ceilings, which is what a session continued
-    /// across a drop would otherwise grow past, one segment at a time.
     static let sessionLogLimit = 40
 
     var activeSessionHistoryID: UUID?
@@ -672,11 +489,8 @@ final class MacSession: Identifiable {
     /// The record a dropped session left in the history that this session is going on being, if
     /// this session is a reconnect rather than a connection.
     ///
-    /// **Held as the record's identity and totals rather than as its index**, because the history
-    /// is not frozen while a session is up: another Mac can finish and file while this one is
-    /// running, and the list moves under anything positional. It is read once, when the record
-    /// starts, and spent when the record is filed. See ``SessionContinuation`` for the rule that
-    /// decides whether there is one at all.
+    /// Held as the record's identity and totals rather than its index, because the list moves under
+    /// anything positional while a session is up. See ``SessionContinuation``.
     var activeSessionContinuation: SessionContinuation?
 
     /// Whether this is the Mac the user is looking at.
@@ -684,23 +498,16 @@ final class MacSession: Identifiable {
 
     /// Whether this Mac's sound should be coming out of the phone.
     ///
-    /// **Two conditions, and the second is the one several Macs added.** The switch and the plan
-    /// decide whether the Mac's audio is played at all — see ``SessionModel/playsHostAudio`` — and
-    /// being the Mac on screen decides whether it is *this* Mac's audio. Without the second, two
-    /// Macs open at once are two audio engines decoding into one pair of ears, playing over each
-    /// other, and the user has no control that separates them.
-    ///
-    /// The price is the decision the plan already took: a Mac behind the one on screen is silent,
-    /// so a call left running on it cannot be heard. Audible background audio would be a second
-    /// feature, with a second player and a way to say which Mac it belongs to, and it is not this.
+    /// The switch and the plan decide whether host audio plays at all; being the Mac on screen decides
+    /// whose, and without that second condition two Macs open at once are two audio engines decoding
+    /// into one pair of ears. The price is that a Mac behind the one on screen is silent.
     var shouldPlayAudio: Bool { isActive && model.playsHostAudio }
 
     /// Applies the answer above to the player this Mac has, if it has one.
     ///
-    /// Called when a config arrives and again when the active Mac changes, because the two are
-    /// different moments: a Mac can be switched to long after its player was built, and a player
-    /// built for the Mac on screen goes on playing after the user has looked away unless it is
-    /// told. Nothing here starts or stops a stream; it is the mute line and nothing else.
+    /// Called when a config arrives and again when the active Mac changes: a Mac can be switched to
+    /// long after its player was built, and a player built for the Mac on screen goes on playing
+    /// after the user has looked away unless it is told.
     func refreshAudioMuteState() {
         audioPlayer?.isMuted = !shouldPlayAudio
     }
@@ -725,10 +532,10 @@ final class MacSession: Identifiable {
     var terminals: [RemoteTerminal] = []
     var selectedTerminalID: UUID?
 
-    /// The command last sent, and when — so the shell's answer can be read against it.
+    /// The command last sent, and when, so the shell's answer can be read against it.
     ///
-    /// A PTY gives a byte stream with no marker for where one command's output starts, so the
-    /// only thing that ties a message to a command is that it arrived right after one.
+    /// A PTY gives a byte stream with no marker for where one command's output starts, so the only
+    /// thing that ties a message to a command is that it arrived right after one.
     var lastSentCommand: String?
     var lastSentAt: Date?
 
@@ -737,43 +544,37 @@ final class MacSession: Identifiable {
     /// Every folder the Mac has listed, keyed by the terminal it was listed for and the path it
     /// was listed at. See ``RemoteDirectoryKey``.
     ///
-    /// Held rather than asked for per appearance, and that is most of what makes browsing feel like
-    /// a file manager instead of a series of waits: stepping into a folder and back out of it is
-    /// instant, and a folder already in hand is shown while its next copy is on the way.
+    /// Held rather than asked for per appearance, so stepping into a folder and back out is instant.
     var directories: [RemoteDirectoryKey: RemoteDirectory] = [:]
 
     /// Which folder each terminal's browser is showing, and no entry for a browser that has not
     /// opened yet or one still waiting on the Mac's home folder to resolve to a path.
     var browsingPaths: [UUID: String] = [:]
 
-    /// Folders asked for and not yet answered — what a spinner on the panel is reading.
+    /// Folders asked for and not yet answered, which is what a spinner on the panel is reading.
     var pendingDirectories: Set<RemoteDirectoryKey> = []
 
     /// Why a folder could not be listed, until it lists.
     var browseFailures: [RemoteDirectoryKey: String] = [:]
 
     /// The file being shown, and how much of it has arrived. One at a time because only one can be
-    /// on screen — opening another replaces it.
+    /// on screen: opening another replaces it.
     var filePreview: RemoteFilePreview?
 
     /// A command waiting for the shell that will run it.
     ///
-    /// Running a file opens a terminal of its own, and a terminal has no id until the Mac answers
-    /// that it made one — so the command cannot be sent when the button is tapped, only remembered
-    /// until ``apply(terminal:)`` sees the shell arrive. One at a time, because the second tap in
-    /// the moment before the first shell exists means to run the second file, not both, and a queue
-    /// would be a promise about ordering that nothing here needs to make.
+    /// A terminal has no id until the Mac answers that it made one, so the command cannot be sent on
+    /// tap, only remembered until ``apply(terminal:)`` sees the shell arrive. One at a time: a second
+    /// tap in that window means to run the second file, not both.
     var pendingRun: String?
 
     /// A file on its way to the Mac, and which door it came through.
     struct FileWrite: Equatable {
         /// Whether the file is an editor's text or one the user picked.
         ///
-        /// The two are answered differently and are the same operation: a save reads the file back,
-        /// so the editor shows what is on disk rather than what was sent; an upload asks for the
-        /// folder again, so the new file appears in the list. Everything else about them (the
-        /// chunking, the size cap, the refusal, the failure) is shared, which is why they share a
-        /// record rather than two dictionaries that would have to be kept in step.
+        /// The two are answered differently and are the same operation: a save reads the file back so
+        /// the editor shows what is on disk, an upload asks for the folder again so the new file
+        /// appears. The rest is shared, which is why they share a record.
         enum Door { case save, upload }
 
         let door: Door
@@ -784,72 +585,56 @@ final class MacSession: Identifiable {
 
     /// Files on their way to the Mac, by the terminal they are being written through.
     ///
-    /// By terminal rather than one flag, because two can be in the air at once: a user who starts
-    /// an upload and then switches to another shell and edits a file there has two transfers
-    /// running, and a single flag hands the first answer to arrive to whichever of them asked
-    /// second. The Mac keeps its own half keyed the same way, for the same reason.
+    /// By terminal rather than one flag, because two can be in the air at once and a single flag
+    /// hands the first answer to arrive to whichever transfer asked second.
     var writes: [UUID: FileWrite] = [:]
 
     /// Why a write did not land, by the terminal it was made through, and kept apart by door.
     ///
-    /// Apart, because the two are fixed differently and say so differently: a save that failed is a
-    /// file to correct, an upload that failed is a file to choose again. Read through
-    /// ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)`` so the panel asks about the
-    /// terminal it is drawing rather than about whichever wrote last.
+    /// Apart, because a save that failed is a file to correct and an upload that failed is a file to
+    /// choose again. Read through ``saveFailure(sessionID:)`` and ``uploadFailure(sessionID:)`` so
+    /// the panel asks about the terminal it is drawing.
     var saveFailures: [UUID: String] = [:]
     var uploadFailures: [UUID: String] = [:]
 
     /// Something being made, renamed or removed on the Mac, and which folder to ask about after.
     struct FileChange: Equatable {
         /// What is being asked for. Held rather than only the path, because the answer says what
-        /// happened but not what was *asked*, and the path a rename moves is built from both.
+        /// happened but not what was asked, and the path a rename moves is built from both.
         let operation: RemoteFileOperation
-        /// The path the request named — the file's own path for a rename, not the one it becomes.
+        /// The path the request named: the file's own path for a rename, not the one it becomes.
         /// What the Mac's answer is matched on, since it echoes back what it was sent.
         let path: String
     }
 
     /// Folders being sent to the Mac, by the terminal they are being sent through.
     ///
-    /// **A folder is a sequence of the operations beside it, not a kind of its own.** The Mac
-    /// already answers "make a folder" and "write this file", so this is the phone's own walk of
-    /// its filesystem followed by a series of requests the far end has understood since it learned
-    /// to change a listing. Nothing about the protocol knows a folder is involved.
-    ///
-    /// One per shell, for the reason the writes and the changes are: the Mac answers an operation by
-    /// naming the path it was given, and two operations through one shell are two answers that could
-    /// both match one remembered request.
+    /// A folder is a sequence of the operations beside it, not a kind of its own: the Mac already
+    /// answers "make a folder" and "write this file", so nothing about the protocol knows a folder is
+    /// involved. One per shell, because the Mac answers an operation by naming the path it was given.
     var folderUploads: [UUID: FolderUpload] = [:]
 
     /// Changes in the air, by the terminal they were asked through.
     ///
-    /// One per terminal, and deliberately: the Mac answers a change by naming the path it was
-    /// given, so two operations through one shell would be two answers matched against one
-    /// remembered request. The entry is also what disables the controls, so the second tap that
-    /// would cause that cannot be made.
+    /// One per terminal: the Mac answers a change by naming the path it was given, so two operations
+    /// through one shell would both match one remembered request. The entry is also what disables the
+    /// controls, so the second tap cannot be made.
     var changes: [UUID: FileChange] = [:]
 
     /// Why a change did not happen, by the terminal it was asked through.
     ///
-    /// Deliberately not in ``uploadFailures`` or ``browseFailures``, and the reason is what the
-    /// panel does with each of them: a browse failure replaces the list with a full-panel state,
-    /// which is right for a folder that could not be read and wrong for a rename that could not
-    /// land — the user would lose the folder they are looking at, along with the row they were
-    /// about to try again on. This one is drawn above the list, which stays where it is.
+    /// Not in ``uploadFailures`` or ``browseFailures``, because of what the panel does with each: a
+    /// browse failure replaces the list with a full-panel state, which a rename that could not land
+    /// must not do. This one is drawn above the list, which stays where it is.
     var changeFailures: [UUID: String] = [:]
 
     // MARK: - The picture's on/off switch
 
     /// Asks this Mac for the picture, or for silence, and touches nothing else.
     ///
-    /// The session, its control channel, its shells, its clipboard and the assertion that keeps
-    /// the Mac awake all survive this, which is the whole point of the command existing: a Mac
-    /// nobody is looking at should not be spending its battery or the operator's bandwidth, but
-    /// it should still be a Mac somebody is connected to.
-    ///
-    /// **Silent for a Mac that cannot take it.** See ``PicturePause/mayAsk(hostDeclared:)``: an
-    /// un-updated Mac goes on streaming, which costs bandwidth and nothing else, where sending
-    /// anyway would cost the session.
+    /// The session, its control channel, its shells, its clipboard and the assertion that keeps the
+    /// Mac awake all survive this: a Mac nobody is looking at should not be spending battery or
+    /// bandwidth, but it is still a Mac somebody is connected to. Silent for a Mac that cannot take it.
     func setPicturePaused(_ paused: Bool) {
         guard PicturePause.mayAsk(hostDeclared: hostSupportsVideoPause) else { return }
         guard phase.holdsSession, paused != picturePaused else { return }
@@ -873,14 +658,9 @@ final class MacSession: Identifiable {
 
     /// Times the picture's return, once there is a frame to time it by.
     ///
-    /// Called from the poll rather than from the event path, because the question is "has
-    /// anything arrived", and the frame that answers it is deliberately not allowed to touch the
-    /// main actor on its way past. See the event handler in ``SessionModel/connect(to:)``.
-    ///
-    /// **A count that has moved in either direction counts as an answer.** Forwards is a frame
-    /// that arrived; backwards is the renderer's own total resetting, which happens when the Mac
-    /// re-sends its stream description on the way back, and that is the picture starting again
-    /// just as much as a frame is.
+    /// Called from the poll rather than the event path, because the frame that answers "has anything
+    /// arrived" may not touch the main actor on its way past. A count that has moved in either
+    /// direction counts: forwards is a frame, backwards the renderer's total resetting.
     func measureResumeIfNeeded(_ snapshot: VideoRenderer.Snapshot) {
         guard let resumedAt = pictureResumedAt, let baseline = pictureResumeBaselineFrames else { return }
         guard snapshot.framesEnqueued != baseline else { return }
@@ -918,14 +698,9 @@ final class MacSession: Identifiable {
 
     /// The fastest the picture may go on this session, which is the plan's answer and the path's.
     ///
-    /// **Uncapped on the direct path, for every plan.** Two devices on one network are not spending
-    /// anybody's bandwidth but their own, so there is nothing there to sell and capping it would
-    /// make the one demonstration most people see first worse for no reason. A relayed session is
-    /// the operator's link, and 20 Mbps down it is five times the bandwidth of 8, which is what
-    /// ``PlanCapability/highBitrate`` is about.
-    ///
-    /// Per Mac, and rightly: one Mac can be on the LAN while another is on the relay, so the two
-    /// ceilings are genuinely different numbers at the same moment.
+    /// Uncapped on the direct path, for every plan: two devices on one network spend nobody's
+    /// bandwidth but their own, so there is nothing to sell. A relayed session is the operator's
+    /// link, and ``PlanCapability/highBitrate`` is what buys 20 Mbps there instead of 8.
     var videoCeiling: AutoQualityPolicy.Tier {
         guard autoQualityPath == .relay else { return .high }
         return model.storeManager.access.includes(.highBitrate) ? .high : .medium
@@ -933,24 +708,21 @@ final class MacSession: Identifiable {
 
     /// Switches between the app choosing the rate and the person watching choosing it.
     ///
-    /// Turning manual on does not mean "high": it means "let me choose", and the level it lands
-    /// on is the one picked last — or, the first time, the rate the policy had already settled
-    /// on. Landing anywhere else would be a jump in the picture at the exact moment someone
-    /// asked for control of it.
+    /// Turning manual on does not mean "high": it lands on the level picked last, or the rate the
+    /// policy had already settled on, so the picture does not jump at the moment control is asked for.
     func setAutomaticQuality(_ automatic: Bool) {
         setStreamQuality(automatic ? .auto : (model.lastManualQuality ?? StreamQuality(autoQualityPolicy.tier)))
     }
 
     /// Sets the preset, tells this Mac, and remembers it.
     ///
-    /// The save is what makes the Settings tab's row and this one the same setting rather than
-    /// two: whichever is used, the stored token ends up saying the same thing, so the next
-    /// session starts where this one was left.
+    /// The save is what makes the Settings tab's row and this one the same setting rather than two:
+    /// whichever is used, the stored token ends up saying the same thing.
     func setStreamQuality(_ quality: StreamQuality) {
-        // **The one rung a plan can be short of, and only while the bytes are being carried.**
-        // Asking for it opens the plans rather than being quietly capped, because a picture that
-        // silently stayed soft is a setting that reads as broken. High on a session going straight
-        // between the two devices is not gated at all: see ``videoCeiling``.
+        // The one rung a plan can be short of, and only while the bytes are being carried. Asking
+        // for it opens the plans rather than being quietly capped, because a picture that silently
+        // stayed soft is a setting that reads as broken. High on a session going straight between
+        // the two devices is not gated at all: see ``videoCeiling``.
         if quality == .high, videoCeiling == .medium {
             model.paywallReason = .feature(.highBitrate)
             return
@@ -967,20 +739,10 @@ final class MacSession: Identifiable {
 
     /// Hands this Mac the quality the app is set to, when the session arrives.
     ///
-    /// **Every arrival, and not only an automatic one.** It used to return early unless the
-    /// preset was ``StreamQuality/auto``, which left a manual level unsent after a reconnect —
-    /// and the Mac does not keep the figure across one: it clears `requestedBitrateKbps` when
-    /// the video peer closes and falls back to its own preferred rate, which is the top one. So
-    /// a phone reading "Low" could be watching a 20 Mbps stream, and the speed chip would have
-    /// been describing a setting that had stopped taking. Sending on each arrival costs one
-    /// message and makes the chip honest.
-    ///
-    /// **The stored token is read rather than ``SessionModel/streamQuality`` being trusted.**
-    /// That property is seeded once, when the model is built — and the model is built once, for
-    /// the life of the process. The Settings tab writes the preference and cannot reach this
-    /// object at all, because that tab is unreachable while a session runs, which is the whole
-    /// reason it writes a preference instead of sending a command. So between a change made
-    /// there and the connect that follows, the two disagree, and the property is the stale one.
+    /// Every arrival, not only an automatic one: the Mac clears `requestedBitrateKbps` when the
+    /// video peer closes and falls back to its own top rate, so an unsent manual level leaves a phone
+    /// reading "Low" while watching 20 Mbps. The stored token is read rather than
+    /// ``SessionModel/streamQuality``, which the Settings tab can leave stale.
     func applyInitialQuality() {
         let quality = SessionModel.storedQuality
         model.streamQuality = quality
@@ -1002,11 +764,10 @@ final class MacSession: Identifiable {
             return
         }
 
-        // On the control channel the host is holding the rate down on purpose, and the client
-        // asking for more would be asking it to break its own ceiling — see
-        // ``VideoCoordinator/effectiveBitrateKbps``. This end stops driving the number and
-        // lets the cap stand until the picture moves back. The measurement is still taken, so
-        // the policy starts from a clean window rather than from a stale one.
+        // On the control channel the host is holding the rate down on purpose, and the client asking
+        // for more would be asking it to break its own ceiling: see
+        // ``VideoCoordinator/effectiveBitrateKbps``. This end stops driving the number, and the
+        // measurement is still taken so the policy starts from a clean window.
         guard videoTransport == .primary else {
             lastAutoDroppedFrames = snapshot.framesDropped
             return
@@ -1028,16 +789,10 @@ final class MacSession: Identifiable {
     // MARK: - The captured picture
 
     var activeSourceTitle: String? {
-        // **A mosaic is named before the catalogue is asked**, because the catalogue has no row
-        // for it and never will: it is not something the Mac offers, it is something the app
-        // asked for. Without this the pill would say nothing at all while a canvas was up,
-        // which reads as a session that has lost track of what it is showing.
-        //
-        // **Named from the ask as well as the answer**, because the two say different things and
-        // both of them are "this is an arrangement": an arrangement on screen is the one the Mac
-        // built, and one on its way is the one the user just asked for. Answered from the answer
-        // alone, the pill went on naming the window the user had just left for as long as the Mac
-        // took to build the mosaic around it.
+        // A mosaic is named before the catalogue is asked, because the catalogue has no row for it
+        // and never will: it is not something the Mac offers, it is something the app asked for. And
+        // it is named from the ask as well as the answer, so the pill names the arrangement as soon
+        // as it is asked for rather than only once the Mac has built it.
         if isAskingForMosaic, let layout = mosaicLayout {
             return "\(layout.tiles.count) windows"
         }
@@ -1049,49 +804,21 @@ final class MacSession: Identifiable {
 
     /// Whether there is an arrangement to go back to, and the picture is not already it.
     ///
-    /// The one condition the back control is drawn on, so it cannot be drawn in a session that
-    /// has no mosaic (a button that took the user nowhere) or while the mosaic is on screen
-    /// (a button that would do nothing at all).
-    ///
-    /// **The answer rather than the ask, and that is a reversal worth recording.** Asked of what
-    /// the user asked *for*, this hid the control the instant the way back was pressed, which is
-    /// the right reading of "they are already going there" and the wrong answer when the Mac does
-    /// not go: a mosaic the Mac refuses to build — every window in it closed, which is the ordinary
-    /// way an arrangement dies — left the button gone and the arrangement unreachable for the rest
-    /// of the session, with switching to a display the only way out and the way back lost with it.
-    /// A control that lingers a second is a smaller fault than a control that never comes back.
-    /// **Asked-for counts as being there.** The pill names the arrangement the moment it is asked
-    /// for, and this used to wait for the canvas, so for the second or two the Mac spends building
-    /// one the header read "six windows" with a button beside it offering to go back to them.
+    /// The one condition the back control is drawn on. Answered from what the picture is rather than
+    /// what was asked for, so a mosaic the Mac refuses to build does not leave the arrangement
+    /// unreachable, and the ask counts too, so it is not offered while the canvas is being built.
     var canReturnToMosaic: Bool {
         mosaicLayout != nil && !isShowingMosaic && !isAskingForMosaic
     }
 
     /// The size of the captured content in pixels, if it is known.
     ///
-    /// **The picture that is *on screen*, not the one being asked for.** Everything drawn over
-    /// the picture is measured against this — the tile borders, the remote cursor, the zoom a tap
-    /// travels with — and a rectangle measured against a picture that has not arrived is a
-    /// rectangle drawn on the wrong one.
+    /// The picture that is on screen, not the one being asked for: everything drawn over the picture
+    /// is measured against this, and a rectangle measured against a picture that has not arrived is
+    /// drawn on the wrong one.
     ///
-    /// ``picture`` is that picture, and it is asked first: it is published from the same video
-    /// config ``pictureMosaicLayout`` is recorded from — the Mac's answer, carrying the size of the
-    /// stream it has just built. Asked through the renderer's own snapshot instead, the answer
-    /// would go missing for the instant between the renderer flushing and reconfiguring, and a
-    /// single frame of the incoming source's geometry is a single frame of the borders in the
-    /// wrong place.
-    ///
-    /// The catalogue is asked second, which is the other half of the same rule: it describes a
-    /// source *before* any picture of it arrives, so it is the answer only when there is no picture
-    /// at all — the first second of a session, or the moment after a drop. It used to be asked
-    /// *first*, on the reasoning that it lays the canvas out correctly while the Mac switches, and
-    /// what that produced was the geometry of the incoming source applied to the outgoing picture:
-    /// leaving a mosaic for one of its tiles, the tile borders were redrawn against the *window's*
-    /// letterbox while the mosaic was still what the screen was showing, which is the flash of
-    /// frame lines that arrives the instant the zoom finishes.
-    ///
-    /// See ``capturePointSize``, which is this halved, and ``pictureMosaicLayout``, which is the
-    /// same decision made about the arrangement rather than about the size.
+    /// ``picture`` is asked first and the catalogue second, which answers only when there is no
+    /// picture at all. See ``capturePointSize``, which is this halved.
     var capturePixelSize: CGSize? {
         if let picture, picture.pixelSize.width > 0, picture.pixelSize.height > 0 {
             return picture.pixelSize
@@ -1105,14 +832,12 @@ final class MacSession: Identifiable {
         return nil
     }
 
-    /// The captured content's size in the Mac's *points*, which is the space
+    /// The captured content's size in the Mac's points, which is the space
     /// ``RemoteCommand/joystickMove(dx:dy:)`` and ``RemoteCommand/scroll(dx:dy:)`` are in.
     ///
-    /// Derived by halving the pixel size, i.e. assuming a 2× backing store. That is the only
-    /// figure available: the protocol carries pixels, and the point-to-pixel scale of the
-    /// captured surface is not part of it. It is an estimate, and it is used only to scale a
-    /// relative nudge — being wrong by a factor of two changes how fast the cursor travels,
-    /// not where it lands.
+    /// Derived by halving the pixel size, i.e. assuming a 2x backing store: the protocol carries
+    /// pixels and not the capture surface's point-to-pixel scale. It only scales a relative nudge, so
+    /// a factor of two changes how fast the cursor travels, not where it lands.
     var capturePointSize: CGSize {
         guard let pixels = capturePixelSize else { return CGSize(width: 1512, height: 982) }
         return CGSize(width: pixels.width / 2, height: pixels.height / 2)
@@ -1120,11 +845,9 @@ final class MacSession: Identifiable {
 
     /// The picture a video config describes, named as far as this end can name it.
     ///
-    /// The catalogue is the only thing in the session that says what a source *is*, so it is
-    /// also the only place the answer to "can this one change size on its own" comes from. A
-    /// source with no catalogue entry behind it is left as unknown rather than guessed at, which
-    /// ``PictureIdentity/contentMovesOnItsOwn`` reads as "free to move". See
-    /// ``PictureIdentity/change(to:)`` for what that buys.
+    /// The catalogue is the only thing in the session that says what a source is, so it is also the
+    /// only place "can this one change size on its own" comes from. A source with no catalogue entry
+    /// behind it is left as unknown rather than guessed at. See ``PictureIdentity/change(to:)``.
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
         // The rule is ``MacCastKit/PictureIdentity/forStream(_:activeSourceID:catalog:)``; this
         // reads the two things it needs off the session, which is the only part of it a test
@@ -1133,8 +856,8 @@ final class MacSession: Identifiable {
             config,
             activeSourceID: activeSourceID,
             catalog: catalog,
-            // **The arrangement as well as its name**, because a mosaic has no catalogue row and
-            // the name alone cannot say what it is. See ``PictureIdentity/forStream(_:activeSourceID:catalog:source:)``.
+            // The arrangement as well as its name, because a mosaic has no catalogue row and
+            // the name alone cannot say what it is.
             source: mosaicLayout.map { CaptureSource.mosaic($0) }
         )
     }
