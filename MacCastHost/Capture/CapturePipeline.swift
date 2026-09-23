@@ -108,6 +108,13 @@ final class CapturePipeline: @unchecked Sendable {
     /// hottest code in the host.
     private var isMosaic: Bool { lock.withLock { source }?.isMosaic ?? false }
 
+    /// The arrangement whose captures are still running behind the window on screen.
+    ///
+    /// Set when the pipeline leaves a mosaic for one of its own tiles, and cleared when it comes
+    /// back or goes anywhere else. It cannot be read from ``runningEngine``, which by then is the
+    /// window's engine. See ``releaseRunningSource(keepingMosaicFor:)``.
+    private var parkedMosaic: MosaicCompositor?
+
     /// The source of frames, whichever kind it is, and whichever of the two it is.
     private var engine: any CaptureFrameSource {
         if let runningEngine { return runningEngine }
@@ -315,7 +322,7 @@ final class CapturePipeline: @unchecked Sendable {
         // half of black. See ``recompose(_:)``.
         if await recompose(source) { return }
 
-        await stop()
+        await releaseRunningSource(keepingMosaicFor: source)
 
         switch backend {
         case .capture(let resolver, let engine, let compositor):
@@ -518,14 +525,14 @@ final class CapturePipeline: @unchecked Sendable {
     private func recompose(_ source: CaptureSource) async -> Bool {
         guard case .mosaic(let requested) = source,
               let layout = requested.validated, !layout.tiles.isEmpty,
-              case .capture(let resolver, _, let compositor) = backend,
-              currentSource?.isMosaic == true
+              case .capture(let resolver, _, let compositor) = backend
         else { return false }
-        // The compositor has to be what is running, and not merely what exists: a pipeline whose
-        // backend holds one is a pipeline that is showing a display or a window through the other
-        // engine at this moment. Written out here rather than folded into the guard above, where
-        // the type checker gave up on it.
-        guard (lock.withLock { runningEngine } as? MosaicCompositor) === compositor else { return false }
+        // **Running, or parked, and not merely existing.** A pipeline whose backend holds a
+        // compositor is a pipeline that may be showing a display or a window through the other
+        // engine at this moment, and the captures to rearrange onto have to be the ones actually
+        // held. Parked counts: that is the whole of what a parked arrangement is for.
+        let held = lock.withLock { (runningEngine as? MosaicCompositor, parkedMosaic) }
+        guard held.0 === compositor || held.1 === compositor else { return false }
 
         guard let catalog = try? await resolver.catalog() else { return false }
         let plan = MosaicPlan.make(layout: layout, catalog: catalog, resolver: resolver)
@@ -537,6 +544,17 @@ final class CapturePipeline: @unchecked Sendable {
             frameRate: plan.frameRate
         ) else { return false }
 
+        // **The engine that is not the arrangement goes before the canvas comes back.** Coming home
+        // from one of its tiles, the window's stream is still running and still delivering to
+        // ``ingest``. A canvas frame and a window frame alternating into one encoder is a rebuild
+        // per frame, because ``encode(_:)`` replaces the session every time a frame arrives at a
+        // size it was not built for: measured, twenty-five rebuilds a second, each one re-sending
+        // the config, and the picture oscillating between two sizes on screen.
+        let departing = lock.withLock { runningEngine }
+        if let departing, (departing as? MosaicCompositor) !== compositor {
+            await departing.stop()
+        }
+
         do {
             try await compositor.replan(plan)
         } catch {
@@ -547,16 +565,51 @@ final class CapturePipeline: @unchecked Sendable {
             return false
         }
 
+        // Read before the attach, which replaces it, and shut down after: the same order
+        // ``rebuildEncoder(for:replacing:)`` keeps, so nothing can hand a frame to a dead session.
+        let previousEncoder = lock.withLock { self.encoder }
         attach(engine: compositor, encoder: encoder, source: source)
+        previousEncoder?.shutdown()
+        // Drawing again, so nothing is parked. See ``releaseRunningSource(keepingMosaicFor:)``.
+        lock.withLock { parkedMosaic = nil }
         encoder.requestKeyframe()
         return true
     }
 
     func stop() async {
+        await releaseRunningSource(keepingMosaicFor: nil)
+    }
+
+    /// Stops what is running, keeping an arrangement's captures when the next source is one of
+    /// its own windows.
+    ///
+    /// **Leaving an arrangement for one of its tiles is the one switch that costs nothing.** The
+    /// six captures are what the second and a half was being spent on, and every one of them is
+    /// about a window that is still on the Mac and still in the arrangement. Parked, the way back
+    /// is a composite of frames that are already in hand rather than six streams built again.
+    ///
+    /// Anything else stops them. A source that is not one of the arrangement's windows is the user
+    /// having left it, and a parked arrangement kept past that would go on capturing windows
+    /// nobody is looking at for the rest of the process.
+    private func releaseRunningSource(keepingMosaicFor next: CaptureSource?) async {
         // Read before the stop, because it is what is being stopped: the engine that is not
         // running must not be stopped in its place, and on a mosaic pipeline both exist.
         let running = lock.withLock { runningEngine } ?? engine
-        await running.stop()
+        var kept: MosaicCompositor?
+        if let next, let compositor = running as? MosaicCompositor, compositor.holdsTile(next) {
+            kept = compositor
+            await compositor.park()
+        } else {
+            await running.stop()
+        }
+
+        let abandoned = lock.withLock { () -> MosaicCompositor? in
+            let previous = parkedMosaic
+            parkedMosaic = kept
+            return previous === kept ? nil : previous
+        }
+        await abandoned?.stop()
+
         let encoder = lock.withLock { () -> VideoEncoder? in
             let current = self.encoder
             self.encoder = nil

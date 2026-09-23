@@ -227,6 +227,8 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     /// after every reorder.
     private var engines: [CaptureEngine] = []
     private var plan: MosaicPlan?
+    /// Set while the captures are being kept without a canvas being drawn. See ``park()``.
+    private var isParked = false
     /// Which engine stands behind each tile of ``plan``, in the plan's own order.
     ///
     /// **The mapping the rearrangement was relying on and did not have.** The tiles are the
@@ -248,6 +250,12 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     private var skippedTicks = 0
     /// Tiles whose own capture has stopped, by **engine** index. See ``engines``.
     private var deadTiles: Set<Int> = []
+
+    /// When the first canvas stops waiting for the rest of its tiles. See ``tick()``.
+    private var firstCanvasDeadline: DispatchTime?
+    /// When that wait began, and whether it is over, for the one line ``tick()`` logs about it.
+    private var firstCanvasAt: DispatchTime?
+    private var firstCanvasSent = false
     /// Bumped by every start and every stop, so work that is mid-flight can tell whether the
     /// state it is about to publish is still wanted.
     ///
@@ -365,6 +373,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             self.skippedTicks = 0
             self.deadTiles = []
             self.emptyTiles = []
+            self.isParked = false
             return self.generation
         }
 
@@ -389,6 +398,17 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         lock.withLock {
             guard self.generation == generation else { return }
             self.engines = engines
+            // A tile whose stream never delivers must not hold the whole picture, so the wait for
+            // the rest of them is bounded. See ``tick()``.
+            // **Short, because the deadline is a decision rather than a wait.** The six streams
+            // start over about a third of a second and then each delivers a first frame, so
+            // everything that is coming has come well inside this; what is left after it is a
+            // tile that is never going to, and ``tick()`` stops waiting for it for good. A bound
+            // that is generous instead of decisive is the arrangement held back for a window that
+            // will never appear.
+            self.firstCanvasAt = DispatchTime.now()
+            self.firstCanvasDeadline = DispatchTime.now() + .milliseconds(700)
+            self.firstCanvasSent = false
         }
 
         // **The timer before the streams, not after them.** A tick with no picture yet is already
@@ -473,7 +493,40 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             self.dirty = false
             self.deadTiles = []
             self.emptyTiles = []
+            self.isParked = false
         }
+    }
+
+    /// Whether one of these captures is the source named.
+    ///
+    /// The question ``CapturePipeline`` asks before it leaves an arrangement for one of the
+    /// arrangement's own windows, which is the one departure that does not have to cost anything.
+    func holdsTile(_ source: CaptureSource) -> Bool {
+        lock.withLock { plan?.tiles.contains { $0.source == source } ?? false }
+    }
+
+    /// Stops drawing canvases and keeps every capture behind them.
+    ///
+    /// **The way back out of a tile is the one source switch this can pay for.** An arrangement
+    /// whose windows are still running is a canvas built out of frames that are already there, so
+    /// coming back is one composite rather than six streams and the wait for their first frames.
+    /// Nothing is torn down and nothing is rebuilt; only the timer stops.
+    ///
+    /// The captures go when the arrangement does. A caller parks this only for a window that is
+    /// one of its own tiles, so anything else, another source or a disconnect, reaches ``stop()``
+    /// and takes the streams with it.
+    func park() async {
+        let timer = lock.withLock { () -> DispatchSourceTimer? in
+            let current = self.timer
+            self.timer = nil
+            self.isParked = true
+            return current
+        }
+        timer?.cancel()
+        if DispatchQueue.getSpecific(key: Self.queueKey) == nil {
+            queue.sync {}
+        }
+        mosaicLog.notice("mosaic parked: \(self.liveTileCount, privacy: .public) captures kept")
     }
 
     // MARK: - Rearranging
@@ -587,7 +640,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             }
         }
 
-        lock.withLock {
+        let wasParked = lock.withLock { () -> Bool in
             // **The frames are not moved, and that is the whole of the fix.** They are held by
             // engine, and an engine goes on being the same engine; what changes is which slot it
             // is drawn in, which is one array of indices. The rearrangement used to permute the
@@ -603,6 +656,22 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             // timestamp the encoder has not been told to expect.
             self.frameIndex = 0
             self.dirty = true
+            let parked = self.isParked
+            self.isParked = false
+            return parked
+        }
+
+        // **A parked arrangement comes back on the next tick.** Every tile that can deliver has
+        // already delivered, so the wait below has nothing left to wait for and the canvas goes out
+        // at the frame rate rather than at the deadline. The bound is armed anyway, for a tile that
+        // died while the arrangement was parked.
+        if wasParked {
+            lock.withLock {
+                self.firstCanvasAt = DispatchTime.now()
+                self.firstCanvasDeadline = DispatchTime.now() + .milliseconds(700)
+                self.firstCanvasSent = false
+            }
+            startTimer(plan)
         }
 
         mosaicLog.notice("""
@@ -641,6 +710,10 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             guard index < held.count else { return (false, nil) }
             held[index] = HeldFrame(buffer: copy)
             dirty = true
+            // **A tile that is delivering is not dead**, whatever a past deadline decided. A window
+            // that was not being rendered when the canvas was built can start being rendered, and
+            // without this its card would stay up for the rest of the session over a live picture.
+            deadTiles.remove(index)
             guard empty else {
                 emptyTiles.remove(index)
                 return (false, nil)
@@ -693,8 +766,53 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         // that is asleep. The first canvas goes out as soon as *one* tile has a frame, which is
         // also what keeps the first-frame watchdog's question ("did any picture ever arrive")
         // answerable per mosaic rather than per tile.
-        let started = lock.withLock { held.contains { $0 != nil } }
-        guard started else { return }
+        // **The first canvas waits for its tiles rather than for the first of them.** Sent as soon
+        // as one tile had a picture, it arrived with the other five black — and the phone cannot
+        // tell a tile that has not been captured from a window that is black. The tile that had a
+        // picture is the one the user has just left, so the window they were looking at blinked
+        // out of the arrangement and came back a second later. Waiting costs a few hundred
+        // milliseconds once, and it is the difference between a mosaic that arrives and one that
+        // assembles itself in front of somebody.
+        //
+        // Bounded, because a tile whose stream starts and then says nothing must not hold the
+        // whole picture: past the deadline the canvas goes out with whatever is ready.
+        let (started, settled, waited, ready, expired) = lock.withLock {
+            () -> (Bool, Bool, Double, Int, [Int]) in
+            guard held.contains(where: { $0 != nil }) else { return (false, false, 0, 0, []) }
+            let live = held.filter { $0 != nil }.count
+            let outstanding = held.indices.filter { held[$0] == nil && !deadTiles.contains($0) }
+            let elapsed = firstCanvasAt.map {
+                Double(DispatchTime.now().uptimeNanoseconds - $0.uptimeNanoseconds) / 1_000_000
+            } ?? 0
+            guard !outstanding.isEmpty else { return (true, true, elapsed, live, []) }
+            guard let deadline = firstCanvasDeadline, DispatchTime.now() >= deadline else {
+                return (true, false, elapsed, live, [])
+            }
+            return (true, true, elapsed, live, outstanding)
+        }
+
+        // **Past the deadline a tile that has never delivered is not slow, it is one that is never
+        // going to.** A window that is not on screen — hidden, minimised, on a Space that is not
+        // showing — starts a stream and then says nothing, and its capture is enumerated anyway
+        // because the picker deliberately lists windows on every Space. Waiting longer only makes
+        // the whole arrangement later: measured, a mosaic of six waited the full bound for one
+        // such window on every single build. Marked dead it draws a card in its rectangle, stops
+        // the canvas waiting, and tells the phone the window has gone so it can take it out of the
+        // arrangement — which is what the user wanted from that tile in the first place.
+        for index in expired { markDead(index) }
+        guard started, settled else { return }
+
+        // **Said out loud, because "the canvas arrived empty" and "the canvas was late" are the
+        // same complaint from the phone and want opposite fixes.** A canvas that goes out before
+        // its tiles is a mosaic that assembles itself in front of the user; one held too long is a
+        // wait. This is the line that says which is happening.
+        if !firstCanvasSent {
+            firstCanvasSent = true
+            mosaicLog.notice("""
+                first canvas: \(ready, privacy: .public) of \(self.held.count, privacy: .public) tiles \
+                live after \(Int(waited), privacy: .public)ms, \(settled ? "all ready" : "deadline")
+                """)
+        }
 
         var canvasBuffer: CVPixelBuffer?
         let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &canvasBuffer)
