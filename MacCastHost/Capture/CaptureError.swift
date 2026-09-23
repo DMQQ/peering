@@ -4,17 +4,10 @@ import ScreenCaptureKit
 
 /// Everything the capture path can fail with, phrased for the status window.
 ///
-/// ScreenCaptureKit's codes are mapped rather than passed through because two of them are
-/// not really failures at all but *states the host has to recover from*, and a host that
-/// treats them as fatal is a host that dies the first time a monitor is unplugged:
-///
-/// - `-3821` `systemStoppedStream` — the display configuration changed, or the Mac woke
-///   from sleep. The stream is gone; a new one has to be built and the client re-keyed.
-/// - `-3801` `userDeclined` — Screen Recording was never granted, or was revoked between
-///   launches. Nothing will be captured until the user grants it and relaunches.
-///
-/// Anything else keeps its code and its own wording. A ScreenCaptureKit failure that has
-/// been reworded into something friendlier is a failure nobody can search for.
+/// `-3821` and `-3801` are states the host recovers from rather than fatal errors: the first
+/// means the display configuration changed or the Mac woke from sleep, so the stream is rebuilt
+/// and the client re-keyed; the second means Screen Recording was never granted, or was revoked
+/// between launches. Every other code keeps its own wording, so it stays searchable.
 enum CaptureError: LocalizedError, Equatable {
     /// The TCC grant this app needs before a single frame can exist.
     case screenRecordingDenied
@@ -55,22 +48,11 @@ enum CaptureError: LocalizedError, Equatable {
         }
     }
 
-    /// What the phone is told about this, or nothing when it is not the phone's business.
-    ///
-    /// **A denial is the one failure the phone is otherwise blind to.** Everything else that goes
-    /// wrong with capture either recovers by itself or leaves the client with a catalogue it can
-    /// choose from. A missing Screen Recording grant produces a connection that works, a Mac that
-    /// says it is serving, and no frames ever, which is exactly what the client renders as
-    /// "opening the video channel", indefinitely, with nothing on either screen naming the cause.
-    ///
-    /// The sentence in ``errorDescription`` is written for the Mac's own window: it can name
-    /// System Settings and the pane, because the person reading it is sitting at the machine. This
-    /// one is for somebody in another room, who can be told what is wrong and who has to fix it,
-    /// and cannot act on a pane they cannot see.
-    ///
-    /// Nothing else is announced. A source that went away is one the user chose and can see in the
-    /// picker, and the two stream failures are either retried by the host or visible as a picture
-    /// that stopped, which the client already has words for.
+/// What the phone is told about this, or nothing when it is not the phone's business.
+///
+/// A denial is the one failure the phone is otherwise blind to, and it arrives as a connection
+/// that works with no frames behind it. The rest either recover by themselves or show as a
+/// picture that stopped, which the client already has words for.
     var clientNotice: NoticePayload? {
         switch self {
         case .screenRecordingDenied:

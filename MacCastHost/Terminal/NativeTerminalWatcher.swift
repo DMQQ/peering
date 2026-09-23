@@ -19,9 +19,8 @@ private let watchedBundleIDs: Set<String> = [
 /// Watches running terminal applications via the Accessibility API and calls ``onAttention``
 /// when output needs the user's response (a password prompt or a y/n confirmation).
 ///
-/// Works alongside ``TerminalSessionManager``, which handles the shells Peering itself opens.
-/// This type watches whatever terminal emulators the user already has running on the Mac —
-/// the ones not opened through Peering at all.
+/// The emulators the user already has running, alongside ``TerminalSessionManager``, which handles
+/// the shells Peering opens itself.
 ///
 /// Requires the Accessibility permission the host already holds for input injection.
 final class NativeTerminalWatcher: @unchecked Sendable {
@@ -99,8 +98,7 @@ final class NativeTerminalWatcher: @unchecked Sendable {
 ///
 /// Registers for window-creation notifications at the application level and for value-change
 /// notifications on each window's text areas. A 300 ms debounce prevents repeated alerts while
-/// output is still streaming, and a per-element hash prevents re-alerting for the same stuck
-/// prompt.
+/// output is streaming, and a per-element hash prevents re-alerting for the same stuck prompt.
 private final class TerminalAppWatch: @unchecked Sendable {
     let pid: pid_t
     let appName: String
@@ -131,7 +129,7 @@ private final class TerminalAppWatch: @unchecked Sendable {
 
         var obs: AXObserver?
         let err = AXObserverCreate(pid, { _, element, notification, refcon in
-            // @Sendable, no actor inference — required for @convention(c) callbacks.
+            // @Sendable, no actor inference: required for @convention(c) callbacks.
             guard let refcon else { return }
             Unmanaged<TerminalAppWatch>.fromOpaque(refcon).takeUnretainedValue()
                 .received(notification: notification, on: element)
@@ -146,13 +144,12 @@ private final class TerminalAppWatch: @unchecked Sendable {
         axObserver = obs
 
         let appElement = AXUIElementCreateApplication(pid)
-        // App-level: fires when a new window is opened (handles new tabs too in some emulators).
+        // App-level: fires when a new window is opened (handles new tabs in some emulators).
         AXObserverAddNotification(obs, appElement, kAXWindowCreatedNotification as CFString, retained)
         // App-level: fires when focus shifts to a different element (catches new tabs in Terminal.app).
         AXObserverAddNotification(obs, appElement, kAXFocusedUIElementChangedNotification as CFString, retained)
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .defaultMode)
 
-        // Observe text areas in windows that are already open.
         registerWindows(of: appElement, in: obs, refcon: retained)
         nativeTermLog.notice("watching \(self.appName, privacy: .public) pid \(self.pid)")
     }
@@ -180,12 +177,12 @@ private final class TerminalAppWatch: @unchecked Sendable {
         let note = notification as String
         switch note {
         case kAXWindowCreatedNotification:
-            // element IS the new window.
+            // The element is the new window.
             if let obs = axObserver, let ptr = selfPtr {
                 registerTextAreas(in: element, observer: obs, refcon: ptr)
             }
         case kAXFocusedUIElementChangedNotification:
-            // Register the newly focused element if it is a text area (e.g. a new tab).
+            // Register the newly focused element if it is a text area (a new tab).
             if let obs = axObserver, let ptr = selfPtr {
                 var roleRef: CFTypeRef?
                 if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) == .success,
@@ -213,8 +210,8 @@ private final class TerminalAppWatch: @unchecked Sendable {
 
     /// Traverses the AX tree depth-first looking for text areas, registering each one found.
     ///
-    /// Stops recursing past depth 8 to guard against pathological trees without missing the text
-    /// areas that sit a few levels down in any real terminal emulator.
+    /// Recursion stops past depth 8, which guards against pathological trees without missing the
+    /// text areas that sit a few levels down in any real terminal emulator.
     private func registerTextAreas(in element: AXUIElement, observer: AXObserver, refcon: UnsafeMutableRawPointer, depth: Int = 0) {
         guard depth < 8 else { return }
 
@@ -238,8 +235,8 @@ private final class TerminalAppWatch: @unchecked Sendable {
     // MARK: - Detection
 
     private func textAreaChanged(_ element: AXUIElement) {
-        // Read the visible text and take the last 4 KB — enough for pattern matching, not so much
-        // that a session with a huge scrollback buffer copies megabytes on every keystroke.
+        // The last 4 KB: enough for pattern matching, without copying megabytes of scrollback on
+        // every keystroke.
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &ref) == .success,
               let text = ref as? String, !text.isEmpty else { return }
@@ -258,14 +255,11 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     private func check(text: String, key: CFHashCode) {
-        // **One alert per prompt, and the re-arm is the half that matters.** The scan asks whether
-        // the text *ends in* a question, and a program that repaints while it waits no longer ends
-        // in anything: keyed on the text, a Claude Code chooser left up produced an alert every six
-        // hundred milliseconds for as long as it was on screen, which is a push per repaint. The
-        // rule is the one ``TerminalAttentionDetector`` keeps for the shells Peering opens itself,
-        // learned from the text instead of from the input, because a terminal watched from outside
-        // never tells us that the user answered: the latch re-arms when the question stops being
-        // there.
+        // One alert per prompt, and the re-arm is the half that matters: the scan asks whether the
+        // text ends in a question, and a program that repaints while it waits no longer ends in
+        // anything, so keying on the text alone means a push per repaint. A terminal watched from
+        // outside never tells us the user answered, so the latch re-arms when the question stops
+        // being there. Same rule ``TerminalAttentionDetector`` keeps for Peering's own shells.
         guard let kind = TerminalAttentionDetector.scan(text) else {
             lock.withLock { _ = awaiting.remove(key) }
             return

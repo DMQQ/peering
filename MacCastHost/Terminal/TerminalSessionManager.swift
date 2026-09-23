@@ -13,8 +13,8 @@ final class TerminalSessionManager: @unchecked Sendable {
     private final class Session: @unchecked Sendable {
         let id: UUID
         let ownerClientID: String
-        /// The name the tab shows. Resolved from the two below rather than set directly, so
-        /// there is one place that decides which of them wins.
+        /// The name the tab shows. Resolved from the two below rather than set directly, so one
+        /// place decides which of them wins.
         var name: String
         let process: Process
         let master: FileHandle
@@ -41,20 +41,11 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// A file being written, between the request that opened it and the piece that closes it.
     ///
-    /// **The write still lands in one move or it does not land at all**, which is the decision this
-    /// type exists to record and which has not changed. A file written piece by piece *into place*
-    /// is a file that is half the old contents and half the new for as long as the transfer takes,
-    /// and is the new contents only if nothing goes wrong, which is a state nothing on this machine
-    /// can be in, since the thing being replaced is somebody's script.
-    ///
-    /// **What changed is where the pieces wait.** They used to wait in this process's memory, which
-    /// made the size limit a limit on the Mac's memory: the number was the most this machine was
-    /// willing to spend on somebody else's file, and past it the honest answer was no. They now
-    /// wait in a scratch file beside the destination, under a name nothing will look for, and the
-    /// destination is still untouched until the last piece arrives and the scratch file is moved
-    /// over it in one step. So a transfer costs a handle and a piece of a disk rather than the file
-    /// itself, and the limit is free to be about the disk and the wait instead of about this
-    /// process not being killed.
+    /// The write lands in one move or it does not land at all: a file written piece by piece into
+    /// place is half the old contents and half the new for as long as the transfer takes, and the
+    /// thing being replaced is somebody's script. The pieces wait in a scratch file beside the
+    /// destination, under a name nothing will look for, and the destination is untouched until the
+    /// last piece arrives and the scratch file is moved over it.
     private final class PendingWrite: @unchecked Sendable {
         let ownerClientID: String
         let path: String
@@ -68,16 +59,16 @@ final class TerminalSessionManager: @unchecked Sendable {
         let target: URL
         /// Where the pieces go while they arrive, under a name nothing will look for.
         let staging: URL
-        /// Opened on the first piece rather than here, so that the request that opens a transfer
-        /// does no disk work on the queue that carries every keystroke the phone sends.
+        /// Opened on the first piece rather than here, so the request that opens a transfer does no
+        /// disk work on the queue that carries every keystroke the phone sends.
         var handle: FileHandle?
         /// How many bytes have been appended. Touched only under the manager's lock.
         var received = 0
         /// The first thing that went wrong writing to disk, if anything did.
         ///
-        /// Recorded rather than reported, because there may be thousands of pieces still to come
-        /// and the user is owed one answer at the end rather than a sentence per piece. Once it is
-        /// set, the pieces after it are dropped: a transfer with a hole in it is not a file.
+        /// Recorded rather than reported, because thousands of pieces may still be coming and the
+        /// user is owed one answer at the end. Once set, the pieces after it are dropped: a
+        /// transfer with a hole in it is not a file.
         var failure: String?
 
         init(ownerClientID: String, path: String, expected: Int, target: URL, staging: URL) {
@@ -90,10 +81,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
         /// Closes the handle and removes the scratch file, and is safe to call once.
         ///
-        /// Called on the write queue rather than under the lock: closing a handle is a disk
-        /// operation, and one of the callers is the teardown path that runs while the lock is
-        /// held. The handle is taken rather than closed in place, so a second call has nothing to
-        /// do.
+        /// Called on the write queue rather than under the lock, since closing a handle is a disk
+        /// operation and one caller is the teardown path that runs holding the lock.
         func discard() {
             try? handle?.close()
             handle = nil
@@ -103,14 +92,11 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// The one queue every write's disk work happens on.
     ///
-    /// **Not the connection's queue**, which carries every keystroke the phone sends: a piece
-    /// appended there is a keystroke delayed by however long a path on a network volume takes to
-    /// answer, and the same reason the final write was already moved off it.
+    /// Not the connection's queue, which carries every keystroke the phone sends: a piece appended
+    /// there is a keystroke delayed by however long a path on a network volume takes to answer.
     ///
-    /// **One queue rather than one per transfer.** A disk is one device and two transfers
-    /// interleaving on it gain nothing; what matters is that one transfer's pieces are appended in
-    /// the order they arrived, and that is what a single serial queue gives, since they are
-    /// enqueued in exactly that order.
+    /// One queue rather than one per transfer: what matters is that one transfer's pieces are
+    /// appended in the order they arrived, which a single serial queue gives for free.
     private static let writeIO = DispatchQueue(
         label: "pl.dmq.peering.host.write",
         qos: .userInitiated
@@ -122,13 +108,13 @@ final class TerminalSessionManager: @unchecked Sendable {
     private var pushTokenByClientID: [String: String] = [:]
     private var writes: [WriteKey: PendingWrite] = [:]
 
-    /// Called when a terminal needs the user's attention and the client's sink is gone, meaning
-    /// the phone is no longer connected over the control channel. Token is the APNs hex token;
-    /// message is the human-readable sentence for the notification body.
+    /// Called when a terminal needs the user's attention and the client's sink is gone, meaning the
+    /// phone is no longer connected over the control channel. Token is the APNs hex token; message
+    /// is the human-readable sentence for the notification body.
     var onPushNeeded: (@Sendable (String, String, TerminalAttentionKind) -> Void)?
 
-    /// The APNs tokens of clients that have registered for push but are not currently connected
-    /// over the control channel. Used by native-terminal watching to push outside of Peering sessions.
+    /// The APNs tokens of clients that have registered for push but are not connected over the
+    /// control channel. Used by native-terminal watching to push outside of Peering sessions.
     func allPushTokens() -> [String] {
         lock.withLock {
             pushTokenByClientID.compactMap { clientID, token in
@@ -139,11 +125,10 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// Every token this Mac holds, whether or not the phone that gave it is connected.
     ///
-    /// **The question ``allPushTokens()`` deliberately does not answer**, and the difference is the
-    /// whole of a confusing afternoon: a connected client is left out of that list because a
-    /// terminal needing attention is told to it over the session rather than pushed to it, so an
-    /// unanswered "does this Mac hold a token at all" was answered "no" every time a phone was
-    /// connected, which is every time somebody is looking at the button that asks.
+    /// The question ``allPushTokens()`` deliberately does not answer: a connected client is left
+    /// out of that list because a terminal needing attention is told to it over the session rather
+    /// than pushed, so "does this Mac hold a token at all" answered no whenever a phone was
+    /// connected.
     func registeredPushTokens() -> [String] {
         lock.withLock { Array(pushTokenByClientID.values) }
     }
@@ -157,15 +142,13 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// One terminal's write to one path.
     ///
-    /// Keyed by both rather than by the path alone, because two phones watching the same Mac are
-    /// two people, and one of them uploading into a folder must not disturb the other's transfer.
-    /// And keyed by the terminal as well as the client, so that closing a shell can abandon exactly
-    /// the transfers that were being made through it and not the ones through the shell beside it.
+    /// Keyed by both: two phones watching the same Mac are two people, and one uploading into a
+    /// folder must not disturb the other's transfer. Keyed by the terminal so closing a shell
+    /// abandons exactly the transfers made through it.
     ///
-    /// Keyed by the path rather than by an identifier carried on the wire, because the interesting
-    /// collision is one terminal beginning the same file twice, a user picking a second file, or
-    /// the same one again, which has only one sensible answer: the newer attempt is the one they
-    /// want, and the older is abandoned.
+    /// The path is the key rather than an identifier carried on the wire, because the interesting
+    /// collision is one terminal beginning the same file twice, and the only sensible answer is
+    /// that the newer attempt wins.
     private struct WriteKey: Hashable {
         let sessionID: UUID
         let path: String
@@ -173,53 +156,39 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// How large a file this Mac will take from a phone.
     ///
-    /// **No longer a number about anybody's memory.** It used to be sixty-four megabytes on each
-    /// end for the same shape of reason: the phone read the file into memory to send it, and this
-    /// end collected the pieces in memory to write it, so the limit was the most either was willing
-    /// to hold on somebody else's behalf. Both ends stream now, so what is left to bound is the
-    /// disk the file lands on and the wait the user is in for, and neither of those is a figure
-    /// anybody can pick for them.
-    ///
-    /// Two gigabytes, which covers the thing this limit is actually met by: a video clip. It is
-    /// still a ceiling rather than no ceiling, because there is no way to stop a transfer once it
-    /// has started and a mis-tap on a folder of raw footage should not commit somebody to an hour
-    /// of it. Declared on both ends, because a limit that only one end enforces is a limit that
-    /// holds until the day the other end is older.
+    /// Two gigabytes, which covers what this limit is actually met by: a video clip. A ceiling
+    /// rather than no ceiling, because a transfer cannot be stopped once started and a mis-tap on a
+    /// folder of raw footage should not commit somebody to an hour of it. Declared on both ends,
+    /// since a limit only one end enforces holds until the other end is older.
     private static let maximumWriteBytes = 2 * 1_073_741_824
     /// How much of a file may travel in one message.
     ///
-    /// The mirror of ``previewChunkBytes``, and the number is the same because the constraint is:
+    /// The mirror of ``previewChunkBytes``, and the same number because the constraint is the same:
     /// a `Data` on this channel is base64 in JSON, so thirty-two kilobytes of file is some
     /// forty-three of payload against a ``ProtocolInfo/maxControlPayload`` of sixty-four. Refused
-    /// rather than trimmed. See ``write(id:path:data:isLast:ownerClientID:sink:)``.
+    /// rather than trimmed.
     private static let writeChunkBytes = 32 * 1024
 
-    /// How many entries one listing carries. A folder with more than this is a folder whose next
-    /// screenful is worth fetching rather than one to send whole: the listing crosses the same
-    /// connection as the shell's output, and a directory like `/usr/bin` is several thousand rows
-    /// the user is going to scroll past. The answer says it was cut, so the client can say so too.
+    /// How many entries one listing carries. The listing crosses the same connection as the shell's
+    /// output, and a directory like `/usr/bin` is several thousand rows the user will scroll past.
+    /// The answer says it was cut, so the client can say so too.
     private static let maximumDirectoryEntries = 2_000
     /// How much of a file a preview shows.
     ///
-    /// Picked against the screen rather than against the file: the phone draws what it is sent as
-    /// one piece of text, so this is also the most text it has to lay out, and a hundred kilobytes
-    /// is some two thousand lines — more of a file than anyone scrolls on a phone and little
-    /// enough that a preview is never a wait. A longer file is shown from the beginning and said
-    /// to be, rather than refused.
+    /// Picked against the screen rather than the file: the phone draws what it is sent as one piece
+    /// of text, so this is also the most text it has to lay out, and a hundred kilobytes is some
+    /// two thousand lines. A longer file is shown from the beginning and said to be, not refused.
     private static let maximumPreviewBytes = 128 * 1024
     /// How much of a *picture* a preview shows.
     ///
-    /// Sixty-four times the text cap, and the reason is that the two are answering different
-    /// questions. A hundred kilobytes of text is two thousand lines, more than anyone scrolls; a
-    /// hundred kilobytes of photograph is a thumbnail, and a preview that stops a third of the way
-    /// into a JPEG is not a smaller picture, it is no picture at all — there is nothing useful to
-    /// draw from the first bytes of one. So the limit here is set by what a picture actually
-    /// weighs: eight megabytes covers a phone photo and a screenshot with room to spare, and the
-    /// refusal past it is said out loud rather than shown as a broken frame.
+    /// Sixty-four times the text cap, because the two answer different questions: a preview that
+    /// stops a third of the way into a JPEG is not a smaller picture, it is no picture at all,
+    /// since there is nothing useful to draw from the first bytes of one. Eight megabytes covers a
+    /// phone photo and a screenshot with room to spare.
     private static let maximumImagePreviewBytes = 8 * 1024 * 1024
     /// How much of a file travels per event. Comfortably inside the 64 KB the control channel
     /// accepts for a request, and small enough that a preview never sits in front of a keystroke
-    /// for long — see ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
+    /// for long.
     private static let previewChunkBytes = 32 * 1024
     /// How much of a file is looked at to decide whether it is text at all.
     private static let binaryProbeBytes = RemoteFileKind.probeBytes
@@ -331,12 +300,10 @@ final class TerminalSessionManager: @unchecked Sendable {
             close(id: id, ownerClientID: clientID)
 
         case .registerPushToken(let tokenData):
-            // **Empty means forget me.** The phone sends no bytes when its plan stops including
-            // being told about a terminal, and this is the whole of how that reaches the Mac:
-            // the token it was given while the plan did include it is dropped, and a shell that
-            // stops for an answer after that finds nothing to send to. Stored nil rather than as
-            // an empty string, because the push path tests the token for existence and a
-            // registered token of "" would be sent to APNs as a device nobody can reach.
+            // Empty means forget me: the phone sends no bytes when its plan stops including being
+            // told about a terminal, and the token it gave earlier is dropped. Stored nil rather
+            // than "", because the push path tests the token for existence and a registered ""
+            // would be sent to APNs as a device nobody can reach.
             let hex = tokenData.isEmpty
                 ? nil
                 : tokenData.map { String(format: "%02x", $0) }.joined()
@@ -346,9 +313,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// A terminal this client owns and can still type into.
     ///
-    /// The identifier arrives from the network, so every request that touches a shell asks this
-    /// first: without it an authenticated client could name a terminal belonging to another
-    /// device, and a terminal that has ended has no shell left to act on.
+    /// The identifier arrives from the network, so every request touching a shell asks this first:
+    /// without it an authenticated client could name a terminal belonging to another device.
     private func liveSession(_ id: UUID, ownerClientID: String) -> Session? {
         lock.withLock {
             guard let session = sessions[id],
@@ -359,21 +325,19 @@ final class TerminalSessionManager: @unchecked Sendable {
     }
 
     func disconnect(clientID: String) {
-        // Whatever it was in the middle of writing goes with it. An unfinished transfer is not a
-        // file waiting to be resumed, because there is nothing to resume it with: the client that
-        // cannot come back and claim it is the one that has just gone.
+        // Whatever it was in the middle of writing goes with it: an unfinished transfer is not a
+        // file waiting to be resumed, because the client that would claim it is the one that has
+        // just gone.
         let abandoned = lock.withLock { () -> [PendingWrite] in
             let mine = writes.values.filter { $0.ownerClientID == clientID }
             writes = writes.filter { $0.value.ownerClientID != clientID }
             _ = sinks.removeValue(forKey: clientID)
             return mine
         }
-        // **And the pieces have to be deleted, where they used to simply stop existing.** They are
-        // on somebody's disk now rather than in this process's memory, so a transfer cut short
-        // leaves a scratch file beside its destination, and leaving those behind would fill a
-        // folder with the ghosts of every upload that ever failed. On the write queue, so the
-        // removal lands after any append still in flight for the same transfer and takes the last
-        // of it rather than all but the piece that was being written.
+        // The pieces have to be deleted, not merely dropped: they are on somebody's disk as a
+        // scratch file beside the destination, and leaving those behind fills a folder with the
+        // ghosts of every failed upload. On the write queue, so the removal lands after any append
+        // still in flight for the same transfer.
         for pending in abandoned {
             Self.writeIO.async { pending.discard() }
         }
@@ -393,9 +357,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         let master = FileHandle(fileDescriptor: masterFD, closeOnDealloc: true)
         let slave = FileHandle(fileDescriptor: slaveFD, closeOnDealloc: true)
         let process = Process()
-        // Foundation's Process can attach the slave descriptors but does not make them the
-        // child's controlling terminal. `script` performs the required forkpty/setsid/TIOCSCTTY
-        // setup, so job control and password prompts behave like a real Terminal window.
+        // Foundation's Process can attach the slave descriptors but does not make them the child's
+        // controlling terminal. `script` does the forkpty/setsid/TIOCSCTTY setup, so job control
+        // and password prompts behave like a real Terminal window.
         let shell = loginShell()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
         process.arguments = ["-q", "/dev/null", shell, "-l"]
@@ -403,14 +367,11 @@ final class TerminalSessionManager: @unchecked Sendable {
         var environment = ProcessInfo.processInfo.environment
         environment["TERM"] = "xterm-256color"
         environment["COLORTERM"] = "truecolor"
-        // **The one program here that has a switch for the thing the far end is worst at.** These
-        // shells are drawn on a phone by replaying their bytes onto a grid, so a program that
-        // repaints by moving the cursor cell by cell is every weakness at once — and that is
-        // exactly what a full-screen program drawing on the alternate screen does. Claude Code's
-        // `tui` setting picks that renderer, and this is its documented way of being told not to:
-        // classic draws on the main screen and flows into the scrollback, which is what a terminal
-        // this size renders well. Set for the shells this app opens and for nothing else, so a
-        // Terminal window on the same Mac keeps whatever its owner chose there.
+        // These shells are drawn on a phone by replaying their bytes onto a grid, so a program that
+        // repaints cell by cell is every weakness at once, and that is what a full-screen program
+        // on the alternate screen does. This is Claude Code's documented way of being told not to:
+        // classic draws on the main screen and flows into the scrollback. Set for the shells this
+        // app opens only, so a Terminal window on the same Mac keeps what its owner chose.
         environment["CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN"] = "1"
         process.environment = environment
         process.standardInput = slave
@@ -432,7 +393,7 @@ final class TerminalSessionManager: @unchecked Sendable {
         do {
             lock.withLock { sessions[id] = session }
             try process.run()
-            // The spawned process owns duplicated slave descriptors. Keeping the parent's copy
+            // The spawned process owns duplicated slave descriptors: keeping the parent's copy
             // open would prevent EOF on the master after the shell exits.
             try? slave.close()
             sink(.created(session.info))
@@ -488,9 +449,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         session.master.readabilityHandler = nil
         if session.isRunning { session.process.terminate() }
         try? session.master.close()
-        // A write made through this shell is a write that cannot be finished, because every piece
-        // after this one is refused at the door for naming a terminal that is gone. Dropped here
-        // rather than left to be refused one chunk at a time.
+        // A write made through this shell cannot be finished, since every piece after this one is
+        // refused for naming a terminal that is gone. Dropped here rather than refused chunk by
+        // chunk.
         lock.withLock { writes = writes.filter { $0.key.sessionID != id } }
         send(.closed(sessionID: id), to: ownerClientID)
         terminalLog.notice("closed terminal \(id.uuidString, privacy: .public)")
@@ -514,20 +475,19 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// One folder's contents.
     ///
-    /// Answered off the connection's own queue. `contentsOfDirectory` is a blocking call, and on a
-    /// network volume — or in a folder the system is about to put a consent prompt in front of —
-    /// it takes as long as it takes. That queue carries every keystroke the phone sends, so the
-    /// reading happens on another one and the answer comes back through the sink the shell's
-    /// output already arrives on, which is a thread the caller has always been called from.
+    /// Answered off the connection's own queue, which carries every keystroke the phone sends:
+    /// `contentsOfDirectory` blocks, and on a network volume or behind a consent prompt it takes as
+    /// long as it takes. The answer comes back through the sink the shell's output already arrives
+    /// on.
     private func list(id: UUID, requested: String?, sink: @escaping Sink) {
-        // Absolute paths only. A relative one would resolve against this process's working
-        // directory rather than against the shell's, which is the directory the user believes they
-        // are looking at. Not an authorization boundary either way: whoever owns this terminal
-        // already has a login shell as this user and can list any of it.
+        // Absolute paths only: a relative one resolves against this process's working directory
+        // rather than the shell's, which is the directory the user believes they are looking at.
+        // Not an authorization boundary either way, since whoever owns this terminal already has a
+        // login shell as this user.
         //
-        // Tested on the string that arrived, not on the `URL`: `URL(fileURLWithPath:)` quietly
-        // makes a relative path absolute against the process's own working directory, so a check
-        // after it would pass every time and mean nothing.
+        // Tested on the string that arrived, not on the `URL`: `URL(fileURLWithPath:)` quietly makes
+        // a relative path absolute against the process's working directory, so a check after it
+        // would pass every time and mean nothing.
         let path = requested ?? FileManager.default.homeDirectoryForCurrentUser.path
         guard path.hasPrefix("/") else {
             sink(.browseFailure(
@@ -537,10 +497,9 @@ final class TerminalSessionManager: @unchecked Sendable {
             ))
             return
         }
-        // Standardised for the answer rather than for the lookup: `..` and doubled slashes come
-        // out, so the path the phone puts in its breadcrumbs is the one it can send back. Symbolic
-        // links are left alone, because a folder reached through one is the folder the user asked
-        // for and the name they know it by.
+        // Standardised for the answer rather than the lookup, so the path the phone puts in its
+        // breadcrumbs is one it can send back. Symbolic links are left alone: a folder reached
+        // through one is the folder the user asked for.
         let directory = URL(fileURLWithPath: path).standardizedFileURL
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -584,12 +543,11 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// A file about to be written, and the three ways that is refused before any of it travels.
     ///
     /// Nothing on disk is touched here. The file is replaced by the last piece, so a transfer that
-    /// never finishes leaves what was there exactly as it was, which is the whole reason this is
-    /// two requests rather than the client naming a path and starting to send.
+    /// never finishes leaves what was there exactly as it was, which is why this is two requests
+    /// rather than the client naming a path and starting to send.
     ///
-    /// Tested on the string that arrived, like the two above it, and for the reason given there:
-    /// a relative path would resolve against this process's working directory rather than against
-    /// the shell's, and there is no authorisation being done either way.
+    /// The path is tested on the string that arrived, like the two above it, and for the reason
+    /// given there.
     private func beginWrite(
         id: UUID,
         path: String,
@@ -613,21 +571,16 @@ final class TerminalSessionManager: @unchecked Sendable {
             ))
             return
         }
-        // Standardised but not resolved: the answer names the path the client sent, so that the
-        // one it is holding when the write lands is the one it still holds. Following the link is
-        // ``commit(_:to:)``'s job, and doing it here as well would mean two answers to which file
-        // this is.
+        // Standardised but not resolved: the answer names the path the client sent, and following
+        // the link is ``commit(_:to:)``'s job.
         let url = URL(fileURLWithPath: path).standardizedFileURL
         let key = WriteKey(sessionID: id, path: url.path)
-        // Resolved here, once, rather than at the move. `resolvingSymlinksInPath` is a stat call
-        // per component and this is the one moment it is affordable: the queue this runs on carries
-        // every keystroke the phone sends. See ``PendingWrite/target``.
+        // Resolved here, once, rather than at the move: `resolvingSymlinksInPath` is a stat call per
+        // component, and this is the one moment it is affordable on a queue that carries keystrokes.
         let target = url.resolvingSymlinksInPath()
-        // The scratch file's name is derived from the destination and hung off the front with a
-        // dot, so it is hidden, sorts beside the file it will become, and cannot collide with it or
-        // with a second transfer of the same file: a second transfer of the same path replaces this
-        // record, and the first transfer's scratch file has to be a different name or the two are
-        // appending into one file. Nothing looks for a name starting with a dot.
+        // Derived from the destination behind a leading dot, so it is hidden and sorts beside the
+        // file it becomes, and carries a UUID so a second transfer of the same path (which replaces
+        // this record) appends to a different file rather than into this one.
         let staging = target.deletingLastPathComponent()
             .appendingPathComponent(".\(target.lastPathComponent).peering-\(UUID().uuidString).part")
         lock.withLock {
@@ -643,9 +596,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// A piece of a file being written, and on the last one, the write itself.
     ///
-    /// Answered off the connection's own queue for the reason the listing is: this is disk work on
-    /// a path that may be a network volume, and the queue it arrives on carries every keystroke the
-    /// phone sends.
+    /// Answered off the connection's own queue for the reason the listing is: disk work on a path
+    /// that may be a network volume, on a queue that carries every keystroke the phone sends.
     private func write(
         id: UUID,
         path: String,
@@ -654,14 +606,13 @@ final class TerminalSessionManager: @unchecked Sendable {
         ownerClientID: String,
         sink: @escaping Sink
     ) {
-        // Standardised the same way ``beginWrite(id:path:totalBytes:ownerClientID:sink:)`` did, or
-        // a path written two ways would be two different keys and every piece would arrive for a
-        // transfer nobody had opened.
+        // Standardised the same way ``beginWrite(id:path:totalBytes:ownerClientID:sink:)`` did, or a
+        // path written two ways is two different keys and every piece arrives for a transfer nobody
+        // opened.
         let key = WriteKey(sessionID: id, path: URL(fileURLWithPath: path).standardizedFileURL.path)
-        // The size check is against the request as it will be encoded, not against the file: this
-        // channel carries base64 in JSON, so a chunk that looks small is three-quarters again as
-        // large by the time it is a payload, and a message over the cap is not a message the far
-        // end can complain about; it takes the session down. Refused here, where there is still
+        // The check is against the request as it will be encoded, not the file: base64 in JSON makes
+        // a small-looking chunk three-quarters again as large as a payload, and a message over the
+        // cap takes the session down rather than being refusable. Refused here, where there is still
         // somebody to tell.
         guard data.count <= Self.writeChunkBytes else {
             let abandoned = lock.withLock { writes.removeValue(forKey: key) }
@@ -675,8 +626,8 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
 
         /// Three answers rather than two, because most pieces are neither the start nor the end of
-        /// anything: a chunk that is not the last one is accepted and answered with silence, and a
-        /// two-case result would have to spell that as a refusal with nothing in it.
+        /// anything: a chunk that is not the last is accepted with silence, which a two-case result
+        /// would have to spell as a refusal with nothing in it.
         enum State {
             case more(PendingWrite, Data)
             case ready(PendingWrite, Data)
@@ -686,9 +637,8 @@ final class TerminalSessionManager: @unchecked Sendable {
             guard let pending = writes[key] else {
                 return .refused("That file is no longer being written. Choose it again.")
             }
-            // A client that sends more than it said it would is not a client to keep guessing
-            // about: the declared size is the only thing that says when a file is whole, and a
-            // transfer that has stopped agreeing with it has no correct end.
+            // The declared size is the only thing that says when a file is whole, so a transfer
+            // that has stopped agreeing with it has no correct end.
             guard pending.received + data.count <= pending.expected else {
                 writes.removeValue(forKey: key)
                 return .refused("That transfer sent more than it said it would.")
@@ -705,20 +655,18 @@ final class TerminalSessionManager: @unchecked Sendable {
 
         switch state {
         case .more(let pending, let piece):
-            // **The accounting happens here and the bytes go to disk on their own queue.** The
-            // order between the two is what makes this safe: the pieces are enqueued in the order
-            // they arrived, on one serial queue, so whether the handle is opened by the first of
-            // them or by the twentieth, the file they build is the same file.
+            // The accounting happens here; the bytes go to disk on their own queue. The pieces are
+            // enqueued in the order they arrived on one serial queue, so the file they build is the
+            // same whether the handle is opened by the first piece or the twentieth.
             //
-            // Nothing is said back, and saying nothing is the point: this is one of a few thousand
-            // messages, and an acknowledgement each would double the traffic to report progress
-            // that nothing on screen is showing.
+            // Nothing is said back: this is one of a few thousand messages, and an acknowledgement
+            // each would double the traffic to report progress nothing on screen is showing.
             Self.writeIO.async { Self.append(piece, to: pending) }
 
         case .refused(let message):
-            // Whatever was already appended is thrown away, and the destination was never touched.
-            // A refusal from here can arrive after several thousand pieces have gone to disk, which
-            // is exactly why the scratch file exists rather than the destination being written.
+            // Whatever was already appended is thrown away and the destination was never touched. A
+            // refusal can arrive after several thousand pieces have gone to disk, which is why the
+            // scratch file exists rather than the destination being written.
             if let abandoned = lock.withLock({ writes[key] }) {
                 _ = lock.withLock { writes.removeValue(forKey: key) }
                 Self.writeIO.async { abandoned.discard() }
@@ -731,10 +679,9 @@ final class TerminalSessionManager: @unchecked Sendable {
             Self.writeIO.async {
                 Self.append(piece, to: pending)
                 Self.finish(pending) { outcome in
-                    // Answered with the path as it arrived rather than with the standardised one
-                    // that was written to. They are the same file, and they are not always the same
-                    // string: the client is holding the one it sent, and an answer it cannot match
-                    // to it is an answer that leaves an editor spinning.
+                    // Answered with the path as it arrived, not the standardised one written to:
+                    // same file, not always the same string, and the client is holding the one it
+                    // sent. An answer it cannot match leaves an editor spinning.
                     switch outcome {
                     case .written(let totalBytes):
                         sink(.wroteFile(sessionID: id, path: path, totalBytes: totalBytes))
@@ -748,9 +695,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// Appends one piece to a transfer's scratch file, opening the file on the first piece.
     ///
-    /// **Runs on ``writeIO`` and nowhere else**, so the lazy open needs no lock and no ordering
-    /// care: the pieces are enqueued in the order they arrived, so the first call is the first
-    /// piece, whether the client sent one byte or two gigabytes.
+    /// Runs on ``writeIO`` and nowhere else, so the lazy open needs no lock and no ordering care:
+    /// the pieces are enqueued in the order they arrived, so the first call is the first piece.
     ///
     /// A failure is recorded rather than reported. See ``PendingWrite/failure``.
     private static func append(_ piece: Data, to pending: PendingWrite) {
@@ -758,9 +704,9 @@ final class TerminalSessionManager: @unchecked Sendable {
 
         if pending.handle == nil {
             do {
-                // An empty write rather than `createFile`, because this form answers with *why* it
-                // could not: a folder that is somebody else's, a volume with no room, and a
-                // directory that has been deleted all look the same from a `Bool`.
+                // An empty write rather than `createFile`, because this form answers with why it
+                // could not: somebody else's folder, a full volume and a deleted directory all look
+                // the same from a `Bool`.
                 try Data().write(to: pending.staging)
                 pending.handle = try FileHandle(forWritingTo: pending.staging)
             } catch {
@@ -790,20 +736,20 @@ final class TerminalSessionManager: @unchecked Sendable {
         try? pending.handle?.close()
         pending.handle = nil
         // The move itself lives in ``FileReplacement``, with tests, because it is a rule that is
-        // wrong silently: a replacement that has quietly become a copy across volumes works
-        // perfectly until the moment it does not.
+        // wrong silently: a replacement that has quietly become a copy across volumes works until
+        // the moment it does not.
         report(FileReplacement.commit(staging: pending.staging, to: pending.target))
     }
 
     /// A preview, in pieces.
     ///
-    /// A chunk boundary can fall inside a UTF-8 character — the cut is by bytes and the text is
-    /// not — so the client joins the pieces before decoding them. The last piece says it is the
-    /// last, and `totalBytes` is what tells a whole file from the beginning of one.
+    /// The cut is by bytes and the text is not, so a boundary can fall inside a UTF-8 character and
+    /// the client joins the pieces before decoding them. The last piece says it is the last, and
+    /// `totalBytes` tells a whole file from the beginning of one.
     ///
-    /// Every piece carries the kind, the same value each time, because the client's answer to
-    /// "what am I holding" has to be there before the first piece is drawn and there is no piece
-    /// marked as the one it should be read from.
+    /// Every piece carries the kind, the same value each time, because the client has to know what
+    /// it is holding before the first piece is drawn and no piece is marked as the one to read it
+    /// from.
     private static func send(
         _ data: Data,
         kind: RemoteFileKind,
@@ -841,9 +787,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
     }
 
-    /// No size among them: `URLResourceValues` has no key for the mode bits, so the two come from
-    /// one `attributesOfItem` instead — and it is the call that has to be used anyway, because
-    /// `fileSize` answers nothing at all for a folder, which is a row that now has a size.
+    /// No size among them: `URLResourceValues` has no key for the mode bits, so both come from one
+    /// `attributesOfItem` instead, which is the call that has to be used anyway because `fileSize`
+    /// answers nothing for a folder.
     private static let entryKeys: Set<URLResourceKey> = [
         .isDirectoryKey, .isSymbolicLinkKey, .contentModificationDateKey,
     ]
@@ -854,27 +800,26 @@ final class TerminalSessionManager: @unchecked Sendable {
             urls = try FileManager.default.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: Array(entryKeys),
-                // Hidden entries are listed rather than skipped. Which of them to show is the
-                // phone's decision, and a filter here would be a second answer to a question the
-                // client already answers — including for the SSH browser this will serve next,
-                // which has its own idea of what "hidden" means.
+                // Hidden entries are listed rather than skipped: which to show is the phone's
+                // decision, and a filter here would be a second answer to a question the client
+                // already answers. The SSH browser this will serve next has its own idea of
+                // "hidden".
                 options: []
             )
         } catch {
             return .failure(browseMessage(for: error))
         }
 
-        // Entered as it will be read: folders first, then by name. Sorted here rather than on the
-        // phone so every client shows the same order without having to agree on how two names
-        // compare, and compared the way the Finder compares them, so `file 10` follows `file 9`
-        // rather than `file 1`.
+        // Folders first, then by name, and sorted here rather than on the phone so every client
+        // shows the same order. `localizedStandardCompare` is how the Finder compares, so `file 10`
+        // follows `file 9` rather than `file 1`.
         let entries = urls.compactMap(entry(for:)).sorted {
             $0.isDirectory == $1.isDirectory
                 ? $0.name.localizedStandardCompare($1.name) == .orderedAscending
                 : $0.isDirectory
         }
-        // Cut after the sort, so what arrives is the beginning of a real order rather than
-        // whatever order the filesystem happened to hand over.
+        // Cut after the sort, so what arrives is the beginning of a real order rather than whatever
+        // order the filesystem handed over.
         return .entries(
             Array(entries.prefix(Self.maximumDirectoryEntries)),
             truncated: entries.count > Self.maximumDirectoryEntries
@@ -883,8 +828,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// One row, or nothing for an entry that could not be described.
     ///
-    /// Dropped rather than fatal: a file deleted between the listing and the look is a row missing
-    /// from a folder, not a folder that failed to open.
+    /// Dropped rather than fatal: a file deleted between the listing and the look is a missing row,
+    /// not a folder that failed to open.
     private static func entry(for url: URL) -> RemoteDirectoryEntry? {
         guard let values = try? url.resourceValues(forKeys: entryKeys) else { return nil }
 
@@ -892,17 +837,16 @@ final class TerminalSessionManager: @unchecked Sendable {
         var isDirectory = values.isDirectory ?? false
         if isSymlink {
             // A link reports its own type rather than its target's, and a link to a folder is a
-            // folder as far as a tap on the row is concerned. `fileExists` follows the link, which
-            // is exactly the question being asked there, and only links pay for the second look.
+            // folder as far as a tap on the row goes. `fileExists` follows the link, which is the
+            // question here, and only links pay for the second look.
             var pointsAtDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: url.path, isDirectory: &pointsAtDirectory) {
                 isDirectory = pointsAtDirectory.boolValue
             }
         }
 
-        // One look for the mode bits *and* the size, which is the pair `ls -l` prints a row of.
-        // A folder included: the number beside one there is the bytes its own entry takes, and
-        // that is what this browser is the picture of.
+        // One look for the mode bits and the size, the pair `ls -l` prints a row of. A folder
+        // included: the number beside one is the bytes its own entry takes.
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
 
         return RemoteDirectoryEntry(
@@ -917,9 +861,8 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// The mode bits in the form `ls -l` prints them, type character and all.
     ///
-    /// The one field here with no resource-value key of its own, so it comes from the call that
-    /// has answered this question since before `URL` did — the same call ``entry(for:)`` takes
-    /// the size from, which is why the attributes arrive rather than a path.
+    /// The one field here with no resource-value key of its own, so it comes from the same call
+    /// ``entry(for:)`` takes the size from, which is why the attributes arrive rather than a path.
     private static func modeString(
         from attributes: [FileAttributeKey: Any]?,
         isDirectory: Bool,
@@ -936,9 +879,8 @@ final class TerminalSessionManager: @unchecked Sendable {
         ] {
             bits += mode & mask != 0 ? letter : "-"
         }
-        // The three that sit on top of an execute bit and are printed in its place: `s` where the
-        // execute bit is set too and `S` where it is not, and the same idea with `t` and `T` for
-        // the sticky bit.
+        // The three that sit on top of an execute bit and print in its place: `s` where it is set
+        // too and `S` where it is not, likewise `t` and `T` for the sticky bit.
         var characters = Array(bits)
         if mode & 0o4000 != 0 { characters[2] = mode & 0o100 != 0 ? "s" : "S" }
         if mode & 0o2000 != 0 { characters[5] = mode & 0o010 != 0 ? "s" : "S" }
@@ -948,10 +890,9 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// A file's contents, bounded: its text if it is text, and its bytes if it is a picture.
     ///
-    /// Four answers, and the refusals are each a thing the user would otherwise meet as a broken
-    /// screen: something that is not a file, something that cannot be read, something that is
-    /// neither text nor a picture this can show, and something too long to show whole — the last
-    /// of which is a beginning rather than a refusal.
+    /// Each refusal is a thing the user would otherwise meet as a broken screen: not a file, not
+    /// readable, neither text nor a picture this can show, and too long to show whole (which is a
+    /// beginning rather than a refusal).
     private static func contents(of url: URL) -> PreviewOutcome {
         // Through `stat` rather than a resource value, so the answer follows a symbolic link: a
         // link to a text file is a text file to anyone looking at it.
@@ -980,12 +921,11 @@ final class TerminalSessionManager: @unchecked Sendable {
         var data = Data()
         var kind = RemoteFileKind.text
         do {
-            // A read is allowed to return less than it was asked for, so it is asked again until
-            // the cap or the end of the file. For a regular file it never does, and the loop costs
-            // one comparison.
+            // A read may return less than it was asked for, so it is asked again until the cap or
+            // the end of the file.
             //
-            // In two passes, because the first one decides the size of the second: what the head
-            // of the file turns out to be is what says how much of the rest is worth carrying.
+            // Two passes, because the first decides the size of the second: what the head of the
+            // file turns out to be is what says how much of the rest is worth carrying.
             let probe = min(totalBytes, Self.binaryProbeBytes)
             while data.count < probe {
                 guard let piece = try handle.read(upToCount: probe - data.count),
@@ -1013,14 +953,14 @@ final class TerminalSessionManager: @unchecked Sendable {
             return .failure(browseMessage(for: error))
         }
 
-        // `isDrawn` set the cap above; this is a different question with a different answer. A
-        // raster image is bytes, and goes exactly as it was read. Text and SVG are both text on
-        // the wire, and text has one more thing to answer before it can be sent.
+        // `isDrawn` set the cap above; this is a different question. A raster image is bytes and
+        // goes exactly as it was read; text and SVG are text on the wire, which has one more thing
+        // to answer before it can be sent.
         if kind == .image { return .contents(data, kind: kind, totalBytes: totalBytes) }
 
         // It has to decode. Up to three bytes come off the end first, for the case where the read
-        // stopped at the cap rather than at the end of the file and the cut landed inside a
-        // character: calling a text file binary because it was long is exactly the wrong answer.
+        // stopped at the cap rather than the end of the file and the cut landed inside a character:
+        // calling a text file binary because it was long is the wrong answer.
         var text = data
         var dropped = 0
         while dropped < 3, String(data: text, encoding: .utf8) == nil, !text.isEmpty {
@@ -1035,11 +975,9 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// What to tell the phone when the filesystem says no.
     ///
-    /// The permission case is the one worth spelling out: it is the only failure here the user can
-    /// do anything about, and the only one where the Mac has already asked them a question the
-    /// phone never saw. macOS answers "operation not permitted" both when the prompt was declined
-    /// and when it has not been shown yet, so the sentence names the setting rather than guessing
-    /// which of the two it was.
+    /// macOS answers EPERM both when the consent prompt was declined and when it has not been shown
+    /// yet, so the permission sentence names the setting rather than guessing which of the two it
+    /// was. It is the only failure here the user can do anything about.
     private static func message(forErrno code: Int32) -> String {
         switch code {
         case EPERM, EACCES:
@@ -1068,21 +1006,18 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// What to tell the phone when a change to the tree says no.
     ///
-    /// A third vocabulary beside ``browseMessage(for:)`` and ``FileReplacement.message(for:)``, and the split
-    /// is the same one those two already make: each names the failures its own kind of operation
-    /// actually produces. What is new here is the name. Reading a file cannot fail because
-    /// something is already called that, and writing one replaces rather than creates — so
-    /// "already there" is a sentence only this path needs, and it is the sentence a user meets
-    /// most often, because it is what happens when they rename something to a name already in
-    /// the folder.
+    /// A third vocabulary beside ``browseMessage(for:)`` and ``FileReplacement.message(for:)``, each
+    /// naming the failures its own kind of operation produces. "Already there" is a sentence only
+    /// this path needs, since reading cannot fail that way and writing replaces rather than creates,
+    /// and it is the one a user meets most often: renaming to a name already in the folder.
     private static func changeMessage(for error: any Error) -> String {
         let error = error as NSError
         if error.domain == NSCocoaErrorDomain {
             switch error.code {
             case NSFileWriteFileExistsError:
                 return "Something with that name is already there."
-            // A file or folder that was removed, or that somebody renamed, between the listing
-            // going out and this arriving. The row the user tapped was real when they tapped it.
+            // Removed or renamed between the listing going out and this arriving: the row the user
+            // tapped was real when they tapped it.
             case NSFileNoSuchFileError:
                 return "That is no longer there."
             case NSFileWriteNoPermissionError, NSFileReadNoPermissionError:
@@ -1111,27 +1046,21 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// One change to a folder, on a queue that is not the one carrying keystrokes.
     ///
-    /// Dispatched for the reason ``list(id:requested:sink:)`` is: this is disk work on a path that
-    /// may be a network volume — and a recursive delete on one takes as long as it takes — so it
-    /// happens off the connection's own queue, and the answer comes back through the sink the
-    /// shell's output already arrives on.
+    /// Dispatched for the reason ``list(id:requested:sink:)`` is: disk work on a path that may be a
+    /// network volume, where a recursive delete takes as long as it takes. The answer comes back
+    /// through the sink the shell's output already arrives on.
     ///
-    /// The path is standardised for the work and echoed back as it arrived, which is the split
-    /// ``write(id:path:data:isLast:ownerClientID:sink:)`` already makes. The two are the same
-    /// file; they are not always the same string, and the client is holding the string it sent.
+    /// The path is standardised for the work and echoed back as it arrived, the split
+    /// ``write(id:path:data:isLast:ownerClientID:sink:)`` already makes: same file, not always the
+    /// same string, and the client is holding the string it sent.
     private func change(id: UUID, operation: RemoteFileOperation, sink: @escaping Sink) {
-        // Named by what it is about, because everything below is either one of these or a
-        // sentence: the work is a function of a path and the answer is a path.
         let path: String
         switch operation {
         case .create(let target, _), .rename(let target, _), .delete(let target):
             path = target
         }
 
-        // Tested on the string that arrived, like every other browse request — see
-        // ``list(id:requested:sink:)``. A relative path would resolve against this process's
-        // working directory rather than the shell's, which is the directory the user believes
-        // they are looking at.
+        // Tested on the string that arrived, for the reason given in ``list(id:requested:sink:)``.
         guard path.hasPrefix("/") else {
             sink(.fileOperationFailure(
                 sessionID: id,
@@ -1160,12 +1089,11 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// Does the work, and says what to put in the log.
     ///
     /// The note is written here rather than on the phone because this is the side that watched it
-    /// happen: it is the side that counted what a folder held before it went, and the side that
-    /// knows whether "delete" meant the Trash or was refused.
+    /// happen: it counted what a folder held before it went, and knows whether "delete" meant the
+    /// Trash or was refused.
     private static func perform(_ operation: RemoteFileOperation, at url: URL) -> ChangeOutcome {
-        // Qualified, because `create` and `rename` are also the names of two instance methods
-        // that act on a terminal rather than on a file. The two are different things that happen
-        // to share a word, and the compiler can tell them apart — this is for the reader.
+        // Qualified, because `create` and `rename` are also the names of two instance methods that
+        // act on a terminal rather than on a file.
         switch operation {
         case .create(_, let kind):
             return Self.create(at: url, kind: kind)
@@ -1178,19 +1106,18 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// An empty file, or a folder.
     ///
-    /// **One new name and nothing above it, for both kinds.** The browser only ever asks for a
-    /// single thing in the folder it is showing — the phone's rule refuses a slash before it is
-    /// sent — so a path with two new components in it is either a bug or a client that has been
-    /// got at, and the answer to both is to refuse rather than to build a tree somebody did not
-    /// ask for. `withIntermediateDirectories: false` is the same decision made again by the
-    /// filesystem, so a race cannot slip past the check above it.
+    /// One new name and nothing above it, for both kinds: the browser only ever asks for a single
+    /// thing in the folder it is showing, so a path with two new components is either a bug or a
+    /// client that has been got at, and the answer to both is to refuse rather than build a tree
+    /// nobody asked for. `withIntermediateDirectories: false` is the filesystem making the same
+    /// decision again, so a race cannot slip past the check.
     private static func create(at url: URL, kind: RemoteEntryKind) -> ChangeOutcome {
         let name = url.lastPathComponent
         guard RemoteFileName.isValid(name) else {
             return .failure("That is not a name a file can have.")
         }
         // Tested before either creation path, so "there is nowhere to put it" is one sentence
-        // instead of a `createDirectory` failure the account may not be at fault for.
+        // rather than a `createDirectory` failure this account may not be at fault for.
         guard FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path) else {
             return .failure("That folder is no longer there.")
         }
@@ -1208,16 +1135,12 @@ final class TerminalSessionManager: @unchecked Sendable {
             return .done("created folder \(name)")
 
         case .file:
-            // `open` with `O_EXCL` rather than `createFile`, and the reason is the message rather
-            // than the mechanism. `createFile` answers a Bool that is "no" for a file that is
-            // already there, a folder that is not, and one this account may not write into — so
-            // the code would have to guess which sentence to show, and the obvious guess is the
-            // one that tells the user about permissions when the real answer is that the name is
-            // taken. `EEXIST` is that answer, stated outright.
-            //
-            // Exclusive also closes the race: two clients creating the same name at the same
-            // moment have one winner and one honest refusal, rather than one silently replacing
-            // the other's empty file.
+            // `open` with `O_EXCL` rather than `createFile`, for the message rather than the
+            // mechanism: `createFile` answers a Bool that is "no" for a name already taken, a
+            // folder that is not there, and one this account may not write into, so the code would
+            // have to guess which sentence to show, and the obvious guess blames permissions when
+            // the name is taken. Exclusive also closes the race: two clients creating the same name
+            // have one winner and one honest refusal.
             let descriptor = Darwin.open(url.path, O_CREAT | O_EXCL | O_WRONLY, 0o644)
             guard descriptor >= 0 else {
                 return .failure(changeMessage(for: NSError(
@@ -1225,8 +1148,7 @@ final class TerminalSessionManager: @unchecked Sendable {
                     code: Int(errno)
                 )))
             }
-            // Qualified for the same reason as the two above: this type has a `close` of its own
-            // that ends a terminal.
+            // Qualified like the two above: this type has a `close` of its own that ends a terminal.
             Darwin.close(descriptor)
             return .done("created file \(name)")
         }
@@ -1235,12 +1157,12 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// A new name for something already in a folder.
     ///
     /// The name arrives rather than the path it becomes, so this is not a move: the new path is
-    /// built by replacing the last component of the old one, and there is no way to express
-    /// "somewhere else entirely". `moveItem` refuses a destination that already exists, so nothing
-    /// is ever clobbered by a rename — the user is told the name is taken and keeps both files.
+    /// built from the old one's last component and there is no way to express "somewhere else
+    /// entirely". `moveItem` refuses an existing destination, so nothing is ever clobbered: the
+    /// user is told the name is taken and keeps both files.
     private static func rename(at url: URL, to name: String) -> ChangeOutcome {
-        // The second of the two checks on a name — the phone makes the first — and the one that
-        // matters, since this end cannot see the keyboard the name was typed on.
+        // The second of the two checks on a name, and the one that matters, since this end cannot
+        // see the keyboard the name was typed on.
         guard RemoteFileName.isValid(name) else {
             return .failure("That is not a name a file can have.")
         }
@@ -1259,42 +1181,31 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// A file, or a folder and everything in it.
     ///
-    /// **To the Trash rather than to nothing.** This app runs on somebody's own Mac, where the
-    /// difference between a mistaken delete and a lost one is the whole of whether they trust the
-    /// button. `trashItem` moves a tree of any size in one move and hands back where it went, so
-    /// the file is in the Finder afterwards and can be put back — which is what makes a recursive
-    /// delete safe enough to offer from a phone at all. It is also why nothing here asks a second
-    /// time: the phone's confirmation already said what would happen, and a Mac that asked again
-    /// would be asking a question nobody is sitting in front of.
+    /// To the Trash rather than to nothing: `trashItem` moves a tree of any size in one move, so
+    /// the file is in the Finder afterwards and can be put back, which is what makes a recursive
+    /// delete safe enough to offer from a phone. Nothing asks a second time, because the phone's
+    /// confirmation already said what would happen and nobody is sitting in front of the Mac.
     ///
-    /// **Nothing is ever followed.** A symbolic link is a file that points somewhere, and the two
-    /// ends of it are different things to delete: removing the link is what a row showing a link
-    /// means, and removing its target is somebody's folder going because they deleted a shortcut.
-    /// **That `trashItem` unlinks a link rather than descending through it was verified rather
-    /// than assumed**, because it is the one assumption here that could lose data quietly: a
-    /// shortcut to a folder was trashed and the folder, its subfolder and the file inside it were
-    /// all still in place afterwards, with the link itself the only thing that went.
+    /// Nothing is ever followed. Removing the link is what a row showing a link means; removing its
+    /// target is somebody's folder going because they deleted a shortcut. That `trashItem` unlinks
+    /// a link rather than descending through it was verified, not assumed, since it is the one
+    /// assumption here that could lose data quietly.
     private static func delete(at url: URL) -> ChangeOutcome {
         let name = url.lastPathComponent
-        // Guard rails against a bug rather than against a user: the browser draws a row per entry
-        // and the row that would name the folder you are standing in does not exist, so nothing in
-        // the app can ask for these. A client that has been got at can.
+        // Guard rails against a bug rather than a user: no row in the browser can name the folder
+        // you are standing in. A client that has been got at can.
         //
-        // Tested against the home folder by **containment and not equality**, which is the whole
-        // of why this is a function in `RemoteCore` rather than a comparison here: equality
-        // against `/` and the home folder alone leaves `/Users` — every account on the machine —
-        // as a legal thing to delete. `pathContains` also covers `/` for free, since the root
-        // contains everything.
+        // Tested by containment and not equality, which is why this is a function in `RemoteCore`:
+        // equality against `/` and the home folder alone leaves `/Users`, every account on the
+        // machine, as a legal thing to delete.
         guard !pathContains(url.path, FileManager.default.homeDirectoryForCurrentUser.path) else {
             return .failure("That is too much of this Mac to delete.")
         }
 
         let values = try? url.resourceValues(forKeys: [.isSymbolicLinkKey, .isDirectoryKey])
         let isFolder = values?.isDirectory == true
-        // Counted before the move, because afterwards there is nothing left to walk. One pass over
-        // the tree, which for a folder of a few files is free and for a folder of a hundred
-        // thousand is the price of saying an honest number — and the answer is only ever used for
-        // that sentence.
+        // Counted before the move, because afterwards there is nothing left to walk, and the answer
+        // is only ever used for the sentence.
         let contents = isFolder && values?.isSymbolicLink != true
             ? (Self.countInside(url) ?? 1)
             : 1
@@ -1310,27 +1221,26 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
     }
 
-    /// How many entries are inside a folder, itself included — or nothing if it cannot be walked.
+    /// How many entries are inside a folder, itself included, or nothing if it cannot be walked.
     ///
     /// A count rather than a list: nothing wants the names, and holding a hundred thousand of them
-    /// to produce one number would be the memory this app spends on somebody's terminal instead.
-    /// `nil` means the tree could not be read, and is answered as a folder holding one thing,
-    /// which makes the sentence say what it always says rather than inventing a figure.
+    /// to produce one number would be memory this app spends on somebody's terminal instead. `nil`
+    /// is answered as a folder holding one thing, so the sentence says what it always says rather
+    /// than inventing a figure.
     private static func countInside(_ url: URL) -> Int? {
         guard let walk = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: nil,
-            // The default, spelled out: a link is listed rather than entered, which is the same
-            // rule the delete itself follows and the reason the two agree on the count.
+            // The default, spelled out: a link is listed rather than entered, the same rule the
+            // delete follows, which is why the two agree on the count.
             options: [],
-            // A folder inside that cannot be read stops that branch and leaves the walk going,
-            // rather than failing the whole count and taking the honest number down with it.
+            // An unreadable folder stops that branch and leaves the walk going, rather than failing
+            // the whole count and taking the honest number down with it.
             errorHandler: { _, _ in true }
         ) else { return nil }
 
-        // From one, because the folder itself is going too. Every step of the walk is one more
-        // thing: a subfolder is counted here and so are its contents, and a link is one thing
-        // whatever it points at.
+        // From one, because the folder itself is going too. A subfolder is counted here and so are
+        // its contents, and a link is one thing whatever it points at.
         var count = 1
         while walk.nextObject() != nil { count += 1 }
         return count
@@ -1338,12 +1248,12 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// Puts a new name on a terminal, if it will take one.
     ///
-    /// Two kinds of name, and the difference between them is the whole of the naming rule. One
-    /// the user typed, which sticks and is never replaced. And one the terminal earns by being
-    /// used — the last command run in it — which holds only until the user names it by hand.
+    /// Two kinds of name, and the difference is the naming rule: one the user typed, which sticks
+    /// and is never replaced, and one the terminal earns by being used (the last command run in it)
+    /// which holds only until the user names it by hand.
     ///
-    /// Clearing the name is the way back. An empty field says "stop calling it that", and the
-    /// terminal goes back to the last thing that ran there, or to a number if nothing has.
+    /// Clearing the name is the way back: an empty field goes to the last thing that ran there, or
+    /// to a number if nothing has.
     private func rename(id: UUID, ownerClientID: String, to requested: String, isManual: Bool) {
         let updated: TerminalSessionInfo? = lock.withLock {
             guard let session = sessions[id], session.ownerClientID == ownerClientID else { return nil }
@@ -1351,8 +1261,8 @@ final class TerminalSessionManager: @unchecked Sendable {
             if isManual {
                 session.manualName = name.isEmpty ? nil : name
             } else {
-                // Remembered even while a hand-typed name is in force, so clearing that name
-                // has something to fall back to.
+                // Remembered even while a hand-typed name is in force, so clearing that name has
+                // something to fall back to.
                 guard !name.isEmpty else { return nil }
                 session.lastCommand = name
             }
@@ -1370,9 +1280,9 @@ final class TerminalSessionManager: @unchecked Sendable {
 
     /// The lowest "Terminal N" that no live terminal is using.
     ///
-    /// Counted rather than taken from the count: close the second of three and open another,
-    /// and counting hands out a second Terminal 2. That used to be a harmless collision and is
-    /// not one now that the strip of tabs is the list of terminals.
+    /// Counted rather than taken from the count: close the second of three and open another, and
+    /// counting hands out a second Terminal 2, which is a visible collision now that the strip of
+    /// tabs is the list of terminals.
     private func unusedTerminalName(excluding excluded: Session? = nil) -> String {
         let taken = Set(sessions.values.filter { $0 !== excluded }.map(\.name))
         var number = 1

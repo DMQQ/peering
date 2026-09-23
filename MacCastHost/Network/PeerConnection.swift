@@ -5,10 +5,9 @@ import Security
 
 /// One framed connection to a peer.
 ///
-/// Owns the receive loop and the ``FrameDecoder``. Everything above this layer deals in
-/// whole ``Frame`` values and never sees a partial read, which is the point: TCP delivers
-/// an arbitrary byte window, so frames arrive split, fused, or several at a time and the
-/// framing layer is the only place that has to care.
+/// Owns the receive loop and the ``FrameDecoder``. TCP delivers an arbitrary byte window, so
+/// frames arrive split, fused or several at a time; everything above deals in whole ``Frame``
+/// values and never sees a partial read.
 final class PeerConnection: @unchecked Sendable {
     let connection: NWConnection
 
@@ -70,8 +69,8 @@ final class PeerConnection: @unchecked Sendable {
                 do {
                     frames = try appendAndDrain(data)
                 } catch {
-                    // A framing error leaves the byte stream unusable: we no longer know
-                    // where the next frame begins, so there is no way to resynchronise.
+                    // A framing error leaves the byte stream unusable: the next frame boundary
+                    // is unknown, so there is no way to resynchronise.
                     finish(error)
                     connection.cancel()
                     return
@@ -86,8 +85,8 @@ final class PeerConnection: @unchecked Sendable {
             }
             if isComplete {
                 // A clean EOF ends the receive half, but this object owns the whole network
-                // resource. Cancel explicitly so Network.framework does not retain the send half
-                // and its protocol stack after observers have already been told it is closed.
+                // resource: cancel explicitly, or Network.framework retains the send half and
+                // its protocol stack after observers have been told it is closed.
                 finish(nil)
                 connection.cancel()
                 return
@@ -116,9 +115,8 @@ final class PeerConnection: @unchecked Sendable {
 
     /// The peer's leaf-certificate public key, or `nil` before the handshake completes.
     ///
-    /// This is the value the host pins. It comes from the TLS layer rather than from the
-    /// handshake messages on purpose — a peer that could simply *claim* a public key would
-    /// make pinning meaningless.
+    /// This is the value the host pins. It comes from the TLS layer rather than the handshake
+    /// messages on purpose: a peer that could claim a public key would make pinning meaningless.
     var peerPublicKey: Data? {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
@@ -132,7 +130,7 @@ final class PeerConnection: @unchecked Sendable {
     }
 
     /// Negotiated TLS version, for the diagnostics panel. "TLS 1.3" is the expected value;
-    /// anything else means the version pinning did not take effect.
+    /// anything else means version pinning did not take effect.
     var negotiatedTLSVersion: String {
         guard let metadata = connection.metadata(definition: NWProtocolTLS.definition)
                 as? NWProtocolTLS.Metadata
@@ -151,9 +149,8 @@ final class PeerConnection: @unchecked Sendable {
 
 /// Accumulates certificates from `sec_protocol_metadata_access_peer_certificate_chain`.
 ///
-/// That API hands each certificate to a block, and the block may be `@Sendable`, so a
-/// plain captured `var` is not safe to write from it. A lock-protected box keeps the
-/// accumulator honest regardless of how the SDK imports the callback.
+/// That API hands each certificate to a block which may be `@Sendable`, so a plain captured
+/// `var` is not safe to write from it; the lock keeps this honest however the SDK imports it.
 private final class CertificateCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var certificates: [SecCertificate] = []
