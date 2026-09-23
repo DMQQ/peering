@@ -43,6 +43,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         var framesDropped = 0
         var awaitingKeyframe = true
         var lastError: String?
+        /// Bumped by every config.
+        var configGeneration = 0
+        /// The config whose picture is on the layer. Equal to ``configGeneration`` once a frame of
+        /// the stream that config described has been enqueued, and behind it until then.
+        var displayedGeneration = 0
     }
 
     private let queue = DispatchQueue(label: "pl.dmq.peering.video", qos: .userInteractive)
@@ -58,6 +63,21 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var debugTimingOrigin: (arrival: TimeInterval, pts: Double)?
     private var debugTimingFrameCount = 0
     private var debugFlickerAwaitingFirstFrame = false
+
+    /// Called on the main actor when the first frame of the config that was last applied reaches
+    /// the display layer.
+    ///
+    /// **The one moment that says the picture has actually changed.** A config arrives a frame or
+    /// two before its own picture does (the host has to encode a keyframe and it has to cross the
+    /// network), and until that frame lands the layer is still showing the stream this one
+    /// replaced. Anything drawn from the config rather than from this is drawn for a picture
+    /// nobody can see yet. See ``RemoteScreen/pendingArrival``.
+    private var _onFirstFrame: (@MainActor @Sendable () -> Void)?
+
+    var onFirstFrame: (@MainActor @Sendable () -> Void)? {
+        get { lock.withLock { _onFirstFrame } }
+        set { lock.withLock { _onFirstFrame = newValue } }
+    }
 
     // MARK: - Attachment
 
@@ -132,7 +152,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             flickerTrace("renderer configured \(config.pixelWidth)x\(config.pixelHeight); flushed queue and kept displayed image")
 
             self.lock.withLock {
+                // The generation survives the reset: it is a count of configs, and the frame that
+                // is about to arrive belongs to this one. See ``Snapshot/displayedGeneration``.
+                let generation = self.snapshot.configGeneration + 1
                 self.snapshot = Snapshot()
+                self.snapshot.configGeneration = generation
                 self.snapshot.hasConfig = true
                 self.snapshot.pixelWidth = config.pixelWidth
                 self.snapshot.pixelHeight = config.pixelHeight
@@ -213,7 +237,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         }
 
         renderer.enqueue(sample)
-        if debugFlickerAwaitingFirstFrame {
+        let firstOfConfig = debugFlickerAwaitingFirstFrame
+        if firstOfConfig {
             debugFlickerAwaitingFirstFrame = false
             flickerTrace("renderer enqueued first frame after config keyframe=\(frame.isKeyframe) size=\(frame.pixelWidth)x\(frame.pixelHeight)")
         }
@@ -221,6 +246,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.snapshot.framesEnqueued += 1
             self.snapshot.bytesEnqueued += Int64(frame.data.count)
             self.snapshot.awaitingKeyframe = false
+            if firstOfConfig { self.snapshot.displayedGeneration = self.snapshot.configGeneration }
+        }
+        if firstOfConfig {
+            let landed = lock.withLock { _onFirstFrame }
+            Task { @MainActor in landed?() }
         }
     }
 

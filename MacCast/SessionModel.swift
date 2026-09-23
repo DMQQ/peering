@@ -637,6 +637,31 @@ final class SessionModel {
             identityFailure = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             modelLog.error("could not load the client identity: \(String(describing: error), privacy: .public)")
         }
+
+        // The renderer is the model's, and the session on screen is the one whose frames it is
+        // showing. See ``VideoRenderer/onFirstFrame`` and ``RemoteScreen/pendingArrival``.
+        renderer.onFirstFrame = { [weak self] in
+            self?.frameArrived += 1
+        }
+    }
+
+    /// Bumped each time a frame of the stream the session just configured reaches the display
+    /// layer, which is the moment the picture on screen is the picture the app describes.
+    var frameArrived = 0
+
+    /// Whether the layer is holding a picture of a stream of this size.
+    ///
+    /// The notification above says a frame landed; this says *which* stream it was, which cannot
+    /// be inferred from the order the frame and the config reach the main actor: a frame can beat
+    /// the config that announced it, and the config can beat its own frame. Comparing the size is
+    /// what tells the picture now on the layer from the one being replaced. See
+    /// ``RemoteScreen/settleArrival(force:)``.
+    func hasPictureOnScreen(of size: CGSize) -> Bool {
+        let snapshot = renderer.currentSnapshot
+        return snapshot.configGeneration > 0
+            && snapshot.displayedGeneration == snapshot.configGeneration
+            && snapshot.pixelWidth == Int(size.width)
+            && snapshot.pixelHeight == Int(size.height)
     }
 
     // MARK: - Push token

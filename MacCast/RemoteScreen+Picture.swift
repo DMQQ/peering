@@ -266,8 +266,12 @@ extension RemoteScreen {
     /// Nothing to move when the window on screen is not one of the arrangement's tiles — a source
     /// chosen after the mosaic was left, which is a session with no arrangement to go back to and
     /// no back control drawn on it. See ``MacSession/canReturnToMosaic``.
-    func mosaicReturnTransform() -> (zoom: CGFloat, pan: CGSize)? {
-        guard let sourceID = model.activeSourceID, let layout = model.mosaicLayout else { return nil }
+    ///
+    /// The window is passed in rather than read from the model, because the ask is a source switch
+    /// and it writes the arrangement's own id to ``SessionModel/activeSourceID``. Read after that
+    /// the id matches no tile, and the movement is skipped.
+    func mosaicReturnTransform(sourceID: String) -> (zoom: CGFloat, pan: CGSize)? {
+        guard let layout = model.mosaicLayout else { return nil }
         return MosaicZoom.returning(
             layout: layout,
             sourceID: sourceID,
@@ -306,6 +310,14 @@ extension RemoteScreen {
         guard !isCarryingWindowOut else { return nil }
 
         if let arrived = model.pictureMosaicLayout {
+            // **And not before the picture they describe is on screen.** A config reaches the model
+            // a frame or two before its picture reaches the layer, and borders raised in that gap
+            // are six rectangles standing over the window they have just replaced.
+            //
+            // Asked of the layer rather than of ``pendingArrival``, which is a state the arrival
+            // handler sets and is therefore a beat behind: gated on that, the borders went up with
+            // the config, came down when the handler ran, and went up again with the frame.
+            guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
             return sameArrangement(asked, arrived) ? asked : arrived
         }
@@ -351,22 +363,51 @@ extension RemoteScreen {
         // what ``MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)`` guarantees — but they are
         // measured through different pictures, and reading the arrangement's geometry against the
         // window's stream is a hole of the wrong size for as long as the movement has left to run.
-        guard model.isShowingMosaic else {
+        //
+        // Which one to read is decided by what the movement has been solved for, not by what the
+        // Mac has just configured: switched on the model, the hole is measured through the window
+        // at the arrangement's zoom and the whole mosaic shows through where it used to be.
+        guard placedPictureID != nil, placedPictureID == model.picture?.sourceID else {
+            // The departing picture's own base, not `effectiveZoom`: a movement that finished
+            // before the stream arrived leaves `pictureGlide` nil, and `pictureBaseScale` then
+            // reads the arriving stream's size for a rectangle measured through the arrangement.
+            let departed = pictureScale.base(pixelSize: aim.departedSize, in: canvasSize) * zoom
             return CanvasGeometry.rect(
-                normalized: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                normalized: aim.departedAnchor,
                 bounds: canvasSize,
-                pixelSize: model.capturePixelSize,
-                zoom: effectiveZoom,
+                pixelSize: aim.departedSize,
+                zoom: departed,
                 pan: pan
             )
         }
         return CanvasGeometry.rect(
-            normalized: aim.departedAnchor,
+            normalized: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
             bounds: canvasSize,
-            pixelSize: aim.departedSize,
+            pixelSize: model.capturePixelSize,
             zoom: effectiveZoom,
             pan: pan
         )
+    }
+
+    /// The cover over the one frame in which the layer and the transform disagree.
+    ///
+    /// **The two cannot be committed together from here.** The video layer swaps its own contents
+    /// on the renderer's queue; the transform that scales them is written by the main thread in
+    /// `updateUIView`. So around every source switch there is a frame in which the arriving
+    /// picture is drawn at the departing picture's scale: the window at twice its size in the
+    /// middle of a zoom in, the canvas at half size in the middle of a zoom out.
+    ///
+    /// **Covering it is cheaper than it sounds.** The content changes at that instant whatever
+    /// happens, so what the cover hides is a change that is going on regardless; what it removes
+    /// is the size being briefly wrong, which is the part that reads as a blink. One frame, and
+    /// only while the arrival is unsettled: the render that follows clears it and carries the
+    /// transform the picture was waiting for. See ``RemoteScreen/settleArrival(force:)``.
+    var swapVeil: some View {
+        ZStack {
+            if let pending = pendingArrival, model.hasPictureOnScreen(of: pending.current.pixelSize) {
+                Color.black.ignoresSafeArea().allowsHitTesting(false)
+            }
+        }
     }
 
     /// Whether a window is being lifted out of an arrangement, and the rest of it has to be hidden.

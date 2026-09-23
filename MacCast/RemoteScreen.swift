@@ -143,6 +143,35 @@ struct RemoteScreen: View {
     /// ``PictureAim`` for why both directions of the movement have one.
     @State var pictureAim: PictureAim?
 
+    /// The picture `MosaicZoom.placing` has been solved for, or `nil` while the movement is still
+    /// showing the one it is leaving.
+    ///
+    /// A config arrives a frame or two before its first picture does, so the model describes the
+    /// incoming stream while the layer still holds the outgoing one. This is what tells those two
+    /// apart. See ``RemoteScreen/carriedWindow``.
+    @State var placedPictureID: String?
+
+    /// A picture the Mac has answered with that is not on the layer yet.
+    ///
+    /// A config arrives a frame or two before its own picture does. Everything the arrival writes
+    /// (the zoom, the pan, the base scale, which branch the movement's hole is measured from) is
+    /// expressed against the *arriving* picture, and writing it early draws the picture being
+    /// replaced at the arriving one's scale: the whole mosaic flashing back at its fit in the
+    /// middle of a zoom into a tile, and the tile flashing back to full size in the middle of a
+    /// zoom out. So the work waits for ``VideoRenderer/onFirstFrame``, which is the only thing
+    /// that knows the picture has actually changed. See ``settleArrival()``.
+    @State var pendingArrival: PendingArrival?
+
+    /// The wait that keeps a stream which never delivers its first frame from leaving the picture
+    /// at the departing calibration for good. See ``settleArrival()``.
+    @State var arrivalDeadline: Task<Void, Never>?
+
+    /// The two pictures an arrival is between. See ``pendingArrival``.
+    struct PendingArrival {
+        let previous: PictureIdentity
+        let current: PictureIdentity
+    }
+
     /// How far the veil over a turned arrangement has come up.
     ///
     /// **An arrangement that changes shape is a different picture**, and no amount of transforming
@@ -323,6 +352,7 @@ struct RemoteScreen: View {
                 // an arrangement, the rest of the picture is not there as far as this screen is
                 // concerned. See ``carryingScrim``.
                 carryingScrim
+                swapVeil
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
@@ -430,130 +460,22 @@ struct RemoteScreen: View {
                 // so nothing the user can drag would bring it back.
                 pan = clampedPan(pan)
             case .replaced:
-                // **A turn of the phone is a movement, not a cut.** An arrangement that arrives
-                // where another arrangement was is drawn where that one was and moves into its own
-                // shape, with its borders travelling with it; anything else — a window opened, a
-                // window behind a mosaic — is the reset every source switch has always had. See
-                // ``arrangementMorph(from:to:)``.
-                if let target = arrangementMorph(from: previous, to: current) {
-                    zoom = target.zoom
-                    pan = target.pan
-                    // Up in the frame the new canvas arrives — the same frame its first pixels do,
-                    // because the frame gate holds them until this update has been laid out — and
-                    // gone by the time the movement has landed.
-                    arrangementVeil = 1
-                    // A turn of the run loop between the two, because two writes to one value in
-                    // one update are one write: the veil would be animated to nothing from nothing
-                    // and there would be no dim at all.
-                    Task { @MainActor in
-                        withAnimation(Motion.settle) { arrangementVeil = 0 }
-                    }
+                // **Held until the picture the config describes is on the layer.** The work below
+                // is all expressed against the arriving picture, and the layer is still showing
+                // the one it replaced. See ``pendingArrival`` and ``settleArrival()``.
+                pendingArrival = PendingArrival(
+                    previous: pendingArrival?.previous ?? previous,
+                    current: current
+                )
+                arrivalDeadline?.cancel()
+                arrivalDeadline = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(1.5))
+                    guard !Task.isCancelled else { return }
+                    settleArrival(force: true)
                 }
-                // **The picture the movement was carrying is put where the movement has it**, and
-                // then the movement finishes on the new picture.
-                //
-                // This is the whole of what made the zoom look broken. The zoom on the view
-                // belongs to the picture being *left*: the movement that opens a tile ends with it
-                // at two or three times the fit, because that is what draws the tapped window at
-                // the size it will have inside the *canvas*. Read against the window's own stream,
-                // the same number draws that window at two or three times too big, so a switch
-                // that kept the number showed the window huge and then shrank it back to the fit.
-                // Correcting it by gliding — which is what this did — is that shrink, animated:
-                // "it zooms in, and then out to fit the window on screen".
-                //
-                // So the state is not kept and not corrected: it is *solved*, for the rectangle
-                // the movement already has the window in. See
-                // ``MacCastKit/MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)``. The picture
-                // changes and nothing on screen moves, whatever the timing — which matters,
-                // because the Mac usually builds the stream faster than the movement takes, and
-                // the arrival therefore usually happens part-way through it.
-                // **Kept when the picture that arrived is the one it was for, and dropped when it
-                // is not.** Kept, because the hole the movement opened must outlive the arrival:
-                // what is on screen changes a frame or two before the arriving stream's own
-                // picture is, and a hole that closed at the arrival would put the arrangement's
-                // last frame back on screen for exactly one blink. Dropped for anything else — a
-                // display picked out of a panel, an arrangement coming back — because the promise
-                // describes a window of *that* arrangement and means nothing about another picture.
-                let aim = pictureAim
-                flickerTrace("picture replaced previous=\(previous.sourceID ?? "nil") current=\(current.sourceID ?? "nil") aim=\(aim?.sourceID ?? "nil") glide=\(pictureGlide != nil) zoom=\(Double(zoom))")
-                if aim?.sourceID != current.sourceID { pictureAim = nil }
-
-                let carried = aim.flatMap { aim -> CGRect? in
-                    guard aim.sourceID == current.sourceID else { return nil }
-                    // **The departing picture's own effective zoom, not the arriving one's.**
-                    // `effectiveZoom` already reflects the new picture's base scale, and in Fill
-                    // mode the canvas and a window have very different base scales. The canvas is
-                    // what the movement was running against, so the rect has to be measured at
-                    // the canvas's base scale — which is what `aim.departedSize` is the size of.
-                    let departedEffectiveZoom = pictureScale.base(pixelSize: aim.departedSize, in: canvasSize) * zoom
-                    return CanvasGeometry.rect(
-                        normalized: aim.departedAnchor,
-                        bounds: canvasSize,
-                        pixelSize: aim.departedSize,
-                        zoom: departedEffectiveZoom,
-                        pan: pan
-                    )
-                }
-                let placed = carried.flatMap { rect in
-                    MosaicZoom.placing(
-                        pixelSize: current.pixelSize,
-                        anchor: aim?.anchor ?? NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                        at: rect,
-                        bounds: canvasSize,
-                        scale: pictureScale
-                    )
-                }
-
-                if let placed {
-                    lockedPixelSize = current.pixelSize
-                    zoom = placed.zoom
-                    pan = placed.pan
-                    // **The rest of the journey, on the curve that was already running.** The
-                    // spring is evaluated from the progress it has reached rather than from the
-                    // beginning, so a picture crossing the screen keeps its speed: see
-                    // ``PictureGlide/reaim(to:progress:)``. With no movement in flight there is
-                    // nothing to carry on, and the rest state is where the picture goes.
-                    if var glide = pictureGlide {
-                        let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
-                        let progress = Motion.settleProgress(at: elapsed)
-                        flickerTrace("picture placed progress=\(progress) placedZoom=\(Double(placed.zoom))")
-                        if progress < 0.995 {
-                            glide.reaim(
-                                to: (zoom: 1, pan: .zero),
-                                through: placed,
-                                progress: progress
-                            )
-                            pictureGlide = glide
-                        } else {
-                            // The spring is just past its endpoint, but the renderer can still
-                            // be showing the mosaic until the first window frame is displayed.
-                            // Re-aim at the endpoint using the last solvable point on the curve;
-                            // this keeps the in-flight animation and the window aim alive through
-                            // that renderer hand-off instead of snapping or continuing toward the
-                            // mosaic's old zoom target.
-                            flickerTrace("late arrival reaims glide from placed window")
-                            glide.reaim(
-                                to: (zoom: 1, pan: .zero),
-                                through: placed,
-                                progress: 0.994
-                            )
-                            pictureGlide = glide
-                        }
-                    } else {
-                        resetPicture()
-                    }
-                } else {
-                    flickerTrace("picture had no carried placement aimMatched=\(aim?.sourceID == current.sourceID)")
-                    // Nothing the movement was carrying, so nothing to keep still: a source picked
-                    // out of a panel, a rotation, a window resized since the catalogue was read.
-                    // One already at rest is left alone; one that is not is moved to it.
-                    cancelPictureGlide()
-                    if pictureIsAtRest {
-                        resetPicture()
-                    } else {
-                        glidePicture(to: (zoom: 1, pan: .zero))
-                    }
-                }
+                // The frame may already be on the layer, in which case there is nothing to wait
+                // for and waiting would leave the picture at the departing calibration.
+                settleArrival()
             }
         }
         // **Turning the phone re-asks for the arrangement.** The canvas takes the screen's own
@@ -613,6 +535,151 @@ struct RemoteScreen: View {
             }
         } message: {
             Text("The Mac may ask you to save open documents first.")
+        }
+        // The other half of the hold on an arrival: the frame landing is the picture changing.
+        .onChange(of: model.frameArrived) { _, _ in settleArrival() }
+    }
+
+    /// Does what an arrival does, now that its picture is the one on screen.
+    ///
+    /// The whole of what the zoom and the pan have to answer to. Held back from the config that
+    /// announced it because a config is not a picture (see ``pendingArrival``), and run either
+    /// when the frame lands or when the deadline above gives up on it ever landing.
+    func settleArrival(force: Bool = false) {
+        guard let pending = pendingArrival else { return }
+        // Asked of the layer rather than inferred from which of the two arrived first: the frame's
+        // own hop to the main actor can beat the config's. See ``SessionModel/hasPictureOnScreen``.
+        // `force` is the deadline, which is the one caller that has decided the wait is over.
+        guard force || model.hasPictureOnScreen(of: pending.current.pixelSize) else { return }
+        pendingArrival = nil
+        arrivalDeadline?.cancel()
+        arrivalDeadline = nil
+        let previous = pending.previous
+        let current = pending.current
+
+        // **A turn of the phone is a movement, not a cut.** An arrangement that arrives
+        // where another arrangement was is drawn where that one was and moves into its own
+        // shape, with its borders travelling with it; anything else — a window opened, a
+        // window behind a mosaic — is the reset every source switch has always had. See
+        // ``arrangementMorph(from:to:)``.
+        if let target = arrangementMorph(from: previous, to: current) {
+            zoom = target.zoom
+            pan = target.pan
+            // Up in the frame the new canvas arrives — the same frame its first pixels do,
+            // because the frame gate holds them until this update has been laid out — and
+            // gone by the time the movement has landed.
+            arrangementVeil = 1
+            // A turn of the run loop between the two, because two writes to one value in
+            // one update are one write: the veil would be animated to nothing from nothing
+            // and there would be no dim at all.
+            Task { @MainActor in
+                withAnimation(Motion.settle) { arrangementVeil = 0 }
+            }
+        }
+        // **The picture the movement was carrying is put where the movement has it**, and
+        // then the movement finishes on the new picture.
+        //
+        // This is the whole of what made the zoom look broken. The zoom on the view
+        // belongs to the picture being *left*: the movement that opens a tile ends with it
+        // at two or three times the fit, because that is what draws the tapped window at
+        // the size it will have inside the *canvas*. Read against the window's own stream,
+        // the same number draws that window at two or three times too big, so a switch
+        // that kept the number showed the window huge and then shrank it back to the fit.
+        // Correcting it by gliding — which is what this did — is that shrink, animated:
+        // "it zooms in, and then out to fit the window on screen".
+        //
+        // So the state is not kept and not corrected: it is *solved*, for the rectangle
+        // the movement already has the window in. See
+        // ``MacCastKit/MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)``. The picture
+        // changes and nothing on screen moves, whatever the timing — which matters,
+        // because the Mac usually builds the stream faster than the movement takes, and
+        // the arrival therefore usually happens part-way through it.
+        // **Kept when the picture that arrived is the one it was for, and dropped when it
+        // is not.** Kept, because the hole the movement opened must outlive the arrival:
+        // what is on screen changes a frame or two before the arriving stream's own
+        // picture is, and a hole that closed at the arrival would put the arrangement's
+        // last frame back on screen for exactly one blink. Dropped for anything else — a
+        // display picked out of a panel, an arrangement coming back — because the promise
+        // describes a window of *that* arrangement and means nothing about another picture.
+        let aim = pictureAim
+        flickerTrace("picture replaced previous=\(previous.sourceID ?? "nil") current=\(current.sourceID ?? "nil") aim=\(aim?.sourceID ?? "nil") glide=\(pictureGlide != nil) zoom=\(Double(zoom))")
+        if aim?.sourceID != current.sourceID { pictureAim = nil }
+
+        let carried = aim.flatMap { aim -> CGRect? in
+            guard aim.sourceID == current.sourceID else { return nil }
+            // **The departing picture's own effective zoom, not the arriving one's.**
+            // `effectiveZoom` already reflects the new picture's base scale, and in Fill
+            // mode the canvas and a window have very different base scales. The canvas is
+            // what the movement was running against, so the rect has to be measured at
+            // the canvas's base scale — which is what `aim.departedSize` is the size of.
+            let departedEffectiveZoom = pictureScale.base(pixelSize: aim.departedSize, in: canvasSize) * zoom
+            return CanvasGeometry.rect(
+                normalized: aim.departedAnchor,
+                bounds: canvasSize,
+                pixelSize: aim.departedSize,
+                zoom: departedEffectiveZoom,
+                pan: pan
+            )
+        }
+        let placed = carried.flatMap { rect in
+            MosaicZoom.placing(
+                pixelSize: current.pixelSize,
+                anchor: aim?.anchor ?? NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                at: rect,
+                bounds: canvasSize,
+                scale: pictureScale
+            )
+        }
+
+        if let placed {
+            lockedPixelSize = current.pixelSize
+            zoom = placed.zoom
+            placedPictureID = current.sourceID
+            pan = placed.pan
+            // **The rest of the journey, on the curve that was already running.** The
+            // spring is evaluated from the progress it has reached rather than from the
+            // beginning, so a picture crossing the screen keeps its speed: see
+            // ``PictureGlide/reaim(to:progress:)``. With no movement left there is nothing
+            // to carry on and nothing to write: the zoom and the pan above are where a
+            // finished movement ended, which is where the picture belongs.
+            if var glide = pictureGlide {
+                let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
+                let progress = Motion.settleProgress(at: elapsed, response: Motion.pictureResponse)
+                flickerTrace("picture placed progress=\(progress) placedZoom=\(Double(placed.zoom))")
+                if progress < 0.995 {
+                    glide.reaim(
+                        to: (zoom: 1, pan: .zero),
+                        through: placed,
+                        progress: progress
+                    )
+                    pictureGlide = glide
+                } else {
+                    // The spring is just past its endpoint, but the renderer can still
+                    // be showing the mosaic until the first window frame is displayed.
+                    // Re-aim at the endpoint using the last solvable point on the curve;
+                    // this keeps the in-flight animation and the window aim alive through
+                    // that renderer hand-off instead of snapping or continuing toward the
+                    // mosaic's old zoom target.
+                    flickerTrace("late arrival reaims glide from placed window")
+                    glide.reaim(
+                        to: (zoom: 1, pan: .zero),
+                        through: placed,
+                        progress: 0.994
+                    )
+                    pictureGlide = glide
+                }
+            }
+        } else {
+            flickerTrace("picture had no carried placement aimMatched=\(aim?.sourceID == current.sourceID)")
+            // Nothing the movement was carrying, so nothing to keep still: a source picked
+            // out of a panel, a rotation, a window resized since the catalogue was read.
+            // One already at rest is left alone; one that is not is moved to it.
+            cancelPictureGlide()
+            if pictureIsAtRest {
+                resetPicture()
+            } else {
+                glidePicture(to: (zoom: 1, pan: .zero))
+            }
         }
     }
 

@@ -387,13 +387,16 @@ extension RemoteScreen {
             )
         }()
 
+        // Worked out before the ask, because the ask rewrites ``SessionModel/activeSourceID``.
+        let target = mosaicReturnTransform(sourceID: sourceID ?? "")
+
         // The ask, for the reason ``openMosaicTile(_:in:)`` gives: the arrangement is what the
         // user asked for, and a movement that is interrupted must not take the ask with it. Here
         // it also buys the whole of the wait: the Mac tears down one stream and builds the canvas,
         // and it is doing that while the window is still shrinking into its tile.
         model.returnToMosaic()
 
-        guard let target = mosaicReturnTransform() else {
+        guard let target else {
             flickerTrace("return to mosaic has no transform aim=\(pictureAim?.sourceID ?? "nil") size=\(String(describing: model.capturePixelSize))")
             // Nothing to travel to — the picture is not one of an arrangement's tiles. The switch
             // is already on its way; only the movement is skipped, and with it any promise about
@@ -438,7 +441,7 @@ extension RemoteScreen {
             while true {
                 guard let glide = pictureGlide else { return }
                 let seconds = (clock.now - glide.startedAt) / .seconds(1)
-                let progress = Motion.settleProgress(at: seconds)
+                let progress = Motion.settleProgress(at: seconds, response: Motion.pictureResponse)
                 // **Written only where it changes.** A movement can be aimed at the state it is
                 // already in — a correction that has nothing to correct, the tail of a movement
                 // that has finished travelling — and a write of the value a `@State` already holds
@@ -458,7 +461,7 @@ extension RemoteScreen {
                 // within a ten-thousandth of where it is going — a twentieth of a point of
                 // travel. Waiting out the rest of it would be holding the user on a frozen canvas
                 // to watch the last pixel arrive.
-                if seconds >= Motion.settleResponse * 1.6 { break }
+                if seconds >= Motion.pictureResponse * 1.6 { break }
                 // **Once per frame the screen can show, not more often.** Each step writes two
                 // pieces of view state, and every write re-evaluates this whole screen — the
                 // picture, the borders, the chrome — so a rate above the display's is work the
@@ -500,6 +503,13 @@ extension RemoteScreen {
         pictureGlide?.task?.cancel()
         pictureGlide = nil
         pictureAim = nil
+        placedPictureID = nil
+        // A movement the user has taken over drops the arrival it was waiting for: applying it
+        // afterwards would write the zoom and pan of the picture they have just left. See
+        // ``settleArrival()``.
+        pendingArrival = nil
+        arrivalDeadline?.cancel()
+        arrivalDeadline = nil
     }
 
     /// The regions a touch must not reach the Mac through.

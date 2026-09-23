@@ -1022,7 +1022,12 @@ final class MacSession: Identifiable {
     /// way an arrangement dies — left the button gone and the arrangement unreachable for the rest
     /// of the session, with switching to a display the only way out and the way back lost with it.
     /// A control that lingers a second is a smaller fault than a control that never comes back.
-    var canReturnToMosaic: Bool { mosaicLayout != nil && !isShowingMosaic }
+    /// **Asked-for counts as being there.** The pill names the arrangement the moment it is asked
+    /// for, and this used to wait for the canvas, so for the second or two the Mac spends building
+    /// one the header read "six windows" with a button beside it offering to go back to them.
+    var canReturnToMosaic: Bool {
+        mosaicLayout != nil && !isShowingMosaic && !isAskingForMosaic
+    }
 
     /// The size of the captured content in pixels, if it is known.
     ///

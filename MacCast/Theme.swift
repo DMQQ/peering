@@ -177,6 +177,13 @@ enum Motion {
     static let settleResponse: Double = 0.34
     static let settleDamping: Double = 0.84
 
+    /// The picture moving between an arrangement and one of its tiles.
+    ///
+    /// Quicker than ``settle``, because the two are watched differently: a panel is the app's own
+    /// chrome arriving and can afford to be seen doing it, while this is a movement the user asked
+    /// for by name and is waiting on before they can read the window.
+    static let pictureResponse: Double = 0.24
+
     /// Panels, overlays, anything that appears or disappears. A spring rather than a curve — it
     /// settles into place instead of stopping, which is the difference between a panel that was
     /// pushed up and one that was switched on.
@@ -196,10 +203,14 @@ enum Motion {
     /// At the damping ``settle`` uses this is the underdamped solution. A damping of 1 or more is
     /// treated as 1 — the critically damped one, where the give stops — because nothing in the
     /// app uses anything else and a fourth branch would be arithmetic nobody executes.
-    static func settleProgress(at time: Double) -> Double {
+    static func settleProgress(
+        at time: Double,
+        response: Double = settleResponse,
+        damping: Double = settleDamping
+    ) -> Double {
         guard time > 0 else { return 0 }
-        let omega = 2 * Double.pi / settleResponse
-        let zeta = min(max(settleDamping, 0), 1)
+        let omega = 2 * Double.pi / response
+        let zeta = min(max(damping, 0), 1)
         guard zeta < 1 else {
             return 1 - exp(-omega * time) * (1 + omega * time)
         }
