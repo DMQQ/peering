@@ -680,6 +680,11 @@ struct SSHTerminalScreen: View {
 
     private func submit() {
         guard canType, !command.isEmpty else { return }
+        // The same rule as the Mac's terminals: a program that draws a full screen wants the size
+        // that fits one on a phone. See ``TerminalProgram``.
+        if TerminalProgram.prefersSmallText(command) {
+            textSize = TerminalMetrics.TextSize.tiny.rawValue
+        }
         // A newline, which is what a shell's line editor is waiting for. Sent as its own write
         // rather than appended to the text, because the text is what the user typed and the
         // Return is the decision to run it.

@@ -278,6 +278,38 @@ final class HostModel {
 
     private var server: HostServer?
     private var relayRegistration: RelayHostRegistration?
+
+    /// What the test button in Settings last had to say, shown beside it.
+    ///
+    /// **Because the question it answers is "does this work at all", and the answer here is only
+    /// ever half of it.** A registered token means a phone handed one over while a session was up;
+    /// without one there is nothing to send to, which is the likeliest reason nothing has ever
+    /// arrived. Whether the relay then reached APNs is not visible from this Mac at any price: the
+    /// relay holds the key and answers nothing.
+    private(set) var pushTestResult: String?
+
+    /// Sends the same banner the terminal attention path sends, on purpose.
+    @discardableResult
+    func sendTestPush() -> String {
+        let tokens = server?.allPushTokens() ?? []
+        guard !tokens.isEmpty else {
+            let message = "No device has registered a token with this Mac."
+            pushTestResult = message
+            record(message, level: .warning)
+            return message
+        }
+        for token in tokens {
+            relayRegistration?.notifyDevice(
+                token: token,
+                title: "Terminal needs you",
+                body: "A test notification from your Mac."
+            )
+        }
+        let message = "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s")."
+        pushTestResult = message
+        record(message)
+        return message
+    }
     private var nativeTerminalWatcher: NativeTerminalWatcher?
     private var pins: PinStore?
     private var identity: SelfSignedIdentity?

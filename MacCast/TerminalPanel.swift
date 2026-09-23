@@ -919,6 +919,13 @@ struct TerminalPanel: View {
 
     private func submit(to id: UUID) {
         guard !command.isEmpty else { return }
+        // **Before it is sent, and for the reason the terminal is small at all.** A full-screen
+        // program lays itself out for eighty columns, and on a phone held upright the only size
+        // that holds eighty is the smallest one: run this and the first thing the user sees is the
+        // two-thirds of it that fits. See ``TerminalProgram``.
+        if TerminalProgram.prefersSmallText(command) {
+            textSize = TerminalMetrics.TextSize.tiny.rawValue
+        }
         model.sendTerminalInput(command, to: id)
         command = ""
         inputFocused = true

@@ -50,6 +50,12 @@ extension HostStatusView {
                 Divider().padding(.leading, 52)
 
                 portRow
+
+#if DEBUG
+                Divider().padding(.leading, 52)
+
+                pushTestRow
+#endif
             }
             .hostPanel()
         }
@@ -64,6 +70,35 @@ extension HostStatusView {
     /// The only setting here that is about what this Mac does when nobody is connected to it:
     /// the snapshot behind the overview is taken every couple of seconds for as long as the
     /// window is open, whether or not anyone is looking at it. Off, that loop does not run.
+    /// A notification sent on purpose, so that "it has never arrived" can be told apart from "it
+    /// was never sent". Debug only, and second from the bottom, which are the same two rules the
+    /// phone's plan override follows: a build anybody receives does not have it.
+    #if DEBUG
+    var pushTestRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "bell.badge")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Send a test notification")
+                    .font(.subheadline.weight(.medium))
+                Text(model.pushTestResult ?? "Pushes a banner to the devices this Mac has a token for, over the relay. What this can see is the token and the send; the relay holds the APNs key and answers nothing.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Button("Send") { model.sendTestPush() }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+    #endif
+
     var previewRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "rectangle.on.rectangle.slash")
