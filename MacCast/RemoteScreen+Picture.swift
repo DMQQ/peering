@@ -5,17 +5,14 @@ import UIKit
 
 /// The picture, and the cursor drawn over it.
 ///
-/// An extension rather than a file of its own type: state and its gestures have to
-/// agree about what the picture is, and the view is easier to read in pieces than as
-/// one file of two thousand lines. Members are `internal` here because Swift's
-/// `private` is file-scoped — see the note in `RemoteScreen`.
+/// Members are `internal` here because Swift's `private` is file-scoped: state and its gestures have
+/// to agree about what the picture is, and they live in both files.
 extension RemoteScreen {
     // MARK: - Picture
 
     var video: some View {
-        // No `scaleEffect` or `offset` here: the picture's placement is applied inside the view,
-        // as a layer transform — see `VideoLayerView.updateUIView`, which is where a pan that
-        // trailed the finger was coming from.
+        // No `scaleEffect` or `offset` here: the picture's placement is applied inside the view, as
+        // a layer transform, so a pan cannot trail the finger. See `VideoLayerView.updateUIView`.
         VideoLayerView(
             renderer: model.renderer,
             zoom: effectiveZoom,
@@ -27,10 +24,9 @@ extension RemoteScreen {
         )
             .ignoresSafeArea()
             .overlay {
-                // When the capture stream has stopped (source closed, app quit) the last
-                // decoded frame stays visible on screen. Without a visual warning the user
-                // touches what looks live but is actually stale — clicks land on whatever the
-                // Mac currently shows at that position, not what the iPhone is displaying.
+                // The last decoded frame stays on screen when the capture stream has stopped (source
+                // closed, app quit), and a touch then lands on whatever the Mac shows at that
+                // position rather than on what the phone is displaying.
                 if !model.isVideoStreaming && model.phase == .ready {
                     ZStack {
                         Color.black.opacity(0.55).ignoresSafeArea()
@@ -51,10 +47,9 @@ extension RemoteScreen {
                     .allowsHitTesting(false)
                 }
 
-                // The Mac's own caption for a picture that is technically fine. Preferred to
-                // the panel above, which never fires for this: a sleeping screen *is*
-                // streaming — on time, at full rate, and entirely black — so "stream paused"
-                // would be the wrong explanation and there would be no explanation at all.
+                // The Mac's own caption for a picture that is technically fine. The panel above
+                // never fires for this: a sleeping screen *is* streaming, on time and entirely
+                // black, so "stream paused" would be the wrong explanation.
                 if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready {
                     ZStack {
                         Color.black.opacity(0.72).ignoresSafeArea()
@@ -69,9 +64,8 @@ extension RemoteScreen {
                         }
                         .padding(32)
                     }
-                    // Hits pass through to the Mac, deliberately: an injected event is real
-                    // user activity, and real user activity is what a sleeping display is
-                    // waiting for. The way out of this screen is a tap on it.
+                    // Hits pass through to the Mac deliberately: an injected event is the activity a
+                    // sleeping display is waiting for, and the way out of this screen is a tap on it.
                     .allowsHitTesting(false)
                 }
             }
@@ -79,17 +73,15 @@ extension RemoteScreen {
 
     /// The Mac's pointer, drawn where this phone last put it.
     ///
-    /// Only in control. In observe a tap reaches nothing, so showing a pointer would invite the
-    /// exact interaction that mode promises to block.
+    /// Only in control: in observe a tap reaches nothing, so a pointer would invite the exact
+    /// interaction that mode promises to block.
     var clientCursor: some View {
         Group {
             if interactionMode.tapsReachTheMac,
                model.phase == .ready,
-               // **Not over an arrangement.** A mosaic takes no input at all — a tap selects the
-               // tile it landed in, and the Mac refuses everything else — so a pointer drawn where
-               // the last tap landed is a promise this screen does not keep. Nothing is lost by
-               // leaving it out: the Mac draws the real pointer into each tile, where it is
-               // actually a pointer in a window. The Mac draws that one, into each tile.
+               // Not over an arrangement: a mosaic takes no input at all, so a pointer drawn where
+               // the last tap landed is a promise this screen does not keep. The Mac draws the real
+               // pointer into each tile.
                !model.isShowingMosaic,
                let point = CanvasGeometry.point(
                    normalized: remoteCursor,
@@ -113,74 +105,54 @@ extension RemoteScreen {
 
     /// The tiles' edges and names, when what is on screen is an arrangement.
     ///
-    /// **Mapped through the same call the cursor goes through**, with the same zoom and pan, so
-    /// the borders cannot drift from the picture they are drawn around: both are the letterboxed
-    /// rect moved by the canvas's transform, and there is one expression of that in the app.
+    /// Drawn only while the mosaic is the picture: a border around a single window would describe a
+    /// grid that is no longer on screen.
     ///
-    /// Drawn only while the mosaic is the picture. Selecting a tile leaves the arrangement behind
-    /// in every way that matters, and a border drawn around a single window would be the app
-    /// describing a grid that is no longer on screen.
     /// Where one tile of the arrangement is on screen, or `nil` when there is no arrangement.
     ///
-    /// The same ``CanvasGeometry`` call the borders are drawn with and the cursor is mapped
-    /// through, so a tile's outline and the tap that opened it cannot disagree about where the
-    /// tile is.
+    /// The same ``CanvasGeometry`` call the borders are drawn with and the cursor is mapped through,
+    /// so a tile's outline and the tap that opened it cannot disagree about where the tile is.
     func mosaicTileRect(_ index: Int, in layout: MosaicLayout) -> CGRect? {
         guard layout.tiles.indices.contains(index) else { return nil }
         guard let tile = CanvasGeometry.rect(
             normalized: layout.tiles[index].rect,
             bounds: canvasSize,
-            // **The arrangement's own canvas, not the picture on screen.** The two are the same
-            // rectangle whenever a mosaic is what is showing, and they are not while one is on its
-            // way. See ``shownMosaicLayout``.
+            // The arrangement's own canvas, not the picture on screen: the two are the same
+            // rectangle whenever a mosaic is showing, and not while one is on its way. See
+            // ``shownMosaicLayout``.
             pixelSize: layout.canvas,
             zoom: effectiveZoom,
             pan: pan
         ) else { return nil }
 
-        // **The slot, not the window inside it.** Drawing these around the window instead was
-        // tried and is the reason the grid looked uneven: a frame takes the shape of what it is
-        // drawn around, so six windows of six shapes were six different frames, and the one
-        // arrangement on screen that is supposed to read as a grid read as a pile of rectangles.
-        // The grid's own rectangles are all the same size, which is what a grid is.
+        // The slot, not the window inside it: a frame takes the shape of what it is drawn around, so
+        // window-shaped frames make the grid read as a pile of rectangles. The grid's own rectangles
+        // are all the same size.
         return tile
     }
 
     /// The zoom and the pan that turn one tile of the arrangement into that window on its own.
     ///
-    /// **Anchored on the window, not on the tile.** A tile is mostly black: the source inside it
-    /// keeps its own shape and is letterboxed into whatever rectangle the grid gave it, so a
-    /// window is a band across the middle of its tile with the canvas showing above and below.
-    /// Moving *the tile* to the screen therefore moves the window somewhere it is never going to
-    /// be — the framing a filtered window itself has is a different shape from the tile's — and
-    /// the picture then jumps a second later when the real stream arrives at the fit. That jump
-    /// is what the first version of this animation did, and it read as the whole movement being
-    /// aimed at the wrong thing.
+    /// Anchored on the window, not on the tile: a tile is mostly black, the source inside it
+    /// letterboxed into whatever rectangle the grid gave it, so moving the tile moves the window
+    /// somewhere it is never going to be and the picture jumps when the real stream arrives. Both
+    /// rectangles mapped between are the window's and have the same shape, so the movement is a
+    /// straight scale about a point and the geometry does not change when the stream arrives. See
+    /// ``CanvasGeometry/videoRect(bounds:pixelSize:)`` and ``mosaicTileRect(_:)``.
     ///
-    /// So the two rectangles this maps between are both the *window's*: where it sits inside its
-    /// tile now, and where it will sit when it is the whole picture, which is what
-    /// ``CanvasGeometry/videoRect(bounds:pixelSize:)`` gives for the source's own size. The two
-    /// have the same shape, so the movement between them is a straight scale about a point, and
-    /// when the Mac's stream arrives the geometry does not change at all — the picture sharpens
-    /// where it already is. See ``mosaicTileRect(_:)`` for the left-hand rectangle.
+    /// With no size in the catalogue for that source there is no window to aim at, and the tile's
+    /// own rectangle is the stand-in.
     ///
-    /// Nothing to move between when the Mac's catalogue has no size for that source — a tile whose
-    /// source has gone — and then the tile's own rectangle is the honest stand-in: it is on screen,
-    /// it is what was tapped, and there is no window in it to aim at.
-    ///
-    /// **The division at the end is this view's and nobody else's.** The picture is drawn at
-    /// ``pictureBaseScale`` times the number stored in `zoom` — the chrome's margin, or the user's
-    /// Fill, whichever applies — so a target expressed as a drawn scale has to be turned back into
-    /// a stored one before it can be written to the state. See ``effectiveZoom``, which is the
-    /// other half of the same sentence.
+    /// The division at the end turns a drawn scale back into a stored one: the picture is drawn at
+    /// ``pictureBaseScale`` times `zoom`. See ``effectiveZoom``.
     func tileOpeningTransform(_ index: Int, in layout: MosaicLayout) -> (zoom: CGFloat, pan: CGSize)? {
         guard layout.tiles.indices.contains(index) else { return nil }
         return MosaicZoom.opening(
             layout: layout,
             index: index,
-            // The size the catalogue has for the window, which is the only thing either end knows
-            // about how it is shaped before its stream arrives — and the same size the Mac builds
-            // that stream at. Nothing is aimed at when it is missing: see ``MosaicZoom``.
+            // The size the catalogue has for the window, the only thing either end knows about its
+            // shape before its stream arrives, and the size the Mac builds that stream at. Nothing is
+            // aimed at when it is missing: see ``MosaicZoom``.
             sourceSize: model.catalog?.descriptor(for: layout.tiles[index].source)?.pixelSize,
             bounds: canvasSize,
             effectiveZoom: effectiveZoom,
@@ -191,35 +163,22 @@ extension RemoteScreen {
 
     /// The zoom and the pan that draw an arrangement that has arrived where the one before it was.
     ///
-    /// **A turn of the phone is a different canvas, and this is the only way it can be one
-    /// movement.** The Mac composites whatever rectangle it is asked for, so a phone held up shows
-    /// a canvas of one shape and the same phone held sideways shows another; there is nothing in
-    /// between, because there is nothing on the Mac in between. What there *is* is a place on the
-    /// screen: the last frame of the old canvas is at rest in the middle of a screen that has
-    /// already turned, and the new canvas can be drawn exactly there and then move to where it
-    /// belongs. That is this transform — and because the tile borders are the new arrangement put
-    /// through the same zoom and pan, they travel with it and stay on the windows they describe for
-    /// the whole of the movement, which is the thing that was wrong with every earlier attempt at
-    /// animating a rotation.
+    /// A turn of the phone is a different canvas with nothing on the Mac in between, so the only
+    /// thing to interpolate through is a place on the screen: the last frame of the old canvas is at
+    /// rest in the middle of a screen that has already turned, and the new canvas is drawn there and
+    /// moves to where it belongs. The tile borders go through the same zoom and pan, so they stay on
+    /// the windows they describe.
     ///
-    /// `nil` when there is nothing to interpolate: **both** pictures have to have been arrangements
-    /// — a rotation, or the arrangement re-asked with a window added — and there has to be a shape
-    /// on screen to have come from.
-    ///
-    /// Only checking the one being left behind was a bug with a very visible signature: opening a
-    /// tile leaves *from* an arrangement, so the morph ran when the window's stream arrived a second
-    /// or two later and dragged the picture out to where the canvas had been and back. Two zooms,
-    /// the second one late and unmotivated, on the one gesture in the app that already has a
-    /// movement of its own. A tile being opened is a window arriving, and a window has
-    /// ``tileOpeningTransform(_:)``; this is for arrangements replacing each other.
+    /// `nil` when there is nothing to interpolate: **both** pictures have to have been arrangements,
+    /// and there has to be a shape on screen to have come from. A tile being opened is a window
+    /// arriving, which is ``tileOpeningTransform(_:)``; this is for arrangements replacing each
+    /// other.
     func arrangementMorph(
         from previous: PictureIdentity,
         to current: PictureIdentity
     ) -> (zoom: CGFloat, pan: CGSize)? {
         guard canvasSize.width > 0, canvasSize.height > 0,
               // The picture that has arrived is an arrangement, and so is the one it replaced.
-              // The first is the screen's own answer and is already up to date by the time this is
-              // asked — see the note on the call site.
               model.isShowingMosaic,
               // A mosaic's name is the only one in the app that starts with this, and it is the same
               // name `PictureIdentity` is built from. The value itself is the client's.
@@ -227,10 +186,9 @@ extension RemoteScreen {
               previous.pixelSize != current.pixelSize
         else { return nil }
 
-        // Both rectangles through the one mapping, at the transform that is on the picture *now* —
-        // so where the old one is means where it actually is, which is where the user had pushed it
-        // if they had zoomed the arrangement before turning the phone, and not a rest position they
-        // are not looking at.
+        // Both rectangles through the one mapping, at the transform on the picture *now*, so where
+        // the old one is means where it actually is, which is where the user had pushed it if they
+        // had zoomed the arrangement before turning the phone.
         let full = NormalizedRect(x: 0, y: 0, width: 1, height: 1)
         guard let from = CanvasGeometry.rect(
             normalized: full, bounds: canvasSize, pixelSize: current.pixelSize,
@@ -244,15 +202,10 @@ extension RemoteScreen {
             of: from, mappingTo: to, bounds: canvasSize, zoom: effectiveZoom, pan: pan
         ) else { return nil }
 
-        // **A drawn scale, turned back into a stored one.** ``CanvasGeometry/transform`` is given
-        // the state and returns the scale that draws the picture there, so its answer is a multiple
-        // of the *fit* — and ``zoom`` is a multiple of the fit times the base. Stored undivided it
-        // is the base applied twice, and on a phone held sideways the base is 0.75, so the new
-        // canvas arrived at three quarters of the rectangle it was supposed to land on and grew
-        // back: traced, a turn into landscape, the arriving canvas drawn at `387x241` where the one
-        // it replaced was at `172x322`, then glided up to its own `516x322`. Divided by the base on
-        // screen now, which is the departed picture's while ``RemoteScreen/placedPictureID`` is
-        // still behind — the same division, against the same base, as ``MosaicZoom/opening``.
+        // A drawn scale, turned back into a stored one: ``zoom`` is a multiple of the fit times the
+        // base, so stored undivided the base is applied twice and the canvas lands short of the
+        // rectangle and grows back. The same division, against the base on screen now, as
+        // ``MosaicZoom/opening``.
         let base = pictureBaseScale
         guard base > 0 else { return target }
         return (target.zoom / base, target.pan)
@@ -260,14 +213,10 @@ extension RemoteScreen {
 
     /// The veil that covers the one frame of a turned arrangement that cannot be continuous.
     ///
-    /// Dim rather than opaque, because the point of the movement is that it is *seen*: the picture
-    /// travelling from one shape to the other is the whole of what a turn looks like now, and
-    /// covering it would be a fade between two stills. What the dim is for is the instant the
-    /// windows rearrange themselves inside that travelling frame — six rectangles becoming six
-    /// different ones — which is a change of content and not of place.
-    /// The same veil serves the reorder, at a lighter weight: a tile that has been picked up is a
-    /// thing being looked at rather than a picture being replaced, and the arrangement under it
-    /// should recede rather than disappear. See ``heldTile``.
+    /// Dim rather than opaque: the picture travelling from one shape to the other is the whole of
+    /// what a turn looks like, and the dim is only for the instant the windows rearrange themselves
+    /// inside that travelling frame, which is a change of content and not of place. The same veil
+    /// serves the reorder at a lighter weight. See ``heldTile``.
     var arrangementVeilView: some View {
         Color.black
             .opacity(max(arrangementVeil * 0.55, heldTile == nil ? 0 : 0.4))
@@ -277,26 +226,17 @@ extension RemoteScreen {
 
     /// The zoom and the pan that put the picture back where the arrangement will be.
     ///
-    /// **The movement a tile is opened with, run the other way.** A tile opening maps where the
-    /// window sits inside its tile onto the framing it has as the whole picture; going back is the
-    /// same journey in reverse, and the two have to agree or the way out of an arrangement and the
-    /// way into it look like different features.
+    /// The movement a tile is opened with, run the other way, and the two have to agree or the way
+    /// into an arrangement and the way out look like different features. It aims at the arrangement
+    /// being *asked for* (see ``MacSession/mosaicLayout``, not ``MacSession/pictureMosaicLayout``),
+    /// and at rest with the arrangement's fit on screen, which is where ``resetPicture()`` lands the
+    /// moment the new picture arrives: the movement ends exactly where the reset lands.
     ///
-    /// The arrangement it aims at is the one being *asked for* — see ``MacSession/mosaicLayout``
-    /// rather than ``MacSession/pictureMosaicLayout`` — because the ask is what the movement is
-    /// for: the picture is a single window, and what is coming is the canvas built around it. And
-    /// the state it aims at is the one the Mac's answer will put the view in: at rest, with the
-    /// arrangement's fit on screen — which is what ``resetPicture()`` does the moment the new
-    /// picture arrives. That is the trick of the whole thing: the movement ends exactly where the
-    /// reset lands, so the canvas appears around the window with nothing moving at all.
+    /// Nothing to move when the window on screen is not one of the arrangement's tiles. See
+    /// ``MacSession/canReturnToMosaic``.
     ///
-    /// Nothing to move when the window on screen is not one of the arrangement's tiles — a source
-    /// chosen after the mosaic was left, which is a session with no arrangement to go back to and
-    /// no back control drawn on it. See ``MacSession/canReturnToMosaic``.
-    ///
-    /// The window is passed in rather than read from the model, because the ask is a source switch
-    /// and it writes the arrangement's own id to ``SessionModel/activeSourceID``. Read after that
-    /// the id matches no tile, and the movement is skipped.
+    /// The window is passed in rather than read from the model, because the ask writes the
+    /// arrangement's own id to ``SessionModel/activeSourceID`` and the id would then match no tile.
     func mosaicReturnTransform(sourceID: String) -> (zoom: CGFloat, pan: CGSize)? {
         guard let layout = model.mosaicLayout else { return nil }
         return MosaicZoom.returning(
@@ -312,59 +252,47 @@ extension RemoteScreen {
 
     /// The arrangement everything drawn over the picture is drawn for.
     ///
-    /// **The ask rather than the answer, wherever the two are the same arrangement** — which is
-    /// the whole of what makes a reorder land under the finger. A reorder, a change of a tile's
-    /// size, and a return from one of the tiles all produce the *same canvas*: same size, same
-    /// windows, same parameter sets. So the Mac never sends a new video config, the answer never
-    /// arrives to say what changed, and an overlay drawn from it goes on naming the windows in the
-    /// arrangement the user has just left. The client is the side that built these rectangles —
-    /// the arrangement is its own — so it draws them, and the Mac's composite catches up under it.
+    /// The *ask* rather than the answer wherever the two are the same arrangement, which is what
+    /// makes a reorder land under the finger: a reorder produces the same canvas, so the Mac never
+    /// sends a new config, and an overlay drawn from the answer would go on naming the windows in
+    /// the arrangement the user has just left.
     ///
-    /// **And the answer wherever they are not**, because there the picture really is a different
-    /// one: a turn of the phone, or a window added to the arrangement, makes a canvas of another
-    /// shape which the Mac takes a moment to build, and borders drawn for it over the old canvas
-    /// are borders on windows that are not there. That is what ``MacSession/pictureMosaicLayout``
-    /// exists for, and this defers to it.
+    /// And the answer wherever they are not, because there the picture really is a different one: a
+    /// turn, or a window added, makes a canvas of another shape which the Mac takes a moment to
+    /// build. See ``MacSession/pictureMosaicLayout``.
     ///
-    /// Nil when no arrangement is being shown *and* none is on its way — which is what keeps the
+    /// Nil when no arrangement is being shown *and* none is on its way, which is what keeps the
     /// borders off a picture the user has chosen since leaving the mosaic.
     var shownMosaicLayout: MosaicLayout? {
-        // **Nothing to draw while a window is being lifted out of an arrangement.** Every one of
-        // these lines is drawn around a window, and while the movement is carrying one the rest of
-        // the picture is clipped away: the lines would be outlines around nothing, and there is no
-        // reading of that other than the arrangement having broken. Fading them with the pictures
-        // they describe is what makes a tap read as one window leaving.
+        // Nothing to draw while a window is being lifted out of an arrangement: these lines are
+        // drawn around windows, and the rest of the picture is clipped away, so they would be
+        // outlines around nothing.
         guard !isCarryingWindowOut else { return nil }
 
         if let arrived = model.pictureMosaicLayout {
-            // **And not before the picture they describe is on screen.** A config reaches the model
-            // a frame or two before its picture reaches the layer, and borders raised in that gap
-            // are six rectangles standing over the window they have just replaced.
+            // And not before the picture they describe is on screen: a config reaches the model a
+            // frame or two before its picture reaches the layer, and borders raised in that gap
+            // stand over the window they have just replaced.
             //
-            // Asked of the layer rather than of ``pendingArrival``, which is a state the arrival
-            // handler sets and is therefore a beat behind: gated on that, the borders went up with
-            // the config, came down when the handler ran, and went up again with the frame.
+            // Asked of the layer rather than of ``pendingArrival``, which the arrival handler sets
+            // and is therefore a beat behind.
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
             let same = sameArrangement(asked, arrived)
             return same ? asked : arrived
         }
 
-        // **Nothing on the way back.** The frames of an arrangement that has been asked for but
-        // not yet built were drawn here for a session, and they read as an arrangement arriving in
-        // pieces: the borders are the client's idea of where the tiles will be, over a picture
-        // that is still one window shrinking into one of them, and they also shift as the movement
-        // carries that window. The movement is the whole of what a return has to say. See
-        // ``mosaicReturnTransform()``.
+        // Nothing on the way back: borders drawn for an arrangement not yet built sit over a picture
+        // that is still one window shrinking into one of them, and shift as the movement carries
+        // that window. See ``mosaicReturnTransform()``.
         return nil
     }
 
     /// Whether two arrangements are the same canvas holding the same windows.
     ///
-    /// The question ``shownMosaicLayout`` turns on, and it is deliberately not `==`: a reorder is
-    /// a *different* layout — that is the entire point of it — and it is still the same picture.
-    /// What makes the picture new is a canvas of another shape, or a window that has arrived or
-    /// gone, because those are what the Mac has to build a stream again for.
+    /// Deliberately not `==`: a reorder is a *different* layout and still the same picture. What
+    /// makes the picture new is a canvas of another shape, or a window that has arrived or gone,
+    /// because those are what the Mac has to build a stream again for.
     private func sameArrangement(_ one: MosaicLayout, _ other: MosaicLayout) -> Bool {
         one.canvas == other.canvas
             && Set(one.tiles.map(\.source)) == Set(other.tiles.map(\.source))
@@ -372,33 +300,26 @@ extension RemoteScreen {
 
     /// The window a movement is carrying out of an arrangement, on screen, or `nil`.
     ///
-    /// **The only part of the picture the user should see while one window is growing out of it.**
-    /// A tile is a fraction of a single canvas, so growing one window means scaling that canvas —
-    /// and every other window in it is scaled and moved with it, which is what a tap on a window
-    /// looked like it was doing: rectangles flying about at two or three times their size while the
-    /// one that was tapped grew. The tap means one window, so this is the rectangle that says which
-    /// one: the same rectangle the movement is carrying, which is why it grows with it, and the
-    /// same one the arriving stream is put on when it turns up.
+    /// The only part of the picture to show while one window grows out of it: a tile is a fraction
+    /// of a single canvas, so scaling it scales and moves every other window with it. This is the
+    /// rectangle the movement is carrying, which is why it grows with it, and the same one the
+    /// arriving stream is put on.
     ///
-    /// Nil when nothing is being carried out of an arrangement. The way back is the case that
-    /// matters: the window is alone on the screen, there is nothing to hide it among, and clipping
+    /// Nil when nothing is being carried out. Going back the window is alone on screen, and clipping
     /// it to itself would be clipping the picture to the whole picture.
     var carriedWindow: CGRect? {
         guard isCarryingWindowOut, let aim = pictureAim else { return nil }
 
-        // **Before the switch the window is a piece of the arrangement; after it, it is the
-        // picture.** The two are the same rectangle at the instant the stream arrives — that is
-        // what ``MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)`` guarantees — but they are
-        // measured through different pictures, and reading the arrangement's geometry against the
-        // window's stream is a hole of the wrong size for as long as the movement has left to run.
-        //
-        // Which one to read is decided by what the movement has been solved for, not by what the
-        // Mac has just configured: switched on the model, the hole is measured through the window
-        // at the arrangement's zoom and the whole mosaic shows through where it used to be.
+        // Before the switch the window is a piece of the arrangement; after it, it is the picture.
+        // The two are the same rectangle at the instant the stream arrives, which is what
+        // ``MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)`` guarantees, but they are measured
+        // through different pictures, and reading the arrangement's geometry against the window's
+        // stream is a hole of the wrong size while the movement has left to run. Which to read is
+        // decided by what the movement has been solved for, not by what the Mac has just configured.
         guard placedPictureID != nil, placedPictureID == model.picture?.sourceID else {
-            // The departing picture's own base, not `effectiveZoom`: a movement that finished
-            // before the stream arrived leaves `pictureGlide` nil, and `pictureBaseScale` then
-            // reads the arriving stream's size for a rectangle measured through the arrangement.
+            // The departing picture's own base, not `effectiveZoom`: a movement that finished before
+            // the stream arrived leaves `pictureGlide` nil, and `pictureBaseScale` would then read
+            // the arriving stream's size for a rectangle measured through the arrangement.
             let departed = pictureScale.base(pixelSize: aim.departedSize, in: canvasSize) * zoom
             return CanvasGeometry.rect(
                 normalized: aim.departedAnchor,
@@ -419,81 +340,57 @@ extension RemoteScreen {
 
     /// Whether the transform on the layer is the one the arriving picture needs.
     ///
-    /// **Three things have to line up, and each of them can be the one that is late.** The
-    /// renderer has to have the frame (``SessionModel/isReadyToPlace(of:)``), the model has to
-    /// have caught up with the renderer, and the arrival has to have been applied. The middle one
-    /// is the one the trace showed: the frame lands a few milliseconds before the config reaches
-    /// the main actor, and a frame let go in that window is drawn at the picture it replaced.
-    /// See ``VideoLayerView/pictureIsPlaced``.
+    /// Three things have to line up, and each of them can be the late one: the renderer has to have
+    /// the frame (``SessionModel/isReadyToPlace(of:)``), the model has to have caught up with the
+    /// renderer, and the arrival has to have been applied. The frame lands a few milliseconds before
+    /// the config reaches the main actor, and a frame let go in that window is drawn at the picture
+    /// it replaced. See ``VideoLayerView/pictureIsPlaced``.
     var pictureIsPlaced: Bool {
         guard model.isReadyToPlace(of: model.capturePixelSize ?? .zero) else { return false }
 
-        // **A pending arrival has to have been applied**, which is the ordered pair of writes this
-        // whole mechanism exists for: the transform is written for the picture whose frame is
-        // about to be handed over, and not for the one it replaces.
+        // A pending arrival has to have been applied, which is the ordered pair of writes this
+        // mechanism exists for: the transform is written for the picture whose frame is about to be
+        // handed over, and not for the one it replaces.
         //
-        // **This used to read `guard let pending = pendingArrival else { return true }`**, which
-        // returned before the condition below in exactly the case it was written for: an arrival
-        // settles within milliseconds of a tap, long before the movement ends. Traced, the frame
-        // was handed over on the first display frame of the movement and on every one after it:
-        //
-        //     layer releases the held frame at zoom=0.9938
-        //     layer releases the held frame at zoom=0.9848
-        //     layer releases the held frame at zoom=0.9274
-        //
-        // every 16ms, all the way to the target.
-        //
-        // **Deleting that line alone was tried and reverted, and the two halves it needed are now
-        // in place.** It made the wait real without making the release reliable: the release is
-        // normally driven by ``VideoLayerView``'s update pass, and once a glide has landed there is
-        // no further pass, so nothing was released and the arrangement sat on screen at the
-        // window's framing until the 600ms budget expired. The movement's own landing releases it
-        // now (see ``RemoteScreen+Gestures``), and ``VideoRenderer`` holds every frame of a config
+        // Guarding on ``pendingArrival`` alone is not enough, because it can settle milliseconds
+        // after the tap and long before the movement ends. The release is normally driven by
+        // ``VideoLayerView``'s update pass, and ``VideoRenderer`` holds every frame of a config
         // rather than only its first, so the wait is a wait rather than a delay of one frame.
         if let pending = pendingArrival, placedPictureID != pending.current.sourceID {
             return false
         }
 
-        // **And not until the movement has finished.** The swap is a change of sharpness as well
-        // as of geometry: a tile of the canvas is the Mac's own composite of that window, at the
-        // size of the tile, and the stream being replaced is that window alone, at the size of
-        // the screen. Made while the picture is still travelling, that change reads as a flicker;
-        // made at rest, it reads as the picture settling — which is what it is. The movement is
-        // over in well under half a second, and a frame held past its budget is dropped by
-        // ``VideoRenderer/heldFrameBudget`` if the movement is interrupted instead of ending.
+        // And not until the movement has finished: the swap is a change of sharpness as well as of
+        // geometry, since a tile of the canvas is the Mac's own composite of that window at the size
+        // of the tile while the stream being replaced is that window alone at the size of the screen.
+        // Mid-movement that reads as a flicker; at rest it reads as the picture settling. A frame
+        // held past its budget is dropped by ``VideoRenderer/heldFrameBudget``.
         //
-        // A movement that is cancelled rather than landed releases the frame too, so nothing
-        // waits on a glide that has stopped existing. See ``cancelPictureGlide()``.
+        // A movement that is cancelled rather than landed releases the frame too. See
+        // ``cancelPictureGlide()``.
         return pictureGlide == nil
     }
 
     /// Whether a window is being lifted out of an arrangement, and the rest of it has to be hidden.
     ///
-    /// **Decided by the promise alone, and it stays decided.** Every finer condition tried here was
-    /// a moment at which the hole *closed*, and closing it is the one thing this must not do: the
-    /// instant it goes, whatever is behind it is revealed, and a reveal is a flicker whether the
-    /// thing revealed was meant to be there or not. So the hole opens when a movement starts
-    /// carrying a window, and it stays open — over black, which is what is behind a window once its
-    /// stream is up, so leaving it open costs nothing to look at — until the picture changes to one
-    /// this movement was not about. See the arrival in `RemoteScreen`, and ``PictureAim``.
+    /// Decided by the promise alone, and it stays decided: every finer condition tried here was a
+    /// moment at which the hole closed, and closing it reveals whatever is behind it, which is a
+    /// flicker whether that thing belongs there or not. So the hole opens when a movement starts
+    /// carrying a window and stays open, over black, until the picture changes to one this movement
+    /// was not about. See the arrival in `RemoteScreen`, and ``PictureAim``.
     ///
-    /// The direction is the other half. Going *back* to an arrangement the window is the whole
-    /// picture, there is nothing to hide it among, and a hole measured around it would black out
-    /// the arrangement on its way in.
+    /// The direction is the other half: going *back* the window is the whole picture, so a hole
+    /// measured around it would black out the arrangement on its way in.
     private var isCarryingWindowOut: Bool {
         pictureAim?.carriesOutOfArrangement == true
     }
 
     /// Everything of an arrangement except the window being lifted out of it, hidden.
     ///
-    /// **Drawn rather than masked.** The rest of the picture has to go while one window grows into
-    /// the screen — the canvas is a single picture and scaling it moves every window in it, so the
-    /// others are not something the user should be watching — and a layer mask is the obvious way
-    /// to do it and the expensive one: masking a video layer makes the compositor render the whole
-    /// picture through an alpha channel on every frame, in the middle of the one movement that has
-    /// to be smooth. A black shape with the window cut out of it is the same thing seen from the
-    /// front — what is behind it is black either way, and the picture leaves no gap anywhere else
-    /// — for the price of filling a path. See ``carriedWindow``.
+    /// Drawn rather than masked: masking a video layer makes the compositor render the whole picture
+    /// through an alpha channel on every frame, in the middle of the one movement that has to be
+    /// smooth. A black shape with the window cut out of it is the same thing seen from the front.
+    /// See ``carriedWindow``.
     var carryingScrim: some View {
         ZStack {
             if let window = carriedWindow {
@@ -510,11 +407,9 @@ extension RemoteScreen {
 
     /// Where a window's picture sits inside one tile of an arrangement, as a fraction of the canvas.
     ///
-    /// **The piece of an arrangement that a movement carries.** A tile holds a window the way a page
-    /// holds a picture, and where that window is *inside the canvas* is the question both directions
-    /// of the movement need answered: once for the arrangement being left behind, where the window
-    /// is what the movement is carrying out of it, and once for the arrangement arriving, where the
-    /// window is the piece of the incoming canvas that has to stay still. See ``PictureAim``.
+    /// The piece of an arrangement that a movement carries, and both directions need it answered:
+    /// once for the arrangement being left, where the window is what the movement is carrying out,
+    /// and once for the one arriving, where it is the piece that has to stay still. See ``PictureAim``.
     func windowAnchor(in layout: MosaicLayout, sourceID: String) -> NormalizedRect? {
         guard layout.canvas.width > 0, layout.canvas.height > 0,
               let index = layout.tiles.firstIndex(where: { $0.source.stableID == sourceID }),
@@ -535,30 +430,27 @@ extension RemoteScreen {
 
     /// Which window sits in one slot of a drawn arrangement, or `nil` when there is no such slot.
     ///
-    /// Checked rather than indexed, because the arrangement is the one being *asked for*: it can be
-    /// replaced between the moment a finger picks a tile up and the moment it puts one down, and an
-    /// index that was in range when the press began need not still be.
+    /// Checked rather than indexed: the arrangement is the one being *asked for*, and it can be
+    /// replaced between a finger picking a tile up and putting one down.
     private func window(at slot: Int?, in layout: MosaicLayout) -> String? {
         guard let slot, layout.tiles.indices.contains(slot) else { return nil }
         return layout.tiles[slot].source.stableID
     }
 
     var mosaicOverlay: some View {
-        // **A `ZStack` and not a `Group`**, which is the difference between this animating and
-        // this appearing. A `Group` has no layout of its own — every modifier on one lands on
-        // each branch separately — so there is nothing for a transition to be attached to and
-        // the two states just swap. The `ZStack` is the container the fade belongs to.
+        // A `ZStack` and not a `Group`, which is the difference between this animating and this
+        // appearing: a `Group` has no layout of its own, so a modifier lands on each branch
+        // separately and there is nothing for a transition to attach to. The `ZStack` is the
+        // container the fade belongs to.
         ZStack {
             if let layout = shownMosaicLayout {
                 MosaicOverlay(placed: layout.tiles.enumerated().compactMap { index, tile -> MosaicOverlay.Placed? in
                     guard let rect = mosaicTileRect(index, in: layout) else { return nil }
                     return MosaicOverlay.Placed(
-                        // **The window, not the slot.** A slot's identity is its place in the
-                        // arrangement, and a reorder moves windows between places without moving
-                        // any place: keyed by index, nothing about the views changes and there is
-                        // nothing for the drop to animate. Keyed by the window, the outline held
-                        // under the finger travels into the slot it was dropped in and every
-                        // window it displaced travels into its own.
+                        // The window, not the slot: a reorder moves windows between places without
+                        // moving any place, so keyed by index nothing about the views changes and
+                        // there is nothing for the drop to animate. Keyed by the window, the outline
+                        // held under the finger travels into the slot it was dropped in.
                         id: tile.source.stableID,
                         rect: rect,
                         title: model.catalog?.descriptor(for: tile.source)?.title
@@ -566,45 +458,38 @@ extension RemoteScreen {
                 }, held: window(at: heldTile, in: layout),
                    heldPoint: heldPoint,
                    target: window(at: targetTile, in: layout))
-                // **Opacity, and nothing that moves.** Every other entrance in this app slides or
-                // scales, and none of them can here: these borders are drawn on the tiles they
+                // Opacity, and nothing that moves: these borders are drawn on the tiles they
                 // outline, and a line travelling into place would spend the whole animation
-                // somewhere the tile is not. What fades is the app's account of where the windows
-                // are; the picture underneath never moved.
+                // somewhere the tile is not.
                 //
-                // **The way out is quicker than the way in**, and the two are different events
-                // rather than the same one reversed. Arriving, the borders are the arrangement
-                // being explained and can take ``Motion/settle``. Leaving, a tap has already
-                // started carrying one window out of the arrangement, so the picture is moving by
-                // the next frame, and lines still drawn over it for a third of a second are
-                // lines on a picture that is no longer there. A tap's own timing is what is left.
+                // The way out is quicker than the way in, and the two are different events rather
+                // than one reversed. Arriving, the borders are the arrangement being explained and
+                // can take ``Motion/settle``. Leaving, a tap has already started carrying one window
+                // out, so lines still drawn over the picture are lines on a picture that is no
+                // longer there.
                 .transition(.asymmetric(
                     insertion: .opacity.animation(Motion.settle),
                     removal: .opacity.animation(Motion.tap)
                 ))
             }
         }
-        // Keyed on whether the borders are drawn at all rather than on whether the Mac has
-        // answered: the entrance is the arrangement appearing, and on the way back from a tile it
-        // appears the moment the user asks. See ``shownMosaicLayout``.
+        // Keyed on whether the borders are drawn at all rather than on whether the Mac has answered:
+        // on the way back from a tile they appear the moment the user asks. See ``shownMosaicLayout``.
         .animation(Motion.settle, value: shownMosaicLayout != nil)
         .ignoresSafeArea()
     }
 
     /// A small control on each tile that takes that window out of the arrangement.
     ///
-    /// **Its own layer, above the gesture surface, and it has to be.** The borders take no touches
-    /// at all — a tap on a tile is routed by the surface, which is the only thing on this screen
-    /// that knows where the picture is — so a control drawn with them would be swallowed before
-    /// anything reached it. See ``MosaicOverlay``.
+    /// Its own layer, above the gesture surface, and it has to be: the borders take no touches, so a
+    /// control drawn with them would be swallowed before anything reached it. See ``MosaicOverlay``.
     ///
-    /// **Hidden while a tile is in the hand.** A reorder is a thing being looked at rather than a
-    /// picture being changed, and a row of buttons over it is a row of ways out of something the
-    /// user is in the middle of doing.
+    /// Hidden while a tile is in the hand, so a row of buttons is not a row of ways out of something
+    /// the user is in the middle of doing.
     ///
     /// Drawn only where the tile is big enough to hold one, by the same measure the name is drawn
-    /// at and for the same reason: on a small tile the control is most of the corner it sits in,
-    /// and the tap that was meant for the window would find the button instead.
+    /// at: on a small tile the control is most of the corner it sits in, and the tap meant for the
+    /// window would find the button instead.
     var mosaicDismissButtons: some View {
         ZStack {
             if let layout = shownMosaicLayout, heldTile == nil {
@@ -638,9 +523,8 @@ extension RemoteScreen {
 
     /// How big the control that takes a window out of an arrangement is, and where it sits.
     ///
-    /// Smaller than the chrome's own dots, which are 48: those sit on the app's chrome and this
-    /// sits on somebody's window, and a control that size over a tile of a five-tile arrangement
-    /// is a quarter of it.
+    /// Smaller than the chrome's own dots, which are 48: a control that size over a tile of a
+    /// five-tile arrangement is a quarter of it.
     private static let dismissalDiameter: CGFloat = 28
     private static let dismissalInset: CGFloat = 8
     /// Below this a tile is a label with a window behind it, and a button in its corner is the
@@ -650,65 +534,45 @@ extension RemoteScreen {
     /// How the picture is scaled on its way to the screen, over and above the user's zoom.
     ///
     /// A value rather than a number, because the answer depends on which picture is being asked
-    /// about: in Fill a canvas and one of its windows are scaled by different amounts, and that
-    /// difference is what the movement between them is measured against. See ``PictureScale``,
-    /// which is where the arithmetic lives, and ``MacCastKit/MosaicZoom``, which is what uses it.
+    /// about: in Fill a canvas and one of its windows are scaled by different amounts, and the
+    /// movement between them is measured against that difference. See ``PictureScale`` and
+    /// ``MacCastKit/MosaicZoom``.
     var pictureScale: PictureScale {
         PictureScale(
             scalesToFill: scalesToFill,
-            // Portrait has no margin, and the asymmetry is the chrome's rather than a preference:
-            // the pill and the dock sit above and below the middle of the screen, and the canvas
-            // of an arrangement is a band across that middle. See ``ChromeMetrics/pictureInset``.
+            // Portrait has no margin, and the asymmetry is the chrome's: the pill and the dock sit
+            // above and below the middle of the screen, and the canvas of an arrangement is a band
+            // across that middle. See ``ChromeMetrics/pictureInset``.
             inset: deviceIsLandscape ? ChromeMetrics.pictureInset : 0
         )
     }
 
-    /// What the picture is drawn at, and — because every touch is mapped back through it — what
-    /// a touch means. One property rather than two, so a click can never be resolved against a
-    /// scale the picture is not actually drawn at.
+    /// What the picture is drawn at, and, because every touch is mapped back through it, what a
+    /// touch means. One property rather than two, so a click can never be resolved against a scale
+    /// the picture is not actually drawn at.
     ///
-    /// In Fill the user's zoom rides *on top of* the fill scale rather than competing with it,
-    /// and that is the whole difference between a pinch that works and one that looks broken.
-    ///
-    /// It was `max(zoom, fill)`, which discarded the user's zoom for as long as it was the
-    /// smaller of the two — and the fill is 1.4× in landscape and over 3× in portrait for a
-    /// full-size desktop, so a pinch had *no effect whatsoever* until the picture had already
-    /// been magnified past the fill by some other means. There is no other means: the pinch was
-    /// the door, and this was the lock on it.
-    ///
-    /// Multiplying leaves the resting state exactly as it was — at `zoom == 1` this is the base
-    /// scale — and gives every step of the pinch somewhere to go from there.
+    /// In Fill the user's zoom rides *on top of* the fill scale rather than competing with it:
+    /// multiplying leaves the resting state exactly as it was, at `zoom == 1` the base scale, and
+    /// gives every step of the pinch somewhere to go. With `max(zoom, fill)` a pinch had no effect
+    /// at all until the picture had been magnified past the fill by some other means.
     var effectiveZoom: CGFloat {
         pictureBaseScale * zoom
     }
 
     /// What the picture **on screen** is multiplied by, over and above the user's zoom.
     ///
-    /// The margin costs nothing anywhere: it is not a box the drawing has to be moved into, it is
-    /// the same rectangle drawn 85% as large about the same centre. See ``pictureScale`` for the
-    /// picture-dependent half, which is the one a movement between two pictures has to be careful
-    /// about.
+    /// The margin is not a box the drawing is moved into, it is the same rectangle drawn 85% as
+    /// large about the same centre. See ``pictureScale`` for the picture-dependent half.
     var pictureBaseScale: CGFloat {
-        // **Use the locked size while animating.** When a glide is running the pixel size the
-        // ``zoom`` factor was calibrated against is ``lockedPixelSize``, not whatever the model
-        // currently reports — see the note on ``lockedPixelSize`` for why this matters.
+        // Use the locked size while animating: the pixel size ``zoom`` was calibrated against is
+        // ``lockedPixelSize``, not whatever the model currently reports. See ``lockedPixelSize``.
         //
-        // **And keep using it until the arrival has been solved for, which is not the same
-        // moment.** `capturePixelSize` moves the instant a config arrives and `lockedPixelSize` is
-        // written when the arrival is solved, so between those two the stream has changed and the
-        // picture on screen has not. A glide is nil across that whole gap, so gating on the glide
-        // alone handed the transform the *arriving* picture's base while the zoom was still the
-        // departing one's. Traced, at the end of a zoom into a window:
-        //
-        //     2.347  glide landed zoom=1.9249
-        //     2.352  layer now showing src=window:87952
-        //     2.354  layer transform zoom=1.0009
-        //
-        // Between 2.347 and 2.354 nothing had been solved yet, so the base had already switched to
-        // the window and the picture was drawn at 1.43 x 1.9249 instead of 1.43 x 1.0009: twice
-        // the size it belongs at, for a frame, right as the movement ends. That is the user's
-        // "flickers like it was resized", and it survives every fix to the ordering because it is
-        // not a question about the ordering at all.
+        // And keep using it until the arrival has been solved for, which is not the same moment.
+        // `capturePixelSize` moves the instant a config arrives and `lockedPixelSize` is written when
+        // the arrival is solved, so between those two the stream has changed and the picture on
+        // screen has not. A glide is nil across that whole gap, so gating on the glide alone hands
+        // the transform the *arriving* picture's base while the zoom is still the departing one's,
+        // which draws the picture at twice the size it belongs at for a frame.
         let unsolved = placedPictureID != model.picture?.sourceID
         let size = (pictureGlide != nil || unsolved)
             ? lockedPixelSize
@@ -718,18 +582,15 @@ extension RemoteScreen {
 
     /// Whether the new picture is already drawn where a reset would draw it.
     ///
-    /// **Asked of the rectangle rather than of the zoom.** A zoom is a multiple of whatever the
-    /// picture's own fit is, and a reset is the number 1 — so "the zoom is not 1" and "the picture
-    /// is not where it belongs" are not the same question, and only the second one is about
-    /// anything the user can see. A reorder, a source picked out of a panel, a return to an
-    /// arrangement: all of them are already at rest when they arrive, and the reset is then a
-    /// re-expression of the same rectangle rather than a movement.
+    /// Asked of the rectangle rather than of the zoom: a zoom is a multiple of the picture's own fit
+    /// and a reset is the number 1, so "the zoom is not 1" and "the picture is not where it belongs"
+    /// are different questions, and only the second is about anything the user can see. A reorder, a
+    /// source picked out of a panel, a return to an arrangement: all arrive already at rest, and the
+    /// reset is then a re-expression of the same rectangle rather than a movement.
     ///
-    /// Asked the moment a new picture arrives, so everything it reads is the new picture's:
-    /// ``capturePixelSize`` is the stream that has just been configured and ``effectiveZoom`` is
-    /// that picture's own base scale times the stored zoom. It is deliberately *not* the test for
-    /// a window a movement was aimed at — see ``RemoteScreen/openingTarget`` for why the number
-    /// cannot answer that one — and the two tests together are the correction in `RemoteScreen`.
+    /// Asked the moment a new picture arrives, so everything it reads is the new picture's. It is
+    /// deliberately *not* the test for a window a movement was aimed at, because the number cannot
+    /// answer that one. See ``RemoteScreen/openingTarget``.
     var pictureIsAtRest: Bool {
         let full = NormalizedRect(x: 0, y: 0, width: 1, height: 1)
         guard let size = model.capturePixelSize,
@@ -744,8 +605,8 @@ extension RemoteScreen {
         else { return true }
 
         // A point of slack, which is under the eye's: the aim is right to within a pixel of the
-        // even-rounding of a tile's surface, and a correction for that would be a movement the
-        // user watches for half a second to travel nowhere.
+        // even-rounding of a tile's surface, and a correction for that would be a movement the user
+        // watches for half a second to travel nowhere.
         return abs(now.midX - rest.midX) < 1
             && abs(now.midY - rest.midY) < 1
             && abs(now.width - rest.width) < 1
@@ -755,26 +616,24 @@ extension RemoteScreen {
     /// Puts the picture back where a phone that has just opened a source expects it: at the
     /// default zoom, and centred.
     ///
-    /// **One is the app's default, and it is not the same thing as "not scaled".** `effectiveZoom`
-    /// is the picture's own base scale times this number — see ``pictureScale`` — so at 1 the
-    /// picture is exactly as the fit draws it: the whole screen in Fit, the screen's edges in Fill.
-    /// The zoom is a multiple *of* the fit, which is why the reset is this number and not a
-    /// smaller one.
+    /// One is the app's default, and not the same thing as "not scaled": `effectiveZoom` is the
+    /// picture's own base scale times this number (see ``pictureScale``), so at 1 the picture is
+    /// exactly as the fit draws it. The zoom is a multiple *of* the fit, which is why the reset is
+    /// this number and not a smaller one.
     ///
     /// The percentage chip in the status pill resets through here as well, and the two have to be
-    /// the same number: a reset that landed somewhere else would leave the chip reading 100% over
-    /// a picture that was scaled.
+    /// the same number: a reset that landed elsewhere would leave the chip reading 100% over a
+    /// scaled picture.
     ///
     /// Not animated, and it cannot be: the zoom reaches the picture as a layer transform with Core
     /// Animation's implicit animations switched off (see ``VideoLayerView/updateUIView(_:context:)``),
-    /// and the frames behind it are being replaced at the same moment, so an animation would spend
-    /// its length drawing the new source at the old source's scale.
+    /// and the frames behind it are being replaced at the same moment.
     func resetPicture() {
         zoom = 1
         pan = .zero
-        // **This is where an arriving picture becomes the picture**, and everything measured
-        // against the picture's own size has to move with it. Both of the ways a picture arrives at
-        // rest come through here. See ``pictureBaseScale`` for what happens when they disagree.
+        // This is where an arriving picture becomes the picture: everything measured against the
+        // picture's own size moves with it, and both of the ways a picture arrives at rest come
+        // through here. See ``pictureBaseScale``.
         lockedPixelSize = model.capturePixelSize ?? .zero
         placedPictureID = model.picture?.sourceID
     }
