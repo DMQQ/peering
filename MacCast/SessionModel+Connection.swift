@@ -572,6 +572,10 @@ extension SessionModel {
         // is there when the user looks and one that fills in several seconds later.
         if browseFailed { restartBrowsing() }
         resumeIfNeeded()
+        // The picture: the layer's contents do not survive the background and the host has sent
+        // nothing new for a Mac that has not changed, so this is what brings it back. See
+        // ``VideoRenderer/repaintAfterForegrounding()``.
+        activeSession?.renderer.repaintAfterForegrounding()
     }
 
     /// Ends the session when the background window runs out, rather than letting the system

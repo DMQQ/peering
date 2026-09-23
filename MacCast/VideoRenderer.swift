@@ -90,6 +90,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// The last frame this renderer handed to the live layer, whichever stream it belonged to.
     /// What ``outgoingFrame`` is set from when the next stream is configured.
     private var lastEnqueued: CMSampleBuffer?
+    /// The most recent frame a decoder could start from, kept for the trip back from the
+    /// background. The layer's contents do not survive it and neither does the decode queue, so
+    /// this is the only thing left to hand it. One frame's worth of memory; see
+    /// ``repaintAfterForegrounding()``.
+    private var lastKeyframeSample: CMSampleBuffer?
 
     /// The layer the outgoing picture is shown on. See ``VideoHostView/stillView``.
     private var stillRenderer: AVSampleBufferVideoRenderer?
@@ -397,6 +402,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
                 self.snapshot.bytesEnqueued += Int64(frame.data.count)
                 self.snapshot.awaitingKeyframe = false
                 self.snapshot.readyGeneration = self.snapshot.configGeneration
+                self.lastKeyframeSample = sample
             }
             let landed = lock.withLock { _onFirstFrame }
             Task { @MainActor in landed?() }
@@ -426,12 +432,48 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         renderer.enqueue(sample)
         self.lock.withLock {
             self.lastEnqueued = sample
+            if frame.isKeyframe { self.lastKeyframeSample = sample }
             self.snapshot.framesEnqueued += 1
             self.snapshot.bytesEnqueued += Int64(frame.data.count)
             self.snapshot.awaitingKeyframe = false
             // A frame that went straight to the layer is on it: both the cue and the picture.
             self.snapshot.readyGeneration = self.snapshot.configGeneration
             self.snapshot.displayedGeneration = self.snapshot.configGeneration
+        }
+    }
+
+    /// Puts a picture back after the app has been away, given that nothing else will.
+    ///
+    /// **iOS throws away what an `AVSampleBufferDisplayLayer` was showing when the app is
+    /// backgrounded**, and this app has no way to notice: the host has sent nothing new, because a
+    /// Mac whose screen has not changed produces no frames at all. So the app comes back to a black
+    /// rectangle that stays black until something on the Mac moves — which is why a slight drag,
+    /// which moves the Mac's pointer, is what brings it back, and why it reads as a frozen session
+    /// rather than as a lost frame.
+    ///
+    /// Two cases, told apart by the layer itself. A decoder that survived the trip (the usual one,
+    /// since the frames after the drag decode) needs the last picture handed to it again. A decoder
+    /// that did not reports a failed renderer, and for that the way back is the documented one: a
+    /// flush, and then a sync sample, which is the only kind it can start from.
+    ///
+    /// A stream that was reconfigured while the app was away is left alone: its own keyframe is on
+    /// its way and would only be raced by this one.
+    func repaintAfterForegrounding() {
+        queue.async { [weak self] in
+            guard let self, let renderer = self.renderer else { return }
+            let (last, sync, generation) = self.lock.withLock {
+                (self.lastEnqueued, self.lastKeyframeSample, self.snapshot.configGeneration)
+            }
+
+            if renderer.status == .failed {
+                guard let sync, self.lock.withLock({ self.snapshot.readyGeneration }) == generation else { return }
+                videoLog.notice("the display layer was left empty by the background; restarting it from the last keyframe")
+                renderer.flush()
+                renderer.enqueue(sync)
+                self.lock.withLock { self.snapshot.awaitingKeyframe = false }
+            } else if let last {
+                renderer.enqueue(last)
+            }
         }
     }
 
