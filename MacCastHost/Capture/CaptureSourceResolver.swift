@@ -293,11 +293,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         do {
             // Desktop windows are excluded because capturing "the desktop" behind every
             // window is not something a user ever asks for, and it makes the window list
-            // enormous. Do not restrict this to windows on the current desktop: that turns
-            // the source picker into a list of whichever Space happens to be visible on the
-            // Mac, hiding ordinary windows on other Spaces (and all but one of a multi-window
-            // application). The geometry checks below still reject degenerate surfaces that
-            // cannot produce a useful capture.
+            // enormous. The enumeration itself stays this wide, and which of the windows it
+            // returns may be offered to the phone is decided in one place rather than here:
+            // see ``isUserFacingWindow(_:)``. The geometry checks below still reject
+            // degenerate surfaces that cannot produce a useful capture.
             fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false)
         } catch {
             throw CaptureError.from(error)
@@ -924,20 +923,19 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     }
 
     /// A user-selectable top-level window rather than a menu, shadow, desktop surface, or
-    /// hidden bookkeeping surface an application keeps around for later. Off-screen windows
-    /// with a title stay eligible: those are the ordinary windows on the user's other Spaces,
-    /// which is exactly why the catalogue asks ScreenCaptureKit for more than the current Space.
-    /// An untitled window is kept only while ScreenCaptureKit says it is visible or active, so
-    /// applications that intentionally omit a title are still usable without filling the picker
-    /// with their dormant helper surfaces.
+    /// hidden bookkeeping surface an application keeps around for later.
+    ///
+    /// **On screen, because a window that is not on screen is one nothing can be done with.**
+    /// Three ordinary cases are behind that: a window the application has closed but not
+    /// released, a minimised one, and one on a Space this Mac is not showing. ScreenCaptureKit
+    /// lists all three and renders none of them, so each was a row in the picker that opened
+    /// onto nothing. It is also what the title used to stand in for: an untitled window was kept
+    /// while ScreenCaptureKit called it visible or active, which this now says outright.
     private static func isUserFacingWindow(_ window: SCWindow) -> Bool {
-        guard window.windowLayer == 0,
-              window.frame.width >= 1,
-              window.frame.height >= 1
-        else { return false }
-
-        let hasTitle = window.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        return hasTitle || window.isOnScreen || window.isActive
+        window.windowLayer == 0
+            && window.isOnScreen
+            && window.frame.width >= 1
+            && window.frame.height >= 1
     }
 
     /// Enumerates top-level GUI application bundles, excluding Apple's sealed system apps.

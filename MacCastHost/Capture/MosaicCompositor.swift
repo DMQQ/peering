@@ -824,11 +824,12 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         }
 
         // **Past the deadline a tile that has never delivered is not slow, it is one that is never
-        // going to.** A window that is not on screen — hidden, minimised, on a Space that is not
-        // showing — starts a stream and then says nothing, and its capture is enumerated anyway
-        // because the picker deliberately lists windows on every Space. Waiting longer only makes
-        // the whole arrangement later: measured, a mosaic of six waited the full bound for one
-        // such window on every single build. Marked dead it draws a card in its rectangle, stops
+        // going to.** A window that is hidden, minimised or on a Space that is not showing starts
+        // a stream and then says nothing. Since the picker offers only windows that are on screen
+        // (`ScreenCaptureSourceResolver/isUserFacingWindow(_:)`), what arrives here is a window
+        // that left the screen after it was chosen. Waiting longer only makes the whole
+        // arrangement later: measured, a mosaic of six waited the full bound for one such window
+        // on every single build. Marked dead it draws a card in its rectangle, stops
         // the canvas waiting, and tells the phone the window has gone so it can take it out of the
         // arrangement — which is what the user wanted from that tile in the first place.
         for index in expired { markDead(index) }
