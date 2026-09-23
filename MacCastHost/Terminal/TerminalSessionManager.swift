@@ -387,6 +387,15 @@ final class TerminalSessionManager: @unchecked Sendable {
         var environment = ProcessInfo.processInfo.environment
         environment["TERM"] = "xterm-256color"
         environment["COLORTERM"] = "truecolor"
+        // **The one program here that has a switch for the thing the far end is worst at.** These
+        // shells are drawn on a phone by replaying their bytes onto a grid, so a program that
+        // repaints by moving the cursor cell by cell is every weakness at once — and that is
+        // exactly what a full-screen program drawing on the alternate screen does. Claude Code's
+        // `tui` setting picks that renderer, and this is its documented way of being told not to:
+        // classic draws on the main screen and flows into the scrollback, which is what a terminal
+        // this size renders well. Set for the shells this app opens and for nothing else, so a
+        // Terminal window on the same Mac keeps whatever its owner chose there.
+        environment["CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN"] = "1"
         process.environment = environment
         process.standardInput = slave
         process.standardOutput = slave
