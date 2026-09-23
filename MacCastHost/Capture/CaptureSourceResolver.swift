@@ -60,7 +60,20 @@ protocol CaptureSourceResolver: Sendable {
     ///
     /// Asked when a running session notices that something it is capturing has gone. No
     /// notification covers a window closing, so the capture noticing is the only way to find out.
+    /// **It also forgets which sources have been proved uncapturable**, because a launch, a quit
+    /// and a change of screen are all the machine changing under that answer. See
+    /// ``markUncapturable(_:)``.
     func invalidate()
+
+    /// A source this Mac has tried to capture and cannot, so the catalogue stops offering it.
+    ///
+    /// **The catalogue is the phone's authority on what is worth putting in an arrangement**, and
+    /// ScreenCaptureKit will list a window it will not render: it goes on appearing in every
+    /// enumeration, its descriptor is as ordinary as any other, and a stream built for it starts
+    /// and then delivers nothing, forever. Nothing the enumeration says separates that window from
+    /// a capturable one, so the evidence is a capture that produced no frame at all, and this is
+    /// where it goes. See ``ScreenCaptureSourceResolver/uncapturable``.
+    func markUncapturable(_ source: CaptureSource)
 
     /// A still of one source, at most `maxWidth` pixels across.
     ///
@@ -195,7 +208,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     func catalog() async throws -> CaptureCatalog {
         let content = try await shareableContent()
-        let descriptors = Self.descriptors(from: content)
+        // **A source a capture has proved it cannot have is not offered at all.** Leaving it in
+        // gives the phone a tile to draw and a window to open, and opening it does nothing: no
+        // stream, no picture, and an arrangement left magnified with no answer coming. See
+        // ``uncapturable``.
+        let offTheList = lock.withLock { uncapturable }
+        let descriptors = Self.descriptors(from: content).filter { !offTheList.contains($0.source) }
         let runningBundleIDs = Set(descriptors.compactMap(\.bundleIdentifier))
         let installed = lock.withLock { installedApplicationsCache }
             ?? Self.installedApplications()
@@ -306,10 +324,42 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let changed = lock.withLock { () -> Bool in
             let wasCurrent = !isStale
             isStale = true
+            // A window that would not render may render now, and this is one of the few moments
+            // that can be true. See ``uncapturable``.
+            uncapturable = []
             return wasCurrent
         }
         guard changed else { return }
         resolverLog.debug("capture catalogue invalidated")
+        onInvalidate?()
+    }
+
+    /// Sources a capture has proved this Mac cannot capture, by source.
+    ///
+    /// **ScreenCaptureKit lists windows it will not render.** The one measured here is a 210x80
+    /// Transporter window at y=-807, which is on the second display rather than off screen, which
+    /// the enumeration describes like any other window, and which produces no frame at all: not in
+    /// a mosaic, not as an ordinary single-window capture, not in four seconds. Nothing in the
+    /// enumeration separates it from a window that works, so the only evidence there is is a
+    /// stream that started and then said nothing, and this is where a mosaic's report of one goes.
+    ///
+    /// **Emptied by ``invalidate()``**, which is a launch, a quit, a change of screen or a window
+    /// changing size: all of them the machine changing under the answer.
+    /// Under ``lock`` with the rest of the mutable state.
+    private var uncapturable: Set<CaptureSource> = []
+
+    func markUncapturable(_ source: CaptureSource) {
+        let fresh = lock.withLock { () -> Bool in
+            isStale = true
+            return uncapturable.insert(source).inserted
+        }
+        guard fresh else { return }
+        resolverLog.notice("""
+            \(source.stableID, privacy: .public) produced no picture when it was asked for one; \
+            it is not being offered again
+            """)
+        // Announced rather than suppressed, unlike ``invalidate()``: the list really has changed,
+        // and this is the push that takes the tile out of the phone's arrangement.
         onInvalidate?()
     }
 

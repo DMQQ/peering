@@ -279,6 +279,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
     private var _onTileLost: (@Sendable (Int) -> Void)?
+    private var _onTileUncapturable: (@Sendable (Int) -> Void)?
 
     init() {
         queue.setSpecific(key: Self.queueKey, value: 1)
@@ -494,6 +495,34 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             self.deadTiles = []
             self.emptyTiles = []
             self.isParked = false
+        }
+    }
+
+    /// Called once for a tile whose capture produced no picture at all and is not going to, by
+    /// **engine** index.
+    ///
+    /// **A different thing from ``onTileLost``, and the difference is the whole reason it exists.**
+    /// A tile that reports an empty content rectangle has a stream that is running and delivering,
+    /// and a window it belongs to that is open: opening it works, and it is simply empty. A tile
+    /// that has produced nothing at all is one this Mac cannot capture, which is a fault in the
+    /// window rather than in the arrangement, and the catalogue is where that has to be answered.
+    /// See ``CaptureSourceResolver/markUncapturable(_:)``.
+    var onTileUncapturable: (@Sendable (Int) -> Void)? {
+        get { lock.withLock { _onTileUncapturable } }
+        set { lock.withLock { _onTileUncapturable = newValue } }
+    }
+
+    /// The source behind one engine, for a caller that has to name what a tile did.
+    ///
+    /// The engine is what the callbacks are indexed by, and the client's arrangement is the order
+    /// they were built in only until the first rearrangement. See ``engineForSlot``.
+    func source(forEngine index: Int) -> CaptureSource? {
+        lock.withLock {
+            guard let plan,
+                  let slot = engineForSlot.firstIndex(of: index),
+                  plan.tiles.indices.contains(slot)
+            else { return nil }
+            return plan.tiles[slot].source
         }
     }
 
@@ -734,6 +763,9 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     /// One tile's stream ended. Only a mosaic where every tile has now stopped is a failure.
     private func tileStopped(_ index: Int) {
         markDead(index)
+        // A stream that started and then stopped is the same evidence as one that never delivered:
+        // this source is not producing pictures. See ``onTileUncapturable``.
+        lock.withLock { _onTileUncapturable }?(index)
         let (dead, total, callback) = lock.withLock { (deadTiles, engines.count, _onStop) }
         guard total > 0, dead.count >= total else { return }
         callback?(.streamStopped(code: 0, description: "Every window in this mosaic has stopped being captured."))
@@ -800,6 +832,11 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         // the canvas waiting, and tells the phone the window has gone so it can take it out of the
         // arrangement — which is what the user wanted from that tile in the first place.
         for index in expired { markDead(index) }
+        // **And said out loud as the stronger fact it is.** Marked dead is what the canvas does
+        // with the tile; this is what the Mac knows about the *source*, and it is the only place
+        // anything finds out. After the loop above, so the catalogue invalidation that comes with
+        // a lost tile cannot arrive behind it and take the report with it.
+        for index in expired { lock.withLock { _onTileUncapturable }?(index) }
         guard started, settled else { return }
 
         // **Said out loud, because "the canvas arrived empty" and "the canvas was late" are the

@@ -499,6 +499,9 @@ final class CapturePipeline: @unchecked Sendable {
         }
         if let compositor = engine as? MosaicCompositor {
             compositor.onTileLost = { [weak self] _ in self?.noteSourceMayHaveGone() }
+            compositor.onTileUncapturable = { [weak self] index in
+                self?.noteTileUncapturable(index)
+            }
         }
     }
 
@@ -508,6 +511,19 @@ final class CapturePipeline: @unchecked Sendable {
     private func noteSourceMayHaveGone() {
         guard case .capture(let resolver, _, _) = backend else { return }
         resolver.invalidate()
+    }
+
+    /// **A tile that produced no picture at all, which is a fact about the source rather than
+    /// about the arrangement.** Every other reason a tile is empty is a window that has closed or
+    /// an application with nothing open, and both of those are answered by the catalogue as it
+    /// stands. This one is not: the window is open, listed, and will not render, so the only way
+    /// the phone can stop offering it is for the catalogue to stop listing it. See
+    /// ``CaptureSourceResolver/markUncapturable(_:)``.
+    private func noteTileUncapturable(_ index: Int) {
+        guard case .capture(let resolver, _, let compositor) = backend,
+              let source = compositor.source(forEngine: index)
+        else { return }
+        resolver.markUncapturable(source)
     }
 
     /// Re-asks a running mosaic for a different arrangement of the same captures.
