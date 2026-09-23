@@ -190,8 +190,15 @@ public enum MosaicZoom {
         else { return nil }
 
         // Where that piece of the picture is when the picture is at rest, and then the transform
-        // that moves it onto the rectangle it has to occupy now. The base is in the resting
-        // rectangle already, so the answer is a drawn scale and has to be divided back out.
+        // that moves it onto the rectangle it has to occupy now.
+        //
+        // **The base is already in the resting rectangle, and the answer is not divided by it.**
+        // The starting state handed to `transform` is zoom 1 and no pan, which is the picture at
+        // its own base — so what comes back is a multiple of that base, which is exactly what the
+        // caller stores. Dividing it by the base as well is the same mistake twice, and it is
+        // invisible until the base is not 1: portrait draws the picture at 1, so the division did
+        // nothing, and a phone held sideways carries the chrome's margin at 0.75, where a window
+        // opened from a tile landed a quarter too large and then shrank into place.
         let drawn = scale.scaled(resting, in: bounds, by: base)
         guard let placed = CanvasGeometry.transform(
             of: drawn, mappingTo: target,
@@ -199,7 +206,7 @@ public enum MosaicZoom {
         ), placed.zoom > 0
         else { return nil }
 
-        return (placed.zoom / base, placed.pan)
+        return (placed.zoom, placed.pan)
     }
 
     /// The same movement backwards: the window shrinking into the tile it will hold.

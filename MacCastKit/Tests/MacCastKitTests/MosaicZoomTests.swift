@@ -340,6 +340,56 @@ struct MosaicZoomTests {
         #expect(scale.base(pixelSize: layout.canvas, in: viewport)
             != scale.base(pixelSize: windowPixels, in: viewport))
     }
+
+    @Test("the margin a picture is drawn inside is counted once, not twice")
+    func placingInsideAMargin() {
+        // **The same two properties as ``placingKeepsThePictureStill()``, at a scale whose base is
+        // not 1.** Everything above runs portrait, where the picture is drawn at its own fit and
+        // the base is 1 — and a division by 1 does nothing, so a base divided out twice reads as
+        // correct. Held sideways the chrome keeps a margin and the base is 0.75, where a window
+        // opened from a tile landed a quarter too large and then shrank into place over the rest
+        // of the movement. This is the test that would have said so.
+        let viewport = sideways
+        let scale = PictureScale(scalesToFill: false, inset: ChromeMetricsProbe.pictureInset)
+        let full = NormalizedRect(x: 0, y: 0, width: 1, height: 1)
+        let base = scale.base(pixelSize: windowPixels, in: viewport)
+        // Worth nothing unless the base is somewhere a division by it changes the answer.
+        #expect(abs(base - 1) > 0.1)
+
+        // Placed on its own rest rectangle, the answer is the rest state.
+        let rest = scale.scaled(
+            CanvasGeometry.videoRect(bounds: viewport, pixelSize: windowPixels),
+            in: viewport,
+            by: base
+        )
+        guard let atRest = MosaicZoom.placing(
+            pixelSize: windowPixels, anchor: full, at: rest,
+            bounds: viewport, scale: scale
+        ) else {
+            Issue.record("the picture can be placed on its rest rectangle")
+            return
+        }
+        #expect(abs(atRest.zoom - 1) < 0.001)
+
+        // And drawn at the answer, it occupies exactly the rectangle it was aimed at. The target
+        // carries the window's own shape, or the placement is the larger of two ratios and lands
+        // covering it on one axis and overflowing on the other.
+        let midway = CGRect(
+            x: 300, y: 100, width: 260,
+            height: 260 * windowPixels.height / windowPixels.width
+        )
+        guard let placed = MosaicZoom.placing(
+            pixelSize: windowPixels, anchor: full, at: midway,
+            bounds: viewport, scale: scale
+        ), let drawn = CanvasGeometry.rect(
+            normalized: full, bounds: viewport, pixelSize: windowPixels,
+            zoom: base * placed.zoom, pan: placed.pan
+        ) else {
+            Issue.record("the picture can be placed on a rectangle")
+            return
+        }
+        #expect(close(drawn, midway, within: 1))
+    }
 }
 
 /// The chrome's own margin, restated for the tests so they do not depend on a view target.
