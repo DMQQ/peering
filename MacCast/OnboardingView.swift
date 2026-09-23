@@ -47,13 +47,13 @@ struct OnboardingView: View {
     @State private var contentVisible = false
     /// The plan the last page is pointed at, or `nil` for the free one.
     ///
-    /// **Opens on free, and that is the whole of what was wrong with this page.** It used to open
-    /// on the dearest rung, so the last thing a five-page introduction said was "Continue with Pro,
-    /// $99.99/yr", and the way out of it was a grey word above the button. The tour has just
-    /// described an app the user has not used yet; asking first for a year of the top plan and
-    /// treating free as a refusal is what made the page read as a pitch rather than a choice. The
-    /// baseline is a row of its own now, and the row it opens on.
-    @State private var chosen: StoreManager.Tier?
+    /// **Opens on the cheapest rung that costs anything, which is neither of the two defaults this
+    /// page has had.** It opened on the dearest first, so a five-page introduction ended by asking
+    /// for a year of Pro, and that is what made the page read as a pitch rather than a choice. It
+    /// opened on free next, which fixed the pitch and left the free plan as the only control on the
+    /// page shaped like the way forward. Free is a row of its own one tap below and the Skip in the
+    /// corner is the other way past it, so the biggest button here is the one that buys something.
+    @State private var chosen: StoreManager.Tier? = .relay
 
     /// How often this page offers to bill. Opens on monthly so the lower number is the first one
     /// read; the yearly is one tap away and the switch shows what it saves.
@@ -1142,13 +1142,13 @@ struct OnboardingView: View {
     private var primaryTitle: String {
         guard showsPlans else { return isLast ? "Get started" : "Next" }
 
-        // Free chosen, which is how the page opens. The button then says what it does rather than
-        // naming a price: it is the way into the app, and the three purchases above it are the
-        // other way in.
-        guard let chosen else { return "Start using Peering" }
-
-        guard let price = store.compactPriceLabel(for: chosen, period: period)
-        else { return "Continue" }
+        // Free chosen, or a rung the store has not priced yet. The button says what it does rather
+        // than naming an amount, because in both cases it is the way into the app and not a
+        // purchase, and the two are one question, so a page still waiting on the store cannot
+        // label itself with a price and then not charge it.
+        guard let chosen,
+              let price = store.compactPriceLabel(for: chosen, period: period)
+        else { return "Start using Peering" }
 
         if store.isPurchasing { return "Contacting the App Store…" }
         return "Continue with \(chosen.name) · \(price)"
@@ -1156,7 +1156,9 @@ struct OnboardingView: View {
 
     private func primaryAction() {
         // No tier chosen is the free plan, and the free plan is not a purchase: it is the button
-        // that finishes the introduction.
+        // that finishes the introduction. A rung with no product behind it is the same case for
+        // the same reason its label is, which is that the button said as much before it was
+        // pressed.
         guard showsPlans, let chosen,
               let product = store.product(for: chosen, period: period)
         else {
