@@ -790,6 +790,11 @@ struct RemoteScreen: View {
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
+            // The software keyboard's Return arrives as text, and keycode mode has no keycode for
+            // a newline, so a real Return is only reachable from a key like this one.
+            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
+                .accessibilityLabel("Enter")
+
             Button {
                 model.showKeyboard = false
             } label: {
