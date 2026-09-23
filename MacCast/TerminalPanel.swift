@@ -560,7 +560,14 @@ struct TerminalPanel: View {
     private func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
         guard size.width > 0, size.height > 0 else { return }
         let newColumns = TerminalMetrics.columns(forWidth: size.width)
-        let newRows = TerminalMetrics.rows(forHeight: size.height)
+        // **Rows only ever grow, and that is what keeps the keyboard out of the terminal.** The
+        // keyboard shortens the log, the history strip shortens it, and neither of those is a
+        // change to the shell's screen: a resize makes the far end redraw everything, and a
+        // full-screen program redrawing itself is exactly what this emulator is worst at. So the
+        // shell keeps the tallest shape the log has had and the log scrolls, which loses nothing:
+        // it follows the bottom of the output, and the bottom of the output is where the shell's
+        // cursor and its newest lines are.
+        let newRows = max(rows, TerminalMetrics.rows(forHeight: size.height))
         if newColumns != columns || newRows != rows {
             columns = newColumns
             rows = newRows

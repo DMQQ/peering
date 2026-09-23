@@ -317,7 +317,10 @@ struct SSHTerminalScreen: View {
     private func apply(_ size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
         let columns = TerminalMetrics.columns(forWidth: size.width)
-        let rows = TerminalMetrics.rows(forHeight: size.height)
+        // Rows only ever grow: the keyboard and the key deck shorten the log, and neither is a
+        // change to the server's screen. See ``TerminalPanel/applySize(_:to:)``, which is the same
+        // rule for the Mac's own shells.
+        let rows = max(lastRows, TerminalMetrics.rows(forHeight: size.height))
         guard columns != lastColumns || rows != lastRows else { return }
         lastColumns = columns
         lastRows = rows
