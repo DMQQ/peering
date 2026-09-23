@@ -17,6 +17,7 @@
 //! server requires HTTP/2; they deprecated HTTP/1.1 support years ago. The `h2` crate handles
 //! the framing; `tokio-rustls` with `webpki-roots` handles TLS certificate verification.
 
+use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -35,6 +36,10 @@ use tokio_rustls::TlsConnector;
 use tracing::warn;
 
 const APNS_HOST: &str = "api.push.apple.com";
+/// The development host. The same key signs both — which environment a push goes to is decided by
+/// the host it is sent to, and which one a token needs is decided by the entitlement the app that
+/// registered it was signed with.
+const APNS_SANDBOX_HOST: &str = "api.sandbox.push.apple.com";
 const APNS_PORT: u16 = 443;
 /// Refresh the JWT well before Apple's one-hour limit.
 const JWT_TTL: Duration = Duration::from_secs(45 * 60);
@@ -51,6 +56,13 @@ pub struct ApnsClient {
     bundle_id: String,
     tls_config: Arc<tokio_rustls::rustls::ClientConfig>,
     cached_jwt: Mutex<Option<CachedJwt>>,
+    /// Which host each device token was last accepted on, by token.
+    ///
+    /// **Because nothing in a token says which environment it belongs to.** A push to the wrong
+    /// host is refused with `BadDeviceToken`, exactly as a push to a device that has uninstalled
+    /// the app would be, so the only way to serve both a Debug phone and a TestFlight one from one
+    /// relay is to try one, and then the other, and remember which answered.
+    environments: Mutex<HashMap<String, &'static str>>,
 }
 
 impl ApnsClient {
@@ -95,6 +107,7 @@ impl ApnsClient {
             bundle_id,
             tls_config: Arc::new(tls_config),
             cached_jwt: Mutex::new(None),
+            environments: Mutex::new(HashMap::new()),
         })
     }
 
@@ -141,12 +154,74 @@ impl ApnsClient {
 
     /// Opens a connection to APNs and delivers one push notification. Each call is one
     /// connection; APNs is stateless from this relay's perspective.
+    ///
+    /// **Two attempts at most, and the second only for the reason that needs it.** Which
+    /// environment a token belongs to is decided by the entitlement of the app that registered it,
+    /// and the token carries nothing that says so: a phone running a build signed `development`
+    /// — every Debug install — holds a token the production host refuses with `BadDeviceToken`,
+    /// and that refusal is indistinguishable from a token for an app that has been uninstalled.
+    /// So the host that answered is remembered per token, and a `BadDeviceToken` is the one
+    /// answer worth trying the other host for.
     pub async fn send(
         &self,
         device_token: &str,
         title: &str,
         body: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let first = self
+            .environments
+            .lock()
+            .unwrap()
+            .get(device_token)
+            .copied()
+            .unwrap_or(APNS_HOST);
+
+        match self.push(first, device_token, title, body).await {
+            PushOutcome::Accepted => Ok(()),
+            PushOutcome::Refused(failure) => {
+                let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
+                warn!(%device_token, host = first, failure = %failure, "APNs refused the push");
+
+                match self.push(other, device_token, title, body).await {
+                    PushOutcome::Accepted => {
+                        self.environments
+                            .lock()
+                            .unwrap()
+                            .insert(device_token.to_owned(), other);
+                        Ok(())
+                    }
+                    PushOutcome::Refused(other_failure) => {
+                        warn!(%device_token, host = other, failure = %other_failure, "APNs refused the push on both hosts");
+                        Err(format!("APNs refused on both hosts: {failure} / {other_failure}").into())
+                    }
+                    PushOutcome::Failed(error) => Err(error),
+                }
+            }
+            PushOutcome::Failed(error) => Err(error),
+        }
+    }
+
+    /// One attempt against one host.
+    async fn push(
+        &self,
+        host: &'static str,
+        device_token: &str,
+        title: &str,
+        body: &str,
+    ) -> PushOutcome {
+        match self.push_inner(host, device_token, title, body).await {
+            Ok(outcome) => outcome,
+            Err(error) => PushOutcome::Failed(error),
+        }
+    }
+
+    async fn push_inner(
+        &self,
+        host: &str,
+        device_token: &str,
+        title: &str,
+        body: &str,
+    ) -> Result<PushOutcome, Box<dyn std::error::Error + Send + Sync>> {
         let jwt = self.jwt();
 
         // Compact JSON — serde_json would pull in more deps; the shape never varies.
@@ -158,9 +233,9 @@ impl ApnsClient {
         let payload_bytes = Bytes::from(payload.into_bytes());
         let content_length = payload_bytes.len().to_string();
 
-        let tcp = TcpStream::connect((APNS_HOST, APNS_PORT)).await?;
+        let tcp = TcpStream::connect((host, APNS_PORT)).await?;
         let connector = TlsConnector::from(Arc::clone(&self.tls_config));
-        let server_name = ServerName::try_from(APNS_HOST)
+        let server_name = ServerName::try_from(host)
             .map_err(|_| "invalid APNs hostname")?
             .to_owned();
         let tls = connector.connect(server_name, tcp).await?;
@@ -173,7 +248,7 @@ impl ApnsClient {
             let _ = conn.await;
         });
 
-        let uri: Uri = format!("https://{APNS_HOST}/3/device/{device_token}").parse()?;
+        let uri: Uri = format!("https://{host}/3/device/{device_token}").parse()?;
         let req = Request::builder()
             .method(Method::POST)
             .uri(uri)
@@ -191,14 +266,31 @@ impl ApnsClient {
 
         let response = response_fut.await?;
         let status = response.status();
-        if !status.is_success() {
-            warn!(
-                %status,
-                %device_token,
-                "APNs push rejected"
-            );
+        if status.is_success() {
+            return Ok(PushOutcome::Accepted);
         }
 
-        Ok(())
+        // The body carries Apple's own word for it. Read rather than assumed, because
+        // `BadDeviceToken` is the one refusal that means "try the other host" and everything else
+        // means this push is not going to arrive.
+        let body = response.into_body().data().await;
+        let reason = match body {
+            Some(Ok(bytes)) => String::from_utf8_lossy(&bytes).to_string(),
+            _ => String::new(),
+        };
+        if reason.contains("BadDeviceToken") {
+            return Ok(PushOutcome::Refused(reason));
+        }
+        Ok(PushOutcome::Refused(format!("{status} {reason}")))
     }
+}
+
+/// What one attempt against one host produced.
+enum PushOutcome {
+    /// APNs took it.
+    Accepted,
+    /// APNs answered, and not with success. The string is what it said.
+    Refused(String),
+    /// The attempt never reached Apple: DNS, TLS, HTTP/2, a socket.
+    Failed(Box<dyn std::error::Error + Send + Sync>),
 }
