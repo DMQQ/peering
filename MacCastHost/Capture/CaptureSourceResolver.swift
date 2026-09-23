@@ -412,7 +412,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         // the Mac's side. Re-reading costs one enumeration on an action the user has just taken
         // by hand, and it is what makes the picker show what is on the Mac now.
         markStale()
-        guard let content = try? await shareableContent() else { return }
+        guard let content = try? await shareableContent() else {
+            resolverLog.notice("could not re-read the capture catalogue, so the picker is showing the last one")
+            return
+        }
         let sources = Self.descriptors(from: content)
             .filter { $0.kind == .display || $0.kind == .window }
             .map(\.source)

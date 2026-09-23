@@ -2,6 +2,9 @@ import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
 import MacCastKit
+import os
+
+private let panelLog = Logger(subsystem: "pl.dmq.peering", category: "file-browser")
 
 // `childPath` moved to `RemoteCore`, alongside `ShellPath.quoted`, when the SSH browser turned
 // out to need the same join for a different reason: resolving a symbolic link means naming the
@@ -1306,6 +1309,7 @@ struct FilePreviewPanel: View {
             try preview.data.write(to: url, options: .atomic)
             return url
         } catch {
+            panelLog.error("could not write a copy of \(name, privacy: .public) to hand to Files: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

@@ -658,10 +658,14 @@ final class StoreManager {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var item: AnyObject?
-        if SecItemCopyMatching(SecretStore.attributes(query), &item) == errSecSuccess,
+        let lookup = SecItemCopyMatching(SecretStore.attributes(query), &item)
+        if lookup == errSecSuccess,
            let data = item as? Data,
            let key = String(data: data, encoding: .utf8) {
             return key
+        }
+        if lookup != errSecItemNotFound {
+            storeLog.error("the relay key could not be read from the keychain: OSStatus \(lookup, privacy: .public); the relay is being given a new one")
         }
         let key = UUID().uuidString
         let attrs: [String: Any] = [
@@ -670,7 +674,10 @@ final class StoreManager {
             kSecAttrAccount as String: Self.keychainAccount,
             kSecValueData as String: Data(key.utf8),
         ]
-        SecItemAdd(SecretStore.attributes(attrs), nil)
+        let stored = SecItemAdd(SecretStore.attributes(attrs), nil)
+        if stored != errSecSuccess {
+            storeLog.error("the relay key could not be stored in the keychain: OSStatus \(stored, privacy: .public); the next launch will make another one")
+        }
         return key
     }
 }

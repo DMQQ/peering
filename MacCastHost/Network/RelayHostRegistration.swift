@@ -1,5 +1,8 @@
 import Foundation
+import os
 import RemoteCore
+
+private let relayLog = Logger(subsystem: "pl.dmq.peering.host", category: "relay")
 
 /// Keeps this Mac present at the public relay and accepts session allocations pushed by it.
 final class RelayHostRegistration: @unchecked Sendable {
@@ -28,7 +31,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         lock.lock()
         guard task == nil else { lock.unlock(); return }
         // Detached deliberately: `start()` is called by the main-actor UI model, but a permanent
-        // WebSocket receive loop is networking work and must not inherit that actor's executor.
+        // WebSocket receive loop must not inherit that actor's executor.
         let task = Task.detached { [weak self] in
             guard let self else { return }
             await self.run()
@@ -38,13 +41,16 @@ final class RelayHostRegistration: @unchecked Sendable {
     }
 
     /// Asks the relay to push an APNs notification to the given device token. Fire-and-forget:
-    /// if the signalling socket is momentarily down the push is lost, and the Mac retries on
-    /// the next terminal-attention event.
+    /// a push sent while the signalling socket is down is lost, not queued.
     func notifyDevice(token: String, title: String, body: String) {
         let connection = lock.withLock { connection }
         guard let connection else { return }
         Task.detached {
-            try? await connection.send(.notifyDevice(token: token, title: title, body: body))
+            do {
+                try await connection.send(.notifyDevice(token: token, title: title, body: body))
+            } catch {
+                relayLog.error("the relay did not take a notification for \(token, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -68,16 +74,13 @@ final class RelayHostRegistration: @unchecked Sendable {
             let connection = RelaySignallingConnection(url: ProtocolInfo.relaySignallingURL)
             lock.withLock { self.connection = connection }
             do {
-                // **Signed per attempt, not once.** The proof carries a timestamp that the relay
-                // will only accept for a few minutes either side of its own clock, and this loop
-                // retries for as long as the Mac is running, so a proof made when the task started
-                // would be stale by the second attempt and the Mac would never register again
-                // after a network blip.
+                // Signed per attempt, not once: the proof carries a timestamp the relay only
+                // accepts for a few minutes either side of its own clock, and this loop retries
+                // for as long as the Mac runs, so a single proof would be stale by the second
+                // attempt and the Mac would never register again after a network blip.
                 //
-                // A signature that fails is not fatal. The registration goes out without a proof,
-                // which is exactly what this build sent before the proof existed: an id nobody has
-                // claimed is still accepted, and one that has been claimed is refused with a
-                // sentence in the journal rather than by this Mac going quiet.
+                // A signature that fails is not fatal: the registration goes out without a proof,
+                // which the relay still accepts for an id nobody has claimed.
                 let proof = try? RelayDeviceProof.make(deviceID: device.id, identity: identity)
                 if proof == nil {
                     onStatus("This Mac could not sign its registration; the relay may refuse it.")
@@ -117,9 +120,9 @@ final class RelayHostRegistration: @unchecked Sendable {
                     case .hostOffline:
                         break
                     // Never sent unsolicited, and never in answer to anything this end says: the
-                    // Mac does not ask where its clients are, it learns by being sent to. Ignored
-                    // rather than refused, because a relay that says more than this build expects
-                    // is not a reason to drop a registration that is otherwise working.
+                    // Mac learns where its clients are by being sent to. Ignored rather than
+                    // refused, because a relay that says more than this build expects is no reason
+                    // to drop a working registration.
                     case .peerAddress, .hostPresence:
                         break
                     }

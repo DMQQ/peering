@@ -1,6 +1,9 @@
 import AVFoundation
 import Foundation
+import os
 import RemoteCore
+
+private nonisolated let audioLog = Logger(subsystem: "pl.dmq.peering", category: "audio")
 
 /// Renders incoming PCM audio frames from a Mac session.
 ///
@@ -39,6 +42,7 @@ final class RemoteAudioPlayer: @unchecked Sendable {
             try engine.start()
             playerNode.play()
         } catch {
+            audioLog.error("could not start the audio engine: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

@@ -106,6 +106,7 @@ final class Permissions {
             screenRecordingGranted = true
             return true
         } catch {
+            hostLog.notice("the ScreenCaptureKit check did not pass: \(error.localizedDescription, privacy: .public)")
             screenRecordingGranted = false
             return false
         }

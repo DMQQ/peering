@@ -59,6 +59,10 @@ final class SessionAudio {
         isActive = false
         // `notifyOthersOnDeactivation`: the apps that made room are told they can have it back.
         // Without it the interruption outlives the session that caused it.
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            audioLog.notice("the audio session was not released, so other apps may stay interrupted: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
