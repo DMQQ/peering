@@ -123,7 +123,37 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// canvas at half size in the middle of a zoom out. Held, the layer goes on showing the
     /// picture the transform is still calibrated for and the two change together. See
     /// ``releaseHeldFrame()``.
-    private var heldFirstFrame: (sample: CMSampleBuffer, at: DispatchTime, generation: Int)?
+    private var heldFirstFrame: (
+        sample: CMSampleBuffer, at: DispatchTime, generation: Int, source: String?
+    )?
+
+    /// What the app believes the stream being configured is. For the trace only. See
+    /// ``configure(_:source:)``.
+    private var configuredSource: String?
+
+    /// The frames of that config that arrived behind its keyframe, in order.
+    ///
+    /// **A hold that covers one frame is not a hold, and the trace is unforgiving.** Measured on
+    /// the device, a config's keyframe was held and then ten frames went past it within 1.5
+    /// milliseconds, so the arriving picture was on the layer while the transform was still at the
+    /// departing picture's framing: the window drawn small for the whole of a movement, which the
+    /// user described as the picture being resized and flickering.
+    ///
+    /// **Buffered rather than dropped, because they cannot be dropped.** These are H.264 frames
+    /// referencing the keyframe that is being held, so a decoder handed the keyframe and then a
+    /// frame from forty later has nothing to decode against and shows artefacts until the next
+    /// keyframe. A contiguous run is what it needs, so the whole run waits together and is handed
+    /// over in one go, in order, when the screen says the transform is ready for it.
+    private var heldTail: [CMSampleBuffer] = []
+
+    /// How many frames may wait behind a held keyframe before the hold gives up.
+    ///
+    /// The hold lasts as long as a movement, which is well under half a second, so a stream at 120
+    /// frames a second puts some fifty frames here and the ceiling is never reached. It is a
+    /// backstop for a movement that neither lands nor is cancelled, where growing without limit
+    /// would be the worse failure of the two: past it the hold is abandoned and the picture takes
+    /// the flicker it was avoiding, which is what it did before any of this existed.
+    private static let heldTailBudget = 240
 
     /// How long a held frame waits before a newer one displaces it.
     ///
@@ -137,10 +167,16 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// Called after the transform has been committed, and that ordering is the whole point: a
     /// frame released before it would go back on screen at the departing picture's scale.
     func releaseHeldFrame() {
-        let held = lock.withLock {
-            () -> (sample: CMSampleBuffer, at: DispatchTime, generation: Int)? in
-            defer { heldFirstFrame = nil }
-            return heldFirstFrame
+        let (held, tail) = lock.withLock {
+            () -> (
+                (sample: CMSampleBuffer, at: DispatchTime, generation: Int, source: String?)?,
+                [CMSampleBuffer]
+            ) in
+            defer {
+                heldFirstFrame = nil
+                heldTail = []
+            }
+            return (heldFirstFrame, heldTail)
         }
         guard let held else { return }
         // **On the caller's thread, inside the caller's transaction, and that is the whole point.**
@@ -150,6 +186,16 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         // from any thread, which is what makes calling it from here safe. See
         // ``VideoLayerView/updateUIView(_:context:)``.
         renderer?.enqueue(held.sample)
+        // **And then everything that was waiting behind it, in order.** The decoder needs the run
+        // to be contiguous; a gap in it is artefacts rather than a late picture. See ``heldTail``.
+        for sample in tail { renderer?.enqueue(sample) }
+        // **The picture on the layer has changed, and this says what to.** Everything else in this
+        // trace is geometry; this is the only line that names the window, and it is the one that
+        // answers "the wrong image was on screen". ``AVSampleBufferDisplayLayer`` cannot be asked.
+        flickerTrace("""
+            layer now showing src=\(held.source ?? "nil") \
+            with \(tail.count) frames behind the keyframe
+            """)
         lock.withLock {
             lastEnqueued = held.sample
             // Only for the config it was held for: a stream configured since then has a picture of
@@ -162,16 +208,23 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
     /// The same, for a hold the screen never asked about. Runs on the video queue.
     private func releaseStrandedFrame(on renderer: AVSampleBufferVideoRenderer) {
-        let stranded = lock.withLock { () -> CMSampleBuffer? in
+        let stranded = lock.withLock {
+            () -> (head: CMSampleBuffer, tail: [CMSampleBuffer], source: String?)? in
             guard let held = heldFirstFrame,
                   DispatchTime.now().uptimeNanoseconds - held.at.uptimeNanoseconds
                       > Self.heldFrameBudget
             else { return nil }
             heldFirstFrame = nil
+            let tail = heldTail
+            heldTail = []
             snapshot.displayedGeneration = held.generation
-            return held.sample
+            return (held.sample, tail, held.source)
         }
-        if let stranded { renderer.enqueue(stranded) }
+        guard let stranded else { return }
+        renderer.enqueue(stranded.head)
+        // The whole run, for the reason ``releaseHeldFrame()`` gives.
+        for sample in stranded.tail { renderer.enqueue(sample) }
+        flickerTrace("layer now showing src=\(stranded.source ?? "nil") after the hold ran out")
     }
 
     // MARK: - Attachment
@@ -207,7 +260,12 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// **out of band in H.264** — they are not repeated on each keyframe — so a decoder that
     /// keeps the old format description after the host switches display decodes garbage, or
     /// nothing, until it happens to be recreated.
-    func configure(_ config: VideoStreamConfig) {
+    /// - Parameter source: What the app believes this stream is, for the trace and nothing else.
+    ///   ``AVSampleBufferDisplayLayer`` has no idea what it is showing, so without this every line
+    ///   about the picture is about geometry, and "the wrong window was on screen" cannot be read
+    ///   off a log at all. See ``MacSession/apply(video:)``.
+    func configure(_ config: VideoStreamConfig, source: String? = nil) {
+        lock.withLock { configuredSource = source }
         queue.async { [weak self] in
             guard let self else { return }
 
@@ -269,8 +327,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
                 // The generation survives the reset: it is a count of configs, and the frame that
                 // is about to arrive belongs to this one. See ``Snapshot/displayedGeneration``.
                 let generation = self.snapshot.configGeneration + 1
-                // A frame held for the stream this one replaces is not a frame of this stream.
+                // A frame held for the stream this one replaces is not a frame of this stream, and
+                // neither is anything waiting behind it. See ``heldTail``.
                 self.heldFirstFrame = nil
+                self.heldTail = []
                 self.snapshot = Snapshot()
                 self.snapshot.configGeneration = generation
                 self.snapshot.hasConfig = true
@@ -357,10 +417,9 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // Held rather than shown: the screen has not asked for it yet, and a picture with no
             // transform to go with it is the flicker. See ``heldFirstFrame``.
             debugFlickerAwaitingFirstFrame = false
-            flickerTrace("renderer holding first frame after config keyframe=\(frame.isKeyframe) size=\(frame.pixelWidth)x\(frame.pixelHeight)")
             self.lock.withLock {
                 self.heldFirstFrame = (
-                    sample, DispatchTime.now(), self.snapshot.configGeneration
+                    sample, DispatchTime.now(), self.snapshot.configGeneration, self.configuredSource
                 )
                 self.snapshot.framesEnqueued += 1
                 self.snapshot.bytesEnqueued += Int64(frame.data.count)
@@ -372,14 +431,25 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return
         }
 
-        // **A frame that arrives while the first one is still held, which is the hole this
-        // mechanism has.** The hold is one frame deep: the keyframe waits for the transform, and
-        // the frame 16ms behind it does not, so the picture swaps a frame after the config whatever
-        // the screen asked for. Traced rather than argued about — if this line appears, the hold is
-        // not holding.
-        if lock.withLock({ heldFirstFrame != nil }) {
-            flickerTrace("renderer enqueued past a held keyframe keyframe=\(frame.isKeyframe)")
+        // **A frame that arrives behind a held keyframe waits with it.** Enqueuing it here is what
+        // made the hold one frame deep and the picture swap on the first frame after a config; see
+        // ``heldTail`` for what that looked like and why the frames cannot simply be dropped.
+        let (waiting, overBudget) = lock.withLock { () -> (Bool, Bool) in
+            guard heldFirstFrame != nil else { return (false, false) }
+            heldTail.append(sample)
+            return (true, heldTail.count > Self.heldTailBudget)
         }
+        if waiting {
+            // Past the ceiling the hold is given up rather than grown: everything taken so far goes
+            // to the layer now, keyframe first, which is the flicker this was written to avoid and
+            // is still better than a buffer with no end.
+            if overBudget {
+                flickerTrace("renderer hold abandoned after \(Self.heldTailBudget) frames")
+                releaseHeldFrame()
+            }
+            return
+        }
+
         // A held frame that a newer one has caught up with is let go rather than lost.
         releaseStrandedFrame(on: renderer)
         renderer.enqueue(sample)
@@ -405,6 +475,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.debugTimingFrameCount = 0
             self.lock.withLock {
                 self.heldFirstFrame = nil
+                self.heldTail = []
                 self.snapshot = Snapshot()
             }
         }
@@ -427,6 +498,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.debugTimingFrameCount = 0
             self.lock.withLock {
                 self.heldFirstFrame = nil
+                self.heldTail = []
                 self.snapshot = Snapshot()
             }
         }
@@ -618,6 +690,13 @@ struct VideoLayerView: UIViewRepresentable {
     /// picture and the transform changing together. See ``VideoRenderer/releaseHeldFrame()``.
     var pictureIsPlaced = false
 
+    /// The size of the picture on screen, for the trace and nothing else.
+    ///
+    /// **A drawn scale is meaningless without it.** The canvas and a window both read `zoom=1` at
+    /// rest and are drawn at 1.0 and 0.672, so a jump from 2.0 to 1.0 across a change of picture is
+    /// either a real jump or nothing at all, and the log cannot say which until it carries this.
+    var picturePixelSize: CGSize = .zero
+
     /// The scale and offset the outgoing picture was drawn at, and whether it is the one showing.
     ///
     /// The still carries the transform the picture had *before* the change, because it is that
@@ -723,7 +802,22 @@ struct VideoLayerView: UIViewRepresentable {
 
         if abs(zoom - context.coordinator.lastLogged) > 0.02 {
             context.coordinator.lastLogged = zoom
-            flickerTrace("layer transform zoom=\(Double(zoom)) still=\(showsStill)")
+            // **The drawn scale, not the stored one.** ``zoom`` is a multiple of whatever the
+            // picture's own fit is, so the same number means different sizes for two pictures of
+            // different shapes: the canvas and a window both read `zoom=1` at rest and are drawn
+            // at 1.0 and 0.672. Only this product is what the eye sees, and a jump in it is the
+            // flicker. ``base`` is printed beside it because that is the half that moves when
+            // ``Fill`` is on and does not when it is off. See ``RemoteScreen/pictureBaseScale``.
+            // **The drawn rectangle, which is the only thing the eye can see.** A scale is
+            // meaningless without the picture it multiplies: the canvas and a window both read
+            // `zoom=1` at rest and are drawn at 1.0 and 0.672. What is comparable across a change
+            // of picture is where the picture lands, so that is what is printed.
+            _ = picturePixelSize
+            flickerTrace("""
+                layer transform drawn=\(Double(zoom)) \
+                picture=\(Int(picturePixelSize.width))x\(Int(picturePixelSize.height)) \
+                pan=\(Int(pan.width)),\(Int(pan.height)) still=\(showsStill)
+                """)
         }
     }
 }

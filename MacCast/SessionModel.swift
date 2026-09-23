@@ -1018,7 +1018,7 @@ final class SessionModel {
                         // one more turn of the run loop is what it takes for the layer to have been
                         // given it. Then the picture can be drawn.
                         try? await Task.sleep(for: .milliseconds(24))
-                        renderer.configure(config)
+                        renderer.configure(config, source: self.activeSourceID)
                         for frame in changeGate.release() {
                             renderer.enqueue(frame)
                         }

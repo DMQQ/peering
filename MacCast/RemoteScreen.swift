@@ -621,7 +621,18 @@ struct RemoteScreen: View {
         // Asked of the renderer rather than inferred from which of the two arrived first: the
         // frame's own hop to the main actor can beat the config's, and either can be late.
         // `force` is the deadline, which is the one caller that has decided the wait is over.
-        guard force || model.isReadyToPlace(of: pending.current.pixelSize) else { return }
+        // **On the layer, not merely in the renderer's hands.** These were the same moment until
+        // the renderer began holding a whole config: a frame used to be enqueued essentially as it
+        // arrived, so "the renderer has it" and "it is on screen" were milliseconds apart. They are
+        // now the length of a movement apart, and this is the transform's half of the ordering.
+        //
+        // Traced, with the wait on the frame *being ready*: the transform was rewritten for the
+        // window at 0.421 and the window's picture reached the layer at 0.621, so for 200ms the
+        // arrangement was drawn at the window's framing. The user's words for that are "it is
+        // displaying wrong image for 0.5s" — a picture that is not the one the transform belongs
+        // to. See ``RemoteScreen/pictureIsPlaced``, which is the other half: that one asks whether
+        // the frame may be handed over, and this asks whether it has been.
+        guard force || model.hasPictureOnScreen(of: pending.current.pixelSize) else { return }
         pendingArrival = nil
         arrivalDeadline?.cancel()
         arrivalDeadline = nil
@@ -646,6 +657,26 @@ struct RemoteScreen: View {
         // shape, with its borders travelling with it; anything else — a window opened, a
         // window behind a mosaic — is the reset every source switch has always had. See
         // ``arrangementMorph(from:to:)``.
+        // **A window coming home to its arrangement is an arrival with nothing to travel between.**
+        // A turn of the phone has two arrangements, so it has two rectangles and a movement; a
+        // return has a window and a canvas, and the canvas is not a tile of itself, so there is no
+        // second rectangle to measure against. What is left is the picture changing — five windows
+        // appearing where one was — and a cut is what that reads as, which is the flicker the user
+        // reports on the way out. The veil is the app's existing answer to a change of content with
+        // no change of place: dim for the instant of it, then lift. See ``arrangementVeil``.
+        //
+        // **The tiles cannot be staggered, and this is why.** They are not five pictures here: they
+        // are one canvas composited on the Mac and sent as a single stream, so there is nothing on
+        // this side to bring in one at a time.
+        if current.sourceID?.hasPrefix("mosaic:") == true,
+           previous.sourceID?.hasPrefix("mosaic:") == false,
+           arrangementMorph(from: previous, to: current) == nil {
+            arrangementVeil = 1
+            Task { @MainActor in
+                withAnimation(Motion.settle) { arrangementVeil = 0 }
+            }
+        }
+
         if let target = arrangementMorph(from: previous, to: current) {
             zoom = target.zoom
             pan = target.pan
@@ -729,7 +760,7 @@ struct RemoteScreen: View {
             if var glide = pictureGlide {
                 let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
                 let progress = Motion.settleProgress(at: elapsed, response: Motion.pictureResponse)
-                flickerTrace("picture placed progress=\(progress) placedZoom=\(Double(placed.zoom))")
+                flickerTrace("transform now solved for src=\(current.sourceID ?? "nil") progress=\(progress) placedZoom=\(Double(placed.zoom))")
                 if progress < 0.995 {
                     glide.reaim(
                         to: (zoom: 1, pan: .zero),
@@ -759,6 +790,11 @@ struct RemoteScreen: View {
             // out of a panel, a rotation, a window resized since the catalogue was read.
             // One already at rest is left alone; one that is not is moved to it.
             cancelPictureGlide()
+            // **The picture has changed, whatever is about to be done with its framing.** The base
+            // scale is measured against the picture on screen, and from here that is this one. See
+            // ``RemoteScreen/pictureBaseScale`` for what leaving these behind cost.
+            lockedPixelSize = model.capturePixelSize ?? .zero
+            placedPictureID = current.sourceID
             if pictureIsAtRest {
                 resetPicture()
             } else {

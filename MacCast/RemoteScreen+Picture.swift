@@ -21,6 +21,7 @@ extension RemoteScreen {
             zoom: effectiveZoom,
             pan: pan,
             pictureIsPlaced: pictureIsPlaced,
+            picturePixelSize: model.capturePixelSize ?? .zero,
             stillZoom: stillZoom,
             stillPan: stillPan,
             showsStill: swapping
@@ -333,7 +334,14 @@ extension RemoteScreen {
             // the config, came down when the handler ran, and went up again with the frame.
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
-            return sameArrangement(asked, arrived) ? asked : arrived
+            let same = sameArrangement(asked, arrived)
+            flickerTrace("""
+                overlay arrived=\(Int(arrived.canvas.width))x\(Int(arrived.canvas.height))/\(arrived.tiles.count) \
+                asked=\(Int(asked.canvas.width))x\(Int(asked.canvas.height))/\(asked.tiles.count) \
+                picture=\(model.capturePixelSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "nil") \
+                same=\(same)
+                """)
+            return same ? asked : arrived
         }
 
         // **Nothing on the way back.** The frames of an arrangement that has been asked for but
@@ -418,29 +426,27 @@ extension RemoteScreen {
         // whole mechanism exists for: the transform is written for the picture whose frame is
         // about to be handed over, and not for the one it replaces.
         //
-        // **The `return true` that used to be here is the bug and taking it out made things
-        // worse.** It read `guard let pending = pendingArrival else { return true }`, so the
-        // movement condition below was never reached: an arrival settles within milliseconds of a
-        // tap, long before the movement ends, and the frame was handed over on the first display
-        // frame and on every one after it. Traced:
+        // **This used to read `guard let pending = pendingArrival else { return true }`**, which
+        // returned before the condition below in exactly the case it was written for: an arrival
+        // settles within milliseconds of a tap, long before the movement ends. Traced, the frame
+        // was handed over on the first display frame of the movement and on every one after it:
         //
         //     layer releases the held frame at zoom=0.9938
         //     layer releases the held frame at zoom=0.9848
         //     layer releases the held frame at zoom=0.9274
         //
-        // every 16ms, all the way to the target. But *removing* it, so that the condition below
-        // finally applies, was tried and reverted: the release is driven by ``VideoLayerView``'s
-        // update pass, and once the glide has landed and stopped writing the zoom there is no
-        // further pass, so the frame is never handed over at all. The arrangement stayed on screen
-        // at the window's framing until the 600ms budget expired, which the user saw as the wrong
-        // picture for longer rather than for shorter.
+        // every 16ms, all the way to the target.
         //
-        // So this is a real fault with a real fix, and the fix is not this line. What it needs is
-        // a release that does not depend on a later update happening by luck, and a hold that
-        // covers every frame of a config rather than only its first: `renderer.enqueue` is reached
-        // for the frame 16ms behind the keyframe whatever this returns.
-        guard let pending = pendingArrival else { return true }
-        guard placedPictureID == pending.current.sourceID else { return false }
+        // **Deleting that line alone was tried and reverted, and the two halves it needed are now
+        // in place.** It made the wait real without making the release reliable: the release is
+        // normally driven by ``VideoLayerView``'s update pass, and once a glide has landed there is
+        // no further pass, so nothing was released and the arrangement sat on screen at the
+        // window's framing until the 600ms budget expired. The movement's own landing releases it
+        // now (see ``RemoteScreen+Gestures``), and ``VideoRenderer`` holds every frame of a config
+        // rather than only its first, so the wait is a wait rather than a delay of one frame.
+        if let pending = pendingArrival, placedPictureID != pending.current.sourceID {
+            return false
+        }
 
         // **And not until the movement has finished.** The swap is a change of sharpness as well
         // as of geometry: a tile of the canvas is the Mac's own composite of that window, at the
@@ -450,8 +456,8 @@ extension RemoteScreen {
         // over in well under half a second, and a frame held past its budget is dropped by
         // ``VideoRenderer/heldFrameBudget`` if the movement is interrupted instead of ending.
         //
-        // **This is not reached in the case it was written for, and the two lines above are why.**
-        // See the note there. Do not fix it by deleting them; that was tried and is worse.
+        // A movement that is cancelled rather than landed releases the frame too, so nothing
+        // waits on a glide that has stopped existing. See ``cancelPictureGlide()``.
         return pictureGlide == nil
     }
 
@@ -680,7 +686,27 @@ extension RemoteScreen {
         // **Use the locked size while animating.** When a glide is running the pixel size the
         // ``zoom`` factor was calibrated against is ``lockedPixelSize``, not whatever the model
         // currently reports — see the note on ``lockedPixelSize`` for why this matters.
-        let size = pictureGlide != nil ? lockedPixelSize : (model.capturePixelSize ?? .zero)
+        //
+        // **And keep using it until the arrival has been solved for, which is not the same
+        // moment.** `capturePixelSize` moves the instant a config arrives and `lockedPixelSize` is
+        // written when the arrival is solved, so between those two the stream has changed and the
+        // picture on screen has not. A glide is nil across that whole gap, so gating on the glide
+        // alone handed the transform the *arriving* picture's base while the zoom was still the
+        // departing one's. Traced, at the end of a zoom into a window:
+        //
+        //     2.347  glide landed zoom=1.9249
+        //     2.352  layer now showing src=window:87952
+        //     2.354  layer transform zoom=1.0009
+        //
+        // Between 2.347 and 2.354 nothing had been solved yet, so the base had already switched to
+        // the window and the picture was drawn at 1.43 x 1.9249 instead of 1.43 x 1.0009: twice
+        // the size it belongs at, for a frame, right as the movement ends. That is the user's
+        // "flickers like it was resized", and it survives every fix to the ordering because it is
+        // not a question about the ordering at all.
+        let unsolved = placedPictureID != model.picture?.sourceID
+        let size = (pictureGlide != nil || unsolved)
+            ? lockedPixelSize
+            : (model.capturePixelSize ?? .zero)
         return pictureScale.base(pixelSize: size, in: canvasSize)
     }
 
@@ -740,6 +766,11 @@ extension RemoteScreen {
     func resetPicture() {
         zoom = 1
         pan = .zero
+        // **This is where an arriving picture becomes the picture**, and everything measured
+        // against the picture's own size has to move with it. Both of the ways a picture arrives at
+        // rest come through here. See ``pictureBaseScale`` for what happens when they disagree.
+        lockedPixelSize = model.capturePixelSize ?? .zero
+        placedPictureID = model.picture?.sourceID
     }
 
 }

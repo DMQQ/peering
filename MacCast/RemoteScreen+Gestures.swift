@@ -521,6 +521,20 @@ extension RemoteScreen {
             if pan != glide.target.pan { pan = glide.target.pan }
             pictureGlide = nil
             flickerTrace("glide landed zoom=\(Double(zoom)) aim=\(pictureAim?.sourceID ?? "nil") showingMosaic=\(model.isShowingMosaic)")
+            // **The held frame goes now, and not on a pass that may never come.** The release is
+            // normally driven by ``VideoLayerView``'s update pass, and this is the last thing a
+            // movement writes: once it has landed there is nothing left changing the zoom, so
+            // there is no reason to expect another pass. Waiting for one is what left the
+            // arrangement on screen at the window's framing until the 600ms budget expired.
+            // The transform written a line above is the one the picture belongs at, so this is
+            // the moment the two agree. See ``RemoteScreen/pictureIsPlaced``.
+            model.renderer.releaseHeldFrame()
+            // **And the arrival is asked again, now that its picture is on the layer.** Its wait is
+            // for exactly that, and the event it is normally woken by is the frame *arriving* —
+            // which, since the renderer began holding a whole config, is the moment the frame is
+            // taken rather than the moment it is shown. Without this the arrival would sit until
+            // its 1.5 second deadline. See ``RemoteScreen/settleArrival(force:)``.
+            settleArrival()
         }
         pictureGlide = PictureGlide(
             target: glide.target,
@@ -546,6 +560,10 @@ extension RemoteScreen {
         pictureGlide = nil
         pictureAim = nil
         placedPictureID = nil
+        // **A movement that ends by being taken over releases the frame as well.** The glide that
+        // would have released it is gone, so nothing else will; without this the picture waits on
+        // a movement that no longer exists. See ``RemoteScreen/pictureIsPlaced``.
+        model.renderer.releaseHeldFrame()
         // A movement the user has taken over drops the arrival it was waiting for: applying it
         // afterwards would write the zoom and pan of the picture they have just left. See
         // ``settleArrival()``.
