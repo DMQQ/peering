@@ -21,7 +21,14 @@ public enum TerminalMetrics {
     public static func cellHeight(for fontSize: CGFloat) -> CGFloat { fontSize * 1.2 }
 
     /// The type sizes the terminals offer, in points.
+    ///
+    /// **Tiny is the one that fits**, and it is the reason the list goes this low: a portrait phone
+    /// holds eighty columns of seven-point monospaced text, which is the whole of what a
+    /// full-screen program lays out for, so at that size a shell is on the screen entire rather
+    /// than two-thirds of it. It is small enough that some people will not want it, which is why it
+    /// is a choice and not the default.
     public enum TextSize: Int, CaseIterable, Identifiable {
+        case tiny = 7
         case small = 9
         case regular = 12
         case large = 15
@@ -31,6 +38,7 @@ public enum TerminalMetrics {
 
         public var name: String {
             switch self {
+            case .tiny: return "Tiny"
             case .small: return "Small"
             case .regular: return "Default"
             case .large: return "Large"

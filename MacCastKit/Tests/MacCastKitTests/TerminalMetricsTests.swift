@@ -44,6 +44,13 @@ final class TerminalMetricsTests: XCTestCase {
         let large = TerminalMetrics.TextSize.large.points
         let wide = CGFloat(900)
 
+        // The point of the smallest size: a portrait phone holds the whole eighty at seven points,
+        // which is the only size at which a full-screen program is on the screen entire.
+        XCTAssertEqual(
+            TerminalMetrics.columns(forWidth: 360, fontSize: TerminalMetrics.TextSize.tiny.points),
+            85
+        )
+
         XCTAssertEqual(TerminalMetrics.columns(forWidth: wide, fontSize: small), 166)
         XCTAssertEqual(TerminalMetrics.columns(forWidth: wide, fontSize: large), 100)
         XCTAssertTrue(
