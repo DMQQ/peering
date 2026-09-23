@@ -422,9 +422,29 @@ final class VideoCoordinator: @unchecked Sendable {
         }
     }
 
+    /// How long a freshly attached client is given to say what it wants before this Mac picks
+    /// for it. About a round trip, which is what the phone's ask costs.
+    private static let firstAskGrace = Duration.milliseconds(250)
+
     private func scheduleEnsureCapturingLocked(generation: UInt64) {
         scheduleLifecycleLocked { [weak self] in
             guard let self, self.hasAudience(generation: generation) else { return }
+
+            // **A client that has just attached has usually already said what it wants.** The
+            // catalogue goes out the moment it connects, and what comes back is the source it was
+            // last on, usually a mosaic. Starting the default display in the meantime builds a
+            // stream that is thrown away a round trip later, and the phone watches it happen: a
+            // desktop appears, and then the arrangement it was waiting for.
+            //
+            // Waiting is free when the client does ask, because ``switchSource(_:)`` records the
+            // choice the moment the command arrives rather than when its turn comes, so the check
+            // below sees it. It is only ever paid by a client that wants the default, and then
+            // only once.
+            if self.lock.withLock({ self.chosenSource }) == nil {
+                try? await Task.sleep(for: Self.firstAskGrace)
+                guard self.hasAudience(generation: generation) else { return }
+            }
+
             do {
                 try await self.ensureCapturing()
                 guard self.hasAudience(generation: generation) else { return }

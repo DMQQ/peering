@@ -333,19 +333,15 @@ final class CapturePipeline: @unchecked Sendable {
                         "None of the windows in this mosaic are still open."
                     )
                 }
-                // **A tile whose window has gone is said out loud.** The phone's catalogue still
-                // lists it — nothing tells anyone when an application closes one of its windows —
-                // and a rectangle around a card is a window the user cannot open and space nobody
-                // is using. The catalogue is what this end can offer instead, and a push of it is
-                // what lets the phone take that window out of the arrangement. It is deliberately
-                // not pushed from here: the push is coalesced and driven by the notifications that
-                // invalidate the list, and adding a second driver to that was a second thing that
-                // could storm. See ``VideoCoordinator/refreshCatalog()``.
+                // A window that went before the canvas was built is one the phone is still drawing
+                // an outline around. The list is marked stale so the catalogue that follows says
+                // it has gone, which is what lets the phone take it out of the arrangement.
                 if plan.tiles.count < layout.tiles.count {
                     pipelineLog.notice("""
                         \(layout.tiles.count - plan.tiles.count, privacy: .public) of \
                         \(layout.tiles.count, privacy: .public) windows in this mosaic have gone
                         """)
+                    resolver.invalidate()
                 }
                 // Built for the canvas, at the canvas's own rate, and **not** through
                 // ``CaptureResolution``: the client's rectangles describe a picture it chose the
@@ -494,6 +490,17 @@ final class CapturePipeline: @unchecked Sendable {
                 self.lock.withLock { self._onAudio }?(buffer)
             }
         }
+        if let compositor = engine as? MosaicCompositor {
+            compositor.onTileLost = { [weak self] _ in self?.noteSourceMayHaveGone() }
+        }
+    }
+
+    /// Something this session is capturing has gone. The phone's catalogue still lists it, so the
+    /// only way it can be taken out of an arrangement is for the Mac to say so. See
+    /// ``CaptureSourceResolver/invalidate()``.
+    private func noteSourceMayHaveGone() {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        resolver.invalidate()
     }
 
     /// Re-asks a running mosaic for a different arrangement of the same captures.

@@ -56,6 +56,12 @@ protocol CaptureSourceResolver: Sendable {
     /// is the only end that knows one is on screen.
     func refreshSourceThumbnails() async
 
+    /// The list may be out of date, and the next ``catalog()`` should enumerate again.
+    ///
+    /// Asked when a running session notices that something it is capturing has gone. No
+    /// notification covers a window closing, so the capture noticing is the only way to find out.
+    func invalidate()
+
     /// A still of one source, at most `maxWidth` pixels across.
     ///
     /// A screenshot rather than a copy of a frame from the stream. The stream's frames are the
@@ -296,7 +302,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         lock.withLock { isStale = true }
     }
 
-    private func invalidate() {
+    func invalidate() {
         let changed = lock.withLock { () -> Bool in
             let wasCurrent = !isStale
             isStale = true

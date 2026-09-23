@@ -29,6 +29,33 @@ enum MosaicPlaceholder {
         var icon: NSImage?
     }
 
+    /// A card that is drawn the first time somebody asks for it.
+    ///
+    /// **Not built with the plan that carries it.** A plan is made on every ask, and a healthy
+    /// tile never shows a card, so drawing eagerly is one offscreen bitmap render per tile, up
+    /// to 1440 pixels tall with its own text layout, on the path whose speed is the complaint.
+    final class Card: @unchecked Sendable {
+        private let content: Content
+        private let size: CGSize
+        private let lock = NSLock()
+        private var built = false
+        private var image: CIImage?
+
+        init(content: Content, size: CGSize) {
+            self.content = content
+            self.size = size
+        }
+
+        var picture: CIImage? {
+            lock.withLock {
+                guard !built else { return image }
+                built = true
+                image = MosaicPlaceholder.image(content, size: size)
+                return image
+            }
+        }
+    }
+
     /// The card, at the size of the tile it will be drawn in.
     ///
     /// `nil` when there is no card to draw at all — a tile too small to hold one, or a bitmap

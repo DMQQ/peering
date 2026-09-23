@@ -28,9 +28,9 @@ struct MosaicPlan: @unchecked Sendable {
         let filter: SCContentFilter
         let configuration: SCStreamConfiguration
         /// What to draw in this tile when it has no picture of its own: a stream that will not
-        /// start, or one that has stopped before it ever produced a frame. See
-        /// ``MosaicPlaceholder``.
-        let card: CIImage?
+        /// start, or one that has stopped before it ever produced a frame. Drawn on first use
+        /// rather than here. See ``MosaicPlaceholder/Card``.
+        let card: MosaicPlaceholder.Card
     }
 
     /// A tile the plan could not build a capture for, and the card that stands in for it.
@@ -144,7 +144,10 @@ extension MosaicPlan {
                     configuration: configuration,
                     // A tile whose stream starts and then stops, or delivers frames with no content
                     // in them, has this drawn in it instead of a stale picture. See ``draw``.
-                    card: MosaicPlaceholder.image(.empty(descriptor: descriptor), size: rect.size)
+                    card: MosaicPlaceholder.Card(
+                        content: .empty(descriptor: descriptor),
+                        size: rect.size
+                    )
                 )
             )
         }
@@ -267,6 +270,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
     private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
+    private var _onTileLost: (@Sendable (Int) -> Void)?
 
     init() {
         queue.setSpecific(key: Self.queueKey, value: 1)
@@ -312,6 +316,18 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
     var onStop: (@Sendable (CaptureError) -> Void)? {
         get { lock.withLock { _onStop } }
         set { lock.withLock { _onStop = newValue } }
+    }
+
+    /// Called once for each tile that stops being capturable, or that starts reporting that it
+    /// has nothing to show.
+    ///
+    /// **Nothing else on the Mac knows a window has closed.** There is no notification for it, so
+    /// a capture noticing is the only evidence there is, and the phone cannot take a closed
+    /// window out of an arrangement until somebody tells it the window is gone. See
+    /// ``CapturePipeline``.
+    var onTileLost: (@Sendable (Int) -> Void)? {
+        get { lock.withLock { _onTileLost } }
+        set { lock.withLock { _onTileLost = newValue } }
     }
 
     // MARK: - Lifecycle
@@ -620,20 +636,26 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         // picture because an attachment was missing would be this app inventing a fault.
         let empty = geometry?.contentRect?.isEmpty ?? false
 
-        lock.withLock {
-            guard index < held.count else { return }
+        let (lost, callback) = lock.withLock {
+            () -> (Bool, (@Sendable (Int) -> Void)?) in
+            guard index < held.count else { return (false, nil) }
             held[index] = HeldFrame(buffer: copy)
-            if empty {
-                emptyTiles.insert(index)
-            } else {
-                emptyTiles.remove(index)
-            }
             dirty = true
+            guard empty else {
+                emptyTiles.remove(index)
+                return (false, nil)
+            }
+            // Only the first empty frame is news; every frame after it says the same thing.
+            return (emptyTiles.insert(index).inserted, _onTileLost)
         }
+        if lost { callback?(index) }
     }
 
     private func markDead(_ index: Int) {
-        lock.withLock { _ = deadTiles.insert(index) }
+        let (first, callback) = lock.withLock {
+            (deadTiles.insert(index).inserted, _onTileLost)
+        }
+        if first { callback?(index) }
     }
 
     /// One tile's stream ended. Only a mosaic where every tile has now stopped is a failure.
@@ -734,7 +756,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
             let engine = mapping[index]
 
             if empty.contains(engine) || dead.contains(engine),
-               let card = tile.card.map({ Self.place($0, in: tile.rect, canvas: plan.canvas) }) {
+               let card = tile.card.picture.map({ Self.place($0, in: tile.rect, canvas: plan.canvas) }) {
                 image = card.composited(over: image)
                 continue
             }
