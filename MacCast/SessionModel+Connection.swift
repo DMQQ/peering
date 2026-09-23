@@ -512,6 +512,22 @@ extension SessionModel {
         // reads has to be the current one.
         applyTerminalAlertPlan()
 
+        // A shell the user is leaving with a prompt still open. The Mac's detector fires once, when
+        // the prompt appears, and this side deliberately says nothing while the app is in front of
+        // the user, so without this a prompt raised on screen could never reach a banner at all.
+        // See ``SessionNotifier/terminalStillWaiting(_:name:sessionID:macName:)``.
+        for session in sessions where session.phase == .ready {
+            for terminal in session.terminals {
+                guard let kind = terminal.attention else { continue }
+                notifier.terminalStillWaiting(
+                    kind,
+                    name: terminal.name,
+                    sessionID: terminal.id,
+                    macName: session.hostName
+                )
+            }
+        }
+
         // Started here rather than left to `canStartPictureInPictureAutomaticallyFromInline`.
         // That flag is set, and the picture does float when it is started by hand — but iOS
         // never takes the hint. Automatic PiP is gated on the system considering the app to be

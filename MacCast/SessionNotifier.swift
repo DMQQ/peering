@@ -19,7 +19,6 @@ final class SessionNotifier {
     static let remoteTokenChangedName = Notification.Name("pl.dmq.peering.remoteTokenChanged")
 
     private var hasAskedForPermission = false
-    private var isAuthorized = false
     /// The current APNs device token, set when the OS delivers one.
     private(set) var remoteToken: Data?
 
@@ -58,15 +57,15 @@ final class SessionNotifier {
             // The answer is still read, because someone who turned notifications on in
             // Settings since the last launch should get them this time.
             guard settings.authorizationStatus == .notDetermined else {
-                isAuthorized = settings.authorizationStatus == .authorized
-                if isAuthorized {
+                let authorized = settings.authorizationStatus == .authorized
+                if authorized {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
                 return
             }
             do {
-                isAuthorized = try await center.requestAuthorization(options: [.alert, .sound])
-                if isAuthorized {
+                let authorized = try await center.requestAuthorization(options: [.alert, .sound])
+                if authorized {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             } catch {
@@ -79,13 +78,13 @@ final class SessionNotifier {
     ///
     /// **Because the decision is not one this app finishes.** It is asked for once, on the first
     /// connection, and what the user does next is go to iOS Settings, turn it on or off, and come
-    /// back — none of which this process sees. So the answer is re-read where it is shown, and the
-    /// cached one is updated on the way past, which is also what keeps the banners themselves from
-    /// relying on a decision made several launches ago.
+    /// back — none of which this process sees. So it is read wherever it is wanted, which is where
+    /// a banner is about to be posted and where the answer is shown, and nothing caches it: a
+    /// remembered copy of this is a user who turned notifications on an hour ago and hears nothing
+    /// until the next launch.
     func refreshAuthorization() async -> Bool {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
-        isAuthorized = settings.authorizationStatus == .authorized
-        return isAuthorized
+        return settings.authorizationStatus == .authorized
     }
 
     /// Called by the app delegate when the OS delivers or refreshes the APNs device token.
@@ -153,27 +152,44 @@ final class SessionNotifier {
     /// needs and the Mac is what tells them which of several to look at: two Macs can both have a
     /// shell called `prod`, and this is read on a locked screen with nothing else on it.
     func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
-        guard isOnPlan, isAuthorized, UIApplication.shared.applicationState != .active else { return }
+        guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
         content.title = "Terminal needs you"
         content.body = macName.map { "\($0): \(message)" } ?? message
         content.sound = .default
-        let request = UNNotificationRequest(
-            identifier: "peering-terminal-\(sessionID.uuidString)",
-            content: content,
-            trigger: nil
+        deliver(content, identifier: "peering-terminal-\(sessionID.uuidString)")
+    }
+
+    /// The banner for a shell the user walked away from with a prompt still open.
+    ///
+    /// ``terminalNeedsAttention(_:sessionID:macName:)`` says nothing while the app is in front,
+    /// which is right, and the Mac's detector will not fire again for the same prompt: it waits
+    /// for an answer before it will recognise another. So a prompt that arrived while the user was
+    /// looking had no way of ever reaching them once they put the phone down, and leaving the
+    /// screen is the second and last chance to say so.
+    ///
+    /// The sentence is the Mac's own, from ``TerminalSessionManager``, because both of them end up
+    /// on the same Lock Screen: one banner reading "Terminal “prod” is waiting for a password" and
+    /// another reading something else about the same state would look like two features.
+    func terminalStillWaiting(
+        _ kind: TerminalAttentionKind,
+        name: String,
+        sessionID: UUID,
+        macName: String?
+    ) {
+        let noun = kind == .password ? "a password" : "confirmation"
+        terminalNeedsAttention(
+            "Terminal \u{201C}\(name)\u{201D} is waiting for \(noun).",
+            sessionID: sessionID,
+            macName: macName
         )
-        Task {
-            do { try await UNUserNotificationCenter.current().add(request) }
-            catch { notifierLog.error("could not post terminal attention: \(String(describing: error), privacy: .public)") }
-        }
     }
 
     private func post(_ notification: SessionAwareness.Notification) {
         // A banner about the screen the user is looking at is noise rather than news, and on
         // a frontmost app iOS would not present it anyway — the check here is what keeps the
         // "not posted" decision in one readable place instead of in the delegate's rules.
-        guard isAuthorized, UIApplication.shared.applicationState != .active else { return }
+        guard UIApplication.shared.applicationState != .active else { return }
 
         let content = UNMutableNotificationContent()
         content.title = notification.title
@@ -182,19 +198,26 @@ final class SessionNotifier {
         // confirmation of something the user just did, to someone already holding the phone.
         content.sound = notification.kind == .connected ? nil : .default
 
-        let request = UNNotificationRequest(
-            identifier: notification.identifier,
-            content: content,
-            // Nothing is scheduled here. Every one of these is about something that has just
-            // happened, so a trigger would only be a delay.
-            trigger: nil
-        )
+        deliver(content, identifier: notification.identifier)
+    }
 
+    /// The one place a banner is handed to iOS, and the one place the permission is read.
+    ///
+    /// Read here rather than checked by the callers, so that the answer is the one the system has
+    /// *now*: the user is told about a shell waiting while notifications are off, turns them on in
+    /// iOS Settings, and the next shell to stop has to reach them without a relaunch in between.
+    ///
+    /// Nothing is scheduled: every one of these is about something that has just happened, so a
+    /// trigger would only be a delay.
+    private func deliver(_ content: UNMutableNotificationContent, identifier: String) {
         Task {
+            guard await refreshAuthorization() else { return }
             do {
-                try await UNUserNotificationCenter.current().add(request)
+                try await UNUserNotificationCenter.current().add(
+                    UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+                )
             } catch {
-                notifierLog.error("could not post \(notification.kind.rawValue, privacy: .public): \(String(describing: error), privacy: .public)")
+                notifierLog.error("could not post \(identifier, privacy: .public): \(String(describing: error), privacy: .public)")
             }
         }
     }
