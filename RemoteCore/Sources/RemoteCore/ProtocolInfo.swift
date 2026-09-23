@@ -5,92 +5,66 @@ public enum ProtocolInfo {
     /// Bumped whenever the wire format changes incompatibly. Exchanged in the hello
     /// messages and bound into the pairing transcript.
     ///
-    /// 2: `SpaceInfo` describes every display rather than one, and `switchToSpace` names the
-    /// display it acts on. An older host cannot decode either, so this is an incompatible change
-    /// and is declared as one — the handshake turns it into "update whichever is older" rather
-    /// than a decode failure in the middle of a session.
+    /// An unknown command is a decode failure in the middle of a session rather than a degraded
+    /// experience, so an incompatible change is declared here and the handshake turns a mixed pair
+    /// into "update whichever is older".
+    ///
+    /// 2: `SpaceInfo` describes every display rather than one, and `switchToSpace` names the display
+    /// it acts on; an older host cannot decode either.
     /// 3: adds relay signalling and routed control/video transports.
-    /// 4: adds `refreshSpacePreviews`, which a host of version 3 cannot decode. An unknown
-    /// command is a decode failure in the middle of a session rather than a degraded
-    /// experience, so this is declared incompatible for the usual reason: the handshake turns
-    /// it into "update whichever is older".
-    /// 6: `SpaceDisplay` counts and numbers *desktops*, and `current` becomes optional because
-    /// a display showing a fullscreen application has no current desktop. A 5 client would read
-    /// a missing `current` as a decode failure and lose the whole catalogue, so this is
-    /// declared incompatible like the rest.
-    /// 5: adds `notice`, the host's way of captioning a healthy picture — a sleeping screen,
-    /// most of all. An older client would ignore the frame, which is survivable, but a 4 host
-    /// would never send one and the phone would keep showing black with no explanation, which
-    /// is the failure this exists to remove. Bumped, like the others, so the two ends are
-    /// known to agree rather than assumed to.
+    /// 4: adds `refreshSpacePreviews`, which a host of version 3 cannot decode.
+    /// 6: `SpaceDisplay` counts and numbers *desktops*, and `current` becomes optional because a
+    /// display showing a fullscreen application has no current desktop. A 5 client reads a missing
+    /// `current` as a decode failure and loses the whole catalogue.
+    /// 5: adds `notice`, the host's way of captioning a healthy picture, a sleeping screen most of
+    /// all. An older client would ignore the frame, which is survivable, but a 4 host would never
+    /// send one and the phone would keep showing black with no explanation.
     /// 7: adds `setPrivacyMode`. An older host cannot decode the new command, so the handshake
     /// rejects a mixed pair with an update message instead of dropping an active session.
     /// 8: adds `lockScreen`, with the same compatibility requirement.
     /// 9: adds `clipboardContent` (frame kind 0x11), `requestClipboard` / `pushClipboard`
-    /// (commands), `audioConfig` (0x13), `audioFrame` (0x14), and Wake-on-LAN MAC addresses
-    /// in `ServerHello`. An older host cannot decode the new commands; bump required.
+    /// (commands), `audioConfig` (0x13), `audioFrame` (0x14), and Wake-on-LAN MAC addresses in
+    /// `ServerHello`. An older host cannot decode the new commands.
     /// 10: adds authenticated, reconnectable terminal sessions on the control channel.
-    /// 11: adds directory browsing and file preview to that channel — `listDirectory` and
-    /// `readFile` requests, and the `directory`, `fileContents` and `browseFailure` events that
-    /// answer them. A 10 host cannot decode either request, so this is declared incompatible for
-    /// the usual reason: the handshake turns a mixed pair into an update message rather than a
-    /// decode failure in the middle of a session.
-    /// 12: adds the control-channel video fallback — `videoChunk` (0x17) and `videoTransport`
-    /// (0x18) — for the networks that carry the control channel and drop everything else. The
-    /// picture then arrives the only way it can. An 11 host cannot decode either message and,
-    /// more to the point, would never send one: a mixed pair would spend the session in exactly
-    /// the state this removes, with the status saying connected and the screen showing nothing.
-    /// Declared incompatible like the rest, so the handshake turns it into "update whichever is
-    /// older" rather than into a session that looks like it is working.
-    /// 13: moves relayed video off the control channel and onto the relay's datagram path —
+    /// 11: adds directory browsing and file preview to that channel: `listDirectory` and `readFile`
+    /// requests, and the `directory`, `fileContents` and `browseFailure` events that answer them. A
+    /// 10 host cannot decode either request.
+    /// 12: adds the control-channel video fallback, `videoChunk` (0x17) and `videoTransport` (0x18),
+    /// for the networks that carry the control channel and drop everything else. The picture then
+    /// arrives the only way it can. An 11 host cannot decode either message and would never send
+    /// one, so a mixed pair would sit with the status saying connected and the screen empty.
+    /// 13: moves relayed video off the control channel and onto the relay's datagram path:
     /// `videoKeyRequest` (0x19) and `videoKey` (0x1A) carry the secret both ends seal those
-    /// datagrams with. A 12 host cannot decode either message and, more to the point, answers
-    /// its datagrams with nothing: a 13 client on a 12 host would ask for a key, get silence,
-    /// and be left with the picture on the shared stream it was trying to leave. The version
-    /// is what turns that into an update message at the door.
+    /// datagrams with. A 12 host cannot decode either message and answers its datagrams with
+    /// nothing, leaving the picture on the shared stream the client was trying to leave.
     /// 14: adds writing to that same channel: `beginWrite` and `writeChunk` requests, and the
     /// `wroteFile` and `writeFailure` events that answer them. A 13 host cannot decode either
-    /// request, and the failure would land in the middle of an edit: the user picks a file, the
-    /// phone sends it, and what comes back is a dropped session rather than a sentence saying the
-    /// Mac is too old to be written to. Declared incompatible like the rest.
-    /// 15: pictures join text in the browser. `fileContents` gains a `kind`, and a file that is
-    /// an image is no longer refused by the two ends that read files. A 14 client cannot decode
-    /// the new field, and the failure would be the worst-shaped one yet: `RemoteFilePreview.text`
-    /// decodes whatever it is given as UTF-8, so the bytes of a photograph would arrive as a
-    /// screen of replacement characters with nothing to say they were ever a picture. Declared
-    /// incompatible like the rest, so the handshake turns a mixed pair into an update message
-    /// instead.
+    /// request, and the failure would land in the middle of an edit as a dropped session.
+    /// 15: pictures join text in the browser. `fileContents` gains a `kind`, and a file that is an
+    /// image is no longer refused. A 14 client cannot decode the new field: `RemoteFilePreview.text`
+    /// decodes whatever it is given as UTF-8, so a photograph's bytes would arrive as a screen of
+    /// replacement characters.
     /// 16: the browser can change things, not only read them. `changeFile` carries a
-    /// `RemoteFileOperation` — make a file or folder, rename one, delete one — and the
-    /// `fileOperationDone` and `fileOperationFailure` events answer it. A 15 host cannot decode
-    /// the request, and the shape of that failure is the worst one yet: the user taps Delete,
-    /// the phone sends a request the Mac drops on the floor, and the row stays on screen because
-    /// nothing ever answers. A delete that silently does not happen is survivable; the version
-    /// that makes its absence indistinguishable from a slow reply is not, so this is declared
-    /// incompatible like the rest.
+    /// `RemoteFileOperation` (make a file or folder, rename one, delete one), and the
+    /// `fileOperationDone` and `fileOperationFailure` events answer it. A 15 host cannot decode the
+    /// request, and the row would stay on screen because nothing ever answers.
     /// 17: the phone tells the Mac where to reach it when no session is up. `registerPushToken`
-    /// carries the APNs device token, and it is the first request whose absence of a decoder is
-    /// fatal rather than quiet: it is sent on every session becoming ready, so a host that does
-    /// not know the case ends the session tens of milliseconds after it opens, and the phone
-    /// redials into the same wall. The version is what turns that into "update whichever is
-    /// older" at the door, which is where the push token should have been caught.
+    /// carries the APNs device token, and its absence of a decoder is fatal rather than quiet: it is
+    /// sent on every session becoming ready, so a host that does not know the case ends the session
+    /// tens of milliseconds after it opens, and the phone redials into the same wall.
     ///
-    /// **Not 18, and the mosaic is why.** The next change in this file was expected to be the
-    /// mosaic, since `CaptureSource` gains a case an older host cannot decode. It does not need
-    /// a bump: the case is only ever *sent by the client*, so a Mac that has not said it can take
-    /// one never receives one, and nothing already on the wire changes shape. That is the
-    /// `supportsVideoPause` argument exactly, and the entry that would have gone here is in
-    /// ``ServerHello/supportsMosaic`` instead.
+    /// Not 18, and the mosaic is why: `CaptureSource` gains a case an older host cannot decode, but it
+    /// is only ever sent by the client, so a Mac that has not said it can take one never receives one
+    /// and nothing already on the wire changes shape. That entry is in
+    /// ``ServerHello/supportsMosaic`` instead, on the `supportsVideoPause` pattern.
     public static let version: UInt16 = 17
 
     /// The largest payload a control-channel message may carry.
     ///
-    /// Shared because it is a rule about *sending*, and the enforcement has always been on the
-    /// receiving side: a host rejects an oversized command or terminal request, but nothing on
-    /// either end refuses to produce one, so a message this size written by mistake is not
-    /// refused anywhere near where it was made. The video fallback is the first thing that
-    /// routinely has payloads larger than this, which is why it cuts them up rather than
-    /// trusting the far end's buffer to be as large as the phone's is.
+    /// It is a rule about sending and the enforcement is on the receiving side: a host rejects an
+    /// oversized command, but nothing refuses to produce one. The video fallback routinely has
+    /// payloads larger than this, which is why it cuts them up rather than trusting the far end's
+    /// buffer to be as large as the phone's.
     public static let maxControlPayload = 64 * 1024
 
     /// Public signalling endpoint. Control and video endpoints are supplied per session by the

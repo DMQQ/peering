@@ -3,31 +3,26 @@ import RemoteCore
 
 /// One application and the windows it owns, as the source picker draws them.
 ///
-/// **The picker's unit is an application, not a window.** The catalogue offers the two as
-/// separate flat lists, which is what the host can enumerate rather than what anybody is looking
-/// for: a Mac with ten applications and twenty-five windows becomes two lists of two different
-/// things, and answering "where is my browser" means reading both and working out which window
-/// belongs to what. An application with its windows under it is one thing to find and one thing
-/// to read.
+/// The picker's unit is an application, not a window: the catalogue offers the two as separate
+/// flat lists, which is what the host can enumerate rather than what anybody is looking for.
+/// An application with its windows under it is one thing to find and one thing to read.
 public struct ApplicationGroup: Identifiable, Equatable, Sendable {
     /// Stable across catalogue rebuilds so a grid does not lose its state when an unrelated
-    /// window opens: the application's own identifier when there is one, and the key the group
-    /// was formed on otherwise.
+    /// window opens: the application's own identifier when there is one, the group's key otherwise.
     public let id: String
 
     /// The catalogue's row for the application itself, when it offers one.
     ///
-    /// `nil` for a window whose owning application the catalogue does not list as capturable —
-    /// see ``SourceGrouping/applicationGroups(applications:windows:)``. The group is still drawn,
-    /// because a window the Mac is willing to capture is not something to hide over a missing
-    /// header; what is lost is the ability to select the whole application, and the header says
-    /// so by not being tappable.
+    /// `nil` for a window whose owning application the catalogue does not list as capturable. The
+    /// group is still drawn, because a window the Mac is willing to capture is not something to
+    /// hide over a missing header; what is lost is the ability to select the whole application.
+    /// See ``SourceGrouping/applicationGroups(applications:windows:)``.
     public let application: CaptureSourceDescriptor?
 
     /// What to call the group: the application's own name where there is one.
     public let title: String
 
-    /// The application's icon, falling back to its windows' — a window carries its owning
+    /// The application's icon, falling back to its windows': a window carries its owning
     /// application's icon, so a group always has one if the Mac sent any at all.
     public let iconPNGData: Data?
 
@@ -50,10 +45,8 @@ public struct ApplicationGroup: Identifiable, Equatable, Sendable {
 
     /// The same group with a different set of windows.
     ///
-    /// For the picker's search, which keeps a group's heading and narrows what is under it — so
-    /// that a window found by name is not stranded under a heading nobody typed. A method rather
-    /// than the initializer at the call site, so the parts of a group that searching does not
-    /// change cannot be dropped one at a time.
+    /// For the picker's search, which keeps a group's heading and narrows what is under it, so a
+    /// window found by name is not stranded under a heading nobody typed.
     public func narrowing(to windows: [CaptureSourceDescriptor]) -> ApplicationGroup {
         ApplicationGroup(
             id: id,
@@ -68,30 +61,22 @@ public struct ApplicationGroup: Identifiable, Equatable, Sendable {
 /// Turning the catalogue's two flat lists into the one grouping the picker draws.
 ///
 /// A free function over two arrays rather than a method on the catalogue, because the interesting
-/// cases are all mismatches — a window whose application is not offered, an application with no
-/// bundle identifier, a catalogue where one of the two lists is empty — and those can be written
-/// down and run without a Mac, a screen, or a session.
+/// cases are all mismatches, and those can be written down and run without a Mac or a session.
 public enum SourceGrouping {
     /// The applications, each with its own windows, in the order the picker should show them.
     ///
-    /// **Driven by the windows and not by the applications.** What the user is choosing between is
-    /// the windows, and a group exists because there is something in it: an application the
-    /// catalogue offers with no windows to show underneath would be a heading over nothing, and
-    /// one the catalogue offers would in any case not be capturable — `makeFilter(for:)` refuses
-    /// an application with no windows on any display, so a row for it would be a row that cannot
-    /// work. Every window the catalogue offers is accounted for, which is the property that
-    /// matters: nothing is dropped by a grouping that could not place it.
-    ///
-    /// The windows keep the order the catalogue gave them, which is the application's name and
-    /// then the window's own title, so a group reads alphabetically inside itself and the groups
-    /// themselves come out alphabetically by the application's name.
+    /// Driven by the windows and not by the applications: what the user is choosing between is the
+    /// windows, and a group exists because there is something in it, so an application with no
+    /// windows under it would be a heading over nothing. Every window the catalogue offers is
+    /// accounted for, which is the property that matters. The windows keep the catalogue's order,
+    /// which is the application's name and then the window's own title.
     public static func applicationGroups(
         applications: [CaptureSourceDescriptor],
         windows: [CaptureSourceDescriptor]
     ) -> [ApplicationGroup] {
         // Matched on the key both lists can produce for the same application, rather than on the
-        // application's row: a window knows its owning application's bundle identifier and its
-        // name, and a row of the other list knows the same two things. See ``key(bundle:name:)``.
+        // application's row: a window and an application row both know the owner's bundle
+        // identifier and name. See ``key(bundle:name:)``.
         var byKey: [String: CaptureSourceDescriptor] = [:]
         for application in applications {
             let key = key(bundle: application.bundleIdentifier, name: application.title)
@@ -101,7 +86,7 @@ public enum SourceGrouping {
         }
 
         // Insertion order is the catalogue's order, so the groups come out sorted by application
-        // name without a second sort here — and a group's windows stay in the order they arrived.
+        // name without a second sort here, and a group's windows stay in the order they arrived.
         var order: [String] = []
         var grouped: [String: [CaptureSourceDescriptor]] = [:]
         for window in windows {
@@ -117,7 +102,7 @@ public enum SourceGrouping {
             guard let owned = grouped[key], let first = owned.first else { return nil }
             let application = byKey[key]
             // The application's name where there is one, and the window's own record of it
-            // otherwise — which is the same string the host put there for this purpose.
+            // otherwise, which is the same string the host put there for this purpose.
             let title = application?.title ?? first.subtitle ?? "Windows"
             return ApplicationGroup(
                 id: application?.id ?? "group:\(key)",
@@ -131,11 +116,10 @@ public enum SourceGrouping {
 
     /// What two rows of different lists have in common when they are about the same application.
     ///
-    /// The bundle identifier when there is one, and the lowercased name when there is not —
-    /// matching how the host decides two rows are the same application when it builds the list in
-    /// the first place. The two are namespaced rather than compared directly, because a bundle
-    /// identifier that happened to equal some application's name would otherwise merge two
-    /// unrelated groups.
+    /// The bundle identifier when there is one, and the lowercased name when there is not, matching
+    /// how the host decides two rows are the same application. The two are namespaced rather than
+    /// compared directly, because a bundle identifier that happened to equal some application's
+    /// name would otherwise merge two unrelated groups.
     private static func key(bundle: String?, name: String?) -> String {
         if let bundle, !bundle.isEmpty { return "b:\(bundle)" }
         return "n:\((name ?? "").lowercased())"

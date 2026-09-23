@@ -7,23 +7,19 @@ private let transportLog = Logger(subsystem: "pl.dmq.peering", category: "client
 
 /// Where a client keeps the hosts it has paired with.
 ///
-/// The same trust store as the host's ``PinStore``, but with one difference that matters on
-/// iOS: the item is written `…ThisDeviceOnly`, so the pin is excluded from iCloud Keychain
-/// and from encrypted backups. That is deliberate and not paranoia. A pin decides which Mac
-/// this device will drive, and a pin that could be restored onto a *different* device would
-/// hand that trust to whoever restored the backup — carrying a pairing across devices is
-/// exactly the property that should require pairing again.
+/// The same trust store as the host's ``PinStore``, except that on iOS the item is written
+/// `…ThisDeviceOnly`: a pin restored onto a different device would hand this device's trust to
+/// whoever restored the backup, so it is kept out of iCloud Keychain and encrypted backups.
 ///
-/// Keys are the host's `serverID` (its Bonjour device ID), which is stable across networks
-/// and DHCP leases, so a pin survives the Mac changing address.
+/// Keys are the host's `serverID` (its Bonjour device ID), stable across networks and DHCP leases.
 public final class ClientPinStore: @unchecked Sendable {
     private let lock = NSLock()
     private let service: String
     private let account: String
     private var pins: [String: Data]
 
-    /// The store the app uses. A separate instance is made for tests and tooling, so a
-    /// probe run cannot disturb what the real client believes.
+    /// The store the app uses. Tests and tooling make a separate instance, so a probe run cannot
+    /// disturb what the real client believes.
     public static let standard = ClientPinStore(service: "pl.dmq.peering.client.pins")
 
     public init(service: String, account: String = "paired-hosts") {
@@ -37,16 +33,14 @@ public final class ClientPinStore: @unchecked Sendable {
 
     public func pin(for hostID: String) -> Data? { lock.withLock { pins[hostID] } }
 
-    /// Whether *any* paired host matches this public key. Used to recognise a Mac whose ID
-    /// changed, so the client can say "this is a Mac you know under a new name" rather than
-    /// silently treating it as a stranger.
+    /// Whether any paired host matches this public key, for recognising a Mac whose ID changed
+    /// rather than silently treating it as a stranger.
     public func contains(publicKey: Data) -> Bool {
         lock.withLock { pins.values.contains { SPKI.matches($0, publicKey) } }
     }
 
-    /// - Returns: `false` if the Keychain write failed. The caller must not report a
-    ///   successful pairing in that case — the user would be told they are paired and then
-    ///   be asked to pair again on the very next connection.
+    /// - Returns: `false` if the Keychain write failed, in which case the caller must not report a
+    ///   successful pairing: the user would be asked to pair again on the very next connection.
     @discardableResult
     public func record(hostID: String, publicKey: Data) -> Bool {
         lock.withLock {
@@ -80,9 +74,8 @@ public final class ClientPinStore: @unchecked Sendable {
         }
     }
 
-    /// `…ThisDeviceOnly` on iOS, per the reasoning in the type comment. macOS keeps its
-    /// existing item class, where the data-protection keychain behaves differently and
-    /// `ThisDeviceOnly` buys nothing a FileVault-protected login keychain does not.
+    /// `…ThisDeviceOnly` on iOS, per the reasoning in the type comment; macOS keeps its existing
+    /// item class, where the data-protection keychain behaves differently.
     private static var accessibility: CFString {
         #if os(iOS)
         return kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -103,10 +96,9 @@ public final class ClientPinStore: @unchecked Sendable {
         let status = SecItemCopyMatching(SecretStore.attributes(query), &item)
 
         guard status == errSecSuccess else {
-            // errSecItemNotFound is the ordinary first-run case. Anything else means the
-            // store exists but is unreadable — and an unreadable store is indistinguishable
-            // from an empty one, so every paired Mac would silently become a stranger and
-            // the user would be asked to pair again with no explanation.
+            // errSecItemNotFound is the ordinary first-run case. Anything else means the store
+            // exists but is unreadable, which is indistinguishable from an empty one: every paired
+            // Mac would silently become a stranger and the user would be asked to pair again.
             if status != errSecItemNotFound {
                 transportLog.error("could not read client pins: OSStatus \(status, privacy: .public)")
             }
@@ -157,14 +149,13 @@ public final class ClientPinStore: @unchecked Sendable {
 
 /// One framed TLS connection to a host, in either role.
 ///
-/// The client's counterpart to the host's `PeerConnection`, and the same shape on purpose:
-/// frames in through a callback, frames out through a queue, and a decoder that makes no
-/// assumption about how TCP splits them.
+/// The client's counterpart to the host's `PeerConnection`, and the same shape on purpose: frames in
+/// through a callback, frames out through a queue, and a decoder that makes no assumption about how
+/// TCP splits them.
 ///
-/// Deliberately *not* an actor. Both connections run off the network, on their own queues,
-/// and neither may be bound to the main actor — the app target defaults to `MainActor`
-/// isolation, and a video frame arriving on the main thread is a dropped frame and a stutter
-/// in the UI that is trying to draw it.
+/// Deliberately not an actor: both connections run off the network, on their own queues, and the app
+/// target defaults to `MainActor` isolation, where a video frame arriving on the main thread is a
+/// stutter in the UI that is trying to draw it.
 public final class ClientConnection: @unchecked Sendable {
     public enum Failure: LocalizedError, Sendable, Equatable {
         case invalidPort(UInt16)
@@ -229,10 +220,8 @@ public final class ClientConnection: @unchecked Sendable {
 
     /// The address this connection was made to.
     ///
-    /// Read back from the connection rather than remembered by the caller, which is what
-    /// lets the *second* socket be opened to exactly the same place: a Bonjour endpoint
-    /// still carries the interface the host was discovered on, and resolving it to an
-    /// address first would throw that away.
+    /// Read back from the connection so the second socket goes to exactly the same place: a Bonjour
+    /// endpoint carries the interface the host was discovered on, which resolving it would lose.
     public var currentEndpoint: NWEndpoint? { connection?.endpoint }
 
     public init(label: String) {
@@ -243,9 +232,7 @@ public final class ClientConnection: @unchecked Sendable {
 
     /// Connects to a host found over Bonjour.
     ///
-    /// Preferred over host/port because the endpoint carries the interface the host was
-    /// discovered on, so the connection takes the path that actually works on a machine with
-    /// several.
+    /// Preferred over host/port: the endpoint carries the interface the host was discovered on.
     public func connect(
         to endpoint: NWEndpoint,
         identity: SelfSignedIdentity,
@@ -262,17 +249,15 @@ public final class ClientConnection: @unchecked Sendable {
             queue: queue
         )
         let tcp = NWProtocolTCP.Options()
-        // Nagle's algorithm buffers small packets for up to 40 ms looking for more data to
-        // coalesce. On a LAN where RTT is under 1 ms this is pure latency added to every
-        // mouse move and keystroke. Disable it so each command goes out the moment it is
-        // produced rather than waiting for the coalescing window to expire.
+        // Nagle buffers small packets for up to 40 ms looking for more to coalesce, which on a LAN
+        // is pure latency added to every mouse move and keystroke.
         tcp.noDelay = true
         let parameters = NWParameters(tls: tls, tcp: tcp)
         try await start(NWConnection(to: endpoint, using: parameters), timeout: timeout)
     }
 
     /// Connects to a literal address. The simulator path, and the fallback when Bonjour is
-    /// unavailable — which on iOS is the common case rather than the exotic one.
+    /// unavailable, which on iOS is the common case rather than the exotic one.
     public func connect(
         host: String,
         port: UInt16,
@@ -304,18 +289,12 @@ public final class ClientConnection: @unchecked Sendable {
     private func start(_ connection: NWConnection, timeout: TimeInterval) async throws {
         self.connection = connection
 
-        // The connect deadline, armed **before** the connection is started.
+        // The connect deadline, armed before the connection is started. Without it a host that
+        // accepts the socket and then never speaks parks the UI on "connecting" indefinitely.
         //
-        // Without this a connection to a host that accepts the socket and then never speaks
-        // parks the UI on "connecting" indefinitely, with nothing to show the user.
-        //
-        // Armed here rather than after the handshake below completes, because a host on the
-        // same machine — or any host worth using — reaches `.ready` while `connection.start`
-        // is still on the stack. A timer created afterwards would be born already-unnecessary,
-        // the cancel would find nothing to cancel, and the deadline would then fire `timeout`
-        // seconds into a healthy session. That reads as the Mac hanging up mid-handshake, and
-        // it happens exactly when someone takes longer than the timeout to compare the pairing
-        // digits — which is the one moment a user is *expected* to be slow.
+        // Armed here rather than after the handshake below completes: a host on the same machine
+        // reaches `.ready` while `connection.start` is still on the stack, so a timer created
+        // afterwards would fire `timeout` seconds into a healthy session.
         let handle = Task { [weak self] in
             try? await Task.sleep(for: .seconds(timeout))
             guard !Task.isCancelled else { return }
@@ -352,8 +331,8 @@ public final class ClientConnection: @unchecked Sendable {
                         self.finish(Failure.cancelled)
                     case .waiting(let error):
                         // A refused connection arrives as `.waiting`, not `.failed`, because
-                        // Network.framework would otherwise retry forever. For a user who just
-                        // tapped a Mac in a list, retrying forever is a hang.
+                        // Network.framework would otherwise retry forever, which for a user who just
+                        // tapped a Mac in a list is a hang.
                         transportLog.error("connection waiting: \(String(describing: error), privacy: .public)")
                         let failure = Failure.transport(NetworkFailureText.describe(error))
                         self.cancelTimeout()
@@ -396,9 +375,9 @@ public final class ClientConnection: @unchecked Sendable {
         connection.send(content: FrameEncoder.encode(frame), completion: .contentProcessed { _ in })
     }
 
-    /// Encodes and sends a command on the control channel. A failure to encode is a
-    /// programming error, not a network condition, so it is logged rather than thrown —
-    /// there is no useful recovery a caller could perform mid-gesture.
+    /// Encodes and sends a command on the control channel. A failure to encode is a programming
+    /// error, not a network condition, so it is logged rather than thrown: there is no useful
+    /// recovery a caller could perform mid-gesture.
     public func send(_ command: RemoteCommand) {
         do {
             send(Frame(kind: .command, payload: try MessageCodec.encode(command)))
@@ -427,7 +406,7 @@ public final class ClientConnection: @unchecked Sendable {
                 do {
                     frames = try appendAndDrain(data)
                 } catch {
-                    // A framing error is unrecoverable — the byte stream is unusable — so the
+                    // A framing error is unrecoverable, the byte stream being unusable, so the
                     // connection is torn down rather than resynchronised onto a guess.
                     transportLog.error("framing failed: \(String(describing: error), privacy: .public)")
                     let failure = Failure.transport(NetworkFailureText.describe(error))
@@ -463,9 +442,8 @@ public final class ClientConnection: @unchecked Sendable {
 
     // MARK: - Termination
 
-    /// Ends the connection with `failure`, once. The first reason wins: the host's
-    /// explanation arrives before its close, and overwriting it with "connection reset"
-    /// would throw away the only message that tells the user what actually went wrong.
+    /// Ends the connection with `failure`, once. The first reason wins: the host's explanation
+    /// arrives before its close, and "connection reset" would throw away the only useful message.
     private func finish(_ failure: Failure) {
         lock.lock()
         guard closedReason == nil else { lock.unlock(); return }
@@ -516,23 +494,17 @@ public final class ClientConnection: @unchecked Sendable {
 
 /// Rate-limits and merges outgoing commands so a 120 Hz touch stream does not flood the link.
 ///
-/// The rules come straight from ``RemoteCommand/coalescing``, and the distinction between
-/// them is the whole point:
+/// The rules come from ``RemoteCommand/coalescing``:
 ///
-/// - **Absolute positions** (`.mouseMove`) are superseded by a newer sample, so the pending
-///   one is replaced in place. Keeping its original *position* in the queue is what stops a
-///   coalesced move from jumping ahead of a command that was queued before it.
-/// - **Relative deltas** (`.joystickMove`, `.scroll`) are *summed*, never dropped. Replacing
-///   them would silently discard the earlier part of a gesture, so a fast flick would arrive
-///   as a single small nudge.
-/// - **Everything else** is neither merged nor delayed. A dropped `mouseUp` leaves a button
-///   stuck down on the Mac, so press/release pairs go out the moment they are produced,
-///   after whatever was already pending.
+/// - Absolute positions (`.mouseMove`) are superseded by a newer sample and replaced in place, the
+///   original slot being kept so a coalesced move cannot jump ahead of an already-queued command.
+/// - Relative deltas (`.joystickMove`, `.scroll`) are summed, never dropped, or a fast flick would
+///   arrive as a single small nudge.
+/// - Everything else goes out as it is produced, since a dropped `mouseUp` leaves a button stuck down.
 ///
-/// The output rate is bounded by `interval` (60 Hz by default), with one exception: a command
-/// that arrives when nothing has been sent for a full interval goes out immediately. Without
-/// that leading edge, a single tap would wait up to 16 ms before its cursor move left, which
-/// is precisely the latency the user feels.
+/// The output rate is bounded by `interval` (60 Hz by default), except that a command arriving when
+/// nothing has been sent for a full interval goes out immediately, without which a single tap would
+/// wait up to 16 ms before its cursor move left.
 public final class CommandCoalescer: @unchecked Sendable {
     /// The floor between two sends of *coalescable* commands, in seconds.
     public let interval: TimeInterval
@@ -559,16 +531,10 @@ public final class CommandCoalescer: @unchecked Sendable {
 
     /// Arms the trailing-edge timer, if there is anything for it to send.
     ///
-    /// **A timer with an empty queue is a wake-up that does nothing**, sixty times a second, for
-    /// the whole life of a session. It used to be started when the connection came up and stopped
-    /// only when the session was destroyed, so an idle session — the common case, a Mac left open
-    /// on a desk — held the CPU awake at 60 Hz for nothing. With several sessions open at once
-    /// that is multiplied by the number of Macs, none of which is doing anything.
-    ///
-    /// So the rule is now the obvious one: the timer exists while there is something waiting to
-    /// be sent, and not otherwise. ``enqueue(_:)`` arms it, ``flush()`` disarms it once the queue
-    /// comes back empty, and this refuses to arm an empty one — which is what makes the call on
-    /// connect harmless rather than the thing that reintroduces the bug.
+    /// A timer with an empty queue is a wake-up that does nothing, sixty times a second for the whole
+    /// life of a session, and with several sessions open that is multiplied by the number of Macs.
+    /// ``enqueue(_:)`` arms it, ``flush()`` disarms it once the queue comes back empty, and this
+    /// refuses to arm an empty one.
     ///
     /// Idempotent, so it can be called on every reconnect and on every enqueue.
     public func start() {
@@ -595,9 +561,8 @@ public final class CommandCoalescer: @unchecked Sendable {
 
     /// Whether the trailing-edge timer is running.
     ///
-    /// Exposed for the test that holds ``start()``'s rule down, which is a rule about a wake-up
-    /// that does not happen and therefore cannot be observed from outside: an idle session that
-    /// arms a timer every 16.6 ms looks exactly like one that does not, on screen and on the wire.
+    /// Exposed for the test holding ``start()``'s rule down, which is about a wake-up that does not
+    /// happen: an idle session that arms a timer every 16.6 ms looks exactly like one that does not.
     public var isArmed: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -615,16 +580,14 @@ public final class CommandCoalescer: @unchecked Sendable {
         lock.unlock()
 
         for item in batch { sink(item) }
-        // Armed *after* the leading edge, so a command that went out immediately does not start a
-        // timer to look for something that is no longer there.
+        // Armed after the leading edge, so a command that went out immediately does not start a timer
+        // to look for something that is no longer there.
         if waiting { start() }
     }
 
-    /// Sends whatever is pending. Called by the timer, and by a caller that needs the queue
-    /// drained before some out-of-band action.
-    ///
-    /// Disarms the timer when the queue comes back empty, which is the other half of the rule
-    /// above: an idle session should not be waking the CPU at all.
+    /// Sends whatever is pending. Called by the timer, and by a caller that needs the queue drained
+    /// before some out-of-band action. Disarms the timer when the queue comes back empty, the other
+    /// half of the rule above: an idle session should not be waking the CPU at all.
     public func flush() {
         lock.lock()
         let batch = drain()
@@ -642,9 +605,8 @@ public final class CommandCoalescer: @unchecked Sendable {
             pending.append(command)
 
         case .replaceLatest:
-            // Replaced *in place*. Appending instead would reorder the move ahead of
-            // commands queued before it, which for a move-then-click pair means clicking at
-            // the previous position.
+            // Replaced in place: appending would reorder the move ahead of commands queued before
+            // it, which for a move-then-click pair means clicking at the previous position.
             if let index = pending.firstIndex(where: { Self.sameShape($0, command) }) {
                 pending[index] = command
             } else {

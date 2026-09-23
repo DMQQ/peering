@@ -3,30 +3,21 @@ import Foundation
 /// How a measured log becomes the size the shell at the far end is told it is.
 ///
 /// One place, because two: the panel's log over the Mac's own login shell, and the SSH screen's
-/// over a server's. They compute the same numbers from the same face, and a policy of "how wide
-/// is a terminal" is the kind that drifts silently when it is written twice.
+/// over a server's. They compute the same numbers from the same face.
 public enum TerminalMetrics {
     /// The advance width and line height of the monospaced face both logs are set in, at a size.
     ///
     /// Approximations on purpose: being one column out is invisible in a shell prompt, and the
-    /// alternative is asking CoreText for metrics on every layout pass to be exact about something
-    /// nobody can see.
-    ///
-    /// Both follow the type size, because how much of a shell fits on the screen is exactly this
-    /// arithmetic and the type size is the one thing about it the user can change: at twelve points
-    /// a phone held upright fits about fifty of the eighty columns a full-screen program lays out
-    /// for, so the right-hand third of every line is off the edge. Nine points fits about
-    /// sixty-eight of them, which is most of the way there.
+    /// alternative is asking CoreText for metrics on every layout pass. Both follow the type size,
+    /// which is the one thing about this arithmetic the user can change.
     public static func cellWidth(for fontSize: CGFloat) -> CGFloat { fontSize * 0.6 }
     public static func cellHeight(for fontSize: CGFloat) -> CGFloat { fontSize * 1.2 }
 
     /// The type sizes the terminals offer, in points.
     ///
-    /// **Tiny is the one that fits**, and it is the reason the list goes this low: a portrait phone
-    /// holds eighty columns of seven-point monospaced text, which is the whole of what a
-    /// full-screen program lays out for, so at that size a shell is on the screen entire rather
-    /// than two-thirds of it. It is small enough that some people will not want it, which is why it
-    /// is a choice and not the default.
+    /// Tiny is the one that fits: a portrait phone holds eighty columns of seven-point monospaced
+    /// text, which is the whole of what a full-screen program lays out for. Small enough that some
+    /// people will not want it, which is why it is a choice and not the default.
     public enum TextSize: Int, CaseIterable, Identifiable {
         case tiny = 7
         case small = 9
@@ -54,9 +45,9 @@ public enum TerminalMetrics {
 
     /// The narrowest either shell is ever told it is, in columns.
     ///
-    /// A phone held upright fits about fifty, and a full-screen program drawn for fifty is a broken
-    /// one: Claude Code's boxes, `htop`'s meters and `vim`'s splits all assume eighty. Both logs
-    /// scroll sideways already, so the floor costs a pan and buys them a canvas to lay out on.
+    /// A full-screen program drawn for the fifty a portrait phone fits is a broken one: Claude
+    /// Code's boxes, `htop`'s meters and `vim`'s splits all assume eighty. Both logs scroll
+    /// sideways already, so the floor costs a pan and buys them a canvas to lay out on.
     public static let minimumColumns = 80
 
     /// And the shortest, which is only ever reached by a keyboard covering most of the screen.

@@ -2,18 +2,9 @@ import Foundation
 
 /// What this device tells the relay about what it has bought, and what it can prove.
 ///
-/// The three fields are the three things the relay can read, and they are worth different amounts.
-/// `jwsRepresentation` is the proof: the signed transaction StoreKit handed back for the live
-/// subscription, read off the `VerificationResult<Transaction>` that `Transaction.currentEntitlements`
-/// yields rather than off the transaction it wraps. The relay verifies it against Apple's root and,
-/// when it verifies, believes it over everything else here. `plan` is the claim, used when there is
-/// no proof to check — an older app, or this one in the moment before `currentEntitlements`
-/// answers. `apiKey` is neither: it is the only grant the relay holds on its own side, and this
-/// app's key matches nothing in that list.
-///
-/// Grouped rather than passed as three arguments because the three travel together and are read
-/// together, and because a call site that forgets one of them is a paying subscriber metered at
-/// the free allowance, which is the failure the proof exists to remove.
+/// `jwsRepresentation` is the proof: the signed transaction read off the `VerificationResult` that
+/// `Transaction.currentEntitlements` yields, which the relay verifies against Apple's root and
+/// believes over everything else. `plan` is the claim, read only when there is no proof to check.
 public struct RelayEntitlement: Sendable, Equatable {
     /// The plan this device is on: `free`, `relay`, `plus` or `pro`. Omitted means the free plan,
     /// which is also what an unrecognised spelling means.
@@ -37,10 +28,9 @@ public struct RelayEntitlement: Sendable, Equatable {
 public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// A Mac announcing itself, with the proof that it is the Mac it says it is.
     ///
-    /// **`proof` is optional on the wire and the relay accepts its absence**, which is what lets a
-    /// build that predates this keep working. What the proof buys is that an ID which has been
-    /// proved once can only be registered by the device that proved it. See ``RelayDeviceProof``
-    /// for what is signed and why a signature rather than a shared secret.
+    /// `proof` is optional on the wire and the relay accepts its absence, which is what lets a
+    /// build that predates it keep working. An ID proved once can only be registered by the device
+    /// that proved it.
     case registerHost(
         deviceID: String,
         name: String,
@@ -49,17 +39,15 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     )
     /// A request for a session, with whatever this client can say about what it has bought.
     ///
-    /// **`plan` is a claim and `jwsRepresentation` is the evidence for it.** The relay verifies the
-    /// receipt against Apple's published root and meters by the product it names; the plan is read
-    /// only when there is no receipt that verifies, which is the arrangement `storekit.rs` in the
-    /// relay documents at length, including when it ends. Both are optional and both are read
-    /// leniently: an unrecognised or absent plan, and any receipt that does not verify, mean the
-    /// free allowance rather than a refusal to connect.
-    /// **`clientProof` is what the allowance is keyed on when it is present.** Without it the relay
-    /// meters the announced client ID, which is a string in the app's own storage and starts over
-    /// when the app is reinstalled. With it the relay meters the key, which is in the Keychain and
-    /// does not. Optional on the wire, so a build that predates this is metered the old way rather
-    /// than refused. See ``RelayDeviceProof/makeClientProof(clientID:identity:now:)``.
+    /// `plan` is a claim and `jwsRepresentation` is the evidence for it: the relay verifies the
+    /// receipt against Apple's published root and meters by the product it names, reading the plan
+    /// only when no receipt verifies. Both are read leniently, since an absent plan or a receipt
+    /// that does not verify means the free allowance rather than a refusal to connect.
+    ///
+    /// `clientProof`, when present, is what the allowance is keyed on: without it the relay meters
+    /// the announced client ID, a string in the app's own storage that starts over on reinstall,
+    /// rather than the Keychain key. Optional on the wire, so a build that predates it is metered
+    /// the old way rather than refused.
     case connectToHost(
         hostID: String,
         clientID: String,
@@ -71,26 +59,19 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     )
     /// Ask the relay where the other end of this session is.
     ///
-    /// Asked with this end's own video token, which is the only thing either end holds that says
-    /// which of the session's two slots it is — so the answer is always the *peer*. Nothing new is
-    /// collected to answer it either: the relay already stores each slot's observed address, because
-    /// forwarding is impossible without it.
+    /// Asked with this end's own video token, the only thing either end holds that says which of
+    /// the session's two slots it is, so the answer is always the peer.
     ///
-    /// Expect to be told `peerAddressUnknown` on the first ask. A client asks as soon as it has a
-    /// session and before it has sent a datagram, so the peer has usually not been heard from yet;
-    /// that is the ordinary first answer, not a failure, and the caller asks again.
+    /// `peerAddressUnknown` is the ordinary first answer rather than a failure: a client asks
+    /// before it has sent a datagram, so the peer has usually not been heard from yet.
     case requestPeerAddress(videoToken: Data)
     /// Is this Mac registered with the relay right now?
     ///
-    /// **Asked because Bonjour cannot answer it and the app was drawing that silence as absence.**
-    /// The green dot on a paired Mac came from the local browse, so a Mac reached through the relay
-    /// was drawn as though it were switched off. The relay knows the answer and already gives it
-    /// away in `hostOffline` to anyone who tries to connect; this is the same fact asked as a
-    /// question, so asking does not cost a session.
-    ///
-    /// What it costs is a disclosure worth naming: a phone that asks after three Macs has told the
-    /// relay which three it is interested in, where before it revealed one at the moment it
-    /// connected to it. It is asked while the Connect tab is open and never in the background.
+    /// Bonjour cannot answer this: a Mac reached through the relay was drawn as switched off,
+    /// because the green dot came from the local browse. The relay already gives the fact away in
+    /// `hostOffline`, so asking costs no session. It is asked while the Connect tab is open and
+    /// never in the background, because a phone that asks after three Macs has told the relay which
+    /// three it wants.
     case hostPresence(hostID: String)
     case ping
     /// Asks the relay to send an APNs push to a phone that is no longer reachable over the
@@ -122,9 +103,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(deviceID, forKey: .deviceID)
             try container.encode(name, forKey: .name)
             try container.encode(protocolVersion, forKey: .protocolVersion)
-            // All three or none. The relay treats a partial proof as a message it does not
-            // understand rather than salvaging what is there, so sending two of them would be
-            // sending something that gets refused for looking broken.
+            // All three or none: the relay treats a partial proof as a message it does not
+            // understand rather than salvaging what is there.
             try container.encodeIfPresent(proof?.publicKey, forKey: .publicKey)
             try container.encodeIfPresent(proof?.signature, forKey: .proof)
             try container.encodeIfPresent(proof?.proofTime, forKey: .proofTime)
@@ -142,21 +122,20 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(clientID, forKey: .clientID)
             try container.encode(protocolVersion, forKey: .protocolVersion)
             if let apiKey { try container.encode(apiKey, forKey: .apiKey) }
-            // Three fields or none, the same shape and the same names the host registration uses.
-            // What is signed is not the same, and the relay keeps the two payloads apart by their
-            // version tag rather than by the field names: this one is over
+            // Three fields or none, under the same names the host registration uses. What is signed
+            // is not the same, and the relay tells the two apart by their version tag rather than
+            // by the field names: this one is over
             // ``RelayDeviceProof/clientPayload(clientID:proofTime:)``.
             if let clientProof {
                 try container.encode(clientProof.publicKey, forKey: .publicKey)
                 try container.encode(clientProof.signature, forKey: .proof)
                 try container.encode(clientProof.proofTime, forKey: .proofTime)
             }
-            // Left out rather than sent as null when there is nothing to say: the relay's own
-            // spelling of "no plan" and "no receipt" is the field being absent, and both ends
-            // agreeing on one spelling is one fewer case to get wrong.
+            // Left out rather than sent as null: the relay's spelling of "no plan" and "no receipt"
+            // is the field being absent.
             if let plan { try container.encode(plan, forKey: .plan) }
-            // A few kilobytes of base64, which the signalling socket's 64 KB message limit has
-            // room for — see the relay's `MAX_JWS_BYTES`, which is what refuses an oversized one.
+            // A few kilobytes of base64, which the signalling socket's 64 KB message limit has room
+            // for; the relay's `MAX_JWS_BYTES` is what refuses an oversized one.
             if let jwsRepresentation {
                 try container.encode(jwsRepresentation, forKey: .jwsRepresentation)
             }
@@ -177,10 +156,8 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     }
 
     /// Lowercase hex of sixteen bytes, which is how the relay spells a video token on the wire.
-    ///
-    /// The relay's `unhex` is exact about length and forgiving about case, so the only way to get
-    /// this wrong is to drop a leading zero — which is what `%02x` is here to prevent, and which
-    /// would otherwise turn a token into a thirty-one character string the relay refuses.
+    /// `%02x` is what keeps a leading zero, without which the token is thirty-one characters and
+    /// the relay's `unhex`, exact about length, refuses it.
     private static func hex(_ bytes: Data) -> String {
         bytes.map { String(format: "%02x", $0) }.joined()
     }
@@ -214,12 +191,9 @@ public struct RelaySession: Sendable, Equatable {
 
 /// Where the other end of a session was last seen, as seen from the relay's outside.
 ///
-/// **An observation, not a promise.** It is the source address of the peer's most recent video
-/// datagram, so it is the peer as the peer's own NAT presents it — which is exactly the address
-/// anything else on the internet would have to send to. Whether the peer's NAT will *accept* a
-/// packet from a third party is a different question that the relay cannot answer, and this type
-/// carries no claim about it: the two ends settle that between themselves by trying, and by needing
-/// nothing but the session key they already share to make sense of what comes back.
+/// An observation, not a promise: it is the source address of the peer's most recent video
+/// datagram, so it is the peer as its own NAT presents it. Whether that NAT will accept a packet
+/// from a third party is a different question, one the two ends settle between themselves.
 public struct RelayPeerAddress: Sendable, Equatable {
     public let host: String
     public let port: UInt16
@@ -251,9 +225,9 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
     case peerAddress(RelayPeerAddress)
     /// Whether a Mac is registered, in answer to `hostPresence`.
     ///
-    /// `online: false` is a fact about the *relay*, not about the Mac: a Mac can be awake and
-    /// reachable on its own network while being registered nowhere. The screen that draws this is
-    /// careful not to turn it into the word "offline".
+    /// `online: false` is a fact about the relay, not about the Mac: a Mac can be awake and
+    /// reachable on its own network while being registered nowhere, so the screen does not turn it
+    /// into the word "offline".
     case hostPresence(deviceID: String, online: Bool)
     case pong
     case error(code: String, message: String)
@@ -315,20 +289,12 @@ public enum RelayServerMessage: Sendable, Equatable, Decodable {
         }
     }
 
-    /// Sixteen bytes, spelled as thirty-two hex digits.
+    /// Sixteen bytes, spelled as thirty-two hex digits. Both guards are load-bearing.
     ///
-    /// **Both guards are load-bearing, and one of them used to be wrong.** This asked for
-    /// `utf8.count == 32` and then walked the string sixteen times, two *characters* at a time. A
-    /// string of thirty-two bytes can be fewer than thirty-two characters (one four-byte emoji
-    /// standing in for one of the digits is enough), and the walk then asked for an index past
-    /// the end and took the process down with it. A trap, reachable from whatever the relay
-    /// sends, in a function whose entire job is to refuse things.
-    ///
-    /// So the count is in characters, which is the unit the loop actually moves in, and every
-    /// character has to be an ASCII hex digit before the loop starts. That second guard is not
-    /// only about non-hex input: `UInt8(_:radix:)` accepts a leading `+`, so without it a token
-    /// of sixteen `+1`s would decode to sixteen one-bytes and be handed on as if the relay had
-    /// sent it.
+    /// The count is in characters, the unit the loop moves in: a string of thirty-two bytes can be
+    /// fewer than thirty-two characters, and walking sixteen times then reads past the end and takes
+    /// the process down. Every character must also be an ASCII hex digit, because
+    /// `UInt8(_:radix:)` accepts a leading `+`, so sixteen `+1`s would decode to one-bytes.
     private static func token(_ hex: String) -> Data? {
         guard hex.count == 32, hex.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
         var bytes = [UInt8]()

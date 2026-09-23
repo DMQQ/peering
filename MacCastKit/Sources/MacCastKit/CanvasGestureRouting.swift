@@ -1,8 +1,7 @@
 import CoreGraphics
 
-/// The part of simultaneous pinch/pan arbitration that does not depend on UIKit's recognizer.
-/// Keeping this decision visible makes the release-order race reproducible without synthesizing
-/// private UIKit touch events.
+/// The part of simultaneous pinch/pan arbitration that does not depend on UIKit's recognizer, so
+/// the release-order race stays reproducible without synthesizing private UIKit touch events.
 public enum CanvasGestureRouting {
     public enum PinchPhase {
         case began
@@ -13,8 +12,8 @@ public enum CanvasGestureRouting {
     }
 
     public static func pinchScale(for phase: PinchPhase, scale: CGFloat) -> CGFloat? {
-        // The recognizer's scale is reset after every callback, so only a real began/changed
-        // sample may change the canvas. Terminal callbacks can carry the last stale scale.
+        // The recognizer resets its scale after every callback, so a terminal callback can carry
+        // the last stale scale: only began/changed may change the canvas.
         guard phase == .began || phase == .changed, scale != 1 else { return nil }
         return scale
     }
@@ -26,8 +25,8 @@ public enum CanvasGestureRouting {
         !whilePinching && !suppressingAfterPinch
     }
 
-    /// The simultaneous pan owns shared finger movement while pinch owns scale. This keeps one
-    /// centroid delta from being applied twice by the two recognizers.
+    /// The simultaneous pan owns shared finger movement while pinch owns scale, so one centroid
+    /// delta is never applied twice by the two recognizers.
     public static func pinchPanTranslation(
         translation: CGPoint,
         suppressingAfterPinch: Bool
@@ -45,20 +44,17 @@ public enum CanvasGestureRouting {
         translation: CGPoint,
         whilePinching: Bool
     ) -> TwoFingerPanDecision {
-        // The pinch owns both fingers while it lasts. Its translation is the user repositioning
-        // the picture under the pinch, not a scroll wheel.
+        // The pinch owns both fingers while it lasts: its translation is the picture moving under it.
         guard !whilePinching else {
             return TwoFingerPanDecision(
-                // The pinch reports this movement from its own centre. Throw the simultaneous
-                // pan recognizer's copy away now so it cannot replay the whole gesture if UIKit
-                // ends the pinch recognizer first.
+                // Throw the simultaneous pan's copy away now: if UIKit ends the pinch recognizer
+                // first, it would otherwise replay the whole gesture.
                 resetsRecognizerTranslation: true,
                 translation: nil
             )
         }
 
-        // Incremental: the caller resets the recognizer whenever this says the accumulated
-        // translation has been consumed.
+        // Incremental: the caller resets the recognizer once the accumulated translation is consumed.
         return TwoFingerPanDecision(
             resetsRecognizerTranslation: true,
             translation: translation == .zero ? nil : translation

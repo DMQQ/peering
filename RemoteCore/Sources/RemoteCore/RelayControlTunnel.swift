@@ -18,14 +18,10 @@ public enum RelayTunnelError: LocalizedError, Sendable, Equatable {
 
 /// TCP parameters for every socket on the relay path, with Nagle disabled.
 ///
-/// `NWParameters.tcp` — the static factory — has no way to express `noDelay`, which is how the
-/// relay path came to buffer every small write while the direct path had already stopped doing so.
-/// It costs at least as much here as it did there: the same coalesced 60 Hz command stream crosses
-/// these sockets, and Nagle holds a partial segment until the previous one is acknowledged, so on a
-/// path whose RTT is tens of milliseconds each buffered write waits out a round trip before the next
-/// cursor position leaves. The direct path measured 40 ms for exactly this.
-///
-/// Every socket below goes through here rather than reaching for `.tcp`.
+/// `NWParameters.tcp` cannot express `noDelay`, and Nagle holds a partial segment until the previous
+/// one is acknowledged: on a path whose RTT is tens of milliseconds, each buffered write of the
+/// 60 Hz command stream waits out a round trip before the next cursor position leaves. Every socket
+/// below goes through here rather than reaching for `.tcp`.
 private let videoTunnelLog = Logger(subsystem: "pl.dmq.peering", category: "relay-tunnel")
 
 private func relayTCPParameters() -> NWParameters {
@@ -36,9 +32,8 @@ private func relayTCPParameters() -> NWParameters {
 
 /// Presents a loopback TCP endpoint backed by a routed socket to `peeringd`.
 ///
-/// The existing client TLS transport connects to the loopback endpoint and still owns the TLS
-/// handshake end to end. The proxy writes the relay's 16-byte routing token first, then copies the
-/// opaque TLS bytes. This avoids teaching the security state machine anything about rendezvous.
+/// The proxy writes the relay's 16-byte routing token first, then copies the opaque TLS bytes, so
+/// the TLS transport above it still owns the handshake end to end and knows nothing of rendezvous.
 public final class RelayControlProxy: @unchecked Sendable {
     private let queue = DispatchQueue(label: "pl.dmq.peering.relay.client-tunnel")
     private let session: RelaySession
@@ -97,6 +92,7 @@ public final class RelayControlProxy: @unchecked Sendable {
                     self.splice = splice
                     splice.start()
                 } catch {
+                    videoTunnelLog.error("could not route the relay's control connection, so it is being dropped: \(error.localizedDescription, privacy: .public)")
                     local.cancel()
                 }
             }
@@ -115,7 +111,7 @@ public final class RelayControlProxy: @unchecked Sendable {
 }
 
 /// Copies a relay socket to a local TCP endpoint. The host points this at its existing TLS
-/// listener, which preserves the crucial server role even though its internet socket is outbound.
+/// listener, which preserves the server role even though its internet socket is outbound.
 public final class RelayControlBridge: @unchecked Sendable {
     private let splice: RelayByteSplice
 
@@ -167,9 +163,7 @@ private final class OneShotContinuation<Value: Sendable>: @unchecked Sendable {
 
 /// Backpressured, bidirectional byte copying. All state lives on `queue`.
 ///
-/// Internal rather than private so a test can drive it over loopback: the pipelined pump is
-/// concurrent code, and the ways it can go wrong — a direction that stops reading, two reads
-/// outstanding at once, a buffer dropped when the window is full — are not visible by reading it.
+/// Internal rather than private so a test can drive it over loopback.
 final class RelayByteSplice: @unchecked Sendable {
     private let local: NWConnection
     private let relay: NWConnection
@@ -224,12 +218,9 @@ final class RelayByteSplice: @unchecked Sendable {
         case .failed, .cancelled:
             stop()
         case .waiting(let error):
-            // **Not treated as a failure, deliberately.** A relay leg with nowhere to go is what a
-            // phone mid-handover looks like, and iOS often brings the path back on its own within a
-            // few seconds — tearing the tunnel down here would drop a session that was about to
-            // recover. The silence watchdog in the session is what ends one that does not, and it
-            // is the better place for that decision: it can tell a handover from a dead network by
-            // whether an answer ever comes back.
+            // Not treated as a failure, deliberately: a relay leg with nowhere to go is what a phone
+            // mid-handover looks like, and iOS often brings the path back on its own within a few
+            // seconds. The session's silence watchdog is what ends one that does not recover.
             //
             // Logged rather than swallowed, because a connection that is waiting and a connection
             // that is fine look identical from every layer above this one.
@@ -240,10 +231,6 @@ final class RelayByteSplice: @unchecked Sendable {
     }
 
     /// One direction of the splice: where it reads, where it writes, and what is in flight.
-    ///
-    /// A type of its own because the two directions share nothing but the queue, and because the
-    /// stop-and-wait bug this replaces was easiest to write when that state was implicit in the
-    /// call chain.
     private struct Leg {
         let source: NWConnection
         let destination: NWConnection
@@ -253,13 +240,9 @@ final class RelayByteSplice: @unchecked Sendable {
         var reading = false
     }
 
-    /// How much one direction may have in flight before it stops reading.
-    ///
-    /// **The bound is what makes the pipeline safe rather than the pipeline itself.** The far end
-    /// can be slower than the near one, and a splice that reads as fast as it can turns a slow
-    /// receiver into an out-of-memory sender. Two of the largest buffers this reads at a time is
-    /// enough to keep the pipe full across a round trip and small enough that the queue is not
-    /// pretending to be a buffer.
+    /// How much one direction may have in flight before it stops reading. Two of the largest
+    /// buffers this reads at a time: a splice that reads as fast as it can turns a slow receiver
+    /// into an out-of-memory sender.
     private static let maxInFlightBytes = 512 * 1024
     private static let readSize = 256 * 1024
 
@@ -284,15 +267,9 @@ final class RelayByteSplice: @unchecked Sendable {
 
     /// Keeps one direction reading and writing at the same time.
     ///
-    /// **The read is re-armed here, not inside the send's completion**, and that one line is the
-    /// whole of the change. It used to be re-armed only after the previous buffer had been reported
-    /// sent, so a direction carried one buffer at a time and the near socket sat undrained while
-    /// each was in flight — a scheduling round trip added to every chunk, in both directions, for
-    /// the life of the connection, on the channel that carries input. On a path whose round trip is
-    /// already tens of milliseconds that is not a small share of it.
-    ///
-    /// Reading stops when the window is full, and a send completion starts it again — which is the
-    /// only thing that would otherwise leave a direction stalled.
+    /// The read is re-armed here rather than inside the send's completion, so a direction does not
+    /// carry one buffer at a time. Reading stops when the window is full, and a send completion
+    /// starts it again, which is the only thing that would otherwise leave a direction stalled.
     private func pump(_ index: Int) {
         guard !stopped, legs.indices.contains(index) else { return }
         legs[index].reading = true
@@ -308,9 +285,9 @@ final class RelayByteSplice: @unchecked Sendable {
                     guard let self else { return }
                     self.legs[index].inFlightBytes -= data.count
                     if sendError != nil { self.stop(); return }
-                    // Only reaches a direction that stopped reading because the window was full.
-                    // One that is still reading has a read outstanding and must not be given a
-                    // second one.
+                    // Only a direction that stopped reading because the window was full reaches
+                    // here: one that is still reading has a read outstanding and must not be given
+                    // a second one.
                     if !self.legs[index].reading { self.pump(index) }
                 })
                 if self.legs[index].inFlightBytes < Self.maxInFlightBytes {

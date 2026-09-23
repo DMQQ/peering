@@ -1,20 +1,16 @@
 import Foundation
 
-/// A shortcut worth offering for a particular application.
+/// A shortcut worth offering for a particular application: the same shape as the client's own macro
+/// buttons, in the shared module so it can be tested without a UI.
 ///
-/// Deliberately the same shape as the client's own macro buttons — a title, a keycode and a set
-/// of modifiers — but stated here in the shared module so it can be tested without a UI, and so
-/// the knowledge of what a terminal wants is not buried in a view.
-///
-/// `detail` exists because a keycode is not self-explanatory. "⌃C" is a fact about a keyboard;
-/// "interrupt what is running" is the reason anyone would press it, and the client has room to
-/// show one of them.
+/// `detail` exists because a keycode is not self-explanatory: "⌃C" is a fact about a keyboard, while
+/// "interrupt what is running" is the reason anyone would press it.
 public struct ApplicationAction: Sendable, Hashable, Identifiable {
     /// Stable across releases, because the client remembers which of these a user has pinned.
     public let id: String
     public let title: String
     public let detail: String
-    /// A macOS virtual keycode — the values `CGEvent` takes — not a USB HID usage and not a
+    /// A macOS virtual keycode, the values `CGEvent` takes, not a USB HID usage and not a
     /// character. The same convention every other keycode in this module uses.
     public let keyCode: UInt16
     public let modifiers: Modifiers
@@ -32,8 +28,8 @@ public struct ApplicationAction: Sendable, Hashable, Identifiable {
 public struct ApplicationProfile: Sendable, Hashable, Identifiable {
     public var id: String { bundleID }
     public let bundleID: String
-    /// The name to show above the actions. Not read from the running app's localised name:
-    /// that arrives with the catalogue and can be in any language, and this one is a heading.
+    /// The name to show above the actions. Not the running app's localised name: that arrives with
+    /// the catalogue and can be in any language, and this one is a heading.
     public let name: String
     public let actions: [ApplicationAction]
 
@@ -46,21 +42,14 @@ public struct ApplicationProfile: Sendable, Hashable, Identifiable {
 
 /// The applications the app has something particular to say about, and how to ask.
 ///
-/// A lookup rather than a protocol, on purpose. There is exactly one way to decide this today —
-/// by bundle identifier — and one implementation behind an interface is a seam that costs
-/// indirection and buys nothing. When a second way appears, the shape to add is a second
-/// argument here and a second line in ``profile(forBundleID:)``; the callers do not change.
-///
-/// The table is data rather than code so that adding an application is adding a row. That is the
-/// whole point of the thing: the client's own macro bar is a fixed list of the keys everyone
-/// wants, and this is the place for the keys that only make sense once we know what is on the
-/// screen.
+/// A lookup by bundle identifier rather than a protocol, one implementation behind an interface
+/// buying nothing. A second way would be a second argument here and a second line in
+/// ``profile(forBundleID:)``; the callers do not change. The table is data rather than code, so
+/// adding an application is adding a row.
 public enum ApplicationActions {
-    /// The profile for a bundle identifier, or `nil` when there is nothing special to offer.
-    ///
-    /// Nil is the common case and not a failure. An app nobody has thought about keeps the
-    /// client's default macros, which are the ones that work everywhere — and a profile that
-    /// guessed at an unknown application would be worse than no profile at all.
+    /// The profile for a bundle identifier, or `nil` when there is nothing special to offer: nil is
+    /// the common case and not a failure, since an app nobody has thought about keeps the client's
+    /// default macros.
     public static func profile(forBundleID bundleID: String?) -> ApplicationProfile? {
         guard let bundleID else { return nil }
         return profiles[bundleID]
@@ -92,8 +81,7 @@ public enum ApplicationActions {
                 ApplicationAction(id: "terminal.newtab", title: "⌘T", detail: "New tab", keyCode: 17, modifiers: .command),
             ]
         ),
-        // iTerm2 asks the same things of a shell and gives the same answers; the one difference
-        // anyone notices is that its clear-the-scrollback is the same keystroke.
+        // iTerm2 asks the same things of a shell and gives the same answers.
         ApplicationProfile(
             bundleID: "com.googlecode.iterm2",
             name: "iTerm",

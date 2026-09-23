@@ -1,6 +1,5 @@
 // CryptoKit is the system framework on Apple platforms; the open-source swift-crypto
-// module is named `Crypto`. Same API either way, so the package stays dependency-free
-// on Apple platforms without giving up portability.
+// module is named `Crypto`.
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -15,17 +14,15 @@ private let sessionLog = Logger(subsystem: "pl.dmq.peering", category: "session"
 
 /// The client half of the MacCast protocol: connect, authenticate, and stay usable.
 ///
-/// This is the client's counterpart to the host's `HostSession`, and it is deliberately the
-/// same shape — a single state machine driven by frames from one connection, so the ordering
-/// guarantees the handshake depends on are enforced in exactly one place.
+/// The client's counterpart to the host's `HostSession`, deliberately the same shape: one state
+/// machine driven by frames from one connection, so the handshake's ordering guarantees are
+/// enforced in exactly one place.
 ///
 /// Two sockets, always. ``control`` carries the handshake, commands, and the catalog;
-/// ``video`` carries nothing but encoded pictures. The split is not an optimisation: a
-/// single stream would put a 200 KB keyframe in front of the next mouse move, and cursor
-/// latency is the thing a user actually feels.
+/// ``video`` carries nothing but encoded pictures. A single stream would put a keyframe in front
+/// of the next mouse move.
 public final class ClientSession: @unchecked Sendable {
-    /// Where the session is in its life. Coarse on purpose — the UI renders this directly,
-    /// so a finer state machine would just be a longer switch in the view.
+    /// Where the session is in its life. Coarse on purpose: the UI renders this directly.
     public enum Phase: Sendable, Equatable {
         case idle
         case connecting
@@ -37,11 +34,6 @@ public final class ClientSession: @unchecked Sendable {
         case disconnected
 
         /// Whether a session is up, or on its way up, at this phase.
-        ///
-        /// A property of the state machine rather than of any one caller, and it lives here
-        /// because three of them were asking it: the model, the notification policy, and the
-        /// Live Activity. Three copies of a list of phases is three chances to update two of
-        /// them when a state is added.
         public var holdsSession: Bool {
             switch self {
             case .connecting, .handshaking, .confirming, .ready: return true
@@ -50,17 +42,11 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    /// What the relay's datagram lane has carried so far.
-    ///
-    /// Public because the session log prints it and the log outlives the session. The counts are
-    /// cumulative for the session rather than a rate: a rate needs a window and a decision about
-    /// how long, and the comparison worth making is between two readings of the same counter
-    /// minutes apart, which needs no window at all.
+    /// What the relay's datagram lane has carried so far, cumulative for the session.
     public struct DatagramCounts: Sendable, Equatable {
         /// Everything the socket read, from the relay and from the peer alike.
         public let received: Int
-        /// The subset that arrived straight from the peer rather than through the relay. This is
-        /// the punched path, and the only one an operator can do nothing about.
+        /// The subset that arrived straight from the peer rather than through the relay.
         public let fromPeer: Int
         /// Datagrams that arrived and could not be opened: a corrupted packet, or two ends that
         /// are not speaking the same key.
@@ -76,10 +62,6 @@ public final class ClientSession: @unchecked Sendable {
         }
 
         /// One line, for a log a person reads.
-        ///
-        /// Written for the question it answers rather than as a dump: "datagrams arriving and
-        /// pictures not" is the sentence that means a lossy path, and it can only be read off
-        /// the figures if they are beside each other.
         public var summary: String {
             "\(received) received, \(fromPeer) from the Mac, \(refused) unreadable, \(pictures) pictures"
         }
@@ -97,8 +79,8 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    /// What the session tells its owner. Everything is a value, so the UI can apply these
-    /// on whatever actor it likes.
+    /// What the session tells its owner. Every case is a value, so the UI can apply these on
+    /// whatever actor it likes.
     public enum Event: Sendable {
         case phase(Phase)
         case host(ServerHello)
@@ -106,44 +88,37 @@ public final class ClientSession: @unchecked Sendable {
         case video(VideoEvent)
         /// Round-trip time of a control ping, in milliseconds.
         ///
-        /// **Not the picture's round trip.** The control connection goes through the relay in
-        /// every session, punched or not, so on a session whose video found a path of its own this
-        /// figure is the relay's and describes a path the picture is not taking. It stays because
-        /// it is still the truth about the control channel, which is what carries input — but see
-        /// ``pathLatency(milliseconds:fromPeer:)`` for the one to show.
+        /// Not the picture's round trip: the control connection goes through the relay in every
+        /// session, punched or not. See ``pathLatency(milliseconds:fromPeer:)``.
         case latency(milliseconds: Double)
 
         /// Round-trip time on the lane the picture is arriving on, in milliseconds.
         ///
         /// `fromPeer` says which path answered: the one the two ends opened between themselves, or
         /// the relay's datagram lane. The reply carries it because the path is a property of where
-        /// the datagram came *from*, not of anything either end decided.
+        /// the datagram came *from*.
         ///
         /// Absent when there is no datagram lane at all, which is most sessions at their start and
         /// some for their whole life. A reader with no path figure falls back to
-        /// ``latency(milliseconds:)``, which is then the honest answer: the picture is on the
-        /// control channel, so the control channel's round trip is its round trip.
+        /// ``latency(milliseconds:)``.
         case pathLatency(milliseconds: Double, fromPeer: Bool)
         /// What the relay's datagram lane has carried, every couple of seconds while one is open.
         ///
-        /// Four numbers because a lane fails in four distinguishable ways and they need
-        /// different answers: nothing arriving at all is a network that will not carry it,
-        /// datagrams arriving and being refused is this end failing to open them, datagrams
-        /// arriving and far too few pictures is a path losing the odd packet, and everything
-        /// arriving is a lane with nothing wrong with it.
+        /// Four numbers because a lane fails in four distinguishable ways: nothing arriving is a
+        /// network that will not carry it, arriving and refused is this end failing to open them,
+        /// arriving with far too few pictures is packet loss, and none of those is a working lane.
         case datagramCounts(DatagramCounts)
         /// Diagnostics worth surfacing without failing: a pin that was accepted, a video
         /// channel that connected but has not produced a stream yet.
         case note(String)
         /// A standing condition on the Mac that the user should see, or `nil` when there is
-        /// none. Unlike ``note(_:)`` this is not a diagnostic to log: it is a caption for the
-        /// picture, and it stays up until the Mac says otherwise.
+        /// none. Unlike ``note(_:)`` it is a caption for the picture, and it stays up until the
+        /// Mac says otherwise.
         case remoteNotice(NoticePayload?)
         /// What is on the host's pasteboard, delivered after a
         /// ``RemoteCommand/requestClipboard`` or pushed when the Mac's pasteboard changes.
         ///
-        /// A payload rather than a string, because a pasteboard holds a picture as readily as a
-        /// line of text and the two are the same message. See ``ClipboardPayload``.
+        /// A payload rather than a string: a pasteboard holds a picture as readily as a line of text.
         case clipboard(ClipboardPayload)
         /// An audio stream event from the video channel.
         case audio(AudioEvent)
@@ -153,10 +128,8 @@ public final class ClientSession: @unchecked Sendable {
         case relayQuotaExceeded
         /// Which way the picture is now arriving, once it has changed from the way it started.
         ///
-        /// Sent when the direct path takes over and when it is given up, and only then. A session
-        /// begins on the relay and stays there unless a punch succeeds, so "relay" is the state a
-        /// session is in until this says otherwise — and the absence of this event means the
-        /// ordinary case, not a failure.
+        /// Sent when the direct path takes over and when it is given up, and only then: every
+        /// session begins on the relay, so the absence of this event means the ordinary case.
         case path(DatagramPath)
         /// What the attempt at a path straight to the Mac has come to. See ``DirectPath``.
         case directPath(DirectPath)
@@ -164,10 +137,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Which way the picture is arriving, as this end observes it.
     ///
-    /// Only one of the two directions is observed here and that is enough: this end knows what
-    /// arrives, and the Mac decides what to send from what *it* receives. The two agree because they
-    /// are watching the same path from opposite ends, and neither has to tell the other what it
-    /// decided — which is why a punched path costs no new control messages at all.
+    /// Only this direction is observed, which is enough: the Mac decides what to send from what it
+    /// receives, so a punched path costs no new control messages.
     public enum DatagramPath: Sendable, Equatable {
         case relay
         case direct
@@ -175,13 +146,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// What the attempt at a path straight to the Mac has come to.
     ///
-    /// **The failure cases are the point of this.** Both ends were silent about every way the
-    /// direct path can fail, deliberately: a session that cannot find its peer is a session on the
-    /// relay, which is what every session was before the direct path existed. That was a reasonable
-    /// thing to say and it made the feature unfalsifiable. A user seeing `RELAY` could not tell a
-    /// NAT that drops packets from a lookup that never answered, and neither could anyone reading
-    /// the logs, which is why this exists: the two are different problems with different fixes and
-    /// exactly one sentence distinguishes them.
+    /// The failure cases are reported rather than silenced: a NAT that drops packets and a lookup
+    /// that never answered are different problems with different fixes.
     public enum DirectPath: Sendable, Equatable {
         /// There is nothing to try: no datagram socket, or the session is not on that lane.
         case notTried
@@ -193,12 +159,8 @@ public final class ClientSession: @unchecked Sendable {
         case probing(peer: String)
         /// The relay named an address this end cannot even open a socket to.
         ///
-        /// Its own case because it was the bug, and it was invisible for exactly as long as it was
-        /// nothing: the relay renders a dual-stack socket's v4-mapped source as `::ffff:a.b.c.d`,
-        /// `getaddrinfo` refuses that for an `AF_INET` socket, and both call sites discarded the
-        /// error. Every session stayed on the relay and looked like two NATs that would not
-        /// cooperate. Folding the mapping away is the fix; this is the sentence that would have
-        /// found it in an afternoon.
+        /// The relay renders a dual-stack socket's v4-mapped source as `::ffff:a.b.c.d`, which
+        /// `getaddrinfo` refuses for an `AF_INET` socket. Folding the mapping away is the fix.
         case addressUnusable(peer: String)
         /// The Mac is answering directly and the picture is coming from it.
         case open(peer: String)
@@ -223,8 +185,7 @@ public final class ClientSession: @unchecked Sendable {
         /// Which channel the picture is coming down, after the client's own fallback decision.
         ///
         /// Reported rather than inferred by the UI, because the two lanes look identical on
-        /// screen and the difference is the whole explanation for why the picture is smaller
-        /// than it was. ``VideoTransport`` carries the reasoning.
+        /// screen.
         case transport(VideoTransport)
     }
 
@@ -239,35 +200,26 @@ public final class ClientSession: @unchecked Sendable {
         /// Found over Bonjour. Carries the interface it was discovered on, which is the path
         /// that actually works on a Mac with several.
         case discovered(DiscoveredHost)
-        /// A literal address. What the simulator needs, since Bonjour there is unreliable —
-        /// and the honest fallback for a network that blocks multicast.
+        /// A literal address. What the simulator needs, since Bonjour there is unreliable, and
+        /// the honest fallback for a network that blocks multicast.
         case address(host: String, port: UInt16)
         /// A previously paired Mac reached through `peeringd` by its stable device ID.
         ///
         /// `entitlement` is what this device can say about what it has bought: the receipt Apple
         /// signed for the live subscription, the plan it claims, and the relay's own key. See
-        /// ``RelayEntitlement``, and ``RelayClientMessage/connectToHost`` for what the relay does
-        /// with each of the three.
+        /// ``RelayEntitlement``.
         case relay(hostID: String, name: String, entitlement: RelayEntitlement)
 
         /// A Mac this device has never paired with, dialled by an ID the user typed or scanned.
         ///
-        /// **A separate case rather than a flag, because the difference is a permission.**
-        /// ``relay(hostID:name:entitlement:)`` means "the Mac I know by this ID", and it is
-        /// refused outright when no pin is stored for it — a guard worth keeping exactly as it
-        /// is, since the only ID a device can be born knowing is one a user gave it. This case
-        /// means "a Mac I have never met", and what licenses the dial is that a person read the
-        /// ID off the other machine and typed or scanned it. Spelling that as its own case means
-        /// no default, no boolean and no call site can arrive here by accident: every switch
-        /// over ``Target`` has to say what it does about an unpaired Mac, and the compiler asks.
+        /// A separate case rather than a flag, because the difference is a permission:
+        /// ``relay(hostID:name:entitlement:)`` is refused when no pin is stored, while what licenses
+        /// this case is that a person read the ID off the other machine. Spelled as its own case,
+        /// every switch over ``Target`` has to say what it does about an unpaired Mac.
         ///
-        /// What arrives here is an **address, not a credential**. A device ID is not a secret —
-        /// the Mac shows it, the relay routes by it, and anyone who can read a QR code can
-        /// repeat it. Authorising a connection on one would be authorising it on a string a
-        /// stranger can copy. The authentication is still the six digits both screens show and
-        /// the two people compare, exactly as they do across a desk; this case removes the
-        /// requirement that the two devices can see each other, and nothing else. See
-        /// ``PairingPayload`` for why the two codes are different kinds of thing.
+        /// An address, not a credential: a device ID is not a secret, the Mac shows it, the relay
+        /// routes by it, and anyone who can read a QR code can repeat it. The authentication is
+        /// still the six digits both screens show and the two people compare.
         case relayPairing(hostID: String, name: String, entitlement: RelayEntitlement)
 
         public var displayName: String {
@@ -280,11 +232,9 @@ public final class ClientSession: @unchecked Sendable {
 
         /// The Mac's device ID, for the targets that name one rather than an address.
         ///
-        /// `nil` for a literal address, which says nothing about *which* Mac is at it.
-        ///
-        /// Read by the reconnect ladder, which has to know whether the Mac it is dialling is the
-        /// one it is replacing before it carries anything across: what belongs to the Mac and what
-        /// belongs to the attempt are different lifetimes, and only the first survives a dial.
+        /// `nil` for a literal address, which says nothing about *which* Mac is at it. Read by the
+        /// reconnect ladder, which has to know whether the Mac it is dialling is the one it is
+        /// replacing: what belongs to the Mac survives a dial, what belongs to the attempt does not.
         public var hostID: String? {
             switch self {
             case .discovered(let host): return host.id
@@ -305,39 +255,31 @@ public final class ClientSession: @unchecked Sendable {
         case protocolMismatch(client: UInt16, host: UInt16)
         case commitmentMismatch
         case noServerKey
-        /// **The Mac answered, and it is not the one this device paired with.**
+        /// The Mac answered, and it is not the one this device paired with.
         ///
-        /// Either an impostor, or a Mac that was reset and paired again since, which is why the
-        /// sentence below carries the way out as well as the diagnosis.
+        /// Either an impostor, or a Mac that was reset and paired again since.
         case pinMismatch(hostID: String)
         /// Dialled by device ID with nothing in the pin store to back the claim.
         ///
-        /// Deliberately *not* ``pinMismatch``, though the two used to share a case and therefore
-        /// a sentence. A mismatch means a key was compared and failed; this means there was no key
-        /// to compare, and telling somebody their Mac's identity changed when this iPhone has
-        /// simply never met it is a diagnosis of the wrong fault. Reachable through the relay,
-        /// where a device ID is enough to dial with.
+        /// Deliberately *not* ``pinMismatch``: a mismatch means a key was compared and failed, this
+        /// means there was no key to compare. Reachable through the relay, where a device ID is
+        /// enough to dial with.
         case noPinOnFile(hostID: String)
         /// The Mac that answered through the relay is not the one whose ID was dialled.
         ///
-        /// A routing check, and nothing more. The relay routes by device ID, so a Mac that
-        /// reports a different one means the user typed or scanned the wrong Mac's code, or
-        /// scanned it badly — a mistake worth catching in the second it takes to appear rather
-        /// than leaving them to compare six digits that can never match and conclude the app is
-        /// broken. It is deliberately *not* doing any of the authenticating: the ID is a name
-        /// the relay and the Mac both know, and only the code comparison covers the case where
-        /// the relay itself answers with something it is not.
+        /// A routing check, and nothing more: the relay routes by device ID, so a Mac that reports a
+        /// different one means the user typed or scanned the wrong Mac's code. It is deliberately
+        /// *not* doing any of the authenticating, because the ID is a name the relay and the Mac
+        /// both know; only the code comparison covers a relay that answers with something it is not.
         case hostIDMismatch(dialled: String, answered: String)
         case unexpected(MessageKind, expected: String)
         case identity(String)
 
         /// What to say about an error that came from the network rather than from the protocol.
         ///
-        /// **The table itself lives in ``NetworkFailureText``**, and this forwards to it. It used
-        /// to be the only spelling of the rule, which is how the transport came to have a second
-        /// one: `error.localizedDescription`, which for an `NWError` is not a sentence at all but
-        /// the string `Network.NWError error 60`. One table, called from both places that can
-        /// fail this way, so the next one cannot leak the raw error again.
+        /// The table lives in ``NetworkFailureText``, called from both places that can fail this way.
+        /// For an `NWError`, `error.localizedDescription` is not a sentence but the string
+        /// `Network.NWError error 60`.
         static func describe(_ error: Error) -> String {
             NetworkFailureText.describe(error)
         }
@@ -349,16 +291,14 @@ public final class ClientSession: @unchecked Sendable {
             case .protocolMismatch(let client, let host):
                 return "This Mac speaks protocol v\(host) and this app speaks v\(client). Update whichever is older."
             case .commitmentMismatch:
-                // Reached only when a peer changed its contribution after seeing ours, which
-                // no honest implementation does.
+                // Reached only when a peer changed its contribution after seeing ours.
                 return "The Mac's pairing reveal did not match its commitment."
             case .noServerKey:
                 return "The Mac's certificate did not expose a public key, so it cannot be pinned."
             case .pinMismatch(let hostID):
-                // The advice is part of the sentence rather than a second screen, because the
-                // only way forward is to forget this Mac and pair again, and somebody reading
-                // this is one tap from doing it. "pinned" is the word ``HostPickerView`` looks
-                // for to give this its own title; that coupling is noted there.
+                // The advice is part of the sentence rather than a second screen: the only way
+                // forward is to forget this Mac and pair again. "pinned" is the word
+                // ``HostPickerView`` looks for to give this its own title.
                 return "Something at this address is not the Mac you paired with (\(hostID)). Its key does not match the key this iPhone pinned for it. If the Mac was reset, forget it here and pair again."
             case .noPinOnFile(let hostID):
                 // Never a key comparison: there is nothing on file for this ID at all.
@@ -381,9 +321,9 @@ public final class ClientSession: @unchecked Sendable {
     private let pins: ClientPinStore
     private let onEvent: @Sendable (Event) -> Void
 
-    /// The command queue, created once and reused across reconnects so a gesture in flight
-    /// is not stranded by a reconnect. Its sink reads the current control connection under
-    /// the lock, so a queued command can never be delivered to a dead socket.
+    /// The command queue, created once and reused across reconnects so a gesture in flight is
+    /// not stranded. Its sink reads the current control connection under the lock, so a queued
+    /// command can never be delivered to a dead socket.
     private let coalescer: CommandCoalescer
 
     // MARK: - State, all under `lock`
@@ -398,16 +338,14 @@ public final class ClientSession: @unchecked Sendable {
     /// The wait before the next attempt at `video`, when one is armed.
     ///
     /// A video socket is a lane of its own and can go without the session going with it, so
-    /// something has to put it back. This is that something, and ``VideoReconnectLadder`` is when.
+    /// something has to put it back. ``VideoReconnectLadder`` decides when.
     private var videoReconnectTask: Task<Void, Never>?
     /// How many attempts the picture has cost so far. See ``VideoReconnectLadder``.
     private var videoReconnectLadder = VideoReconnectLadder()
     /// Whether this client wants a picture at all, as opposed to wanting one on a working socket.
     ///
-    /// Set from the one command that says otherwise, `.setVideoEnabled`, on its way out. It is
-    /// read by the reconnect above and by nothing else, and it is here rather than in the app
-    /// because the decision it feeds is the transport's: a client that asked the Mac to stop
-    /// capturing must not open the socket that would make it start again.
+    /// Set from the one command that says otherwise, `.setVideoEnabled`, on its way out: a client
+    /// that asked the Mac to stop capturing must not open the socket that would start it again.
     private var wantsPicture = true
     private var relayProxy: RelayControlProxy?
     /// Changes whenever a control attempt begins or ends. Work resumed from an `await` must
@@ -419,16 +357,13 @@ public final class ClientSession: @unchecked Sendable {
     private var _serverKey: Data?
     private var state: HandshakeState = .idle
     private var pingTask: Task<Void, Never>?
-    /// The pings in flight, and the window they are measured into.
-    ///
-    /// Both rules live in ``PingLedger`` and ``LatencyWindow`` so they can be driven by a test:
-    /// every interesting case in them is about *timing*, and timing is the one thing a test
-    /// cannot wait for.
+    /// The pings in flight, and the window they are measured into. Both rules live in ``PingLedger``
+    /// and ``LatencyWindow`` so a test can drive them: every interesting case in them is about
+    /// *timing*, and timing is the one thing a test cannot wait for.
     private var pingLedger = PingLedger()
     private var latency = LatencyWindow(length: ClientSession.latencyWindow)
 
-    /// The video transport watchdog: the rules, and the three things it watches. See
-    /// ``evaluateVideoTransport()``.
+    /// The video transport watchdog: the rules, and the three things it watches.
     private var videoWatchTask: Task<Void, Never>?
     private var fallbackPolicy = VideoFallbackPolicy()
     /// When a picture last arrived, on either lane. The fallback's whole input.
@@ -441,21 +376,19 @@ public final class ClientSession: @unchecked Sendable {
 
     /// The rule that turns a silent control channel into a failure. See ``ControlSilence``.
     ///
-    /// **Its absence was a real bug**: a session that stopped being carried and never reported it
-    /// stayed frozen on its last decoded frame with nothing said, because every layer above was
-    /// waiting for an error that never came. `lastControlReplyAt` existed and was read only by the
-    /// fallback policy, which uses it to decline to move the picture onto a channel that is
-    /// itself failing.
+    /// Nothing else reports it: a session that stopped being carried stays frozen on its last decoded
+    /// frame while every layer above waits for an error that never comes. `lastControlReplyAt` alone
+    /// is not enough, because the fallback policy reads it to decline to move the picture onto a
+    /// channel that is itself failing.
     private static let controlSilence = ControlSilence()
     /// Chunks in from the control channel, pictures out. Only ever fed from the control lane:
     /// the preferred transport carries whole frames, which need no reassembly.
     private var videoChunks = VideoChunkReassembler()
     /// Chunks in from the control channel for the clipboard, kept apart from the lane above.
     ///
-    /// **Two assemblers and not one, because both lanes arrive as the same frame kind.** They
-    /// number their frames from one each, so a shared assembler would read the other lane's next
-    /// frame as a reason to throw away what it was holding, and the effect would be a screenshot
-    /// that never finishes arriving whenever the picture happened to be moving.
+    /// Two assemblers and not one: both lanes arrive as the same frame kind and each numbers its
+    /// frames from one, so a shared assembler would read the other lane's next frame as a reason to
+    /// throw away what it was holding.
     private var clipboardChunks = ClipboardTransfer.reassembler()
     /// Which clipboard frame is being cut up on the way out, so the far end can tell two apart.
     private var clipboardFrameID: UInt32 = 0
@@ -468,80 +401,65 @@ public final class ClientSession: @unchecked Sendable {
     private var relaySession: RelaySession?
     /// Whether this session wants the relay's datagram path, and has not opened it yet.
     ///
-    /// **A flag rather than the act itself, and the delay is the point.** The lane is opened
-    /// when the Mac's description of the stream has arrived, not when the session becomes
-    /// ready — because the description is what the Mac sends it on. Opening before that puts
-    /// a race between the Mac's first config and the key that opens it: the Mac grants the
-    /// lane before its capture has produced anything to describe, sends the description down
-    /// the new lane the moment it has one, and if that datagram arrives before the grant does
-    /// the client cannot read it and the picture starts black. Waiting for a description that
-    /// travelled the control channel removes the race rather than losing a coin toss to it.
+    /// The lane is opened when the Mac's description of the stream has arrived, not when the session
+    /// becomes ready, because the description is what the Mac sends it on: opening earlier races the
+    /// Mac's first config against the key that opens it, and a description arriving before the grant
+    /// starts the picture black.
     private var wantsVideoDatagrams = false
     /// The socket the Mac's sealed video datagrams arrive on. Nil on every session that is
     /// not a relayed one, and nil until the lane is opened.
     private var videoDatagrams: VideoDatagramSocket?
     /// The task that asks the relay where the Mac is and then keeps probing it.
     ///
-    /// Held so it can be cancelled with the socket: a probe that outlives its session is a datagram
-    /// sent to an address that has moved on, and a task that outlives it is a leak.
+    /// Held so it can be cancelled with the socket.
     private var directPathTask: Task<Void, Never>?
     /// The last path reported to the owner, so a change is reported once rather than per datagram.
-    ///
     /// Seeded with `.relay` rather than left optional: every session starts on the relay, so the
-    /// first datagram to arrive is not news, and treating it as such would put a message on screen
-    /// at the start of every session.
+    /// first datagram to arrive is not news.
     private var reportedPath: DatagramPath = .relay
 
     /// The last thing the direct-path attempt reported, so the same state is not emitted twice.
     private var reportedDirectPath: DirectPath = .notTried
-    /// The other half of that lane: the key, the replay window and the reassembler. Set when
-    /// the Mac's answer to ``MessageKind/videoKeyRequest`` arrives, and nil until then — a
-    /// datagram that arrives before it cannot be opened, which is why the Mac's first few
-    /// frames after a grant are wasted rather than late.
+    /// The other half of that lane: the key, the replay window and the reassembler. Set when the
+    /// Mac's answer to ``MessageKind/videoKeyRequest`` arrives. A datagram that arrives before it
+    /// cannot be opened, which is why the Mac's first few frames after a grant are wasted.
     private var videoOpener: VideoDatagramOpener?
 
     /// Seals what this end puts on the datagram lane: the probes, and the lane's own pings.
     ///
-    /// **One instance for the whole session, and that is a safety property rather than tidiness.**
-    /// The sealer's counter *is* the ChaChaPoly nonce, and the nonce is the whole of its entropy:
-    /// two sealers built from one secret for one direction would encrypt under the same key with
-    /// the same nonces, which is the one failure an AEAD does not survive. Everything that seals
-    /// onto this lane therefore goes through this one value, under the session's lock.
+    /// One instance for the whole session, and that is a safety property: the sealer's counter *is*
+    /// the ChaChaPoly nonce, so two sealers from one secret for one direction would encrypt under
+    /// the same key with the same nonces. Everything that seals onto this lane goes through this one
+    /// value, under the session's lock.
     private var videoSealer: VideoDatagramSealer?
 
     /// The pings in flight on the datagram lane, and the window they are measured into.
     ///
-    /// Separate from the control lane's, because they measure different paths and a session can
-    /// have both at once: the control connection goes through the relay in every session, punched
-    /// or not, so its round trip is not the one the picture is travelling.
+    /// Separate from the control lane's: they measure different paths, and a session can have both
+    /// at once.
     private var pathPingLedger = PingLedger()
     private var pathLatency = LatencyWindow(length: ClientSession.latencyWindow)
     private var lanePingTask: Task<Void, Never>?
 
     /// How many datagrams did not authenticate, and whether the user has been told.
     ///
-    /// Counted rather than merely logged because the interesting case is the *rate*: one is a
-    /// corrupted packet, and one per picture is two ends that are not speaking the same key.
+    /// The rate is the interesting case: one is a corrupted packet, and one per picture is two
+    /// ends that are not speaking the same key.
     private var datagramFailures = 0
     private var reportedDatagramFailure = false
     /// Pictures that arrived whole from the peer, and the number that matters most.
     ///
-    /// A picture is cut into roughly a hundred datagrams, so a frame completes only if *every*
-    /// one of them lands. A lane losing one datagram in a hundred therefore delivers about a
-    /// third of its pictures, and one losing one in twenty delivers almost none, while the
-    /// datagram counters beside this one climb the whole time and look healthy. Datagrams
-    /// arriving and pictures arriving are different facts, and only the pair of them says which
-    /// end of that trade a session is on.
+    /// A picture is cut into roughly a hundred datagrams, so a frame completes only if *every* one
+    /// lands: a lane losing one datagram in a hundred delivers about a third of its pictures, and
+    /// one losing one in twenty delivers almost none, while the counters beside this one climb.
     private var picturesFromPeer = 0
 
     /// Whether this session's video could be travelling a path that a network can block.
     ///
-    /// Set by the caller from the *kind* of connection, because that is knowledge the session
-    /// does not have: a Mac found over Bonjour is on this network, where a missing picture is
-    /// a different problem with a different answer, while a relay session and a typed-in
-    /// address both cross networks nobody here controls. Moving a local session onto the
-    /// control channel would trade a fast picture for a slow one to solve a problem the local
-    /// network does not have.
+    /// Set by the caller from the *kind* of connection, because that is knowledge the session does
+    /// not have: a Mac found over Bonjour is on this network, where a missing picture is a different
+    /// problem, while a relay session and a typed-in address both cross networks nobody here
+    /// controls.
     public var videoFallbackEnabled: Bool {
         get { lock.withLock { _videoFallbackEnabled } }
         set { lock.withLock { _videoFallbackEnabled = newValue } }
@@ -549,17 +467,17 @@ public final class ClientSession: @unchecked Sendable {
 
     /// The device ID a first pairing was dialled by, so the answer can be checked against it.
     ///
-    /// Set by ``connect(to:timeout:)`` for every attempt — `nil` for the targets where the ID
-    /// is not the user's to give — and read once, when the Mac says who it is.
+    /// Set by ``connect(to:timeout:)`` for every attempt, `nil` for the targets where the ID is
+    /// not the user's to give, and read once, when the Mac says who it is.
     private var pairingHostID: String?
 
     private var ephemeral: P256.KeyAgreement.PrivateKey?
     private var nonce: Data?
     private var remoteCommitment: Data?
 
-    /// Where the handshake has got to. Separate from ``Phase`` because the UI does not need
-    /// to distinguish "waiting for the server's commit" from "waiting for its reveal", but
-    /// the state machine very much does.
+    /// Where the handshake has got to. Separate from ``Phase``: the UI does not distinguish
+    /// "waiting for the server's commit" from "waiting for its reveal", but the state machine
+    /// does.
     private enum HandshakeState {
         case idle
         case awaitingServerHello
@@ -585,9 +503,7 @@ public final class ClientSession: @unchecked Sendable {
         self.onEvent = onEvent
 
         // `self` cannot be captured before every stored property is initialised, so the
-        // coalescer is built with a closure that reads the connection through a box filled
-        // in immediately afterwards. The alternative — making the whole class lazy — would
-        // put a lock in the path of every cursor sample.
+        // coalescer reads the connection through a box filled in immediately afterwards.
         let box = ConnectionBox()
         coalescer = CommandCoalescer(sink: { command in box.send(command) })
         box.attach(self)
@@ -634,9 +550,9 @@ public final class ClientSession: @unchecked Sendable {
     /// Runs the whole client side of the handshake and returns once the outcome is known:
     /// either the session is ready, or it has failed and the reason has been emitted.
     ///
-    /// Returning rather than throwing is deliberate. Every failure already reaches the UI as
-    /// a ``Phase/failed(_:)`` event, and a caller that also had to catch would have two
-    /// places to render the same message — which is how one of them ends up stale.
+    /// Returning rather than throwing is deliberate: every failure already reaches the UI as a
+    /// ``Phase/failed(_:)`` event, and a caller that also had to catch would have two places to
+    /// render the same message, one of which ends up stale.
     public func connect(to target: Target, timeout: TimeInterval = 10) async {
         guard let generation = beginConnecting() else {
             emit(.phase(.failed(Failure.busy.errorDescription ?? "busy")))
@@ -647,18 +563,15 @@ public final class ClientSession: @unchecked Sendable {
         let pinned: Data? = {
             if case .discovered(let host) = target { return pins.pin(for: host.id) }
             if case .relay(let hostID, _, _) = target { return pins.pin(for: hostID) }
-            // Looked up and *not* insisted on. A first pairing has no pin by definition, and
-            // the requirement the target carries is that the user asked for this Mac; the pin
-            // is used when there is one, which is what happens when the same ID is dialled
-            // again by someone who already paired with it. What is skipped is only the
-            // refusal, and the handshake below still checks a stored pin if it finds one.
+            // Looked up and *not* insisted on: a first pairing has no pin by definition, and
+            // the pin is used when there is one. What is skipped is only the refusal, and the
+            // handshake below still checks a stored pin if it finds one.
             if case .relayPairing(let hostID, _, _) = target { return pins.pin(for: hostID) }
             // A literal address says nothing about *which* Mac is at it, so there is no pin
             // to insist on before the handshake. The post-handshake check below covers it.
             return nil
         }()
-        // Recorded for the post-handshake check, which is the one thing a first pairing
-        // cannot do without: the ID the user read off the other machine.
+        // Recorded for the post-handshake check: the ID the user read off the other machine.
         lock.withLock { pairingHostID = target.isFirstPairing ? target.hostID : nil }
 
         let connection = ClientConnection(label: "pl.dmq.peering.client.control")
@@ -692,9 +605,8 @@ public final class ClientSession: @unchecked Sendable {
                     timeout: timeout
                 )
             case .relay(let hostID, _, let entitlement):
-                // The guard this case has always had, unchanged. A relay dial to a Mac this
-                // device claims to know, with nothing in the pin store to back the claim, is
-                // refused here rather than at the far end.
+                // A relay dial to a Mac this device claims to know, with nothing in the pin
+                // store to back the claim, is refused here rather than at the far end.
                 guard let pin = pins.pin(for: hostID) else {
                     throw Failure.noPinOnFile(hostID: hostID)
                 }
@@ -709,8 +621,8 @@ public final class ClientSession: @unchecked Sendable {
 
             case .relayPairing(let hostID, _, let entitlement):
                 // The same tunnel, without the refusal above. `pinned` is whatever the pin
-                // store happens to hold for this ID — see ``Target/relayPairing(hostID:name:entitlement:)``
-                // for what licenses that, and why the ID is not the secret in this exchange.
+                // store happens to hold for this ID; see
+                // ``Target/relayPairing(hostID:name:entitlement:)``.
                 try await openRelayTunnel(
                     to: connection,
                     generation: generation,
@@ -732,20 +644,9 @@ public final class ClientSession: @unchecked Sendable {
                case .refused(let code, _) = e, code == "quotaExceeded" {
                 emit(.relayQuotaExceeded)
             }
-            // **What this used to decide, and why the decision is gone.** It asked whether a pin
-            // was *in force* (`pinned != nil`) and whether the failure had come from the relay's
-            // own types, and on that basis announced that the Mac's identity had changed. Every
-            // paired Mac has a pin, and every failure from the transport arrives as
-            // `Failure.transport`, which is neither relay type, so a Mac that was simply asleep
-            // produced "did not present the key this device has pinned for it", with the advice
-            // to forget it and pair again. The whole `NetworkFailureText` table, written so that
-            // these failures say what they were, was bypassed for exactly the Macs people
-            // actually connect to, and the advice it gave destroyed a working pairing.
-            //
-            // The rule is now the one the sentence needs: an identity failure says so because it
-            // *is* one. `Failure.describe` hands back the app's own wording for a `Failure` and
-            // the network's sentence for anything the transport threw, which is the division the
-            // two of them already agreed on.
+            // An identity failure says so because it *is* one: `Failure.describe` hands back the
+            // app's own wording for a `Failure` and the network's sentence for anything the
+            // transport threw.
             fail(Failure.describe(error))
             return
         }
@@ -765,7 +666,7 @@ public final class ClientSession: @unchecked Sendable {
             payload: Data([ConnectionRole.control.rawValue])
         ))
 
-        // 2. Say who we are. `wantsPairing` is advisory — the Mac decides, because only the
+        // 2. Say who we are. `wantsPairing` is advisory: the Mac decides, because only the
         //    Mac knows its own pin store.
         let hostID = target.hostID
         let knowsHost = hostID.map { pins.pin(for: $0) != nil } ?? false
@@ -775,8 +676,8 @@ public final class ClientSession: @unchecked Sendable {
             protocolVersion: ProtocolInfo.version,
             wantsPairing: !knowsHost,
             // Declared on every connection, because what it buys is the *Mac's* restraint: a
-            // picture it sends to a client that has not said this arrives at one that cannot read
-            // it, and the pieces land in that client's picture lane. See ``ClipboardImages``.
+            // picture it sends to a client that has not said this arrives at one that cannot
+            // read it, and the pieces land in that client's picture lane.
             supportsClipboardImages: true
         ))
 
@@ -787,10 +688,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Opens the relay's tunnel to a Mac and connects to it through the far end.
     ///
-    /// One implementation for both relay targets, because the only thing that differs between
-    /// them is the pin they arrive with — and it is the pin, not the plumbing, that the two
-    /// meanings turn on. Splitting this in two would mean two copies of the ordering below,
-    /// which is the part that has to be right.
+    /// One implementation for both relay targets: the only thing that differs between them is the
+    /// pin they arrive with.
     private func openRelayTunnel(
         to connection: ClientConnection,
         generation: UInt64,
@@ -799,10 +698,8 @@ public final class ClientSession: @unchecked Sendable {
         pinnedServerKey: Data?,
         timeout: TimeInterval
     ) async throws {
-        // **Signed here, because this is where the key and the ID are both in hand.** A failure to
-        // sign is not a failure to connect: the relay falls back to metering the announced ID,
-        // which is what every build before this one did and what a device with an unreadable
-        // identity would get anyway.
+        // Signed here, because this is where the key and the ID are both in hand. A failure to
+        // sign is not a failure to connect: the relay falls back to metering the announced ID.
         let clientProof = try? RelayDeviceProof.makeClientProof(clientID: clientID, identity: identity)
         let allocation = try await RelaySignallingConnection.requestSession(
             at: ProtocolInfo.relaySignallingURL,
@@ -862,8 +759,8 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    /// Private sentinel used only to distinguish an obsolete async continuation from a real
-    /// network failure. It deliberately carries no user-facing text.
+    /// Distinguishes an obsolete async continuation from a real network failure. It carries no
+    /// user-facing text.
     private struct ConnectAttemptEnded: Error {}
 
     private func isCurrentAttempt(_ connection: ClientConnection, generation: UInt64) -> Bool {
@@ -891,8 +788,8 @@ public final class ClientSession: @unchecked Sendable {
         case .awaitingServerCommit: handleServerCommit(frame)
         case .awaitingServerReveal: handleServerReveal(frame)
         case .awaitingUserConfirmation:
-            // Nothing is expected here. A frame at this point would mean the Mac raced ahead
-            // of a decision the user has not made yet, so it is ignored rather than acted on.
+            // Nothing is expected here: a frame now would mean the Mac raced ahead of a decision
+            // the user has not made yet, so it is ignored rather than acted on.
             sessionLog.notice("ignoring \(String(describing: frame.kind), privacy: .public) while awaiting the user's pairing decision")
         case .awaitingPairResult: handlePairResult(frame)
         case .ready: handleReady(frame)
@@ -919,9 +816,8 @@ public final class ClientSession: @unchecked Sendable {
             return
         }
 
-        // Before the pin and before the pairing: is this the Mac that was dialled? Checked
-        // here rather than at the relay, which routes by ID but answers for whatever holds
-        // it. See ``Failure/hostIDMismatch(dialled:answered:)`` for what this is and is not.
+        // Before the pin and before the pairing: is this the Mac that was dialled? Checked here
+        // rather than at the relay, which routes by ID but answers for whatever holds it.
         if let dialled = lock.withLock({ pairingHostID }), hello.serverID != dialled {
             fail(Failure.hostIDMismatch(dialled: dialled, answered: hello.serverID).errorDescription ?? "")
             return
@@ -930,11 +826,10 @@ public final class ClientSession: @unchecked Sendable {
         lock.withLock { _serverHello = hello }
         emit(.host(hello))
 
-        // The pin is checked here, after the handshake, because until `serverHello` arrived
-        // there was no way to know *which* Mac this is — and a pin is only meaningful next to
-        // the identity it belongs to. Nothing has been sent yet that an impostor could use:
-        // the only traffic so far is a role byte, a hello carrying no secret, and our client
-        // certificate, which is public.
+        // The pin is checked here, after the handshake, because until `serverHello` arrived there was
+        // no way to know *which* Mac this is, and a pin is only meaningful next to the identity it
+        // belongs to. Nothing an impostor could use has been sent: a role byte, a hello carrying no
+        // secret, and our client certificate, which is public.
         if let stored = pins.pin(for: hello.serverID) {
             guard SPKI.matches(stored, serverKey) else {
                 fail(Failure.pinMismatch(hostID: hello.serverID).errorDescription ?? "")
@@ -942,15 +837,10 @@ public final class ClientSession: @unchecked Sendable {
             }
             emit(.note("The Mac's key matches the pin stored for it."))
         } else if hello.alreadyPaired {
-            // Reached only when this device lost its pin store while the Mac kept its half.
-            // It is not a way in for an attacker: the Mac only answers `alreadyPaired` to a
-            // client whose *certificate* it recognises, and our identity key is stored
-            // `…ThisDeviceOnly`, so it cannot be carried here by a backup restore. The
-            // alternative — refusing — would strand the user with an app that can never
-            // connect until they unpair on the Mac, for a state that is already safe.
-            //
-            // Re-pin now using the server key we already verified over TLS, so the Mac
-            // reappears in Trusted Macs after a "Forget" on this side.
+            // Reached only when this device lost its pin store while the Mac kept its half. Not a
+            // way in for an attacker: the Mac only answers `alreadyPaired` to a client whose
+            // certificate it recognises, and our identity key is `…ThisDeviceOnly`, so a backup
+            // restore cannot carry it here. Re-pin with the server key already verified over TLS.
             if pins.record(hostID: hello.serverID, publicKey: serverKey) {
                 emit(.note("The Mac already knows this device. Pin restored. It will appear in Trusted Macs again."))
             } else {
@@ -1026,8 +916,7 @@ public final class ClientSession: @unchecked Sendable {
         }
 
         // Read as separate locals rather than one destructured tuple: a five-element tuple of
-        // optionals is the kind of expression the type checker gives up on, and the failure
-        // ("unable to type-check in reasonable time") points at nothing useful.
+        // optionals is the kind of expression the type checker gives up on.
         lock.lock()
         let ephemeral = self.ephemeral
         let nonce = self.nonce
@@ -1050,8 +939,8 @@ public final class ClientSession: @unchecked Sendable {
             return
         }
 
-        // The transcript binds everything both sides exchanged, in a fixed order, with the
-        // Mac's identity key taken from the certificate we actually received — never from an
+        // The transcript binds everything both sides exchanged, in a fixed order, with the Mac's
+        // identity key taken from the certificate we actually received rather than from an
         // application-layer field, which a man in the middle would simply rewrite.
         let transcript = PairingTranscript(
             protocolVersion: ProtocolInfo.version,
@@ -1069,8 +958,8 @@ public final class ClientSession: @unchecked Sendable {
         emit(.phase(.confirming(code: code)))
     }
 
-    /// The user's verdict on the six digits. The Mac shows the same code, and comparing them
-    /// is what authorises this device — there is no certificate authority behind any of this.
+    /// The user's verdict on the six digits. The Mac shows the same code, and comparing them is
+    /// what authorises this device: there is no certificate authority behind any of this.
     public func confirmPairing(accepted: Bool) {
         lock.lock()
         let canConfirm = state == .awaitingUserConfirmation
@@ -1101,9 +990,8 @@ public final class ClientSession: @unchecked Sendable {
             return
         }
 
-        // The pin is only recorded once the Mac has confirmed it stored its half. Recording
-        // it earlier would leave this device insisting on a pin the Mac never agreed to, and
-        // every later connection would fail with a mismatch that looks like an attack.
+        // Recorded only once the Mac has confirmed it stored its half: a pin the Mac never agreed
+        // to would leave every later connection failing with a mismatch that looks like an attack.
         lock.lock()
         let hello = self._serverHello
         let serverKey = self._serverKey
@@ -1157,9 +1045,8 @@ public final class ClientSession: @unchecked Sendable {
             reportLatency(for: frame)
 
         case .notice:
-            // Decoded leniently on purpose. A notice is advisory — the session is healthy and
-            // this is only a caption for it — so a payload this build cannot read costs the
-            // caption and not the connection.
+            // Decoded leniently on purpose: a notice is advisory, so a payload this build cannot
+            // read costs the caption and not the connection.
             let payload = try? MessageCodec.decode(NoticePayload.self, from: frame.payload)
             emit(.remoteNotice(payload))
 
@@ -1173,13 +1060,14 @@ public final class ClientSession: @unchecked Sendable {
         case .terminalEvent:
             if let event = try? MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
                 emit(.terminal(event))
+            } else {
+                sessionLog.error("could not decode a terminal event, so it is being dropped")
             }
 
-        // **The clipboard's chunks, before the picture's.** Both arrive as the same frame kind on
-        // this one connection, so which lane a chunk belongs to is the kind byte inside it, and
-        // this is the only place that question is asked. The order of these two cases is what
-        // makes it matter: without the guard the clipboard's pieces would be fed to the picture's
-        // assembler, which would spend a screenshot's worth of frames finding nothing it wanted.
+        // The clipboard's chunks, before the picture's. Both arrive as the same frame kind on this
+        // one connection, so which lane a chunk belongs to is the kind byte inside it, and the
+        // order of these two cases is what makes it matter: without the guard the clipboard's
+        // pieces would be fed to the picture's assembler.
         case .videoChunk where VideoChunk.innerKind(of: frame) == .clipboardContent:
             handleClipboardChunk(frame)
 
@@ -1198,29 +1086,23 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Sends a command, subject to the coalescing rules in ``CommandCoalescer``.
     ///
-    /// This is the only path input takes. Nothing in the UI sends directly, so the rule that
-    /// a 120 Hz touch stream becomes a 60 Hz command stream — and that a `mouseUp` is never
-    /// dropped even when the queue is saturated — holds in one place instead of in each view.
+    /// The only path input takes: nothing in the UI sends directly, so the rule that a 120 Hz
+    /// touch stream becomes a 60 Hz command stream, and that a `mouseUp` is never dropped even
+    /// when the queue is saturated, holds in one place.
     public func send(_ command: RemoteCommand) {
         guard isReady else { return }
-        // The picture's on/off switch is the one command this layer has an opinion about. Every
-        // other command is something the Mac does; this one is something that happens to the
-        // video socket, and the reconnect has to know which way it was asked for or a paused
+        // The reconnect has to know which way the picture's switch was asked for, or a paused
         // client would dial a socket that makes the Mac start capturing again. Recorded here
-        // rather than at the call site so that the two can never be sent apart.
+        // rather than at the call site so the two can never be sent apart.
         if case .setVideoEnabled(let enabled) = command { notePictureRequested(enabled) }
         coalescer.enqueue(command)
     }
 
-    /// Records that the client asked for a picture, or for silence, and answers the one case the
-    /// command cannot answer by itself.
+    /// Records that the client asked for a picture, or for silence.
     ///
-    /// **A resume needs a socket to travel on.** The Mac answers this command on the connection it
-    /// arrived on, and that connection is the control channel, so a resume for a session whose
-    /// video socket died during the pause reaches the Mac and changes nothing: the Mac has no
-    /// video connection for this client to resume *on*. Opening one here is what makes a pause
-    /// something the user can come back from rather than something they have to reconnect to
-    /// escape.
+    /// A resume needs a socket to travel on: the Mac answers this command on the control channel,
+    /// so a resume for a session whose video socket died during the pause reaches the Mac and
+    /// changes nothing unless one is opened here.
     private func notePictureRequested(_ wanted: Bool) {
         lock.withLock { wantsPicture = wanted }
         if wanted { openVideoIfNeeded() }
@@ -1241,17 +1123,13 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Puts a picture on the Mac's pasteboard.
     ///
-    /// **A command, and cut up, and both of those are invisible from here.** The picture is JSON
-    /// inside an ordinary ``RemoteCommand``, and anything larger than one control message is split
-    /// by ``ClipboardTransfer`` and put back by the Mac's command handler. Neither end has to know
-    /// which of the two happened, and the same is true of the text path beside it, which never
-    /// needed to know either.
+    /// The picture is JSON inside an ordinary ``RemoteCommand``, and anything larger than one control
+    /// message is split by ``ClipboardTransfer`` and put back by the Mac's command handler.
     ///
-    /// **Sent on the control channel rather than through the coalescer**, which is where terminal
-    /// bytes go and for the same reason: this is not a gesture. A hundred-odd frames handed over
-    /// in a loop is one message as far as the Mac is concerned, and the transport keeps them in
-    /// the order they were given to it, so a picture cannot be overtaken by the keystrokes typed
-    /// after it.
+    /// Sent on the control channel rather than through the coalescer, which is where terminal bytes
+    /// go and for the same reason: this is not a gesture. The transport keeps the frames in the
+    /// order they were given to it, so a picture cannot be overtaken by the keystrokes typed after
+    /// it.
     ///
     /// - Returns: `false` for a picture over the limit both ends carry, which nothing is sent for.
     ///   The caller is expected to have refused it in front of the user already.
@@ -1277,28 +1155,22 @@ public final class ClientSession: @unchecked Sendable {
 
     /// How often a control ping goes out.
     ///
-    /// One second, where this was five. The figure is shown to someone who is watching it while
-    /// they drag something, and a reading taken every five seconds describes a moment that has
-    /// already passed by the time it appears — which is most of why it looked like it was
-    /// jumping. A ping is one small frame and the control channel is otherwise idle, so the
-    /// cost of asking five times as often is nothing.
+    /// The figure is shown to someone watching it while they drag something, so a reading taken
+    /// seconds apart describes a moment that has already passed. A ping is one small frame and the
+    /// control channel is otherwise idle, so asking often costs nothing.
     private static let pingInterval: Duration = .seconds(1)
 
     /// How long a round trip stays in the reported figure.
     ///
-    /// **A duration rather than a count**, where this used to be five samples. Five samples a
-    /// second apart is five seconds and five samples after a stall is eight, so the window the
-    /// number was drawn from had no length anybody could state — and it re-centred on every
-    /// sample, which is most of what "it jumps" meant. Ten seconds is long enough that one bad
-    /// round trip does not own the figure and short enough that the figure still describes now.
+    /// A duration rather than a count: a count of samples has no length anybody can state, and it
+    /// re-centres on every sample. Ten seconds is long enough that one bad round trip does not own it.
     private static let latencyWindow: TimeInterval = 10
 
     /// How many probe attempts go by between two asks at the relay for the peer's address.
     ///
     /// Twelve, which is one re-ask per three seconds during the fast phase and one per minute once
     /// the probing has slowed down, because the attempt counter is what both cadences are counted
-    /// in. Frequent enough to catch a peer whose first datagram was a moment late, rare enough that
-    /// a session nobody can punch through is not a session that keeps opening WebSockets.
+    /// in.
     static let rediscoverEvery = 12
 
     private func startPinging() {
@@ -1311,8 +1183,7 @@ public final class ClientSession: @unchecked Sendable {
                 let ping = self.lock.withLock {
                     self.pingLedger.record(now: DispatchTime.now().uptimeNanoseconds)
                 }
-                // A ping is small and the control channel is otherwise idle, so the payload costs
-                // nothing and is what makes the reply measurable. A Mac that does not echo it
+                // The payload is what makes the reply measurable. A Mac that does not echo it
                 // answers empty, which the ledger reads as the oldest question still open.
                 let payload = (try? MessageCodec.encode(PingPayload(sequence: ping.sequence))) ?? Data()
                 self.connection()?.send(Frame(kind: .ping, payload: payload))
@@ -1324,29 +1195,23 @@ public final class ClientSession: @unchecked Sendable {
 
     /// The middle of the last few round trips, rather than the one that just came back.
     ///
-    /// A single ping is one instant on a link that is also carrying video in the other
-    /// direction, and it will occasionally catch a moment when something else has the radio.
-    /// Reporting it raw is what made the number flicker between readings taken seconds apart:
-    /// what a user wants from it is the latency they would see if they asked repeatedly, and
-    /// the median of a handful of requests is a better answer to that than any single one.
-    ///
-    /// A median rather than a mean, deliberately. The interesting samples here are the outliers
-    /// — a ping that caught a stall — and a mean would let one of them drag the figure up for
-    /// the next five seconds while the connection is fine.
+    /// A single ping is one instant on a link that is also carrying video the other way, so
+    /// reporting it raw makes the number flicker. A median rather than a mean, deliberately: the
+    /// interesting samples are the outliers, a ping that caught a stall, and a mean would let one of
+    /// them drag the figure up while the connection is fine.
     private func reportLatency(for frame: Frame) {
         let now = DispatchTime.now()
         let monotonic = Self.monotonicNow()
 
         let reported = lock.withLock { () -> Double? in
             // A pong is the only thing that proves the control channel is working, and the
-            // fallback asks that question before it moves the session's whole picture onto
-            // this channel. Answered here because this is where a pong is known to have
-            // arrived, rather than by a second timer inferring it from the latency figure.
+            // fallback asks that question before it moves the session's whole picture onto this
+            // channel. Answered here because this is where a pong is known to have arrived.
             lastControlReplyAt = monotonic
 
             // Matched by the number the ping carried, so a reply that arrives after the next ping
-            // has gone out is measured against the question it answers. An empty pong is a Mac
-            // that does not echo the number; the ledger reads that as the oldest question open.
+            // has gone out is measured against the question it answers. An empty pong is a Mac that
+            // does not echo the number.
             let sequence = (try? MessageCodec.decode(PingPayload.self, from: frame.payload))?.sequence
             guard let ping = pingLedger.answered(sequence: sequence) else { return nil }
 
@@ -1365,18 +1230,17 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Opens the second socket. Safe to call repeatedly; only the first call does anything.
     ///
-    /// Called in three places, and they are the same act: when a session becomes ready, when a
-    /// client that had asked for no picture asks for one again, and by the reconnect whenever a
-    /// video socket closes. The guard below is what makes repeating it harmless.
+    /// Called when a session becomes ready, when a client that had asked for no picture asks for one
+    /// again, and by the reconnect whenever a video socket closes. The guard below makes repeating
+    /// it harmless.
     public func openVideoIfNeeded() {
         lock.lock()
         let alreadyOpen = video != nil
-        // **A relayed session has no second socket to open**, and this is the only place that can
-        // hold that check and the install in one go. Its control connection *is* its video
+        // A relayed session has no second socket to open: its control connection *is* its video
         // connection, spliced through the relay, and the loopback this would dial is a one-shot
         // listener that has already been consumed. Dialling it again fails, and the failure arrives
-        // as "the video connection ended" on a session that is streaming perfectly well, which is
-        // the paused overlay over a working picture. See ``usesRelayedSingleStream``.
+        // as "the video connection ended" on a session that is streaming well. See
+        // ``usesRelayedSingleStream``.
         guard !alreadyOpen, !usesRelayedSingleStream, wantsPicture, state == .ready,
               let serverKey = _serverKey,
               let hello = _serverHello, let endpoint = control?.remoteEndpoint
@@ -1386,8 +1250,7 @@ public final class ClientSession: @unchecked Sendable {
         }
         // An attempt made now is the attempt the ladder was waiting to make, so the wait goes with
         // it. The rung itself is not given back: a socket that opens and dies again is a failure
-        // the ladder has to count, or a host that accepts and immediately drops every video socket
-        // would be dialled every half second for as long as the session lasted.
+        // the ladder has to count.
         let pending = videoReconnectTask
         videoReconnectTask = nil
         let connection = ClientConnection(label: "pl.dmq.peering.client.video")
@@ -1413,13 +1276,12 @@ public final class ClientSession: @unchecked Sendable {
                 return (task, self.connectGeneration, true)
             }
             connectTask?.cancel()
-            // A cancellation is our own doing — either the session is over or the socket was
-            // replaced — and reporting it would put "video connection ended" on screen after
-            // a deliberate disconnect.
+            // A cancellation is our own doing, either the session is over or the socket was
+            // replaced, and reporting it would put "video connection ended" on screen after a
+            // deliberate disconnect.
             guard failure != .cancelled else { return }
-            // Both of these belong to the socket that was actually carrying the picture. A socket
-            // a newer one replaced says nothing about the session, and reporting its end would put
-            // "the picture has stopped" over a picture that is already flowing again.
+            // Belongs to the socket that was actually carrying the picture: reporting a replaced
+            // socket's end would put "the picture has stopped" over a picture already flowing.
             guard wasCurrent else { return }
             self.emit(.video(.ended(failure.errorDescription ?? "video connection ended")))
             self.scheduleVideoReconnect(generation: generation)
@@ -1447,12 +1309,11 @@ public final class ClientSession: @unchecked Sendable {
             }
 
             guard !Task.isCancelled,
-                  // **Asked again after the handshake, because a pause can arrive during one.**
-                  // The role byte below is what makes the Mac attach and start capturing, so a
-                  // socket that sends it for a client that has just asked for no picture spends
-                  // exactly the battery the pause was asked for, on a picture nobody is being
-                  // sent. Before the byte this is not yet a video connection to the Mac, so
-                  // dropping it here costs nothing and needs no second command to undo.
+                  // Asked again after the handshake, because a pause can arrive during one. The role
+                  // byte below is what makes the Mac attach and start capturing, so a socket that
+                  // sends it for a client that has just asked for no picture spends exactly the
+                  // battery the pause was asked for. Before the byte this is not yet a video
+                  // connection to the Mac, so dropping it costs nothing.
                   self.lock.withLock({ self.video === connection && self.wantsPicture })
             else {
                 connection.cancel()
@@ -1476,21 +1337,18 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Arms the next attempt at the video socket, if there is one left to make.
     ///
-    /// Called when a video socket that was carrying the picture closes for a reason that was not
-    /// our own. **Everything this must refuse is in the guard**, and each one is a case where
-    /// dialling would be wrong rather than merely useless: a session that has ended or moved on
-    /// (the generation), one that is still connecting, a relayed session, which has no second
-    /// socket to dial because the control stream is the video stream, and a client that has asked
-    /// the Mac for no picture at all.
+    /// Called when a video socket that was carrying the picture closes for a reason that was not our
+    /// own. Everything this must refuse is in the guard: a session that has ended or moved on, one
+    /// that is still connecting, a relayed session, which has no second socket to dial, and a client
+    /// that has asked the Mac for no picture at all.
     ///
-    /// **The task carries the generation it was armed under and re-reads it after the wait**, which
-    /// is the rule this file applies to everything resumed from an `await`. A new control attempt
-    /// bumps that number, so a wait that began before one cannot open a socket after it.
+    /// The task carries the generation it was armed under and re-reads it after the wait, as
+    /// everything resumed from an `await` in this file does.
     private func scheduleVideoReconnect(generation: UInt64) {
         lock.lock()
-        // `video == nil` is in here because a socket that was replaced between the close and this
-        // call is a socket there is nothing to dial for, and a rung spent refusing to dial it is a
-        // rung the next real failure does not get.
+        // `video == nil` is in here because a socket replaced between the close and this call has
+        // nothing to dial for, and a rung spent refusing to dial it is a rung the next real failure
+        // does not get.
         guard videoReconnectTask == nil, video == nil, state == .ready, wantsPicture,
               !usesRelayedSingleStream
         else {
@@ -1499,11 +1357,9 @@ public final class ClientSession: @unchecked Sendable {
         }
         guard let delay = videoReconnectLadder.next() else {
             lock.unlock()
-            // Said out loud once, and it is the only thing that says it: the alternative is a
-            // frozen frame with a status line describing a socket that was healthy when it was
-            // last looked at. The session itself stays up, because the shells, the clipboard and
-            // the assertion that keeps the Mac awake are all still working on it, which is the
-            // same bargain the pause makes.
+            // Said out loud once, because the alternative is a frozen frame. The session itself
+            // stays up: the shells, the clipboard and the assertion that keeps the Mac awake all
+            // still work on it.
             emit(.video(.ended("The video channel did not come back.")))
             return
         }
@@ -1512,8 +1368,7 @@ public final class ClientSession: @unchecked Sendable {
             guard let self, !Task.isCancelled else { return }
             // The generation is re-read here and not merely at the arm above, because this is the
             // wait that can outlive what it was armed for. Whether the client still wants a picture
-            // is deliberately *not* re-read: `openVideoIfNeeded` refuses to open one either way,
-            // and a second copy of that rule is a second copy to keep in step.
+            // is deliberately *not* re-read: `openVideoIfNeeded` refuses to open one either way.
             let stillOurs = self.lock.withLock { () -> Bool in
                 self.videoReconnectTask = nil
                 return self.state == .ready && self.connectGeneration == generation
@@ -1521,27 +1376,21 @@ public final class ClientSession: @unchecked Sendable {
             guard stillOurs else { return }
             self.openVideoIfNeeded()
         }
-        // Assigned while the lock is still held, and that is load bearing rather than tidy. The
-        // task above may begin running the moment it is created, and its first act under the lock
-        // is to clear this slot; if the assignment happened outside the lock instead, the body
-        // could clear a slot that had just been filled, and every later arm would be refused
-        // because a task that is no longer running would look like one that is.
+        // Assigned while the lock is still held: the task above may begin running the moment it is
+        // created, and its first act under the lock is to clear this slot. Assigned outside it,
+        // the body could clear a slot that had just been filled.
         videoReconnectTask = task
         lock.unlock()
     }
 
     /// Opens the relay's video datagram lane and asks the Mac for the key that opens it.
     ///
-    /// Called once the Mac has described the stream, and only on a session that wants the
-    /// lane — see ``wantsVideoDatagrams``.
+    /// Called once the Mac has described the stream, and only on a session that wants the lane.
+    /// See ``wantsVideoDatagrams``.
     ///
-    /// **The bind goes first, and that ordering is the whole reason this is not one call.**
-    /// The relay forwards nothing to an address it has not been told about, and it is told by
-    /// a datagram consisting of this end's token and nothing else. So the socket binds the
-    /// moment it exists, the request for the key follows it over the control channel a round
-    /// trip later, and by the time the Mac's first sealed datagram can reach the relay the
-    /// address it is meant for is registered. The reverse order would spend the first frames
-    /// of every session on a relay that had nowhere to send them.
+    /// The bind goes first, and that ordering is the whole reason this is not one call: the relay
+    /// forwards nothing to an address it has not been told about, and it is told by a datagram
+    /// consisting of this end's token and nothing else.
     private func startVideoDatagrams() {
         lock.lock()
         guard wantsVideoDatagrams, videoDatagrams == nil, let relay = relaySession else {
@@ -1557,12 +1406,11 @@ public final class ClientSession: @unchecked Sendable {
                 label: "pl.dmq.peering.client.video.datagrams"
             )
         } catch {
-            // Not fatal, and not silent either: without this socket the session still works,
-            // with the picture back on the stream the control channel shares.
+            // Not fatal, and not silent either: without this socket the session still works, with the
+            // picture back on the stream the control channel shares.
             //
-            // The wish is dropped rather than retried, because this failure has one cause — an
-            // allocation whose token or port is not what the wire contract fixes them at — and
-            // it will be the same cause on the next stream description as it was on this one.
+            // The wish is dropped rather than retried: the cause, an allocation whose token or port
+            // is not what the wire contract fixes them at, would be the same next time.
             wantsVideoDatagrams = false
             lock.unlock()
             sessionLog.error("could not open the relay's video datagram socket: \(String(describing: error), privacy: .public)")
@@ -1617,10 +1465,9 @@ public final class ClientSession: @unchecked Sendable {
 
     /// The Mac's answer to ``MessageKind/videoKeyRequest``: the session's video secret.
     ///
-    /// Only accepted once the socket exists, because a key with nowhere to receive is a value
-    /// that would sit in the session looking like a working lane. A Mac that does not answer
-    /// is a Mac still sending the picture down the relay's control stream, which is what this
-    /// session did before there was a datagram path at all.
+    /// Only accepted once the socket exists, because a key with nowhere to receive would sit in the
+    /// session looking like a working lane. A Mac that does not answer is a Mac still sending the
+    /// picture down the relay's control stream.
     private func handleVideoKey(_ frame: Frame) {
         guard let grant = try? MessageCodec.decode(VideoKeyGrant.self, from: frame.payload),
               grant.secret.count == VideoKeySchedule.secretSize
@@ -1643,9 +1490,8 @@ public final class ClientSession: @unchecked Sendable {
     /// Asks the relay where the Mac is, and then tries to open a path straight to it.
     ///
     /// Silent on every failure, which is the design rather than an omission: a session that cannot
-    /// discover its peer, or whose probes never arrive, is a session on the relay — what every
-    /// session was before this existed and what most will still be. Nothing here has earned a
-    /// sentence on screen until it works.
+    /// discover its peer, or whose probes never arrive, is a session on the relay, which is the
+    /// ordinary case. Nothing here earns a sentence on screen until it works.
     private func beginDirectPath(secret: Data) {
         guard let pair = lock.withLock({ () -> (VideoDatagramSocket, RelaySession)? in
             guard let socket = videoDatagrams, let relay = relaySession else { return nil }
@@ -1657,7 +1503,10 @@ public final class ClientSession: @unchecked Sendable {
         // ever be one of these for a direction.
         let schedule = VideoKeySchedule(secret: secret)
         guard let sealer = try? schedule.sealer(token: relay.videoToken, direction: .clientToHost)
-        else { return }
+        else {
+            sessionLog.error("could not build the key for the direct video path, so the session stays on the relay")
+            return
+        }
         let laneStillExists = lock.withLock { () -> Bool in
             guard videoDatagrams === socket else { return false }
             videoSealer = sealer
@@ -1671,24 +1520,18 @@ public final class ClientSession: @unchecked Sendable {
                   self.lock.withLock({ self.videoDatagrams === socket })
             else { return }
 
-            // Quick while there is any prospect of it working, then slow for the rest of the
-            // session. The fast phase is what gets a session onto the direct path within a beat of
-            // opening; the slow one is what recovers a path that a NAT mapping expiry took away,
-            // for the price of one small datagram every few seconds. It never stops, because the
-            // thing it is guarding against — a mapping that quietly expires — never stops either.
+            // Quick while there is any prospect of it working, then slow for the rest of the session:
+            // the fast phase gets a session onto the direct path within a beat of opening, and the
+            // slow one recovers a path a NAT mapping expiry took away, for the price of one small
+            // datagram every few seconds. It never stops, because a mapping that quietly expires
+            // never stops either.
             //
-            // Each probe is sealed afresh, and that is load-bearing rather than tidy. The counter is
-            // the AEAD nonce, and the Mac's replay window is doing its job — so a probe reused byte
-            // for byte would be discarded from the second one onward, and the path would never be
-            // believed however many were sent.
+            // Each probe is sealed afresh: the counter is the AEAD nonce and the Mac's replay window
+            // is doing its job, so a probe reused byte for byte would be discarded from the second
+            // one onward.
             //
-            // **Discovery is repeated on the same cadence, and that is the change worth naming.**
-            // It used to be asked once and the whole attempt abandoned if the answer was no, and
-            // "no" is the *ordinary* first answer, because the relay only knows where a peer is
-            // once that peer has sent it a datagram, which is a few milliseconds behind the asking.
-            // So a session could give up permanently on a peer that was about to introduce itself.
-            // Re-asking costs one small datagram every three seconds for the first few of a session
-            // and one a minute after that, and it is also what re-opens a path whose address moved.
+            // Discovery is repeated on the same cadence, because "no address yet" is the *ordinary*
+            // first answer, and re-asking is also what re-opens a path whose address moved.
             var attempt = 0
             while !Task.isCancelled {
                 if attempt % Self.rediscoverEvery == 0 {
@@ -1696,11 +1539,9 @@ public final class ClientSession: @unchecked Sendable {
                         at: ProtocolInfo.relaySignallingURL,
                         videoToken: relay.videoToken
                     ) {
-                        // A failure here is not fatal, but it is *said*, which it was not: the
-                        // `try?` that used to be here is how an address nothing could parse went
-                        // unnoticed for the whole life of the feature. The next discovery replaces
-                        // it, and until then ``sendDirect`` does nothing rather than sending to the
-                        // relay.
+                        // Not fatal, but *said*: an address nothing can parse would otherwise go
+                        // unnoticed for the whole session. The next discovery replaces it, and until
+                        // then ``sendDirect`` does nothing rather than sending to the relay.
                         let peer = "\(address.host):\(address.port)"
                         do {
                             try socket.setDirectPeer(host: address.host, port: address.port)
@@ -1741,16 +1582,12 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Measures the lane the picture is on, once a second, for as long as it exists.
     ///
-    /// **This is the number worth showing, and the control lane's is not.** The control connection
-    /// goes through the relay in *every* session, punched or not, so its round trip is the relay's
-    /// even when the picture is travelling straight between the two ends — which is where "it is
-    /// pretty high" came from. This measures the datagrams' own path, and ``VideoDatagramSocket/send``
-    /// sends by whichever of the two is currently the better one, which is the same rule the
-    /// picture follows.
+    /// This is the number worth showing, and the control lane's is not: the control connection goes
+    /// through the relay in *every* session, punched or not, so its round trip is the relay's even
+    /// when the picture is travelling straight between the two ends. This measures the datagrams' own
+    /// path.
     ///
-    /// It seals through ``sealOnVideoLane(kind:payload:)`` rather than a sealer of its own. A
-    /// second sealer would repeat nonces, and the reply says which path it came back on, so the
-    /// figure can be labelled rather than guessed at.
+    /// It seals through ``sealOnVideoLane(kind:payload:)``: a second sealer would repeat nonces.
     private func makeLanePingTask(_ socket: VideoDatagramSocket) -> Task<Void, Never> {
         Task { [weak self] in
             while !Task.isCancelled {
@@ -1768,9 +1605,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Seals one message onto the datagram lane, through the session's single sealer.
     ///
-    /// Must be the only way anything seals on this lane. The counter inside is the AEAD nonce, so a
-    /// second sealer built from the same secret would encrypt under the same key with nonces that
-    /// had already been used.
+    /// The only way anything seals on this lane: the counter inside is the AEAD nonce, so a second
+    /// sealer would encrypt under the same key with nonces that had already been used.
     private func sealOnVideoLane(kind: MessageKind, payload: Data) -> [Data] {
         lock.withLock {
             guard var sealer = videoSealer else { return [] }
@@ -1781,8 +1617,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Times a lane ping's reply against the ping it answers.
     ///
-    /// Matched by number for the same reason the control lane's is: a reply that crossed the next
-    /// ping has to be measured against the question it answers, not against the newest one.
+    /// Matched by number, like the control lane's: a reply that crossed the next ping is measured
+    /// against the question it answers, not against the newest one.
     private func notePathLatency(_ frame: Frame, from source: VideoDatagramSocket.Source) {
         let now = DispatchTime.now()
         let reported = lock.withLock { () -> Double? in
@@ -1801,22 +1637,19 @@ public final class ClientSession: @unchecked Sendable {
     /// One datagram from the relay, opened and fed into the same path a whole frame takes.
     ///
     /// There is one decoder and one renderer in this app, and both are downstream of
-    /// ``handleVideoFrame(_:from:)``. What comes out of the opener is the frame the Mac cut
-    /// up — never a chunk, which is why nothing here reassembles anything.
-    /// Reports a change of path, once per change.
+    /// ``handleVideoFrame(_:from:)``. What comes out of the opener is the frame the Mac cut up, never
+    /// a chunk, which is why nothing here reassembles anything.
     ///
-    /// Once per change and not once per datagram: the picture arrives thousands of times a minute
-    /// and the only fact worth passing on is which way it is coming, which changes at most twice in
-    /// a session. A note goes with the change *to* the direct path and not with the change back —
-    /// falling back to the relay is the ordinary case, and saying so every time a mapping expires
-    /// would be an app that appears to keep breaking.
+    /// Reports a change of path, once per change and not once per datagram: the picture arrives
+    /// thousands of times a minute, and the only fact worth passing on is which way it is coming,
+    /// which changes at most twice in a session. A note goes with the change *to* the direct path
+    /// and not with the change back, because falling back to the relay is the ordinary case.
     private func noteDatagramPath(_ source: VideoDatagramSocket.Source) {
         var path: DatagramPath = .relay
         if case .peer(let host, let port) = source {
             path = .direct
-            // The address the Mac is actually answering from, which is the one that matters: a
-            // NAT that moved mid-session is the ordinary case this design is built around, and
-            // this is the end that finds out.
+            // The address the Mac is actually answering from: a NAT that moved mid-session is the
+            // ordinary case this design is built around, and this is the end that finds out.
             reportDirectPath(.open(peer: "\(host):\(port)"))
         }
         let changed = lock.withLock { () -> Bool in
@@ -1833,19 +1666,15 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Says what the direct-path attempt has come to, once per change.
     ///
-    /// Deduplicated for the same reason ``noteDatagramPath`` is: this is driven from the probing
-    /// loop, which runs fifty times in the first minute of a session, and a state that is emitted
-    /// on every pass is a state whose observer cannot tell a change from a repeat.
+    /// Deduplicated for the same reason ``noteDatagramPath`` is: the probing loop runs it over and
+    /// over, and a state emitted on every pass is one whose observer cannot tell a change from a
+    /// repeat.
     private func reportDirectPath(_ outcome: DirectPath) {
         let changed = lock.withLock { () -> Bool in
-            // **A path that is open is not closed by a later look-up.** The probing loop asks the
-            // relay where the Mac is every twelve attempts, for the whole session, so that a
-            // mapping which expired can be replaced. Every one of those asks announced `probing`,
-            // which *downgraded* a path that was demonstrably carrying the picture to "nothing
-            // back yet". The log then read as a direct path that kept failing while the transport
-            // had not moved in minutes, which is exactly how it was read on a session that never
-            // left the punched path once. The ask still happens and the address is still
-            // replaced; only the announcement is suppressed.
+            // A path that is open is not closed by a later look-up. The probing loop re-asks the relay
+            // where the Mac is every twelve attempts, so a mapping which expired can be replaced, and
+            // each of those asks would otherwise *downgrade* a path that is demonstrably carrying the
+            // picture. The ask still happens; only the announcement is suppressed.
             if case .open = reportedDirectPath, case .probing = outcome { return false }
             guard reportedDirectPath != outcome else { return false }
             reportedDirectPath = outcome
@@ -1870,13 +1699,11 @@ public final class ClientSession: @unchecked Sendable {
             guard let frame else { return }
             noteDatagramPath(source)
             // A probe has done its whole job by opening: it proved the datagram came from the peer
-            // and not from anyone who can write a source address into a packet, and the address it
-            // arrived from is now what the Mac sends to. There is nothing in it to render, and a
-            // real frame has never been seen under this kind.
+            // rather than from anyone who can write a source address into a packet, and the address
+            // it arrived from is now what the Mac sends to. There is nothing in it to render.
             guard frame.kind != .directProbe else { return }
-            // A lane ping's reply, which is timed here rather than passed on: everything else the
-            // opener produces is a piece of the picture, and the renderer would try to read this
-            // as one.
+            // A lane ping's reply, timed here rather than passed on: everything else the opener
+            // produces is a piece of the picture, and the renderer would try to read this as one.
             guard frame.kind != .pong else {
                 notePathLatency(frame, from: source)
                 return
@@ -1885,18 +1712,17 @@ public final class ClientSession: @unchecked Sendable {
             handleVideoFrame(frame, from: .primary)
 
         case .failure(let error):
-            // Counted, logged, and never dropped in silence. A datagram that does not
-            // authenticate is the only thing that tells "this network is losing video" apart
-            // from "these two ends are not speaking the same key", and the second of those
-            // has no other symptom at all.
+            // Counted, logged, and never dropped in silence: a datagram that does not authenticate
+            // is the only thing that tells "this network is losing video" apart from "these two
+            // ends are not speaking the same key", and the second has no other symptom at all.
             let (total, firstTime) = lock.withLock { () -> (Int, Bool) in
                 datagramFailures += 1
                 let first = !reportedDatagramFailure
                 reportedDatagramFailure = true
                 return (datagramFailures, first)
             }
-            // Every failure logged at picture rate would bury the log that explains it, so
-            // the first is reported and the rest are summarised as they accumulate.
+            // Logged at picture rate this would bury the log that explains it, so the first is
+            // reported and the rest are summarised as they accumulate.
             if total == 1 || total % 512 == 0 {
                 sessionLog.error("""
                     a video datagram did not authenticate \
@@ -1911,17 +1737,12 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    /// One video-channel frame, from whichever lane delivered it.
+    /// One piece of a clipboard payload, from the control channel, where a malformed piece costs the
+    /// payload and nothing else.
     ///
-    /// `transport` is not decoration. A picture arriving on the transport the session prefers
-    /// while the fallback is in force is the only evidence that the path works again, and it
-    /// is what the client's decision to go back is made of — see
+    /// `transport` is not decoration: a picture arriving on the transport the session prefers while
+    /// the fallback is in force is the only evidence that the path works again. See
     /// ``VideoFallbackPolicy/notePrimaryPicture()``.
-    /// One piece of a clipboard payload, from the control channel.
-    ///
-    /// A malformed piece costs the payload and nothing else, which is the same bargain the
-    /// picture's assembler makes: the next frame starts the assembly over, and a screenshotted
-    /// clipboard is not worth a session.
     private func handleClipboardChunk(_ frame: Frame) {
         let reassembled = lock.withLock { () -> Frame? in
             do {
@@ -1939,11 +1760,9 @@ public final class ClientSession: @unchecked Sendable {
 
     /// A whole clipboard payload, however it arrived.
     ///
-    /// Decoded leniently, like a notice and unlike a command. The clipboard is a convenience riding
-    /// a session that is about a picture, and a payload this build cannot read costs the clipboard
-    /// and not the connection. It is also what makes the two ends compatible in the direction that
-    /// matters: a Mac newer than this build sends a picture, this build reads no picture out of it,
-    /// and the user is told nothing rather than disconnected.
+    /// Decoded leniently, like a notice and unlike a command, which is also the compatibility rule:
+    /// a Mac newer than this build sends a picture, this build reads no picture out of it, and the
+    /// user is told nothing rather than disconnected.
     private func handleClipboardContent(_ frame: Frame) {
         guard let payload = try? MessageCodec.decode(ClipboardPayload.self, from: frame.payload) else {
             sessionLog.error("could not decode a clipboard payload")
@@ -1961,8 +1780,7 @@ public final class ClientSession: @unchecked Sendable {
                 do {
                     return try videoChunks.ingest(frame)
                 } catch {
-                    // Dropped, not fatal. A picture is worth less than the session, and the
-                    // next frame starts the assembly over from nothing.
+                    // Dropped, not fatal: the next frame starts the assembly over from nothing.
                     sessionLog.error("dropping a malformed video chunk: \(String(describing: error), privacy: .public)")
                     return nil
                 }
@@ -1979,21 +1797,19 @@ public final class ClientSession: @unchecked Sendable {
                 sessionLog.error("could not decode a video config")
                 return
             }
-            // The picture is back, which is the only thing that counts as a recovery. A socket
-            // that connected and said nothing is the failure the ladder exists for, so this is
-            // deliberately not cleared where the connection opens. See ``VideoReconnectLadder``.
+            // The picture is back, which is the only thing that counts as a recovery: a socket that
+            // connected and said nothing is the failure the ladder exists for, so this is deliberately
+            // not cleared where the connection opens.
             //
-            // From the preferred lane only, because the ladder is about the socket that lane
-            // carries: a picture arriving over the control channel says this session is being
-            // served, not that the socket the ladder exists for has come back, and resetting on it
-            // would let a socket that opens and dies draw a fresh ladder every time.
+            // From the preferred lane only: a picture over the control channel says the session is
+            // being served, not that the socket the ladder exists for has come back.
             if transport == .primary {
                 lock.withLock { videoReconnectLadder.reset() }
             }
             emit(.video(.config(config)))
-            // A described stream is what the datagram lane waits for. See
-            // ``wantsVideoDatagrams``: the description has just arrived over the control
-            // channel, so the Mac is already streaming and the lane has something to carry.
+            // A described stream is what the datagram lane waits for: the description has just
+            // arrived over the control channel, so the Mac is already streaming and the lane has
+            // something to carry. See ``wantsVideoDatagrams``.
             startVideoDatagrams()
 
         case .videoFrame:
@@ -2001,8 +1817,7 @@ public final class ClientSession: @unchecked Sendable {
             do {
                 emit(.video(.frame(try EncodedVideoFrame(decoding: frame.payload))))
             } catch {
-                // A malformed frame is dropped rather than fatal: one bad picture is worth
-                // less than the whole session, and the next keyframe restores the stream.
+                // Dropped rather than fatal: the next keyframe restores the stream.
                 sessionLog.error("dropping a malformed video frame: \(String(describing: error), privacy: .public)")
             }
 
@@ -2013,11 +1828,15 @@ public final class ClientSession: @unchecked Sendable {
         case .audioConfig:
             if let config = try? MessageCodec.decode(AudioStreamConfig.self, from: frame.payload) {
                 emit(.audio(.config(config)))
+            } else {
+                sessionLog.error("could not decode an audio config, so this stream has no sound")
             }
 
         case .audioFrame:
             if let frame_decoded = try? EncodedAudioFrame(decoding: frame.payload) {
                 emit(.audio(.frame(frame_decoded)))
+            } else {
+                sessionLog.error("dropping a malformed audio frame")
             }
 
         default:
@@ -2029,18 +1848,16 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Watches the picture for the one failure neither end otherwise sees.
     ///
-    /// A blocked video transport looks from both sides exactly like a working session: the
-    /// control channel is up, the Mac answers, the status is green, and no picture comes. No
-    /// message in the protocol reports it, because nothing is missing — the frames are being
-    /// produced and are simply not arriving. So the client watches for the absence and says
-    /// so, which is the half of the loop the host cannot run. The rules are in
-    /// ``VideoFallbackPolicy``; what is here is the clock and the two observations it runs on.
+    /// A blocked video transport looks from both sides exactly like a working session: the control
+    /// channel is up, the Mac answers, and no picture comes. No message in the protocol reports it,
+    /// because nothing is missing, the frames are being produced and are simply not arriving. The
+    /// rules are in ``VideoFallbackPolicy``; what is here is the clock and the two observations it
+    /// runs on.
     private func startVideoWatch() {
         lock.lock()
-        // The moment the session became ready is also the moment the first picture is
-        // measured from, and that *is* the session-start probe: three seconds of a ready
-        // session with a healthy control channel and nothing arriving is the answer, and no
-        // extra packet is sent to ask the question.
+        // The moment the session became ready is also the moment the first picture is measured
+        // from, and that *is* the session-start probe: three seconds of a ready session with a
+        // healthy control channel and nothing arriving is the answer, and no extra packet asks it.
         lastPictureAt = Self.monotonicNow()
         lastControlReplyAt = nil
         readyAt = nil
@@ -2053,9 +1870,8 @@ public final class ClientSession: @unchecked Sendable {
                 guard !Task.isCancelled, let self else { return }
                 self.evaluateVideoTransport()
                 self.failIfControlHasGoneQuiet()
-                // The counts every second tick, which is every second: fast enough to read them
-                // off a screen while a session is running, and slow enough that a screen showing
-                // four numbers is not redrawn sixty times a second to show the same four.
+                // Every second tick is every second: fast enough to read off a screen while a
+                // session is running, slow enough not to redraw four numbers sixty times a second.
                 ticks += 1
                 if ticks % 2 == 0 { self.reportDatagramCounts() }
             }
@@ -2066,9 +1882,9 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Forgets the fallback's state and hands back the watch to cancel.
     ///
-    /// Call with `lock` held — both callers are teardown paths that already have it — and
-    /// cancel the returned task after releasing it. `NSLock` is not recursive, so a version
-    /// of this that took the lock itself would deadlock the session on its way out.
+    /// Call with `lock` held, both callers are teardown paths that already have it, and cancel the
+    /// returned task after releasing it. `NSLock` is not recursive, so a version of this that took
+    /// the lock itself would deadlock.
     private func stopVideoWatchLocked() -> Task<Void, Never>? {
         let task = videoWatchTask
         videoWatchTask = nil
@@ -2077,22 +1893,18 @@ public final class ClientSession: @unchecked Sendable {
         lastControlReplyAt = nil
         readyAt = nil
         videoChunks = VideoChunkReassembler()
-        // Half a picture describes nothing about a session that has not started yet, and the same
-        // is true of half a screenshot: a payload put back across two sessions is a payload made
-        // of two different Macs' pasteboards. See ``ClipboardTransfer/reassembler()``.
+        // A payload put back across two sessions would be made of two different Macs' pasteboards.
         clipboardChunks = ClipboardTransfer.reassembler()
         announcedTransport = .primary
-        // And so does the count of attempts the picture has cost: it describes a session's worth of
-        // bad luck, and a new session starts with a whole ladder. The armed wait, if there is one,
-        // is cancelled by the teardown paths, which have already been handed it.
+        // And so does the count of attempts the picture has cost: a new session starts with a whole
+        // ladder. The armed wait, if there is one, is cancelled by the teardown paths, which have
+        // already been handed it.
         videoReconnectLadder.reset()
-        // A new session starts wanting a picture, which is also what the app's own flag does when a
-        // session ends. Left standing, a session that had been paused and then reused would open no
-        // video socket for the whole of its second life, and nothing would say why.
+        // A new session starts wanting a picture. Left standing, a session that had been paused and
+        // then reused would open no video socket for the whole of its second life.
         wantsPicture = true
-        // The datagram lane's state is the same kind of thing: a replay window and a partial
-        // picture describe a link, and both belong to the session that opened it. The socket
-        // itself is cancelled by the teardown paths, which have already been handed it.
+        // The datagram lane's state is the same kind of thing: a replay window and a partial picture
+        // describe a link, and both belong to the session that opened it.
         wantsVideoDatagrams = false
         videoOpener = nil
         // Dropped with the lane it belongs to. The sealer in particular: a new session mints a new
@@ -2110,19 +1922,13 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Ends a session the network has stopped carrying without saying so.
     ///
-    /// **The case this exists for.** The phone changes network, and the path under the control
-    /// connection goes away. Nothing fails: not the socket, which was never told, and not any layer
-    /// above it, which is waiting for an error. The picture stays on its last decoded frame and the
-    /// app says nothing at all, which is what a user meets as a frozen screen with no explanation.
+    /// The case this exists for: the phone changes network, and the path under the control
+    /// connection goes away. Nothing fails, not the socket, which was never told, and not any layer
+    /// above it, which is waiting for an error. The picture stays on its last decoded frame.
     ///
-    /// Silence is the only evidence available, and the client already collects it: one ping a
-    /// second, and a pong that proves the channel is alive. This turns the absence of that pong
-    /// into a failure, which is what the reconnect ladder is waiting for — a phase change it can
-    /// act on. Failing is not the point; failing is what lets the app try again.
-    ///
-    /// A session that recovers inside the window is untouched, which is deliberate. A network
-    /// handover is a few seconds of silence that often resolves itself, and dropping those sessions
-    /// would be a worse bug than the freezer this fixes.
+    /// Turning the absence of a pong into a failure is what the reconnect ladder is waiting for. A
+    /// session that recovers inside the window is left alone, because a network handover is a few
+    /// seconds of silence that often resolves itself.
     private func failIfControlHasGoneQuiet() {
         let now = Self.monotonicNow()
         lock.lock()
@@ -2156,21 +1962,18 @@ public final class ClientSession: @unchecked Sendable {
             break
 
         case .useControlChannel:
-            // A request rather than an instruction, and the host is right to treat it as one:
-            // it will not move a picture it has not been producing, because a Mac sitting on a
-            // still screen cannot tell a blocked path from nothing having changed either.
-            // Which is also why the ask is repeated on its own schedule — see ``VideoFallbackPolicy``
-            // — while what the *screen* is told happens once, when the lane actually changes.
+            // A request rather than an instruction: the host will not move a picture it has not been
+            // producing, because a Mac sitting on a still screen cannot tell a blocked path from
+            // nothing having changed either. That is also why the ask is repeated on its own schedule,
+            // see ``VideoFallbackPolicy``, while what the *screen* is told happens once.
             connection()?.send(.videoTransport, VideoTransportRequest(
                 transport: .control,
                 reason: "no picture for \(Int(VideoFallbackPolicy.silenceBeforeFallback))s "
                     + "on a control channel that is answering"
             ))
-            // The counters ride with the note, and that is the point of putting them here rather
-            // than only on a diagnostics screen: this sentence is the moment the picture moved,
-            // the log is what outlives the session, and a lane that failed is only explicable
-            // with the numbers as they were *when* it failed. Settings cannot even be opened
-            // while a session runs, so a live-only readout would be unreachable exactly here.
+            // The counters ride with the note: a lane that failed is only explicable with the numbers
+            // as they were *when* it failed, and settings cannot be opened while a session runs, so a
+            // live-only readout would be unreachable exactly here.
             announce(.control, note: "No video is arriving. Asking the Mac to send the picture over the control channel. Datagram lane: \(datagramCounts.summary).")
 
         case .usePrimaryTransport:
@@ -2184,9 +1987,9 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Hands the lane's counters to whoever is watching.
     ///
-    /// Silent until there is a lane: a session on the LAN or on the relay's control channel has
-    /// no datagram socket, and reporting zeros for one would read as a lane that is present and
-    /// idle rather than one that does not exist.
+    /// Silent until there is a lane: a session on the LAN or on the relay's control channel has no
+    /// datagram socket, and reporting zeros would read as a lane that is present and idle rather than
+    /// one that does not exist.
     private func reportDatagramCounts() {
         guard lock.withLock({ videoDatagrams != nil }) else { return }
         emit(.datagramCounts(datagramCounts))
@@ -2194,9 +1997,8 @@ public final class ClientSession: @unchecked Sendable {
 
     /// Says which lane the picture is on, the first time it is on it.
     ///
-    /// Once per change rather than once per decision, because a request that produced no
-    /// picture is repeated and the client would otherwise fill its own note list with the same
-    /// sentence — the ask is a packet, but the note is something a person reads.
+    /// Once per change rather than once per decision, because a request that produced no picture is
+    /// repeated: the ask is a packet, but the note is something a person reads.
     private func announce(_ transport: VideoTransport, note: String) {
         let changed = lock.withLock { () -> Bool in
             guard announcedTransport != transport else { return false }
@@ -2288,19 +2090,13 @@ public final class ClientSession: @unchecked Sendable {
 
     private func fail(_ message: String) {
         lock.lock()
-        // **The first failure is the one that counts, and nothing here may contradict it.**
+        // The first failure is the one that counts, and nothing here may contradict it. A connection
+        // that fails is reported twice, once by the transport's own close handler and once by the
+        // `catch` in `connect` that was waiting on it, so without this guard the property and the
+        // event stream could hold two different sentences about the same moment.
         //
-        // A connection that fails is reported twice: once by the transport's own close handler and
-        // once by the `catch` in `connect` that was waiting on it. Both come through here, and the
-        // second used to overwrite `_phase` while returning before it emitted anything, so the
-        // property and the event stream could hold two different sentences about the same moment
-        // and which one a reader saw depended on which it asked. That is the seam the shipped
-        // identity-failure bug lived in: the app draws its card from the event and its status line
-        // from the property, and they disagreed.
-        //
-        // The first report wins because it is the one that was emitted, and the user has been told
-        // it. Returning here rather than after the teardown below is deliberate for the same
-        // reason: a second `fail` has nothing left to tear down.
+        // Returning here rather than after the teardown below is deliberate: a second `fail` has
+        // nothing left to tear down.
         guard state != .failed else {
             lock.unlock()
             return
@@ -2359,9 +2155,8 @@ public final class ClientSession: @unchecked Sendable {
 }
 
 extension ClientConnection {
-    /// The remote address this connection was made to, so the video socket can be opened to
-    /// the same place. Read from the connection itself rather than remembered by the caller,
-    /// which is what makes a Bonjour endpoint survive the trip: it still carries the
-    /// interface the host was discovered on.
+    /// The remote address this connection was made to, so the video socket can be opened to the same
+    /// place. Read from the connection itself rather than remembered by the caller, so a Bonjour
+    /// endpoint still carries the interface the host was discovered on.
     var remoteEndpoint: NWEndpoint? { currentEndpoint }
 }

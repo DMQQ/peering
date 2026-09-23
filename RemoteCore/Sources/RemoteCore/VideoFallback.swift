@@ -1,25 +1,10 @@
 import Foundation
 
-/// Which of two channels a picture is travelling on.
-///
-/// The protocol has always had more than one way to carry video and has never had a way to
-/// *choose* between them: the dedicated video connection where there is one, and the control
-/// channel where the relay splices the two ends into a single TLS stream. The choice was made
-/// once, by the kind of session, and a session that chose wrong stayed wrong.
-///
-/// That is the black screen this exists for. A network that blocks the video path does not
-/// touch the control channel — different transport, different ports, often a different
-/// protocol entirely — so the session comes up, the Mac answers pings, the status says
-/// connected, and the picture never arrives. Nothing on either end could say why, because
-/// nothing on either end had asked for the other lane.
 /// The rates either end may ask for, defined once.
 ///
-/// They live here rather than in the client's quality policy because both ends act on the same
-/// numbers: the client picks a tier from its own measurements, the host applies the
-/// control-channel ceiling on top of that choice, and the host has to have something to put
-/// back when the picture returns to the transport it prefers. A rate defined twice is a session
-/// whose two ends disagree about what the link is carrying, which is the one thing this part of
-/// the protocol exists to prevent.
+/// Both ends act on the same numbers: the client picks a tier from its own measurements and the
+/// host applies the control-channel ceiling on top. A rate defined twice is a session whose two
+/// ends disagree about what the link is carrying.
 public enum VideoQualityTier: Int, Sendable, CaseIterable {
     case low = 2_000
     case medium = 8_000
@@ -28,24 +13,20 @@ public enum VideoQualityTier: Int, Sendable, CaseIterable {
 
 public enum VideoTransport: String, Codable, Sendable, Equatable, CaseIterable {
     /// The transport the session would rather use: the video connection, and the relay's
-    /// video datagrams behind it. Its own path, at full quality, with nothing else in front
-    /// of it.
+    /// video datagrams behind it. Its own path, at full quality.
     case primary
     /// The authenticated control channel, at reduced quality.
     ///
-    /// Video here shares the link that carries input and the catalogue, which is exactly the
-    /// arrangement that produced the 150-300 ms latency this project spent a day removing. It
-    /// is worth that price only when the alternative is no picture at all, which is why the
-    /// rate is capped — see ``VideoFallbackPolicy/controlChannelBitrateKbps``.
+    /// Video here shares the link that carries input and the catalogue, which is worth the price
+    /// only when the alternative is no picture at all, which is why the rate is capped. See
+    /// ``VideoFallbackPolicy/controlChannelBitrateKbps``.
     case control
 }
 
 /// A client's request that the host move video between the two transports.
 ///
-/// The client is the side that decides, and the reason is not symmetry. The host cannot see
-/// whether its datagrams arrive: nothing acknowledges them, and a send that goes into a
-/// network which drops it looks exactly like a send that worked. The client is the only end
-/// holding evidence, so the client is the end that speaks.
+/// The client decides, because the host cannot see whether its datagrams arrive: nothing
+/// acknowledges them, and a send into a network that drops it looks like a send that worked.
 public struct VideoTransportRequest: Codable, Sendable, Equatable {
     public let transport: VideoTransport
     /// What the client observed, for the host's log. Diagnostics, not protocol: the host acts
@@ -72,63 +53,44 @@ public enum VideoChunkError: Error, Equatable, Sendable {
 
 /// One piece of a video-channel payload, when that payload is travelling the control channel.
 ///
-/// The payload is the same one the video transport carries — ``EncodedVideoFrame/encoded()``
-/// bytes, or a ``VideoStreamConfig``'s JSON, or an audio frame — cut into pieces small enough
-/// to be a control message.
+/// The payload is the same one the video transport carries: ``EncodedVideoFrame/encoded()`` bytes,
+/// a ``VideoStreamConfig``'s JSON, or an audio frame.
 ///
-/// **Why cut it up at all.** Two reasons, and the first one is a trap rather than a
-/// preference:
-///
-/// 1. A control channel message is capped at ``ProtocolInfo/maxControlPayload``. That cap is
-///    enforced by the *receiving* end, which means an oversized message is not refused by the
-///    end that produced it: it goes out, and it arrives as megabytes on the phone. A 300 KB
-///    keyframe written as one control frame sits in the phone's decoder buffer as 300 KB and
-///    is accepted, because nothing on that side is checking either.
-/// 2. A keyframe written as a single frame is a wall the rest of the control channel queues
-///    behind. The host writes its chunks one at a time and lets the session's pongs, notices
-///    and catalogues go out *between* them, which a single large write would have made
-///    impossible. That ordering is the whole reason the fallback is usable while someone is
-///    typing on the other end.
+/// Cut up because a control channel message is capped at ``ProtocolInfo/maxControlPayload``, a cap
+/// the receiving end enforces: an oversized message is not refused by the end that produced it, it
+/// goes out and arrives as megabytes on the phone. Chunking also lets the host write one piece at a
+/// time, so a pong goes out between two of them.
 public enum VideoChunk {
     /// innerKind(1) + frameID(4) + index(2) + count(2)
     public static let headerSize = 9
 
     /// The most payload one chunk may carry.
     ///
-    /// A quarter of the inbound control cap, so a chunk's whole frame — this header, the kind
-    /// byte and the length prefix — has a four-fold margin under it rather than a few bytes.
-    /// The figure also bounds what one interleaved control message can wait for: at the
-    /// control channel's capped rate a chunk is about 60 ms of wire time, which is the worst
-    /// case for a pong written between two of them.
+    /// A quarter of the inbound control cap, so a chunk's whole frame has a four-fold margin under
+    /// it. At the control channel's capped rate a chunk is about 60 ms of wire time, which bounds
+    /// what an interleaved control message can wait for.
     public static let maxPayload = 16 * 1024
 
     /// The most payload one chunk may carry when the payload is travelling a datagram.
     ///
-    /// A sixteenth of the control channel's chunk, and for a completely different reason. A
-    /// control message is bounded by how long the rest of the channel may wait behind it; a
-    /// datagram is bounded by the path's MTU, because a datagram larger than that is
-    /// fragmented and a picture loses everything to any one fragment being dropped. At this
-    /// size a sealed datagram is around 1080 bytes including its header, its counter, its tag
-    /// and the relay's token, which fits inside the 1280 bytes IPv6 guarantees.
+    /// A datagram is bounded by the path's MTU, because a larger one is fragmented and a picture
+    /// loses everything to any one fragment being dropped. At this size a sealed datagram is around
+    /// 1080 bytes with its header, counter, tag and the relay's token, inside IPv6's 1280.
     ///
-    /// The reassembler's own ceiling stays at ``maxPayload``: it has to accept chunks from
-    /// both lanes, and the smaller of the two belongs to the sender rather than to it.
+    /// The reassembler's ceiling stays at ``maxPayload``: it accepts chunks from both lanes.
     public static let maxDatagramPayload = 1024
 
-    /// The most that will be reassembled for one frame, and a memory guard rather than a
-    /// protocol limit.
+    /// The most that will be reassembled for one frame, a memory guard rather than a protocol
+    /// limit.
     ///
-    /// Deliberately far above any real picture: a 2 Mbps stream's keyframe is a few hundred
-    /// kilobytes, and a frame anywhere near this ceiling could not have been transmitted
-    /// inside the session's own timeouts. What it stops is a peer claiming 65535 chunks and
-    /// having them buffered.
+    /// Far above any real picture; what it stops is a peer claiming 65535 chunks and having them
+    /// buffered.
     public static let maxReassembledPayload = 4 * 1024 * 1024
 
     /// The kind of frame a chunk belongs to, or `nil` for a payload too short to hold one.
     ///
-    /// **The one thing a receiver needs before it can route a chunk**, because the two lanes that
-    /// use these frames share a connection: the picture's chunks and the clipboard's arrive as the
-    /// same kind and are told apart only by the byte inside. Asked before the reassembler, which
+    /// The two lanes that use these frames share a connection, so the picture's chunks and the
+    /// clipboard's are told apart only by the byte inside. Asked before the reassembler, which
     /// would otherwise spend a whole payload finding out.
     public static func innerKind(of frame: Frame) -> MessageKind? {
         let payload = frame.payload
@@ -140,9 +102,9 @@ public enum VideoChunk {
 public enum VideoChunkEncoder {
     /// The frames one video-channel payload becomes on the control channel.
     ///
-    /// A payload that already fits travels as itself, under its own kind, so the common case
-    /// — a delta frame, an audio frame, a stream config — costs nothing and stays readable in
-    /// a log. Only what would be too large for a control message is split.
+    /// A payload that already fits travels as itself, under its own kind, so a delta frame, an
+    /// audio frame or a stream config stays readable in a log. Only what would be too large for a
+    /// control message is split.
     public static func encode(
         kind: MessageKind,
         payload: Data,
@@ -153,8 +115,8 @@ public enum VideoChunkEncoder {
         guard payload.count > size else { return [Frame(kind: kind, payload: payload)] }
 
         let count = (payload.count + size - 1) / size
-        // A payload needing more chunks than the header can count is not a picture, and there
-        // is no degraded version of it worth sending. Dropping it is the honest outcome.
+        // A payload needing more chunks than the header can count is not a picture, and there is no
+        // degraded version of it worth sending.
         guard count <= Int(UInt16.max) else { return [] }
 
         var frames: [Frame] = []
@@ -177,16 +139,12 @@ public enum VideoChunkEncoder {
 
 /// Puts a chunked payload back together, and drops what it cannot.
 ///
-/// **Rebuilt around the fact that chunks are lost as a matter of course.** The control channel
-/// is TCP, so within one connection nothing is lost or reordered — but a session is not one
-/// connection, a chunk can be abandoned when the host tears a stream down mid-frame, and the
-/// client must never be left holding a half a picture waiting for a piece that is not coming.
+/// Chunks are lost as a matter of course: a session is not one connection, and a chunk can be
+/// abandoned when the host tears a stream down mid-frame, so the client must never be left holding
+/// half a picture waiting for a piece that is not coming.
 ///
-/// The rule that makes that safe is the frame identity: **a chunk belonging to a newer frame
-/// discards whatever was being assembled.** Video is droppable and the newest picture is the
-/// most useful one, so an incomplete older frame is not worth completing — which is also why
-/// nothing here waits for a retransmission that the sender was never going to make. A lost
-/// chunk costs one picture and never wedges the stream.
+/// The rule that makes that safe is the frame identity: a chunk belonging to a newer frame discards
+/// whatever was being assembled, so a lost chunk costs one picture and never wedges the stream.
 public struct VideoChunkReassembler {
     private var frameID: UInt32?
     private var innerKind: MessageKind?
@@ -196,15 +154,10 @@ public struct VideoChunkReassembler {
 
     /// The most that will be buffered for one frame.
     ///
-    /// A parameter rather than the constant, because the guard is really a question about *what is
-    /// being reassembled* and there are now two answers. For a picture the figure above is far
-    /// above anything a stream produces and exists only to stop a peer claiming 65535 chunks. For
-    /// a clipboard payload the largest legitimate thing is a photograph, which is megabytes rather
-    /// than kilobytes, and the same guard would refuse the case it exists to protect. See
-    /// ``ClipboardLimits``.
-    ///
-    /// The default is the video figure, so a caller that does not think about this gets exactly
-    /// what it got before.
+    /// A parameter rather than the constant because there are two answers: for a picture the video
+    /// figure exists only to stop a peer claiming 65535 chunks, while a clipboard payload's largest
+    /// legitimate thing is a photograph, in megabytes, which that guard would refuse. See
+    /// ``ClipboardLimits``. The default is the video figure.
     private let maxReassembled: Int
 
     public init(maxReassembled: Int = VideoChunk.maxReassembledPayload) {
@@ -212,9 +165,8 @@ public struct VideoChunkReassembler {
     }
 
     /// - Returns: the whole frame, once every chunk of it has arrived.
-    /// - Throws: ``VideoChunkError`` for a frame that is malformed rather than merely early.
-    ///   The caller drops it: video is droppable, and the next frame starts from a clean slate
-    ///   whether or not this one was understood.
+    /// - Throws: ``VideoChunkError`` for a frame that is malformed rather than merely early. The
+    ///   caller drops it: video is droppable and the next frame starts clean.
     public mutating func ingest(_ frame: Frame) throws -> Frame? {
         let payload = frame.payload
         guard payload.count >= VideoChunk.headerSize else {
@@ -280,15 +232,11 @@ public struct VideoChunkReassembler {
 
 /// When the client decides the video transport is not working, and when it decides it is again.
 ///
-/// Pure state and pure arithmetic over values the caller supplies, so the rules can be read,
-/// argued with and tested without a network — the same reasoning as ``VideoDropPolicy``. The
-/// object knows nothing about sockets; it is told when a picture arrived, when the control
-/// channel last answered, and where this session is, and it answers with a request to send or
-/// with silence.
+/// Pure state and pure arithmetic over values the caller supplies, so the rules can be read and
+/// tested without a network.
 ///
-/// **What it is not.** It is not a measure of the link. Nothing here times packets, measures
-/// throughput or counts losses: the question is only "is a picture arriving", which is the one
-/// question a user would ask and the only one answerable from the client's side.
+/// Not a measure of the link: nothing here times packets, measures throughput or counts losses. The
+/// question is only "is a picture arriving", the only one answerable from the client's side.
 public struct VideoFallbackPolicy: Sendable {
     public enum Decision: Sendable, Equatable, CaseIterable {
         /// Nothing to say. Either the picture is arriving, the control channel is not in a
@@ -302,24 +250,21 @@ public struct VideoFallbackPolicy: Sendable {
 
     /// How long a session may go without a picture before the transport is treated as broken.
     ///
-    /// Measured from the moment the session became ready, which is what makes the session's
-    /// first three seconds a probe. Nothing extra is sent to ask whether the path works: a
-    /// host that cannot get one picture through in three seconds of a ready session has
-    /// answered the question by not answering.
+    /// Measured from the moment the session became ready, so the first three seconds are a probe:
+    /// nothing extra is sent to ask whether the path works.
     public static let silenceBeforeFallback: TimeInterval = 3
 
     /// What "the control channel is healthy" means: it answered something within this long.
     ///
-    /// The client pings once a second, so a pong inside five seconds is four missed
-    /// round trips. The check exists because moving video onto a channel that is itself
-    /// failing would take the picture away from the one lane still working.
+    /// The client pings once a second, so a pong inside five seconds is four missed round trips.
+    /// Moving video onto a channel that is itself failing would take the picture off the one lane
+    /// still working.
     public static let controlHealthWindow: TimeInterval = 5
 
     /// How often the client re-asks while the condition that prompted the request persists.
     ///
-    /// Also the cooling-off period after a return to the preferred transport: a lane that has
-    /// just been given a second chance gets these seconds to prove itself before the client
-    /// asks to leave it again.
+    /// Also the cooling-off period after a return to the preferred transport, so a lane just given
+    /// a second chance gets these seconds to prove itself.
     public static let requestRepeatInterval: TimeInterval = 5
 
     /// How long the fallback must hold before the client will consider leaving it.
@@ -327,25 +272,21 @@ public struct VideoFallbackPolicy: Sendable {
 
     /// How many pictures must arrive on the preferred transport before it is believed again.
     ///
-    /// Two, not one, because the host probes that transport with keyframes while video is on
-    /// the control channel and a single datagram or write does get through on a path that is
-    /// otherwise losing everything. Two independent pictures is a lane that works.
+    /// Two, not one: the host probes that transport with keyframes while video is on the control
+    /// channel, and a single datagram does get through on a path otherwise losing everything.
     public static let primaryPicturesForReturn = 2
 
     /// What the control channel is allowed to carry while video is on it.
     ///
-    /// The `low` tier — `AutoQualityPolicy.Tier.low`, and the `Low` preset in the
-    /// stream-quality control — which is what makes a capped session read as a deliberately
-    /// reduced one rather than as a broken picture. The host applies it as a ceiling and the
-    /// client stops asking for more while it is in force.
+    /// The `low` tier: the host applies it as a ceiling and the client stops asking for more while
+    /// it is in force, which is what makes a capped session read as deliberately reduced rather
+    /// than broken.
     public static let controlChannelBitrateKbps = VideoQualityTier.low.rawValue
 
     /// What the picture goes back to when the client has never said what it wants.
     ///
-    /// The client sends its tier the moment a session is ready, so reaching this means the
-    /// command was lost rather than that nobody spoke. The top tier is the right answer for
-    /// the same reason the client's own policy starts there on a local network: a ceiling
-    /// that was only ever meant to be temporary must not quietly become the session's setting.
+    /// The client sends its tier the moment a session is ready, so reaching this means the command
+    /// was lost rather than that nobody spoke.
     public static let preferredTransportBitrateKbps = VideoQualityTier.high.rawValue
 
     /// Whether video is currently being taken off the preferred transport.
@@ -358,15 +299,12 @@ public struct VideoFallbackPolicy: Sendable {
     public init() {}
 
     /// - Parameters:
-    ///   - now: monotonic seconds. Not a wall clock: this measures intervals, and a device
-    ///     syncing its time mid-session must not be able to trip it.
-    ///   - lastPictureAt: when a picture last arrived, on *either* transport. `nil` until one
-    ///     has, and the caller sets it to the moment the session became ready so that the
-    ///     first few seconds are the probe described above.
+    ///   - now: monotonic seconds, not a wall clock: a device syncing its time must not trip it.
+    ///   - lastPictureAt: when a picture last arrived, on either transport. The caller sets it to
+    ///     the moment the session became ready, so the first few seconds are the probe above.
     ///   - lastControlReplyAt: when the control channel last answered. `nil` before it has.
-    ///   - applies: whether this session's video could be travelling a path that a network can
-    ///     block at all. False on the local network, where the picture missing is a different
-    ///     problem with a different answer.
+    ///   - applies: whether this session's video could travel a path a network can block at all.
+    ///     False on the local network, where a missing picture is a different problem.
     public mutating func advance(
         now: TimeInterval,
         lastPictureAt: TimeInterval?,
@@ -384,15 +322,12 @@ public struct VideoFallbackPolicy: Sendable {
                 return .usePrimaryTransport
             }
 
-            // A request is a request, and the host is entitled to decline it — a Mac producing
-            // nothing cannot tell a blocked path from a still screen either. A request that
-            // produced no picture at all is therefore repeated rather than assumed to have
-            // worked, which is also how a fallback the host was not ready for is picked up
-            // once it is.
+            // The host is entitled to decline a request: a Mac producing nothing cannot tell a
+            // blocked path from a still screen either. A request that produced no picture is
+            // therefore repeated rather than assumed to have worked.
             let askedAt = lastRequestAt ?? 0
-            // Nothing has arrived since the request itself, so the picture is no better for
-            // having asked. Anything that did arrive means the host is doing something with it,
-            // and the two conditions above get to decide what that was worth.
+            // Nothing has arrived since the request itself, so the picture is no better for having
+            // asked; anything that did arrive is for the conditions above to judge.
             let picturedSinceAsking = lastPictureAt.map { $0 > askedAt } ?? false
             if !picturedSinceAsking, now - askedAt >= Self.requestRepeatInterval {
                 lastRequestAt = now
@@ -402,9 +337,8 @@ public struct VideoFallbackPolicy: Sendable {
         }
 
         guard let lastPictureAt, now - lastPictureAt >= Self.silenceBeforeFallback else { return .none }
-        // The control channel has to be demonstrably alive: it is about to be asked to carry
-        // the session's whole picture, and a lane that is failing on its own would turn one
-        // broken direction into two.
+        // The control channel has to be demonstrably alive: it is about to carry the session's
+        // whole picture, and a lane failing on its own would turn one broken direction into two.
         guard let lastReply = lastControlReplyAt, now - lastReply <= Self.controlHealthWindow else {
             return .none
         }
@@ -417,18 +351,15 @@ public struct VideoFallbackPolicy: Sendable {
         return .useControlChannel
     }
 
-    /// One picture arrived on the transport the session prefers.
-    ///
-    /// Counted only while the fallback is in force: pictures arriving on the preferred
-    /// transport when video is already on it are not evidence of anything, they are the
-    /// ordinary case.
+    /// One picture arrived on the transport the session prefers, counted only while the fallback is
+    /// in force: pictures arriving on a transport video is already on are the ordinary case.
     public mutating func notePrimaryPicture() {
         guard isFallback else { return }
         primaryPictures += 1
     }
 
-    /// Forgets everything. A new session has no history, and evidence from the last one — a
-    /// count of pictures, a moment of silence — describes a link that no longer exists.
+    /// Forgets everything. A new session has no history, and evidence from the last one describes a
+    /// link that no longer exists.
     public mutating func reset() {
         isFallback = false
         lastRequestAt = nil

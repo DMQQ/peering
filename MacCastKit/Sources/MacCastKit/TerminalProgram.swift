@@ -2,18 +2,13 @@ import Foundation
 
 /// What a command the user typed is about to run, where that changes how the terminal should look.
 ///
-/// **A full-screen program is laid out for eighty columns, and on a phone held upright only the
-/// smallest type size holds all eighty.** So the size is set when such a program is asked for,
-/// rather than left to be found in a menu while the user is looking at a screen two-thirds of which
-/// they cannot read. What the app can see is what was typed through it: a program started from the
-/// Mac's own keyboard is not this end's business.
+/// A full-screen program lays itself out for eighty columns, and only the smallest type size holds
+/// all eighty on a phone held upright, so the size is set when one is asked for.
+///
+/// A program started from the Mac's own keyboard is not this end's business.
 public enum TerminalProgram {
-    /// The ones that draw a screen of their own rather than printing lines.
-    ///
-    /// A list rather than one special case, because the reason has nothing to do with any of them:
-    /// they all address a grid they expect to be a terminal's whole width. A shell command that
-    /// prints is not in it, because its output is read at a comfortable size and the size is the
-    /// user's to keep.
+    /// The ones that draw a screen of their own rather than printing lines: they all address a grid
+    /// they expect to be a terminal's whole width.
     private static let fullScreen: Set<String> = [
         "claude", "vim", "vi", "nvim", "view", "top", "htop", "btop", "less", "more", "man", "tmux",
         "screen", "emacs", "nano", "pico", "w3m", "lynx", "irssi", "weechat",
@@ -24,9 +19,8 @@ public enum TerminalProgram {
 
     /// Whether this command line starts something that lays itself out for a full terminal.
     ///
-    /// Only the program is looked at, and only the first one that is not a wrapper: `grep vim`
-    /// searches for the word, and `less vim.txt` is a pager either way, so what the words after it
-    /// say about it is not this question.
+    /// Only the first word that is not a wrapper is looked at: `grep vim` searches for the word
+    /// rather than starting vim.
     public static func prefersSmallText(_ command: String) -> Bool {
         for word in words(of: command) where !wrappers.contains(word) {
             return fullScreen.contains(word)

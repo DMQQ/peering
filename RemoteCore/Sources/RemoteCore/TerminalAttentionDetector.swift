@@ -2,9 +2,8 @@ import Foundation
 
 /// Recognises terminal output that has stopped for a person's answer.
 ///
-/// Terminal output is a byte stream: a prompt may be split across reads, and full-screen tools
-/// redraw the same prompt several times. The detector therefore keeps a short tail and emits one
-/// attention event until ``userDidRespond()`` says the person has typed an answer.
+/// A prompt may be split across reads and full-screen tools redraw it, so the detector keeps a short
+/// tail and emits one attention event until ``userDidRespond()`` says the person has answered.
 public struct TerminalAttentionDetector: Sendable {
     private static let maximumTailBytes = 4_096
 
@@ -37,8 +36,8 @@ public struct TerminalAttentionDetector: Sendable {
 
     /// Scans plain visible text for patterns that require the user's response.
     ///
-    /// Accepts text that has already been rendered (no ANSI codes), as returned by
-    /// the Accessibility API when reading a native terminal emulator's text area.
+    /// For text already rendered, with no ANSI codes, as the Accessibility API returns it for a
+    /// native terminal emulator's text area.
     public static func scan(_ text: String) -> TerminalAttentionKind? {
         detect(in: text)
     }
@@ -75,9 +74,8 @@ public struct TerminalAttentionDetector: Sendable {
             return .confirmation
         }
 
-        // Claude Code paints a multi-line chooser rather than ending in `[y/n]`. The `❯` marks
-        // the currently selected answer, so a question plus that marker and multiple numbered
-        // rows is an interaction rather than ordinary numbered command output.
+        // Claude Code paints a multi-line chooser rather than ending in `[y/n]`: a question plus a
+        // `❯`-marked row and another numbered row is an interaction, not ordinary command output.
         let lines = candidate.split(whereSeparator: \.isNewline)
         let hasQuestion = lines.contains { $0.contains("?") }
         let hasSelectedChoice = lines.contains {

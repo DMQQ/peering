@@ -2,195 +2,110 @@ import Foundation
 
 /// One thing the app does that not every plan includes, and the cheapest plan that includes it.
 ///
-/// **This is the map, and it is the only copy of it.** The paywall's cards, the "Everything
-/// included" list, the badges on its rows and the lock on every gated control all ask this type
-/// rather than restating it, because the four of them are one or two taps apart and a feature that
-/// is paid on one screen and free on the next is not a difference of opinion, it is the app
-/// contradicting itself on the way to a purchase. `PLANS-AND-FEATURES.md` and `Relay/site` state
-/// the same map in prose, and they are the two that cannot be compiled against it: a change here
-/// is a change owed to both of them in the same commit.
+/// This is the only copy of the map: the paywall's cards, the "Everything included" list, the
+/// badges on its rows and the lock on every gated control all ask this type rather than restating
+/// it. `PLANS-AND-FEATURES.md` and `Relay/site` state the same map in prose and cannot be compiled
+/// against it, so a change here is owed to both in the same commit.
 ///
-/// **Eleven rows, and everything else in the app is free.** Every display, app and window as a
-/// source, every Space of every screen as a picture, the clipboard itself, the pointer and the
-/// keyboard, observe
-/// mode, screenshots, privacy mode, widgets, the Live Activity, Siri and Shortcuts, the banners a
-/// session's own state puts up, session history, wake on LAN, saving SSH servers, one Mac at a
-/// time, one shell at a time, one source at a time and the whole file browser including editing,
-/// making, renaming, deleting and running what it lists. None of those are here, and none of them
-/// should be. A capability that is not on this list cannot be gated by accident, because the
-/// question a gate asks is this type and there is no case for it.
-///
-/// **SSH servers were a seventh and were removed.** The gate said the app was holding the user's own
-/// saved machines behind a subscription: a host they typed in themselves, kept in their keychain
-/// and named by them, drawn back to them with a padlock at the end of the row. What a plan buys in
-/// a terminal is the *concurrency*, not the capability, and the row that does that work is
-/// ``shellTabs`` on its own: free runs one shell at a time on a Mac and on a server alike, and the
-/// second one at the same time is what costs. Removing the case rather than moving it to `free` is
-/// deliberate: a capability the free plan includes is a capability some later edit can put a badge
-/// on again, and the absence of a case is the only version of "this is not for sale" that the
-/// compiler holds the app to.
+/// Everything not listed here is free on every plan, and a capability with no case cannot be gated
+/// by accident: the question a gate asks is this type.
 public enum PlanCapability: String, CaseIterable, Sendable {
     /// A second Mac, and every one after it. Free pairs with one.
     ///
-    /// The only capability here that is not a control or a surface: it is a limit on a list. It
-    /// costs the service nothing to serve, which is why it sits on the cheapest rung rather than
-    /// being sold back at each one. See the note on the Mac count in the app's `Tier`.
+    /// A limit on a list rather than a control or a surface.
     case extraMacs
 
     /// A second Mac held open at the same time as the first.
     ///
-    /// **A concurrency gate rather than a capability gate**, which is the same axis as ``shellTabs``
-    /// and the same argument that took SSH servers out of this map: nothing is hidden by it. The
-    /// first Mac is free on every plan, its picture, its shells, its files and its clipboard are all
-    /// free, and what a plan buys is the second one being *open at the same moment* rather than
-    /// reached by ending the first.
+    /// A concurrency gate rather than a capability gate, the same axis as ``shellTabs``: nothing is
+    /// hidden, and the first Mac with its picture, shells, files and clipboard is free on every
+    /// plan. Deliberately separate from ``extraMacs``, which limits how many Macs may be paired
+    /// rather than how many may be live.
     ///
-    /// It belongs beside ``extraMacs`` and is deliberately separate from it. That one is a limit on
-    /// a list — how many Macs may be paired — and this one is a limit on how many may be live. A
-    /// subscriber on Relay pairs every Mac they own and holds one at a time, which is what the card
-    /// for that rung says.
-    ///
-    /// It costs the service real money, more than anything else here: every session held open is a
-    /// control connection the relay goes on splicing whether or not the user is looking at it, and
-    /// the picture of the Mac that is on screen is joined by the sleep assertion, the keepalive and
-    /// the metering of each one behind it. That is what puts it on Pro rather than on the entry
-    /// rung, where a limit on pairing sits.
+    /// It costs the service real money, more than anything else here, which is what puts it on Pro
+    /// rather than on the entry rung.
     case concurrentSessions
     case macSound
     case pictureInPicture
     /// Moving a file between the phone and the machine, in either direction: taking one off it, and
-    /// sending one to it. One capability rather than two, because they are one gesture with the
-    /// arrow reversed and a plan that allowed one of them would be a plan nobody could describe.
+    /// sending one to it. One capability rather than two, because a plan that allowed only one
+    /// direction would be a plan nobody could describe.
     case fileTransfer
 
     /// The list of what was copied through the session, rather than the copying of it.
     ///
-    /// **The same line this app draws through macros**: what a plan buys is the shelf, not the
-    /// ability to use it. Pull, Copy and Push are on the rail on every plan and are free, because a
-    /// phone that cannot put text on the Mac is not a remote desktop; what Relay adds is the twelve
-    /// that came before, which is a thing somebody who works this way daily reaches for and
-    /// somebody who does it once does not miss. Gating the rail instead would be charging for the
-    /// clipboard, which is the argument that keeps the terminal keys free and puts the macro
-    /// *editor* behind Pro.
-    ///
-    /// It is here rather than beside the concurrency gates because nothing about it is a limit:
-    /// the history either exists or it does not, and a free user losing it loses a surface rather
-    /// than a ceiling.
+    /// The same line this app draws through macros: what a plan buys is the shelf, not the ability
+    /// to use it. Pull, Copy and Push are on the rail on every plan, and what Relay adds is the
+    /// history behind them; gating the rail would be charging for the clipboard.
     case clipboardHistory
 
     /// The Mac telling the phone that a terminal has stopped and is waiting for a person.
     ///
-    /// **One capability over two deliveries, because they are one message.** While a session is up
-    /// the banner is posted by the phone itself; when no session is up the Mac sends it over the
-    /// relay and APNs to the device token the phone handed it on the way in. Both are the same
-    /// sentence arriving by different roads, and a user who had the second without the first would
-    /// have no way to tell which half of it they had bought.
+    /// One capability over two deliveries, because they are one message: while a session is up the
+    /// banner is posted by the phone itself, and when no session is up the Mac sends it over the
+    /// relay and APNs to the device token the phone handed it on the way in.
     ///
-    /// **The terminal stays free; being reached for does not.** One shell, its picture, its keys
-    /// and the attention mark on its own tab are on every plan, which is the same arrangement
-    /// ``shellTabs`` is kept at. What a plan buys here is not the terminal but the *reaching* of
-    /// the user when they are somewhere else, and that is the only part of it the relay and APNs
-    /// are in the path of, and so the only part that costs the service anything.
-    ///
-    /// It sits on the entry rung rather than beside the tools because it is not a tool. Everything
-    /// above free that a user reaches for is a control; this one arrives on its own, and what it is
-    /// for is a phone in a pocket while a build finishes. That is the away-from-home case the entry
-    /// rung is sold as, and it is the one row on the map that only exists when nobody is looking.
+    /// The terminal stays free on every plan; what a plan buys is the reaching of the user, which is
+    /// the only part of it the relay and APNs are in the path of, and so the only part that costs
+    /// the service anything.
     case terminalAlerts
 
     case shellTabs
     /// Macros, the snippets above the terminal keyboard, and the quick commands in a shell.
     ///
-    /// One capability rather than three, because they are one idea at three sizes (a saved thing
-    /// you fire with a tap instead of typing it), and the card that sells them has always said them
-    /// in one line.
+    /// One capability rather than three, because they are one idea at three sizes: a saved thing you
+    /// fire with a tap instead of typing it.
     case macros
     /// How sharp the picture may get on a relayed session.
     ///
-    /// **The one gate in this map about how much rather than whether.** Every other capability here
-    /// is a control or a surface that exists or does not exist; this is the ceiling the rate is
-    /// allowed to climb to, and every plan still gets a picture, still adapts to the network, and
-    /// still reaches the top rate when the two devices are on the same network. What a plan decides
-    /// is how far it may climb when the bytes are being carried.
+    /// The one gate in this map about how much rather than whether. Every plan still gets a picture,
+    /// still adapts to the network, and still reaches the top rate when the two devices are on the
+    /// same network; what a plan decides is how far the rate may climb while the bytes are being
+    /// carried.
     ///
-    /// It costs the service real money in a way nothing else here does. A relayed stream at 20 Mbps
-    /// is five times the bandwidth of the same session held at 8, and it is the operator's link
-    /// either way, which is the whole argument for selling it rather than giving it away. It is
-    /// also the shape the field uses at the top of the ladder: Jump caps its free plan at 20 Mbps
-    /// against 60 for its enterprise tier, and Splashtop puts 4:4:4 and 240 fps in Performance.
-    ///
-    /// Deliberately not a ceiling on the direct path. Two devices on one network are not costing
-    /// anybody anything, so capping them would be charging for a picture the user is already
-    /// paying for with their own hardware, and it would degrade the one demonstration of this app
-    /// that most people see first.
+    /// Deliberately not a ceiling on the direct path, where capping would charge for a picture the
+    /// user is already paying for with their own hardware.
     case highBitrate
 
     /// Several of the Mac's windows drawn into one picture, arranged by the user.
     ///
-    /// **The only row here that costs the Mac rather than the service.** Every tile is a
-    /// ScreenCaptureKit stream of its own — the Mac captures each one, draws them into a single
-    /// canvas every frame and encodes the result — so what a plan buys is the *one* machine the
-    /// user is looking at being asked to work several times as hard. Nothing about it crosses
-    /// the relay that does not cross it for one source, which is why it is not sold beside the
-    /// bandwidth and the clock.
-    ///
-    /// **Pro, and by the same argument macros are.** This is the rung for the user who runs the
-    /// machine rather than looks at it: one source, one shell and one Mac at a time are all free
-    /// on every plan, and what the top rung sells is *more at once* — more Macs, more shells in a
-    /// window, more windows in a picture. It would be the weakest thing on the entry rung to sell
-    /// (a user who has never held two windows side by side is not looking for a third) and the
-    /// strongest reason to climb for the user who has.
+    /// The only row here that costs the Mac rather than the service: every tile is a
+    /// ScreenCaptureKit stream of its own, drawn into one canvas and encoded each frame, so the Mac
+    /// is asked to work several times as hard. Nothing about it crosses the relay that does not
+    /// cross it for one source.
     case mosaic
 
     /// The cheapest plan that includes this, which is the whole of the map.
     ///
-    /// A `RelayPlan` rather than a `StoreManager.Tier`, and deliberately: the tiers are what the
-    /// App Store sells, the plans are what the array of features is, and a fourth product that
-    /// resold the same plan would change the ladder without changing a single answer here.
+    /// A `RelayPlan` rather than a `StoreManager.Tier`: the tiers are what the App Store sells and
+    /// the plans are what the array of features is.
     public var minimumPlan: RelayPlan {
         switch self {
         case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory,
              .terminalAlerts:
             // The remote working set: away from your own network, with every Mac you own, its
-            // sound, its picture floating over another app, files that move both ways, and the
-            // Mac able to reach you when a shell stops for an answer. The entry rung used to
-            // differ from free mainly by a larger clock, which made it the hardest thing on the
-            // ladder to sell. See the note in `PLANS-AND-FEATURES.md` on why four of these moved
-            // down to it; ``terminalAlerts`` was never anywhere else, since a row about the user
-            // being away from the screen has nothing to offer a plan that is about the screen.
+            // sound, its picture floating over another app, files that move both ways, and the Mac
+            // able to reach you when a shell stops for an answer.
             return .relay
         case .shellTabs:
-            // The clock going away, and the concurrency with it. Terminals are the one row that
-            // goes against the direction of travel in the terminal category, where tabs are free
-            // at every competitor worth naming: the compromise is that one shell is free and only
-            // the second one costs, which reads as fair where hiding the terminal would read as
-            // stingy. This is the row that had to carry that on its own once SSH servers left the
-            // map, and it was always the half of the pair doing the arguing.
+            // The clock going away, and the concurrency with it: one shell is free and only the
+            // second one costs.
             return .plus
         case .concurrentSessions:
-            // The only row here that is about how many of something may be live at once, and the
-            // only one whose cost scales with the number rather than with the user. It is the
-            // second Mac that costs and the first that must not, which is why the gate is asked
-            // against an empty list as well as a paid plan.
+            // The second Mac costs and the first must not, which is why the gate is asked against
+            // an empty list as well as a paid plan.
             return .pro
         case .macros, .highBitrate, .mosaic:
-            // The toolbox. Macros are the only genuinely power-user controls in the app, and the
-            // rung somebody buys to have the tool rather than to run out of it. The picture's
-            // ceiling is here for a different reason and belongs beside them anyway: it is the one
-            // thing in the map that costs the service money every time it is used, so it is the one
-            // thing that has to be paid for by the people who use it most.
+            // The toolbox: the rung somebody buys to have the tool rather than to run out of it.
             return .pro
         }
     }
 
     /// The feature's own name, in the words the user will find on the screen they were using.
     ///
-    /// Written for a sentence rather than for a row: every gate that is refused says what it
-    /// refused by name, so the user reads "Sound from the Mac is part of Relay" rather than a
-    /// purchase screen that has appeared out of nowhere with nothing to connect it to the control
-    /// under their thumb. The wording follows the cards for the same reason the card and the row
-    /// follow each other: the badge saying one thing and the lock another is the drift this whole
-    /// arrangement exists to prevent.
+    /// Written for a sentence rather than for a row: every refused gate says what it refused by
+    /// name, so the user reads "Sound from the Mac is part of Relay" rather than a purchase screen
+    /// with nothing connecting it to the control under their thumb.
     public var name: String {
         switch self {
         case .extraMacs: return "Pairing another Mac"
@@ -210,24 +125,16 @@ public enum PlanCapability: String, CaseIterable, Sendable {
 
 /// What the user's plan includes, or the fact that the app does not know yet.
 ///
-/// **The third state is the point, and it is not a default.** The plan is read from StoreKit's
-/// `Transaction.currentEntitlements`, which is a local call and answers offline, but it is still
-/// an `await`, so for the first moments of every launch there is no answer, and code that treated
-/// "no answer" as "free" would lock a paying subscriber out of the app they paid for, on every
-/// launch, for a moment. That is not a hypothetical: it is what a `Bool` read from
-/// `activeTier != nil` does, and it is the flash the owner's rule is about.
+/// The third state is the point. The plan comes from StoreKit's `Transaction.currentEntitlements`,
+/// which answers offline but is still an `await`, so there are moments after every launch with no
+/// answer, and treating that as free would flash a lock at a paying subscriber.
 ///
-/// **So an unanswered plan locks nothing.** ``includes(_:)`` answers `true` while the state is
-/// ``unknown``, which is the safe direction rather than the generous one: the window is a single
-/// local StoreKit call, a free user who spent it tapping a paid control would have to beat the
-/// first frame, and the cost of being wrong the other way is a subscriber looking at a badge beside
-/// a feature they are paying for. What must never happen is the second one.
+/// So an unanswered plan locks nothing: ``includes(_:)`` answers `true` while the state is
+/// ``unknown``, because a subscriber looking at a badge beside a feature they pay for is the worse
+/// error.
 ///
-/// **Read the entitlement, never the price list.** `StoreManager.products` is a network fetch and
-/// can be empty on a plane, before App Store Connect has the products, or on the simulator without
-/// a StoreKit configuration. Nothing here may be derived from it: an entitlement is what has been
-/// paid for, a product is what is for sale, and the two are answered by different services at
-/// different speeds.
+/// Read the entitlement, never the price list: `StoreManager.products` is a network fetch and can
+/// be empty on a plane or before App Store Connect has the products.
 public enum PlanAccess: Sendable, Equatable {
     /// The App Store has not answered yet. Locks nothing; see the note above.
     case unknown
@@ -254,9 +161,9 @@ public enum PlanAccess: Sendable, Equatable {
 
     /// Whether the Sessions screen has a relay allowance to show.
     ///
-    /// Paid plans are unlimited, so a relay-time meter is not useful account information for
-    /// them. An unread entitlement is hidden too: treating that short loading state as free would
-    /// flash a free-plan limit at every subscriber while StoreKit answers.
+    /// Paid plans are unlimited, so a meter is not useful account information for them, and an
+    /// unread entitlement is hidden too: answering the other way would flash a free-plan limit at
+    /// every subscriber while StoreKit answers.
     public var showsRelayAllowance: Bool {
         self == .known(.free)
     }

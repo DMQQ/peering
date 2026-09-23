@@ -4,17 +4,13 @@ import RemoteCore
 
 /// Turning one decoded frame of the wire into a sample the renderer can be given.
 ///
-/// Here rather than on the renderer because the three attachments it sets are the whole of
-/// what decides whether the picture plays at all, and a renderer needs a display layer, a
-/// session and a Mac on the other end to exist. This needs none of them: its attachments are
-/// asserted in `MacCastPolicyTests`, without an app bundle.
+/// The three attachments it sets decide whether the picture plays at all, so they live here rather
+/// than on the renderer: `MacCastPolicyTests` asserts them without an app bundle.
 public enum VideoSampleBuffer {
     /// Wraps one AVCC payload in a `CMSampleBuffer` the renderer can decode.
     ///
-    /// `decodeTimeStamp = .invalid` is correct here and is not a shortcut: the host encodes
-    /// with `AllowFrameReordering = false`, so presentation order *is* decode order and there
-    /// is no second timestamp to supply. Declaring one would make the layer wait for a
-    /// reorder that never comes.
+    /// `decodeTimeStamp = .invalid` is correct: the host encodes with `AllowFrameReordering` false,
+    /// so presentation order is decode order and there is no second timestamp to supply.
     public static func make(
         _ frame: EncodedVideoFrame,
         format: CMVideoFormatDescription
@@ -22,9 +18,8 @@ public enum VideoSampleBuffer {
         let length = frame.data.count
         guard length > 0 else { return nil }
 
-        // A block buffer owning its own memory, then a copy in. The alternative — pointing at
-        // the frame's bytes — would need the `Data` to outlive the sample buffer, which it
-        // does not: the caller drops it the moment this returns.
+        // A block buffer owning its own memory, then a copy in: pointing at the frame's bytes would
+        // need the `Data` to outlive the sample buffer, and the caller drops it on return.
         var blockBuffer: CMBlockBuffer?
         guard CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
@@ -74,18 +69,15 @@ public enum VideoSampleBuffer {
         }
 
         // All three keys are sample-level attachments. AVSampleBufferVideoRenderer reads them
-        // from the sample attachment dict (CMSampleBufferGetSampleAttachmentsArray), not from
-        // the buffer-level bearer (CMSetAttachment/CMGetAttachment). Setting them at the wrong
-        // level is silently ignored.
+        // from CMSampleBufferGetSampleAttachmentsArray, not from the buffer-level bearer, and
+        // setting them at the wrong level is silently ignored.
         //
-        // DisplayImmediately: bypasses the timebase scheduler so frames render as they arrive
-        // rather than being held until their PTS. Without it the renderer buffers frames until
-        // its queue is full, isReadyForMoreMediaData stays false, and P-frames are all dropped.
+        // DisplayImmediately bypasses the timebase scheduler, so frames render as they arrive
+        // rather than being held until their PTS; without it the renderer buffers until its queue
+        // is full and P-frames are dropped.
         //
-        // NotSync / DependsOnOthers: tell the renderer which frames are independently
-        // decodable. Without them every P-frame looks like a sync sample; the renderer tries
-        // to present each one independently, which fails, and only actual keyframes display —
-        // one every ~2 seconds.
+        // NotSync and DependsOnOthers say which frames are independently decodable; without them
+        // every P-frame looks like a sync sample and only keyframes display.
         if let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true),
            CFArrayGetCount(attachments) > 0,
            let rawDict = CFArrayGetValueAtIndex(attachments, 0) {

@@ -3,18 +3,13 @@ import RemoteCore
 
 /// What a picture is multiplied by on its way to the screen, over and above the user's zoom.
 ///
-/// **One number for two different asks, because both of them are the same ask.** Fill is the user
-/// saying the picture's edges should be the screen's; the chrome's margin is the app saying they
-/// should not be, because held sideways the rails are over them. Either way the answer is a
-/// scale, and every rectangle in this app — a tile, the cursor, the tap that resolves to a tile —
-/// is measured against the rectangle the pixels are actually drawn in.
+/// One number for two asks: the user's Fill, and the margin the chrome keeps when the rails are over
+/// the picture's edges. Every rectangle in this app, a tile, the cursor, the tap that resolves to a
+/// tile, is measured against the rectangle the pixels are actually drawn in.
 ///
-/// It is a value with a *size* rather than a number because the answer is not the same for every
-/// picture: Fill scales whatever is on screen to the screen, so the canvas of an arrangement and
-/// one of its windows have different fills. That distinction is the whole reason this type exists
-/// — a movement that aims at the fill of the picture it is *leaving* finishes somewhere the
-/// picture it is *arriving at* does not agree with, which is a zoom that overshoots and then
-/// corrects itself.
+/// A size rather than a number, because Fill scales whatever is on screen, so an arrangement's canvas
+/// and one of its windows fill differently, and a movement aimed at the wrong fill overshoots and
+/// then corrects itself.
 public struct PictureScale: Equatable, Sendable {
     /// Whether the user has asked for the picture to reach the screen's edges.
     public let scalesToFill: Bool
@@ -28,8 +23,7 @@ public struct PictureScale: Equatable, Sendable {
 
     /// The scale a picture of this shape is drawn at, at the user's own zoom of 1.
     ///
-    /// **A picture of no size is drawn at 1**, which is the answer for the first frames of a
-    /// session: nothing is on screen yet, so there is no rectangle to fill and no shape to keep.
+    /// A picture of no size is drawn at 1, which is the case for the first frames of a session.
     public func base(pixelSize: CGSize, in bounds: CGSize) -> CGFloat {
         guard pixelSize.width > 0, pixelSize.height > 0 else { return 1 }
         guard scalesToFill else { return 1 - inset * 2 }
@@ -41,9 +35,8 @@ public struct PictureScale: Equatable, Sendable {
 
     /// The same scale, about the middle of the screen, applied to a rectangle.
     ///
-    /// Kept here rather than written out at each caller because it is the second half of
-    /// ``base(pixelSize:in:)``: a rectangle scaled about a different point than the picture it
-    /// belongs to is a rectangle that does not move with it.
+    /// The second half of ``base(pixelSize:in:)``: a rectangle scaled about a different point than
+    /// the picture it belongs to does not move with it.
     public func scaled(_ rect: CGRect, in bounds: CGSize, by scale: CGFloat) -> CGRect {
         let centre = CGPoint(x: bounds.width / 2, y: bounds.height / 2)
         return CGRect(
@@ -57,47 +50,30 @@ public struct PictureScale: Equatable, Sendable {
 
 /// The movement between an arrangement and one of its windows, in both directions.
 ///
-/// **The picture moves, and nothing is drawn over it.** Every tile is a fraction of one picture —
-/// the canvas the Mac composited — so scaling that picture until the tile's window is the screen
-/// *is* the window growing to fill it, with the other tiles leaving the edges on their own. The
-/// alternative was a black scrim with a hole in it, which could not work: the hole was a `Path`,
-/// a `Path` has no animatable data, and even animated the window inside the tile was not the
-/// thing growing.
+/// The picture moves, and nothing is drawn over it: every tile is a fraction of the one canvas the
+/// Mac composited, so scaling that picture until the tile's window is the screen is the window
+/// growing to fill it, with the other tiles leaving the edges on their own.
 ///
-/// **The movement is aimed at where the window will already be.** The Mac takes a moment to build
-/// the new stream, and until it arrives the last canvas frame is what is on screen — at the zoom
-/// that was asked for, which is what the user is looking at. So both ends of the movement are the
-/// *window's* rectangle: where it sits inside its tile now, and where it sits when it is the
-/// whole picture. The two have the same shape, so the movement between them is a straight scale
-/// about a point, and when the stream arrives the geometry does not change at all: the picture
-/// sharpens where it already is, and the reset that every source switch gets lands on the same
-/// rectangle the movement stopped at.
+/// Both ends of the movement are the window's own rectangle, where it sits inside its tile now and
+/// where it sits when it is the whole picture. The two have the same shape, so a straight scale takes
+/// one to the other, and when the stream arrives the picture sharpens where it already is and the
+/// reset that follows a source switch lands on the same rectangle the movement stopped at. Moving
+/// the tile instead would put the window somewhere it never is, since a window is letterboxed inside
+/// its tile; see ``MosaicTileFit/windowRect(sourceSize:in:)``.
 ///
-/// **A tile is not the thing being moved, and this is the correction that cost two attempts.** A
-/// window is letterboxed inside its tile, so moving *the tile* to the screen moves the window
-/// somewhere it will never be, and the picture jumps when the real stream arrives at the fit.
-/// See ``MosaicTileFit/windowRect(sourceSize:in:)`` for where the window actually is, which is
-/// the rectangle both of these functions measure from.
-///
-/// `nil` is always "there is nothing to move between" — no arrangement, no such tile, no size for
-/// the source, a screen of no size — and every caller answers it the same way: the switch still
-/// happens, and only the movement is skipped.
+/// `nil` is "there is nothing to move between", and every caller answers it the same way: the switch
+/// still happens and only the movement is skipped.
 public enum MosaicZoom {
     /// The zoom and the pan that turn one tile of the arrangement into that window on its own.
     ///
-    /// **The division at the end is this file's, and it is the whole of what was wrong with the
-    /// movement.** The picture is drawn at ``PictureScale/base(pixelSize:in:)`` times the number
-    /// stored in `zoom`, and the two pictures have different base scales in Fill — so a target
-    /// expressed as a *drawn* scale has to be turned back into a stored one against the base that
-    /// is on screen **now**, while the rectangle it aims at has to be built from the base the
-    /// incoming picture will be drawn at. Aiming at the outgoing base instead is a movement that
-    /// ends a fill-factor away from where the picture lands: at Fill the canvas's fill is 2.3 and
-    /// its window's is 3.3, so the window is drawn a third too small for the whole of the
-    /// movement and then has to grow again when the stream arrives.
+    /// The picture is drawn at ``PictureScale/base(pixelSize:in:)`` times the number stored in
+    /// `zoom`, and the two pictures have different base scales in Fill, so the target is turned back
+    /// into a stored zoom against the base on screen now, while the rectangle it aims at is built
+    /// from the base the incoming picture will be drawn at. Aiming at the outgoing base lands the
+    /// movement a fill-factor away from where the picture lands.
     ///
-    /// `effectiveZoom` and `pan` are the state on screen, which is the user's zoom *times* that
-    /// base — see ``PictureScale`` — because the mapping is applied to what the picture is
-    /// actually drawn at.
+    /// `effectiveZoom` and `pan` are the state on screen, the user's zoom times that base (see
+    /// ``PictureScale``), because the mapping is applied to what the picture is drawn at.
     public static func opening(
         layout: MosaicLayout,
         index: Int,
@@ -109,21 +85,18 @@ public enum MosaicZoom {
     ) -> (zoom: CGFloat, pan: CGSize)? {
         guard bounds.width > 0, bounds.height > 0,
               layout.tiles.indices.contains(index),
-              // **No size, no movement.** A source the catalogue cannot describe is a tile with a
-              // card in it or a window that has gone, and there is no rectangle inside it to aim
-              // at. Guessed at — which is what asking `videoRect` for a size of `nil` does — the
-              // destination becomes the *whole screen*, so the picture zooms until the tile
-              // covers it and the reset then pulls it back: the largest version of exactly the
-              // overshoot this function exists to avoid.
+              // No size, no movement. A source the catalogue cannot describe has no rectangle
+              // inside it to aim at, and guessing, which is what asking `videoRect` for a size of
+              // `nil` does, makes the destination the whole screen and the picture zooms until the
+              // tile covers it: the overshoot this function exists to avoid.
               let sourceSize, sourceSize.width > 0, sourceSize.height > 0,
               effectiveZoom > 0
         else { return nil }
 
         let pictureSize = layout.canvas
-        // Where the tile is on screen now, and where the window inside it is. Both through the
-        // arrangement's own canvas rather than through whatever is on screen: the tile borders,
-        // the tap that opened this and the movement are one rectangle, and it is a rectangle of
-        // the arrangement.
+        // Where the tile is on screen now, and where the window inside it is, both measured through
+        // the arrangement's own canvas: the tile borders, the tap that opened this and the movement
+        // are one rectangle, and it is a rectangle of the arrangement.
         guard let tile = CanvasGeometry.rect(
             normalized: layout.tiles[index].rect,
             bounds: bounds, pixelSize: pictureSize,
@@ -131,8 +104,8 @@ public enum MosaicZoom {
         ), let window = MosaicTileFit.windowRect(sourceSize: sourceSize, in: tile)
         else { return nil }
 
-        // Where the window will sit when it is the picture, in the state the reset after the
-        // switch puts the view in: its own fit on this screen, at the *incoming* stream's base.
+        // Where the window will sit when it is the picture, in the state the reset after the switch
+        // puts the view in: its own fit on this screen, at the incoming stream's base.
         let incoming = scale.base(pixelSize: sourceSize, in: bounds)
         let destination = scale.scaled(
             CanvasGeometry.videoRect(bounds: bounds, pixelSize: sourceSize),
@@ -151,24 +124,15 @@ public enum MosaicZoom {
         return (target.zoom / current, target.pan)
     }
 
-    /// The zoom and the pan that draw a rectangle *of* a picture on a given rectangle of the screen.
+    /// The zoom and the pan that draw a rectangle of a picture on a given rectangle of the screen.
     ///
-    /// **What makes a picture that arrives in the middle of a movement continuous.** A movement is
-    /// a journey between two rectangles of one window, and it can be overtaken: the Mac builds the
-    /// new stream in less time than the movement takes, so the picture changes part-way through.
-    /// Read through the state the movement has reached, a stream that is now the *whole* picture is
-    /// drawn at the arrangement's zoom — two or three times too big, in the middle of a gesture
-    /// whose point was to end at the fit. Corrected by a second movement, that is "it zooms in and
-    /// then zooms out to fit the window".
+    /// What makes a picture that arrives mid-movement look continuous: a stream the Mac builds faster
+    /// than the movement takes would otherwise be drawn at the arrangement's zoom, two or three times
+    /// too big. Instead the part the movement has been carrying is put where that part is on screen
+    /// at this instant, so the switch is only the pixels changing.
     ///
-    /// The answer is to say where the arriving picture goes rather than to let the old state say
-    /// it: the part of it that the movement has been carrying — all of a window opened from a tile,
-    /// the tile's window when an arrangement is coming back — is put exactly where that part is on
-    /// screen at this instant. The switch is then only the pixels changing, and the movement that
-    /// follows has the rest of its journey to finish.
-    ///
-    /// `anchor` is that part, as a fraction of `pixelSize`. It is the whole picture for a window
-    /// arriving on its own, and a fraction of it for a window arriving inside an arrangement.
+    /// `anchor` is that part, as a fraction of `pixelSize`: the whole picture for a window arriving
+    /// on its own, and a tile's rect for one arriving inside an arrangement.
     public static func placing(
         pixelSize: CGSize,
         anchor: NormalizedRect,
@@ -192,13 +156,10 @@ public enum MosaicZoom {
         // Where that piece of the picture is when the picture is at rest, and then the transform
         // that moves it onto the rectangle it has to occupy now.
         //
-        // **The base is already in the resting rectangle, and the answer is not divided by it.**
-        // The starting state handed to `transform` is zoom 1 and no pan, which is the picture at
-        // its own base — so what comes back is a multiple of that base, which is exactly what the
-        // caller stores. Dividing it by the base as well is the same mistake twice, and it is
-        // invisible until the base is not 1: portrait draws the picture at 1, so the division did
-        // nothing, and a phone held sideways carries the chrome's margin at 0.75, where a window
-        // opened from a tile landed a quarter too large and then shrank into place.
+        // The resting rectangle is built at the picture's own base, so what comes back from
+        // `transform` is already a multiple of that base, which is what the caller stores. Dividing
+        // by the base as well is the same mistake twice: invisible at portrait's base of 1, and a
+        // window a quarter too large under the chrome's 0.75 margin when held sideways.
         let drawn = scale.scaled(resting, in: bounds, by: base)
         guard let placed = CanvasGeometry.transform(
             of: drawn, mappingTo: target,
@@ -211,24 +172,16 @@ public enum MosaicZoom {
 
     /// The same movement backwards: the window shrinking into the tile it will hold.
     ///
-    /// **The way out of an arrangement is the way in, through the same pair of rectangles.** A
-    /// movement that describes what a tap did and then nothing on the way back would be the app
-    /// having two different ideas of what the two states are.
+    /// The way out is the way in, through the same pair of rectangles. The arrangement it aims at is
+    /// the one being asked for rather than the one on screen, and the state it aims at is the one
+    /// the Mac's answer will put the view in, so the movement ends exactly where the reset lands and
+    /// the canvas appears around the window with nothing moving at all.
     ///
-    /// The arrangement it aims at is the one being *asked for* rather than the one on screen —
-    /// the picture is a single window, and what is coming is the canvas built around it — and the
-    /// state it aims at is the one the Mac's answer will put the view in, which is what
-    /// ``PictureScale/inset`` and ``PictureScale/scalesToFill`` describe for the canvas. That is
-    /// the trick of the whole thing: the movement ends exactly where the reset lands, so the
-    /// canvas appears around the window with nothing moving at all.
-    ///
-    /// `nil` when the window on screen is not one of the arrangement's tiles — a source chosen
-    /// after the mosaic was left, which is a session with no arrangement to go back to. See
-    /// ``MacSession/canReturnToMosaic``.
-    /// `sourceID` is ``CaptureSource/stableID`` rather than the source itself: it is what a
-    /// session keeps as "what is on screen" — see ``SessionModel/activeSourceID`` — and the whole
-    /// question here is whether the picture belongs to this arrangement or was chosen after
-    /// leaving it.
+    /// `nil` when the window on screen is not one of the arrangement's tiles, which is a session with
+    /// no arrangement to go back to; see ``MacSession/canReturnToMosaic``. `sourceID` is
+    /// ``CaptureSource/stableID`` rather than the source, the thing a session keeps as "what is on
+    /// screen", because the question is whether the picture belongs to this arrangement or was
+    /// chosen after leaving it.
     public static func returning(
         layout: MosaicLayout,
         sourceID: String,
@@ -270,7 +223,7 @@ public enum MosaicZoom {
             bounds: bounds, zoom: effectiveZoom, pan: pan
         ) else { return nil }
 
-        // Against the base the *window* is drawn at, which is the picture being left behind.
+        // Against the base the window is drawn at, which is the picture being left behind.
         let outgoing = scale.base(pixelSize: sourceSize, in: bounds)
         guard outgoing > 0 else { return nil }
         return (target.zoom / outgoing, target.pan)

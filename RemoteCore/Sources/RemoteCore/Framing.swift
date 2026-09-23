@@ -14,11 +14,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     // Pairing
     case pairConfirm = 0x04
     case pairResult = 0x05
-    /// Hash commitment to an ephemeral public key, sent *before* any reveal.
-    ///
-    /// The order is the security property: see ``PairingSAS``. Without it an active
-    /// attacker can grind a keypair until its own contribution produces the digits the
-    /// real host is about to display, and the two screens agree by construction.
+    /// Hash commitment to an ephemeral public key, sent *before* any reveal: the order is the security
+    /// property, since without it an attacker can grind a keypair until it produces the digits the
+    /// host is about to display. See ``PairingSAS``.
     case pairCommit = 0x0E
     case pairReveal = 0x0F
 
@@ -34,14 +32,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     case videoConfig = 0x09
     case videoFrame = 0x0A
 
-    /// A standing condition on the host that the client should say out loud.
-    ///
-    /// Distinct from ``error``, which ends the session. This is the middle case the protocol
-    /// did not have: nothing is broken — the control channel is fine, the video channel is
-    /// fine — but what the phone is looking at is not what it thinks. A sleeping display is
-    /// the case this exists for: the stream is healthy, the frames are arriving, and they are
-    /// all black, which from the phone is indistinguishable from a broken camera.
-    ///
+    /// A standing condition on the host that the client should say out loud, distinct from ``error``,
+    /// which ends the session: nothing is broken, but what the phone is looking at is not what it
+    /// thinks. A sleeping display is the case this exists for, healthy frames arriving all black.
     /// Carries `nil` to clear.
     case notice = 0x10
 
@@ -49,10 +42,8 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// or pushed proactively when it changes. Carries a ``ClipboardPayload``.
     case clipboardContent = 0x11
 
-    /// Configuration for the audio stream that follows on the video connection.
-    ///
-    /// Sent once per stream start, ahead of the first ``audioFrame``. JSON-encoded
-    /// ``AudioStreamConfig``, matching the convention used for ``videoConfig``.
+    /// Configuration for the audio stream that follows on the video connection, sent once per stream
+    /// start, ahead of the first ``audioFrame``. JSON-encoded ``AudioStreamConfig``.
     case audioConfig = 0x13
 
     /// One chunk of raw PCM audio. Fixed binary header + interleaved Float32 samples.
@@ -67,43 +58,34 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
 
     /// One piece of a video payload travelling the control channel. See ``VideoChunk``.
     ///
-    /// A fallback rather than a second stream: the bytes inside are the same bytes
-    /// ``videoFrame`` carries, cut into pieces a control message can hold. A network that
-    /// blocks the video transport leaves the session up and the picture missing, and this is
-    /// what the picture arrives as instead.
+    /// A fallback rather than a second stream: the same bytes ``videoFrame`` carries, cut into pieces
+    /// a control message can hold, for a network that blocks the video transport.
     case videoChunk = 0x17
 
-    /// An authenticated client asking the host to move video between the transport it prefers
-    /// and the control channel. Carries a ``VideoTransportRequest``.
-    ///
-    /// It exists because the host cannot tell a datagram that arrived from one that was
-    /// dropped at the first router, while the client can see that nothing is arriving at all.
-    /// The end with the evidence is the end that speaks.
+    /// An authenticated client asking the host to move video between the transport it prefers and the
+    /// control channel. Carries a ``VideoTransportRequest``. The host cannot tell a datagram that
+    /// arrived from one dropped at the first router, while the client sees nothing arriving, so the
+    /// end with the evidence is the end that speaks.
     case videoTransport = 0x18
 
     /// An authenticated client asking the Mac for the secret that seals video datagrams.
     ///
-    /// Carries nothing: the question is "may this session send video over the relay's
-    /// datagram path", and everything needed to answer it is already known to both ends. A
-    /// client asks only on a relayed session — a direct one has its own video connection and
-    /// nothing to gain — and the Mac answers only when it is serving the client that asked.
+    /// Carries nothing: the question is "may this session send video over the relay's datagram path",
+    /// and everything needed to answer it is known to both ends. A client asks only on a relayed
+    /// session, and the Mac answers only for the client that asked.
     case videoKeyRequest = 0x19
 
     /// The Mac's answer to a ``videoKeyRequest``: the session's video secret. Carries a
     /// ``VideoKeyGrant``.
     ///
-    /// It travels inside the control channel's TLS session, which is authenticated at both
-    /// ends by the pairing, so nothing further is needed to protect it — and the relay, which
-    /// terminates neither end of that connection, never sees it. What the relay forwards
-    /// afterwards is ciphertext it has no key for.
+    /// It travels inside the control channel's TLS session, authenticated at both ends by the pairing,
+    /// so the relay, which terminates neither end, only ever forwards ciphertext it has no key for.
     case videoKey = 0x1A
     /// A sealed datagram sent only to see whether a direct path between the two ends is open.
     ///
-    /// Carries nothing and the receiver does nothing with it beyond opening it. The opening *is* the
-    /// point: it proves the datagram came from the peer and not from anyone who can write a source
-    /// address into a packet, which is the one thing the relay's introduction cannot vouch for. The
-    /// address a probe arrives *from* is then trusted to send the picture to — so the cost of a
-    /// forged probe is not the picture, it is that the real one never opens.
+    /// Carries nothing, and opening it is the point: it proves the datagram came from the peer, not
+    /// from anyone who can write a source address into a packet, which is what the relay's
+    /// introduction cannot vouch for. The address it arrives from is then trusted to send the picture.
     case directProbe = 0x1B
 }
 
@@ -119,11 +101,9 @@ public enum FramingError: Error, LocalizedError, Equatable, Sendable {
 
     /// A sentence for the user, since this reaches one.
     ///
-    /// A framing failure is a protocol fault rather than a network one: the bytes arrived, and they
-    /// did not make sense. It is not something the user did or can undo, so none of these tells them
-    /// to try again — each says what the two ends disagreed about and leaves it there. The numbers
-    /// are kept where they are the whole point of the sentence, and left out of
-    /// ``unknownKind`` where the user has no use for a byte.
+    /// A framing failure is a protocol fault rather than a network one: the bytes arrived and did not
+    /// make sense, so none of these tells the user to try again. The numbers are kept where they are
+    /// the point of the sentence.
     public var errorDescription: String? {
         switch self {
         case .frameTooLarge(let declared):
@@ -156,11 +136,8 @@ public struct Frame: Equatable, Sendable {
 /// └──────────────┴─────────┴─────────────────────┘
 /// ```
 ///
-/// `length` counts the kind byte plus the payload.
-///
-/// Feed it whatever bytes the transport hands over — it makes no assumptions about
-/// message boundaries, which is the whole point. TCP delivers an arbitrary byte window,
-/// so frames arrive split, coalesced, or several at a time.
+/// `length` counts the kind byte plus the payload. Feed it whatever bytes the transport hands over:
+/// TCP delivers an arbitrary byte window, so frames arrive split, coalesced, or several at a time.
 public struct FrameDecoder {
     /// Hard ceiling on a single frame. Enforced on the *declared* length before buffering,
     /// so a corrupt or hostile header is rejected instead of allocating gigabytes.
@@ -179,10 +156,8 @@ public struct FrameDecoder {
         buffer.append(contentsOf: data)
     }
 
-    /// Returns the next complete frame, or `nil` if more bytes are needed.
-    ///
-    /// Call repeatedly until it returns `nil` — a single read may deliver several frames.
-    /// Throws only on genuinely malformed input, after which the stream is unusable.
+    /// Returns the next complete frame, or `nil` if more bytes are needed. Call repeatedly until it
+    /// returns `nil`. Throws only on genuinely malformed input, after which the stream is unusable.
     public mutating func next() throws -> Frame? {
         guard bufferedByteCount >= 4 else {
             compactIfWorthwhile()
@@ -216,8 +191,8 @@ public struct FrameDecoder {
         return Frame(kind: kind, payload: payload)
     }
 
-    /// Drop the consumed prefix once it is a meaningful share of the buffer, so a
-    /// long-lived decoder neither grows without bound nor compacts on every frame.
+    /// Drop the consumed prefix once it is a meaningful share of the buffer: a long-lived decoder
+    /// then neither grows without bound nor compacts on every frame.
     private mutating func compactIfWorthwhile() {
         guard readIndex > 0 else { return }
         if readIndex == buffer.count {
@@ -248,10 +223,8 @@ public enum FrameEncoder {
     }
 }
 
-/// Which stream a connection carries.
-///
-/// Control and video ride separate TCP connections so a 200 KB keyframe cannot sit in
-/// front of the next mouse move. Control latency is what the user feels.
+/// Which stream a connection carries. Control and video ride separate TCP connections so a 200 KB
+/// keyframe cannot sit in front of the next mouse move: control latency is what the user feels.
 public enum ConnectionRole: UInt8, Codable, Sendable {
     case control = 1
     case video = 2

@@ -2,25 +2,13 @@ import Foundation
 
 /// The plan the app is on, and the ladder the plans are ordered on.
 ///
-/// **Here rather than in the app target, because the ladder is what the feature map is keyed on.**
-/// The map itself is ``PlanCapability``, and a map whose keys live in a package while its ladder
-/// lives in a view would be two orderings of the same four rungs, kept in step by hand. This file
-/// and that one are the whole of the ladder: the app's `StoreManager` reads its plan from the App
-/// Store and hands it over, and nothing else decides what a plan is called or what it sits above.
+/// The ladder is what the feature map, ``PlanCapability``, is keyed on. What the relay meters by is
+/// the JWS StoreKit signed for the live transaction, verified against Apple's published root.
 ///
-/// **What the plan is a claim about.** What the relay meters by is the JWS StoreKit signed for the
-/// live transaction, which the relay verifies against Apple's published root and which names the
-/// product, so a modified app that says `plus` without one is metered by the plan it claims
-/// only for as long as the relay keeps believing claims at all. The relay's `storekit.rs` holds that
-/// reasoning and the condition for ending it; the short version is that reading an unproven `plus`
-/// as free on the day the verification shipped would have taken every existing subscriber down to
-/// the free allowance, which is why the claim still decides anything at all.
-///
-/// **The numbers are the relay's, repeated here.** `Relay/src/config.rs` holds the authority:
-/// one hour free per rolling 24-hour window (`PEERINGD_FREE_MINUTES`), and no limit at all on any
-/// paid plan. This mirrors that so the bar in the Sessions tab can be drawn without asking the
-/// server, and the copy in the app's paywall, its introduction and `Relay/site` states the same
-/// facts again. Edit one without the others and the bar lies about the allowance it is drawing.
+/// The numbers are the relay's: `Relay/src/config.rs` holds the authority, one hour free per
+/// rolling 24-hour window (`PEERINGD_FREE_MINUTES`), no limit on any paid plan. This mirrors that
+/// so the Sessions tab's bar can be drawn without asking the server, and the paywall's copy and
+/// `Relay/site` state the same facts. Edit one without the others and the bar lies.
 public enum RelayPlan: String, CaseIterable, Sendable {
     case free
     case relay
@@ -29,10 +17,9 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
     /// Seconds of relay this plan allows in one window, or `nil` for no limit.
     ///
-    /// `nil` is the absence of a number rather than a very large one, which is the distinction the
-    /// relay makes too: an unlimited plan is not metered, so there is nothing to count and no bar
-    /// to draw. It is also why this is not an optional the caller has to guess the meaning of:
-    /// ``isUnlimited`` says which it is.
+    /// `nil` is the absence of a number rather than a very large one, the distinction the relay
+    /// makes too: an unlimited plan is not metered, so there is nothing to count. ``isUnlimited``
+    /// says which it is.
     public var allowanceSeconds: TimeInterval? {
         switch self {
         case .free: return 60 * 60
@@ -44,9 +31,8 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
     /// The allowance in the app's own words, for the copy that names it.
     ///
-    /// Here rather than typed into four screens: "one hour" written beside a number that says
-    /// 7,200 seconds is the drift this file exists to prevent, and a sentence assembled from this
-    /// cannot disagree with the bar.
+    /// Here rather than typed into four screens, where "one hour" drifts from the 7,200 seconds
+    /// beside it.
     public var allowanceSpelling: String {
         switch self {
         case .free: return "one hour"
@@ -56,9 +42,8 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
     /// The plan's own name, in the words the paywall's cards use.
     ///
-    /// `plus` is the wire name rather than a person's: the relay, the product identifiers and the
-    /// handshake all say `plus`, and the card says "Relay Plus". Both spellings are here so that a
-    /// lock promising what unlocks a feature says the word the user will find on the card.
+    /// `plus` is the wire name: the relay, the product identifiers and the handshake all say it,
+    /// while the card says "Relay Plus".
     public var name: String {
         switch self {
         case .free: return "Free"
@@ -69,10 +54,7 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     }
 
     /// The plan's name for a badge, which is shorter than ``name`` because a capsule the size of a
-    /// toolbar glyph has room for four or five letters and no more.
-    ///
-    /// "Relay Plus" is two words and would arrive as a hyphenated smear at that size, so the badge
-    /// says PLUS and the paywall it opens says "Relay Plus" in full. The two are the same plan; only
+    /// toolbar glyph has room for four or five letters and no more. The two are the same plan; only
     /// the room differs.
     public var badge: String {
         switch self {
@@ -85,9 +67,8 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
     /// Whether this plan includes a feature, which is the one question every gate in the app asks.
     ///
-    /// Asked of a ``PlanAccess`` rather than of a plan directly, and that is the whole of how a
-    /// paying subscriber is kept out of a locked app on launch: see there for why the answer to
-    /// this question has a third state.
+    /// Asked of a ``PlanAccess`` rather than of a plan directly, so the answer has a third state.
+    /// See there.
     public func includes(_ capability: PlanCapability) -> Bool {
         self >= capability.minimumPlan
     }
@@ -95,10 +76,8 @@ public enum RelayPlan: String, CaseIterable, Sendable {
 
 /// The ladder, which is the order of `allCases` and nothing else.
 ///
-/// `allCases` order rather than a hand-written rank, because the app already reads the ladder this
-/// way in two places (the best of a set of live subscriptions is its last member, and the paywall
-/// draws its cards in this order), and a rank written as four integers is the copy that stops
-/// matching the day a rung is inserted rather than appended.
+/// `allCases` order rather than a hand-written rank, which is the copy that stops matching the day
+/// a rung is inserted rather than appended.
 extension RelayPlan: Comparable {
     public static func < (lhs: RelayPlan, rhs: RelayPlan) -> Bool {
         guard let left = allCases.firstIndex(of: lhs),

@@ -1,8 +1,7 @@
 /// One bounded recovery point for video startup and reconnection.
 ///
-/// Both ends need the same rule. The client holds a keyframe that beat the display layer and
-/// consumes it when the layer attaches. The host holds the last keyframe for a newly attached
-/// client because a completely still ScreenCaptureKit stream may produce no fresh frame at all.
+/// The client holds a keyframe that beat the display layer; the host holds the last keyframe for a
+/// newly attached client, because a still ScreenCaptureKit stream may produce no fresh frame.
 public struct DeferredVideoKeyframe: Sendable {
     private var frame: EncodedVideoFrame?
 

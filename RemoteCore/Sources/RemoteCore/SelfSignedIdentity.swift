@@ -3,29 +3,21 @@ import Security
 import SwiftASN1
 import X509
 
-/// A long-term TLS identity: a keychain-backed P-256 key with a self-signed certificate
-/// minted over it at launch. Used by both the host and the client.
+/// A long-term TLS identity: a keychain-backed P-256 key with a self-signed certificate minted over
+/// it at launch. Used by both the host and the client.
 ///
-/// The private key never leaves the keychain. `Certificate.PrivateKey(secKey)` signs
-/// through `SecKeyCreateSignature` rather than exporting the key material, so there is no
-/// window in which the private bytes exist in process memory — and the key is eligible for
+/// The private key never leaves the keychain: `Certificate.PrivateKey(secKey)` signs through
+/// `SecKeyCreateSignature` rather than exporting the key material, and the key is eligible for
 /// Secure Enclave backing.
 ///
-/// **The certificate is regenerated on every launch, on purpose.** Peers pin the public
-/// *key*, not the certificate, so a fresh serial number and validity window change nothing
-/// about the pin. Regenerating costs one ECDSA signature and removes an entire class of
-/// "my certificate expired and now nothing connects" failures. This is precisely the
-/// reason the design chose SPKI pinning over leaf-certificate pinning.
+/// The certificate is regenerated on every launch, on purpose: peers pin the public key, not the
+/// certificate, so a fresh serial number and validity window change nothing.
 ///
-/// `kSecAttrIsPermanent: true` is load-bearing, not tidiness: `SecIdentityCreate` requires
-/// a keychain-backed key and returns nil for an ephemeral one. That was the single
-/// genuinely unverified step in the plan, and the Phase 0a spike proved it works.
+/// `kSecAttrIsPermanent: true` is load-bearing: `SecIdentityCreate` returns nil for a key that is not
+/// keychain-backed.
 public final class SelfSignedIdentity: @unchecked Sendable {
-    /// Which side of the connection this identity represents.
-    ///
-    /// The two roles differ only in the keychain tag and the extended key usage — enough
-    /// that a machine running both (a Mac hosting and also acting as a client) keeps two
-    /// distinct keys rather than one that confuses the two.
+    /// Which side of the connection this identity represents: the two roles differ only in the
+    /// keychain tag and the extended key usage, so a machine running both keeps two distinct keys.
     public enum Role: Sendable {
         case server
         case client
@@ -52,9 +44,8 @@ public final class SelfSignedIdentity: @unchecked Sendable {
 
     /// Canonical public-key bytes: the 65-byte uncompressed P-256 point, `0x04 ‖ X ‖ Y`.
     ///
-    /// This is the pin value. It is byte-identical to what `SecKeyCopyExternalRepresentation`
-    /// returns for the same key, which is what lets either side verify a pin with no ASN.1
-    /// library at all.
+    /// This is the pin value, byte-identical to what `SecKeyCopyExternalRepresentation` returns, which
+    /// lets either side verify a pin with no ASN.1 library.
     public let publicKeyBytes: Data
 
     /// The subject common name, shown in the peer's device list.
@@ -102,14 +93,11 @@ public final class SelfSignedIdentity: @unchecked Sendable {
 
     /// Signs a message with this identity's private key: ECDSA over P-256 with SHA-256, DER.
     ///
-    /// **The key does not leave the keychain to do this.** `SecKeyCreateSignature` is handed the
-    /// bytes and returns only the signature, exactly as the certificate above is minted, so there
-    /// is no window in which the private material exists in this process's memory.
+    /// The key does not leave the keychain to do this, so the private material never exists in this
+    /// process's memory.
     ///
-    /// DER rather than the fixed 64-byte form, because that is what the algorithm identifier says
-    /// and what the relay's verifier expects. `.ecdsaSignatureMessageX962SHA256` is the one that
-    /// hashes the message itself; the `Digest` variant would want the caller to have hashed it
-    /// first, and two spellings of "sign this" is one more than a protocol needs.
+    /// DER rather than the fixed 64-byte form, because that is what the algorithm identifier says and
+    /// what the relay's verifier expects. `.ecdsaSignatureMessageX962SHA256` hashes the message.
     public func signature(for message: Data) throws -> Data {
         var key: SecKey?
         let status = SecIdentityCopyPrivateKey(secIdentity, &key)
@@ -129,14 +117,13 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         return signature as Data
     }
 
-    /// Loads the persistent key for `role`, generating it on first run, and mints a
-    /// fresh certificate over it.
+    /// Loads the persistent key for `role`, generating it on first run, and mints a fresh certificate
+    /// over it.
     ///
-    /// - Parameter keyTag: overrides the tag derived from `role`. Supply one to keep
-    ///   several independent identities on the same machine — a test client alongside the
-    ///   real one, or a profile that can be reset without disturbing the others. The tag is
-    ///   part of the keychain ACL, so reusing another identity's tag from a differently
-    ///   signed process is denied by the system rather than silently shared.
+    /// - Parameter keyTag: overrides the tag derived from `role`. Supply one to keep several
+    ///   independent identities on the same machine, a test client alongside the real one. The tag is
+    ///   part of the keychain ACL, so reusing another identity's tag from a differently signed process
+    ///   is denied by the system rather than silently shared.
     public static func loadOrCreate(
         role: Role,
         commonName: String,
@@ -188,15 +175,12 @@ public final class SelfSignedIdentity: @unchecked Sendable {
         )
     }
 
-    /// Destroys the key for `role`. Every peer that pinned it must re-pair, which is
-    /// exactly what "reset identity" should mean — hence it is a separate, explicit call.
+    /// Destroys the key for `role`. Every peer that pinned it must re-pair, which is what "reset
+    /// identity" should mean, hence a separate, explicit call.
     ///
-    /// Deleting is a loop, not a single call, and that is not defensive padding: a
-    /// permanent EC key is stored as *two* keychain items sharing one application tag, and
-    /// `SecItemDelete` removes one of them per call **while reporting success**. A single
-    /// call therefore leaves the private key in place, the next `loadOrCreate` finds it,
-    /// and "reset identity" silently keeps the identity it claimed to destroy. Verified
-    /// against the real keychain, not assumed.
+    /// Deleting is a loop, not a single call: a permanent EC key is stored as two keychain items
+    /// sharing one application tag, and `SecItemDelete` removes one per call while reporting success,
+    /// so a single call would leave the private key for the next `loadOrCreate` to find.
     public static func destroy(role: Role, keyTag: Data? = nil) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
@@ -211,18 +195,16 @@ public final class SelfSignedIdentity: @unchecked Sendable {
             guard status == errSecSuccess else { throw Failure.keychain(status) }
         }
 
-        // Items are still there after repeated deletes. Saying so beats reporting a reset
-        // that did not happen — the caller's next step depends on it having worked.
+        // Items are still there after repeated deletes. Saying so beats reporting a reset that did
+        // not happen, since the caller's next step depends on it having worked.
         throw Failure.identityNotRemoved
     }
 
     private static func loadOrCreateKey(tag: Data) throws -> SecKey {
-        // `kSecAttrKeyClassPrivate` is load-bearing. A permanent EC key is stored as two
-        // keychain items — the private key and its public half — sharing one application
-        // tag, and a query that matches only on class+tag may return either. Returning the
-        // public key looks like success here and then fails deep inside
-        // swift-certificates with "SecKey class must be 1, not 0", on the second launch
-        // only, because the first launch creates the key and never queries for it.
+        // `kSecAttrKeyClassPrivate` is load-bearing: a permanent EC key is stored as two keychain
+        // items sharing one application tag, and a query matching only on class+tag may return the
+        // public half. That looks like success here and then fails inside swift-certificates with
+        // "SecKey class must be 1, not 0", on the second launch only.
         let lookup: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: tag,
