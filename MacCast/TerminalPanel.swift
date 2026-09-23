@@ -678,10 +678,10 @@ struct TerminalPanel: View {
             // intrinsic height that SwiftUI will hold it to, so given `minHeight` this row grew to
             // whatever it was offered: the stack had surplus space, the scroll view above took
             // some of it and this took the rest, and the field's contents sat centred in a band
-            // 328 points tall — 37% of the screen — with black above and below. Measured on a
+            // 328 points tall, 37% of the screen, with black above and below. Measured on a
             // screenshot from the phone, which is the only reason it was ever diagnosed: it looks
             // like a gap in the layout, not like a text field that came out too big.
-            .frame(height: 30)
+            .frame(height: TerminalCommandField.height)
             Button { submit(to: terminal.id) } label: {
                 Image(systemName: "arrow.up.circle.fill").font(.title2)
             }
@@ -997,6 +997,9 @@ struct TerminalCommandField: UIViewRepresentable {
     let isEnabled: Bool
     let onSubmit: () -> Void
 
+    /// The row's height, in the one place both terminals read it from.
+    static let height: CGFloat = 30
+
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> UITextField {
@@ -1011,6 +1014,14 @@ struct TerminalCommandField: UIViewRepresentable {
         field.tintColor = .white
         field.clearButtonMode = .never
         return field
+    }
+
+    /// **The width it is handed, not the width its text wants.** A `UITextField` sizes itself to
+    /// its contents and SwiftUI takes that as this view's size, so a long command widened the field
+    /// and the whole row with it, pushing the send button off the screen instead of scrolling
+    /// inside a field of its own size. The nil case falls back to the field's own answer.
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width, height: Self.height)
     }
 
     func updateUIView(_ field: UITextField, context: Context) {

@@ -652,8 +652,8 @@ struct SSHTerminalScreen: View {
                 onSubmit: submit
             )
             // A `UITextField` has no intrinsic height, so the frame is here rather than inside the
-            // representable — the same 30 points ``TerminalPanel`` gives it.
-            .frame(height: 30)
+            // representable, and it is the representable's own number.
+            .frame(height: TerminalCommandField.height)
 
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
