@@ -360,7 +360,11 @@ struct PaywallView: View {
                     .font(DisplayFont.display(28))
                     .tracking(-1)
 
-                Text(reason.detail(for: store.relayPlan))
+                // **The plan the app states, not the plan it tells the relay.** `relayPlan` is free
+                // for anybody with no receipt, which is a developer plan override or the moment
+                // before StoreKit answers, so reading it here put free-plan copy under a screen whose own
+                // cards said Pro. See the note on the quota event in ``MacSession``.
+                Text(reason.detail(for: store.access.plan ?? .free))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -383,7 +387,7 @@ struct PaywallView: View {
     @ViewBuilder
     private var remainingMeter: some View {
         if case .runningLow(let remaining) = reason,
-           let allowance = store.relayPlan.allowanceSeconds,
+           let allowance = (store.access.plan ?? .free).allowanceSeconds,
            allowance > 0 {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {

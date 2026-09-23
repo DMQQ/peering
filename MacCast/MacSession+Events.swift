@@ -366,7 +366,13 @@ extension MacSession {
         case .terminal(let event):
             apply(terminal: event)
         case .relayQuotaExceeded:
-            if model.storeManager.relayPlan.isUnlimited {
+            // **Through ``StoreManager/access``, which is the answer every other screen states.**
+            // `relayPlan` is what this device tells the relay, and it is free for anybody with no
+            // receipt, which is a build running a developer plan override and the moment before
+            // StoreKit has answered. Read for copy, it contradicts every badge in the app: the sheet
+            // told a user whose plan card said Pro that their free relay time was up.
+            let plan = model.storeManager.access.plan
+            if plan?.isUnlimited != false {
                 // A plan the relay does not meter was refused, which means the relay read this
                 // device as free — an older relay that does not know the plan field, or a plan it
                 // does not recognise. Nothing this side can do about it, and the connection may
@@ -385,7 +391,7 @@ extension MacSession {
                 // screen's question is "which of these is worth it", and the only question this
                 // moment raises is "what just happened to the session I was using". Being sold to
                 // in the same breath as being told is how a wall turns into a con.
-                model.spentAllowance = model.storeManager.relayPlan
+                model.spentAllowance = plan ?? .free
                 model.relaySessionDropped = false
                 // **The cut is simultaneous, so the answer to it is too.** The relay reads the
                 // allowance live off one counter per client, so every session it is splicing sees
@@ -436,6 +442,10 @@ extension MacSession {
             // in `connect(to:)`. Flushing and reconfiguring here instead would put the reset
             // *after* a keyframe that arrived in the same read, and throw that keyframe away.
             // Only the labels belong on the main actor.
+            flickerTrace("""
+                config \(config.pixelWidth)x\(config.pixelHeight) \(config.codec.rawValue) \
+                src=\(activeSourceID ?? "nil")
+                """)
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
             isVideoStreaming = true
             // The one place the picture on screen can turn out to be a different picture. This is
