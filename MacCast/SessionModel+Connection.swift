@@ -135,6 +135,13 @@ extension SessionModel {
         if deliberate {
             for session in sessions {
                 if let hostID = session.hostID { MosaicArrangementStore.save([], hostID: hostID) }
+                session.mosaicViewportTask?.cancel()
+                session.mosaicViewportTask = nil
+                session.mosaicGapTask?.cancel()
+                session.mosaicGapTask = nil
+                session.mosaicChoices = []
+                session.isAskingForMosaic = false
+                session.pictureMosaicLayout = nil
             }
         }
         // A non-deliberate end is followed by the reconnect ladder, and the RemoteScreen is

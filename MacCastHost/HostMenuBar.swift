@@ -202,20 +202,6 @@ struct HostMenuBarContent: View {
         Text("CPU \(rates.map(HostResourceSampler.cpuPercent) ?? "…") of this Mac")
         Text("Memory \(model.resources.memoryBytes > 0 ? HostResourceSampler.memoryText(model.resources.memoryBytes) : "…") in use")
         Text("Network \(rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…") sent")
-        Text(resourceNote)
-    }
-
-    /// The sentence the card used to carry, cut to the one claim a menu line can hold.
-    ///
-    /// The full version — that the figures are this process's rather than the Mac's — is the whole
-    /// reason these numbers are worth reading at all: without it a CPU figure in a menu reads as
-    /// the machine's, which is a different number by an order of magnitude and the one every other
-    /// menu bar utility is showing.
-    private var resourceNote: String {
-        if let source = model.capturingSource, case .mosaic = source {
-            return "Measured in this app alone · a mosaic is its heaviest work"
-        }
-        return "Measured in this app alone, not in the Mac"
     }
 
     /// The lid switch, or the way to set it up, depending on whether the rule is already in place.

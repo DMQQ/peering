@@ -382,29 +382,23 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
         // hundred milliseconds per stream, and they used to be taken one after another.
         startTimer(plan)
 
-        // **Together rather than one at a time**, and that is the difference between a mosaic
-        // arriving in the time of one stream and in the time of six. They are independent by
-        // construction: a filter, a configuration and a queue each, and nothing shared.
-        await withTaskGroup(of: (index: Int, error: CaptureError?).self) { group in
-            for (index, tile) in plan.tiles.enumerated() {
-                group.addTask { [weak self] in
-                    guard self?.isCurrent(generation) == true else { return (index, nil) }
-                    do {
-                        try await engines[index].start(
-                            .stream(filter: tile.filter, configuration: tile.configuration)
-                        )
-                        return (index, nil)
-                    } catch {
-                        return (index, CaptureError.from(error))
-                    }
-                }
-            }
-
-            for await (index, error) in group {
-                guard let error else { continue }
+        // Start one at a time. ScreenCaptureKit accepts several live streams, but concurrent
+        // `startCapture()` calls can interrupt the capture service itself: one start is refused,
+        // then every stream that did start stops with `application connection being interrupted`.
+        // The timer is already running, so the first tile appears as soon as it is ready while the
+        // remaining tiles come up behind it; serialising only the setup calls does not hold the
+        // first usable mosaic back.
+        for (index, tile) in plan.tiles.enumerated() {
+            guard isCurrent(generation) else { break }
+            do {
+                try await engines[index].start(
+                    .stream(filter: tile.filter, configuration: tile.configuration)
+                )
+            } catch {
                 // A tile that will not start leaves its rectangle black and the rest of the mosaic
                 // running. It is counted as dead, so nothing waits for it.
-                mosaicLog.error("mosaic tile \(index, privacy: .public) did not start: \(String(describing: error), privacy: .public)")
+                let failure = CaptureError.from(error)
+                mosaicLog.error("mosaic tile \(index, privacy: .public) did not start: \(String(describing: failure), privacy: .public)")
                 if isCurrent(generation) { markDead(index) }
             }
         }

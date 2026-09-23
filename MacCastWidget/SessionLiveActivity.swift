@@ -82,92 +82,68 @@ private struct LockScreenSession: View {
     private var isActive: Bool { context.state.phase == .active }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol(for: context.state.phase))
-                .font(.title3)
-                .foregroundStyle(.white.opacity(isActive ? 1 : 0.5))
-                .frame(width: 26)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol(for: context.state.phase))
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(isActive ? 1 : 0.5))
+                    .frame(width: 28)
 
-            VStack(alignment: .leading, spacing: 2) {
                 Text(context.state.hostName ?? "Peering")
                     .font(.headline)
                     .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    Text(statusText(for: context.state.phase))
-                        .lineLimit(1)
+                Spacer(minLength: 8)
 
-                    // Which way the session is being carried. Beside the status rather than
-                    // beside the name: this qualifies *how* the connection is, and the two
-                    // belong in one glance. Absent before the handshake has decided, rather
-                    // than guessed at — an empty chip is worse than no chip.
-                    if let path = context.state.path {
-                        Text(path.rawValue)
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.75))
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
+                // Fixed width so the timer right-aligns to the card edge without
+                // reserving space for its maximum possible string length.
+                elapsed(context)
+                    .frame(width: 88, alignment: .trailing)
+            }
+
+            HStack(spacing: 6) {
+                Text(statusText(for: context.state.phase))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                if let path = context.state.path {
+                    Text(path.rawValue)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.white.opacity(0.14), in: Capsule())
+                }
+
+                Spacer(minLength: 8)
+
+                if context.state.phase == .dropped {
+                    Link(destination: Self.restoreURL) {
+                        Label("Restore", systemImage: "arrow.clockwise")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(.white.opacity(0.18), in: Capsule())
+                    }
+                } else {
+                    Link(destination: URL(string: "peering://disconnect")!) {
+                        Text("End")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
                             .background(.white.opacity(0.14), in: Capsule())
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
             }
-
-            // The timer belongs against the trailing edge, where every other Live Activity puts
-            // it. Beside the name it floats in the middle of the card and reads as a stray
-            // number rather than as the thing the card exists to show.
-            Spacer(minLength: 12)
-
-            if context.state.phase == .dropped {
-                // The one thing a dropped session can offer. A `Link` rather than a button with
-                // an intent: the app already routes `peering://connect` to its own reconnect,
-                // and opening the app is what someone tapping this wants anyway — they are
-                // asking to be looking at their Mac again.
-                Link(destination: Self.restoreURL) {
-                    Label("Restore", systemImage: "arrow.clockwise")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(.white.opacity(0.18), in: Capsule())
-                }
-            } else {
-                // Bounded, because a live timer cannot be measured: it renders "0:38" now and
-                // "12:34:56" an hour from now, so there is no content for the layout to size
-                // against and left to itself it reserves far more than either — taken out of
-                // the Mac's name, which is the one thing on the card that is about something.
-                //
-                // Not `fixedSize()`, which looks like the answer and is worse: it does not
-                // remove the reservation, it insists on it. The row then measures wider than
-                // the card and clips at both ends — the icon against the edge, the timer gone.
-                VStack(alignment: .trailing, spacing: 4) {
-                    elapsed(context)
-                        .frame(maxWidth: 92, alignment: .trailing)
-
-                    Link(destination: URL(string: "peering://disconnect")!) {
-                        Text("End")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.white.opacity(0.12), in: Capsule())
-                    }
-                }
-            }
+            .padding(.leading, 38)
         }
-        // Stated rather than left to the stack. An `HStack` with a `Spacer` fills what it is
-        // offered, which is not the same as asking for the card: without this the row sizes to
-        // its content and the timer sits wherever the name happens to end, well short of the
-        // trailing edge, with the rest of the card empty beside it.
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Asymmetric. The leading side wants a real margin — the glyph was touching the card's
-        // edge without one — while the trailing side wants as little as possible, because the
-        // system insets this content already and a second margin there reads as the timer
-        // having drifted away from the edge rather than as padding.
-        .padding(.leading, 14)
-        .padding(.trailing, 6)
-        .padding(.vertical, 14)
+        .padding(.leading, 16)
+        .padding(.trailing, 8)
+        .padding(.vertical, 20)
     }
 }
 

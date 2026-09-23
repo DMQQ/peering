@@ -57,7 +57,36 @@ struct HostPickerView: View {
         }
     }
 
+    @ViewBuilder
     private var compactNavigation: some View {
+        Group {
+            if #available(iOS 26.1, *) {
+                compactTabs
+                    .tabViewBottomAccessory(isEnabled: showsSessionAccessory) {
+                        sessionAccessory
+                    }
+            } else if #available(iOS 26, *) {
+                if showsSessionAccessory {
+                    compactTabs
+                        .tabViewBottomAccessory {
+                            sessionAccessory
+                        }
+                } else {
+                    compactTabs
+                }
+            } else {
+                // A bottom toolbar does not move with a minimizing tab bar. There is no native
+                // accessory before iOS 26, so older systems deliberately show no substitute.
+                compactTabs
+            }
+        }
+        .tint(ColorPalette.accent)
+        .preferredColorScheme(.dark)
+        .onChange(of: servers.wantsFocus, initial: true, focusServers)
+        .tabBarMinimizeOnScrollIfAvailable()
+    }
+
+    private var compactTabs: some View {
         TabView(selection: $screen) {
             ForEach(Screen.allCases) { item in
                 content(for: item)
@@ -71,80 +100,76 @@ struct HostPickerView: View {
                         item == .servers && servers.selectedTerminal != nil ? .hidden : .visible,
                         for: .tabBar
                     )
-                    // The session accessory: a bottom toolbar listing whatever Mac and SSH
-                    // sessions are running.
-                    //
-                    // **Built only when there is something to put in it.** Content added to a bar
-                    // wins over a `Visibility` asked for on the same bar, so asking for this one to
-                    // be hidden still drew an empty toolbar reserving its height and separator. No
-                    // item, no bar.
-                    .toolbar { sessionAccessory(for: item) }
                     .tabItem { Label(item.title, systemImage: item.symbol) }
                     .tag(item)
             }
         }
-        .tint(ColorPalette.accent)
-        .preferredColorScheme(.dark)
-        .onChange(of: servers.wantsFocus, initial: true, focusServers)
-        .tabBarMinimizeOnScrollIfAvailable()
     }
 
-    /// Whether a given tab has a session bar to carry at all. See the call site.
-    private func showsSessionAccessory(for item: Screen) -> Bool {
+    /// The accessory only exists when it has a session to carry and the tab bar itself is visible.
+    private var showsSessionAccessory: Bool {
         let hasSessions = !model.openSessions.isEmpty || !servers.openShells.isEmpty
-        let terminalIsUp = item == .servers && servers.selectedTerminal != nil
+        let terminalIsUp = screen == .servers && servers.selectedTerminal != nil
         return hasSessions && !terminalIsUp
     }
 
-    /// The scrollable row of session chips the bottom toolbar carries, where there is one.
-    @ToolbarContentBuilder
-    private func sessionAccessory(for item: Screen) -> some ToolbarContent {
-        if showsSessionAccessory(for: item) {
-            ToolbarItem(placement: .bottomBar) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(model.openSessions) { session in
-                            Button {
-                                model.activateSession(session.id)
-                            } label: {
-                                sessionChip(
-                                    dot: macDotFill(session),
-                                    name: macName(session)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Return to \(macName(session))")
-                        }
-                        ForEach(servers.openShells) { terminal in
-                            Button {
-                                servers.selectedTerminalID = terminal.id
-                                screen = .servers
-                            } label: {
-                                sessionChip(
-                                    dot: sshDotFill(terminal),
-                                    name: terminal.title
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Return to \(terminal.title)")
-                        }
+    /// The session controls carried by the native iOS 26 tab-view accessory.
+    private var sessionAccessory: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(model.openSessions) { session in
+                    Button {
+                        model.activateSession(session.id)
+                    } label: {
+                        sessionChip(
+                            dot: macDotFill(session),
+                            name: macName(session),
+                            symbol: "desktopcomputer"
+                        )
                     }
-                    .padding(.horizontal, 4)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Return to \(macName(session))")
                 }
-                .frame(maxWidth: .infinity)
+                ForEach(servers.openShells) { terminal in
+                    Button {
+                        servers.selectedTerminalID = terminal.id
+                        screen = .servers
+                    } label: {
+                        sessionChip(
+                            dot: sshDotFill(terminal),
+                            name: terminal.title,
+                            symbol: "terminal"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Return to \(terminal.title)")
+                }
             }
+            .padding(.horizontal, 4)
         }
+        .frame(maxWidth: .infinity)
     }
 
-    private func sessionChip(dot: Color, name: String) -> some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(dot)
-                .frame(width: 6, height: 6)
+    private func sessionChip(dot: Color, name: String, symbol: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(dot)
+                .frame(width: 27, height: 27)
+                .background(dot.opacity(0.13), in: Circle())
             Text(name)
-                .font(.system(size: 12.5, weight: .medium, design: .monospaced))
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 150, alignment: .leading)
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(.white.opacity(0.055), in: Capsule())
+        .overlay(Capsule().strokeBorder(.white.opacity(0.08), lineWidth: 0.75))
     }
 
     private func macName(_ session: MacSession) -> String {

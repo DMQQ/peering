@@ -57,6 +57,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     private var snapshot = Snapshot()
     private var debugTimingOrigin: (arrival: TimeInterval, pts: Double)?
     private var debugTimingFrameCount = 0
+    private var debugFlickerAwaitingFirstFrame = false
 
     // MARK: - Attachment
 
@@ -127,8 +128,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // switch — a flash on every tap of a mosaic's tile, between the arrangement being
             // left and the window arriving, with the window's own position already worked out.
             self.renderer?.flush(removingDisplayedImage: false)
+            self.debugFlickerAwaitingFirstFrame = true
+            flickerTrace("renderer configured \(config.pixelWidth)x\(config.pixelHeight); flushed queue and kept displayed image")
 
             self.lock.withLock {
+                self.snapshot = Snapshot()
                 self.snapshot.hasConfig = true
                 self.snapshot.pixelWidth = config.pixelWidth
                 self.snapshot.pixelHeight = config.pixelHeight
@@ -209,6 +213,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         }
 
         renderer.enqueue(sample)
+        if debugFlickerAwaitingFirstFrame {
+            debugFlickerAwaitingFirstFrame = false
+            flickerTrace("renderer enqueued first frame after config keyframe=\(frame.isKeyframe) size=\(frame.pixelWidth)x\(frame.pixelHeight)")
+        }
         self.lock.withLock {
             self.snapshot.framesEnqueued += 1
             self.snapshot.bytesEnqueued += Int64(frame.data.count)

@@ -282,7 +282,11 @@ extension RemoteScreen {
             shortcutsPanel
                 .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .sources:
-            SourcesPanel(chromeFrames: $chromeFrames, onSelect: closePanelAfterSelection)
+            SourcesPanel(
+                chromeFrames: $chromeFrames,
+                onSelect: closePanelAfterSelection,
+                onReturnToMosaic: animateBackToMosaic
+            )
                 .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .settings:
             SettingsPanel(chromeFrames: $chromeFrames) {

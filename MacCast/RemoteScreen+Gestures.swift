@@ -338,6 +338,7 @@ extension RemoteScreen {
         model.focusMosaicTile(layout.tiles[index].source)
 
         guard let target = tileOpeningTransform(index, in: layout) else {
+            flickerTrace("tap tile=\(index) source=\(sourceID) aim=\(pictureAim != nil) target=nil")
             // No transform to travel with — a tile the arrangement cannot place, which is a
             // window the catalogue has no size for. The switch is already on its way; only the
             // movement is skipped, and with it any promise about where the picture would land.
@@ -346,6 +347,7 @@ extension RemoteScreen {
             return
         }
 
+        flickerTrace("tap tile=\(index) source=\(sourceID) aim=\(pictureAim != nil) startZoom=\(Double(zoom)) targetZoom=\(Double(target.zoom))")
         glidePicture(to: target)
     }
 
@@ -363,6 +365,7 @@ extension RemoteScreen {
     /// Mac tears down one stream and builds six, and it is doing that while the window is still
     /// shrinking into its tile.
     func animateBackToMosaic() {
+        flickerTrace("return to mosaic invoked source=\(model.activeSourceID ?? "nil") mosaic=\(model.mosaicLayout != nil) zoom=\(Double(zoom))")
         cancelPictureGlide()
 
         // **The same thing carried, the other way round.** The window is what the movement has
@@ -391,6 +394,7 @@ extension RemoteScreen {
         model.returnToMosaic()
 
         guard let target = mosaicReturnTransform() else {
+            flickerTrace("return to mosaic has no transform aim=\(pictureAim?.sourceID ?? "nil") size=\(String(describing: model.capturePixelSize))")
             // Nothing to travel to — the picture is not one of an arrangement's tiles. The switch
             // is already on its way; only the movement is skipped, and with it any promise about
             // where the picture would land.
@@ -398,6 +402,7 @@ extension RemoteScreen {
             return
         }
 
+        flickerTrace("return to mosaic starts glide targetZoom=\(Double(target.zoom)) aim=\(pictureAim?.sourceID ?? "nil")")
         glidePicture(to: target)
     }
 
@@ -470,6 +475,7 @@ extension RemoteScreen {
             if zoom != glide.target.zoom { zoom = glide.target.zoom }
             if pan != glide.target.pan { pan = glide.target.pan }
             pictureGlide = nil
+            flickerTrace("glide landed zoom=\(Double(zoom)) aim=\(pictureAim?.sourceID ?? "nil") showingMosaic=\(model.isShowingMosaic)")
         }
         pictureGlide = PictureGlide(
             target: glide.target,
@@ -488,6 +494,9 @@ extension RemoteScreen {
     /// arrive — and a promise left standing is a picture clipped to a rectangle nothing is
     /// travelling towards. Callers that mean to start a movement set a new one straight after.
     func cancelPictureGlide() {
+        if pictureGlide != nil {
+            flickerTrace("glide cancelled zoom=\(Double(zoom)) aim=\(pictureAim?.sourceID ?? "nil")")
+        }
         pictureGlide?.task?.cancel()
         pictureGlide = nil
         pictureAim = nil

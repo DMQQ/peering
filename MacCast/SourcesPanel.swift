@@ -19,6 +19,9 @@ struct SourcesPanel: View {
     /// panel away — see the setting it consults.
     var onSelect: () -> Void = {}
 
+    /// Returns to the arrangement through the screen's picture animation.
+    var onReturnToMosaic: () -> Void = {}
+
     @State private var query = ""
 
     /// Whether the panel is picking several sources rather than one.
@@ -187,7 +190,7 @@ struct SourcesPanel: View {
             // not the user being somewhere else. See ``MacSession/canReturnToMosaic``.
             if model.canReturnToMosaic {
                 Button {
-                    withAnimation(Motion.settle) { model.returnToMosaic() }
+                    onReturnToMosaic()
                     onSelect()
                 } label: {
                     HStack(spacing: 8) {

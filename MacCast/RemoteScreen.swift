@@ -475,6 +475,7 @@ struct RemoteScreen: View {
                 // display picked out of a panel, an arrangement coming back — because the promise
                 // describes a window of *that* arrangement and means nothing about another picture.
                 let aim = pictureAim
+                flickerTrace("picture replaced previous=\(previous.sourceID ?? "nil") current=\(current.sourceID ?? "nil") aim=\(aim?.sourceID ?? "nil") glide=\(pictureGlide != nil) zoom=\(Double(zoom))")
                 if aim?.sourceID != current.sourceID { pictureAim = nil }
 
                 let carried = aim.flatMap { aim -> CGRect? in
@@ -515,6 +516,7 @@ struct RemoteScreen: View {
                     if var glide = pictureGlide {
                         let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
                         let progress = Motion.settleProgress(at: elapsed)
+                        flickerTrace("picture placed progress=\(progress) placedZoom=\(Double(placed.zoom))")
                         if progress < 0.995 {
                             glide.reaim(
                                 to: (zoom: 1, pan: .zero),
@@ -523,13 +525,25 @@ struct RemoteScreen: View {
                             )
                             pictureGlide = glide
                         } else {
-                            cancelPictureGlide()
-                            resetPicture()
+                            // The spring is just past its endpoint, but the renderer can still
+                            // be showing the mosaic until the first window frame is displayed.
+                            // Re-aim at the endpoint using the last solvable point on the curve;
+                            // this keeps the in-flight animation and the window aim alive through
+                            // that renderer hand-off instead of snapping or continuing toward the
+                            // mosaic's old zoom target.
+                            flickerTrace("late arrival reaims glide from placed window")
+                            glide.reaim(
+                                to: (zoom: 1, pan: .zero),
+                                through: placed,
+                                progress: 0.994
+                            )
+                            pictureGlide = glide
                         }
                     } else {
                         resetPicture()
                     }
                 } else {
+                    flickerTrace("picture had no carried placement aimMatched=\(aim?.sourceID == current.sourceID)")
                     // Nothing the movement was carrying, so nothing to keep still: a source picked
                     // out of a panel, a rotation, a window resized since the catalogue was read.
                     // One already at rest is left alone; one that is not is moved to it.
@@ -560,6 +574,9 @@ struct RemoteScreen: View {
         // the screen together, so it also changes when the user adds a window — which is an ask
         // they have just made themselves, and a second one sent from here would rebuild the
         // arrangement that is already being built.
+        .onChange(of: shownMosaicLayout != nil) { _, visible in
+            flickerTrace("overlay visible=\(visible) carrying=\(pictureAim?.carriesOutOfArrangement == true) glide=\(pictureGlide != nil) showingMosaic=\(model.isShowingMosaic)")
+        }
         .onChange(of: deviceIsLandscape) { _, _ in
             model.refreshMosaicForViewport()
         }
