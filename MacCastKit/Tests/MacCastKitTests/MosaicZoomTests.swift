@@ -124,6 +124,57 @@ struct MosaicZoomTests {
         }
     }
 
+    @Test("the movement ends where the stream lands, for the shapes a device actually has")
+    func theDeviceShapeLands() {
+        // **The test above starts from an arrangement whose rows are full and a window whose shape
+        // is the arrangement's**, and that is a degenerate pair: a window of the tile's own aspect
+        // fills its tile exactly, so the letterboxing that `MosaicTileFit` does never happens. The
+        // numbers here are a real tap on a phone — portrait, a window of a shape nothing like the
+        // tile's, and every tile count the grid can produce.
+        let viewport = CGSize(width: 430, height: 932)
+        for window in [
+            CGSize(width: 1920, height: 1050),
+            CGSize(width: 902, height: 1126),
+            CGSize(width: 1512, height: 982),
+            CGSize(width: 600, height: 1400)
+        ] {
+            for count in [2, 3, 4, 5, 6, 9] {
+                for aspect in [0.75, 1.0, 1.19, 1.54, 1.78, 2.0, 2.6, 3.0] {
+                    let choices = (0..<count).map { MosaicChoice(source: .window(UInt32($0 + 1))) }
+                    guard let layout = MosaicGrid.layout(
+                        choices: choices, viewport: viewport, tileAspect: aspect
+                    ) else { continue }
+                    let scale = PictureScale(scalesToFill: false, inset: 0)
+
+                    for index in layout.tiles.indices {
+                        let current = scale.base(pixelSize: layout.canvas, in: viewport)
+                        guard let target = MosaicZoom.opening(
+                            layout: layout, index: index, sourceSize: window,
+                            bounds: viewport, effectiveZoom: current, pan: .zero, scale: scale
+                        ) else { continue }
+
+                        guard let end = CanvasGeometry.rect(
+                            normalized: layout.tiles[index].rect,
+                            bounds: viewport, pixelSize: layout.canvas,
+                            zoom: current * target.zoom, pan: target.pan
+                        ).flatMap({ MosaicTileFit.windowRect(sourceSize: window, in: $0) })
+                        else { continue }
+
+                        let rest = scale.base(pixelSize: window, in: viewport)
+                        guard let after = drawn(pixelSize: window, bounds: viewport, zoom: rest)
+                        else { continue }
+
+                        #expect(close(end, after), """
+                            window \(window), \(count) tiles, aspect \(aspect), tile \(index) of \
+                            a \(layout.canvas) canvas: the movement ends at \(end) and the \
+                            picture lands at \(after)
+                            """)
+                    }
+                }
+            }
+        }
+    }
+
     @Test("the way back ends where the arrangement's own rest state is")
     func theReturnLandsWhereTheArrangementDoes() {
         for viewport in [sideways, upright] {
