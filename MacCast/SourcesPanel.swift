@@ -86,6 +86,9 @@ struct SourcesPanel: View {
                     .padding(.vertical, 6)
                 }
             }
+            // Inside the scroll view, because the scroll view's own bounds are what clips a tile
+            // that has grown past its cell. See ``tileRoom``.
+            .padding(Self.tileRoom)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if buildingMosaic { mosaicPicker }
@@ -157,82 +160,103 @@ struct SourcesPanel: View {
         }
     }
 
-    /// The arrangement that is on screen, as a list that can be rearranged.
+    /// The arrangement that is on screen: the way back to it, and the way to change it.
     ///
-    /// **A row per tile, because the order is the picture.** Moving a source up this list moves
-    /// it up the mosaic, so the arrangement is edited by editing a list rather than by dragging
-    /// over live video — which is the same control for a thumb, works with VoiceOver, and needs
-    /// no geometry at all. Sizes are what a freeform editor would add; positions are already
-    /// The way back into the picker, once there is an arrangement.
+    /// **Two rows on one card, where there were two pills.** They were a filled blue capsule with
+    /// a tinted blue one under it: the same shape twice, so the pair read as a control and its
+    /// copy, and neither of them was what this app's blue is for, which is a state and not a
+    /// thing you can tap. What is drawn now is the panel's own row, the one the way in above
+    /// them and every source below them is built from, and one card around the pair because they
+    /// are two things that can be done to one arrangement. The rule between them is
+    /// ``Controls/divider``, which is not drawn after a last row.
     ///
-    /// **Everything else this block used to hold is gone.** It was a numbered list of the tiles
-    /// with a size stepper, up and down arrows and a remove button on each row — seven controls
-    /// per tile, none of which said anything the picture does not already say. What is left is the
-    /// one thing a list can do that a picture cannot: get you back to the picker to add or remove
-    /// a window. Reordering is a hold on the tile itself, where the arrangement is.
+    /// **The way back, and it is not in the pill.** Leaving an arrangement by tapping one of its
+    /// windows used to leave a chip in the status pill that returned to it; that chip is gone,
+    /// and without this row there was no way back at all. It belongs here rather than in the pill
+    /// for the same reason the rest of this panel exists: choosing what the picture shows is what
+    /// this panel is for, and the arrangement is one of the things it can show. It is drawn only
+    /// while the arrangement is *not* the picture, because a row that goes where you already are
+    /// is the "button that goes nowhere" this app refuses everywhere else, and it is asked of what
+    /// the user asked for rather than of what has arrived, for the reason on
+    /// ``MacSession/canReturnToMosaic``.
     @ViewBuilder
     private var mosaicEdit: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // **The way back, and it is not in the pill.** Leaving an arrangement by tapping one
-            // of its windows used to leave a chip in the status pill that returned to it; that
-            // chip is gone, and without this there was no way back at all. It belongs here rather
-            // than in the pill for the same reason the rest of this panel exists: choosing what
-            // the picture shows is what this panel is for, and the arrangement is one of the
-            // things it can show.
-            //
-            // Drawn only when the arrangement is *not* the picture. While it is, the heading
-            // below already says so, and a button that goes where you already are is the "button
-            // that goes nowhere" this app refuses everywhere else.
-            //
-            // Asked of what the user asked for rather than of what has arrived, like the dot in
-            // the status bar and for the same reason: the arrangement is the picture from the
-            // moment the button is pressed, and the Mac taking a second and a half to build it is
-            // not the user being somewhere else. See ``MacSession/canReturnToMosaic``.
+        VStack(spacing: 0) {
             if model.canReturnToMosaic {
-                Button {
+                mosaicAction(
+                    icon: "rectangle.split.2x2",
+                    title: "Back to the mosaic",
+                    detail: arrangementSize
+                ) {
                     onReturnToMosaic()
                     onSelect()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "rectangle.split.2x2")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("Back to the mosaic")
-                            .font(.subheadline.weight(.semibold))
-                        Spacer(minLength: 8)
-                        Text("\(model.mosaicChoicesList.count)")
-                            .font(.caption.weight(.bold).monospacedDigit())
-                    }
-                    .foregroundStyle(ColorPalette.onInk)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(ColorPalette.accent, in: Capsule())
-                    .contentShape(Capsule())
                 }
-                .buttonStyle(RailButtonStyle(scale: 0.97))
-                .accessibilityLabel("Back to the mosaic")
+                Controls.divider
             }
 
-            Button {
+            mosaicAction(
+                icon: "rectangle.on.rectangle",
+                title: "Add or remove windows",
+                detail: nil
+            ) {
                 withAnimation(Motion.settle) {
                     picked = model.mosaicChoicesList.compactMap { model.catalog?.descriptor(for: $0.source) }
                     buildingMosaic = true
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "rectangle.split.2x2")
-                        .font(.system(size: 13, weight: .medium))
-                    Text("Add or remove windows")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer(minLength: 8)
-                }
-                .foregroundStyle(ColorPalette.accent)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(ColorPalette.accent.opacity(0.14), in: Capsule())
-                .contentShape(Capsule())
             }
-            .buttonStyle(RailButtonStyle(scale: 0.97))
         }
+        .rowSurface()
+    }
+
+    /// One of the two things that can be done to the arrangement.
+    ///
+    /// The glyph, the name and the pad are the way-in row's, which is deliberate: this block is
+    /// that row or these two, and they cross-fade into each other, so a row that changed its
+    /// measurements on the way would be the whole block moving rather than one thing replacing
+    /// another. The chevron is what every row in this app that leads somewhere wears, and the
+    /// detail is the count the pill used to carry.
+    private func mosaicAction(
+        icon: String,
+        title: String,
+        detail: String?,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(ColorPalette.ink)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(ColorPalette.ink)
+                Spacer(minLength: 8)
+                if let detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.99))
+        .accessibilityLabel(detail.map { "\(title), \($0)" } ?? title)
+    }
+
+    /// How many things the arrangement holds.
+    ///
+    /// **A window, even when a tile is a screen or an application.** That is already this app's
+    /// word for a tile: the pill over the picture says "in 4 windows" for the same list, and the
+    /// row under this one says "add or remove windows". One word for one thing. It is not always
+    /// plural, because a tile can be taken out of the arrangement from the picture and leave one.
+    private var arrangementSize: String {
+        let count = model.mosaicChoicesList.count
+        return count == 1 ? "1 window" : "\(count) windows"
     }
 
     /// Building one: what has been picked, how many may be, and the way to see it.
@@ -297,70 +321,69 @@ struct SourcesPanel: View {
                 .disabled(picked.count < 2 || picked.count > MosaicLayout.maximumTileCount)
             }
         }
-        .padding(10)
+        // The list's own inset rather than one of its own, so this bar starts and ends where the
+        // search field above it does. See ``tileRoom``.
+        .padding(.horizontal, Self.tileRoom)
+        .padding(.vertical, 10)
         .glassSurface(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     /// One display or window, as a picture with its name under it.
+    ///
+    /// **The picture is drawn at its own shape inside a box that bounds it.** Every tile used to
+    /// *be* a 16:10 box with the picture filled into it, which for a window taller than it is wide
+    /// meant the middle stripe of it: an iPhone Simulator window came out looking like a landscape
+    /// one with the top and bottom of the phone cut away. The picture is the only reason this
+    /// panel draws pictures rather than names, so it is drawn whole; what is bounded is how large
+    /// it may be, so a tall window is a narrow tile rather than a tall one. See ``tileBox`` and
+    /// ``tileShape(for:)``.
     private func previewTile(
         _ descriptor: CaptureSourceDescriptor, fallbackIcon: String
     ) -> some View {
         let placed = placement(of: descriptor)
+        let shape = Self.tileShape(for: descriptor)
 
         return Button {
             choose(descriptor)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                // **The tile's own frame, and the picture as an overlay on it.** A filled image is
-                // larger than the rectangle it is drawn into, and a `ZStack` is as big as its
-                // largest child — so a thumbnail that overflowed made the *tile* grow with it, and
-                // the border drawn around that tile sat outside the picture: a ring with its left
-                // and right edges shaved off, which is the two pixels that were missing when this
-                // was selected. An overlay takes no part in the layout, so the tile is the shape it
-                // was asked for and the border is drawn on the picture rather than near it.
-                ColorPalette.surface
-                    .overlay {
-                        if let thumbnail = descriptor.thumbnail,
-                           let image = UIImage(data: thumbnail.jpegData) {
-                            Image(uiImage: image)
-                                .resizable()
-                                // Filled rather than fitted, so every tile is the same shape and
-                                // the grid stays a grid. A window is whatever shape the user left
-                                // it, and letting each tile take its own would be a mosaic of
-                                // pictures rather than a row of cells.
-                                .aspectRatio(contentMode: .fill)
-                        } else {
-                            // What the tile can honestly show before there is a picture, and this
-                            // is an ordinary state rather than a failure: the host takes these
-                            // when it is asked and not before, and a window that is not on the
-                            // desktop this Mac is showing has no picture to take at all. See the
-                            // handover on `SCScreenshotManager` photographing only what is on
-                            // screen.
-                            Image(systemName: fallbackIcon)
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(.tertiary)
+                Self.tileBox {
+                    ColorPalette.surface
+                        .overlay {
+                            if let thumbnail = descriptor.thumbnail,
+                               let image = UIImage(data: thumbnail.jpegData) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    // Filled, which the shape around it has made the same thing
+                                    // as fitted: the box this is drawn into is this picture's
+                                    // shape, so there is nothing left over to crop away.
+                                    .aspectRatio(contentMode: .fill)
+                            } else {
+                                // What the tile can honestly show before there is a picture,
+                                // which is an ordinary state rather than a failure: the Mac takes
+                                // these when it is asked to and not before, so every tile is drawn
+                                // this way between the panel opening and the photographs landing.
+                                // See ``CaptureSourceResolver/refreshSourceThumbnails()``.
+                                Image(systemName: fallbackIcon)
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
-                    }
-                    .aspectRatio(Self.tileAspect, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(
-                                placed.marked
-                                    ? ColorPalette.accent
-                                    : ColorPalette.ink.opacity(0.18),
-                                lineWidth: placed.marked ? 2 : 1
-                            )
-                    }
-                    // **Against the leading edge of the cell, which is where its name starts.**
-                    // A picture that is fitted into a cell is centred in what is left over, and the
-                    // cell is as wide as the name under it — so every tile sat a few points to the
-                    // right of the caption it belongs to, and the selected one did it with a border
-                    // drawn round it: a ring that does not line up with its own name reads as a
-                    // border missing its left edge. The picture keeps the size the aspect gives it
-                    // and stops being centred.
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
+                        .aspectRatio(shape, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(
+                                    placed.marked
+                                        ? ColorPalette.accent
+                                        : ColorPalette.ink.opacity(0.18),
+                                    lineWidth: placed.marked ? 2 : 1
+                                )
+                        }
+                        // On the picture, not on the box: a number in the corner of a box that is
+                        // twice the width of what it sits beside is a number by itself.
+                        .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
+                }
 
                 caption(descriptor, isLive: placed.isLive)
             }
@@ -371,7 +394,7 @@ struct SourcesPanel: View {
         // watching should be the part that moves. It is the only movement in either grid, and it
         // is small on purpose: a quarter of the gutter either side, so a tile that grows into
         // the gap reads as arriving rather than as a grid that has gone ragged.
-        .scaleEffect(placed.isLive ? 1.045 : 1)
+        .scaleEffect(placed.isLive ? Self.tileGrowth : 1)
         .animation(Motion.settle, value: placed.isLive)
         .buttonStyle(RailButtonStyle(scale: 0.94))
         // The picture is the point of the tile and carries no text of its own, so the label is
@@ -573,6 +596,10 @@ struct SourcesPanel: View {
         // three times, which is not three things.
         let placed = placement(of: screen)
         let marked = buildingMosaic ? (placed.marked && isCurrent) : isLive
+        // The desktop's own picture, so a screen that is rotated or not 16:10 is not cropped, and
+        // the screen's own shape when there is no picture yet, so the tile does not change shape
+        // when one arrives. See ``tileShape(for:)``.
+        let shape = desktopShape(display, index: index)
 
         return Button {
             if buildingMosaic {
@@ -582,40 +609,40 @@ struct SourcesPanel: View {
             }
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                // The same frame the preview tiles are built on, and for the same reason: a
-                // filled picture is larger than the rectangle it is drawn into, and an overlay
-                // takes no part in the layout. Sized by its frame, the tile is the shape it was
-                // asked for and the border is drawn on the picture rather than near it.
-                ColorPalette.surface
-                    .overlay {
-                        if let data = display.preview(for: index)?.jpegData,
-                           let image = UIImage(data: data) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } else {
-                            // An empty tile is the truth: this desktop has not been on screen
-                            // since the host started, so there is no picture of it to show. A
-                            // placeholder image would be a picture of a desktop that does not
-                            // exist.
-                            Image(systemName: "rectangle.dashed")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundStyle(.tertiary)
+                // The same box and the same picture the preview tiles are built from, so a row of
+                // desktops and a row of windows are measured the same way. A desktop's own
+                // picture goes in it at the screen's shape rather than at 16:10.
+                Self.tileBox {
+                    ColorPalette.surface
+                        .overlay {
+                            if let data = display.preview(for: index)?.jpegData,
+                               let image = UIImage(data: data) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                            } else {
+                                // An empty tile is the truth: this desktop has not been on screen
+                                // since the host started, so there is no picture of it to show. A
+                                // placeholder image would be a picture of a desktop that does not
+                                // exist.
+                                Image(systemName: "rectangle.dashed")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
-                    }
-                    .aspectRatio(Self.tileAspect, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(
-                                marked
-                                    ? ColorPalette.accent
-                                    : ColorPalette.ink.opacity(isCurrent ? 0.5 : 0.18),
-                                lineWidth: marked ? 2 : (isCurrent ? 1.5 : 1)
-                            )
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .topTrailing) { placeBadge(marked ? placed.place : nil) }
+                        .aspectRatio(shape, contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(
+                                    marked
+                                        ? ColorPalette.accent
+                                        : ColorPalette.ink.opacity(isCurrent ? 0.5 : 0.18),
+                                    lineWidth: marked ? 2 : (isCurrent ? 1.5 : 1)
+                                )
+                        }
+                        .overlay(alignment: .topTrailing) { placeBadge(marked ? placed.place : nil) }
+                }
 
                 Text(isLive ? "Desktop \(index) · here" : "Desktop \(index)")
                     .font(.system(size: 10, weight: marked ? .semibold : .regular))
@@ -636,7 +663,7 @@ struct SourcesPanel: View {
         // Driven by the desktop being current rather than by the mark, because the mark means two
         // things now and only one of them is a tile arriving. A tile that stepped forward when it
         // gained a number would be moving in a grid the user is still choosing from.
-        .scaleEffect(isLive ? 1.045 : 1)
+        .scaleEffect(isLive ? Self.tileGrowth : 1)
         .animation(Motion.settle, value: isLive)
         .animation(Motion.morph, value: placed.marked)
         .buttonStyle(RailButtonStyle(scale: 0.94))
@@ -1007,7 +1034,84 @@ struct SourcesPanel: View {
     /// columns on a narrow phone, which is the trade being made on purpose.
     private static let tileMinimumWidth: CGFloat = 156
     private static let tileGap: CGFloat = 8
+
+    /// The shape a tile is drawn at when there is no size to take one from: a source the Mac has
+    /// reported nothing about. Every other tile is its own picture's shape. See ``tileShape(_:)``.
     private static let tileAspect: CGFloat = 16.0 / 10.0
+
+    /// The box a tile is drawn inside: as wide as its cell, and no taller than a 16:10 tile.
+    ///
+    /// **Invisible, and only ever a bound.** The picture inside takes its own shape, as large as
+    /// this allows and no larger, so a portrait window comes out as a narrow tile rather than a
+    /// tall one and a wide one fills the width without being stretched. It is also what makes a
+    /// row of differently shaped tiles a row: every tile is measured against the same box rather
+    /// than against its neighbours, so the names under them stay on one line.
+    private static func tileBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        Color.clear
+            .aspectRatio(tileAspect, contentMode: .fit)
+            .overlay(alignment: .topLeading) { content() }
+    }
+
+    /// The two ends ``tileShape(_:)`` holds a shape between.
+    ///
+    /// **Not every shape a size can have is one a tile should be drawn at.** The box bounds how
+    /// tall a tile may be, so an extreme shape does not overflow anything, it is a sliver: a window
+    /// a few points wide would be a few points wide here, with its name under it. These two lie
+    /// outside every shape that turns up in practice, a phone's window being about 0.47 and an
+    /// ultrawide monitor about 2.3, so all they cost is a source at one extreme being drawn very
+    /// slightly cropped.
+    private static let tileShapeBounds: ClosedRange<CGFloat> = 0.4...2.5
+
+    /// The shape a tile for this source is drawn at: the picture's own.
+    ///
+    /// The thumbnail is asked first because it is the thing that gets drawn, and a box that
+    /// disagrees with its picture is a box with something cropped off it. A source with no picture
+    /// yet falls back to the size the Mac reports, which is that picture's shape, so a tile does
+    /// not change shape when the picture lands.
+    private static func tileShape(for descriptor: CaptureSourceDescriptor) -> CGFloat {
+        guard let thumbnail = descriptor.thumbnail else { return tileShape(descriptor.pixelSize) }
+        return tileShape(CGSize(width: CGFloat(thumbnail.width), height: CGFloat(thumbnail.height)))
+    }
+
+    /// One desktop's tile shape: that desktop's own picture, or the screen's shape without one.
+    ///
+    /// The second half is what keeps a desktop tile from resizing when its photograph is taken,
+    /// and every desktop of a screen shares a shape, so the row is one shape rather than several.
+    private func desktopShape(_ display: SpaceDisplay, index: Int) -> CGFloat {
+        guard let preview = display.preview(for: index) else {
+            let size = model.catalog?.descriptor(for: .display(display.displayID))?.pixelSize ?? .zero
+            return Self.tileShape(size)
+        }
+        return Self.tileShape(CGSize(width: CGFloat(preview.width), height: CGFloat(preview.height)))
+    }
+
+    /// A size's shape, held between the two ends a tile is drawn at.
+    ///
+    /// **A window is whatever shape the user left it, which is not a promise about anything.** A
+    /// size with nothing in it keeps the panel's own 16:10, and a shape past the bounds is drawn
+    /// at the bound, which crops the picture by that same small amount. See ``tileShapeBounds``.
+    private static func tileShape(_ size: CGSize) -> CGFloat {
+        guard size.width > 0, size.height > 0 else { return tileAspect }
+        return min(
+            max(size.width / size.height, Self.tileShapeBounds.lowerBound),
+            Self.tileShapeBounds.upperBound
+        )
+    }
+
+    /// How much bigger a tile gets when it becomes the picture.
+    ///
+    /// A quarter of the gutter either side, so a tile that grows into the gap reads as arriving
+    /// rather than as a grid that has gone ragged. What it costs the panel is in ``tileRoom``.
+    private static let tileGrowth: CGFloat = 1.045
+
+    /// The room the panel leaves inside its edges for a tile that has grown.
+    ///
+    /// **A scaled tile is wider than the cell it sits in, and a scroll view clips at its own
+    /// bounds.** Half of ``tileGrowth`` comes off each side, and on the widest phone a grid of two
+    /// columns gives a tile about 190 points, so it grows 4.3 points each way; six leaves that a
+    /// little to spare. Without it the first and last tile of every row lost the ends of their
+    /// border, which is a ring cut open rather than the mark of the one being watched.
+    private static let tileRoom: CGFloat = 6
 
     /// The size of a Home Screen icon, which is what this grid is quoting.
     ///
