@@ -155,39 +155,43 @@ public enum MosaicGrid {
         let count = weights.count
         guard count > 0 else { return [] }
 
-        // **Every pixel of the canvas belongs to exactly one tile**, with no gaps to hit-test and
-        // nothing to clamp, which is what keeps the rectangles honest under any weights at all.
-        // A row takes its tiles' combined share of the height, and inside a row each tile takes
-        // its own share of the width.
+        // **Every tile is the same size, which is what a grid is.** A row that is not full used to
+        // share its width between its tiles, so five tiles were three across the top and two
+        // wider ones under them. That left no pixel of the canvas unclaimed, which was the reason
+        // for it, and it made the last row's tiles larger than every other: an arrangement whose
+        // tiles are different sizes reads as a mistake rather than a layout.
         //
-        // The rows are the reading-order rows of the even grid, so a weight never reorders
-        // anything: the shape of the arrangement changes and the arrangement does not. A row that
-        // is not full is therefore shorter rather than padded, and the tiles in it share its
-        // width between them — so five tiles are three across the top and two wider ones under
-        // them, with no empty quarter of the picture for a tap to land on and do nothing.
+        // A short row is now the same size as the rest and centred, so what is left over is the
+        // same margin on both sides rather than one tile's worth of background in a corner. It is
+        // a margin a tap can land on and do nothing, which is the cost of this and was the reason
+        // the other arrangement existed.
+        //
+        // **The weights are read and no longer used**, which is the honest state of them: nothing
+        // on the phone sets one any more — see ``MosaicChoice/weight`` — and a size control cannot
+        // coexist with a grid whose whole point is that every cell is the same. They are left in
+        // the signature rather than removed because an arrangement that has been stored and
+        // restored still carries them, and dropping the parameter would drop that data with it.
+        _ = weights
+
         let columns = columns(for: count, portrait: portrait)
         let rowCount = Int((Double(count) / Double(columns)).rounded(.up))
-        let rows: [[Int]] = (0..<rowCount).map { row in
-            let start = row * columns
-            return Array(start..<min(start + columns, count))
-        }
-        let total = Double(weights.reduce(0, +))
+        let cell = 1.0 / Double(columns)
+        let height = 1.0 / Double(rowCount)
 
         var rects: [NormalizedRect] = []
-        var y = 0.0
-        for row in rows {
-            // A row's height is its tiles' share of the whole, and within the row each tile takes
-            // its share of the width. Slice and dice: every pixel of the canvas belongs to
-            // exactly one tile, with no gap to hit-test and nothing to clamp.
-            let rowWeight = Double(row.reduce(0) { $0 + weights[$1] })
-            let height = rowWeight / total
-            var x = 0.0
-            for index in row {
-                let width = Double(weights[index]) / rowWeight
-                rects.append(NormalizedRect(x: x, y: y, width: width, height: height))
-                x += width
-            }
-            y += height
+        for index in 0..<count {
+            let row = index / columns
+            let column = index % columns
+            // A short row is centred: the same tile as every other, with the leftover split
+            // evenly either side rather than collected at one end.
+            let inRow = min(columns, count - row * columns)
+            let margin = (1 - cell * Double(inRow)) / 2
+            rects.append(NormalizedRect(
+                x: margin + cell * Double(column),
+                y: height * Double(row),
+                width: cell,
+                height: height
+            ))
         }
         return rects
     }
@@ -241,7 +245,15 @@ public enum MosaicGrid {
     ) -> CGSize {
         let columns = max(columns, 1)
         let tiles = max(tiles, 1)
-        let aspect = min(max(Double(columns) * Double(columns) / Double(tiles) * tileAspect, 0.05), 20)
+        // **From the grid's rows, not from the number of tiles.** A cell's shape is the canvas's
+        // aspect divided by the shape of the grid, and the grid is `columns` wide and
+        // `ceil(tiles/columns)` tall whether or not its last row is full. Counted in tiles
+        // instead, a short row made the canvas wider than the cells it was cut into — which was
+        // right while that row shared its width between its tiles and a cell there really was
+        // wider, and is wrong now that every cell is the same. For a full grid the two are the
+        // same number, which is why this was never visible. See ``rects(count:portrait:)``.
+        let rows = (Double(tiles) / Double(columns)).rounded(.up)
+        let aspect = min(max(Double(columns) / rows * tileAspect, 0.05), 20)
 
         // Whichever axis the fit would bind on is the one that gets the screen's full size: a
         // canvas wider than the screen is drawn as wide as the screen, and one taller than the
@@ -296,7 +308,6 @@ public enum MosaicGrid {
     ) -> MosaicLayout? {
         let portrait = viewport.height > viewport.width
         let columns = columns(for: choices.count, portrait: portrait)
-        let rows = Int((Double(choices.count) / Double(columns)).rounded(.up))
         let rects = rects(weights: choices.map(\.weight), portrait: portrait)
         let tiles = zip(choices, rects).map { MosaicTile(source: $0.source, rect: $1) }
         return MosaicLayout(

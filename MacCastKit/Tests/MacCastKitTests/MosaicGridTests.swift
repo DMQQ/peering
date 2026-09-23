@@ -188,50 +188,41 @@ struct MosaicGridTests {
         let rects = MosaicGrid.rects(count: 5, portrait: false)
         for index in 0...2 {
             #expect(close(rects[index].width, 1.0 / 3))
-            #expect(close(rects[index].height, 0.6))
+            #expect(close(rects[index].height, 0.5))
+            #expect(close(rects[index].y, 0))
         }
-        #expect(close(rects[3].x, 0))
-        #expect(close(rects[4].x, 0.5))
+        // The short row is the same size as the full one and centred, so the leftover is split
+        // evenly: a sixth of the canvas on each side rather than a wider tile on either end.
+        #expect(close(rects[3].x, 1.0 / 6))
+        #expect(close(rects[4].x, 1.0 / 6 + 1.0 / 3))
         for index in 3...4 {
-            #expect(close(rects[index].width, 0.5))
-            #expect(close(rects[index].y, 0.6))
-            #expect(close(rects[index].height, 0.4))
+            #expect(close(rects[index].width, 1.0 / 3))
+            #expect(close(rects[index].height, 0.5))
+            #expect(close(rects[index].y, 0.5))
         }
     }
 
-    @Test("a heavier tile takes its share of the whole canvas")
-    func weights() {
-        // **The contract, and the only one worth stating: area is the share of the weights.**
-        // That is what "this one matters more" has to mean for the control to be one thing rather
-        // than a different thing in every arrangement, and it is what the slice-and-dice
-        // arithmetic is for: a row's height is its tiles' share of the whole, and inside a row
-        // each tile takes its own share of the width.
-        for weights in [[2, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 1, 1, 1, 1, 1, 1]] {
-            let rects = MosaicGrid.rects(weights: weights, portrait: false)
-            let total = Double(weights.reduce(0, +))
-            for (index, rect) in rects.enumerated() {
-                let expected = Double(weights[index]) / total
-                #expect(
-                    abs(rect.width * rect.height - expected) < 0.0001,
-                    "tile \(index) of \(weights) took \(rect.width * rect.height), not \(expected)"
-                )
-            }
-        }
-
-        // Weight cannot be zero or negative: the arithmetic divides by it, and a tile that is
-        // set to nothing is a window the user can no longer see at all.
-        let clamped = MosaicGrid.rects(weights: [0, -3], portrait: false)
-        #expect(close(clamped[0].width, 0.5))
-        #expect(close(clamped[1].width, 0.5))
-    }
-
-    @Test("any weights at all still tile the canvas exactly")
-    func weightsAlwaysFillTheCanvas() {
+    @Test("every tile is the same size, whatever the count and the shape of the screen")
+    func everyTileIsTheSameSize() {
+        // **The contract now, and it replaced a different one.** A tile's area used to be its
+        // share of the weights, which meant a row that was not full shared its width between its
+        // tiles: five tiles were three across the top and two wider ones under them. Every pixel
+        // of the canvas belonged to a tile, which was the reason for it, and the last row's tiles
+        // were larger than every other — an arrangement whose tiles differ in size reads as a
+        // mistake rather than as a layout.
+        //
+        // So what is asserted is uniformity itself, which is the one thing a grid can promise.
+        // The price is a margin beside a row that is not full, and that is deliberate.
         for portrait in [false, true] {
-            for weights in [[1, 1], [3, 1], [1, 2, 1], [3, 2, 3, 1, 1, 2], [2, 2, 2, 2, 2, 2, 2]] {
-                let rects = MosaicGrid.rects(weights: weights, portrait: portrait)
-                let area = rects.reduce(0.0) { $0 + $1.width * $1.height }
-                #expect(abs(area - 1) < 0.0001, "weights \(weights) left \(1 - area) of the canvas unclaimed")
+            for count in 2...8 {
+                let rects = MosaicGrid.rects(count: count, portrait: portrait)
+                let first = rects[0].width * rects[0].height
+                for (index, rect) in rects.enumerated() {
+                    #expect(
+                        abs(rect.width * rect.height - first) < 0.0001,
+                        "tile \(index) of \(count) portrait \(portrait) is \(rect.width * rect.height), not \(first)"
+                    )
+                }
             }
         }
     }
