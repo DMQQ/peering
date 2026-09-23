@@ -174,7 +174,7 @@ extension RemoteScreen {
                                     interactive: true
                                 )
                         }
-                        .buttonStyle(RailButtonStyle(scale: 0.86))
+                        .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
                         // The keystroke is the visible label and the reason is not, so the
                         // reason is what gets spoken.
                         .accessibilityLabel(action.detail)
@@ -508,7 +508,7 @@ extension RemoteScreen {
                 .frame(height: ChromeMetrics.buttonHeight)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(RailButtonStyle(scale: 0.94))
+        .buttonStyle(RailButtonStyle(scale: 0.94, haptic: true))
         .accessibilityLabel(dockExpanded ? "Hide the other controls" : "Show the other controls")
     }
 

@@ -35,10 +35,13 @@ extension SessionModel {
     /// into has moved on, and a bar still showing the old text claims the Mac is holding something
     /// it has already taken.
     func run(_ macro: Macro) {
-        // Down then up, in that order, and never coalesced — a macro whose release was
-        // dropped would leave the Mac holding a modifier with no way to clear it from here.
-        send(.keyDown(keyCode: macro.keyCode, modifiers: macro.modifiers))
-        send(.keyUp(keyCode: macro.keyCode, modifiers: macro.modifiers))
+        // Down then up, in that order, and never coalesced: a macro whose release was dropped
+        // would leave the Mac holding a modifier with no way to clear it from here.
+        //
+        // Latched modifiers ride along, so ⌃ held on the ⇧⌃⌥⌘ row turns the ⌘C chip into ⌃⌘C.
+        let modifiers = macro.modifiers.union(latchedModifiers)
+        send(.keyDown(keyCode: macro.keyCode, modifiers: modifiers))
+        send(.keyUp(keyCode: macro.keyCode, modifiers: modifiers))
     }
 
     // MARK: - Custom macros

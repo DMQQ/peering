@@ -534,7 +534,9 @@ extension SessionModel {
         guard keyboardMode == .keycode,
               let code = KeycodeMap.macOSKeycode(for: usage)
         else { return }
-        let modifiers = KeycodeMap.modifiers(from: flags)
+        // The latch rides along here too: a modifier held on the far end has to be in the flags of
+        // every event sent while it is held, whichever keyboard the key came from.
+        let modifiers = KeycodeMap.modifiers(from: flags).union(latchedModifiers)
         send(down ? .keyDown(keyCode: code, modifiers: modifiers)
                   : .keyUp(keyCode: code, modifiers: modifiers))
     }

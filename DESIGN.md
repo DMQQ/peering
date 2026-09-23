@@ -50,6 +50,7 @@ product and a system utility.
 | `ink` | `Color.white` | `#FFFFFF` | Selection, checkmarks, live indicators, anything "on" |
 | `onInk` | `Color.black` | `#000000` | Drawn on top of a filled `ink` surface |
 | `accent` / `selectedFill` | `Color.blue` | `#0A84FF` | The one colour. "This one is on", nothing else |
+| `pressedFill` | `white @ 22%` | | The flash under a finger, over the state fill |
 | `danger` | `rgb(0.98, 0.45, 0.40)` | `#FA7366` | Something that did not work |
 | `caution` | `rgb(0.97, 0.75, 0.35)` | `#F7BF59` | A tool being careful, dimmer than `danger` |
 | `surface` | `white @ 7%` | | A resting surface, rows and chips |
@@ -441,9 +442,13 @@ curves of different lengths are two arrivals, and the mark would land, move agai
 Press feedback on a control:
 
 ```swift
-// RailButtonStyle: scale 0.9, opacity 0.6, easeOut 0.12
+// RailButtonStyle: scale 0.9, opacity 0.6, easeOut 0.12, and a pressedFill capsule over the state
 // A host button: scale 0.98, opacity 0.85, spring
 ```
+
+A scale and a fade are the whole of it wherever a tap is answered by something else appearing.
+The session chrome's controls are not: they send a key to another machine, so they carry the
+`pressedFill` flash as well, and `RailButtonStyle(haptic:)` gives them the impact to match.
 
 Host motion: `hover` `spring(0.24, 0.86)`, `press` `spring(0.18, 0.78)`, `state` `spring(0.36, 0.88)`.
 

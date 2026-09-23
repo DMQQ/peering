@@ -125,9 +125,17 @@ extension RemoteScreen {
         model.send(.mouseUp(button: .right))
     }
 
+    /// A key press, carrying both the modifiers the caller asked for and whatever is latched on the
+    /// session's own ⇧⌃⌥⌘ row.
+    ///
+    /// **The latch has to be folded in here rather than left to the Mac.** It is held on the far end
+    /// as a real key-down, so an event that did not repeat it in its own flags is a Mac holding ⌃
+    /// while the key it is being told about says there is none. Latching two and pressing one key is
+    /// the whole of how a combination is sent in one action.
     func sendKey(keyCode: UInt16, modifiers: Modifiers = []) {
-        model.send(.keyDown(keyCode: keyCode, modifiers: modifiers))
-        model.send(.keyUp(keyCode: keyCode, modifiers: modifiers))
+        let all = modifiers.union(model.latchedModifiers)
+        model.send(.keyDown(keyCode: keyCode, modifiers: all))
+        model.send(.keyUp(keyCode: keyCode, modifiers: all))
     }
 
     /// - Parameter action: what the key does, when sending it is not the whole of it — Return also
@@ -143,7 +151,7 @@ extension RemoteScreen {
                 .frame(width: 40, height: 32)
                 .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
         }
-        .buttonStyle(RailButtonStyle(scale: 0.86))
+        .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
     }
 
 }

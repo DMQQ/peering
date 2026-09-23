@@ -304,6 +304,12 @@ enum ColorPalette {
     /// glance finds it, and a 25%-opacity blue on a dark panel is a glance that misses.
     static let selectedFill = Color.blue
 
+    /// The flash under a finger, drawn over a control's state fill.
+    ///
+    /// A fade alone cannot show a press over video: dimming a white glyph moves it toward the
+    /// picture behind it, which reads as the control switching off rather than being held.
+    static let pressedFill = Color.white.opacity(0.22)
+
     /// Something that did not work.
     ///
     /// One red for the whole app, so a failed terminal's tab and the line in its output that

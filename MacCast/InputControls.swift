@@ -268,6 +268,8 @@ struct RailButtonLabel: View {
     var selected: Bool = false
     var enabled: Bool = true
 
+    @Environment(\.controlIsPressed) private var isPressed: Bool
+
     /// Narrow enough that the rail does not eat into the picture, wide enough that the caption
     /// stays legible — the label shrinks before the rail grows.
     private static let minimumWidth: CGFloat = ChromeMetrics.panelWidth - 8
@@ -286,10 +288,16 @@ struct RailButtonLabel: View {
         .frame(minWidth: Self.minimumWidth, maxWidth: .infinity)
         .frame(height: ChromeMetrics.buttonHeight)
         // A stadium, like the rail it sits in. A 10pt corner inside a capsule is a shape borrowed
-        // from somewhere else — the rail's ends and the button's ends are the only two curves on
+        // from somewhere else: the rail's ends and the button's ends are the only two curves on
         // screen and they have to be the same curve. In the rail, where a button is as wide as it
         // is tall, this makes it a circle.
-        .background(selected ? ColorPalette.selectedFill : Color.clear, in: Capsule())
+        .background {
+            // The press is drawn over the state rather than in its place, so a selected control
+            // flashes with the rest of the bar instead of losing the blue that says it is on.
+            Capsule()
+                .fill(selected ? ColorPalette.selectedFill : Color.clear)
+                .overlay { Capsule().fill(isPressed ? ColorPalette.pressedFill : Color.clear) }
+        }
         // On the label, so the icon, the caption and the fill all move as one thing.
         .animation(Motion.tap, value: selected)
         .animation(Motion.tap, value: enabled)
@@ -336,25 +344,51 @@ struct QuickKeyButton: View {
                 // button that happens to be alone.
                 .glassSurface(in: Capsule(), interactive: true)
         }
-        .buttonStyle(RailButtonStyle())
+        .buttonStyle(RailButtonStyle(haptic: true))
         .accessibilityLabel(label)
+    }
+}
+
+/// Whether the control a label is drawn in is under a finger at this moment.
+///
+/// Published by ``RailButtonStyle``, because the style is the only thing that can see a press, and
+/// read by the label, because the shape a press lights up in is the label's to know. Handed the
+/// shape instead, the style would need to be told it by every control that uses it.
+private struct ControlPressedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var controlIsPressed: Bool {
+        get { self[ControlPressedKey.self] }
+        set { self[ControlPressedKey.self] = newValue }
     }
 }
 
 /// The press feedback every control in a rail shares.
 ///
 /// A `.plain` button on iOS gives no sign it was hit at all, which on a translucent panel over
-/// live video makes a tap feel like it did nothing — the worst possible outcome for a control
-/// whose whole job is sending an event to another machine, where the result is not on this
-/// screen to be seen.
+/// live video makes a tap feel like it did nothing. That is the worst outcome for a control whose
+/// whole job is sending an event to another machine, where the result cannot be seen from here.
 struct RailButtonStyle: ButtonStyle {
     var scale: CGFloat = 0.9
 
+    /// Whether the press is felt as well as seen.
+    ///
+    /// Off by default. Everywhere else in the app a tap is answered by a sheet, a row or a screen
+    /// appearing, and buzzing on top of that is noise. The session chrome turns it on, because its
+    /// controls are the ones whose work happens on the other machine: they answer here or nowhere.
+    var haptic: Bool = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .environment(\.controlIsPressed, configuration.isPressed)
             .scaleEffect(configuration.isPressed ? scale : 1)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .sensoryFeedback(.impact(weight: .light, intensity: 0.7), trigger: configuration.isPressed) { _, pressed in
+                haptic && pressed
+            }
     }
 }
 
@@ -375,7 +409,7 @@ struct RailButton: View {
         Button(action: action) {
             RailButtonLabel(icon: icon, label: label, selected: selected, enabled: enabled)
         }
-        .buttonStyle(RailButtonStyle())
+        .buttonStyle(RailButtonStyle(haptic: true))
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.45)
         .accessibilityLabel(label)
@@ -394,6 +428,8 @@ struct ShortcutRailButton: View {
     let accessibilityLabel: String
     var action: () -> Void
 
+    @Environment(\.controlIsPressed) private var isPressed: Bool
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 2) {
@@ -411,8 +447,11 @@ struct ShortcutRailButton: View {
             .frame(minWidth: ChromeMetrics.panelWidth - 8, maxWidth: .infinity)
             .frame(height: ChromeMetrics.buttonHeight)
             .contentShape(Capsule())
+            // A chord in this rail sends a key and shows nothing for it, which is the same case
+            // the dock's controls are in and gets the same flash.
+            .background(isPressed ? ColorPalette.pressedFill : Color.clear, in: Capsule())
         }
-        .buttonStyle(RailButtonStyle())
+        .buttonStyle(RailButtonStyle(haptic: true))
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Sends \(chord) to the Mac")
     }
