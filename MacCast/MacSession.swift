@@ -461,6 +461,26 @@ final class MacSession: Identifiable {
     /// windows. See ``SessionModel/scheduleMosaicGapCheck()``.
     var mosaicGapTask: Task<Void, Never>?
 
+    /// Sources whose asking has already produced nothing, by ``CaptureSource/stableID``.
+    ///
+    /// **A tile the Mac cannot capture looks exactly like one it can.** That tile's card is drawn
+    /// into the canvas by the Mac, so the phone cannot see it, and the window is still in the
+    /// catalogue, which is the only test this screen has for a tile that is not a window: see
+    /// ``RemoteScreen/openMosaicTile(_:in:)``. ScreenCaptureKit goes on listing a window it will
+    /// not render, so nothing the catalogue says can separate the two.
+    ///
+    /// The tap is therefore the only way to learn it, and this is where the answer is kept: a tile
+    /// that was asked for and never answered is one this screen will not ask for again. Emptied by
+    /// ``SessionModel/showMosaic(_:)``, which is the user asking for the arrangement afresh and
+    /// therefore the moment to try again.
+    ///
+    /// On the session rather than on the model for the usual reason: it is about *this* Mac's
+    /// windows, and it must not outlive the connection that found them out.
+    var sourcesThatOpenedNothing: Set<String> = []
+
+    /// The pending wait for a tapped tile to open. See ``RemoteScreen/watchTileOpening(_:)``.
+    var tileOpeningWatch: Task<Void, Never>?
+
     /// Whether the picture the user asked for is an arrangement rather than one of its tiles.
     ///
     /// **The fact that has to survive the screen changing shape.** ``mosaicLayout`` is built from

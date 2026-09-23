@@ -306,6 +306,13 @@ extension RemoteScreen {
         // what this can do about it, and it is the honest answer for a tile that is a card.
         guard model.catalog?.descriptor(for: layout.tiles[index].source) != nil else { return }
 
+        // **And a tile that has already been asked for and answered with nothing is a card too**,
+        // whatever the catalogue says about its window. That is the case the test above cannot
+        // reach: a window ScreenCaptureKit lists and will not render. See
+        // ``MacSession/sourcesThatOpenedNothing``.
+        let sourceID = layout.tiles[index].source.stableID
+        guard !model.sourcesThatOpenedNothing.contains(sourceID) else { return }
+
         cancelPictureGlide()
 
         // **What the movement is carrying, recorded before it starts.** The window, whole, is
@@ -313,7 +320,6 @@ extension RemoteScreen {
         // movement is lifting out — and the two together are what keeps the picture still if the
         // Mac's stream arrives before the movement has finished, and what says which part of the
         // picture is the one thing the user should be watching. See ``pictureAim``.
-        let sourceID = layout.tiles[index].source.stableID
         pictureAim = windowAnchor(in: layout, sourceID: sourceID).map {
             PictureAim(
                 sourceID: sourceID,
@@ -349,6 +355,38 @@ extension RemoteScreen {
 
         flickerTrace("tap tile=\(index) source=\(sourceID) aim=\(pictureAim != nil) startZoom=\(Double(zoom)) targetZoom=\(Double(target.zoom))")
         glidePicture(to: target)
+        watchTileOpening(sourceID)
+    }
+
+    /// Puts the arrangement back when a tile that was tapped never opens.
+    ///
+    /// **The one failure this screen cannot see coming.** Everything else about a tile is known
+    /// before the tap: whether its window is still in the catalogue, whether the arrangement can
+    /// place it, whether it has already opened nothing once. A window the Mac cannot capture is
+    /// not knowable, so the only way to find out is to ask and wait.
+    ///
+    /// Waiting is the whole of it. The movement has already carried the picture in by the time the
+    /// answer would have arrived, so a tap that opens nothing leaves the arrangement magnified
+    /// with no answer coming and no way back but a pinch the user did not ask to perform. What
+    /// this does is the way back, and the record that stops it happening twice.
+    ///
+    /// A second and a fifth, which is several times the Mac's own build of a stream measured from
+    /// a parked arrangement. Wrong in the other direction costs a movement back to an arrangement
+    /// the user is about to be pulled out of anyway.
+    private func watchTileOpening(_ sourceID: String) {
+        model.tileOpeningWatch?.cancel()
+        model.tileOpeningWatch = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard !Task.isCancelled else { return }
+            // **A picture with this source's name on it is the Mac answering.** Anything else is
+            // no answer: the identity is still the arrangement's, so nothing was opened.
+            guard model.picture?.sourceID == sourceID else {
+                flickerTrace("tile \(sourceID) opened nothing after 1.2s; going back")
+                model.sourcesThatOpenedNothing.insert(sourceID)
+                animateBackToMosaic()
+                return
+            }
+        }
     }
 
     /// Goes back to the whole arrangement, the window shrinking into the tile it will occupy.
@@ -367,6 +405,10 @@ extension RemoteScreen {
     func animateBackToMosaic() {
         flickerTrace("return to mosaic invoked source=\(model.activeSourceID ?? "nil") mosaic=\(model.mosaicLayout != nil) zoom=\(Double(zoom))")
         cancelPictureGlide()
+        // **Whatever was waiting for a tile to open is over**, whoever decided that: the user has
+        // asked for the arrangement, so a wait that outlived the ask would be this screen arguing
+        // with them. See ``watchTileOpening(_:)``.
+        model.tileOpeningWatch?.cancel()
 
         // **The same thing carried, the other way round.** The window is what the movement has
         // hold of, and the arrangement that is coming is where it belongs — so the piece of the

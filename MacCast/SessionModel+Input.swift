@@ -167,6 +167,10 @@ extension SessionModel {
         // releases it: what is on screen is about to be a picture with no input at all, and a
         // modifier latched before that would be one nothing here can release.
         releaseLatchedModifiers()
+        // **A tile that opened nothing last time gets another try here**, because this is the user
+        // asking for the arrangement rather than the app re-using the one it has. See
+        // ``MacSession/sourcesThatOpenedNothing``.
+        sourcesThatOpenedNothing = []
         mosaicChoices = choices
         // Remembered as the *choices*, not as the rectangles the Mac is being sent: an
         // arrangement is a place the user returns to, and what it was for windows is what
@@ -338,6 +342,19 @@ extension SessionModel {
     private var mosaicGapTask: Task<Void, Never>? {
         get { activeSession?.mosaicGapTask }
         set { activeSession?.mosaicGapTask = newValue }
+    }
+
+    /// The tiles this session has asked for and got nothing back from. See
+    /// ``MacSession/sourcesThatOpenedNothing``.
+    var sourcesThatOpenedNothing: Set<String> {
+        get { activeSession?.sourcesThatOpenedNothing ?? [] }
+        set { activeSession?.sourcesThatOpenedNothing = newValue }
+    }
+
+    /// The pending wait for a tapped tile to open. See ``RemoteScreen/watchTileOpening(_:)``.
+    var tileOpeningWatch: Task<Void, Never>? {
+        get { activeSession?.tileOpeningWatch }
+        set { activeSession?.tileOpeningWatch = newValue }
     }
 
     /// Waits a moment, then closes the arrangement's gaps. See ``dropClosedMosaicTiles()``.
