@@ -95,6 +95,8 @@ public enum PreferenceKeys {
     /// In the defaults rather than in memory, because the list is for finding a command again after
     /// the app has been away, and the remote screen it is shown on is built fresh for each session.
     public static let terminalHistory = "Peering.terminalHistory"
+    /// The size the terminals draw their text at, in points. See ``TerminalTextSize``.
+    public static let terminalTextSize = "Peering.terminalTextSize"
     /// The user's own macros, as encoded JSON.
     ///
     /// Written whenever the list changes and read once when the model is built, so the two ends of

@@ -30,6 +30,9 @@ struct TerminalDeck: View {
     let send: (String) -> Void
     var isEnabled = true
 
+    /// The type size, which both terminals draw at. See the menu in ``scrollableRow``.
+    @AppStorage(PreferenceKeys.terminalTextSize) private var textSize = TerminalMetrics.TextSize.regular.rawValue
+
     var body: some View {
         VStack(spacing: 0) {
             fixedRow
@@ -106,6 +109,32 @@ struct TerminalDeck: View {
                     .buttonStyle(RailButtonStyle(scale: 0.88))
                     .accessibilityLabel(commands.isEmpty ? "Add a quick command" : "Edit quick commands")
                 }
+
+                // The type size, and it belongs in this row because it is the one control here that
+                // is not about what the shell is told: how much of a shell fits across a phone is
+                // the type size and the screen, and only one of those is the user's to change. Both
+                // terminals read the same preference, so this is the size in both of them.
+                Menu {
+                    ForEach(TerminalMetrics.TextSize.allCases) { size in
+                        Button {
+                            textSize = size.rawValue
+                        } label: {
+                            if textSize == size.rawValue {
+                                Label(size.name, systemImage: "checkmark")
+                            } else {
+                                Text(size.name)
+                            }
+                        }
+                    }
+                } label: {
+                    Text("Aa")
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(width: 46, height: 40)
+                        .terminalKeyBackground(cornerRadius: 10)
+                }
+                .menuInk()
+                .accessibilityLabel("Terminal text size")
 
                 divider
 

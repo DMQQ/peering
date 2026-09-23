@@ -6,13 +6,43 @@ import Foundation
 /// over a server's. They compute the same numbers from the same face, and a policy of "how wide
 /// is a terminal" is the kind that drifts silently when it is written twice.
 public enum TerminalMetrics {
-    /// The advance width and line height of the 12-point monospaced face both logs are set in.
+    /// The advance width and line height of the monospaced face both logs are set in, at a size.
     ///
     /// Approximations on purpose: being one column out is invisible in a shell prompt, and the
     /// alternative is asking CoreText for metrics on every layout pass to be exact about something
     /// nobody can see.
-    public static let cellWidth: CGFloat = 7.2
-    public static let cellHeight: CGFloat = 14.4
+    ///
+    /// Both follow the type size, because how much of a shell fits on the screen is exactly this
+    /// arithmetic and the type size is the one thing about it the user can change: at twelve points
+    /// a phone held upright fits about fifty of the eighty columns a full-screen program lays out
+    /// for, so the right-hand third of every line is off the edge. Nine points fits about
+    /// sixty-eight of them, which is most of the way there.
+    public static func cellWidth(for fontSize: CGFloat) -> CGFloat { fontSize * 0.6 }
+    public static func cellHeight(for fontSize: CGFloat) -> CGFloat { fontSize * 1.2 }
+
+    /// The type sizes the terminals offer, in points.
+    public enum TextSize: Int, CaseIterable, Identifiable {
+        case small = 9
+        case regular = 12
+        case large = 15
+
+        public var id: Int { rawValue }
+        public var points: CGFloat { CGFloat(rawValue) }
+
+        public var name: String {
+            switch self {
+            case .small: return "Small"
+            case .regular: return "Default"
+            case .large: return "Large"
+            }
+        }
+
+        /// What the preference holds, which is the size itself rather than a case index, so a
+        /// stored value that names no case still reads as a size.
+        public static func named(_ points: Int) -> TextSize {
+            TextSize(rawValue: points) ?? .regular
+        }
+    }
 
     /// The narrowest either shell is ever told it is, in columns.
     ///
@@ -24,11 +54,11 @@ public enum TerminalMetrics {
     /// And the shortest, which is only ever reached by a keyboard covering most of the screen.
     public static let minimumRows = 6
 
-    public static func columns(forWidth width: CGFloat) -> Int {
-        max(minimumColumns, Int(width / cellWidth))
+    public static func columns(forWidth width: CGFloat, fontSize: CGFloat) -> Int {
+        max(minimumColumns, Int(width / cellWidth(for: fontSize)))
     }
 
-    public static func rows(forHeight height: CGFloat) -> Int {
-        max(minimumRows, Int(height / cellHeight))
+    public static func rows(forHeight height: CGFloat, fontSize: CGFloat) -> Int {
+        max(minimumRows, Int(height / cellHeight(for: fontSize)))
     }
 }

@@ -37,9 +37,13 @@ struct TerminalPanel: View {
     /// the shell tour, which is the other screen's.
     @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
 
-    /// The log's type size, named once because it is used twice — the base font and the bold
-    /// runs inside it. Two spellings of it is a bold word a point bigger than its own line.
-    private static let fontSize: CGFloat = 12
+    /// The log's type size, which is also what decides how much of a shell fits across the screen.
+    /// See ``TerminalMetrics/TextSize``. Both terminals read the same preference, so a size set in
+    /// one is the size in the other.
+    @AppStorage(PreferenceKeys.terminalTextSize) private var textSize = TerminalMetrics.TextSize.regular.rawValue
+
+    /// The same, as the number the layout wants.
+    private var fontSize: CGFloat { TerminalMetrics.TextSize.named(textSize).points }
 
     private var dueTerminalTours: [Tour] {
         hasSeenTourTerminal ? [] : [.terminal]
@@ -482,7 +486,7 @@ struct TerminalPanel: View {
             ScrollView(.vertical) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(coloured(terminal))
-                        .font(.system(size: Self.fontSize, design: .monospaced))
+                        .font(.system(size: fontSize, design: .monospaced))
                         .textSelection(.enabled)
                         // The lines are as wide as they are. Wrapping them would be the other way
                         // to keep the view still, and it ruins the one thing a terminal is good
@@ -554,8 +558,8 @@ struct TerminalPanel: View {
         guard size.width > 0, size.height > 0 else { return }
         model.resizeTerminal(
             terminal.id,
-            columns: TerminalMetrics.columns(forWidth: size.width),
-            rows: TerminalMetrics.rows(forHeight: size.height)
+            columns: TerminalMetrics.columns(forWidth: size.width, fontSize: fontSize),
+            rows: TerminalMetrics.rows(forHeight: size.height, fontSize: fontSize)
         )
     }
 
@@ -578,7 +582,7 @@ struct TerminalPanel: View {
             return AttributedString(terminal.isRunning ? "Starting login shell…" : "Nothing was printed.")
         }
 
-        return TerminalPalette.attributed(terminal.screen.styled, fontSize: Self.fontSize)
+        return TerminalPalette.attributed(terminal.screen.styled, fontSize: fontSize)
     }
 
     /// What has been run here before, newest first, one tap from the field.

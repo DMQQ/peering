@@ -244,7 +244,7 @@ struct SSHTerminalScreen: View {
             ScrollView(.vertical) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(coloured)
-                        .font(.system(size: Self.fontSize, design: .monospaced))
+                        .font(.system(size: fontSize, design: .monospaced))
                         .textSelection(.enabled)
                         .fixedSize(horizontal: true, vertical: false)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -304,7 +304,11 @@ struct SSHTerminalScreen: View {
     /// The log's type size, in one place because it is used twice: the base font for the whole
     /// log, and the bold runs inside it. Two spellings of it is a bold word that is a point
     /// bigger than the line it sits on.
-    private static let fontSize: CGFloat = 12
+    /// The log's type size, the same preference the Mac's own terminal reads. See
+    /// ``TerminalMetrics/TextSize``.
+    @AppStorage(PreferenceKeys.terminalTextSize) private var textSize = TerminalMetrics.TextSize.regular.rawValue
+
+    private var fontSize: CGFloat { TerminalMetrics.TextSize.named(textSize).points }
 
     /// How close to the bottom still counts as "at the bottom".
     ///
@@ -316,11 +320,11 @@ struct SSHTerminalScreen: View {
     /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
     private func apply(_ size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
-        let columns = TerminalMetrics.columns(forWidth: size.width)
+        let columns = TerminalMetrics.columns(forWidth: size.width, fontSize: fontSize)
         // Rows only ever grow: the keyboard and the key deck shorten the log, and neither is a
         // change to the server's screen. See ``TerminalPanel/applySize(_:to:)``, which is the same
         // rule for the Mac's own shells.
-        let rows = max(lastRows, TerminalMetrics.rows(forHeight: size.height))
+        let rows = max(lastRows, TerminalMetrics.rows(forHeight: size.height, fontSize: fontSize))
         guard columns != lastColumns || rows != lastRows else { return }
         lastColumns = columns
         lastRows = rows
@@ -333,7 +337,7 @@ struct SSHTerminalScreen: View {
         }
 
         // One renderer, shared with the Mac's own terminal — see ``TerminalPalette/attributed(_:fontSize:)``.
-        var rendered = TerminalPalette.attributed(terminal.styled, fontSize: Self.fontSize)
+        var rendered = TerminalPalette.attributed(terminal.styled, fontSize: fontSize)
 
         // Why it ended, if it ended badly, in the one red the app uses for a failure — the same
         // red as the line above it that explains the failure in the server's own words.
