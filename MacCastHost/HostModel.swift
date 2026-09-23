@@ -291,13 +291,19 @@ final class HostModel {
     /// Sends the same banner the terminal attention path sends, on purpose.
     @discardableResult
     func sendTestPush() -> String {
-        let tokens = server?.allPushTokens() ?? []
+        // **`registeredPushTokens` and not `allPushTokens`.** The second leaves out every phone
+        // that is connected, because a terminal needing attention is told to a connected phone over
+        // the session rather than pushed to it, so asking it here answered "no device" every time
+        // the person pressing the button had the phone in their hand. Which is the whole of why
+        // this button appeared to say the feature had never worked.
+        let tokens = server?.registeredPushTokens() ?? []
         guard !tokens.isEmpty else {
-            let message = "No device has registered a token with this Mac."
+            let message = "No device has registered a token with this Mac. Connect the phone once with this build installed."
             pushTestResult = message
             record(message, level: .warning)
             return message
         }
+
         for token in tokens {
             relayRegistration?.notifyDevice(
                 token: token,
@@ -305,7 +311,11 @@ final class HostModel {
                 body: "A test notification from your Mac."
             )
         }
-        let message = "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s")."
+
+        let connected = server?.connectedPushClientCount() ?? 0
+        let message = connected > 0
+            ? "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s"), \(connected) of them connected."
+            : "Sent to \(tokens.count) device\(tokens.count == 1 ? "" : "s")."
         pushTestResult = message
         record(message)
         return message

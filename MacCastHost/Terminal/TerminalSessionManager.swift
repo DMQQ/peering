@@ -136,6 +136,22 @@ final class TerminalSessionManager: @unchecked Sendable {
             }
         }
     }
+
+    /// Every token this Mac holds, whether or not the phone that gave it is connected.
+    ///
+    /// **The question ``allPushTokens()`` deliberately does not answer**, and the difference is the
+    /// whole of a confusing afternoon: a connected client is left out of that list because a
+    /// terminal needing attention is told to it over the session rather than pushed to it, so an
+    /// unanswered "does this Mac hold a token at all" was answered "no" every time a phone was
+    /// connected, which is every time somebody is looking at the button that asks.
+    func registeredPushTokens() -> [String] {
+        lock.withLock { Array(pushTokenByClientID.values) }
+    }
+
+    /// How many of the registered phones are connected right now.
+    func connectedPushClientCount() -> Int {
+        lock.withLock { pushTokenByClientID.keys.filter { sinks[$0] != nil }.count }
+    }
     private static let maximumHistoryBytes = 512 * 1024
     private static let maximumSessionsPerClient = 10
 

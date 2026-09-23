@@ -175,6 +175,15 @@ final class HostServer: @unchecked Sendable {
         terminalManager.allPushTokens()
     }
 
+    /// Every registered token, connected or not. See ``TerminalSessionManager/registeredPushTokens()``.
+    func registeredPushTokens() -> [String] {
+        terminalManager.registeredPushTokens()
+    }
+
+    func connectedPushClientCount() -> Int {
+        terminalManager.connectedPushClientCount()
+    }
+
     func start() throws {
         guard listener == nil else { return }
         terminalManager.onPushNeeded = { [weak self] token, message, _ in
