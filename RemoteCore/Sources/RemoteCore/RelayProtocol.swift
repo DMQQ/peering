@@ -103,6 +103,9 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         // Both messages carry a proof under these three names. They are over different strings,
         // which the relay tells apart by the payload's version tag rather than by the field name.
         case publicKey, proof, proofTime
+        /// The APNs token, under its own key: `token` is the video token on the peer-address
+        /// message, and the relay's `NotifyDevice` reads `device_token`.
+        case deviceToken
         case deviceID = "deviceId"
         case hostID = "hostId"
         case clientID = "clientId"
@@ -167,7 +170,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode("ping", forKey: .type)
         case .notifyDevice(let token, let title, let body):
             try container.encode("notifyDevice", forKey: .type)
-            try container.encode(token, forKey: .token)
+            try container.encode(token, forKey: .deviceToken)
             try container.encode(title, forKey: .title)
             try container.encode(body, forKey: .body)
         }
