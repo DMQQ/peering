@@ -883,7 +883,15 @@ final class HostModel {
 
             let watcher = NativeTerminalWatcher()
             watcher.onAttention = { [weak server, weak registration] message in
-                for token in server?.allPushTokens() ?? [] {
+                let tokens = server?.allPushTokens() ?? []
+                // **The one line that answers "why did nothing arrive".** A terminal watched from
+                // outside has no session channel to be told over: the only way this reaches the
+                // phone is a token the phone handed over while a session was up, and with none
+                // there is nothing to send to and nothing on screen to say so.
+                if tokens.isEmpty {
+                    hostLog.notice("a terminal needs the user and no device token is registered: \(message, privacy: .public)")
+                }
+                for token in tokens {
                     registration?.notifyDevice(token: token, title: "Terminal needs you", body: message)
                 }
             }

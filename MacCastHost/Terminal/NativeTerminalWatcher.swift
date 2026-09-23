@@ -109,7 +109,8 @@ private final class TerminalAppWatch: @unchecked Sendable {
     private var axObserver: AXObserver?
     private var selfPtr: UnsafeMutableRawPointer?
     private let lock = NSLock()
-    private var alertedHash: [CFHashCode: Int] = [:]
+    /// The elements whose prompt has been alerted and not yet answered. See ``check(text:key:)``.
+    private var awaiting: Set<CFHashCode> = []
     private var pending: [CFHashCode: DispatchWorkItem] = [:]
 
     private static let queue = DispatchQueue(
@@ -257,13 +258,19 @@ private final class TerminalAppWatch: @unchecked Sendable {
     }
 
     private func check(text: String, key: CFHashCode) {
-        guard let kind = TerminalAttentionDetector.scan(text) else { return }
-
-        // Same text already alerted — the prompt has not changed since the last push.
-        let hash = text.suffix(1_200).hashValue
-        let alreadyAlerted = lock.withLock { alertedHash[key] == hash }
-        guard !alreadyAlerted else { return }
-        lock.withLock { alertedHash[key] = hash }
+        // **One alert per prompt, and the re-arm is the half that matters.** The scan asks whether
+        // the text *ends in* a question, and a program that repaints while it waits no longer ends
+        // in anything: keyed on the text, a Claude Code chooser left up produced an alert every six
+        // hundred milliseconds for as long as it was on screen, which is a push per repaint. The
+        // rule is the one ``TerminalAttentionDetector`` keeps for the shells Peering opens itself,
+        // learned from the text instead of from the input, because a terminal watched from outside
+        // never tells us that the user answered: the latch re-arms when the question stops being
+        // there.
+        guard let kind = TerminalAttentionDetector.scan(text) else {
+            lock.withLock { _ = awaiting.remove(key) }
+            return
+        }
+        guard lock.withLock({ awaiting.insert(key).inserted }) else { return }
 
         let noun = kind == .password ? "a password" : "confirmation"
         let message = "\(appName) is waiting for \(noun)."
