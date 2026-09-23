@@ -45,14 +45,6 @@ struct TerminalPanel: View {
         hasSeenTourTerminal ? [] : [.terminal]
     }
 
-    /// The grid the shells are drawn against, measured from the log's own frame.
-    ///
-    /// One pair for the panel rather than one per terminal: every shell here is drawn into the
-    /// same view, so they are all the same shape, and a per-terminal size would be a number that
-    /// disagrees with the screen it is being drawn on.
-    @State private var columns = 80
-    @State private var rows = 24
-
     /// Whether new output should pull the view down, or leave it where the user scrolled to.
     ///
     /// This panel had the same fault as the SSH one: `.defaultScrollAnchor(.bottom)` pins the
@@ -553,33 +545,18 @@ struct TerminalPanel: View {
     /// slightly too eagerly.
     private static let bottomSlack: CGFloat = 24
 
-    /// One screen per terminal, kept across renders. See ``TerminalScreenFeed``.
-    @State private var screens = TerminalScreenFeeds()
-
     /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
+    ///
+    /// Reported rather than kept: the grid a shell is drawn on belongs to the shell, and the rows
+    /// only ever grow there, which is what keeps the keyboard from resizing a terminal. See
+    /// ``MacSession/resizeTerminal(_:columns:rows:)``.
     private func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
         guard size.width > 0, size.height > 0 else { return }
-        let newColumns = TerminalMetrics.columns(forWidth: size.width)
-        // **Rows only ever grow, and that is what keeps the keyboard out of the terminal.** The
-        // keyboard shortens the log, the history strip shortens it, and neither of those is a
-        // change to the shell's screen: a resize makes the far end redraw everything, and a
-        // full-screen program redrawing itself is exactly what this emulator is worst at. So the
-        // shell keeps the tallest shape the log has had and the log scrolls, which loses nothing:
-        // it follows the bottom of the output, and the bottom of the output is where the shell's
-        // cursor and its newest lines are.
-        let newRows = max(rows, TerminalMetrics.rows(forHeight: size.height))
-        if newColumns != columns || newRows != rows {
-            columns = newColumns
-            rows = newRows
-        }
-        // **Sent whether or not this end's grid moved, and that is the fault this is about.** The
-        // Mac's PTY is not this view's state: it keeps the size it was given the last time this
-        // panel was open, while `columns` and `rows` above start again at the panel's defaults. A
-        // panel that opens at the shape it closed at therefore matched this guard, sent nothing,
-        // and left the shell drawing a screen taller than this view: every frame of it scrolled
-        // into the scrollback, which is what a windowful of half-overwritten lines is. The ioctl is
-        // cheap and idempotent; the comparison was not.
-        model.resizeTerminal(terminal.id, columns: newColumns, rows: newRows)
+        model.resizeTerminal(
+            terminal.id,
+            columns: TerminalMetrics.columns(forWidth: size.width),
+            rows: TerminalMetrics.rows(forHeight: size.height)
+        )
     }
 
     /// The history, with the colours the shell asked for.
@@ -601,8 +578,7 @@ struct TerminalPanel: View {
             return AttributedString(terminal.isRunning ? "Starting login shell…" : "Nothing was printed.")
         }
 
-        let screen = screens.screen(for: terminal, columns: columns, rows: rows)
-        return TerminalPalette.attributed(screen.styled, fontSize: Self.fontSize)
+        return TerminalPalette.attributed(terminal.screen.styled, fontSize: Self.fontSize)
     }
 
     /// What has been run here before, newest first, one tap from the field.
@@ -1192,23 +1168,5 @@ private extension TerminalState {
         case .failed: return ColorPalette.danger
         case .starting, .running, .stopped: return nil
         }
-    }
-}
-
-/// One screen per terminal, kept across renders.
-///
-/// A class rather than a dictionary in `@State`, because the screens are advanced while the body is
-/// being read and mutating state there is what SwiftUI objects to. Nothing about this is
-/// observable: it is the same screen, moved on by the bytes that have arrived since the last read.
-final class TerminalScreenFeeds {
-    private var feeds: [UUID: TerminalScreenFeed] = [:]
-
-    func screen(for terminal: RemoteTerminal, columns: Int, rows: Int) -> TerminalScreen {
-        let feed = feeds[terminal.id] ?? {
-            let made = TerminalScreenFeed()
-            feeds[terminal.id] = made
-            return made
-        }()
-        return feed.screen(for: terminal.output, columns: columns, rows: rows)
     }
 }

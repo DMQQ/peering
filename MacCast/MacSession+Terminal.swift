@@ -136,7 +136,27 @@ extension MacSession {
         wire?.sendTerminal(.input(sessionID: id, data: Data(bytes)))
     }
 
+    /// Tells the Mac how big this shell's screen is, and remembers it.
+    ///
+    /// **Remembered because the screen the output is drawn on is drawn from it**, and because the
+    /// panel that measures is not the thing that owns either: a panel is rebuilt each time it is
+    /// opened, and a shell is still the size it was. See ``RemoteTerminal/screen``.
+    ///
+    /// **Rows only ever grow, and that is what keeps the keyboard out of a terminal.** Opening it
+    /// shortens the panel's log, which is a change to this app's chrome and not to the shell's
+    /// screen: a resize makes the far end redraw everything it has, and a full-screen program
+    /// redrawing itself is the one thing the emulator on this end is worst at. The log scrolls
+    /// inside the taller screen instead, which loses nothing, since it follows the bottom of the
+    /// output and the bottom of the output is where the shell's cursor is.
     func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
+        guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
+        let rows = max(terminals[index].rows, rows)
+        terminals[index].columns = columns
+        terminals[index].rows = rows
+        // Sent even when it matches what this end believes, because the Mac's PTY is not this
+        // end's state: it keeps the size it was given the last time a panel sized it, and a panel
+        // that opens at the shape it closed at would otherwise never correct it. The ioctl is cheap
+        // and idempotent, and a comparison here was not.
         wire?.sendTerminal(.resize(
             sessionID: id,
             columns: UInt16(clamping: columns),
