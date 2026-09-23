@@ -53,16 +53,6 @@ struct TerminalPanel: View {
     @State private var columns = 80
     @State private var rows = 24
 
-    /// Where in each terminal's output the grid changed shape, so the replay can clear there.
-    ///
-    /// A byte stream is a picture of a screen *at the size it was written for*: a full-screen
-    /// program addresses cells by row and column and counts lines to move, so replaying what it
-    /// drew for one shape onto another lands every frame where the program did not put it, over
-    /// the frame before it. The Mac is told about a resize and redraws its own frame from scratch,
-    /// which makes everything before that point a screen that no longer exists: this is where
-    /// ``screen(for:)`` puts it down.
-    @State private var geometryChangedAt: [UUID: [Int]] = [:]
-
     /// Whether new output should pull the view down, or leave it where the user scrolled to.
     ///
     /// This panel had the same fault as the SSH one: `.defaultScrollAnchor(.bottom)` pins the
@@ -571,11 +561,6 @@ struct TerminalPanel: View {
         if newColumns != columns || newRows != rows {
             columns = newColumns
             rows = newRows
-            // Every shell's screen is drawn on the same grid, so every shell is marked, not only the
-            // one whose log was measured. See ``geometryChangedAt``.
-            for open in model.terminals {
-                geometryChangedAt[open.id, default: []].append(open.output.count)
-            }
         }
         // **Sent whether or not this end's grid moved, and that is the fault this is about.** The
         // Mac's PTY is not this view's state: it keeps the size it was given the last time this
@@ -606,12 +591,8 @@ struct TerminalPanel: View {
             return AttributedString(terminal.isRunning ? "Starting login shell…" : "Nothing was printed.")
         }
 
-        let screen = TerminalReplay.screen(
-            terminal.output,
-            columns: columns,
-            rows: rows,
-            clearedAt: geometryChangedAt[terminal.id] ?? []
-        )
+        var screen = TerminalScreen(columns: columns, rows: rows)
+        screen.feed(terminal.output)
         return TerminalPalette.attributed(screen.styled, fontSize: Self.fontSize)
     }
 

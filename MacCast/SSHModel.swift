@@ -103,18 +103,10 @@ final class SSHTerminal: Identifiable {
     /// throws cursor addressing away, so a program that draws by positioning — `htop`, `top`,
     /// `vim`, `less` — collapses into a linear replay of every frame it ever painted. The emulator
     /// applies those sequences to a grid, so what comes out is the last frame, in place.
-    /// Where in the output the grid changed shape, so the replay can put the old screen down.
-    ///
-    /// A byte stream is a picture of a screen *at the size it was written for*: a full-screen
-    /// program addresses cells by row and column and counts lines to move, so replaying what it
-    /// drew for one shape onto another lands every frame where the program did not put it, over
-    /// the frame before it: the smear of half-overwritten lines a resized terminal shows. The
-    /// server is told about the resize and the program redraws its whole frame, so everything
-    /// before such a point belongs to a screen that no longer exists.
-    fileprivate var geometryChangedAt: [Int] = []
-
     var styled: [TerminalStyledLine] {
-        TerminalReplay.screen(output, columns: columns, rows: rows, clearedAt: geometryChangedAt).styled
+        var screen = TerminalScreen(columns: columns, rows: rows)
+        screen.feed(output)
+        return screen.styled
     }
 
     fileprivate func append(_ chunk: Data) -> TerminalAttentionKind? {
@@ -625,10 +617,7 @@ final class SSHModel {
     /// would put the text in the wrong place even when the program on the far end was drawing it
     /// perfectly.
     func resize(columns: Int, rows: Int, for terminal: SSHTerminal) {
-        // Marked before the new shape is in place: everything already drawn was drawn for the old
-        // one. See ``SSHTerminal/geometryChangedAt``.
         guard columns != terminal.columns || rows != terminal.rows else { return }
-        terminal.geometryChangedAt.append(terminal.output.count)
         terminal.columns = columns
         terminal.rows = rows
         terminal.session.resize(columns: columns, rows: rows)
