@@ -51,29 +51,23 @@ extension HostStatusView {
 
                 portRow
 
-#if DEBUG
                 Divider().padding(.leading, 52)
 
                 pushTestRow
-#endif
             }
             .hostPanel()
         }
     }
 
-    /// Pointer rendering belongs to the client. Keeping this visible explains why the cursor is
-    /// absent from screenshots while avoiding a setting that no longer affects the stream.
-    /// Pointer rendering belongs to the client. Keeping this visible explains why the cursor is
-    /// absent from screenshots while avoiding a setting that no longer affects the stream.
-    /// Whether the window shows a live still of the Mac.
-    ///
-    /// The only setting here that is about what this Mac does when nobody is connected to it:
-    /// the snapshot behind the overview is taken every couple of seconds for as long as the
-    /// window is open, whether or not anyone is looking at it. Off, that loop does not run.
     /// A notification sent on purpose, so that "it has never arrived" can be told apart from "it
-    /// was never sent". Debug only, and second from the bottom, which are the same two rules the
-    /// phone's plan override follows: a build anybody receives does not have it.
-    #if DEBUG
+    /// was never sent".
+    ///
+    /// **Not behind `#if DEBUG`, unlike every other test affordance in this repo**, because the
+    /// only build anybody ever has of this app is a Release one: the install script builds that
+    /// configuration, so a debug-only button is a button that cannot exist on the Mac it is meant
+    /// to diagnose. This one is also the answer to a question a *user* has, which is what makes it
+    /// belong here rather than in a debug menu: a phone that receives nothing and a phone that was
+    /// never sent anything look identical from both ends, and this is the end that can tell.
     var pushTestRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "bell.badge")
@@ -97,8 +91,12 @@ extension HostStatusView {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
     }
-    #endif
 
+    /// Whether the window shows a live still of the Mac.
+    ///
+    /// The only setting here that is about what this Mac does when nobody is connected to it:
+    /// the snapshot behind the overview is taken every couple of seconds for as long as the
+    /// window is open, whether or not anyone is looking at it. Off, that loop does not run.
     var previewRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "rectangle.on.rectangle.slash")
@@ -180,6 +178,8 @@ extension HostStatusView {
         .padding(.vertical, 12)
     }
 
+    /// Pointer rendering belongs to the client. Keeping this visible explains why the cursor is
+    /// absent from screenshots while avoiding a setting that no longer affects the stream.
     var clientPointerRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "cursorarrow.motionlines")
