@@ -121,8 +121,8 @@ final class SessionModel {
 
     /// Which session the screens are about, and the one input goes to.
     ///
-    /// Assigned beside ``sessions`` for now, and never a choice. Stage 3 is what turns it into
-    /// one, by hanging a tab strip off it and sending `setVideoEnabled` on the way past.
+    /// Assigned as the user moves between Macs, and never chosen directly: the tab strip moves it,
+    /// and input follows it.
     var activeSessionID: UUID?
 
     /// The session the app is showing, or `nil` when there is not one.
@@ -312,9 +312,8 @@ final class SessionModel {
 
     /// The player for the Mac's audio, one per session.
     ///
-    /// One object per Mac, and the rule that only the active one plays, which is Stage 5's work:
-    /// two Macs' worth of sound arriving at one phone would be two things playing at once, and
-    /// only one of them is the Mac the user is looking at.
+    /// One object per Mac, and one Mac's sound at a time: two Macs' worth arriving at one phone
+    /// would be two things playing at once, and only one of them is the Mac the user is looking at.
     var audioPlayer: RemoteAudioPlayer? {
         get { activeSession?.audioPlayer }
         set { activeSession?.audioPlayer = newValue }
@@ -1233,10 +1232,8 @@ final class SessionModel {
 
     // **Forwarders, like the properties above and for the same reason.** A command belongs to a
     // session; the panels have one Mac in hand and ask the app for it. Every method here means
-    // "whatever Mac is on screen", which is the only answer that exists until there can be more
-    // than one — see ``activeSession``. Where a command names a terminal, the ID came from the
-    // Mac that made it and is unique across Macs, which is what will let Stage 4 route it to the
-    // right one rather than to the one on screen.
+    // Where a command names a terminal, the ID came from the Mac that made it and is unique across
+    // Macs, which is what routes it to the Mac that owns it rather than to the one on screen.
 
     /// The commands sent from this phone, newest first.
     ///

@@ -10,10 +10,8 @@ extension SessionModel {
 
     // **Forwarders, and deliberately all of them.** Every property below is a per-Mac fact that
     // now lives on ``MacSession``: the getter reads it off the session the app is showing, and the
-    // setter writes it there. They exist so that no screen had to change when the state underneath
-    // it moved, which is the acceptance test for this stage — the seam is proved by being
-    // invisible. Stage 5 is what removes the ones whose screens have learned to ask a particular
-    // session rather than "the" session.
+    // setter writes it there. They stay for the screens that still ask for "the" session rather
+    // than for a particular one; a screen that has learned to ask for its own does not need them.
     //
     // The doc comments that were on these properties are on the stored ones in ``MacSession``.
 
