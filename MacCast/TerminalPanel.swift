@@ -553,6 +553,9 @@ struct TerminalPanel: View {
     /// slightly too eagerly.
     private static let bottomSlack: CGFloat = 24
 
+    /// One screen per terminal, kept across renders. See ``TerminalScreenFeed``.
+    @State private var screens = TerminalScreenFeeds()
+
     /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
     private func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
         guard size.width > 0, size.height > 0 else { return }
@@ -591,8 +594,7 @@ struct TerminalPanel: View {
             return AttributedString(terminal.isRunning ? "Starting login shell…" : "Nothing was printed.")
         }
 
-        var screen = TerminalScreen(columns: columns, rows: rows)
-        screen.feed(terminal.output)
+        let screen = screens.screen(for: terminal, columns: columns, rows: rows)
         return TerminalPalette.attributed(screen.styled, fontSize: Self.fontSize)
     }
 
@@ -1183,5 +1185,23 @@ private extension TerminalState {
         case .failed: return ColorPalette.danger
         case .starting, .running, .stopped: return nil
         }
+    }
+}
+
+/// One screen per terminal, kept across renders.
+///
+/// A class rather than a dictionary in `@State`, because the screens are advanced while the body is
+/// being read and mutating state there is what SwiftUI objects to. Nothing about this is
+/// observable: it is the same screen, moved on by the bytes that have arrived since the last read.
+final class TerminalScreenFeeds {
+    private var feeds: [UUID: TerminalScreenFeed] = [:]
+
+    func screen(for terminal: RemoteTerminal, columns: Int, rows: Int) -> TerminalScreen {
+        let feed = feeds[terminal.id] ?? {
+            let made = TerminalScreenFeed()
+            feeds[terminal.id] = made
+            return made
+        }()
+        return feed.screen(for: terminal.output, columns: columns, rows: rows)
     }
 }

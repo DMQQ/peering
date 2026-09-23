@@ -103,10 +103,16 @@ final class SSHTerminal: Identifiable {
     /// throws cursor addressing away, so a program that draws by positioning — `htop`, `top`,
     /// `vim`, `less` — collapses into a linear replay of every frame it ever painted. The emulator
     /// applies those sequences to a grid, so what comes out is the last frame, in place.
+    /// The screen this shell is drawn on, kept rather than rebuilt.
+    ///
+    /// It used to be built from the whole session on every render, which is only valid while the
+    /// grid holds still, and the grid moves whenever the log's height or the phone's orientation
+    /// does. See ``TerminalScreenFeed``: the screen is fed what is new and resized in place, which
+    /// is what a real terminal does and what keeps a program's frame where it was drawn.
+    private let screenFeed = TerminalScreenFeed()
+
     var styled: [TerminalStyledLine] {
-        var screen = TerminalScreen(columns: columns, rows: rows)
-        screen.feed(output)
-        return screen.styled
+        screenFeed.screen(for: output, columns: columns, rows: rows).styled
     }
 
     fileprivate func append(_ chunk: Data) -> TerminalAttentionKind? {

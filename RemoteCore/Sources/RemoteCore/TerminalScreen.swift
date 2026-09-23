@@ -18,8 +18,10 @@ import Foundation
 /// background, bold and dim, per cell, in ``styled``. The rest of SGR — italic, underline, blink,
 /// reverse — is read and discarded, which is what an unhandled sequence has always cost here.
 public struct TerminalScreen: Sendable {
-    public let columns: Int
-    public let rows: Int
+    /// The shape the screen is drawn on. Set at the start and changed by ``resize(columns:rows:)``,
+    /// which is the only thing that may move them.
+    public private(set) var columns: Int
+    public private(set) var rows: Int
 
     /// Lines that scrolled off the top, oldest first.
     ///
@@ -86,6 +88,39 @@ public struct TerminalScreen: Sendable {
         self.columns = max(1, columns)
         self.rows = max(1, rows)
         self.grid = Array(repeating: Array(repeating: Cell(), count: self.columns), count: self.rows)
+    }
+
+    /// Changes the shape the screen is drawn on, keeping what is on it.
+    ///
+    /// **A resize is not a rebuild, and this is the whole of that difference.** A byte stream is a
+    /// picture of a screen *at the size it was written for*: a program addresses cells by row and
+    /// column and counts lines to move its cursor, so applying what it drew for one shape to
+    /// another lands every frame somewhere the program did not put it. A terminal keeps its cells
+    /// across a resize and lets the program paint over them, and this does the same: rows past the
+    /// new bottom are dropped, columns past the new right are cut, new cells are blank, and the
+    /// cursor is brought back inside.
+    ///
+    /// The scrollback is left exactly as it is. What has scrolled off has already left this screen,
+    /// and re-wrapping it for a narrower one would be a second, invisible re-layout of the past.
+    public mutating func resize(columns newColumns: Int, rows newRows: Int) {
+        let newColumns = max(1, newColumns)
+        let newRows = max(1, newRows)
+        guard newColumns != columns || newRows != rows else { return }
+
+        grid = (0..<newRows).map { index in
+            var cells = index < grid.count ? grid[index] : []
+            if cells.count > newColumns {
+                cells.removeLast(cells.count - newColumns)
+            } else if cells.count < newColumns {
+                cells.append(contentsOf: repeatElement(Cell(), count: newColumns - cells.count))
+            }
+            return cells
+        }
+        columns = newColumns
+        rows = newRows
+        row = min(row, newRows - 1)
+        column = min(column, newColumns - 1)
+        pendingWrap = false
     }
 
     /// Applies bytes to the screen.

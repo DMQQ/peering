@@ -1,0 +1,80 @@
+import RemoteCore
+import XCTest
+@testable import MacCastKit
+
+/// What a terminal that is fed rather than replayed has to get right.
+///
+/// The screen used to be rebuilt from the whole session on every render. That is only valid at one
+/// shape, and the log's shape moves for the keyboard, for the history strip and for a rotation, so
+/// the case these cover is the one that was wrong: bytes arriving across a change of shape, which
+/// has to leave what a program already drew where it drew it.
+final class TerminalScreenFeedTests: XCTestCase {
+    private func text(of screen: TerminalScreen) -> String {
+        screen.styled
+            .dropFirst(screen.scrollback.count)
+            .map { $0.runs.map(\.text).joined() }
+            .joined(separator: "\n")
+    }
+
+    /// The property the old design had for free and this one has to keep: the same bytes are the
+    /// same screen, however they are cut up.
+    func testBytesArrivingInPiecesAreTheSameScreen() {
+        let all = Data("one\r\ntwo\r\nthree\r\n".utf8)
+        let piece = all.count / 2
+
+        let feed = TerminalScreenFeed()
+        _ = feed.screen(for: Data(all.prefix(piece)), columns: 20, rows: 6)
+        let inPieces = feed.screen(for: all, columns: 20, rows: 6)
+
+        var atOnce = TerminalScreen(columns: 20, rows: 6)
+        atOnce.feed(all)
+
+        XCTAssertEqual(text(of: inPieces), text(of: atOnce))
+    }
+
+    /// The fault this exists for: a program's frame is drawn where the program put it, and a change
+    /// of shape does not re-lay it.
+    func testAFrameSurvivesAResizeWhereItWasDrawn() {
+        let feed = TerminalScreenFeed()
+        let frame = Data("top\r\nmiddle\r\nbottom\r\n".utf8)
+        let before = text(of: feed.screen(for: frame, columns: 20, rows: 6))
+
+        // The log grows: the keyboard goes away.
+        let after = text(of: feed.screen(for: frame, columns: 20, rows: 12))
+
+        XCTAssertEqual(before, after, "the rows are the rows the program drew, at either shape")
+        XCTAssertTrue(after.contains("middle"))
+    }
+
+    /// And bytes that arrive after a resize are applied to the screen that is there, rather than to
+    /// a fresh one built at the new shape.
+    func testBytesAfterAResizeAreAppliedToTheScreenThatIsThere() {
+        let feed = TerminalScreenFeed()
+        var bytes = Data("first\r\n".utf8)
+        _ = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        // The grid changes shape, then the program draws its next line.
+        _ = feed.screen(for: bytes, columns: 20, rows: 8)
+        bytes.append(Data("second\r\n".utf8))
+        let screen = feed.screen(for: bytes, columns: 20, rows: 8)
+
+        XCTAssertTrue(text(of: screen).contains("first"), "what was drawn before the resize is still there")
+        XCTAssertTrue(text(of: screen).contains("second"))
+    }
+
+    /// A history trimmed past what has been applied cannot be caught up from, and rebuilding is the
+    /// answer rather than a screen that is wrong from then on.
+    func testATrimmedHistoryIsRebuilt() {
+        let feed = TerminalScreenFeed()
+        var bytes = Data("gone one\r\ngone two\r\n".utf8)
+        _ = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        // The model drops the front of the buffer, which is what its own limit does, and what is
+        // left is shorter than what was applied.
+        bytes = Data("kept\r\n".utf8)
+        let screen = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        XCTAssertTrue(text(of: screen).contains("kept"))
+        XCTAssertFalse(text(of: screen).contains("gone"), "the bytes that drew it are not in the buffer any more")
+    }
+}
