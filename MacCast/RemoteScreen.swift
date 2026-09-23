@@ -166,6 +166,37 @@ struct RemoteScreen: View {
     /// at the departing calibration for good. See ``settleArrival()``.
     @State var arrivalDeadline: Task<Void, Never>?
 
+    /// The picture being replaced, and the scale and offset it was drawn at.
+    ///
+    /// The live layer is hidden for the render in which its contents change — the layer swaps them
+    /// on a clock this app cannot see, so the only way to keep the wrong pair off the screen is to
+    /// have it covered while it happens — and faded back in afterwards. See
+    /// ``VideoLayerView/showsStill``.
+    @State var swapping = false
+    @State var stillZoom: CGFloat = 1
+    @State var stillPan: CGSize = .zero
+
+    /// Whether the outgoing picture is held under the arriving one across a swap.
+    ///
+    /// **Off, and the switch is here rather than deleted so the reasoning survives.** The idea is
+    /// sound and the mechanism runs: the still layer keeps the departing stream's last frame at
+    /// the departing transform while the live layer is hidden and given the new one, and the live
+    /// layer fades back in over 180ms. Traced on the device, every arrival does exactly that.
+    ///
+    /// What it does not do is show the right picture. Tapping a tile in an arrangement puts
+    /// something else on screen for about a fifth of a second. The owner's words: "in mosaic I
+    /// see the google chat window in chrome, I click it and for a moment it shows me some other
+    /// tab in chrome I was there a minute or 2 before, and then it flickers back". The frame the
+    /// still is handed is ``VideoRenderer/outgoingFrame``, which is the last one this renderer gave
+    /// the *live* layer, and the layer has no flush of its own: once it holds something it goes on
+    /// holding it, so what it covers a swap with is not reliably the picture that was on screen.
+    ///
+    /// Turning it off removes both that and the flicker it was written to cure, which is the
+    /// measurement that settles it. A version of this worth having needs the still to be given the
+    /// frame the screen can actually see, which is a change to what the renderer keeps and not to
+    /// when it fades.
+    private static let crossFadeArrivals = false
+
     /// The two pictures an arrival is between. See ``pendingArrival``.
     struct PendingArrival {
         let previous: PictureIdentity
@@ -352,7 +383,6 @@ struct RemoteScreen: View {
                 // an arrangement, the rest of the picture is not there as far as this screen is
                 // concerned. See ``carryingScrim``.
                 carryingScrim
-                swapVeil
                 gestures
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
@@ -451,6 +481,7 @@ struct RemoteScreen: View {
             guard let previous, let current else { return }
             switch previous.change(to: current) {
             case .unchanged:
+                flickerTrace("arrival unchanged src=\(current.sourceID ?? "nil")")
                 break
             case .resized:
                 // The magnification is kept. It is a multiple of the fit, so it still says what
@@ -459,7 +490,28 @@ struct RemoteScreen: View {
                 // outside the range the new picture allows. At rest there is no range at all,
                 // so nothing the user can drag would bring it back.
                 pan = clampedPan(pan)
+                // **A change of picture is a change of picture, whichever case it arrives as.**
+                // This one is the same window re-described at another resolution, which is the
+                // reduced-quality stream on the control channel giving way to the full-quality one
+                // on the direct channel — a swap the user watches even though the source never
+                // changed. It used to arrive without a cross-fade for exactly that reason, and it
+                // is the flicker a second after a tile finishes opening. See ``showsStill``.
+                stillZoom = effectiveZoom
+                stillPan = pan
+                swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
+                flickerTrace("""
+                    arrival resized src=\(current.sourceID ?? "nil") \
+                    was=\(previous.pixelSize.width)x\(previous.pixelSize.height) \
+                    now=\(current.pixelSize.width)x\(current.pixelSize.height) \
+                    still=\(swapping) zoom=\(Double(effectiveZoom))
+                    """)
             case .replaced:
+                flickerTrace("""
+                    arrival replaced from=\(previous.sourceID ?? "nil") \
+                    to=\(current.sourceID ?? "nil") \
+                    \(current.pixelSize.width)x\(current.pixelSize.height) \
+                    aim=\(pictureAim?.sourceID ?? "nil") hasStill=\(model.renderer.hasStillPicture)
+                    """)
                 // **Held until the picture the config describes is on the layer.** The work below
                 // is all expressed against the arriving picture, and the layer is still showing
                 // the one it replaced. See ``pendingArrival`` and ``settleArrival()``.
@@ -538,6 +590,17 @@ struct RemoteScreen: View {
         }
         // The other half of the hold on an arrival: the frame landing is the picture changing.
         .onChange(of: model.frameArrived) { _, _ in settleArrival() }
+        // **Back out of the hold, one display frame after going into it.** That render has
+        // happened, so the live layer has been handed the arriving frame; the pause is for the
+        // layer to put it on the screen, because a fade that started first would be blending into
+        // a picture that had not changed yet and the swap would land in the middle of it.
+        .onChange(of: swapping) { _, swap in
+            guard swap else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(50))
+                swapping = false
+            }
+        }
     }
 
     /// Does what an arrival does, now that its picture is the one on screen.
@@ -547,15 +610,32 @@ struct RemoteScreen: View {
     /// when the frame lands or when the deadline above gives up on it ever landing.
     func settleArrival(force: Bool = false) {
         guard let pending = pendingArrival else { return }
-        // Asked of the layer rather than inferred from which of the two arrived first: the frame's
-        // own hop to the main actor can beat the config's. See ``SessionModel/hasPictureOnScreen``.
+        flickerTrace("""
+            settleArrival force=\(force) ready=\(model.isReadyToPlace(of: pending.current.pixelSize)) \
+            to=\(pending.current.pixelSize.width)x\(pending.current.pixelSize.height)
+            """)
+        // Asked of the renderer rather than inferred from which of the two arrived first: the
+        // frame's own hop to the main actor can beat the config's, and either can be late.
         // `force` is the deadline, which is the one caller that has decided the wait is over.
-        guard force || model.hasPictureOnScreen(of: pending.current.pixelSize) else { return }
+        guard force || model.isReadyToPlace(of: pending.current.pixelSize) else { return }
         pendingArrival = nil
         arrivalDeadline?.cancel()
         arrivalDeadline = nil
         let previous = pending.previous
         let current = pending.current
+
+        // **The picture on screen at this instant, and the scale it is drawn at.** Whatever the
+        // arrival does below, that picture has to go on being shown while the live layer takes the
+        // new frame — the still holds it, at the scale it had here rather than at the one the
+        // arrival is about to write. See ``VideoLayerView/showsStill``.
+        //
+        // Set before the work rather than inside either branch, because the branches disagree
+        // about the transform and agree about this: both of them replace the picture on screen.
+        stillZoom = effectiveZoom
+        stillPan = pan
+        // Only if there is something to cover it with: an empty still under a hidden live layer is
+        // a black frame, which is worse than the cut this replaces.
+        swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
 
         // **A turn of the phone is a movement, not a cut.** An arrangement that arrives
         // where another arrangement was is drawn where that one was and moves into its own

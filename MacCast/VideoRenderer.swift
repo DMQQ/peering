@@ -45,8 +45,11 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         var lastError: String?
         /// Bumped by every config.
         var configGeneration = 0
-        /// The config whose picture is on the layer. Equal to ``configGeneration`` once a frame of
-        /// the stream that config described has been enqueued, and behind it until then.
+        /// The config whose first frame the renderer has, whether or not it is on the layer yet.
+        /// The screen's cue to write the transform that goes with it. See ``releaseHeldFrame()``.
+        var readyGeneration = 0
+        /// The config whose picture is on the layer. Behind ``readyGeneration`` for as long as the
+        /// first frame of a stream is held, which is the whole of what the hold buys.
         var displayedGeneration = 0
     }
 
@@ -77,6 +80,98 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     var onFirstFrame: (@MainActor @Sendable () -> Void)? {
         get { lock.withLock { _onFirstFrame } }
         set { lock.withLock { _onFirstFrame = newValue } }
+    }
+
+    /// The last frame handed to the layer by the stream that is being replaced.
+    ///
+    /// **The picture that has to stay on screen while the new one is made ready.** A display layer
+    /// holds its last frame, so one sample is all a still needs. Kept here rather than pushed from
+    /// the view because this is the only place that sees the frames at all.
+    private var outgoingFrame: CMSampleBuffer?
+
+    /// The last frame this renderer handed to the live layer, whichever stream it belonged to.
+    /// What ``outgoingFrame`` is set from when the next stream is configured.
+    private var lastEnqueued: CMSampleBuffer?
+
+    /// The layer the outgoing picture is shown on. See ``VideoHostView/stillView``.
+    private var stillRenderer: AVSampleBufferVideoRenderer?
+
+    /// Whether the still layer has a picture of its own to cover a swap with.
+    ///
+    /// Asked before the live layer is hidden, because hiding it over an empty still is a black
+    /// frame — which is a worse flicker than the one all of this exists to remove.
+    var hasStillPicture: Bool { lock.withLock { outgoingFrame != nil } }
+
+    /// Binds the layer the still picture is drawn into. Called once, from `makeUIView`.
+    func attachStill(_ layer: AVSampleBufferDisplayLayer) {
+        nonisolated(unsafe) let layer = layer
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.stillRenderer = layer.sampleBufferRenderer
+            if let frozen = self.lock.withLock({ self.outgoingFrame }) {
+                layer.sampleBufferRenderer.enqueue(frozen)
+            }
+        }
+    }
+
+    /// The first frame of a stream that has just been configured, and when it arrived.
+    ///
+    /// **The one frame that cannot be made continuous any other way.** The layer commits its own
+    /// contents on this queue and the transform that scales them is written by the main thread, so
+    /// a frame enqueued here and now is drawn at the departing picture's scale until the main
+    /// thread catches up: the window at twice its size in the middle of a zoom into a tile, the
+    /// canvas at half size in the middle of a zoom out. Held, the layer goes on showing the
+    /// picture the transform is still calibrated for and the two change together. See
+    /// ``releaseHeldFrame()``.
+    private var heldFirstFrame: (sample: CMSampleBuffer, at: DispatchTime, generation: Int)?
+
+    /// How long a held frame waits before a newer one displaces it.
+    ///
+    /// A hold that is never released leaves the decoder without the keyframe it has to start on,
+    /// so it cannot be unbounded. The screen asks for it within a frame or two; this is the answer
+    /// to a main thread that never gets round to asking.
+    private static let heldFrameBudget: UInt64 = 600_000_000
+
+    /// Hands the held frame to the layer, which is the screen saying its transform is ready.
+    ///
+    /// Called after the transform has been committed, and that ordering is the whole point: a
+    /// frame released before it would go back on screen at the departing picture's scale.
+    func releaseHeldFrame() {
+        let held = lock.withLock {
+            () -> (sample: CMSampleBuffer, at: DispatchTime, generation: Int)? in
+            defer { heldFirstFrame = nil }
+            return heldFirstFrame
+        }
+        guard let held else { return }
+        // **On the caller's thread, inside the caller's transaction, and that is the whole point.**
+        // A hop to the video queue would put the enqueue in a later commit than the transform, and
+        // the frame would still spend a moment on screen at the departing picture's scale — the
+        // same flicker with a smaller hole. `sampleBufferRenderer` is built to be enqueued into
+        // from any thread, which is what makes calling it from here safe. See
+        // ``VideoLayerView/updateUIView(_:context:)``.
+        renderer?.enqueue(held.sample)
+        lock.withLock {
+            lastEnqueued = held.sample
+            // Only for the config it was held for: a stream configured since then has a picture of
+            // its own on the way. See ``Snapshot/displayedGeneration``.
+            if snapshot.configGeneration == held.generation {
+                snapshot.displayedGeneration = held.generation
+            }
+        }
+    }
+
+    /// The same, for a hold the screen never asked about. Runs on the video queue.
+    private func releaseStrandedFrame(on renderer: AVSampleBufferVideoRenderer) {
+        let stranded = lock.withLock { () -> CMSampleBuffer? in
+            guard let held = heldFirstFrame,
+                  DispatchTime.now().uptimeNanoseconds - held.at.uptimeNanoseconds
+                      > Self.heldFrameBudget
+            else { return nil }
+            heldFirstFrame = nil
+            snapshot.displayedGeneration = held.generation
+            return held.sample
+        }
+        if let stranded { renderer.enqueue(stranded) }
     }
 
     // MARK: - Attachment
@@ -147,6 +242,25 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // first frame arrives. Throwing it away is a black screen in the middle of a source
             // switch — a flash on every tap of a mosaic's tile, between the arrangement being
             // left and the window arriving, with the window's own position already worked out.
+            // **The picture being replaced, handed to the still before anything else moves.** It
+            // is what the live layer is showing at this instant, and what has to go on being shown
+            // while this stream's own first frame is made ready. See ``VideoHostView/stillView``.
+            let outgoing = self.lock.withLock { () -> CMSampleBuffer? in
+                self.outgoingFrame = self.lastEnqueued
+                return self.outgoingFrame
+            }
+            if let outgoing, let still = self.stillRenderer {
+                still.enqueue(outgoing)
+            }
+            let outgoingSize = outgoing
+                .flatMap { $0.imageBuffer }
+                .map { "\(CVPixelBufferGetWidth($0))x\(CVPixelBufferGetHeight($0))" } ?? "none"
+            flickerTrace("""
+                renderer outgoing=\(outgoingSize) \
+                stillLayer=\(self.stillRenderer == nil ? "no" : "yes") \
+                to=\(config.pixelWidth)x\(config.pixelHeight)
+                """)
+
             self.renderer?.flush(removingDisplayedImage: false)
             self.debugFlickerAwaitingFirstFrame = true
             flickerTrace("renderer configured \(config.pixelWidth)x\(config.pixelHeight); flushed queue and kept displayed image")
@@ -155,6 +269,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
                 // The generation survives the reset: it is a count of configs, and the frame that
                 // is about to arrive belongs to this one. See ``Snapshot/displayedGeneration``.
                 let generation = self.snapshot.configGeneration + 1
+                // A frame held for the stream this one replaces is not a frame of this stream.
+                self.heldFirstFrame = nil
                 self.snapshot = Snapshot()
                 self.snapshot.configGeneration = generation
                 self.snapshot.hasConfig = true
@@ -236,21 +352,37 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return
         }
 
-        renderer.enqueue(sample)
         let firstOfConfig = debugFlickerAwaitingFirstFrame
         if firstOfConfig {
+            // Held rather than shown: the screen has not asked for it yet, and a picture with no
+            // transform to go with it is the flicker. See ``heldFirstFrame``.
             debugFlickerAwaitingFirstFrame = false
-            flickerTrace("renderer enqueued first frame after config keyframe=\(frame.isKeyframe) size=\(frame.pixelWidth)x\(frame.pixelHeight)")
+            flickerTrace("renderer holding first frame after config keyframe=\(frame.isKeyframe) size=\(frame.pixelWidth)x\(frame.pixelHeight)")
+            self.lock.withLock {
+                self.heldFirstFrame = (
+                    sample, DispatchTime.now(), self.snapshot.configGeneration
+                )
+                self.snapshot.framesEnqueued += 1
+                self.snapshot.bytesEnqueued += Int64(frame.data.count)
+                self.snapshot.awaitingKeyframe = false
+                self.snapshot.readyGeneration = self.snapshot.configGeneration
+            }
+            let landed = lock.withLock { _onFirstFrame }
+            Task { @MainActor in landed?() }
+            return
         }
+
+        // A held frame that a newer one has caught up with is let go rather than lost.
+        releaseStrandedFrame(on: renderer)
+        renderer.enqueue(sample)
         self.lock.withLock {
+            self.lastEnqueued = sample
             self.snapshot.framesEnqueued += 1
             self.snapshot.bytesEnqueued += Int64(frame.data.count)
             self.snapshot.awaitingKeyframe = false
-            if firstOfConfig { self.snapshot.displayedGeneration = self.snapshot.configGeneration }
-        }
-        if firstOfConfig {
-            let landed = lock.withLock { _onFirstFrame }
-            Task { @MainActor in landed?() }
+            // A frame that went straight to the layer is on it: both the cue and the picture.
+            self.snapshot.readyGeneration = self.snapshot.configGeneration
+            self.snapshot.displayedGeneration = self.snapshot.configGeneration
         }
     }
 
@@ -264,6 +396,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
             self.lock.withLock {
+                self.heldFirstFrame = nil
                 self.snapshot = Snapshot()
             }
         }
@@ -284,7 +417,10 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.deferredKeyframe.reset()
             self.debugTimingOrigin = nil
             self.debugTimingFrameCount = 0
-            self.lock.withLock { self.snapshot = Snapshot() }
+            self.lock.withLock {
+                self.heldFirstFrame = nil
+                self.snapshot = Snapshot()
+            }
         }
     }
 
@@ -468,6 +604,32 @@ struct VideoLayerView: UIViewRepresentable {
     var zoom: CGFloat = 1
     /// How far the picture is moved from the centre of its frame, in points.
     var pan: CGSize = .zero
+    /// Whether the transform about to be written is the one the arriving picture needs.
+    ///
+    /// The layer holds the first frame of a new stream until this says so, which is what keeps the
+    /// picture and the transform changing together. See ``VideoRenderer/releaseHeldFrame()``.
+    var pictureIsPlaced = false
+
+    /// The scale and offset the outgoing picture was drawn at, and whether it is the one showing.
+    ///
+    /// The still carries the transform the picture had *before* the change, because it is that
+    /// picture; the live layer takes the new one and fades in over it. Both are the same rectangle
+    /// on screen — that is what the movement between two pictures is for — so what the user
+    /// watches is the picture sharpening rather than either of them jumping.
+    var stillZoom: CGFloat = 1
+    var stillPan: CGSize = .zero
+    var showsStill = false
+
+    /// The last scale this view wrote, so the trace can report the transform the picture is
+    /// actually drawn at rather than the one the arithmetic says it should be. See
+    /// ``makeCoordinator()``.
+    final class Coordinator {
+        var lastLogged: CGFloat = 0
+        var releasedFor: CGFloat = 0
+        var showsStill = false
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> VideoHostView {
         let view = VideoHostView()
@@ -476,6 +638,11 @@ struct VideoLayerView: UIViewRepresentable {
             // The display view rather than the container, so PiP mirrors the layer that is
             // actually holding the picture — the container only ever carries a transform.
             SessionPiP.shared.attach(view.displayView)
+        }
+        // **The still is deliberately not offered to PiP.** It holds one frame of the session
+        // before this one; a floating window showing it would be a picture that stopped.
+        if let still = view.stillView.displayLayer {
+            renderer.attachStill(still)
         }
         return view
     }
@@ -498,10 +665,58 @@ struct VideoLayerView: UIViewRepresentable {
         // the floating window too.
         let target = CGAffineTransform(translationX: pan.width, y: pan.height)
             .scaledBy(x: zoom, y: zoom)
+        let stillTarget = CGAffineTransform(translationX: stillPan.width, y: stillPan.height)
+            .scaledBy(x: stillZoom, y: stillZoom)
+
+        // **The hand-over, and it is one commit or it is nothing.** Three things have to happen
+        // together: the live layer takes the new transform, the still takes the outgoing one, and
+        // the live layer is hidden. Written in one disabled-actions transaction, the render server
+        // applies all three in the same frame, so there is no frame in which the outgoing picture
+        // is drawn at the incoming picture's scale. Hiding the live layer cannot be seen either:
+        // at this instant the still and the live layer hold the same picture.
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         view.contentView.transform = target
+        view.stillContentView.transform = stillTarget
+        if showsStill {
+            view.stillContentView.alpha = 1
+            view.contentView.alpha = 0
+        }
         CATransaction.commit()
+
+        // **And the frame goes to the layer only now**, while the live layer is hidden and the
+        // still is covering it. See ``VideoRenderer/releaseHeldFrame()``.
+        if pictureIsPlaced {
+            if context.coordinator.releasedFor != zoom {
+                context.coordinator.releasedFor = zoom
+                flickerTrace("layer releases the held frame at zoom=\(Double(zoom))")
+            }
+            renderer.releaseHeldFrame()
+        }
+
+        // The way back out is the only part that is watched, so it is the only part that is
+        // animated: a hard cut here is a source change, and this is what turns it into the picture
+        // settling. Instant on the way in, because nothing is visible at that moment anyway.
+        if showsStill != context.coordinator.showsStill {
+            context.coordinator.showsStill = showsStill
+            flickerTrace("layer swap showsStill=\(showsStill) zoom=\(Double(zoom)) stillZoom=\(Double(stillZoom))")
+            if !showsStill {
+                flickerTrace("layer still fading out over 0.18s")
+                CATransaction.begin()
+                CATransaction.setAnimationDuration(0.18)
+                CATransaction.setAnimationTimingFunction(
+                    CAMediaTimingFunction(name: .easeInEaseOut)
+                )
+                view.stillContentView.alpha = 0
+                view.contentView.alpha = 1
+                CATransaction.commit()
+            }
+        }
+
+        if abs(zoom - context.coordinator.lastLogged) > 0.02 {
+            context.coordinator.lastLogged = zoom
+            flickerTrace("layer transform zoom=\(Double(zoom)) still=\(showsStill)")
+        }
     }
 }
 
@@ -525,6 +740,22 @@ final class VideoHostView: UIView {
 
     let displayView = VideoDisplayView()
 
+    /// The picture being replaced, still, under the live one.
+    ///
+    /// **A change of source cannot be made atomic from here, so it is made invisible instead.**
+    /// The live layer swaps its own contents on the render server's clock, and the transform that
+    /// scales them is written by the main thread, so around every source change there is a moment
+    /// where one of the two is showing the wrong pair: the old picture at the new scale, or the
+    /// new picture at the old one. Both were tried and both were visible. Held here, the outgoing
+    /// picture can be shown at the outgoing scale while the live layer changes underneath it, and
+    /// then the two are cross-faded — which is the only transition a video layer allows, because
+    /// the pair that must never be seen never has to be drawn.
+    ///
+    /// It is a still and not a second stream: one frame is enqueued when the source changes and a
+    /// display layer holds its last frame indefinitely. See ``VideoRenderer/attachStill(_:)``.
+    let stillContentView = UIView()
+    let stillView = VideoDisplayView()
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
@@ -532,13 +763,17 @@ final class VideoHostView: UIView {
         // bounds unless it is clipped: a sublayer is not clipped by its parent by default, and
         // this one is a sibling of the chrome's layers.
         clipsToBounds = true
-        contentView.frame = bounds
-        addSubview(contentView)
 
-        displayView.frame = contentView.bounds
-        // The picture fills whatever this is given, whatever shape that turns out to be.
-        displayView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        contentView.addSubview(displayView)
+        // Under the live one, and both sized the same way. The still is what is left on screen
+        // when the live layer is faded out, so it has to cover the same ground.
+        for (container, display) in [(stillContentView, stillView), (contentView, displayView)] {
+            container.frame = bounds
+            addSubview(container)
+            display.frame = container.bounds
+            display.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            container.addSubview(display)
+        }
+        stillContentView.alpha = 0
     }
 
     /// Sized through `bounds` and `center`, never through `frame`, which is why this is here
@@ -551,8 +786,10 @@ final class VideoHostView: UIView {
     /// picture's scale behind the user's back.
     override func layoutSubviews() {
         super.layoutSubviews()
-        contentView.bounds = CGRect(origin: .zero, size: bounds.size)
-        contentView.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        for container in [stillContentView, contentView] {
+            container.bounds = CGRect(origin: .zero, size: bounds.size)
+            container.center = CGPoint(x: bounds.midX, y: bounds.midY)
+        }
     }
 
 

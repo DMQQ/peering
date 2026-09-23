@@ -16,7 +16,15 @@ extension RemoteScreen {
         // No `scaleEffect` or `offset` here: the picture's placement is applied inside the view,
         // as a layer transform — see `VideoLayerView.updateUIView`, which is where a pan that
         // trailed the finger was coming from.
-        VideoLayerView(renderer: model.renderer, zoom: effectiveZoom, pan: pan)
+        VideoLayerView(
+            renderer: model.renderer,
+            zoom: effectiveZoom,
+            pan: pan,
+            pictureIsPlaced: pictureIsPlaced,
+            stillZoom: stillZoom,
+            stillPan: stillPan,
+            showsStill: swapping
+        )
             .ignoresSafeArea()
             .overlay {
                 // When the capture stream has stopped (source closed, app quit) the last
@@ -119,17 +127,23 @@ extension RemoteScreen {
     /// tile is.
     func mosaicTileRect(_ index: Int, in layout: MosaicLayout) -> CGRect? {
         guard layout.tiles.indices.contains(index) else { return nil }
-        return CanvasGeometry.rect(
+        guard let tile = CanvasGeometry.rect(
             normalized: layout.tiles[index].rect,
             bounds: canvasSize,
             // **The arrangement's own canvas, not the picture on screen.** The two are the same
             // rectangle whenever a mosaic is what is showing, and they are not while one is on its
-            // way — which is exactly when the borders have to be drawn for where the tiles are
-            // going to be. See ``shownMosaicLayout``.
+            // way. See ``shownMosaicLayout``.
             pixelSize: layout.canvas,
             zoom: effectiveZoom,
             pan: pan
-        )
+        ) else { return nil }
+
+        // **The slot, not the window inside it.** Drawing these around the window instead was
+        // tried and is the reason the grid looked uneven: a frame takes the shape of what it is
+        // drawn around, so six windows of six shapes were six different frames, and the one
+        // arrangement on screen that is supposed to read as a grid read as a pile of rectangles.
+        // The grid's own rectangles are all the same size, which is what a grid is.
+        return tile
     }
 
     /// The zoom and the pan that turn one tile of the arrangement into that window on its own.
@@ -322,12 +336,12 @@ extension RemoteScreen {
             return sameArrangement(asked, arrived) ? asked : arrived
         }
 
-        // **Nothing on the way back, and drawing it there was a mistake worth naming.** The picture
-        // is one window and what is coming is the arrangement built around it, so the borders of
-        // that arrangement can be drawn the moment the ask goes out — and drawn there they say the
-        // arrangement has already arrived: six rectangles standing over a single window that is
-        // still shrinking into one of them. The movement is the whole of what a return has to say,
-        // and it says it better with nothing drawn over it. See ``mosaicReturnTransform()``.
+        // **Nothing on the way back.** The frames of an arrangement that has been asked for but
+        // not yet built were drawn here for a session, and they read as an arrangement arriving in
+        // pieces: the borders are the client's idea of where the tiles will be, over a picture
+        // that is still one window shrinking into one of them, and they also shift as the movement
+        // carries that window. The movement is the whole of what a return has to say. See
+        // ``mosaicReturnTransform()``.
         return nil
     }
 
@@ -389,25 +403,27 @@ extension RemoteScreen {
         )
     }
 
-    /// The cover over the one frame in which the layer and the transform disagree.
+    /// Whether the transform on the layer is the one the arriving picture needs.
     ///
-    /// **The two cannot be committed together from here.** The video layer swaps its own contents
-    /// on the renderer's queue; the transform that scales them is written by the main thread in
-    /// `updateUIView`. So around every source switch there is a frame in which the arriving
-    /// picture is drawn at the departing picture's scale: the window at twice its size in the
-    /// middle of a zoom in, the canvas at half size in the middle of a zoom out.
-    ///
-    /// **Covering it is cheaper than it sounds.** The content changes at that instant whatever
-    /// happens, so what the cover hides is a change that is going on regardless; what it removes
-    /// is the size being briefly wrong, which is the part that reads as a blink. One frame, and
-    /// only while the arrival is unsettled: the render that follows clears it and carries the
-    /// transform the picture was waiting for. See ``RemoteScreen/settleArrival(force:)``.
-    var swapVeil: some View {
-        ZStack {
-            if let pending = pendingArrival, model.hasPictureOnScreen(of: pending.current.pixelSize) {
-                Color.black.ignoresSafeArea().allowsHitTesting(false)
-            }
-        }
+    /// **Three things have to line up, and each of them can be the one that is late.** The
+    /// renderer has to have the frame (``SessionModel/isReadyToPlace(of:)``), the model has to
+    /// have caught up with the renderer, and the arrival has to have been applied. The middle one
+    /// is the one the trace showed: the frame lands a few milliseconds before the config reaches
+    /// the main actor, and a frame let go in that window is drawn at the picture it replaced.
+    /// See ``VideoLayerView/pictureIsPlaced``.
+    var pictureIsPlaced: Bool {
+        guard model.isReadyToPlace(of: model.capturePixelSize ?? .zero) else { return false }
+        guard let pending = pendingArrival else { return true }
+        guard placedPictureID == pending.current.sourceID else { return false }
+
+        // **And not until the movement has finished.** The swap is a change of sharpness as well
+        // as of geometry: a tile of the canvas is the Mac's own composite of that window, at the
+        // size of the tile, and the stream being replaced is that window alone, at the size of
+        // the screen. Made while the picture is still travelling, that change reads as a flicker;
+        // made at rest, it reads as the picture settling — which is what it is. The movement is
+        // over in well under half a second, and a frame held past its budget is dropped by
+        // ``VideoRenderer/heldFrameBudget`` if the movement is interrupted instead of ending.
+        return pictureGlide == nil
     }
 
     /// Whether a window is being lifted out of an arrangement, and the rest of it has to be hidden.
@@ -514,7 +530,17 @@ extension RemoteScreen {
                 // outline, and a line travelling into place would spend the whole animation
                 // somewhere the tile is not. What fades is the app's account of where the windows
                 // are; the picture underneath never moved.
-                .transition(.opacity)
+                //
+                // **The way out is quicker than the way in**, and the two are different events
+                // rather than the same one reversed. Arriving, the borders are the arrangement
+                // being explained and can take ``Motion/settle``. Leaving, a tap has already
+                // started carrying one window out of the arrangement, so the picture is moving by
+                // the next frame, and lines still drawn over it for a third of a second are
+                // lines on a picture that is no longer there. A tap's own timing is what is left.
+                .transition(.asymmetric(
+                    insertion: .opacity.animation(Motion.settle),
+                    removal: .opacity.animation(Motion.tap)
+                ))
             }
         }
         // Keyed on whether the borders are drawn at all rather than on whether the Mac has

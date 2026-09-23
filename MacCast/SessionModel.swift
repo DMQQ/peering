@@ -656,6 +656,21 @@ final class SessionModel {
     /// the config that announced it, and the config can beat its own frame. Comparing the size is
     /// what tells the picture now on the layer from the one being replaced. See
     /// ``RemoteScreen/settleArrival(force:)``.
+    /// Whether the renderer has a frame of a stream of this size that the screen has not been told
+    /// to make room for yet.
+    ///
+    /// The cue an arrival waits for. Distinct from ``hasPictureOnScreen(of:)``, which says the
+    /// picture is actually on the layer: the first frame of a new stream is held just short of the
+    /// layer until the transform that goes with it has been written, and this is the moment it
+    /// arrives. See ``VideoRenderer/releaseHeldFrame()``.
+    func isReadyToPlace(of size: CGSize) -> Bool {
+        let snapshot = renderer.currentSnapshot
+        return snapshot.configGeneration > 0
+            && snapshot.readyGeneration == snapshot.configGeneration
+            && snapshot.pixelWidth == Int(size.width)
+            && snapshot.pixelHeight == Int(size.height)
+    }
+
     func hasPictureOnScreen(of size: CGSize) -> Bool {
         let snapshot = renderer.currentSnapshot
         return snapshot.configGeneration > 0
