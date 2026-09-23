@@ -107,6 +107,23 @@ public struct TerminalScreen: Sendable {
         let newRows = max(1, newRows)
         guard newColumns != columns || newRows != rows else { return }
 
+        // **A shorter screen scrolls, and that is the part a program notices.** It is what a
+        // terminal does when the window is made shorter: the rows that do not fit leave from the
+        // bottom, and if the cursor was on one of them the screen moves up until it is back on it.
+        // Without that scroll the cursor is left pointing at a row the program believes is
+        // somewhere else entirely, and the next write it makes lands a line or two from where it
+        // meant to put it. Which is what "the window goes crazy when the keyboard opens" is: the
+        // keyboard shortens the log, the log shortens the shell's screen, and every repaint after
+        // that is drawn to the wrong row.
+        if newRows < rows, row >= newRows {
+            for _ in 0..<(row - newRows + 1) {
+                let top = grid.removeFirst()
+                if !alternate { history.append(top) }
+                grid.append(blankRow)
+            }
+            row = newRows - 1
+        }
+
         grid = (0..<newRows).map { index in
             var cells = index < grid.count ? grid[index] : []
             if cells.count > newColumns {

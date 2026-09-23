@@ -62,6 +62,29 @@ final class TerminalScreenFeedTests: XCTestCase {
         XCTAssertTrue(text(of: screen).contains("second"))
     }
 
+    /// The half of a resize a program actually feels: a shorter screen keeps the cursor on it, by
+    /// moving the rows up, so the write it makes next lands where it believes the cursor is.
+    ///
+    /// This is the keyboard. Opening it shortens the log, which shortens the shell's screen, and a
+    /// terminal that dropped the rows under the cursor instead of scrolling would leave every
+    /// repaint after that drawn a line or two from where the program put it.
+    func testAShorterScreenScrollsTheCursorBackIntoView() {
+        let feed = TerminalScreenFeed()
+        let drawn = Data("aa\r\nbb\r\ncc\r\ndd\r\nee\r\nf".utf8)
+        let tall = feed.screen(for: drawn, columns: 20, rows: 6)
+        XCTAssertTrue(text(of: tall).contains("aa"), "the whole frame fits on the tall screen")
+
+        let short = feed.screen(for: drawn, columns: 20, rows: 4)
+        XCTAssertFalse(text(of: short).contains("aa"), "the rows that do not fit have gone")
+        XCTAssertTrue(text(of: short).contains("cc"), "and what was under them has moved up")
+
+        // The program writes where it believes the cursor is, which is just past the `f`.
+        var more = drawn
+        more.append(Data("X".utf8))
+        let written = feed.screen(for: more, columns: 20, rows: 4)
+        XCTAssertTrue(text(of: written).contains("fX"), "the next write lands beside what was written before it")
+    }
+
     /// A history trimmed past what has been applied cannot be caught up from, and rebuilding is the
     /// answer rather than a screen that is wrong from then on.
     func testATrimmedHistoryIsRebuilt() {
