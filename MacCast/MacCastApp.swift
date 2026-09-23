@@ -31,7 +31,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        // Remote push is a nice-to-have; local notifications still work without it.
+        // Remote push is a nice-to-have for the banners this app raises itself, and it is the
+        // *only* way a Mac reaches this phone when no session is up. The error is the one piece of
+        // evidence about why that never happens, so it is kept rather than dropped.
+        SessionNotifier.shared.remoteTokenDidFail(error)
     }
 }
 

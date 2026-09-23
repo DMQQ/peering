@@ -365,6 +365,20 @@ struct SettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
+            Controls.divider
+
+            // **The other half of the same question, and the half this device answers.** A Mac
+            // reaches this phone with no session up through a push to a token iOS gives it, so a
+            // phone that never got one is unreachable however well everything else is configured —
+            // and from the Mac's end that absence is indistinguishable from a send that failed. A
+            // reason is shown when there is one, because it is the only place any part of this
+            // failure is ever visible.
+            Controls.row("This phone can be reached", systemImage: "antenna.radiowaves.left.and.right") {
+                Text(model.pushRegistration ?? "No")
+                    .font(.subheadline)
+                    .foregroundStyle(model.pushRegistration == nil ? .secondary : ColorPalette.caution)
+            }
         }
     }
 

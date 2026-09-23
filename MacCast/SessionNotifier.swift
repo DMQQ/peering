@@ -21,6 +21,14 @@ final class SessionNotifier {
     private var hasAskedForPermission = false
     /// The current APNs device token, set when the OS delivers one.
     private(set) var remoteToken: Data?
+    /// Why this device has no token, when registering for one failed.
+    ///
+    /// **Kept rather than dropped, because it is the whole answer to a question with no other
+    /// evidence.** A phone that never registered looks exactly like a phone whose Mac never sent
+    /// anything: nothing arrives, at either end, and the reason was a thrown-away error on this
+    /// side of it. Shown in Settings, where somebody wondering why their Mac cannot reach them is
+    /// already looking.
+    private(set) var remoteTokenFailure: String?
 
     /// Whether the plan includes the Mac being able to reach this device about a terminal.
     ///
@@ -90,7 +98,18 @@ final class SessionNotifier {
     /// Called by the app delegate when the OS delivers or refreshes the APNs device token.
     func remoteTokenDidChange(_ token: Data) {
         remoteToken = token
+        remoteTokenFailure = nil
         NotificationCenter.default.post(name: Self.remoteTokenChangedName, object: nil)
+    }
+
+    /// Called by the app delegate when registering for push failed.
+    ///
+    /// The error is the point: it is the only thing anywhere that says *why* a Mac cannot reach
+    /// this phone, and it is thrown away in the delegate no longer.
+    func remoteTokenDidFail(_ error: Error) {
+        remoteToken = nil
+        remoteTokenFailure = error.localizedDescription
+        notifierLog.error("could not register for push: \(error.localizedDescription, privacy: .public)")
     }
 
     // MARK: - Banners

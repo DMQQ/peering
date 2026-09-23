@@ -688,6 +688,17 @@ final class SessionModel {
     /// ``SessionNotifier/refreshAuthorization()``.
     private(set) var notificationsAuthorized = false
 
+    /// "Yes", or the reason this phone cannot be reached with no session up.
+    ///
+    /// Nil when the device holds no push token and nothing went wrong saying why, which is the
+    /// state of a fresh install that has not yet been authorized. Read from the notifier rather
+    /// than copied, because it is written from an app-delegate callback rather than from anything
+    /// this object does.
+    var pushRegistration: String? {
+        if notifier.remoteToken != nil { return "Yes" }
+        return notifier.remoteTokenFailure
+    }
+
     /// Re-reads the notification permission, from the one screen that shows it.
     func refreshNotificationAuthorization() async {
         notificationsAuthorized = await notifier.refreshAuthorization()
