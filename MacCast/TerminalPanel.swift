@@ -553,16 +553,11 @@ struct TerminalPanel: View {
     /// slightly too eagerly.
     private static let bottomSlack: CGFloat = 24
 
-    /// Character cells, from the measured size of the log.
-    ///
-    /// The divisors are the advance width and line height of the 12-point monospaced face the log
-    /// is set in, and they are approximations on purpose: being one column out is invisible in a
-    /// shell prompt, and the alternative is asking CoreText for metrics on every layout pass to be
-    /// exact about something nobody can see.
+    /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
     private func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
         guard size.width > 0, size.height > 0 else { return }
-        let newColumns = max(20, Int(size.width / 7.2))
-        let newRows = max(6, Int(size.height / 14.4))
+        let newColumns = TerminalMetrics.columns(forWidth: size.width)
+        let newRows = TerminalMetrics.rows(forHeight: size.height)
         guard newColumns != columns || newRows != rows else { return }
         columns = newColumns
         rows = newRows

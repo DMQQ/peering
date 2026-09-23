@@ -313,16 +313,11 @@ struct SSHTerminalScreen: View {
     /// slightly too eagerly.
     private static let bottomSlack: CGFloat = 24
 
-    /// Character cells, from the measured size of the log.
-    ///
-    /// The divisor is the advance width of the 12-point monospaced face the log is set in, and the
-    /// row height its line spacing. Both are approximations, and deliberately so: being one column
-    /// out is invisible in a shell prompt, and the alternative is asking CoreText for metrics on
-    /// every layout pass to be exact about something nobody can see.
+    /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
     private func apply(_ size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
-        let columns = max(20, Int(size.width / 7.2))
-        let rows = max(6, Int(size.height / 14.4))
+        let columns = TerminalMetrics.columns(forWidth: size.width)
+        let rows = TerminalMetrics.rows(forHeight: size.height)
         guard columns != lastColumns || rows != lastRows else { return }
         lastColumns = columns
         lastRows = rows
