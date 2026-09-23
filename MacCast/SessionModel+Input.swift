@@ -112,6 +112,13 @@ extension SessionModel {
         // Recorded from the source rather than from the call site, so it cannot be set by one
         // door into this and missed by another. See ``MacSession/isAskingForMosaic``.
         activeSession?.isAskingForMosaic = source.isMosaic
+        // **The ask itself, kept as it was when it was made.** It is what the Mac will build, and
+        // the arrangement this end computes later is not: see ``MacSession/askedMosaicLayout``.
+        if case .mosaic(let layout) = source {
+            activeSession?.askedMosaicLayout = layout
+        } else {
+            activeSession?.askedMosaicLayout = nil
+        }
 
         // **What the user was looking at is what the next connection to this Mac opens on**, and
         // this is the only place that can be said: every source the user asks for arrives here,
@@ -277,11 +284,20 @@ extension SessionModel {
         choices.remove(at: index)
 
         // **A mosaic of one is not a mosaic.** Taking the second-to-last tile away leaves one
-        // window on screen, and the honest thing to show is that window on its own — an ordinary
-        // source switch, with the input and the sharpness that come with it — rather than a
-        // canvas holding a single tile in the corner of a grid built for two. The arrangement is
-        // dropped with it, by the same rule that drops it when any other source is chosen.
+        // window on screen, and the honest thing to show is that window on its own, an ordinary
+        // source switch with the input and the sharpness that come with it, rather than a canvas
+        // holding a single tile in the corner of a grid built for two.
         guard choices.count > 1 else {
+            // **And the arrangement goes with it, which is the half this was missing.** Clearing
+            // the store and leaving ``mosaicChoices`` holding the survivor was not enough:
+            // ``selectSource(_:)`` drops an arrangement only for a source that is *not* one of its
+            // tiles, and this one is, so the arrangement outlived its own removal. The Mac was
+            // told to show the window and this end still described a mosaic, which is why the
+            // frame came back and the way into a one-tile canvas stayed on offer.
+            if let hostID = currentHostID {
+                MosaicArrangementStore.save([], hostID: hostID)
+            }
+            mosaicChoices = []
             if let only = choices.first { selectSource(only.source) }
             return
         }

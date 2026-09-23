@@ -582,6 +582,24 @@ final class MacSession: Identifiable {
     /// ``MacSession/apply(video:)``.
     var pictureMosaicLayout: MosaicLayout?
 
+    /// The arrangement this end last asked the Mac for, frozen at the moment it asked.
+    ///
+    /// **Frozen, because ``mosaicLayout`` is not.** That is built from the live screen and the live
+    /// catalogue every time it is read, so it moves on its own: the canvas is derived from the
+    /// median window aspect, and the median moves whenever the catalogue does. Reading it when the
+    /// Mac answers therefore records an arrangement the Mac may never have built, and everything
+    /// drawn over the picture is then mapped through a canvas that is not on screen. Traced, over a
+    /// picture of 1290x1208:
+    ///
+    ///     overlay arrived=1290x1088/6  asked=1290x1088/5  picture=1290x1208  same=false
+    ///
+    /// which the user saw as one long tile with two dismissal buttons on it.
+    ///
+    /// **What the Mac built is what was asked for at the time**, so the ask is the thing worth
+    /// keeping. Set by ``SessionModel/selectSource(_:)``, which is the one door every ask goes
+    /// through, and read when the answer arrives. See ``MacSession/apply(video:)``.
+    var askedMosaicLayout: MosaicLayout?
+
     /// Whether the picture on screen is that arrangement rather than one of its tiles.
     ///
     /// Read off the arrangement that has *arrived* rather than off the one being asked for, which

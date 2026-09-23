@@ -467,7 +467,35 @@ extension MacSession {
             // A canvas that arrives is a new picture, and the borders belong to the picture: they
             // are drawn for the new one in the frame it arrives in, or they are describing the old
             // one for as long as they are travelling.
-            pictureMosaicLayout = isAskingForMosaic ? mosaicLayout : nil
+            // **Recorded only when this picture really is that arrangement.** ``mosaicLayout`` is
+            // built from the live screen and the live catalogue, so it moves on its own: the
+            // median window aspect changes when the catalogue does, and the canvas changes with
+            // it. Written unconditionally, this recorded an arrangement the Mac had never built,
+            // and everything drawn over the picture was mapped through a canvas that was not on
+            // screen. Traced, over a picture of 1290x1208:
+            //
+            //     overlay arrived=1290x1088/6  asked=1290x1088/5  picture=1290x1208  same=false
+            //
+            // which is the user's "one long tile at the bottom with two x buttons": the borders
+            // and the buttons of one arrangement drawn on the canvas of another.
+            //
+            // **The canvas is the one thing the config states about which arrangement this is**,
+            // and it is the only thing the Mac could not have got from anywhere but the ask.
+            // A picture that does not match the ask leaves the record alone, because the picture
+            // is still the last arrangement that did.
+            // **The ask as it was made, not the one this end would make now.** ``mosaicLayout`` is
+            // rebuilt from the live screen and the live catalogue, so it drifts on its own, and a
+            // version of this that read it recorded arrangements the Mac had never built. The ask
+            // that was sent is what the Mac built, so that is what is matched against the canvas
+            // the config states. See ``MacSession/askedMosaicLayout``.
+            if let asked = askedMosaicLayout, asked.canvas.matches(config) {
+                pictureMosaicLayout = asked
+            } else if !isAskingForMosaic {
+                pictureMosaicLayout = nil
+            }
+            // Anything else leaves the record alone: the ask has moved on and the picture is still
+            // the last arrangement that answered, so the borders go on describing what is on screen
+            // until the Mac catches up.
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.
@@ -543,5 +571,21 @@ extension MacSession {
         videoFramesPerSecond = videoFramesPerSecond == 0
             ? rate
             : videoFramesPerSecond * 0.6 + rate * 0.4
+    }
+}
+
+extension CGSize {
+    /// Whether this is the canvas a video config describes.
+    ///
+    /// **The canvas is what says which arrangement a picture is**, because it is the one thing
+    /// about it the Mac could not have got from anywhere but the ask. See the note at the call
+    /// site in ``MacSession/apply(video:)``.
+    ///
+    /// **Within two points, because the Mac rounds to even.** A `420v` surface is two planes and
+    /// the chroma plane is half the size, so the encoder rounds the canvas it was built for, and an
+    /// odd one would otherwise never match the picture built from it. Two points is nothing beside
+    /// the difference this is asked about, which is arrangements of different shapes.
+    func matches(_ config: VideoStreamConfig) -> Bool {
+        abs(width - CGFloat(config.pixelWidth)) < 2 && abs(height - CGFloat(config.pixelHeight)) < 2
     }
 }
