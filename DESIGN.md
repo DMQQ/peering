@@ -341,6 +341,36 @@ the switch rows in Settings.
 A gated control is drawn as itself, in its own shape and with its own glyph, at **60% opacity** and
 inert. Never a padlock, never a badge in the control's place.
 
+### Live Activity card
+
+One card, two activities. A Mac session and an SSH session on the Lock Screen are the same anatomy
+with a different symbol, name and status: to a reader they are one object, a session this phone is
+holding open, and two layouts is what this page exists to prevent. `MacCastWidget/ActivityCard.swift`
+is the shape, and the two activities pass what goes in it.
+
+| Element | Value |
+|---|---|
+| Tile | 42, corner `size * 0.286`, glyph `size * 0.405`, `white @ 12%` |
+| State dot | 9, ringed in the card's own tint, offset `2, 2` off the tile's corner |
+| Dot colours | `green` live, `caution` pending, `danger` lost |
+| Name | `.headline`, one line |
+| Status | `.subheadline`, `.secondary`, one line |
+| Count chip | 10pt bold, `white @ 80%` on `white @ 14%`, capsule |
+| Timer | `.title3.monospacedDigit()`, `white @ 75%` |
+| Action | 12pt semibold, `white @ 85%` on `white @ 16%`, capsule |
+| Card | padding `14 / 12`, tint `black @ 70%` |
+
+**The kind is on the tile and the state is in the dot**, because the status line already says the
+state in words: a symbol that changed with the phase as well was three tellings of one thing. The
+Dynamic Island is the exception, and only because it has neither a dot nor room for the sentence:
+its glyph is the phase, so a dropped session is still distinguishable in the compact and minimal
+slots.
+
+The tint is heavy for the reason `glassTint` is. A Lock Screen card sits on a wallpaper that can be
+anything, and its status line is `.secondary`, which only reads as a caption over a dark ground;
+at `black @ 55%` over a bright photo a live session's state was a grey ghost. `backgroundTint` is
+also what the dot is ringed in, so the two cannot drift.
+
 ---
 
 ## 5. Spacing and shape
@@ -555,6 +585,7 @@ From the strings that ship:
 | `MacCast/InputControls.swift` | `RailButtonStyle`, the rail buttons |
 | `MacCast/OnboardingView.swift` | `PhoneStageMetrics` / `PhoneDrawing` / `PhoneStage`, `MacStageMetrics` / `MacDrawing`, `MacAndPhoneStage` + `MacAndPhoneMetrics`, `PlanChoice` |
 | `MacCastHost/Theme.swift` | `HostPalette`, `HostDisplayFont`, `HostMotion`, `hostPanel()`, `hostPrimaryPanel()`, `HostHostingButtonStyle` |
+| `MacCastWidget/ActivityCard.swift` | The Live Activity card: tile, state dot, count chip, action capsule |
 | `MacCastKit/Sources/MacCastKit/PlanAccess.swift` | The plan ladder: which capability is free, and each plan's badge string |
 
 `HostPalette` and `DisplayFont` are deliberate copies of the client's rather than shared constants.

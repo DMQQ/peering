@@ -8,11 +8,23 @@ import WidgetKit
 /// the system from `startedAt`, so it stays correct on a screen where none of this app is
 /// running, and it costs no updates to keep ticking.
 struct SessionLiveActivity: Widget {
+    /// Where the Restore link goes. The app already handles this: `MacCastApp`'s `onOpenURL`
+    /// routes `peering://connect` to `reconnectToLastHost()`.
+    static let restoreURL = URL(string: "peering://connect")!
+    static let endURL = URL(string: "peering://disconnect")!
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in
-            LockScreenSession(context: context)
-                .activityBackgroundTint(.black.opacity(0.55))
-                .activitySystemActionForegroundColor(.white)
+            ActivityCard(
+                symbol: "macbook",
+                tone: tone(for: context.state.phase),
+                name: context.state.hostName ?? "Mac",
+                status: statusText(for: context.state),
+                startedAt: context.state.startedAt,
+                action: action(for: context.state.phase)
+            )
+            .activityBackgroundTint(ActivityCard.backgroundTint)
+            .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 // Both regions claim the full width and align inside it. A region otherwise sizes
@@ -20,7 +32,7 @@ struct SessionLiveActivity: Widget {
                 // — mid-card — instead of against the trailing edge, where every other Live
                 // Activity and the Lock Screen card below both put it.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.hostName ?? "Peering", systemImage: symbol(for: context.state.phase))
+                    Label(context.state.hostName ?? "Mac", systemImage: symbol(for: context.state.phase))
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -33,13 +45,13 @@ struct SessionLiveActivity: Widget {
 
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        Text(statusText(for: context.state.phase))
+                        Text(statusText(for: context.state))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                         Spacer()
                         if context.state.phase != .dropped {
-                            Link(destination: URL(string: "peering://disconnect")!) {
+                            Link(destination: Self.endURL) {
                                 Text("End")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundStyle(.white.opacity(0.7))
@@ -60,7 +72,9 @@ struct SessionLiveActivity: Widget {
                 elapsed(context)
                     .frame(maxWidth: 46)
             } minimal: {
-                // One glyph and nothing else — the minimal slot clips anything wider.
+                // One glyph and nothing else. Here, and only here, the glyph is the state rather
+                // than the kind of thing: the island has no room for a dot or for a word, so this
+                // is the one place a dropped session can look different from a live one.
                 Image(systemName: symbol(for: context.state.phase))
             }
             // Monochrome, like the app. The default keyline is the widget's accent colour, and
@@ -68,82 +82,6 @@ struct SessionLiveActivity: Widget {
             // piece of chrome on the Lock Screen that would look like a different app made it.
             .keylineTint(.white)
         }
-    }
-}
-
-/// The Lock Screen presentation: who, what, and for how long.
-private struct LockScreenSession: View {
-    /// Where the Restore link goes. The app already handles this: `MacCastApp`'s `onOpenURL`
-    /// routes `peering://connect` to `reconnectToLastHost()`.
-    static let restoreURL = URL(string: "peering://connect")!
-
-    let context: ActivityViewContext<SessionActivityAttributes>
-
-    private var isActive: Bool { context.state.phase == .active }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol(for: context.state.phase))
-                    .font(.title2)
-                    .foregroundStyle(.white.opacity(isActive ? 1 : 0.5))
-                    .frame(width: 28)
-
-                Text(context.state.hostName ?? "Peering")
-                    .font(.headline)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                // Fixed width so the timer right-aligns to the card edge without
-                // reserving space for its maximum possible string length.
-                elapsed(context)
-                    .frame(width: 88, alignment: .trailing)
-            }
-
-            HStack(spacing: 6) {
-                Text(statusText(for: context.state.phase))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                if let path = context.state.path {
-                    Text(path.rawValue)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(.white.opacity(0.14), in: Capsule())
-                }
-
-                Spacer(minLength: 8)
-
-                if context.state.phase == .dropped {
-                    Link(destination: Self.restoreURL) {
-                        Label("Restore", systemImage: "arrow.clockwise")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(.white.opacity(0.18), in: Capsule())
-                    }
-                } else {
-                    Link(destination: URL(string: "peering://disconnect")!) {
-                        Text("End")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.6))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(.white.opacity(0.14), in: Capsule())
-                    }
-                }
-            }
-            .padding(.leading, 38)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 16)
-        .padding(.trailing, 8)
-        .padding(.vertical, 20)
     }
 }
 
@@ -157,23 +95,61 @@ private func elapsed(_ context: ActivityViewContext<SessionActivityAttributes>) 
         Text(started, style: .timer)
             .font(.title3.monospacedDigit())
             .foregroundStyle(.white.opacity(0.75))
+            // A `.timer` fills the width it is offered and draws its reading at the leading edge,
+            // whatever frame it is put in — see ``ActivityCard``. In the regions above, which are
+            // trailing-aligned and full width, that is the clock sitting at the far left of them.
+            .multilineTextAlignment(.trailing)
     }
 }
 
+/// The state in words, with the transport and the count folded into the sentence.
+///
+/// The path used to be a chip beside the word "Connected", which said one thing twice. The app's
+/// own rows settled this shape long before the card did: a Mac that is connected is "Connected via
+/// LAN", and a row's second line carries two facts as "one · the other".
+///
+/// The count is the part that has never been drawn anywhere. The state has carried it from the
+/// beginning (`SessionModel` passes the number of open sessions on every phase change) and no view
+/// on either surface has ever shown it, so a phone holding two Macs has been describing one of
+/// them. It goes last, because it is the fact that may be cut short.
+private func statusText(for state: SessionActivityAttributes.ContentState) -> String {
+    let phase: String
+    switch state.phase {
+    case .pending: phase = "Waiting for the Mac"
+    case .active: phase = state.path.map { "Connected \($0.phrase)" } ?? "Connected"
+    case .reconnecting: phase = state.path.map { "Reconnecting \($0.phrase)…" } ?? "Reconnecting…"
+    case .dropped: phase = "Connection dropped"
+    }
+    guard let count = state.sessionCount, count > 1 else { return phase }
+    return "\(phase) · \(count) Macs"
+}
+
+private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
+    switch phase {
+    case .pending, .reconnecting: return .pending
+    case .active: return .live
+    case .dropped: return .lost
+    }
+}
+
+/// What the card offers: the way back in when the session was lost, and the way out otherwise.
+///
+/// A dropped card has no End, because there is nothing left to end: the Mac is already gone
+/// as far as this phone is concerned, and the only thing worth doing at that moment is offering
+/// the session back.
+private func action(for phase: SessionActivityAttributes.Phase) -> ActivityCardAction {
+    phase == .dropped
+        ? ActivityCardAction(title: "Restore", url: SessionLiveActivity.restoreURL)
+        : ActivityCardAction(title: "End", url: SessionLiveActivity.endURL)
+}
+
+/// The phase, as a glyph. The island's mark rather than the card's, which has a tile and a dot to
+/// say it with and words under it.
 private func symbol(for phase: SessionActivityAttributes.Phase) -> String {
     switch phase {
     case .pending: return "hourglass"
     case .active: return "display"
     case .reconnecting: return "arrow.clockwise"
     case .dropped: return "wifi.slash"
-    }
-}
-
-private func statusText(for phase: SessionActivityAttributes.Phase) -> String {
-    switch phase {
-    case .pending: return "Waiting for the Mac"
-    case .active: return "Connected"
-    case .reconnecting: return "Reconnecting…"
-    case .dropped: return "Connection dropped"
     }
 }
