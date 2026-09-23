@@ -372,6 +372,14 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return
         }
 
+        // **A frame that arrives while the first one is still held, which is the hole this
+        // mechanism has.** The hold is one frame deep: the keyframe waits for the transform, and
+        // the frame 16ms behind it does not, so the picture swaps a frame after the config whatever
+        // the screen asked for. Traced rather than argued about — if this line appears, the hold is
+        // not holding.
+        if lock.withLock({ heldFirstFrame != nil }) {
+            flickerTrace("renderer enqueued past a held keyframe keyframe=\(frame.isKeyframe)")
+        }
         // A held frame that a newer one has caught up with is let go rather than lost.
         releaseStrandedFrame(on: renderer)
         renderer.enqueue(sample)

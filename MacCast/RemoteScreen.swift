@@ -384,6 +384,10 @@ struct RemoteScreen: View {
                 // concerned. See ``carryingScrim``.
                 carryingScrim
                 gestures
+                // **Above the gesture surface, which is the whole of why it is a layer of its
+                // own.** A tap on a tile belongs to that surface, so a control drawn under it
+                // would never see a finger. See ``mosaicDismissButtons``.
+                mosaicDismissButtons
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
                 if case .confirming(let code) = model.phase {

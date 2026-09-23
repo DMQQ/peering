@@ -413,6 +413,32 @@ extension RemoteScreen {
     /// See ``VideoLayerView/pictureIsPlaced``.
     var pictureIsPlaced: Bool {
         guard model.isReadyToPlace(of: model.capturePixelSize ?? .zero) else { return false }
+
+        // **A pending arrival has to have been applied**, which is the ordered pair of writes this
+        // whole mechanism exists for: the transform is written for the picture whose frame is
+        // about to be handed over, and not for the one it replaces.
+        //
+        // **The `return true` that used to be here is the bug and taking it out made things
+        // worse.** It read `guard let pending = pendingArrival else { return true }`, so the
+        // movement condition below was never reached: an arrival settles within milliseconds of a
+        // tap, long before the movement ends, and the frame was handed over on the first display
+        // frame and on every one after it. Traced:
+        //
+        //     layer releases the held frame at zoom=0.9938
+        //     layer releases the held frame at zoom=0.9848
+        //     layer releases the held frame at zoom=0.9274
+        //
+        // every 16ms, all the way to the target. But *removing* it, so that the condition below
+        // finally applies, was tried and reverted: the release is driven by ``VideoLayerView``'s
+        // update pass, and once the glide has landed and stopped writing the zoom there is no
+        // further pass, so the frame is never handed over at all. The arrangement stayed on screen
+        // at the window's framing until the 600ms budget expired, which the user saw as the wrong
+        // picture for longer rather than for shorter.
+        //
+        // So this is a real fault with a real fix, and the fix is not this line. What it needs is
+        // a release that does not depend on a later update happening by luck, and a hold that
+        // covers every frame of a config rather than only its first: `renderer.enqueue` is reached
+        // for the frame 16ms behind the keyframe whatever this returns.
         guard let pending = pendingArrival else { return true }
         guard placedPictureID == pending.current.sourceID else { return false }
 
@@ -423,6 +449,9 @@ extension RemoteScreen {
         // made at rest, it reads as the picture settling — which is what it is. The movement is
         // over in well under half a second, and a frame held past its budget is dropped by
         // ``VideoRenderer/heldFrameBudget`` if the movement is interrupted instead of ending.
+        //
+        // **This is not reached in the case it was written for, and the two lines above are why.**
+        // See the note there. Do not fix it by deleting them; that was tried and is worse.
         return pictureGlide == nil
     }
 
@@ -549,6 +578,62 @@ extension RemoteScreen {
         .animation(Motion.settle, value: shownMosaicLayout != nil)
         .ignoresSafeArea()
     }
+
+    /// A small control on each tile that takes that window out of the arrangement.
+    ///
+    /// **Its own layer, above the gesture surface, and it has to be.** The borders take no touches
+    /// at all — a tap on a tile is routed by the surface, which is the only thing on this screen
+    /// that knows where the picture is — so a control drawn with them would be swallowed before
+    /// anything reached it. See ``MosaicOverlay``.
+    ///
+    /// **Hidden while a tile is in the hand.** A reorder is a thing being looked at rather than a
+    /// picture being changed, and a row of buttons over it is a row of ways out of something the
+    /// user is in the middle of doing.
+    ///
+    /// Drawn only where the tile is big enough to hold one, by the same measure the name is drawn
+    /// at and for the same reason: on a small tile the control is most of the corner it sits in,
+    /// and the tap that was meant for the window would find the button instead.
+    var mosaicDismissButtons: some View {
+        ZStack {
+            if let layout = shownMosaicLayout, heldTile == nil {
+                ForEach(layout.tiles.indices, id: \.self) { index in
+                    if let rect = mosaicTileRect(index, in: layout),
+                       rect.width > Self.dismissalMinimumTileWidth {
+                        Button {
+                            model.removeMosaicTile(at: index)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(ColorPalette.ink)
+                                .frame(
+                                    width: Self.dismissalDiameter,
+                                    height: Self.dismissalDiameter
+                                )
+                                .glassSurface(in: Circle())
+                        }
+                        .contentShape(Circle())
+                        .buttonStyle(RailButtonStyle(scale: 0.92))
+                        .position(
+                            x: rect.maxX - Self.dismissalInset - Self.dismissalDiameter / 2,
+                            y: rect.minY + Self.dismissalInset + Self.dismissalDiameter / 2
+                        )
+                    }
+                }
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    /// How big the control that takes a window out of an arrangement is, and where it sits.
+    ///
+    /// Smaller than the chrome's own dots, which are 48: those sit on the app's chrome and this
+    /// sits on somebody's window, and a control that size over a tile of a five-tile arrangement
+    /// is a quarter of it.
+    private static let dismissalDiameter: CGFloat = 28
+    private static let dismissalInset: CGFloat = 8
+    /// Below this a tile is a label with a window behind it, and a button in its corner is the
+    /// corner.
+    private static let dismissalMinimumTileWidth: CGFloat = 140
 
     /// How the picture is scaled on its way to the screen, over and above the user's zoom.
     ///
