@@ -485,7 +485,6 @@ struct RemoteScreen: View {
             guard let previous, let current else { return }
             switch previous.change(to: current) {
             case .unchanged:
-                flickerTrace("arrival unchanged src=\(current.sourceID ?? "nil")")
                 break
             case .resized:
                 // The magnification is kept. It is a multiple of the fit, so it still says what
@@ -503,19 +502,7 @@ struct RemoteScreen: View {
                 stillZoom = effectiveZoom
                 stillPan = pan
                 swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
-                flickerTrace("""
-                    arrival resized src=\(current.sourceID ?? "nil") \
-                    was=\(previous.pixelSize.width)x\(previous.pixelSize.height) \
-                    now=\(current.pixelSize.width)x\(current.pixelSize.height) \
-                    still=\(swapping) zoom=\(Double(effectiveZoom))
-                    """)
             case .replaced:
-                flickerTrace("""
-                    arrival replaced from=\(previous.sourceID ?? "nil") \
-                    to=\(current.sourceID ?? "nil") \
-                    \(current.pixelSize.width)x\(current.pixelSize.height) \
-                    aim=\(pictureAim?.sourceID ?? "nil") hasStill=\(model.renderer.hasStillPicture)
-                    """)
                 // **Held until the picture the config describes is on the layer.** The work below
                 // is all expressed against the arriving picture, and the layer is still showing
                 // the one it replaced. See ``pendingArrival`` and ``settleArrival()``.
@@ -553,7 +540,6 @@ struct RemoteScreen: View {
         // they have just made themselves, and a second one sent from here would rebuild the
         // arrangement that is already being built.
         .onChange(of: shownMosaicLayout != nil) { _, visible in
-            flickerTrace("overlay visible=\(visible) carrying=\(pictureAim?.carriesOutOfArrangement == true) glide=\(pictureGlide != nil) showingMosaic=\(model.isShowingMosaic)")
         }
         .onChange(of: deviceIsLandscape) { _, _ in
             model.refreshMosaicForViewport()
@@ -614,25 +600,26 @@ struct RemoteScreen: View {
     /// when the frame lands or when the deadline above gives up on it ever landing.
     func settleArrival(force: Bool = false) {
         guard let pending = pendingArrival else { return }
-        flickerTrace("""
-            settleArrival force=\(force) ready=\(model.isReadyToPlace(of: pending.current.pixelSize)) \
-            to=\(pending.current.pixelSize.width)x\(pending.current.pixelSize.height)
-            """)
         // Asked of the renderer rather than inferred from which of the two arrived first: the
         // frame's own hop to the main actor can beat the config's, and either can be late.
         // `force` is the deadline, which is the one caller that has decided the wait is over.
-        // **On the layer, not merely in the renderer's hands.** These were the same moment until
-        // the renderer began holding a whole config: a frame used to be enqueued essentially as it
-        // arrived, so "the renderer has it" and "it is on screen" were milliseconds apart. They are
-        // now the length of a movement apart, and this is the transform's half of the ordering.
         //
-        // Traced, with the wait on the frame *being ready*: the transform was rewritten for the
-        // window at 0.421 and the window's picture reached the layer at 0.621, so for 200ms the
-        // arrangement was drawn at the window's framing. The user's words for that are "it is
-        // displaying wrong image for 0.5s" — a picture that is not the one the transform belongs
-        // to. See ``RemoteScreen/pictureIsPlaced``, which is the other half: that one asks whether
-        // the frame may be handed over, and this asks whether it has been.
-        guard force || model.hasPictureOnScreen(of: pending.current.pixelSize) else { return }
+        // **On the layer, or ready with nothing left moving.** The placement is the *arriving*
+        // picture's transform, and writing it while the departing picture is still on the layer
+        // draws that picture at the wrong scale. The two transforms describe the same rectangle
+        // exactly when the movement has finished — its last line is the arriving picture's
+        // placement — so that is the other moment this may run, and running there is what lets
+        // the transform and the frame change in one update pass.
+        //
+        // Asked only of the frame being *ready* it ran mid-movement, and the trace shows what
+        // that costs: the placement written at 930.328, the frame not on the layer until 930.530,
+        // and the whole arrangement drawn at the window's transform for those 205ms. See
+        // ``RemoteScreen/pictureIsPlaced``, which is the release's half of the same instant.
+        let settled = pictureGlide == nil && model.isReadyToPlace(of: pending.current.pixelSize)
+        guard force
+            || settled
+            || model.hasPictureOnScreen(of: pending.current.pixelSize)
+        else { return }
         pendingArrival = nil
         arrivalDeadline?.cancel()
         arrivalDeadline = nil
@@ -654,29 +641,18 @@ struct RemoteScreen: View {
 
         // **A turn of the phone is a movement, not a cut.** An arrangement that arrives
         // where another arrangement was is drawn where that one was and moves into its own
-        // shape, with its borders travelling with it; anything else — a window opened, a
-        // window behind a mosaic — is the reset every source switch has always had. See
-        // ``arrangementMorph(from:to:)``.
-        // **A window coming home to its arrangement is an arrival with nothing to travel between.**
-        // A turn of the phone has two arrangements, so it has two rectangles and a movement; a
-        // return has a window and a canvas, and the canvas is not a tile of itself, so there is no
-        // second rectangle to measure against. What is left is the picture changing — five windows
-        // appearing where one was — and a cut is what that reads as, which is the flicker the user
-        // reports on the way out. The veil is the app's existing answer to a change of content with
-        // no change of place: dim for the instant of it, then lift. See ``arrangementVeil``.
+        // shape, with its borders travelling with it — and it is dimmed for the instant the
+        // windows rearrange themselves inside that travelling frame, which is a change of content
+        // and not of place. See ``arrangementMorph(from:to:)`` and ``arrangementVeil``.
         //
-        // **The tiles cannot be staggered, and this is why.** They are not five pictures here: they
-        // are one canvas composited on the Mac and sent as a single stream, so there is nothing on
-        // this side to bring in one at a time.
-        if current.sourceID?.hasPrefix("mosaic:") == true,
-           previous.sourceID?.hasPrefix("mosaic:") == false,
-           arrangementMorph(from: previous, to: current) == nil {
-            arrangementVeil = 1
-            Task { @MainActor in
-                withAnimation(Motion.settle) { arrangementVeil = 0 }
-            }
-        }
-
+        // **A window coming home was dimmed here too, and that was wrong.** The veil was raised
+        // when a window's arrival turned the picture back into an arrangement, on the argument
+        // that a return has nothing to travel between. It has: the window slides into the slot it
+        // will occupy and the canvas appears around it, which is a movement and a change of place,
+        // and dimming it is a flash of black at the one moment the user is watching the picture.
+        // Traced, the veil went up in the same pass that handed the canvas over. The tiles cannot
+        // be staggered instead — they are one canvas composited on the Mac, not five pictures here
+        // — so the movement is the whole of what the way out is given, and it is enough.
         if let target = arrangementMorph(from: previous, to: current) {
             zoom = target.zoom
             pan = target.pan
@@ -717,7 +693,6 @@ struct RemoteScreen: View {
         // display picked out of a panel, an arrangement coming back — because the promise
         // describes a window of *that* arrangement and means nothing about another picture.
         let aim = pictureAim
-        flickerTrace("picture replaced previous=\(previous.sourceID ?? "nil") current=\(current.sourceID ?? "nil") aim=\(aim?.sourceID ?? "nil") glide=\(pictureGlide != nil) zoom=\(Double(zoom))")
         if aim?.sourceID != current.sourceID { pictureAim = nil }
 
         let carried = aim.flatMap { aim -> CGRect? in
@@ -760,7 +735,6 @@ struct RemoteScreen: View {
             if var glide = pictureGlide {
                 let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
                 let progress = Motion.settleProgress(at: elapsed, response: Motion.pictureResponse)
-                flickerTrace("transform now solved for src=\(current.sourceID ?? "nil") progress=\(progress) placedZoom=\(Double(placed.zoom))")
                 if progress < 0.995 {
                     glide.reaim(
                         to: (zoom: 1, pan: .zero),
@@ -775,7 +749,6 @@ struct RemoteScreen: View {
                     // this keeps the in-flight animation and the window aim alive through
                     // that renderer hand-off instead of snapping or continuing toward the
                     // mosaic's old zoom target.
-                    flickerTrace("late arrival reaims glide from placed window")
                     glide.reaim(
                         to: (zoom: 1, pan: .zero),
                         through: placed,
@@ -785,7 +758,6 @@ struct RemoteScreen: View {
                 }
             }
         } else {
-            flickerTrace("picture had no carried placement aimMatched=\(aim?.sourceID == current.sourceID)")
             // Nothing the movement was carrying, so nothing to keep still: a source picked
             // out of a panel, a rotation, a window resized since the catalogue was read.
             // One already at rest is left alone; one that is not is moved to it.

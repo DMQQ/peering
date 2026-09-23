@@ -344,7 +344,6 @@ extension RemoteScreen {
         model.focusMosaicTile(layout.tiles[index].source)
 
         guard let target = tileOpeningTransform(index, in: layout) else {
-            flickerTrace("tap tile=\(index) source=\(sourceID) aim=\(pictureAim != nil) target=nil")
             // No transform to travel with — a tile the arrangement cannot place, which is a
             // window the catalogue has no size for. The switch is already on its way; only the
             // movement is skipped, and with it any promise about where the picture would land.
@@ -353,7 +352,6 @@ extension RemoteScreen {
             return
         }
 
-        flickerTrace("tap tile=\(index) source=\(sourceID) aim=\(pictureAim != nil) startZoom=\(Double(zoom)) targetZoom=\(Double(target.zoom))")
         glidePicture(to: target)
         watchTileOpening(sourceID)
     }
@@ -381,7 +379,6 @@ extension RemoteScreen {
             // **A picture with this source's name on it is the Mac answering.** Anything else is
             // no answer: the identity is still the arrangement's, so nothing was opened.
             guard model.picture?.sourceID == sourceID else {
-                flickerTrace("tile \(sourceID) opened nothing after 1.2s; going back")
                 model.sourcesThatOpenedNothing.insert(sourceID)
                 animateBackToMosaic()
                 return
@@ -403,7 +400,6 @@ extension RemoteScreen {
     /// Mac tears down one stream and builds six, and it is doing that while the window is still
     /// shrinking into its tile.
     func animateBackToMosaic() {
-        flickerTrace("return to mosaic invoked source=\(model.activeSourceID ?? "nil") mosaic=\(model.mosaicLayout != nil) zoom=\(Double(zoom))")
         cancelPictureGlide()
         // **Whatever was waiting for a tile to open is over**, whoever decided that: the user has
         // asked for the arrangement, so a wait that outlived the ask would be this screen arguing
@@ -439,7 +435,6 @@ extension RemoteScreen {
         model.returnToMosaic()
 
         guard let target else {
-            flickerTrace("return to mosaic has no transform aim=\(pictureAim?.sourceID ?? "nil") size=\(String(describing: model.capturePixelSize))")
             // Nothing to travel to — the picture is not one of an arrangement's tiles. The switch
             // is already on its way; only the movement is skipped, and with it any promise about
             // where the picture would land.
@@ -447,7 +442,6 @@ extension RemoteScreen {
             return
         }
 
-        flickerTrace("return to mosaic starts glide targetZoom=\(Double(target.zoom)) aim=\(pictureAim?.sourceID ?? "nil")")
         glidePicture(to: target)
     }
 
@@ -520,20 +514,20 @@ extension RemoteScreen {
             if zoom != glide.target.zoom { zoom = glide.target.zoom }
             if pan != glide.target.pan { pan = glide.target.pan }
             pictureGlide = nil
-            flickerTrace("glide landed zoom=\(Double(zoom)) aim=\(pictureAim?.sourceID ?? "nil") showingMosaic=\(model.isShowingMosaic)")
-            // **The held frame goes now, and not on a pass that may never come.** The release is
-            // normally driven by ``VideoLayerView``'s update pass, and this is the last thing a
-            // movement writes: once it has landed there is nothing left changing the zoom, so
-            // there is no reason to expect another pass. Waiting for one is what left the
-            // arrangement on screen at the window's framing until the 600ms budget expired.
-            // The transform written a line above is the one the picture belongs at, so this is
-            // the moment the two agree. See ``RemoteScreen/pictureIsPlaced``.
-            model.renderer.releaseHeldFrame()
-            // **And the arrival is asked again, now that its picture is on the layer.** Its wait is
-            // for exactly that, and the event it is normally woken by is the frame *arriving* —
-            // which, since the renderer began holding a whole config, is the moment the frame is
-            // taken rather than the moment it is shown. Without this the arrival would sit until
-            // its 1.5 second deadline. See ``RemoteScreen/settleArrival(force:)``.
+            // **The arrival is asked again, now that the movement has stopped moving.** Its wait is
+            // for the picture on the layer, and the event it is normally woken by is the frame
+            // *arriving* — which, since the renderer began holding a whole config, is the moment
+            // the frame is taken rather than the moment it is shown. Without this the arrival would
+            // sit until its 1.5 second deadline. See ``RemoteScreen/settleArrival(force:)``.
+            //
+            // **The held frame is not released from here, and that is the last of the flicker.**
+            // The zoom written above is the *departing* picture's aim; the line below re-solves it
+            // for the arriving one. Handed over between the two, the arriving picture's first
+            // frames are drawn at the departing picture's transform — traced, a window whose
+            // stream had arrived drawn at the canvas's `drawn=2.0111 pan=-216,121` and then at its
+            // own `drawn=1.0 pan=0,0` six milliseconds later. Only an update pass can write the
+            // transform and hand the frame over in one commit, so it is the pass that does it.
+            // See ``RemoteScreen/pictureIsPlaced``.
             settleArrival()
         }
         pictureGlide = PictureGlide(
@@ -553,9 +547,6 @@ extension RemoteScreen {
     /// arrive — and a promise left standing is a picture clipped to a rectangle nothing is
     /// travelling towards. Callers that mean to start a movement set a new one straight after.
     func cancelPictureGlide() {
-        if pictureGlide != nil {
-            flickerTrace("glide cancelled zoom=\(Double(zoom)) aim=\(pictureAim?.sourceID ?? "nil")")
-        }
         pictureGlide?.task?.cancel()
         pictureGlide = nil
         pictureAim = nil

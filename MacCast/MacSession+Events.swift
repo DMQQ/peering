@@ -442,10 +442,6 @@ extension MacSession {
             // in `connect(to:)`. Flushing and reconfiguring here instead would put the reset
             // *after* a keyframe that arrived in the same read, and throw that keyframe away.
             // Only the labels belong on the main actor.
-            flickerTrace("""
-                config \(config.pixelWidth)x\(config.pixelHeight) \(config.codec.rawValue) \
-                src=\(activeSourceID ?? "nil")
-                """)
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
             isVideoStreaming = true
             // The one place the picture on screen can turn out to be a different picture. This is

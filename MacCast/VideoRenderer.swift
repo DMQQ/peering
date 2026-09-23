@@ -63,8 +63,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// a decoder can start from on a still desktop.
     private var deferredKeyframe = DeferredVideoKeyframe()
     private var snapshot = Snapshot()
-    private var debugTimingOrigin: (arrival: TimeInterval, pts: Double)?
-    private var debugTimingFrameCount = 0
     private var debugFlickerAwaitingFirstFrame = false
 
     /// Called on the main actor when the first frame of the config that was last applied reaches
@@ -124,12 +122,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// picture the transform is still calibrated for and the two change together. See
     /// ``releaseHeldFrame()``.
     private var heldFirstFrame: (
-        sample: CMSampleBuffer, at: DispatchTime, generation: Int, source: String?
+        sample: CMSampleBuffer, at: DispatchTime, generation: Int
     )?
-
-    /// What the app believes the stream being configured is. For the trace only. See
-    /// ``configure(_:source:)``.
-    private var configuredSource: String?
 
     /// The frames of that config that arrived behind its keyframe, in order.
     ///
@@ -169,7 +163,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     func releaseHeldFrame() {
         let (held, tail) = lock.withLock {
             () -> (
-                (sample: CMSampleBuffer, at: DispatchTime, generation: Int, source: String?)?,
+                (sample: CMSampleBuffer, at: DispatchTime, generation: Int)?,
                 [CMSampleBuffer]
             ) in
             defer {
@@ -192,10 +186,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         // **The picture on the layer has changed, and this says what to.** Everything else in this
         // trace is geometry; this is the only line that names the window, and it is the one that
         // answers "the wrong image was on screen". ``AVSampleBufferDisplayLayer`` cannot be asked.
-        flickerTrace("""
-            layer now showing src=\(held.source ?? "nil") \
-            with \(tail.count) frames behind the keyframe
-            """)
         lock.withLock {
             lastEnqueued = held.sample
             // Only for the config it was held for: a stream configured since then has a picture of
@@ -209,7 +199,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// The same, for a hold the screen never asked about. Runs on the video queue.
     private func releaseStrandedFrame(on renderer: AVSampleBufferVideoRenderer) {
         let stranded = lock.withLock {
-            () -> (head: CMSampleBuffer, tail: [CMSampleBuffer], source: String?)? in
+            () -> (head: CMSampleBuffer, tail: [CMSampleBuffer])? in
             guard let held = heldFirstFrame,
                   DispatchTime.now().uptimeNanoseconds - held.at.uptimeNanoseconds
                       > Self.heldFrameBudget
@@ -218,13 +208,12 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             let tail = heldTail
             heldTail = []
             snapshot.displayedGeneration = held.generation
-            return (held.sample, tail, held.source)
+            return (held.sample, tail)
         }
         guard let stranded else { return }
         renderer.enqueue(stranded.head)
         // The whole run, for the reason ``releaseHeldFrame()`` gives.
         for sample in stranded.tail { renderer.enqueue(sample) }
-        flickerTrace("layer now showing src=\(stranded.source ?? "nil") after the hold ran out")
     }
 
     // MARK: - Attachment
@@ -260,12 +249,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// **out of band in H.264** — they are not repeated on each keyframe — so a decoder that
     /// keeps the old format description after the host switches display decodes garbage, or
     /// nothing, until it happens to be recreated.
-    /// - Parameter source: What the app believes this stream is, for the trace and nothing else.
-    ///   ``AVSampleBufferDisplayLayer`` has no idea what it is showing, so without this every line
-    ///   about the picture is about geometry, and "the wrong window was on screen" cannot be read
-    ///   off a log at all. See ``MacSession/apply(video:)``.
-    func configure(_ config: VideoStreamConfig, source: String? = nil) {
-        lock.withLock { configuredSource = source }
+    func configure(_ config: VideoStreamConfig) {
         queue.async { [weak self] in
             guard let self else { return }
 
@@ -291,8 +275,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
 
             self.formatDescription = format
             self.deferredKeyframe.reset()
-            self.debugTimingOrigin = nil
-            self.debugTimingFrameCount = 0
             // The *queue* is discarded, because the old pictures are in the old format and a
             // decoder holding them would render one against an SPS that has been replaced. The
             // image already on screen is not: it was decoded against the description it was
@@ -310,18 +292,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             if let outgoing, let still = self.stillRenderer {
                 still.enqueue(outgoing)
             }
-            let outgoingSize = outgoing
-                .flatMap { $0.imageBuffer }
-                .map { "\(CVPixelBufferGetWidth($0))x\(CVPixelBufferGetHeight($0))" } ?? "none"
-            flickerTrace("""
-                renderer outgoing=\(outgoingSize) \
-                stillLayer=\(self.stillRenderer == nil ? "no" : "yes") \
-                to=\(config.pixelWidth)x\(config.pixelHeight)
-                """)
-
             self.renderer?.flush(removingDisplayedImage: false)
             self.debugFlickerAwaitingFirstFrame = true
-            flickerTrace("renderer configured \(config.pixelWidth)x\(config.pixelHeight); flushed queue and kept displayed image")
 
             self.lock.withLock {
                 // The generation survives the reset: it is a count of configs, and the frame that
@@ -419,7 +391,7 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             debugFlickerAwaitingFirstFrame = false
             self.lock.withLock {
                 self.heldFirstFrame = (
-                    sample, DispatchTime.now(), self.snapshot.configGeneration, self.configuredSource
+                    sample, DispatchTime.now(), self.snapshot.configGeneration
                 )
                 self.snapshot.framesEnqueued += 1
                 self.snapshot.bytesEnqueued += Int64(frame.data.count)
@@ -444,7 +416,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             // to the layer now, keyframe first, which is the flicker this was written to avoid and
             // is still better than a buffer with no end.
             if overBudget {
-                flickerTrace("renderer hold abandoned after \(Self.heldTailBudget) frames")
                 releaseHeldFrame()
             }
             return
@@ -471,8 +442,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.renderer?.flush()
             self.formatDescription = nil
             self.deferredKeyframe.reset()
-            self.debugTimingOrigin = nil
-            self.debugTimingFrameCount = 0
             self.lock.withLock {
                 self.heldFirstFrame = nil
                 self.heldTail = []
@@ -494,8 +463,6 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             self.renderer = nil
             self.formatDescription = nil
             self.deferredKeyframe.reset()
-            self.debugTimingOrigin = nil
-            self.debugTimingFrameCount = 0
             self.lock.withLock {
                 self.heldFirstFrame = nil
                 self.heldTail = []
@@ -690,13 +657,6 @@ struct VideoLayerView: UIViewRepresentable {
     /// picture and the transform changing together. See ``VideoRenderer/releaseHeldFrame()``.
     var pictureIsPlaced = false
 
-    /// The size of the picture on screen, for the trace and nothing else.
-    ///
-    /// **A drawn scale is meaningless without it.** The canvas and a window both read `zoom=1` at
-    /// rest and are drawn at 1.0 and 0.672, so a jump from 2.0 to 1.0 across a change of picture is
-    /// either a real jump or nothing at all, and the log cannot say which until it carries this.
-    var picturePixelSize: CGSize = .zero
-
     /// The scale and offset the outgoing picture was drawn at, and whether it is the one showing.
     ///
     /// The still carries the transform the picture had *before* the change, because it is that
@@ -707,12 +667,9 @@ struct VideoLayerView: UIViewRepresentable {
     var stillPan: CGSize = .zero
     var showsStill = false
 
-    /// The last scale this view wrote, so the trace can report the transform the picture is
-    /// actually drawn at rather than the one the arithmetic says it should be. See
-    /// ``makeCoordinator()``.
+    /// The live layer's own bookkeeping about which of the two pictures it is showing. See
+    /// ``VideoHostView/stillContentView``.
     final class Coordinator {
-        var lastLogged: CGFloat = 0
-        var releasedFor: CGFloat = 0
         var showsStill = false
     }
 
@@ -774,10 +731,6 @@ struct VideoLayerView: UIViewRepresentable {
         // **And the frame goes to the layer only now**, while the live layer is hidden and the
         // still is covering it. See ``VideoRenderer/releaseHeldFrame()``.
         if pictureIsPlaced {
-            if context.coordinator.releasedFor != zoom {
-                context.coordinator.releasedFor = zoom
-                flickerTrace("layer releases the held frame at zoom=\(Double(zoom))")
-            }
             renderer.releaseHeldFrame()
         }
 
@@ -786,9 +739,7 @@ struct VideoLayerView: UIViewRepresentable {
         // settling. Instant on the way in, because nothing is visible at that moment anyway.
         if showsStill != context.coordinator.showsStill {
             context.coordinator.showsStill = showsStill
-            flickerTrace("layer swap showsStill=\(showsStill) zoom=\(Double(zoom)) stillZoom=\(Double(stillZoom))")
             if !showsStill {
-                flickerTrace("layer still fading out over 0.18s")
                 CATransaction.begin()
                 CATransaction.setAnimationDuration(0.18)
                 CATransaction.setAnimationTimingFunction(
@@ -800,25 +751,6 @@ struct VideoLayerView: UIViewRepresentable {
             }
         }
 
-        if abs(zoom - context.coordinator.lastLogged) > 0.02 {
-            context.coordinator.lastLogged = zoom
-            // **The drawn scale, not the stored one.** ``zoom`` is a multiple of whatever the
-            // picture's own fit is, so the same number means different sizes for two pictures of
-            // different shapes: the canvas and a window both read `zoom=1` at rest and are drawn
-            // at 1.0 and 0.672. Only this product is what the eye sees, and a jump in it is the
-            // flicker. ``base`` is printed beside it because that is the half that moves when
-            // ``Fill`` is on and does not when it is off. See ``RemoteScreen/pictureBaseScale``.
-            // **The drawn rectangle, which is the only thing the eye can see.** A scale is
-            // meaningless without the picture it multiplies: the canvas and a window both read
-            // `zoom=1` at rest and are drawn at 1.0 and 0.672. What is comparable across a change
-            // of picture is where the picture lands, so that is what is printed.
-            _ = picturePixelSize
-            flickerTrace("""
-                layer transform drawn=\(Double(zoom)) \
-                picture=\(Int(picturePixelSize.width))x\(Int(picturePixelSize.height)) \
-                pan=\(Int(pan.width)),\(Int(pan.height)) still=\(showsStill)
-                """)
-        }
     }
 }
 

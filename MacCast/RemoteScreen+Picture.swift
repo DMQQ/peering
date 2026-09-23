@@ -21,7 +21,6 @@ extension RemoteScreen {
             zoom: effectiveZoom,
             pan: pan,
             pictureIsPlaced: pictureIsPlaced,
-            picturePixelSize: model.capturePixelSize ?? .zero,
             stillZoom: stillZoom,
             stillPan: stillPan,
             showsStill: swapping
@@ -241,9 +240,22 @@ extension RemoteScreen {
             zoom: effectiveZoom, pan: pan
         ) else { return nil }
 
-        return CanvasGeometry.transform(
+        guard let target = CanvasGeometry.transform(
             of: from, mappingTo: to, bounds: canvasSize, zoom: effectiveZoom, pan: pan
-        )
+        ) else { return nil }
+
+        // **A drawn scale, turned back into a stored one.** ``CanvasGeometry/transform`` is given
+        // the state and returns the scale that draws the picture there, so its answer is a multiple
+        // of the *fit* — and ``zoom`` is a multiple of the fit times the base. Stored undivided it
+        // is the base applied twice, and on a phone held sideways the base is 0.75, so the new
+        // canvas arrived at three quarters of the rectangle it was supposed to land on and grew
+        // back: traced, a turn into landscape, the arriving canvas drawn at `387x241` where the one
+        // it replaced was at `172x322`, then glided up to its own `516x322`. Divided by the base on
+        // screen now, which is the departed picture's while ``RemoteScreen/placedPictureID`` is
+        // still behind — the same division, against the same base, as ``MosaicZoom/opening``.
+        let base = pictureBaseScale
+        guard base > 0 else { return target }
+        return (target.zoom / base, target.pan)
     }
 
     /// The veil that covers the one frame of a turned arrangement that cannot be continuous.
@@ -335,12 +347,6 @@ extension RemoteScreen {
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
             let same = sameArrangement(asked, arrived)
-            flickerTrace("""
-                overlay arrived=\(Int(arrived.canvas.width))x\(Int(arrived.canvas.height))/\(arrived.tiles.count) \
-                asked=\(Int(asked.canvas.width))x\(Int(asked.canvas.height))/\(asked.tiles.count) \
-                picture=\(model.capturePixelSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "nil") \
-                same=\(same)
-                """)
             return same ? asked : arrived
         }
 
