@@ -639,17 +639,11 @@ struct SSHTerminalScreen: View {
 
     private var input: some View {
         HStack(spacing: 8) {
-            Button {
+            // Leftmost, the far end of the row from send, and the same key the Mac's terminal
+            // draws: one control on two screens, so it is one view. See ``TerminalHideKeyboardKey``.
+            TerminalHideKeyboardKey {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            } label: {
-                Image(systemName: "keyboard.chevron.compact.down")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color.secondary)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Hide keyboard")
 
             TerminalCommandField(
                 text: $command,

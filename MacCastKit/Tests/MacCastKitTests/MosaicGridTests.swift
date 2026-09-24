@@ -67,27 +67,17 @@ struct MosaicGridTests {
                     Issue.record("no layout for \(scenario.count) tiles at \(scenario.aspect)")
                     return
                 }
-                let columns = MosaicGrid.columns(
-                    for: scenario.count, portrait: viewport.height > viewport.width
-                )
+                // Every tile, a short row's included: they are all the size the grid gives them, so
+                // the canvas's shape is the whole of what decides a tile's shape. The case this is
+                // here to catch is a short row's tiles being widened to fill their own row, which
+                // was the rule before this one. See ``MosaicGrid/rects(weights:portrait:)``.
                 for (index, tile) in layout.tiles.enumerated() {
                     let aspect = (tile.rect.width * layout.canvas.width)
                         / (tile.rect.height * layout.canvas.height)
-
-                    // **The last row is the exception, and it is the grid's oldest rule.** A row
-                    // that is not full shares its own width among the tiles in it rather than
-                    // leaving a slot empty, so eight tiles in three columns end with two tiles
-                    // wider than a window where six are exactly right. The alternative is a hole
-                    // in the picture that a tap lands in and selects nothing.
-                    let inAFullRow = index < (scenario.count / columns) * columns
-                    if inAFullRow {
-                        #expect(
-                            abs(aspect - scenario.aspect) < 0.02,
-                            "\(scenario.count) tiles at \(scenario.aspect) on \(viewport) gave a tile of \(aspect)"
-                        )
-                    } else {
-                        #expect(aspect >= scenario.aspect - 0.02, "a short row's tiles came out narrower than a window")
-                    }
+                    #expect(
+                        abs(aspect - scenario.aspect) < 0.02,
+                        "tile \(index) of \(scenario.count) at \(scenario.aspect) on \(viewport) came out \(aspect)"
+                    )
                 }
             }
         }
@@ -176,25 +166,22 @@ struct MosaicGridTests {
         #expect(abs(tile - 1.6) < 0.01, "a portrait tile came out \(tile):1")
     }
 
-    @Test("a row that is not full is shorter, and fills its own width")
+    @Test("a row that is not full ends early, aligned with the row above")
     func remainderIsNotStretched() {
-        // Five tiles are three across and two under them. The rows are sized by what they hold,
-        // so the last one is two fifths of the height rather than a half — there is no empty slot
-        // in the picture, which is what makes every point on the canvas belong to a tile.
+        // Five tiles are three across and two under them, and every tile is the size the grid gives
+        // it: the last row is two tiles the width of the three above rather than two wider ones.
         //
-        // And those two share their own row rather than keeping a third each: a row that left a
-        // third of itself empty would put a tap on the canvas in a place that selects nothing.
-        // See ``MosaicGrid/rects(weights:)``.
+        // **And the short row starts where the full one does.** The leftover is one band at the
+        // canvas's trailing edge rather than a gap split either side of the tiles, because a centred
+        // row is read as a layout that went wrong. See ``MosaicGrid/rects(weights:portrait:)``.
         let rects = MosaicGrid.rects(count: 5, portrait: false)
         for index in 0...2 {
             #expect(close(rects[index].width, 1.0 / 3))
             #expect(close(rects[index].height, 0.5))
             #expect(close(rects[index].y, 0))
         }
-        // The short row is the same size as the full one and centred, so the leftover is split
-        // evenly: a sixth of the canvas on each side rather than a wider tile on either end.
-        #expect(close(rects[3].x, 1.0 / 6))
-        #expect(close(rects[4].x, 1.0 / 6 + 1.0 / 3))
+        #expect(close(rects[3].x, 0))
+        #expect(close(rects[4].x, 1.0 / 3))
         for index in 3...4 {
             #expect(close(rects[index].width, 1.0 / 3))
             #expect(close(rects[index].height, 0.5))

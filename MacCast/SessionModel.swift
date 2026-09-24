@@ -111,6 +111,29 @@ final class SessionModel {
         return sessions.first { $0.id == activeSessionID }
     }
 
+    /// Whether that Mac is on screen, or the user has stepped back to the picker with it still
+    /// connected.
+    ///
+    /// **A session that is open and a session being watched are two things, and this is the second
+    /// one.** The picker could not tell them apart: a live session took the whole screen until it was
+    /// ended, so looking at the list of Macs meant giving up the one you were on. The state itself
+    /// costs one flag; what keeps the session alive is that nothing else changes while it is set.
+    /// The control channel, the shells, the clipboard and the sleep assertion all stay, and only the
+    /// picture stops (see ``MacSession/setPicturePaused(_:)``), which is what a Mac nobody is looking
+    /// at should be doing with its battery and its bandwidth.
+    ///
+    /// Put back by every route that shows a session: ``returnToSession()``, ``activateSession(_:)``,
+    /// ``connect(to:replacing:)`` and ``disconnect(deliberate:)``.
+    var isSessionOnScreen = true
+
+    /// Whether the picture was stopped by stepping away rather than by the user's own switch.
+    ///
+    /// Held apart from ``MacSession/picturePaused`` so that coming back does not undo a pause
+    /// somebody asked for: only the pause this took is taken back. Internal rather than private so
+    /// the end of a session can clear it with the rest of the session state. See
+    /// ``stepAwayFromSession()``.
+    var pausedBySteppingAway = false
+
     /// Makes one session the Mac the app is showing, and tells the Macs about it.
     ///
     /// The cheap one: the handshake, the pairing, the sockets, the shells and the sleep assertion all
@@ -119,15 +142,24 @@ final class SessionModel {
     /// at.
     ///
     /// A no-op for the session already on screen, deliberately: asking a Mac for its picture again
-    /// would blink it.
+    /// would blink it. The one case that is not a no-op is the Mac already in hand *with the screen
+    /// away from it*, which is the whole of what ``returnToSession()`` does.
     func activateSession(_ id: UUID) {
-        guard id != activeSessionID, let session = sessions.first(where: { $0.id == id }) else { return }
+        guard id != activeSessionID else {
+            returnToSession()
+            return
+        }
+        guard let session = sessions.first(where: { $0.id == id }) else { return }
         // Stopped before the switch rather than after: otherwise both Macs stream for however long
         // the handover takes.
         activeSession?.setPicturePaused(true)
         let left = activeSession
         activeSessionID = id
         session.setPicturePaused(false)
+        // Arriving at a Mac is being on its screen, whatever the last one's screen was doing, and a
+        // pause taken for stepping away went with that screen. See ``isSessionOnScreen``.
+        isSessionOnScreen = true
+        pausedBySteppingAway = false
 
         // The sound follows the tab: a player built for the Mac on screen goes on playing after the
         // user has looked away unless it is told. See ``MacSession/shouldPlayAudio``.
@@ -147,6 +179,44 @@ final class SessionModel {
         )
         // The widget's idea of which Mac is in hand. See ``publishOpenMacs()``.
         publishOpenMacs()
+    }
+
+    /// Puts the picture away and shows the picker, leaving the Mac connected.
+    ///
+    /// The session stays exactly as it is: what this changes is one flag, the frames the Mac is asked
+    /// for, and the sound. Nothing is sent that could not be sent back, which is the difference
+    /// between this and ``disconnect(deliberate:)`` — and it is why the pill draws them as two
+    /// controls rather than one.
+    ///
+    /// The pause is taken only if the user had not already asked for one, and only if nothing else is
+    /// watching: a picture somebody stopped by hand stays stopped when they come back to it, and a
+    /// picture floating in a Picture in Picture window is somebody still watching, so it goes on
+    /// arriving for the window rather than freezing in it. A Mac too old to be asked for silence goes
+    /// on streaming at nobody, which is the honest failure: the session works and the frames are
+    /// wasted.
+    func stepAwayFromSession() {
+        guard isSessionOnScreen, let session = activeSession else { return }
+        isSessionOnScreen = false
+        if !session.picturePaused, !session.isWatched {
+            pausedBySteppingAway = true
+            session.setPicturePaused(true)
+        }
+        session.refreshAudioMuteState()
+    }
+
+    /// Brings the live session back on screen, and the picture back with it.
+    ///
+    /// The other half of ``stepAwayFromSession()``, and the same shape as arriving at a Mac in
+    /// ``activateSession(_:)``: the frames are asked for again only if stepping away was what
+    /// stopped them.
+    func returnToSession() {
+        guard !isSessionOnScreen, let session = activeSession else { return }
+        isSessionOnScreen = true
+        if pausedBySteppingAway {
+            pausedBySteppingAway = false
+            session.setPicturePaused(false)
+        }
+        session.refreshAudioMuteState()
     }
 
     /// The Macs that are open, in the order they were opened.
@@ -713,6 +783,12 @@ final class SessionModel {
             activateSession(open.id)
             return
         }
+
+        // A Mac being dialled is a Mac the user wants to look at, so the screen goes to it from the
+        // first frame of the connecting card: a session stepped away from and then dialled again
+        // must not leave the picker up behind the card. See ``isSessionOnScreen``.
+        isSessionOnScreen = true
+        pausedBySteppingAway = false
 
         // The gate, at the one place every route passes through: a gate drawn on one door cannot be
         // walked past by another. See ``PlanCapability/concurrentSessions``.

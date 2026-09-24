@@ -198,7 +198,7 @@ final class VirtualDisplay {
 // serials alone produce distinct display IDs but reset every panel to 800×600; distinct products
 // preserve the registered modes as well. See ``HostModel+VirtualDisplayManagement.swift``.
         descriptor.put(serialNumber: serialNumber)
-        descriptor.put(productID: productID) // 0x5045 is "PE" for the Mac-switch display.
+        descriptor.put(productID: productID) // 0x5045 is "PE", and the first display's own number.
         descriptor.put(vendorID: 0x646D)  // "dm", this developer's prefix
 
         let displayObject = displayFactory.init(descriptor: descriptorObject)
@@ -264,6 +264,12 @@ final class VirtualDisplay {
 /// rather than a retry, because there is no second reference to drop.
     @discardableResult
     func remove() -> Bool {
+        // **Before the reference is dropped, because afterwards the question cannot be asked.** A
+        // virtual display is a screen the Mac's own user cannot see, so a pointer that is on it has
+        // already disappeared; once the display is gone the pointer sits at a coordinate no screen
+        // occupies, and which screen the window server then decides it is on is anybody's guess.
+        // See ``bringPointerBack(from:)``.
+        Self.bringPointerBack(from: CGDisplayBounds(displayID))
 // Asked without binding: a `guard let display` here would hold a second strong reference for the
 // length of this function, so the release below would not be the release and the poll would report
 // a display that is on its way out as one that will not go.
@@ -285,6 +291,28 @@ final class VirtualDisplay {
                 """)
         }
         return gone
+    }
+
+    /// Puts the pointer on the main display if it is inside `bounds`.
+    ///
+    /// Called on the way out of ``remove()``, and it is the whole of what this app does about a
+    /// pointer that has wandered onto a screen the Mac's user cannot see: with the display gone
+    /// there is no point of it left to move the pointer back to, and a pointer the user cannot find
+    /// is the complaint this answers.
+    ///
+    /// `CGWarpMouseCursorPosition` rather than a synthetic move, because this is not the user moving
+    /// the mouse and nothing should read it as one. The main display rather than the nearest one: it
+    /// is the one with the menu bar, so it is the one screen that can never be a display this app
+    /// made.
+    private static func bringPointerBack(from bounds: CGRect) {
+        guard !bounds.isEmpty,
+              let pointer = CGEvent(source: nil)?.location,
+              bounds.contains(pointer)
+        else { return }
+        let main = CGDisplayBounds(CGMainDisplayID())
+        guard !main.isEmpty else { return }
+        CGWarpMouseCursorPosition(CGPoint(x: main.midX, y: main.midY))
+        virtualDisplayLog.notice("pointer brought back from a virtual display")
     }
 
 /// Rotates the display's shape to match the phone, live, without tearing anything down.

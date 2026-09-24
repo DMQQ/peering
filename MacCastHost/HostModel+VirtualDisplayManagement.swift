@@ -5,15 +5,16 @@ import RemoteCore
 
 // MARK: - Virtual display management (phone-requested)
 
-/// Displays the phone asked for, over ``RemoteCommand/addVirtualDisplay(name:width:height:startLandscape:)``,
+/// Every virtual display this host makes, over
+/// ``RemoteCommand/addVirtualDisplay(name:width:height:startLandscape:)``,
 /// ``RemoteCommand/removeVirtualDisplay(displayID:)`` and
 /// ``RemoteCommand/renameVirtualDisplay(displayID:name:)``, gated on the phone side by
 /// `PlanCapability.virtualDisplays`.
 ///
-/// Deliberately a second store beside ``HostModel/virtualDisplay``, not a merge of the two: that
-/// property is the Mac's own settings switch, `UserDefaults`-persisted and restored at launch, and
-/// none of that is true here. These are session-scoped, the same way a mosaic arrangement is —
-/// gone the moment the host stops, never brought back on relaunch.
+/// **One store, because a phone asking is the only way one exists.** There used to be a second for a
+/// display the Mac's own Settings switch made, free on every plan; it is gone. These are
+/// session-scoped, the same way a mosaic arrangement is: gone the moment the client that asked for
+/// them does, and gone when the host stops.
 extension HostModel {
     /// The portrait pixel size a requested width or height is clamped into, on each side
     /// independently. A guard against a client offering something absurd, not a promise about
@@ -27,10 +28,10 @@ extension HostModel {
     /// `name` empty asks this Mac to pick one, which every request from today's UI does — see
     /// `SourcesPanel`'s "Add a display" row. `width`/`height` are clamped independently into
     /// ``virtualDisplaySizeRange`` rather than refused outright: a client offering an unreasonable
-    /// size gets the nearest reasonable one instead of nothing. Failures are recorded the way
-    /// ``setVirtualDisplay(_:)`` records its own, rather than reported back over the control
-    /// channel: there is no request/reply shape for a `RemoteCommand`, and the activity log plus
-    /// the catalogue not growing is what tells the phone the request did not land.
+    /// size gets the nearest reasonable one instead of nothing. Failures are recorded rather than
+    /// reported back over the control channel: there is no request/reply shape for a
+    /// `RemoteCommand`, and the activity log plus the catalogue not growing is what tells the phone
+    /// the request did not land.
     func addVirtualDisplay(name: String, width: Int, height: Int, startLandscape: Bool) {
         guard !isMakingVirtualDisplay, !isTearingDownVirtualDisplays else { return }
         discardDepartedManagedVirtualDisplays()
@@ -83,8 +84,7 @@ extension HostModel {
             }
             managedVirtualDisplays.append(display)
             // The private API resets every virtual panel to 800×600 when another one is created.
-            // Reassert the chosen mode for the Mac-switch display and every phone-managed one.
-            if let virtualDisplay { _ = virtualDisplay.restoreCurrentMode() }
+            // Reassert the chosen mode for the ones already alive.
             for managed in managedVirtualDisplays { _ = managed.restoreCurrentMode() }
             guard creationGeneration == virtualDisplayCreationGeneration,
                   !isTearingDownVirtualDisplays,
@@ -103,8 +103,7 @@ extension HostModel {
         }
     }
 
-    /// Gives a phone-managed display a new name. The Mac-switch display is deliberately excluded:
-    /// that switch owns its state and the free display is not part of this Pro management list.
+    /// Gives a display this phone made a new name.
     func renameVirtualDisplay(displayID: CGDirectDisplayID, name: String) {
         let cleaned = String(
             name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -157,8 +156,8 @@ extension HostModel {
         return true
     }
 
-    /// The ScreenCaptureKit catalogue can lag behind the window server. Retry the same way the
-    /// Mac-switch display does, and do not leave an invisible display consuming one of the slots.
+    /// The ScreenCaptureKit catalogue can lag behind the window server. Retry, and do not leave an
+    /// invisible display consuming one of the slots.
     func confirmManagedDisplayThroughCatalogue(_ display: VirtualDisplay) {
         let id = display.displayID
         Task { @MainActor [weak self] in

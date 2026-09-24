@@ -29,6 +29,12 @@ struct ContentView: View {
         // Asked of the session rather than of the phase, because a first connection passes through
         // the same phases and should keep behaving exactly as it does: see
         // ``MacSession/isResumingAfterDrop``.
+        //
+        // **And a session the user has stepped away from is one this screen is not.** That is the
+        // whole of the flag, and it is read first because it is the user's own last word: the cases
+        // below are all about a session that is being watched. See
+        // ``SessionModel/isSessionOnScreen``.
+        guard model.isSessionOnScreen else { return false }
         if model.isResumingAfterDrop { return true }
         switch model.phase {
         case .ready, .confirming: return true

@@ -16,7 +16,7 @@ public enum VirtualDisplayManagementSupport {
         declared == true
     }
 
-    /// How many displays the phone may add beyond the Mac's own switch.
+    /// How many virtual displays one phone may have made at once.
     ///
     /// One number, shared by the host (which refuses past it) and the client (which hides its "add
     /// a display" row past it), so the two never quietly disagree about where the limit is. A

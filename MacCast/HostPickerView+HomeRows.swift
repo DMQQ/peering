@@ -17,12 +17,16 @@ extension HomeTab {
             // the row's place: a row is how somebody finds out the app can hold more than one
             // Mac open at all, and the first Mac is free on every plan, which is why
             // `isIncluded` is passed rather than left to the map. See ``PlanLocked``.
+            //
+            // And a Mac that is open is not another Mac: this row is the way back to it, so the
+            // concurrency gate is not this row's business and tapping it must not open the
+            // paywall. See ``SessionModel/isSessionOnScreen``.
             PlanLocked(
                 capability: .concurrentSessions,
                 title: "Another Mac",
                 placement: .trailing,
                 diameter: 44,
-                isIncluded: model.canAddAnotherSession
+                isIncluded: model.canAddAnotherSession || isActive
             ) {
             Button { model.connectToTrusted(hostID: hostID) } label: {
                 HStack(spacing: 12) {
@@ -68,7 +72,10 @@ extension HomeTab {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(model.isBusy)
+            // And not disabled for the Mac that is open, for the same reason it is not gated:
+            // this is the way back to it, and a row drawn live that does nothing when tapped is
+            // worse than one that says it cannot be used. See ``SessionModel/isSessionOnScreen``.
+            .disabled(model.isBusy && !isActive)
             }
 
             Menu {
@@ -171,7 +178,11 @@ extension HomeTab {
         if sharesItsName { return String(hostID.prefix(8)) }
 
         if isActive {
-            return reach == .nearby ? "Connected via LAN" : "Connected via Relay"
+            // "Tap to go back" included, because this row is readable exactly when the picture is
+            // not on screen: a session that is on screen has taken the whole screen, so the picker
+            // and the picture cannot be up at once. See ``SessionModel/isSessionOnScreen``.
+            let path = reach == .nearby ? "Connected via LAN" : "Connected via Relay"
+            return model.isSessionOnScreen ? path : "\(path) · tap to go back"
         }
         switch reach {
         case .nearby: return "Nearby · tap to connect"
@@ -290,7 +301,12 @@ extension HomeTab {
 
     func manualSheet(address: Binding<String>, port: Binding<String>) -> some View {
         NavigationStack {
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 18) {
+                // The screen's name in the display face rather than as a navigation title, which is
+                // the trade ``RemotePairingSheet`` makes next door and for the same reason: an inline
+                // title is set by iOS, in the system face, at a size iOS chooses.
+                TabScreenHeader("Connect by Address")
+
                 HStack(spacing: 10) {
                     TextField("Mac address", text: address)
                         .textInputAutocapitalization(.never)
@@ -298,14 +314,21 @@ extension HomeTab {
                         .keyboardType(.URL)
                         .textFieldStyle(.plain)
                         .padding(12)
-                        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                        .background(
+                            .white.opacity(0.06),
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
                     TextField("Port", text: port)
                         .keyboardType(.numberPad)
                         .textFieldStyle(.plain)
                         .padding(12)
                         .frame(width: 88)
-                        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                        .background(
+                            .white.opacity(0.06),
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        )
                 }
+
                 Button {
                     model.connectToManualAddress()
                     showsManualConnection = false
@@ -316,22 +339,37 @@ extension HomeTab {
                         .frame(height: 44)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(ColorPalette.ink)
-                .foregroundStyle(.black)
-                .disabled(model.isBusy || model.manualAddress.isEmpty)
+                // Both states named rather than left to the style, which dims an ink fill to a grey
+                // that a black label disappears into — the same trade the pairing sheet makes.
+                .tint(canConnect ? ColorPalette.ink : .white.opacity(0.16))
+                .foregroundStyle(canConnect ? ColorPalette.onInk : .white.opacity(0.55))
+                .disabled(!canConnect)
             }
             .padding(24)
             .frame(maxHeight: .infinity, alignment: .top)
-            .navigationTitle("Connect by Address")
+            // Nothing in the bar but the Cancel, and its own background off: this sheet is one
+            // surface, and a grey strip across the top of it was the part that read as a piece of
+            // iOS that had landed on the app.
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Cancel") { showsManualConnection = false }
                 }
             }
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
-        .presentationDetents([.height(220)])
+        // Painted on the presentation rather than on the content, so it reaches behind the bar too.
+        .presentationBackground(ColorPalette.backdrop)
+        // Taller than it was by the header it now carries, and by the bar, which the header used to
+        // share with a title.
+        .presentationDetents([.height(268)])
         .preferredColorScheme(.dark)
+    }
+
+    /// Whether the sheet has an address to dial. Named because two things read it, the tint and the
+    /// `disabled`, and those two disagreeing is a button that looks live and does nothing.
+    var canConnect: Bool {
+        !model.isBusy && !model.manualAddress.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     /// Kept as a name here rather than replaced at three call sites, but it is now the shared

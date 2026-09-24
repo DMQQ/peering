@@ -627,10 +627,17 @@ struct RemoteScreen: View {
 
     var keyboardInputBar: some View {
         HStack(spacing: 10) {
-            Image(systemName: "keyboard")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+            // **Leftmost, and a key rather than a glyph.** It used to be a bare chevron on the far
+            // side of Return, which is the end of the row the key that *sends* lives at and not the
+            // end the key that *leaves* belongs at; drawn as a glyph it read as a caption for the
+            // field. It wears the same cap as the Return beside it, because they are this row's two
+            // keys and nothing else in it is pressed. See ``compactCapButton(icon:action:)``.
+            compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
+                .accessibilityLabel("Hide keyboard")
 
+            // What the bar is for, said in the words that change: the leading keyboard glyph that
+            // used to stand here went with the move above, and this line was always the state it
+            // was drawing.
             Text(model.typedPreview.isEmpty ? "Typing…" : model.typedPreview)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(model.typedPreview.isEmpty ? Color.secondary : Color.primary)
@@ -642,15 +649,6 @@ struct RemoteScreen: View {
             // newline, so a real Return is only reachable from a key like this one.
             compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
                 .accessibilityLabel("Enter")
-
-            Button {
-                model.showKeyboard = false
-            } label: {
-                Image(systemName: "keyboard.chevron.compact.down")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

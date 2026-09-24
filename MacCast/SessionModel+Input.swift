@@ -175,8 +175,12 @@ extension SessionModel {
     ///
     /// A pure lookup rather than something that sends: the caller is deciding *instead of* the default
     /// source, and a function that both answered and acted could not be used that way.
+    ///
+    /// An arrangement the plan no longer includes is not restored, which is the same rule as the
+    /// padlock on the panel: a subscription that lapsed is not a subscription, and a reconnection is
+    /// not a way round the gate. See ``PlanCapability/mosaic``.
     func mosaicToRestore(hostID: String?, catalog: CaptureCatalog?) -> [MosaicChoice] {
-        guard let hostID else { return [] }
+        guard let hostID, storeManager.access.includes(.mosaic) else { return [] }
         return MosaicArrangement.restored(
             MosaicArrangementStore.load(hostID: hostID),
             into: catalog
@@ -188,9 +192,21 @@ extension SessionModel {
     /// Asked at the same moment as the arrangement and answered second: an arrangement is what the user
     /// built, while a single source is only what they were looking at, so the arrangement wins where both
     /// are remembered. What is left when both have gone is the first display. See ``ChosenSource``.
+    ///
+    /// **A virtual display is not restored on a plan without one.** It is the only source here that a
+    /// plan decides, and the row it is picked from is locked on that plan: restoring it anyway would
+    /// be a padlock a reconnection walks around. See ``PlanCapability/virtualDisplays``.
     func sourceToRestore(hostID: String?, catalog: CaptureCatalog?) -> CaptureSource? {
-        guard let hostID else { return nil }
-        return ChosenSource.restored(ChosenSourceStore.load(hostID: hostID), into: catalog)
+        guard let hostID, let source = ChosenSource.restored(
+            ChosenSourceStore.load(hostID: hostID),
+            into: catalog
+        ) else { return nil }
+        if let descriptor = catalog?.descriptor(for: source),
+           descriptor.isVirtualDisplay,
+           !storeManager.access.includes(.virtualDisplays) {
+            return nil
+        }
+        return source
     }
 
     /// Gives one tile more or less room, cycling through the sizes the control offers.

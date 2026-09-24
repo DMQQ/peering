@@ -16,6 +16,14 @@ private enum VirtualDisplaySizePreset {
     static let portraitHeight = 2796
 }
 
+/// A desktop this phone has asked the Mac to show, while the Mac's own list has yet to say so.
+///
+/// See ``SourcesPanel/pendingDesktop`` for why the mark cannot wait for the answer.
+private struct PendingDesktop: Equatable {
+    let display: UInt32
+    let index: Int
+}
+
 /// What the Mac can be made to share, as a floating panel.
 ///
 /// The same list the sheet used to hold, rebuilt for a panel instead of a `List`. A `List` brings
@@ -48,6 +56,15 @@ struct SourcesPanel: View {
     /// What has been picked, in the order it was picked. The order is the arrangement: the grid
     /// is filled in reading order, so a tile's place is the place it was chosen in.
     @State private var picked: [CaptureSourceDescriptor] = []
+
+    /// The desktop this phone has just asked the Mac for, until the Mac's list agrees.
+    ///
+    /// Which desktop a screen is on is the Mac's to say, and it says it in the catalogue, which is
+    /// coalesced: up to three seconds in which the tile the user just tapped is still drawn as the
+    /// desktop they left, which reads as a tap that did not take. Taken at the tap instead, and
+    /// given up when the Mac says something new or when this gives up waiting. See
+    /// ``askForDesktop(_:index:)``.
+    @State private var pendingDesktop: PendingDesktop?
 
     /// The managed display an alert is asking a new name for, or `nil` when none is.
     @State private var renameVirtualDisplayTarget: CaptureSourceDescriptor?
@@ -126,6 +143,10 @@ struct SourcesPanel: View {
             // that has grown past its cell. See ``tileRoom``.
             .padding(Self.tileRoom)
         }
+        // The Mac's own answer to a switch, whatever it says: a list still reporting the desktop the
+        // user left is a switch the window server refused, and the mark belongs back where it was.
+        // See ``pendingDesktop``.
+        .onChange(of: model.catalog?.spaceInfo) { _, _ in pendingDesktop = nil }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if buildingMosaic { mosaicPicker }
         }
@@ -212,37 +233,35 @@ struct SourcesPanel: View {
 
     /// Every display this Mac made in software, and the one way to add or remove more of them.
     ///
-    /// **Its own labelled group, apart from ``screensSection(_:)``.** A display made this way
-    /// looks exactly like a real monitor everywhere else this panel draws one, and a phone with
-    /// no way to tell them apart is a phone asking "is that real" of every tile it does not
-    /// recognise. This heading is the answer: everything under it exists only in software,
-    /// whether the Mac's own switch made it or this phone did, and nothing outside it does.
+    /// **Its own labelled group, apart from ``screensSection(_:)``.** A display made this way looks
+    /// exactly like a real monitor everywhere else this panel draws one, and a phone with no way to
+    /// tell them apart is a phone asking "is that real" of every tile it does not recognise. This
+    /// heading is the answer: everything under it exists only in software, and nothing outside it
+    /// does.
     ///
-    /// **The switch-made display is drawn here too, without a rename or remove control.** It is
-    /// free on every plan and is the Mac's own setting, not something this phone may reach into
-    /// — only the phone-managed displays under it carry both controls, and only adding another
-    /// one is what the plan gates. See ``VirtualDisplayManagementSupport``.
+    /// **Every display here was asked for by a phone, and the plan pays for showing them.** There is
+    /// no second kind: the Mac's own switch made one once, free on every plan, and it is gone, so
+    /// what this group holds is what somebody tapped for. On a plan without
+    /// ``PlanCapability/virtualDisplays`` every row is dimmed, badged and opens the paywall, and the
+    /// "+" is the row that sells it. See ``VirtualDisplayManagementSupport``.
     @ViewBuilder
     private var virtualDisplaysSection: some View {
-        if ownedVirtualDisplay != nil || model.hostSupportsVirtualDisplayManagement {
+        if model.hostSupportsVirtualDisplayManagement {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline) {
                     SectionLabel("Virtual Displays")
                     Spacer()
-                    if model.hostSupportsVirtualDisplayManagement {
-                        PlanLocked(capability: .virtualDisplays, placement: .trailing) {
-                            addVirtualDisplayButton
-                        }
+                    PlanLocked(capability: .virtualDisplays, placement: .trailing) {
+                        addVirtualDisplayButton
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    if let ownedVirtualDisplay {
-                        virtualDisplayRow(ownedVirtualDisplay, removable: false)
-                    }
                     ForEach(Array(managedVirtualDisplays.enumerated()), id: \.element.id) { index, descriptor in
-                        if index > 0 || ownedVirtualDisplay != nil { Controls.divider }
-                        virtualDisplayRow(descriptor, removable: true)
+                        if index > 0 { Controls.divider }
+                        PlanLocked(capability: .virtualDisplays, placement: .trailing) {
+                            virtualDisplayRow(descriptor)
+                        }
                     }
                 }
                 .rowSurface()
@@ -258,20 +277,25 @@ struct SourcesPanel: View {
         }
     }
 
-    /// The Mac's own switch-made display, or `nil` while that switch is off. At most one of
-    /// these ever exists, unlike ``managedVirtualDisplays``.
-    private var ownedVirtualDisplay: CaptureSourceDescriptor? {
-        model.catalog?.displays.first { $0.isVirtualDisplay && !$0.isManagedVirtualDisplay }
-    }
-
     /// The displays this feature may be asked to remove, in the catalogue's own order.
     private var managedVirtualDisplays: [CaptureSourceDescriptor] {
         model.catalog?.displays.filter(\.isManagedVirtualDisplay) ?? []
     }
 
+    /// Whether this phone's plan shows and adds virtual displays, asked once for the whole group.
+    ///
+    /// The question ``PlanLocked`` asks of each row, read here for the one thing a locked row has to
+    /// do differently: leave out the controls it is not entitled to use.
+    private var includesVirtualDisplays: Bool {
+        model.storeManager.access.includes(.virtualDisplays)
+    }
+
     /// One row: tapping the picture or the name looks at that display, same as tapping any
-    /// screen's tile, and `removable` says whether this phone may also rename or take it away.
-    private func virtualDisplayRow(_ descriptor: CaptureSourceDescriptor, removable: Bool) -> some View {
+    /// screen's tile.
+    ///
+    /// Drawn as itself whatever the plan, and gated by the caller rather than here, so this stays a
+    /// drawing of a row. See ``virtualDisplaysSection``.
+    private func virtualDisplayRow(_ descriptor: CaptureSourceDescriptor) -> some View {
         let isLive = descriptor.id == model.activeSourceID
         let isPendingRemoval = pendingVirtualDisplayRemovalIDs.contains(descriptor.id)
 
@@ -323,7 +347,9 @@ struct SourcesPanel: View {
             .disabled(isPendingRemoval)
             .opacity(isPendingRemoval ? 0.5 : 1)
 
-            if removable {
+            // Not drawn on a plan that cannot use the display at all: they are part of the gated
+            // control, and the badge lands in the room they would have taken.
+            if includesVirtualDisplays {
                 Button {
                     renameVirtualDisplayDraft = descriptor.title
                     renameVirtualDisplayTarget = descriptor
@@ -680,7 +706,11 @@ struct SourcesPanel: View {
                     // desktop that is not on that display has no pixels in existence to capture,
                     // so choosing which desktop a screen contributes *is* choosing which desktop
                     // that screen is on.
-                    Text("Picking a desktop switches that Mac's screen to it.")
+                    //
+                    // And the tap is a *move* rather than a second tile: a screen is one source, so
+                    // the second desktop of a screen already in the arrangement replaces the first.
+                    // Said here because a tap that quietly did that looks like one that failed.
+                    Text("Picking a desktop switches that Mac's screen to it. A screen is in the arrangement once, so picking another of its desktops moves that tile rather than adding one.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -831,7 +861,7 @@ struct SourcesPanel: View {
         _ display: SpaceDisplay, index: Int, screen: CaptureSourceDescriptor, showsScreenName: Bool
     ) -> some View {
         let showing = isShowing(display)
-        let isCurrent = index == display.current
+        let isCurrent = desktopIsCurrent(display, index: index)
         let isLive = showing && isCurrent
 
         // What the arrangement has to say about this screen, asked once. A desktop is not a
@@ -943,15 +973,56 @@ struct SourcesPanel: View {
         // Tapping the desktop the screen is already on, when that screen is already in, is the
         // way back out. Every other tap moves the screen, and a tap that moved it to where it
         // already is would be a tap that did nothing at all.
-        if isPicked, index == display.current {
+        //
+        // Asked through ``desktopIsCurrent(_:index:)`` rather than of the Mac's list, so the tile
+        // that is drawn as "here" is the tile that takes the screen out, even in the seconds before
+        // the Mac's answer to a switch arrives.
+        if isPicked, desktopIsCurrent(display, index: index) {
             withAnimation(Motion.morph) { toggle(screen) }
             return
         }
 
-        model.send(.switchToSpace(display: display.displayID, index: index))
+        askForDesktop(display, index: index)
         if !isPicked {
             withAnimation(Motion.morph) { toggle(screen) }
         }
+    }
+
+    /// Asks the Mac to show a desktop, and takes the mark here until the Mac's list says so.
+    ///
+    /// One door for the two taps that move a screen, because assembling an arrangement moves it
+    /// exactly as watching one does. See ``pendingDesktop``.
+    private func askForDesktop(_ display: SpaceDisplay, index: Int) {
+        let pending = PendingDesktop(display: display.displayID, index: index)
+        pendingDesktop = pending
+        model.send(.switchToSpace(display: display.displayID, index: index))
+        // **Bounded, because a refusal is silent.** A switch the window server would not make
+        // leaves the Mac's list exactly as it was, so there is nothing in it to give the mark up
+        // for; the other half, a list that says something new, is watched for in the panel's body.
+        Task {
+            try? await Task.sleep(for: Self.pendingDesktopTimeout)
+            if pendingDesktop == pending { pendingDesktop = nil }
+        }
+    }
+
+    /// How long a mark taken at a tap is trusted before the panel stops waiting to be told.
+    ///
+    /// Longer than the host's own coalescing of catalogue pushes (three seconds, see
+    /// ``VideoCoordinator/refreshCatalog()``), with room on top for the enumeration the push itself
+    /// has to make: the mark should be given up when the Mac's answer arrives, not just before it.
+    private static let pendingDesktopTimeout: Duration = .seconds(6)
+
+    /// Which desktop a screen is on, as the tile that says "here" should read it.
+    ///
+    /// The Mac's own answer, or the one this phone has just asked for and has not yet seen it
+    /// confirm. See ``pendingDesktop``.
+    private func desktopIsCurrent(_ display: SpaceDisplay, index: Int) -> Bool {
+        if let pending = pendingDesktop,
+           pending.display == display.displayID,
+           pending.index == index {
+            return true
+        }
+        return index == display.current
     }
 
     /// What a desktop tile is called out loud.
@@ -996,7 +1067,7 @@ struct SourcesPanel: View {
     /// on it already showing the right thing; the other order shows the screen being left, and
     /// then a second jump.
     private func switchToDesktop(display: SpaceDisplay, index: Int) {
-        model.send(.switchToSpace(display: display.displayID, index: index))
+        askForDesktop(display, index: index)
 
         let source = CaptureSource.display(display.displayID)
         if model.activeSourceID != source.stableID {

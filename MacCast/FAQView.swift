@@ -286,7 +286,7 @@ struct FAQView: View {
             items: [
                 QA(
                     question: "What can't Peering do yet?",
-                    answer: "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. There is no virtual display, so a Mac with its lid shut and no screen attached has nothing to show."
+                    answer: "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it, which is part of Relay Plus."
                 ),
                 QA(
                     question: "Is any of that coming?",

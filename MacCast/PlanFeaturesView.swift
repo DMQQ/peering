@@ -348,8 +348,8 @@ struct PlanFeaturesView: View {
             ),
             PlanFeature(
                 icon: "rectangle.badge.plus",
-                title: "Extra virtual displays",
-                detail: "Add another phone-shaped display to the Mac from here, beyond the one its own switch controls, and take one away again when you are done with it.",
+                title: "Virtual displays",
+                detail: "A screen the Mac does not physically have, made from this phone and looked at from it: somewhere else for its windows to go, named and taken away from the same list.",
                 capability: .virtualDisplays
             ),
             PlanFeature(

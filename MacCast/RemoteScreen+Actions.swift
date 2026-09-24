@@ -145,7 +145,17 @@ extension RemoteScreen {
         keyCode: UInt16,
         action: (() -> Void)? = nil
     ) -> some View {
-        Button { (action ?? { sendKey(keyCode: keyCode) })() } label: {
+        compactCapButton(icon: icon) { (action ?? { sendKey(keyCode: keyCode) })() }
+    }
+
+    /// The same cap, for a control that is not a key press.
+    ///
+    /// **One cap, because the cap is what says "press me".** The hide-keyboard control is pressed
+    /// with the same thumb as the Return beside it and belongs to the same row, and while it was
+    /// drawn as a bare glyph it read as a caption for the field rather than as the way out of the
+    /// mode. The shape is here rather than at each control so the two cannot drift apart.
+    func compactCapButton(icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 40, height: 32)

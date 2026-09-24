@@ -721,13 +721,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 subtitle: "\(pixelWidth)×\(pixelHeight)",
                 source: .display(display.displayID),
                 pixelSize: CGSize(width: pixelWidth, height: pixelHeight),
-                // Only an extra display the phone asked for. The Mac settings switch owns its own
-                // free display, which deliberately remains an ordinary source tile here.
+                // Only a display the phone asked for. Every virtual display is that now; this is
+                // what tells the client which rows it may rename and remove.
                 isManagedVirtualDisplay: VirtualDisplay.isPhoneManaged(display.displayID),
-                // The broader question: does this display exist only in software at all, whether
-                // this phone made it or the Mac's own switch did. `VirtualDisplay.name(for:)` is
-                // non-nil for both, because this process names every display it makes — see the
-                // registry on ``VirtualDisplay``.
+                // The broader question: does this display exist only in software at all.
+                // `VirtualDisplay.name(for:)` is non-nil for exactly that, because this process
+                // names every display it makes — see the registry on ``VirtualDisplay``.
                 isVirtualDisplay: VirtualDisplay.name(for: display.displayID) != nil
             )
         }

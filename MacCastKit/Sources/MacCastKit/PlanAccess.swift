@@ -75,14 +75,15 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// cross it for one source.
     case mosaic
 
-    /// Making and removing virtual displays from the phone, beyond the one the Mac's own switch
-    /// controls.
+    /// The virtual displays this phone makes: adding one, naming it, taking it away, and looking at
+    /// it.
     ///
-    /// The switch itself, and the one display it makes, are free on every plan and stay a local
-    /// setting on the Mac; what a plan buys is the phone being able to ask for more of them. The
-    /// same rung as ``shellTabs``, not ``mosaic``/``macros``/``highBitrate`` — this is a tool
-    /// somebody reaches for the moment they have two Macs' worth of work and one Mac, not a
-    /// luxury saved for the top plan.
+    /// **One capability over making and looking, because there is only one kind of display here.**
+    /// There used to be a second kind, made by a switch in the Mac's own settings and free on every
+    /// plan; creation is the phone's alone now, so what a plan buys is the screen itself rather than
+    /// the right to look at one somebody else made. The same rung as ``shellTabs``, not
+    /// ``mosaic``/``macros``/``highBitrate``: this is a tool somebody reaches for the moment they
+    /// have two Macs' worth of work and one Mac, not a luxury saved for the top plan.
     case virtualDisplays
 
     /// The cheapest plan that includes this, which is the whole of the map.
@@ -98,8 +99,9 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // able to reach you when a shell stops for an answer.
             return .relay
         case .shellTabs, .virtualDisplays:
-            // The clock going away, and the concurrency with it: one shell is free and only the
-            // second one costs. A second display from the phone is the same shape of ask.
+            // The clock going away, and the room to work beside it: one shell is free and only the
+            // second one costs, and a display the Mac does not physically have is the same shape of
+            // ask.
             return .plus
         case .concurrentSessions:
             // The second Mac costs and the first must not, which is why the gate is asked against
@@ -126,7 +128,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .clipboardHistory: return "The clipboard history"
         case .terminalAlerts: return "Knowing when a terminal needs you"
         case .mosaic: return "Several windows at once"
-        case .virtualDisplays: return "Extra virtual displays"
+        case .virtualDisplays: return "Virtual displays on the phone"
         case .shellTabs: return "Several shells at once"
         case .macros: return "Macros, snippets and quick commands"
         case .highBitrate: return "The sharpest picture"

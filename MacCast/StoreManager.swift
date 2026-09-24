@@ -470,6 +470,7 @@ final class StoreManager {
                     "Everything in Relay",
                     "Unlimited relay time",
                     "Several shells at once, as tabs",
+                    "Virtual displays, the Mac's own and any you add",
                 ]
             case .pro:
                 return [

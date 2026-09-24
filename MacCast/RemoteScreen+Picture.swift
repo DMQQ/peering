@@ -278,8 +278,19 @@ extension RemoteScreen {
             // and is therefore a beat behind.
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
-            let same = sameArrangement(asked, arrived)
-            return same ? asked : arrived
+            // **And nothing for a picture the arrangement has moved on from.** From the moment a
+            // window is added or taken away until the canvas showing the new arrangement arrives,
+            // the Mac is tearing the old one down and building the new one, and the layout it last
+            // sent describes a grid that is on its way out: the borders were drawn over the black
+            // of the rebuild and then jumped to the grid that replaced it. They arrive with the
+            // picture now, which is what the appearance and disappearance of this whole layer is
+            // for. A reorder is not this case and is deliberately not hidden: the canvas is the
+            // same one, so the Mac sends no config and there would be nothing to wait for.
+            //
+            // The × controls go with them, which is a second reason to hide: they carry the index
+            // of the tile they sit on, and an index from a grid that is leaving names the wrong
+            // window in the grid that is arriving. See ``removeMosaicTile(at:)``.
+            return sameArrangement(asked, arrived) ? asked : nil
         }
 
         // Nothing on the way back: borders drawn for an arrangement not yet built sit over a picture

@@ -627,17 +627,13 @@ struct TerminalPanel: View {
         HStack(spacing: 8) {
             // Leftmost: keyboard dismiss — the far end of the row from send so the two actions
             // cannot be confused. Always shown so there is no layout jump as focus changes.
-            Button {
+            //
+            // Drawn as a key rather than as a bare glyph, which is what it is, and the same key in
+            // a server's terminal: the two are one control on two screens. See
+            // ``TerminalHideKeyboardKey``.
+            TerminalHideKeyboardKey {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            } label: {
-                Image(systemName: "keyboard.chevron.compact.down")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color.secondary)
-                    .frame(width: 30, height: 30)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Hide keyboard")
 
             // The history, one tap from the field it fills.
             //
@@ -1030,12 +1026,21 @@ struct TerminalCommandField: UIViewRepresentable {
 
     func updateUIView(_ field: UITextField, context: Context) {
         context.coordinator.parent = self
-        // Use attributedText so syntax colouring is not lost on re-render. Plain `field.text =`
-        // would strip every attribute on the next SwiftUI pass.
-        if (field.attributedText?.string ?? "") != text {
+        // **Only what this field did not type itself.** ``Coordinator/changed(_:)`` reports every
+        // keystroke into ``text``, and a render already in flight carries the value from a
+        // keystroke ago, so comparing the field against it wrote that older string back into the
+        // field: characters came out in the wrong order and the caret jumped into the middle of
+        // what had been typed. What changes ``text`` from outside — a history chip, a path handed
+        // over by the browser, the field emptied by a send — is what this branch is for, and none
+        // of those is what the field last reported.
+        //
+        // attributedText rather than `field.text =`, which would strip every attribute the syntax
+        // colouring is made of on the next pass.
+        if context.coordinator.reported != text {
             let sel = field.selectedTextRange
             field.attributedText = Self.highlighted(text)
             field.selectedTextRange = sel
+            context.coordinator.reported = text
         }
         field.placeholder = placeholder
         field.isEnabled = isEnabled
@@ -1135,11 +1140,23 @@ struct TerminalCommandField: UIViewRepresentable {
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: TerminalCommandField
 
+        /// The text this field last reported, which is what tells its own keystroke apart from a
+        /// change made to ``TerminalCommandField/text`` by something outside it. See
+        /// ``TerminalCommandField/updateUIView(_:context:)``.
+        var reported = ""
+
         init(_ parent: TerminalCommandField) { self.parent = parent }
 
         @objc func changed(_ field: UITextField) {
             let text = field.text ?? ""
             parent.text = text
+            reported = text
+            // **Not while the keyboard is still composing.** UIKit forbids replacing the text under
+            // a marked range, and a keystroke that arrives inside one — dictation, a candidate, a
+            // dead key on a hardware keyboard — is a string UIKit has not committed yet. Doing it
+            // there is the second way this field could reorder what was typed; the colour lands on
+            // the keystroke that follows instead.
+            guard field.markedTextRange == nil else { return }
             // Re-colour after the text changes, preserving the cursor.
             let sel = field.selectedTextRange
             field.attributedText = TerminalCommandField.highlighted(text)

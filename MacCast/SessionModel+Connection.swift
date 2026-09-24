@@ -129,6 +129,10 @@ extension SessionModel {
         // handling that would clear it.
         relaySessionDropped = false
         latchedModifiers = []
+        // Nothing is on screen to have stepped away from, and the session after this one takes the
+        // screen from the start. See ``isSessionOnScreen``.
+        isSessionOnScreen = true
+        pausedBySteppingAway = false
 
         // This method is how both a deliberate and a forced end arrive, so which announcement is made
         // turns on `deliberate`: backgrounding the app must not make the card vanish as though the user

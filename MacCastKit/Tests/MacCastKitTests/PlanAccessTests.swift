@@ -41,7 +41,7 @@ final class PlanAccessTests: XCTestCase {
         .macros: .pro,
         .highBitrate: .pro,
         .mosaic: .pro,
-        .virtualDisplays: .pro,
+        .virtualDisplays: .plus,
     ]
 
     /// The row above, as a table, because that is how three of the four copies of this map are
@@ -109,6 +109,13 @@ final class PlanAccessTests: XCTestCase {
         // And the mosaic is not something a middle rung gives away either: what it buys is the
         // Mac doing several things at once, which is the top rung's whole argument.
         XCTAssertFalse(RelayPlan.plus.includes(.mosaic))
+
+        // **Virtual displays are the rung's other row, and Relay does not have them.** The
+        // capability covers the display the Mac's own switch makes as well as the ones this phone
+        // adds, which is what "on the phone" in its name is doing there: the switch is the Mac's,
+        // and what the plan decides is whether this phone shows a virtual display at all.
+        XCTAssertTrue(RelayPlan.plus.includes(.virtualDisplays))
+        XCTAssertFalse(RelayPlan.relay.includes(.virtualDisplays))
     }
 
     /// The top rung leaves nothing on the map locked, so a Pro subscriber can never be shown a

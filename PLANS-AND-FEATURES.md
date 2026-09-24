@@ -20,6 +20,7 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 | Moving files both ways | | yes | yes | yes |
 | Told when a terminal needs you | | yes | yes | yes |
 | Several shells at once | | | yes | yes |
+| Virtual displays | | | yes | yes |
 | Several Macs at once | | | | yes |
 | Macros, snippets, quick commands | | | | yes |
 | Several of the Mac's windows in one picture | | | | yes |
@@ -44,7 +45,7 @@ periods rather than two plans.
 **The shape in one sentence:** *Relay is the remote working set, Plus is the clock going away, Pro
 is the toolbox and the funder.*
 
-**The gates are built.** Eight `PlanCapability` cases in
+**The gates are built.** Twelve `PlanCapability` cases in
 `MacCastKit/Sources/MacCastKit/PlanAccess.swift`, each with a `minimumPlan`, and around twenty call
 sites in the app that ask one of them. The relay meters relay time against a plan it verifies from
 Apple's own receipt rather than from the client's word. Section 2 is the row-by-row account, checked
@@ -100,7 +101,7 @@ each with a `minimumPlan`, and every gate in the app asks one of them. Nothing i
 plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
 there is one list and no second place to drift from.
 
-**Those nine are the whole of what a plan decides.**
+**Those twelve are the whole of what a plan decides.**
 
 | Gated feature | Capability | Cheapest plan |
 |---|---|---|
@@ -114,7 +115,7 @@ there is one list and no second place to drift from.
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
 | Several of the Mac's windows in one picture | `mosaic` | Pro |
-| Adding virtual displays from the phone | `virtualDisplays` | Relay Plus |
+| Virtual displays on the phone | `virtualDisplays` | Relay Plus |
 | The sharpest picture over the relay | `highBitrate` | Pro |
 
 **Everything else is free on every plan**, and the tables below say so row by row. Two of those
@@ -157,7 +158,7 @@ is why it sits here and not higher.
 | Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
 | Picture in Picture | · | ✅ | ✅ | ✅ |
 | Several windows in one picture (the mosaic) | · | · | · | ✅ |
-| Adding virtual displays from the phone | · | · | ✅ | ✅ |
+| Virtual displays on the phone | · | · | ✅ | ✅ |
 | The sharpest picture over the relay (the bitrate ceiling) | · | · | · | ✅ |
 | Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ | ✅ |
 | Screenshot with the system share sheet | ✅ | ✅ | ✅ | ✅ |
@@ -248,8 +249,11 @@ map in `PlanAccess.swift`, and every gate in the app draws itself through `PlanL
   number rather than with the user: every session held open is a control connection the relay goes
   on splicing whether or not anybody is looking at it.
 - **Terminal tabs** (`shellTabs`) are counted client-side at "New shell".
-- **Sound, Picture in Picture, moving files, macros and the bitrate ceiling** are each one check at
-  their own entry point.
+- **Sound, Picture in Picture, moving files, macros, virtual displays and the bitrate ceiling** are
+  each one check at their own entry point. The virtual display one sits on the rows in the sources
+  panel and on the "+": a phone on a plan without it is shown each display it already made dimmed
+  under a PLUS badge and offered the paywall, and the "+" that makes another is the row that sells
+  the feature. Nothing on the Mac side can make one, so there is no free door to close.
 - **The mosaic** (`mosaic`) is checked on the phone where it is asked for, and the Mac then decides
   what it will actually build: it trims the tile count to six, the canvas to a 2560×1440 budget and
   the rate to 30, because every tile is a ScreenCaptureKit stream of its own and the client asking
@@ -473,7 +477,11 @@ the front, which is what stops a subscription that lapsed under a running app fr
 gates; **the mosaic** (`mosaic`, Pro) composites several of the Mac's windows into one picture on
 the Mac side and arranges them on the phone; and 202609220 was pulled, with the DMG's missing
 Applications alias and the edge cache that was serving the previous image both fixed in
-`Tools/deploy-site.sh` and the release notes.
+`Tools/deploy-site.sh` and the release notes. **And virtual displays** (`virtualDisplays`, Relay
+Plus) became a row the phone owns end to end: it makes them, names them, looks at them and takes
+them away, every one of them goes with the session it was made in, and the switch the Mac used to
+have in its own settings is gone. A display made by the Mac on request and left behind was a screen
+its user did not make and could not take away from the app that did.
 
 **On the prices, corrected:** the note that used to sit here claimed the site and
 `Config/Products.storekit` agree at $4.99 / $14.99 / $39.99. They agree on nothing of the sort.

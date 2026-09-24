@@ -84,12 +84,12 @@ extension HostModel {
     /// opens onto whatever the Mac's own window server considers current, which on a Mac driving
     /// a virtual display is the built-in screen's desktop, not the virtual one.
     ///
-    /// Falls back to the virtual display whenever one exists, even while the client is looking at
-    /// a single captured application: that display's Space is what the phone otherwise treats as
+    /// Falls back to a phone-requested display whenever one exists, even while the client is looking
+    /// at a single captured application: that display's Space is what the phone otherwise treats as
     /// home, and a launch has nowhere else meaningful to prefer.
     var launchTargetDisplayID: UInt32? {
         if case .display(let id) = capturingSource { return id }
-        return virtualDisplay?.displayID
+        return managedVirtualDisplays.first?.displayID
     }
 
     /// Moves every window `application` currently owns onto `displayID`'s bounds.

@@ -251,3 +251,30 @@ private extension View {
         }
     }
 }
+
+/// The key that puts the software keyboard away.
+///
+/// **One view, because there are two terminals and this is one control.** Their input rows are
+/// written separately, being two screens, and the copy that lived in each of them was a bare glyph
+/// standing in a row of tiles: the deck above it, the browser's own keys, and the Mac's terminal
+/// as much as a server's. It is a key, so it is drawn as one, at the height of the row it stands in.
+struct TerminalHideKeyboardKey: View {
+    /// What putting the keyboard away means here, which is the one act both terminals agree about:
+    /// letting go of the field. Handed in rather than done here, so this stays a key rather than a
+    /// behaviour, and so the Mac's terminal and a server's keep their own way of doing it.
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "keyboard.chevron.compact.down")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(ColorPalette.ink)
+                // The browser row's key, which is the deck's tile at the height of an input row.
+                // See ``TerminalKeyChip/height``.
+                .frame(width: 46, height: 30)
+                .terminalKeyBackground(cornerRadius: 7)
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.88))
+        .accessibilityLabel("Hide keyboard")
+    }
+}

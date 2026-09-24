@@ -303,7 +303,6 @@ final class HostModel {
         // process dies, but that is an undocumented courtesy of a private API and not worth
         // depending on.
         virtualDisplayCreationGeneration &+= 1
-        removeVirtualDisplay()
         removeAllManagedVirtualDisplays()
         // Cancelled before the restore rather than after, so a check already in flight cannot land
         // on a model that is on its way out and put the switch back on.
@@ -322,44 +321,23 @@ final class HostModel {
 
     // MARK: - Virtual display
 
-    /// Whether this Mac is showing the phone-shaped display that exists only in software.
+    /// Displays made at the phone's request, over ``RemoteCommand/addVirtualDisplay(name:)``.
     ///
-    /// Stored, because it is a change to the user's Mac rather than to a session: the display comes
-    /// back at the next launch if it was on at the last. There is no case where the switch is on
-    /// and the display is not: a failed creation turns it back off and says why.
-    ///
-    /// This and the three properties below it are written from ``HostModel+VirtualDisplay.swift``,
-    /// not from this file.
-    var virtualDisplayEnabled = UserDefaults.standard.bool(forKey: HostModel.virtualDisplayKey)
-
-    /// Why the last attempt failed, if it did, for the row to show.
-    var virtualDisplayFailure: String?
-
-    /// The display this host made, held for as long as it should exist.
-    ///
-    /// The model is the owner and that is the teardown design: the display goes away when the last
-    /// reference to it does, so every path that has to take it down (the switch, Stop, quitting, a
-    /// process that dies without either) comes down to this property reaching `nil`. Keeping it
-    /// anywhere else would be a monitor the user cannot get rid of.
-    var virtualDisplay: VirtualDisplay?
-
-    /// Displays made at the phone's request, over ``RemoteCommand/addVirtualDisplay(name:)`` —
-    /// as many as the Pro plan's phone allows, none of them the one ``virtualDisplay`` names.
-    ///
-    /// A second store rather than folding into ``virtualDisplay``, because that property's whole
-    /// shape (a single optional, `UserDefaults`-persisted, restored at launch) is the Mac's own
-    /// settings switch and is left alone here: these are session-scoped, the way a mosaic
-    /// arrangement is, and never survive a relaunch. See `HostModel+VirtualDisplayManagement.swift`.
+    /// **The only way one of these exists.** There used to be a second store beside this one for a
+    /// display the Mac's own switch made, free on every plan and restored at launch; creation is the
+    /// phone's alone now, and a display nobody asked for is a screen the Mac's user did not make and
+    /// cannot take away from the app that did. These are session-scoped: they go when the client
+    /// that asked for them does. See `HostModel+VirtualDisplayManagement.swift`.
     var managedVirtualDisplays: [VirtualDisplay] = []
 
-    /// The next serial number a phone-requested display gets. `1` and product `0x5045` stay
-    /// reserved for ``virtualDisplay``, whether or not it happens to be on, so the two stores can
-    /// never collide. The management path derives a distinct product from this number too: the
-    /// window server accepted serial-only identities but reset all their modes to 800×600.
-    /// Only ever counts up: a display that was removed does not give its serial back, which costs
-    /// nothing against a `UInt32` and avoids a reused serial racing the window server's own
-    /// teardown of the display that just gave it up.
-    var nextManagedVirtualDisplaySerial: UInt32 = 2
+    /// The next serial number a phone-requested display gets.
+    ///
+    /// The management path derives a distinct product from this number too: the window server
+    /// accepted serial-only identities but reset all their modes to 800×600. Only ever counts up: a
+    /// display that was removed does not give its serial back, which costs nothing against a
+    /// `UInt32` and avoids a reused serial racing the window server's own teardown of the display
+    /// that just gave it up.
+    var nextManagedVirtualDisplaySerial: UInt32 = 1
 
     /// Changes whenever teardown invalidates a virtual display currently being constructed.
     /// `VirtualDisplay.init` turns the main run loop, so Stop or Quit can run in the middle of the
@@ -694,17 +672,15 @@ final class HostModel {
             self.server = nil
         }
 
-        // Last, deliberately: the display takes a few hundred milliseconds to appear and this waits
-        // for it, and nothing above is waiting on the display. A client that connects during those
-        // milliseconds is served a catalogue without it and pushed a second one when it arrives.
-        restoreVirtualDisplay()
+        // And no display is made here. A virtual display is a screen this Mac did not have until a
+        // phone asked for one, and starting the host is not asking: see ``managedVirtualDisplays``.
     }
 
-    /// Brings back the phone-shaped display if the switch was on when this Mac was last quit.
+    /// Stops listening, and takes everything a session was holding with it.
     ///
-    /// The switch is turned off first, because ``setVirtualDisplay(_:)`` refuses a request matching
-    /// the state it already believes and at this point the belief comes from `UserDefaults` while
-    /// the display is known not to exist. That is what makes this a request to *show* it.
+    /// A modifier a client left held, the privacy it asked for, the sleep it was keeping off, and
+    /// every display it asked this Mac to make: all of it goes, because a stopped host that has left
+    /// a monitor behind is the one state the user cannot repair from this window.
     func stop() {
         virtualDisplayTeardownDepth += 1
         defer { virtualDisplayTeardownDepth -= 1 }
@@ -717,7 +693,6 @@ final class HostModel {
         // Before the listener goes, and before the process can outlive it: a stopped host that has
         // left a monitor behind is the one state the user cannot repair from the window.
         virtualDisplayCreationGeneration &+= 1
-        removeVirtualDisplay()
         removeAllManagedVirtualDisplays()
         server?.stop()
         server = nil
@@ -861,6 +836,17 @@ final class HostModel {
                 input.releaseAll()
                 releaseSleepAssertion()
                 setPrivacyMode(false)
+                // **And the displays this phone asked for go with it.** A display made at a
+                // client's request is that client's, and it is temporary by construction: left
+                // behind it is a screen the Mac's own user did not make, cannot take away from the
+                // app that made it, and finds again every time they look at the display list. This
+                // is the same sentence as the three lines above — nothing is left that can release
+                // what the client was holding, so this releases it — and it is here rather than on
+                // a command from the phone because a phone that quits, is killed or crashes sends
+                // nothing at all. The cost is a client that drops and reconnects losing its extra
+                // displays with the connection; they are three taps to make again, and the
+                // arrangement they were carrying is a thing the phone remembers how to ask for.
+                removeAllManagedVirtualDisplays()
             }
 
         case .pairingCode(let code, let clientName, let isRemote):

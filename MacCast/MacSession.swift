@@ -453,8 +453,8 @@ final class MacSession: Identifiable {
     /// ``DeviceOrientationSupport/maySend(hostDeclared:)``.
     var hostSupportsDeviceOrientation = false
 
-    /// What this Mac said about adding and removing virtual displays beyond its own switch. See
-    /// ``VirtualDisplayManagementSupport/maySend(hostDeclared:)``.
+    /// What this Mac said about adding, naming and removing the virtual displays this phone makes.
+    /// See ``VirtualDisplayManagementSupport/maySend(hostDeclared:)``.
     var hostSupportsVirtualDisplayManagement = false
 
     /// Whether the picture is stopped because this client asked for it to be.
@@ -504,12 +504,25 @@ final class MacSession: Identifiable {
     /// Whether this is the Mac the user is looking at.
     var isActive: Bool { model.activeSessionID == id }
 
+    /// Whether this Mac is being watched: its screen is up, or its picture is floating in a Picture
+    /// in Picture window over something else.
+    ///
+    /// **The second half is why this is not simply ``SessionModel/isSessionOnScreen``.** A floating
+    /// window is somebody still watching from outside this app, so the frames and the sound both stay
+    /// with it, and stepping back to the picker with one up must not freeze the window the user is
+    /// looking at. See ``SessionModel/stepAwayFromSession()``.
+    var isWatched: Bool { model.isSessionOnScreen || SessionPiP.shared.isActive }
+
     /// Whether this Mac's sound should be coming out of the phone.
     ///
     /// The switch and the plan decide whether host audio plays at all; being the Mac on screen decides
     /// whose, and without that second condition two Macs open at once are two audio engines decoding
     /// into one pair of ears. The price is that a Mac behind the one on screen is silent.
-    var shouldPlayAudio: Bool { isActive && model.playsHostAudio }
+    ///
+    /// And being *watched* rather than merely in hand decides whether anything should be heard at all:
+    /// a session the user has stepped away from is still connected and still has its player, and the
+    /// picker is where the sound of a Mac nobody is looking at would come from. See ``isWatched``.
+    var shouldPlayAudio: Bool { isActive && isWatched && model.playsHostAudio }
 
     /// Applies the answer above to the player this Mac has, if it has one.
     ///

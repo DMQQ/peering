@@ -247,8 +247,8 @@ extension MacSession {
             hostSupportsDeviceOrientation = DeviceOrientationSupport.maySend(
                 hostDeclared: hello.supportsDeviceOrientation
             )
-            // And once more, for adding and removing virtual displays beyond the Mac's own
-            // switch. See ``VirtualDisplayManagementSupport``.
+            // And once more, for the virtual displays this phone makes. See
+            // ``VirtualDisplayManagementSupport``.
             hostSupportsVirtualDisplayManagement = VirtualDisplayManagementSupport.maySend(
                 hostDeclared: hello.supportsVirtualDisplayManagement
             )

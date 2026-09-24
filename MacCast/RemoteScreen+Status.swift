@@ -56,10 +56,15 @@ extension RemoteScreen {
     /// and the outer `HStack` is what keeps them one object: attached, not merely near each other.
     var statusBar: some View {
         HStack(alignment: .center, spacing: 5) {
+            // **The way back to the picker, leading, which is where a way back lives on this
+            // system.** It is the one control in this row that leaves the picture rather than
+            // doing something to it, and it leaves the session running: see
+            // ``SessionModel/stepAwayFromSession()``.
+            connectDot.layoutPriority(1)
             // The dots are served first and the pill takes what is left. The pill was taking
             // the width it wanted, which on a portrait phone pushed the terminal dot off the
-            // edge of the screen — and of the three, the dots are the ones with nowhere to
-            // compress to, being circles with one glyph in them.
+            // edge of the screen — and of the dots, the ones that are one glyph in a circle have
+            // nowhere to compress to.
             lockDot.layoutPriority(1)
             statusPill
             // Between the pill and the terminal, so the two controls that are *about the picture*
@@ -376,6 +381,26 @@ extension RemoteScreen {
     ///
     /// Tap locks immediately. A hold opens the two related ways to leave the physical Mac alone:
     /// lock the session, or dim its displays while keeping the remote picture alive.
+    /// Back to the picker, with the Mac left connected.
+    ///
+    /// **This screen has had one way out, and it was Quit.** Ending the session in order to look at
+    /// the list of Macs is what the app asked for before this control existed: the picture is away
+    /// for as long as somebody is reading that list, and the session they were paying for went with
+    /// it. What this does instead is the same act as the picker's own row for this Mac, approached
+    /// from the other side. See ``SessionModel/stepAwayFromSession()``.
+    ///
+    /// The glyph is the Connect tab's own, because every other dot in this row wears the thing it
+    /// opens, and the thing this opens is a screen.
+    var connectDot: some View {
+        sessionDot(
+            symbol: "macbook.and.iphone",
+            label: "Back to Connect, leaving the session running",
+            enabled: true
+        ) {
+            model.stepAwayFromSession()
+        }
+    }
+
     var lockDot: some View {
         Button {
             model.lockMac()

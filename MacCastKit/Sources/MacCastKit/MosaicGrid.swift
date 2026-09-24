@@ -121,7 +121,8 @@ public enum MosaicGrid {
         guard count > 0 else { return [] }
 
         // Every tile is the same size, which is what a grid is: a short row holds tiles the same
-        // size as the rest, centred, with the leftover split evenly either side.
+        // size as the rest and simply ends early, its leftover collected as one band at the canvas's
+        // trailing edge rather than split around the tiles.
         //
         // The weights are read and not used: nothing on the phone sets one any more (see
         // ``MosaicChoice/weight``), and they stay in the signature because a stored arrangement
@@ -137,12 +138,8 @@ public enum MosaicGrid {
         for index in 0..<count {
             let row = index / columns
             let column = index % columns
-            // A short row is centred: the same tile as every other, leftover split evenly either
-            // side rather than collected at one end.
-            let inRow = min(columns, count - row * columns)
-            let margin = (1 - cell * Double(inRow)) / 2
             rects.append(NormalizedRect(
-                x: margin + cell * Double(column),
+                x: cell * Double(column),
                 y: height * Double(row),
                 width: cell,
                 height: height
