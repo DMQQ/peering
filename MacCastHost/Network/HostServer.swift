@@ -55,7 +55,7 @@ final class HostServer: @unchecked Sendable {
     private var videoConnections: [(peer: PeerConnection, clientKey: Data)] = []
 
     private let callbackLock = NSLock()
-    private var _onPushNeeded: (@Sendable (String, String) -> Void)?
+    private var _onPushNeeded: (@Sendable (String, String, String) -> Void)?
     private var _onEvent: (@Sendable (HostEvent) -> Void)?
     private var _onCommand: (@Sendable (RemoteCommand) -> Void)?
     private var _onVideoConnection: (@Sendable (PeerConnection) -> Void)?
@@ -65,9 +65,9 @@ final class HostServer: @unchecked Sendable {
     private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
-    /// Called when a terminal needs attention and the phone is not connected.
-    /// Arguments: APNs device token (hex), notification body.
-    var onPushNeeded: (@Sendable (String, String) -> Void)? {
+    /// Called when a terminal needs attention, or has finished a command worth mentioning, and the
+    /// phone is not connected. Arguments: APNs device token (hex), notification title, body.
+    var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }
         set { callbackLock.withLock { _onPushNeeded = newValue } }
     }
@@ -180,8 +180,8 @@ final class HostServer: @unchecked Sendable {
 
     func start() throws {
         guard listener == nil else { return }
-        terminalManager.onPushNeeded = { [weak self] token, message, _ in
-            self?.onPushNeeded?(token, message)
+        terminalManager.onPushNeeded = { [weak self] token, title, message in
+            self?.onPushNeeded?(token, title, message)
         }
 
         let tls = try TLSConfig.serverOptions(identity: identity, queue: queue)

@@ -440,6 +440,13 @@ struct ContentView: View {
 /// `scale` multiplies every measurement in it rather than there being a second drawing at another
 /// size. Two copies of a pair of devices is two pairs of proportions, and the difference shows up
 /// as one of them looking subtly wrong beside the other.
+///
+/// **The devices are `MacDrawing` and `PhoneDrawing`, the tour's own frames, at icon size.** This
+/// used to be a hand-drawn sketch: a translucent bar with a stand standing in for the Mac, a
+/// gradient-filled rounded rectangle for the phone, neither of them related to the machines the
+/// onboarding tour and the marketing site agree on. Two drawings of "a Mac" and "an iPhone" in one
+/// app is two claims about what these machines look like, and a lid with no base and a bezel with
+/// no rim were not the shapes the rest of the app had already settled on.
 private struct DeviceLinkArtwork: View {
     var scale: CGFloat = 1
 
@@ -449,7 +456,7 @@ private struct DeviceLinkArtwork: View {
         // difference between that at 20Hz and at 120Hz is not visible, and the difference in what
         // it costs to redraw a TimelineView on every frame is very much there.
         //
-        // A timeline rather than a repeating animation — see ``Wordmark`` in `HostPickerView` for
+        // A timeline rather than a repeating animation, see ``Wordmark`` in `HostPickerView` for
         // what a `repeatForever` loop does when a re-layout lands on top of it.
         TimelineView(.periodic(from: .now, by: 1.0 / 20.0)) { context in
             let now = context.date.timeIntervalSinceReferenceDate
@@ -464,76 +471,22 @@ private struct DeviceLinkArtwork: View {
     }
 
     private var mac: some View {
-        ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: 6 * scale, style: .continuous)
-                .fill(.white.opacity(0.12))
-                .frame(width: 58 * scale, height: 38 * scale)
+        MacDrawing(displayHeight: 24 * scale) {
+            ColorPalette.surface
                 .overlay {
-                    RoundedRectangle(cornerRadius: 4 * scale, style: .continuous)
-                        .fill(ColorPalette.surface)
-                        .padding(3 * scale)
-                        .overlay {
-                            Image(systemName: "cursorarrow.motionlines")
-                                .font(.system(size: 11 * scale, weight: .medium))
-                                .foregroundStyle(ColorPalette.ink)
-                        }
+                    Image(systemName: "cursorarrow.motionlines")
+                        .font(.system(size: 9 * scale, weight: .medium))
+                        .foregroundStyle(ColorPalette.ink)
                 }
-            Capsule()
-                .fill(.white.opacity(0.18))
-                .frame(width: 68 * scale, height: 3 * scale)
-                .offset(y: 3 * scale)
         }
     }
 
-    /// The iPhone.
-    ///
-    /// A body with a gradient in it, a screen cut into it, an island across the screen's top and a
-    /// home indicator under it — four things, and the difference between this and the outlined
-    /// rounded rectangle it used to be is the difference between a phone and a card. The outline
-    /// was drawn *inside* the body, which put a second rectangle a few points in from the first
-    /// with nothing between them, and at this size that is not a bezel: it is a box with a line in
-    /// it.
-    ///
     /// The screen takes ``ColorPalette/surface``, the same material as the Mac's, so the two
     /// devices are lit the same way and read as a pair rather than as two drawings.
     private var phone: some View {
-        RoundedRectangle(cornerRadius: 7.5 * scale, style: .continuous)
-            .fill(
-                LinearGradient(
-                    colors: [.white.opacity(0.30), .white.opacity(0.12)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .frame(width: 24 * scale, height: 46 * scale)
-            .overlay {
-                RoundedRectangle(cornerRadius: 7.5 * scale, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.55), .white.opacity(0.15)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: max(1, scale)
-                    )
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 5.5 * scale, style: .continuous)
-                    .fill(ColorPalette.surface)
-                    .padding(2 * scale)
-            }
-            .overlay(alignment: .top) {
-                Capsule()
-                    .fill(.white.opacity(0.30))
-                    .frame(width: 8 * scale, height: 2 * scale)
-                    .padding(.top, 4 * scale)
-            }
-            .overlay(alignment: .bottom) {
-                Capsule()
-                    .fill(.white.opacity(0.22))
-                    .frame(width: 6 * scale, height: 1.2 * scale)
-                    .padding(.bottom, 3 * scale)
-            }
+        PhoneDrawing(screenWidth: 19 * scale) {
+            ColorPalette.surface
+        }
     }
 
     private func dots(at now: TimeInterval) -> some View {

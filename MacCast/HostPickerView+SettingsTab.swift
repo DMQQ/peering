@@ -1,4 +1,5 @@
 import MacCastKit
+import MessageUI
 import RemoteCore
 import SSHCore
 import SwiftUI
@@ -20,7 +21,9 @@ struct SettingsTab: View {
     @State private var deviceNameDraft = ""
     /// Whether the copy has just happened, so the row can say so and then stop saying so.
     @State private var copiedDiagnostics = false
+    @State private var showingMailComposer = false
     @FocusState private var deviceNameFocused: Bool
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -251,13 +254,11 @@ struct SettingsTab: View {
 
     /// The floating window, in the Settings tab.
     ///
-    /// The same two controls as the session panel's, and the same plan behind them. On a plan that
-    /// does not include it, the switch is still the switch, dimmed and inert, with the plan's name
-    /// on its top-trailing corner rather than beside it: an overlay costs the row no width, and a
-    /// badge that takes width is a badge that moves every other control in the row when the plan
-    /// changes. The rows that only make sense once the feature works (the manual start and the
-    /// diagnostic it produces) are the ones that are not drawn. The footer carries the sentence
-    /// about which plan adds it.
+    /// One switch, and the same plan behind it. On a plan that does not include it, the switch is
+    /// still the switch, dimmed and inert, with the plan's name on its top-trailing corner rather
+    /// than beside it: an overlay costs the row no width, and a badge that takes width is a badge
+    /// that moves every other control in the row when the plan changes. The footer carries the
+    /// sentence about which plan adds it.
     private var pipSection: some View {
         Controls.card(
             "Picture in Picture",
@@ -268,34 +269,6 @@ struct SettingsTab: View {
             PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
                 Controls.toggle("Float automatically", systemImage: "pip", isOn: $pipAutoStart)
                     .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
-            }
-
-            if model.storeManager.access.includes(.pictureInPicture) {
-                Controls.divider
-
-                Controls.row("Try it now", systemImage: "pip.enter") {
-                    Button("Start") { model.startPiP() }
-                        .font(.subheadline.weight(.medium))
-                        .disabled(!model.isPiPSupported || !model.phase.holdsSession)
-                }
-
-                if let attempt = model.pipLastAttempt {
-                    Controls.divider
-                    Controls.row("Last attempt", systemImage: "clock.arrow.circlepath") {
-                        Text(attempt)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    if let refusal = model.pipLastRefusal {
-                        Text(refusal)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .textSelection(.enabled)
-                    }
-                }
             }
         }
     }
@@ -545,10 +518,19 @@ struct SettingsTab: View {
             //
             // There is no analytics and no crash reporting in this app — that is a promise on the
             // privacy page, not an oversight — so a report and an App Store review are the whole
-            // of the feedback. Which makes this row's job worth doing properly: it opens the
-            // user's own mail client, where they can see exactly what is being sent before they
-            // send it, rather than a form that posts somewhere.
-            Link(destination: Self.reportURL) {
+            // of the feedback. The diagnostics that used to need a separate copy and paste now
+            // ride along as an attachment, but still inside a draft the user reads and can strip
+            // before they hit Send: an app that says "nothing is sent to us" has to mean that even
+            // when it is doing the attaching itself. `mailto:` cannot carry an attachment at all,
+            // so this opens Apple's own compose sheet rather than the user's preferred mail app;
+            // a device with no Mail account configured falls back to the plain link, unattached.
+            Button {
+                if MFMailComposeViewController.canSendMail() {
+                    showingMailComposer = true
+                } else {
+                    openURL(Self.reportURL)
+                }
+            } label: {
                 Controls.row("Report an issue", systemImage: "envelope") {
                     Image(systemName: "arrow.up.right")
                         .font(.caption.weight(.semibold))
@@ -558,12 +540,22 @@ struct SettingsTab: View {
             }
             .buttonStyle(RailButtonStyle(scale: 0.99))
             .foregroundStyle(ColorPalette.ink)
+            .sheet(isPresented: $showingMailComposer) {
+                MailComposer(
+                    recipient: "support@getpeering.app",
+                    subject: "Peering issue",
+                    body: Self.reportBody,
+                    attachment: (Data(Diagnostics.text(model: model).utf8), "text/plain", "diagnostics.txt"),
+                    onFinish: { showingMailComposer = false }
+                )
+                .ignoresSafeArea()
+            }
 
             Controls.divider
 
-            // Beside the mail link rather than inside it, because a diagnostics blob pasted into
-            // a draft looks like an attachment and reads like one: this way the user can put it
-            // where it is asked for, or nowhere.
+            // The row above attaches this same text to a report automatically; this one is for
+            // everywhere else a report can land — a support chat, a forum post, a reply that is
+            // not an email at all.
             Button {
                 UIPasteboard.general.string = Diagnostics.text(model: model)
                 copiedDiagnostics = true
@@ -626,24 +618,21 @@ struct SettingsTab: View {
         .foregroundStyle(ColorPalette.ink)
     }
 
-    /// Where a report goes, with the two facts that make one actionable already written in it.
+    /// What the sender writes into, with the two facts that make a report actionable already
+    /// written in for them.
     ///
     /// The app version and the iOS release are the first things anyone has to ask for, and asking
-    /// costs a round trip with somebody who is already annoyed enough to be writing in. Both are
-    /// written into the draft where the sender can read and delete them.
-    ///
-    /// Nothing else is, deliberately. Not the device ID, not the name of the Mac, not the
-    /// last session — a bug report should not be the one place this app hands over information
-    /// about the user, and none of it is needed to answer "it went black when I rotated".
-    private static var reportURL: URL {
+    /// costs a round trip with somebody who is already annoyed enough to be writing in. The blank
+    /// headings are the report's shape, offered rather than imposed: a one-line "it doesn't work"
+    /// under a subject of the same is what arrives otherwise, and neither end of that exchange
+    /// enjoys it. The device ID, the plan, the connection path and the rest live in the attachment
+    /// ``Diagnostics`` builds, not here — this is the part the sender is actually writing.
+    private static var reportBody: String {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = info?["CFBundleVersion"] as? String ?? "unknown"
 
-        // The blank headings are the report's shape, offered rather than imposed: a one-line
-        // "it doesn't work" under a subject of the same is what arrives otherwise, and neither
-        // end of that exchange enjoys it.
-        let body = """
+        return """
             What happened:
 
 
@@ -653,17 +642,21 @@ struct SettingsTab: View {
             Peering \(version) (\(build))
             \(ProcessInfo.processInfo.operatingSystemVersionString)
             """
+    }
 
+    /// The fallback for a device with no Mail account configured, where ``MailComposer`` cannot
+    /// open at all. `mailto:` has no attachment of its own, so this version goes out without the
+    /// diagnostics file — the "Copy diagnostics" row below is how that gap gets filled by hand.
+    private static var reportURL: URL {
         var components = URLComponents()
         components.scheme = "mailto"
         components.path = "support@getpeering.app"
         components.queryItems = [
             URLQueryItem(name: "subject", value: "Peering issue"),
-            URLQueryItem(name: "body", value: body),
+            URLQueryItem(name: "body", value: reportBody),
         ]
         return components.url ?? URL(string: "mailto:support@getpeering.app")!
     }
-
 
     private func commitDeviceName() {
         let trimmed = deviceNameDraft.trimmingCharacters(in: .whitespacesAndNewlines)

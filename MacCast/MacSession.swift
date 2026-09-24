@@ -453,6 +453,10 @@ final class MacSession: Identifiable {
     /// ``DeviceOrientationSupport/maySend(hostDeclared:)``.
     var hostSupportsDeviceOrientation = false
 
+    /// What this Mac said about adding and removing virtual displays beyond its own switch. See
+    /// ``VirtualDisplayManagementSupport/maySend(hostDeclared:)``.
+    var hostSupportsVirtualDisplayManagement = false
+
     /// Whether the picture is stopped because this client asked for it to be.
     ///
     /// Not the same as the picture being stopped: a sleeping screen, a failed stream and a pause this

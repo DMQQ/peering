@@ -18,3 +18,11 @@ but it is not a capture source until it becomes a running application.
 
 The host's current, user-facing list of running and installed applications. Background agents,
 menu extras, helper processes, and duplicate instances are not applications in this catalogue.
+
+## Recent session history
+
+The newest twenty finished connections shown on one device. It is a bounded troubleshooting and
+usage window, not an all-time ledger. Its summary counts those visible sessions, their connected
+time, and their video bytes. The iPhone may temporarily retain additional hidden records that still
+overlap the relay's current 24-hour allowance window; they exist only to keep quota estimates
+correct and are pruned when that window moves on.

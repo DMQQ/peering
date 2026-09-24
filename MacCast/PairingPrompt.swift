@@ -24,13 +24,22 @@ struct PairingPrompt: View {
 
     @FocusState private var codeFieldFocused: Bool
 
+    /// How wide the card grows before it stops following the screen.
+    ///
+    /// Fixed rather than proportional, and that is the point on an iPad: without a ceiling this
+    /// sat directly in the session `ZStack` with nothing to size itself against but the picture
+    /// behind it, so on a Mac's full display width the six digits, the icon and both buttons all
+    /// grew to match — a phone-sized question stretched into a poster. A card asking for six
+    /// digits does not get more legible at 1200 points than it is at 400.
+    private static let cardWidth: CGFloat = 400
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.75).ignoresSafeArea()
             VStack(spacing: 20) {
                 Image(systemName: "lock.shield")
                     .font(.system(size: 34))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(ColorPalette.accent)
 
                 Text("Enter the code from your Mac")
                     .font(.title3.weight(.semibold))
@@ -48,7 +57,8 @@ struct PairingPrompt: View {
                     .multilineTextAlignment(.center)
                     .focused($codeFieldFocused)
                     .padding(.vertical, 12)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 14))
+                    .frame(maxWidth: .infinity)
+                    .rowSurface()
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             Spacer()
@@ -66,25 +76,33 @@ struct PairingPrompt: View {
                      ? "That code does not match. Check the Mac and try again."
                      : "The code is checked on this device and is never used as a reusable password.")
                     .font(.caption)
-                    .foregroundStyle(showsMismatch ? ColorPalette.ink : .secondary)
+                    .foregroundStyle(showsMismatch ? ColorPalette.danger : .secondary)
                     .multilineTextAlignment(.center)
 
                 Button {
                     showsScanner = true
                 } label: {
                     Label("Scan QR code", systemImage: "qrcode.viewfinder")
+                        .font(.subheadline.weight(.medium))
                         .frame(maxWidth: .infinity)
+                        .frame(height: 38)
                 }
                 .buttonStyle(.bordered)
+                .tint(.white.opacity(0.5))
 
                 HStack(spacing: 12) {
                     Button(role: .cancel) {
                         codeFieldFocused = false
                         model.confirmPairing(accepted: false)
                     } label: {
-                        Text("Cancel").frame(maxWidth: .infinity)
+                        Text("Cancel")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
                     }
                     .buttonStyle(.bordered)
+                    .tint(.white.opacity(0.16))
+                    .foregroundStyle(.white)
 
                     Button {
                         codeFieldFocused = false
@@ -94,13 +112,22 @@ struct PairingPrompt: View {
                             showsMismatch = true
                         }
                     } label: {
-                        Text("Pair").frame(maxWidth: .infinity)
+                        Text("Pair")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
                     }
                     .buttonStyle(.borderedProminent)
+                    // Named explicitly rather than left to the disabled system style, which dims a
+                    // black label on `ink` to another near-black: a button that reads as broken
+                    // rather than as a state waiting on six digits. See ``RemotePairingSheet``.
+                    .tint(enteredCode.count == 6 ? ColorPalette.ink : .white.opacity(0.16))
+                    .foregroundStyle(enteredCode.count == 6 ? ColorPalette.onInk : .white.opacity(0.55))
                     .disabled(enteredCode.count != 6)
                 }
             }
             .padding(26)
+            .frame(maxWidth: Self.cardWidth)
             .glassSurface(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .padding(28)
         }

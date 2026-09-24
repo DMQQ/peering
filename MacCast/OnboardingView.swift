@@ -273,13 +273,13 @@ struct OnboardingView: View {
         }
     }
 
-    /// The left column is reserved for the shared stage drawn above the pager. Keeping the stage
+    /// The right column is reserved for the shared stage drawn above the pager. Keeping the stage
     /// shared preserves the continuous phone movement between pages while the words swipe.
+    ///
+    /// Text leads on the left, in reading order, with the device it describes beside it rather
+    /// than in front of it — see ``regularWidthStage``, which mirrors this column.
     private func regularWidthDevicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
         HStack(spacing: 56) {
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
             VStack(alignment: .leading, spacing: 22) {
                 heading(page.title, lit: lit)
                     .opacity(shown ? 1 : 0)
@@ -303,6 +303,9 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: 430, alignment: .leading)
             .frame(maxHeight: .infinity, alignment: .center)
+
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.horizontal, 48)
         .padding(.top, 40)
@@ -368,7 +371,9 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(width: box.width, height: box.height)
-                .position(x: 48 + columnWidth / 2, y: proxy.size.height / 2)
+                // The right column, mirroring ``regularWidthDevicePage``: the words read first on
+                // the left, and the device they describe sits beside them rather than in front.
+                .position(x: proxy.size.width - 48 - columnWidth / 2, y: proxy.size.height / 2)
                 .animation(Motion.settle, value: index)
             }
         }
@@ -1078,17 +1083,25 @@ struct OnboardingView: View {
     /// in the *length* of the thing that moved, and it says it as a movement — pressing Next turns
     /// the pill back into a dot and stretches the next one out, which is the only motion on this
     /// screen that belongs to the change between pages rather than to a page.
+    ///
+    /// Sized against the width class rather than left at the phone's numbers everywhere: those
+    /// were chosen next to a phone's `.largeTitle` heading, and beside the same heading grown into
+    /// an iPad's regular-width column the row read as a phone detail left behind at its own scale.
     private var indicator: some View {
-        HStack(spacing: 6) {
+        let isRegular = horizontalSizeClass == .regular
+        let dotSize: CGFloat = isRegular ? 8 : 6
+        let activeWidth: CGFloat = isRegular ? 32 : 24
+
+        return HStack(spacing: isRegular ? 8 : 6) {
             ForEach(0..<Self.pages.count, id: \.self) { page in
                 Capsule()
                     .fill(page == index ? ColorPalette.ink : Color.white.opacity(0.22))
-                    .frame(width: page == index ? 24 : 6, height: 6)
+                    .frame(width: page == index ? activeWidth : dotSize, height: dotSize)
             }
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.8), value: index)
-        .padding(.top, 4)
-        .padding(.bottom, 20)
+        .padding(.top, isRegular ? 8 : 4)
+        .padding(.bottom, isRegular ? 26 : 20)
         .accessibilityHidden(true)
     }
 
@@ -1264,7 +1277,7 @@ struct OnboardingView: View {
 
 /// The frame's numbers, outside the view because a generic type cannot hold static storage — and
 /// named in one place, as the Connect header's are, because they are one decision about a shape.
-private enum PhoneStageMetrics {
+enum PhoneStageMetrics {
     /// The screenshot's own proportions. A frame that did not match them would letterbox or crop
     /// every image put inside it, which is the one thing a frame must not do.
     static var aspect: CGFloat { 603.0 / 1311.0 }
@@ -1360,7 +1373,7 @@ private struct PhoneStage<Screen: View>: View {
 /// stage solves one size for a box, and this draws at whatever size it is handed. Everything inside
 /// is the site's mockup, drawn from the screen's width and nothing else, which is also what makes
 /// the drawing safe to scale, because every part of it is a fraction of that one number.
-private struct PhoneDrawing<Screen: View>: View {
+struct PhoneDrawing<Screen: View>: View {
     /// The screen's own width. The bezel, the body and the corners are all fractions of it, so this
     /// is the one number the drawing needs.
     let screenWidth: CGFloat
@@ -1499,7 +1512,7 @@ private struct TabletStage<Screen: View>: View {
 /// site draws these machines at a fixed size and this file derives them from whatever the stage can
 /// spare, so a fixed border in one place and a derived one in the other is two machines. Every
 /// number below is the site's ratio, and changing one means changing `styles.css` with it.
-private enum MacStageMetrics {
+enum MacStageMetrics {
     /// The display's own proportions, 1512 by 982. A frame that did not match them would letterbox
     /// or crop the one picture it exists to hold, and the capture it holds is exactly this shape.
     static var aspect: CGFloat { 1512.0 / 982.0 }
@@ -1663,7 +1676,7 @@ private enum MacAndPhoneMetrics {
 /// holds it is solving one size for two machines (this one and the phone standing over it), so
 /// neither may size itself, and a stage that held a Mac alone would be a ``GeometryReader`` with a
 /// division in it rather than a drawing.
-private struct MacDrawing<Screen: View>: View {
+struct MacDrawing<Screen: View>: View {
     /// The display's own height. The bezel, the lid, the base and the notch are all fractions of
     /// it or of the display's width, which follows from this one number.
     let displayHeight: CGFloat
@@ -1771,36 +1784,81 @@ private struct MacDrawing<Screen: View>: View {
 
 // MARK: - The drawn notification
 
-/// The picture on the page about being told: this app's own notification, on a phone nobody is
+/// The picture on the page about being told: this app's notifications on a phone nobody is
 /// looking at.
 ///
-/// Drawn rather than captured because there is nothing to capture: the notification arrives while
-/// the app is closed, and it is the whole of the picture. Every number is a fraction of the screen
-/// width, the unit every other drawing in this file is written in, so the one drawing lands in the
-/// phone frame and in the iPad's without a second version of it.
+/// Drawn rather than captured because there is nothing to capture: the notifications arrive while
+/// the app is closed. Every number is a fraction of the screen width, the unit every other drawing
+/// in this file is written in, so the one drawing lands in the phone frame and in the iPad's without
+/// a second version of it.
 ///
 /// The type runs roughly a fifth larger than a real notification's. The tour draws a phone about
 /// 200 points wide, where an honest 13-point app name is seven points and the weight that separates
 /// it from the title stops reading.
 private struct NotificationBanner: View {
+    private static let examples = [
+        Example(
+            title: "Build finished",
+            body: "Damian's MacBook Pro: `xcodebuild` completed successfully.",
+            age: "now"
+        ),
+        Example(
+            title: "Terminal needs you",
+            body: "Damian's MacBook Pro: Terminal “prod” is waiting for a password.",
+            age: "2m"
+        ),
+        Example(
+            title: "Command needs an answer",
+            body: "Damian's MacBook Pro: Terminal is waiting for your input.",
+            age: "8m"
+        )
+    ]
+
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width
 
             ZStack(alignment: .top) {
-                Color.black
+                Image("NotificationWallpaper")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
 
-                card(width: width)
-                    .padding(.top, proxy.size.height * 0.30)
+                LinearGradient(
+                    colors: [.black.opacity(0.04), .black.opacity(0.20)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(spacing: width * 0.005) {
+                    Text("Wednesday, September 24")
+                        .font(.system(size: width * 0.036, weight: .semibold))
+
+                    Text("9:41")
+                        .font(.system(size: width * 0.175, weight: .thin))
+                        .tracking(-width * 0.006)
+                }
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.16), radius: width * 0.012, y: width * 0.006)
+                .padding(.top, proxy.size.height * 0.075)
+
+                VStack(spacing: width * 0.025) {
+                    ForEach(Self.examples) { example in
+                        card(example, width: width)
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, proxy.size.height * 0.075)
             }
         }
         // The page's own words say this, and a notification read aloud is one this reader never got.
         .accessibilityHidden(true)
     }
 
-    private func card(width: CGFloat) -> some View {
+    private func card(_ example: Example, width: CGFloat) -> some View {
         let shape = RoundedRectangle(cornerRadius: width * 0.055, style: .continuous)
-        let tile = width * 0.105
+        let tile = width * 0.085
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: width * 0.025) {
@@ -1812,30 +1870,27 @@ private struct NotificationBanner: View {
 
                 Spacer(minLength: width * 0.02)
 
-                Text("now")
-                    .font(.system(size: width * 0.038))
+                Text(example.age)
+                    .font(.system(size: width * 0.033))
                     .foregroundStyle(ColorPalette.ink.opacity(0.55))
             }
 
-            // The app's own two strings, as ``SessionNotifier`` builds them: its title, and the
-            // Mac's sentence with the Mac's name in front of it. The name is the one the tour's
-            // second page already shows.
-            Text("Terminal needs you")
-                .font(.system(size: width * 0.045, weight: .semibold))
+            Text(example.title)
+                .font(.system(size: width * 0.040, weight: .semibold))
                 .foregroundStyle(ColorPalette.ink)
-                .padding(.top, width * 0.020)
+                .padding(.top, width * 0.014)
 
-            Text("Damian's MacBook Pro: Terminal \u{201C}prod\u{201D} is waiting for a password.")
-                .font(.system(size: width * 0.038))
+            Text(example.body)
+                .font(.system(size: width * 0.033))
                 .foregroundStyle(ColorPalette.ink.opacity(0.85))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, width * 0.005)
+                .padding(.top, width * 0.003)
         }
         .lineLimit(1)
         .padding(.horizontal, width * 0.035)
-        .padding(.vertical, width * 0.030)
-        .frame(width: width * 0.96, alignment: .leading)
+        .padding(.vertical, width * 0.023)
+        .frame(width: width * 0.92, alignment: .leading)
         // The row surface's own fill and the card's own hairline, in the frame's units rather than
         // in points: those helpers carry a 14 and a 24, and a fixed radius inside a box that is
         // 200 points wide on one device and 350 on the other is two different shapes.
@@ -1873,6 +1928,14 @@ private struct NotificationBanner: View {
                 RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous)
                     .fill(ColorPalette.backdrop)
             }
+    }
+
+    private struct Example: Identifiable {
+        let title: String
+        let body: String
+        let age: String
+
+        var id: String { title }
     }
 }
 

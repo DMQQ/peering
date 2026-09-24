@@ -290,6 +290,18 @@ private struct LandingView: View {
     /// first render animates *from* the value it already has — the page simply appears, and the
     /// code that looks like an entrance does nothing at all. It wants one frame on screen at the
     /// starting value before anything moves.
+    /// Whether the hero has a corner to travel to.
+    ///
+    /// Only true on the phone's single-column composition, where the mark opens on the screen's
+    /// own centre and this is the journey that carries it into place above the claims. The iPad
+    /// composition sits the hero and the claims side by side from the first frame — see
+    /// ``regularWidthContent`` — so there is no corner for the mark to travel to, and running the
+    /// same journey there did not put the mark off in a corner so much as measure the trip against
+    /// a width the mark was never going to use: `centred(_:in:)` was centring it in its own narrow
+    /// column, which sits left of the device's own middle once the claims column takes the other
+    /// half, so the "middle" it opened on was the column's rather than the screen's.
+    private var animatesHeroTravel: Bool { horizontalSizeClass != .regular }
+
     private func arrive() async {
         guard !entranceStarted else { return }
         entranceStarted = true
@@ -299,6 +311,25 @@ private struct LandingView: View {
             heroTravel = 1
             heroRise = 1
             arrived = true
+            return
+        }
+
+        guard animatesHeroTravel else {
+            // Rest sizes from the first frame — nothing here is travelling anywhere — so what the
+            // beats below animate is only the fade every other element on this composition already
+            // uses: the mark and the name appearing where they already sit, ahead of the claims
+            // beside them.
+            heroTravel = 1
+            heroRise = 1
+
+            try? await Task.sleep(for: .milliseconds(100))
+            withAnimation(Motion.arrive) { markZoom = 1 }
+
+            try? await Task.sleep(for: .milliseconds(220))
+            withAnimation(Motion.arrive) { titleReveal = 1 }
+
+            try? await Task.sleep(for: .milliseconds(260))
+            withAnimation(Motion.arrive) { arrived = true }
             return
         }
 
@@ -371,7 +402,7 @@ private struct LandingView: View {
                 .scaleEffect(markZoom)
                 .opacity(markZoom)
                 .padding(.bottom, markGap)
-                .offset(x: centred(markSize, in: blockWidth))
+                .offset(x: animatesHeroTravel ? centred(markSize, in: blockWidth) : 0)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -381,7 +412,7 @@ private struct LandingView: View {
                 Wordmark(size: nameSize, tracking: nameTracking)
                     .opacity(titleReveal)
                     .offset(
-                        x: centred(nameWidth, in: blockWidth),
+                        x: animatesHeroTravel ? centred(nameWidth, in: blockWidth) : 0,
                         y: 14 * (1 - titleReveal)
                     )
                     // Measured while it is still, and only while it is, for the reason the Connect
@@ -400,7 +431,7 @@ private struct LandingView: View {
                     .foregroundStyle(.secondary)
                     .opacity(titleReveal)
                     .offset(
-                        x: centred(taglineWidth, in: blockWidth),
+                        x: animatesHeroTravel ? centred(taglineWidth, in: blockWidth) : 0,
                         y: 10 * (1 - titleReveal)
                     )
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { measured in
@@ -413,7 +444,7 @@ private struct LandingView: View {
         // The resting height, whatever the hero is doing on its way there — see `LandingHero.height`.
         .frame(height: LandingHero.height, alignment: .topLeading)
         .padding(.top, LandingHero.topGap)
-        .offset(y: heroStartOffset)
+        .offset(y: animatesHeroTravel ? heroStartOffset : 0)
     }
 
     /// What it does, in the order someone deciding would ask.

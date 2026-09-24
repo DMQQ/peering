@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import RemoteCore
 
@@ -26,7 +27,10 @@ extension HostModel {
     /// part that is not synchronous is confirming a display this process cannot see, which asks the
     /// catalogue rather than guess; see ``confirmThroughCatalogue(_:)``.
     func setVirtualDisplay(_ wanted: Bool) {
-        guard wanted != virtualDisplayEnabled, !isMakingVirtualDisplay else { return }
+        guard wanted != virtualDisplayEnabled,
+              !isMakingVirtualDisplay,
+              !isTearingDownVirtualDisplays
+        else { return }
 
         guard wanted else {
             // The switch stays on if the display would not leave, and the row says why: a switch
@@ -52,11 +56,27 @@ extension HostModel {
 
         isMakingVirtualDisplay = true
         defer { isMakingVirtualDisplay = false }
+        let creationGeneration = virtualDisplayCreationGeneration
         do {
             let display = try VirtualDisplay()
+            guard creationGeneration == virtualDisplayCreationGeneration else {
+                _ = display.remove()
+                return
+            }
             // Stored before anything else can fail, so a display on screen is one the model can
             // always take away again.
             virtualDisplay = display
+            // Creating any virtual panel can reset the modes of the panels already alive. The
+            // phone-managed add path does the symmetric repair for this display.
+            for managed in managedVirtualDisplays { _ = managed.restoreCurrentMode() }
+            guard creationGeneration == virtualDisplayCreationGeneration,
+                  !isTearingDownVirtualDisplays,
+                  virtualDisplay === display
+            else { return }
+            if case .display(let id) = capturingSource,
+               virtualDisplayInstance(for: id) != nil {
+                applyCaptureSource(.display(id))
+            }
             virtualDisplayEnabled = true
             virtualDisplayFailure = nil
             UserDefaults.standard.set(true, forKey: Self.virtualDisplayKey)
@@ -157,9 +177,17 @@ extension HostModel {
     /// own tap on a Sources tile takes, which is what makes the stream re-read the display's now
     /// different pixel size rather than go on encoding the shape it started with.
     func applyDeviceOrientation(isLandscape: Bool) {
-        guard let virtualDisplay, virtualDisplay.setOrientation(landscape: isLandscape) else { return }
-        if case .display(let id) = capturingSource, id == virtualDisplay.displayID {
-            applyCaptureSource(.display(id))
-        }
+        guard case .display(let id) = capturingSource,
+              let target = virtualDisplayInstance(for: id),
+              target.setOrientation(landscape: isLandscape)
+        else { return }
+        applyCaptureSource(.display(id))
+    }
+
+    /// The ``VirtualDisplay`` this host made for `displayID`, across both stores — the Mac's own
+    /// switch and the phone-managed ones — or `nil` for a display this process did not make.
+    func virtualDisplayInstance(for displayID: CGDirectDisplayID) -> VirtualDisplay? {
+        if virtualDisplay?.displayID == displayID { return virtualDisplay }
+        return managedVirtualDisplays.first { $0.displayID == displayID }
     }
 }

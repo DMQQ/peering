@@ -117,6 +117,28 @@ final class VirtualDisplay {
         names.name(for: displayID)
     }
 
+    /// Whether this is one of the extra displays the phone asked the host to create.
+    ///
+    /// The Mac settings switch owns a different, free display. Keeping that display out of the
+    /// phone-managed set means it neither consumes one of the three extra slots nor grows Pro-only
+    /// rename/remove controls that could disagree with the switch on the Mac.
+    static func isPhoneManaged(_ displayID: CGDirectDisplayID) -> Bool {
+        names.isPhoneManaged(displayID)
+    }
+
+    /// Gives a display this process made a new name in the registry above.
+    ///
+    /// There is no live rename on `CGVirtualDisplay` itself — `setName:` exists only on the
+    /// descriptor, read once at creation — so this does not touch the window server, and the
+    /// display's system-level name (whatever the descriptor said) never changes for its whole
+    /// life. That is not a problem this app needs to solve: `NSScreen` never adopts a virtual
+    /// display at all (see ``CaptureSourceResolver/screenName(for:)``), so this registry is
+    /// already the only name the catalogue this app hands the phone ever reads for one, and
+    /// renaming it here is the whole of what "renaming a display" means anywhere in this app.
+    static func rename(_ displayID: CGDirectDisplayID, to name: String) {
+        names.record(displayID, name: name)
+    }
+
 /// Makes a display of the given pixel size and shows it to the window server.
 ///
 /// `size` is always read as portrait, whichever way `startLandscape` shows it first: the two are
@@ -131,7 +153,10 @@ final class VirtualDisplay {
     init(
         size: CGSize = VirtualDisplay.phoneShaped,
         name: String = "Peering Phone Display",
-        startLandscape: Bool = true
+        startLandscape: Bool = true,
+        serialNumber: UInt32 = 1,
+        productID: UInt32 = 0x5045,
+        isPhoneManaged: Bool = false
     ) throws {
         guard let descriptorClass = Self.descriptorClass,
               let displayClass = Self.displayClass,
@@ -168,9 +193,12 @@ final class VirtualDisplay {
 // up later as a display that does not appear at all.
         descriptor.put(sizeInMillimeters: Self.millimetres(for: portrait))
 // Identity, so this panel is recognisably the same panel across launches rather than a new device
-// every time. The serial is fixed for the same reason, because there is only ever one of these.
-        descriptor.put(serialNumber: 1)
-        descriptor.put(productID: 0x5045) // "PE"
+// every time. The default serial/product pair stays fixed for that lone display. A caller making
+// more than one passes a distinct pair per instance. Hardware probing showed why both fields move:
+// serials alone produce distinct display IDs but reset every panel to 800×600; distinct products
+// preserve the registered modes as well. See ``HostModel+VirtualDisplayManagement.swift``.
+        descriptor.put(serialNumber: serialNumber)
+        descriptor.put(productID: productID) // 0x5045 is "PE" for the Mac-switch display.
         descriptor.put(vendorID: 0x646D)  // "dm", this developer's prefix
 
         let displayObject = displayFactory.init(descriptor: descriptorObject)
@@ -208,13 +236,17 @@ final class VirtualDisplay {
 
         self.display = displayObject
         self.isLandscape = startLandscape
-        Self.names.record(id, name: name)
+        Self.names.record(id, name: name, isPhoneManaged: isPhoneManaged)
 // Forced rather than trusted to the mode order above: this is the one call that is actually
 // documented to select the current mode, and a rotation later has to trust the same call, so the
 // starting shape is made by the exact route that will be asked to change it.
-        if appearedInList {
-            _ = Self.applyMode(id, size: startLandscape ? landscape : portrait)
-        }
+        if appearedInList { _ = restoreCurrentMode() }
+// The window server otherwise picks the new panel's origin on its own, observed to land below
+// the built-in display rather than beside it — off the bottom of the arrangement most people
+// scroll to in System Settings, which reads as the display never having been made at all. Placed
+// explicitly instead: to the right of whatever is already on screen, top-aligned with it, which
+// is the arrangement a second monitor gets when a person drags it there themselves.
+        if appearedInList { Self.placeBesideExistingDisplays(id) }
         let origin = CGDisplayBounds(id).origin
         let active = startLandscape ? landscape : portrait
         virtualDisplayLog.notice("""
@@ -235,12 +267,16 @@ final class VirtualDisplay {
 // Asked without binding: a `guard let display` here would hold a second strong reference for the
 // length of this function, so the release below would not be the release and the poll would report
 // a display that is on its way out as one that will not go.
-        guard display != nil else { return true }
-        Self.names.forget(displayID)
+        guard display != nil else {
+            let gone = !Self.activeDisplayIDs().contains(displayID)
+            if gone { Self.names.forget(displayID) }
+            return gone
+        }
         self.display = nil
 
         let gone = Self.waitForDeparture(of: displayID)
         if gone {
+            Self.names.forget(displayID)
             virtualDisplayLog.notice("virtual display \(self.displayID, privacy: .public) removed")
         } else {
             virtualDisplayLog.error("""
@@ -279,6 +315,19 @@ final class VirtualDisplay {
         return true
     }
 
+    /// Reasserts the mode this display is meant to be showing.
+    ///
+    /// Creating another `CGVirtualDisplay` can reset every existing virtual panel to 800×600 even
+    /// though each one's registered modes remain intact. The host calls this on all of its panels
+    /// after adding one. Polling briefly matters: the window-server display can appear before its
+    /// mode list has caught up, which otherwise turns the repair into a silent no-op.
+    @discardableResult
+    func restoreCurrentMode() -> Bool {
+        guard display != nil else { return false }
+        let size = isLandscape ? landscapePixelSize : portraitPixelSize
+        return Self.wait(timeout: 1) { Self.applyMode(displayID, size: size) }
+    }
+
 /// Switches `displayID`'s current `CGDisplayMode` to whichever of its registered modes is exactly
 /// `size` in pixels.
 ///
@@ -292,6 +341,29 @@ final class VirtualDisplay {
               })
         else { return false }
         return CGDisplaySetDisplayMode(displayID, target, nil) == CGError.success
+    }
+
+/// Moves a display the window server just created to sit to the right of whatever else is on
+/// screen, instead of wherever it chose to put it.
+///
+/// `others` excludes `displayID` itself, so the very first virtual display this Mac has is placed
+/// beside the built-in panel and every one after it is placed beside the display before it. A Mac
+/// with nothing else active — which cannot happen on a laptop, only in theory — leaves the new
+/// panel at whatever origin it already has rather than compute a position relative to nothing.
+    private static func placeBesideExistingDisplays(_ displayID: CGDirectDisplayID) {
+        let others = activeDisplayIDs().filter { $0 != displayID }
+        guard !others.isEmpty else { return }
+        let bounds = others.map(CGDisplayBounds)
+        let rightEdge = bounds.map(\.maxX).max() ?? 0
+        let top = bounds.map(\.minY).min() ?? 0
+
+        var config: CGDisplayConfigRef?
+        guard CGBeginDisplayConfiguration(&config) == .success, let config else { return }
+        CGConfigureDisplayOrigin(config, displayID, Int32(rightEdge), Int32(top))
+        // `.forSession`, not `.permanently`: this is a display that exists for as long as this
+        // process holds a reference to it, and writing its position into the Mac's own saved
+        // arrangement would leave a phantom entry behind once the display is gone.
+        CGCompleteDisplayConfiguration(config, .forSession)
     }
 
     // MARK: - The window server's view
@@ -398,18 +470,34 @@ final class VirtualDisplay {
 /// Lock-guarded rather than main-actor state, because the catalogue is built off the main actor
 /// and asks for a name from wherever that lands.
 private final class DisplayNames: @unchecked Sendable {
+    private struct Entry {
+        var name: String
+        let isPhoneManaged: Bool
+    }
+
     private let lock = NSLock()
-    private var names: [CGDirectDisplayID: String] = [:]
+    private var entries: [CGDirectDisplayID: Entry] = [:]
+
+    func record(_ displayID: CGDirectDisplayID, name: String, isPhoneManaged: Bool) {
+        lock.withLock { entries[displayID] = Entry(name: name, isPhoneManaged: isPhoneManaged) }
+    }
 
     func record(_ displayID: CGDirectDisplayID, name: String) {
-        lock.withLock { names[displayID] = name }
+        lock.withLock {
+            guard let entry = entries[displayID] else { return }
+            entries[displayID] = Entry(name: name, isPhoneManaged: entry.isPhoneManaged)
+        }
     }
 
     func forget(_ displayID: CGDirectDisplayID) {
-        lock.withLock { names[displayID] = nil }
+        lock.withLock { entries[displayID] = nil }
     }
 
     func name(for displayID: CGDirectDisplayID) -> String? {
-        lock.withLock { names[displayID] }
+        lock.withLock { entries[displayID]?.name }
+    }
+
+    func isPhoneManaged(_ displayID: CGDirectDisplayID) -> Bool {
+        lock.withLock { entries[displayID]?.isPhoneManaged == true }
     }
 }

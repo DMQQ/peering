@@ -78,6 +78,29 @@ struct HandshakeTests {
         #expect(hello.supportsVideoPause == nil)
     }
 
+    @Test("virtual display management is additive and survives the wire")
+    func virtualDisplayManagementCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":16,"alreadyPaired":true}"#.utf8
+        )
+        #expect(try MessageCodec.decode(ServerHello.self, from: older).supportsVirtualDisplayManagement == nil)
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            supportsVirtualDisplayManagement: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.supportsVirtualDisplayManagement == true)
+        #expect(decoded == hello)
+    }
+
     /// The other direction, and the one that decides whether the flag is additive at all: a
     /// client that has never heard of the field ignores it, which is what makes an updated Mac
     /// reachable from an older phone. A Mac that cannot be reached is the cost this design

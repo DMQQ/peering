@@ -247,6 +247,11 @@ extension MacSession {
             hostSupportsDeviceOrientation = DeviceOrientationSupport.maySend(
                 hostDeclared: hello.supportsDeviceOrientation
             )
+            // And once more, for adding and removing virtual displays beyond the Mac's own
+            // switch. See ``VirtualDisplayManagementSupport``.
+            hostSupportsVirtualDisplayManagement = VirtualDisplayManagementSupport.maySend(
+                hostDeclared: hello.supportsVirtualDisplayManagement
+            )
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.

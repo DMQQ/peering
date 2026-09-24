@@ -295,13 +295,16 @@ final class HostModel {
     /// Synchronous, and it stays that way: the process is going away, so there is no later in which
     /// to finish an `await`.
     func prepareForTermination() {
+        virtualDisplayTeardownDepth += 1
         publishHostWidgetState(listening: false)
         // First, because it is the one thing here that changes the user's Mac in a way they would
         // have to repair from outside this app: everything below is a setting being put back, this
         // is a monitor being taken away. The window server does collect a virtual display when the
         // process dies, but that is an undocumented courtesy of a private API and not worth
         // depending on.
+        virtualDisplayCreationGeneration &+= 1
         removeVirtualDisplay()
+        removeAllManagedVirtualDisplays()
         // Cancelled before the restore rather than after, so a check already in flight cannot land
         // on a model that is on its way out and put the switch back on.
         batteryWatchdog?.cancel()
@@ -340,12 +343,41 @@ final class HostModel {
     /// anywhere else would be a monitor the user cannot get rid of.
     var virtualDisplay: VirtualDisplay?
 
-    /// Whether a display is being made right now.
+    /// Displays made at the phone's request, over ``RemoteCommand/addVirtualDisplay(name:)`` —
+    /// as many as the Pro plan's phone allows, none of them the one ``virtualDisplay`` names.
+    ///
+    /// A second store rather than folding into ``virtualDisplay``, because that property's whole
+    /// shape (a single optional, `UserDefaults`-persisted, restored at launch) is the Mac's own
+    /// settings switch and is left alone here: these are session-scoped, the way a mosaic
+    /// arrangement is, and never survive a relaunch. See `HostModel+VirtualDisplayManagement.swift`.
+    var managedVirtualDisplays: [VirtualDisplay] = []
+
+    /// The next serial number a phone-requested display gets. `1` and product `0x5045` stay
+    /// reserved for ``virtualDisplay``, whether or not it happens to be on, so the two stores can
+    /// never collide. The management path derives a distinct product from this number too: the
+    /// window server accepted serial-only identities but reset all their modes to 800×600.
+    /// Only ever counts up: a display that was removed does not give its serial back, which costs
+    /// nothing against a `UInt32` and avoids a reused serial racing the window server's own
+    /// teardown of the display that just gave it up.
+    var nextManagedVirtualDisplaySerial: UInt32 = 2
+
+    /// Changes whenever teardown invalidates a virtual display currently being constructed.
+    /// `VirtualDisplay.init` turns the main run loop, so Stop or Quit can run in the middle of the
+    /// call; the creator compares this value before retaining what it made.
+    var virtualDisplayCreationGeneration: UInt64 = 0
+
+    /// Nesting depth while Stop/Quit is walking the display collection. Private display waits turn
+    /// the main run loop, so one teardown can begin inside another; a depth keeps the outer barrier
+    /// raised when the inner call returns.
+    var virtualDisplayTeardownDepth = 0
+    var isTearingDownVirtualDisplays: Bool { virtualDisplayTeardownDepth > 0 }
+
+    /// Whether the virtual-display collection is being changed right now.
     ///
     /// The wait inside ``VirtualDisplay`` turns the main run loop, so a second click can arrive
-    /// while the first display is still being made. The window server refuses a second display with
-    /// the same vendor, product and serial outright ("no displayID available"), so that click has
-    /// to be dropped rather than attempted.
+    /// while the first display is still being made. Removal can await a capture handoff too. A
+    /// second add/remove (or the Mac switch) is dropped during either window so a limit check and a
+    /// fallback choice cannot be invalidated by another mutation landing in the middle.
     var isMakingVirtualDisplay = false
 
     // MARK: - Lifecycle
@@ -520,6 +552,29 @@ final class HostModel {
                 }
                 return
             }
+            if case .addVirtualDisplay(let name, let width, let height, let startLandscape) = command {
+                Task { @MainActor [weak self] in
+                    self?.addVirtualDisplay(
+                        name: name,
+                        width: width,
+                        height: height,
+                        startLandscape: startLandscape
+                    )
+                }
+                return
+            }
+            if case .removeVirtualDisplay(let displayID) = command {
+                Task { @MainActor [weak self] in
+                    await self?.removeVirtualDisplay(displayID: displayID)
+                }
+                return
+            }
+            if case .renameVirtualDisplay(let displayID, let name) = command {
+                Task { @MainActor [weak self] in
+                    self?.renameVirtualDisplay(displayID: displayID, name: name)
+                }
+                return
+            }
             if case .switchToSpace(let display, let index) = command {
                 Task { @MainActor [weak self] in
                     // `performSwitch` returns whether the window server *accepted* the move, which
@@ -610,8 +665,8 @@ final class HostModel {
                     Task { @MainActor [weak self] in self?.record(message) }
                 }
             )
-            server.onPushNeeded = { [weak registration] token, message in
-                registration?.notifyDevice(token: token, title: "Terminal needs you", body: message)
+            server.onPushNeeded = { [weak registration] token, title, message in
+                registration?.notifyDevice(token: token, title: title, body: message)
             }
             relayRegistration = registration
             registration.start()
@@ -651,6 +706,8 @@ final class HostModel {
     /// the state it already believes and at this point the belief comes from `UserDefaults` while
     /// the display is known not to exist. That is what makes this a request to *show* it.
     func stop() {
+        virtualDisplayTeardownDepth += 1
+        defer { virtualDisplayTeardownDepth -= 1 }
         // Before the listener goes, while the reason is still on screen. Stopping is the one
         // disconnect that is not the client's doing, so a modifier held when the user pressed Stop
         // is exactly as stuck as one held by a client that crashed. The sessions cancelled below
@@ -659,7 +716,9 @@ final class HostModel {
         setPrivacyMode(false)
         // Before the listener goes, and before the process can outlive it: a stopped host that has
         // left a monitor behind is the one state the user cannot repair from the window.
+        virtualDisplayCreationGeneration &+= 1
         removeVirtualDisplay()
+        removeAllManagedVirtualDisplays()
         server?.stop()
         server = nil
         relayRegistration?.stop()
@@ -878,7 +937,8 @@ final class HostModel {
     /// ``HostModel+Sessions.swift``.
     var sessions: [HostSessionRecord] =
         UserDefaults.standard.data(forKey: HostModel.sessionsKey)
-            .flatMap { try? JSONDecoder().decode([HostSessionRecord].self, from: $0) } ?? []
+            .flatMap { try? JSONDecoder().decode([HostSessionRecord].self, from: $0) }
+            .map { Array($0.prefix(HostModel.maxSessions)) } ?? []
 
     /// Sessions in flight, by client ID — more than one phone can be attached at once. See
     /// ``HostModel/OpenSession``.

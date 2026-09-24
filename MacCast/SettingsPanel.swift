@@ -322,10 +322,7 @@ struct SettingsPanel: View {
     /// The floating window, and whether it arrives on its own.
     ///
     /// The switch is drawn on every plan, as itself: dimmed and inert without the capability, with
-    /// the plan's name on its corner. What is *not* drawn on a plan that does not include it is the
-    /// manual start and the diagnostic below, which are the two things that would be lying: what
-    /// iOS said the last time it was asked is a sentence about a feature the user cannot use yet,
-    /// and it would be the loudest thing in a card that has nothing to report.
+    /// the plan's name on its corner.
     private var picture: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Picture")
@@ -342,44 +339,10 @@ struct SettingsPanel: View {
             }
 
             if model.storeManager.access.includes(.pictureInPicture) {
-                // The manual start, which used to be a dot in the status bar and did not earn one:
-                // iOS floats the picture by itself on the way out, so the button started something
-                // that had already happened. What it is actually for is trying it *without* leaving,
-                // and for getting a refusal in writing, which is a diagnostic, and this is where the
-                // switch it explains lives.
-                Button {
-                    model.startPiP()
-                } label: {
-                    Label("Try it now", systemImage: "pip")
-                        .font(.subheadline.weight(.medium))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!model.isPiPSupported)
-
-                Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it. \"Try it now\" starts it without leaving.")
+                Text("Leaving the app floats the picture over whatever is next. iOS has its own switch for this under Settings, General, Picture in Picture, and both have to allow it.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
-
-                // What iOS said the last time it was asked. It used to sit in the session's status
-                // bar, where it was a line of AVKit's own words in the middle of the picture, read
-                // by nobody, and in the way of the controls. Here it is next to the button that asks
-                // the question, which is the only place it means anything.
-                if let attempt = model.pipLastAttempt {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Last attempt: \(attempt)")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        if let why = model.pipLastRefusal {
-                            Text(why)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(.enabled)
-                        }
-                    }
-                }
             } else {
                 Text("Leaving the app would keep the Mac's screen floating over whatever is next, and iOS has a switch of its own for it under Settings, General, Picture in Picture. Both of them are part of \(PlanCapability.pictureInPicture.minimumPlan.name).")
                     .font(.caption2)

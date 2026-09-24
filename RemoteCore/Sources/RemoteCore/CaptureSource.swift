@@ -295,6 +295,20 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
     /// points, so a 5K panel reports half its actual width. This feeds the normalized→pixel mapping,
     /// and getting it wrong drifts the remote cursor on Retina displays.
     public let pixelSize: CGSize
+    /// Whether this display is one the host process itself made, and so one a client may ask the
+    /// host to remove with ``RemoteCommand/removeVirtualDisplay(displayID:)``.
+    ///
+    /// `false` for every other kind of row: a physical monitor and a window are never removable
+    /// this way, and defaulting `false` here (and on decode, for a payload sent before this field
+    /// existed) means an older host's rows read as ordinary and offer no remove control at all.
+    public let isManagedVirtualDisplay: Bool
+    /// Whether this display exists only in software — this host's own switch-made display as
+    /// well as every phone-managed one, which is the broader question ``isManagedVirtualDisplay``
+    /// does not answer: that one is true only for a display *this phone* may remove, and false
+    /// for the switch-made one even though it is exactly as virtual. A client that only had that
+    /// flag to go on could not tell a software display it may not touch from a real monitor, and
+    /// the two read as the same row.
+    public let isVirtualDisplay: Bool
 
     public init(
         kind: Kind,
@@ -304,7 +318,9 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         iconPNGData: Data? = nil,
         thumbnail: SourceThumbnail? = nil,
         source: CaptureSource,
-        pixelSize: CGSize
+        pixelSize: CGSize,
+        isManagedVirtualDisplay: Bool = false,
+        isVirtualDisplay: Bool = false
     ) {
         self.id = source.stableID
         self.kind = kind
@@ -315,6 +331,8 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         self.thumbnail = thumbnail
         self.source = source
         self.pixelSize = pixelSize
+        self.isManagedVirtualDisplay = isManagedVirtualDisplay
+        self.isVirtualDisplay = isVirtualDisplay || isManagedVirtualDisplay
     }
 
     /// This descriptor with a thumbnail attached, or itself when there is none. A modifier rather
@@ -329,7 +347,9 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
             iconPNGData: iconPNGData,
             thumbnail: thumbnail,
             source: source,
-            pixelSize: pixelSize
+            pixelSize: pixelSize,
+            isManagedVirtualDisplay: isManagedVirtualDisplay,
+            isVirtualDisplay: isVirtualDisplay
         )
     }
 
@@ -339,7 +359,8 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, title, subtitle, bundleIdentifier, iconPNGData, thumbnail, source, pixelSize
+        case id, kind, title, subtitle, bundleIdentifier, iconPNGData, thumbnail, source, pixelSize,
+             isManagedVirtualDisplay, isVirtualDisplay
     }
 
     public init(from decoder: any Decoder) throws {
@@ -351,6 +372,9 @@ public struct CaptureSourceDescriptor: Codable, Sendable, Identifiable, Hashable
         subtitle = try values.decodeIfPresent(String.self, forKey: .subtitle)
         bundleIdentifier = try values.decodeIfPresent(String.self, forKey: .bundleIdentifier)
         pixelSize = try values.decode(CGSize.self, forKey: .pixelSize)
+        isManagedVirtualDisplay = try values.decodeIfPresent(Bool.self, forKey: .isManagedVirtualDisplay) ?? false
+        isVirtualDisplay = (try values.decodeIfPresent(Bool.self, forKey: .isVirtualDisplay) ?? false)
+            || isManagedVirtualDisplay
 
         // Lenient, unlike the icon below: one oversize picture drops one tile, where a throw would
         // cost the client its whole source list. See ``SourceThumbnail/init(from:)``.

@@ -15,7 +15,9 @@ import SwiftUI
 /// Mac" costs nothing.
 enum HostSection: String, CaseIterable, Identifiable {
     case overview
+    case devices
     case sessions
+    case activity
     case privacy
     case settings
     case about
@@ -25,7 +27,9 @@ enum HostSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview: return "Overview"
+        case .devices: return "Devices"
         case .sessions: return "Sessions"
+        case .activity: return "Activity"
         case .privacy: return "Privacy"
         case .settings: return "Settings"
         case .about: return "About"
@@ -35,7 +39,9 @@ enum HostSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .overview: return "rectangle.connected.to.line.below"
+        case .devices: return "iphone.and.arrow.forward"
         case .sessions: return "clock.arrow.circlepath"
+        case .activity: return "waveform.path"
         case .privacy: return "lock.shield"
         case .settings: return "gearshape"
         case .about: return "info.circle"
@@ -228,19 +234,21 @@ struct HostStatusView: View {
     var pane: some View {
         switch section {
         case .overview:
-            // The picture first, then how to get here, then the record. The picture is what the
-            // window is for and it is also the thing that is *happening* — a Mac with a phone on
-            // it should open onto the session, not onto instructions for starting one. The hints
-            // sit directly under it, which is where someone who is looking for them will look
-            // once they have seen the top of the window, and they withdraw on their own the
-            // moment a device attaches — see `connectSection`.
+            // The picture and how to get here, and nothing past it. Who is trusted and what has
+            // happened used to live in this same pane, under the picture — which made Overview
+            // answer three different questions at once and made the device list and the log
+            // read as clutter under the one thing this pane actually opens onto. Each now has
+            // the whole of its own pane instead of a card's worth of one shared with two others.
             VStack(alignment: .leading, spacing: 24) {
                 nowShowingSection
                 connectSection
-                overviewLowerDeck
             }
+        case .devices:
+            devicesSection
         case .sessions:
             sessionsSection
+        case .activity:
+            activitySection
         case .privacy:
             VStack(alignment: .leading, spacing: 24) {
                 permissionsSection
@@ -353,15 +361,17 @@ extension View {
     /// The pairing card, and the one place in the window that is allowed to raise its voice.
     ///
     /// A pairing request is the only thing here that needs an answer from the person at the Mac,
-    /// so it lifts off the stage further than a panel does and takes the accent into its edge —
-    /// the whole card, rather than a coloured bar down one side of it.
+    /// so it lifts off the stage further than a panel does — a raised surface and a shadow, which
+    /// is what this app already means by "in front of the rest." An accent-coloured ring around
+    /// the whole card read as a promotional banner rather than a request for attention, and the
+    /// digits inside it already carry the only colour this moment needs.
     func priorityPanel() -> some View {
         padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(HostPalette.raised, in: RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous)
-                    .strokeBorder(HostPalette.accent.opacity(0.35), lineWidth: 1)
+                    .strokeBorder(HostPalette.hairline, lineWidth: 1)
             }
             .shadow(color: .black.opacity(0.4), radius: 20, y: 9)
     }

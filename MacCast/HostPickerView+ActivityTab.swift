@@ -303,6 +303,10 @@ struct ActivityTab: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 4)
             } else {
+                if !model.sessionHistory.isEmpty {
+                    recentSessionSummary
+                    Controls.divider
+                }
                 VStack(spacing: 8) {
                     ForEach(recent) { item in
                         recentItemRow(item)
@@ -314,6 +318,37 @@ struct ActivityTab: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Totals over the bounded remote-desktop history, not lifetime usage. Shell connections do
+    /// not carry a video-byte count, so they stay in the list below and out of these three figures.
+    private var recentSessionSummary: some View {
+        let summary = model.recentSessionSummary
+        return HStack(spacing: 0) {
+            recentSummaryValue("Sessions", "\(summary.sessionCount)")
+            recentSummaryValue("Connected", RelayTime.label(summary.connectedSeconds))
+            recentSummaryValue("Video", bytesLabel(summary.videoBytes))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "Latest \(summary.sessionCount) Mac sessions, "
+            + "\(RelayTime.label(summary.connectedSeconds)) connected, "
+            + "\(bytesLabel(summary.videoBytes)) video received"
+        )
+    }
+
+    private func recentSummaryValue(_ label: String, _ value: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
     /// Everything that has connected lately, Mac and server alike, newest first.
     ///
     /// One list rather than two cards, because the question the card answers — "what have I been
@@ -323,7 +358,7 @@ struct ActivityTab: View {
     private var recent: [RecentConnection] {
         let macs = model.sessionHistory.map(RecentConnection.mac)
         let shells = servers.history.map(RecentConnection.shell)
-        return (macs + shells).sorted { $0.startedAt > $1.startedAt }
+        return Array((macs + shells).sorted { $0.startedAt > $1.startedAt }.prefix(20))
     }
 
     @ViewBuilder

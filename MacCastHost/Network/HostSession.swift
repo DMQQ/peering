@@ -387,7 +387,12 @@ final class HostSession: @unchecked Sendable {
             supportsSourceThumbnails: true,
             // Same terms once more: a virtual display rotates only for a client that has said it
             // will report its orientation, so an older phone gets the display shape it always had.
-            supportsDeviceOrientation: true
+            supportsDeviceOrientation: true,
+            // Not an unconditional `true` like the flags above: this one names whether the Mac's
+            // system software has the private API at all, not just whether this build understands
+            // the command, so a Mac that could never make a display does not advertise a row that
+            // can only fail.
+            supportsVirtualDisplayManagement: VirtualDisplay.isAvailable
         ))
 
         if alreadyPaired {

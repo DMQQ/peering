@@ -10,6 +10,7 @@ import UIKit
 struct HomeTab: View {
     @Environment(SessionModel.self) var model
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @State var showsManualConnection = false
     @State var showsRemotePairing = false
     /// The header's arrival, in four numbers: how far the mark has appeared, how far the name has
@@ -37,6 +38,13 @@ struct HomeTab: View {
     /// Whether this screen's first-run tips have been seen. See ``Tour``.
     @AppStorage(PreferenceKeys.hasSeenTourConnect) var hasSeenTourConnect = false
 
+    /// The column the header actually renders in, whatever ``adaptiveContentColumn()`` below caps
+    /// it to for this width class. Read here rather than restated, so the two cannot drift apart
+    /// — see ``body``.
+    private var contentMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? AdaptiveLayout.wideContentMaxWidth : AdaptiveLayout.contentMaxWidth
+    }
+
     /// How often the Connect tab asks the relay which paired Macs are up.
     ///
     /// Twenty seconds, which is a compromise the screen does not have to make but the relay does:
@@ -54,7 +62,18 @@ struct HomeTab: View {
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
-                            header(viewport: geometry.size)
+                            // Capped the same way `.adaptiveContentColumn()` below caps the
+                            // column the header actually renders in. `geometry` is this
+                            // `GeometryReader`'s own size, which on an iPad's regular-width
+                            // layout is the full detail pane — wider than the capped, centred
+                            // column the mark and name are laid out in. Centring the header's
+                            // opening position against the wider, uncapped number pushed it off
+                            // to one side instead of the middle of the column it actually opens
+                            // in.
+                            header(viewport: CGSize(
+                                width: min(geometry.size.width, contentMaxWidth),
+                                height: geometry.size.height
+                            ))
 
                             if showsUnacknowledgedFailure {
                                 connectionFailureCard

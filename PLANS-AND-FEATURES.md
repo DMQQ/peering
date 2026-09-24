@@ -94,8 +94,8 @@ the working features around it rather than a slightly larger clock.
 
 ## 2. Every feature the app has, and where it goes
 
-**Checked against the code on 20 September 2026, and this section now says what the code does.**
-The authority is `MacCastKit/Sources/MacCastKit/PlanAccess.swift`: ten `PlanCapability` cases,
+**Checked against the code on 24 September 2026, and this section now says what the code does.**
+The authority is `MacCastKit/Sources/MacCastKit/PlanAccess.swift`: twelve `PlanCapability` cases,
 each with a `minimumPlan`, and every gate in the app asks one of them. Nothing in the app names a
 plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
 there is one list and no second place to drift from.
@@ -114,6 +114,7 @@ there is one list and no second place to drift from.
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
 | Several of the Mac's windows in one picture | `mosaic` | Pro |
+| Adding virtual displays from the phone | `virtualDisplays` | Relay Plus |
 | The sharpest picture over the relay | `highBitrate` | Pro |
 
 **Everything else is free on every plan**, and the tables below say so row by row. Two of those
@@ -156,6 +157,7 @@ is why it sits here and not higher.
 | Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
 | Picture in Picture | · | ✅ | ✅ | ✅ |
 | Several windows in one picture (the mosaic) | · | · | · | ✅ |
+| Adding virtual displays from the phone | · | · | ✅ | ✅ |
 | The sharpest picture over the relay (the bitrate ceiling) | · | · | · | ✅ |
 | Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ | ✅ |
 | Screenshot with the system share sheet | ✅ | ✅ | ✅ | ✅ |

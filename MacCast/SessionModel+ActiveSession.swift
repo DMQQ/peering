@@ -100,6 +100,12 @@ extension SessionModel {
     /// ``MacSession/hostSupportsDeviceOrientation``.
     var hostSupportsDeviceOrientation: Bool { activeSession?.hostSupportsDeviceOrientation ?? false }
 
+    /// Whether this Mac can be asked to add or remove virtual displays. See
+    /// ``MacSession/hostSupportsVirtualDisplayManagement``.
+    var hostSupportsVirtualDisplayManagement: Bool {
+        activeSession?.hostSupportsVirtualDisplayManagement ?? false
+    }
+
     var activeSessionHistoryID: UUID? {
         get { activeSession?.activeSessionHistoryID }
         set { activeSession?.activeSessionHistoryID = newValue }

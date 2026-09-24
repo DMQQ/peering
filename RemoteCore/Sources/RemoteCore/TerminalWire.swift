@@ -166,6 +166,10 @@ public enum TerminalEvent: Codable, Equatable, Sendable {
     case renamed(TerminalSessionInfo)
     case output(sessionID: UUID, data: Data)
     case attention(sessionID: UUID, kind: TerminalAttentionKind, message: String)
+    /// A command that ran long enough to be worth mentioning has returned control to the prompt.
+    /// Unlike ``attention``, nothing is being waited on: this is a fire-and-forget notice, not a
+    /// state a terminal sits in. `command` is nil when the shell's hook could not name what ran.
+    case commandFinished(sessionID: UUID, command: String?, duration: TimeInterval, exitStatus: Int32)
     case exited(sessionID: UUID, status: Int32)
     case closed(sessionID: UUID)
     /// One folder's contents, sorted by the host (folders first, then names) so every client shows

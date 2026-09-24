@@ -204,6 +204,25 @@ final class SessionNotifier {
         )
     }
 
+    /// A command that took a while has returned control to the prompt. Unlike
+    /// ``terminalNeedsAttention(_:sessionID:macName:)`` there is nothing waiting on an answer, so
+    /// there is no ``terminalStillWaiting(_:name:sessionID:macName:)`` counterpart to re-raise this
+    /// on backgrounding: the Mac's detector fires once, when the prompt reappears, and by the time
+    /// somebody backgrounds the app that moment has already passed or already been told.
+    ///
+    /// Gated on the same ``isOnPlan`` as attention, and the same "the Mac when no session is up"
+    /// dual path: this app sends it locally when connected, and the Mac sends the identical
+    /// sentence itself over the relay and APNs when it is not. The two are one feature for the same
+    /// reason attention's two paths are.
+    func terminalFinishedWork(_ message: String, sessionID: UUID, macName: String? = nil) {
+        guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Terminal finished"
+        content.body = macName.map { "\($0): \(message)" } ?? message
+        content.sound = .default
+        deliver(content, identifier: "peering-terminal-finished-\(sessionID.uuidString)")
+    }
+
     private func post(_ notification: SessionAwareness.Notification) {
         // A banner about the screen the user is looking at is noise rather than news, and on
         // a frontmost app iOS would not present it anyway — the check here is what keeps the

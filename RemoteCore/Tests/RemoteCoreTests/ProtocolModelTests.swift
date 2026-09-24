@@ -38,6 +38,43 @@ struct CaptureSourceTests {
         #expect(descriptor.id == "window:42")
     }
 
+    @Test("managed virtual display metadata survives the wire and descriptor copies")
+    func managedVirtualDisplayMetadata() throws {
+        let descriptor = CaptureSourceDescriptor(
+            kind: .display,
+            title: "Peering Display 2",
+            source: .display(42),
+            pixelSize: CGSize(width: 2_796, height: 1_290),
+            isManagedVirtualDisplay: true
+        )
+
+        #expect(try roundTrip(descriptor).isManagedVirtualDisplay)
+
+        let thumbnail = SourceThumbnail(width: 20, height: 10, jpegData: Data([1, 2, 3]))
+        #expect(descriptor.withThumbnail(thumbnail).isManagedVirtualDisplay)
+    }
+
+    @Test("a descriptor from before managed display metadata reads as unmanaged")
+    func legacyDescriptorIsNotManaged() throws {
+        let descriptor = CaptureSourceDescriptor(
+            kind: .display,
+            title: "Built-in Display",
+            source: .display(1),
+            pixelSize: CGSize(width: 3_024, height: 1_964)
+        )
+        var object = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(descriptor)) as? [String: Any]
+        )
+        object.removeValue(forKey: "isManagedVirtualDisplay")
+
+        let decoded = try JSONDecoder().decode(
+            CaptureSourceDescriptor.self,
+            from: JSONSerialization.data(withJSONObject: object)
+        )
+
+        #expect(!decoded.isManagedVirtualDisplay)
+    }
+
     @Test("catalog looks a descriptor back up by source")
     func catalogLookup() {
         let display = CaptureSourceDescriptor(
@@ -305,6 +342,9 @@ struct RemoteCommandTests {
             .lockScreen,
             .requestClipboard,
             .pushClipboard(text: "héllo 👋 世界"),
+            .addVirtualDisplay(name: "Build", width: 1_290, height: 2_796, startLandscape: true),
+            .removeVirtualDisplay(displayID: 42),
+            .renameVirtualDisplay(displayID: 42, name: "Preview"),
         ]
 
         for command in commands {
@@ -408,8 +448,26 @@ struct RemoteCommandTests {
             .lockScreen,
             .requestClipboard,
             .pushClipboard(text: "hello"),
+            .addVirtualDisplay(name: "", width: 1_179, height: 2_556, startLandscape: false),
+            .removeVirtualDisplay(displayID: 42),
+            .renameVirtualDisplay(displayID: 42, name: "Phone"),
         ]
         #expect(sessionControls.allSatisfy { !$0.isUserInput })
+    }
+
+    @Test("virtual display management requests are sent immediately and are not input events")
+    func virtualDisplayManagementClassification() {
+        let commands: [RemoteCommand] = [
+            .addVirtualDisplay(name: "", width: 1_290, height: 2_796, startLandscape: true),
+            .removeVirtualDisplay(displayID: 42),
+            .renameVirtualDisplay(displayID: 42, name: "Build"),
+        ]
+
+        for command in commands {
+            #expect(command.coalescing == .none)
+            #expect(!command.isUserInput)
+            #expect(!command.isCritical)
+        }
     }
 }
 

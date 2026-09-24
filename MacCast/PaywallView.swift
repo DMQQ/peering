@@ -193,6 +193,8 @@ struct PaywallView: View {
                 // top rung and it is a thing the reader can feel: six windows in one picture is
                 // six captures happening at once on the machine they are asking.
                 return "Pick several of the Mac's windows and see them together, arranged the way you want on this screen. Every tile is captured separately on the Mac, so the picture stays live rather than being a screenshot, and tapping one takes you into it."
+            case .virtualDisplays:
+                return "Add another phone-shaped display to the Mac from here, beyond the one its own switch already controls, and remove one again when you no longer need it."
             case .terminalAlerts:
                 return "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan."
             case .fileTransfer:

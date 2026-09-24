@@ -21,6 +21,7 @@ final class TerminalSessionManager: @unchecked Sendable {
         var isRunning = true
         var history = Data()
         var attentionDetector = TerminalAttentionDetector()
+        var finishDetector = TerminalCommandFinishDetector()
         /// The name the user typed. While this is set, nothing else renames the terminal.
         var manualName: String?
         /// The last command sent to it, which is what an unnamed terminal is called.
@@ -108,10 +109,12 @@ final class TerminalSessionManager: @unchecked Sendable {
     private var pushTokenByClientID: [String: String] = [:]
     private var writes: [WriteKey: PendingWrite] = [:]
 
-    /// Called when a terminal needs the user's attention and the client's sink is gone, meaning the
-    /// phone is no longer connected over the control channel. Token is the APNs hex token; message
-    /// is the human-readable sentence for the notification body.
-    var onPushNeeded: (@Sendable (String, String, TerminalAttentionKind) -> Void)?
+    /// Called when a terminal needs the user's attention, or has finished a command worth
+    /// mentioning, and the client's sink is gone, meaning the phone is no longer connected over the
+    /// control channel. Token is the APNs hex token; title and message are the notification's own
+    /// title and body — carried through rather than a ``TerminalAttentionKind``, since "finished"
+    /// is not a kind of attention and the two need different titles.
+    var onPushNeeded: (@Sendable (String, String, String) -> Void)?
 
     /// The APNs tokens of clients that have registered for push but are not connected over the
     /// control channel. Used by native-terminal watching to push outside of Peering sessions.
@@ -396,6 +399,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             // The spawned process owns duplicated slave descriptors: keeping the parent's copy
             // open would prevent EOF on the master after the shell exits.
             try? slave.close()
+            Self.installFinishHook(shell: shell, into: master)
             sink(.created(session.info))
             terminalLog.notice("started terminal \(name, privacy: .public) \(id.uuidString, privacy: .public)")
         } catch {
@@ -407,27 +411,94 @@ final class TerminalSessionManager: @unchecked Sendable {
         }
     }
 
+    /// The precmd/preexec-equivalent hook for each shell this app knows how to talk to, one
+    /// compact statement so it survives being typed onto a single input line. Both write the same
+    /// OSC marker ``TerminalCommandFinishDetector`` looks for, and both check the five-second
+    /// threshold themselves, so a trivial command never even produces a marker to detect.
+    ///
+    /// **zsh**: a real `preexec`/`precmd` pair, appended to zsh's own cooperative hook arrays —
+    /// safe regardless of what the user's own `.zshrc` also appends there.
+    ///
+    /// **bash**: not a `DEBUG` trap. An early version used one, guarded by an "am I inside precmd"
+    /// flag the way the well-known `bash-preexec` project does, and a real interactive bash (not a
+    /// `-c` script) still fires that trap for the trap's own invocation before the guard can be
+    /// set, corrupting the very timer it exists to protect — verified by driving a real PTY-backed
+    /// interactive bash rather than assumed. Reading the start time back out of `history 1`
+    /// (`HISTTIMEFORMAT` set to a raw epoch) sidesteps the whole recursion question: nothing hooks
+    /// command execution at all, precmd alone computes elapsed time from what the shell already
+    /// recorded.
+    private static let zshFinishHookLine =
+        #"zmodload zsh/datetime 2>/dev/null; __mc_preexec(){ __mc_t0=$EPOCHREALTIME; __mc_cmd=$1; }; __mc_precmd(){ local __mc_s=$?; if [[ -n $__mc_t0 ]]; then local __mc_d=$(( (EPOCHREALTIME - __mc_t0) * 1000 )); __mc_d=${__mc_d%.*}; if (( __mc_d >= 5000 )); then printf '\033]9999;%s;%s;%s\007' "$__mc_d" "$__mc_s" "$(printf %s "$__mc_cmd" | base64 | tr -d '\n')"; fi; unset __mc_t0; fi }; precmd_functions+=(__mc_precmd); preexec_functions+=(__mc_preexec)"#
+
+    private static let bashFinishHookLine =
+        #"export HISTTIMEFORMAT="%s "; set -o history; __mc_last=""; __mc_precmd(){ local __mc_s=$?; local __mc_line; __mc_line=$(history 1); local __mc_ts=$(printf '%s\n' "$__mc_line" | awk '{print $2}'); local __mc_cmd=$(printf '%s\n' "$__mc_line" | awk '{$1="";$2="";print}' | sed 's/^  *//'); local __mc_now=$(date +%s); local __mc_d=$(( (__mc_now - __mc_ts) * 1000 )); if [ "$__mc_line" != "$__mc_last" ] && [ "$__mc_d" -ge 5000 ]; then printf '\033]9999;%s;%s;%s\007' "$__mc_d" "$__mc_s" "$(printf %s "$__mc_cmd" | base64 | tr -d '\n')"; fi; __mc_last="$__mc_line"; }; PROMPT_COMMAND="__mc_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}""#
+
+    /// Written through the master exactly as ``handle(clientID:request:sink:)`` writes real
+    /// keystrokes (`case .input`), so it lands as ordinary typed-ahead input — which means it runs
+    /// *after* whatever `.zshrc`/`.bash_profile` the login shell has already sourced, at the cost
+    /// of echoing once, visibly, at the top of a freshly opened tab. Suppressing that echo means
+    /// toggling `ECHO` via `tcsetattr` around the write, racing the shell's own termios setup
+    /// during startup — a correctness risk on the one thing a terminal absolutely cannot get wrong,
+    /// not worth taking blind.
+    ///
+    /// Skipped for anything that is not recognisably zsh or bash: no hook, no feature, no risk to a
+    /// shell this does not know how to talk to.
+    private static func installFinishHook(shell: String, into master: FileHandle) {
+        let line: String
+        if shell.hasSuffix("zsh") {
+            line = zshFinishHookLine
+        } else if shell.hasSuffix("bash") {
+            line = bashFinishHookLine
+        } else {
+            return
+        }
+        guard let data = (line + "\n").data(using: .utf8) else { return }
+        try? master.write(contentsOf: data)
+    }
+
     private func received(_ data: Data, from session: Session) {
-        let attention: TerminalAttentionKind? = lock.withLock {
-            guard sessions[session.id] === session else { return nil }
+        let (attention, finish): (TerminalAttentionKind?, TerminalCommandFinishDetector.Finish?) = lock.withLock {
+            guard sessions[session.id] === session else { return (nil, nil) }
             session.history.append(data)
             if session.history.count > Self.maximumHistoryBytes {
                 session.history.removeFirst(session.history.count - Self.maximumHistoryBytes)
             }
-            return session.attentionDetector.receive(data)
+            return (session.attentionDetector.receive(data), session.finishDetector.receive(data))
         }
 
         send(.output(sessionID: session.id, data: data), to: session.ownerClientID)
+
         if let attention {
             let noun = attention == .password ? "a password" : "confirmation"
             let message = "Terminal \u{201C}\(session.name)\u{201D} is waiting for \(noun)."
             send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
-            let (isConnected, pushToken) = lock.withLock {
-                (sinks[session.ownerClientID] != nil, pushTokenByClientID[session.ownerClientID])
-            }
-            if !isConnected, let pushToken {
-                onPushNeeded?(pushToken, message, attention)
-            }
+            pushIfDisconnected(session: session, title: "Terminal needs you", message: message)
+        }
+
+        if let finish {
+            send(
+                .commandFinished(
+                    sessionID: session.id,
+                    command: finish.command,
+                    duration: finish.duration,
+                    exitStatus: finish.exitStatus
+                ),
+                to: session.ownerClientID
+            )
+            let named = finish.command.map { "\u{201C}\($0)\u{201D}" } ?? "Terminal \u{201C}\(session.name)\u{201D}"
+            let message = "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(finish.duration))."
+            pushIfDisconnected(session: session, title: "Terminal finished", message: message)
+        }
+    }
+
+    /// The other half of ``onPushNeeded``: the same "no session channel to answer over" check both
+    /// kinds of event share, factored out once there were two of them.
+    private func pushIfDisconnected(session: Session, title: String, message: String) {
+        let (isConnected, pushToken) = lock.withLock {
+            (sinks[session.ownerClientID] != nil, pushTokenByClientID[session.ownerClientID])
+        }
+        if !isConnected, let pushToken {
+            onPushNeeded?(pushToken, title, message)
         }
     }
 

@@ -47,7 +47,7 @@ public enum PreferenceKeys {
     public static let streamQuality = "Peering.streamQuality"
     /// Whether the one-time offer that follows a user's first finished session has been made.
     ///
-    /// A flag rather than `sessionHistory.count == 1`: the history keeps the last thirty records and
+    /// A flag rather than `sessionHistory.count == 1`: the history keeps the last twenty records and
     /// prunes the rest, so its count answers "how much is stored".
     public static let offeredAfterFirstSession = "Peering.offeredAfterFirstSession"
     /// Which 24-hour window the "running low" offer was last made in, as the window's own number.

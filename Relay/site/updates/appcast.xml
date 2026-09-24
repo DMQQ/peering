@@ -2,5 +2,13 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Peering</title>
+        <item>
+            <title>202609241</title>
+            <pubDate>Thu, 24 Sep 2026 13:36:49 +0200</pubDate>
+            <sparkle:version>202609241</sparkle:version>
+            <sparkle:shortVersionString>202609241</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://getpeering.app/updates/Peering-202609241.dmg" length="9468027" type="application/octet-stream" sparkle:edSignature="JbrOA6QNpZ+7BTxHZ4vwM7XcdCs1J1nlhzEVjfyu7iocHL7c3t6Utiw85wPLF/CZzraANyJafOGiz61nzFQiDg=="/>
+        </item>
     </channel>
 </rss>

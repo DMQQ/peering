@@ -192,8 +192,8 @@ struct PlanFeaturesView: View {
             ),
             PlanFeature(
                 icon: "faceid",
-                title: "Face ID to open",
-                detail: "Require Face ID each time the app comes back, so a locked phone is the only thing that unlocks the Mac."
+                title: "Biometrics to open",
+                detail: "Require Face ID or Touch ID each time the app comes back, so a locked phone is the only thing that unlocks the Mac."
             ),
             PlanFeature(
                 icon: "power",
@@ -345,6 +345,12 @@ struct PlanFeaturesView: View {
                 title: "Several windows at once",
                 detail: "Pick several of the Mac's windows, apps or displays and see them together, arranged on this screen. Each tile is captured live on the Mac rather than being a still, and tapping one takes you into it, with the whole arrangement waiting behind a back control.",
                 capability: .mosaic
+            ),
+            PlanFeature(
+                icon: "rectangle.badge.plus",
+                title: "Extra virtual displays",
+                detail: "Add another phone-shaped display to the Mac from here, beyond the one its own switch controls, and take one away again when you are done with it.",
+                capability: .virtualDisplays
             ),
             PlanFeature(
                 icon: "clock.arrow.circlepath",

@@ -66,6 +66,9 @@ extension HostModel {
     }
 
     func saveSessions() {
+        if sessions.count > Self.maxSessions {
+            sessions.removeLast(sessions.count - Self.maxSessions)
+        }
         if let data = try? JSONEncoder().encode(sessions) {
             UserDefaults.standard.set(data, forKey: Self.sessionsKey)
         }

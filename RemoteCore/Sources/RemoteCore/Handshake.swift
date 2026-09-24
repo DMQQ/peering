@@ -96,6 +96,16 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// on a Mac with nothing to do with it.
     public var supportsDeviceOrientation: Bool?
 
+    /// Whether this Mac can be asked to make and remove virtual displays beyond the one its own
+    /// settings switch controls. See ``RemoteCommand/addVirtualDisplay(name:)`` and
+    /// ``RemoteCommand/removeVirtualDisplay(displayID:)``.
+    ///
+    /// Unlike the flags above, this is not simply the software version: a Mac whose system
+    /// software lacks the private virtual-display API at all has nothing to offer, so the host
+    /// sends its own `VirtualDisplay.isAvailable` here rather than an unconditional `true`.
+    /// Optional and additive on the same terms as the rest: `nil` reads as "no."
+    public var supportsVirtualDisplayManagement: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -106,7 +116,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsClipboardImages: Bool? = nil,
         supportsMosaic: Bool? = nil,
         supportsSourceThumbnails: Bool? = nil,
-        supportsDeviceOrientation: Bool? = nil
+        supportsDeviceOrientation: Bool? = nil,
+        supportsVirtualDisplayManagement: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -118,6 +129,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsMosaic = supportsMosaic
         self.supportsSourceThumbnails = supportsSourceThumbnails
         self.supportsDeviceOrientation = supportsDeviceOrientation
+        self.supportsVirtualDisplayManagement = supportsVirtualDisplayManagement
     }
 }
 

@@ -396,15 +396,18 @@ extension RemoteScreen {
 
     /// How far the pointer column sits past the rail's edge inset.
     ///
-    /// Centred on the rail above it, which is what "in line" means here. The pointer is a 100pt
-    /// circle and a rail is 64pt wide, so aligning their trailing edges — which the shared edge
-    /// inset does on its own — leaves the two centres 18pt apart, and an 18pt disagreement down
-    /// a column reads as the whole bottom of the screen being askew.
-    ///
-    /// Applied to the whole column rather than to the joystick alone, so the key stacked above it
-    /// stays centred on the same axis.
+    /// Centred on the rail above it on iPhone, flush with the row's own padding on iPad. The
+    /// pointer is a 100pt circle and the rail is narrower, so lining up their trailing edges
+    /// leaves the two centres a dozen-odd points apart — this push closes that gap, and on an
+    /// iPhone it has somewhere safe to land: the landscape camera-housing safe area on that edge
+    /// absorbs it. An iPad's landscape safe area carries no such margin, so the same push there
+    /// carried the column straight past the physical edge of the display, which is the bug this
+    /// idiom check exists to avoid. `UIDevice`'s idiom rather than the horizontal size class,
+    /// because a Pro Max in landscape is `.regular` too and still has the housing margin the
+    /// centring depends on.
     var joystickColumnOffset: CGFloat {
-        (joystickRadius * 2 - ChromeMetrics.panelWidth) / 2
+        guard UIDevice.current.userInterfaceIdiom != .pad else { return 0 }
+        return (joystickRadius * 2 - ChromeMetrics.panelWidth) / 2
     }
 
     /// The one panel: everything that is not worth a permanent button.

@@ -151,6 +151,24 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// latest one before the host gets to it is worth acting on.
     case reportDeviceOrientation(isLandscape: Bool)
 
+    /// Asks the host to make another virtual display. Empty `name` asks the host to pick one.
+    ///
+    /// `width`/`height` are the display's portrait pixel size — the same convention
+    /// ``VirtualDisplay``'s own `size` parameter uses, portrait regardless of `startLandscape` —
+    /// and the host clamps them, so a client offering an unreasonable size costs it a smaller
+    /// display rather than costing the Mac a failure.
+    ///
+    /// Sent only to a Mac that has declared ``ServerHello/supportsVirtualDisplayManagement``, and
+    /// only by a plan that includes it: see `PlanCapability.virtualDisplays` in `MacCastKit`.
+    case addVirtualDisplay(name: String, width: Int, height: Int, startLandscape: Bool)
+    /// Asks the host to take a display away. `displayID` is a `CGDirectDisplayID`'s raw value, as
+    /// read off a ``CaptureSourceDescriptor`` whose ``CaptureSourceDescriptor/isManagedVirtualDisplay``
+    /// is `true` — this app never lets a client name a display it did not itself make.
+    case removeVirtualDisplay(displayID: UInt32)
+    /// Asks the host to give a display a new name, on the same terms as
+    /// ``removeVirtualDisplay(displayID:)``: `displayID` must be one this host made.
+    case renameVirtualDisplay(displayID: UInt32, name: String)
+
     public var coalescing: Coalescing {
         switch self {
         case .mouseMove, .reportDeviceOrientation:
@@ -161,7 +179,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
              .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails,
              .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
-             .pushClipboardImage:
+             .pushClipboardImage, .addVirtualDisplay, .removeVirtualDisplay,
+             .renameVirtualDisplay:
             return .none
         }
     }
@@ -187,7 +206,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
              .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode, .lockScreen,
-             .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation:
+             .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
+             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay:
             return false
         }
     }
@@ -205,7 +225,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
              .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
              .refreshSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard,
-             .pushClipboard, .pushClipboardImage, .reportDeviceOrientation:
+             .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
+             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay:
             return false
         }
     }

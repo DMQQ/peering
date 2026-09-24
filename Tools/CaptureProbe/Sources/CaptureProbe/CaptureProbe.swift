@@ -86,6 +86,8 @@ struct CaptureProbe {
         var thumbnails = false
         /// Make a display that exists only in software, hold it, and take it away.
         var virtualDisplay = false
+        /// How many distinct virtual-display identities to keep alive together.
+        var virtualDisplayCount = 1
         /// Stream the virtual display for the hold, instead of leaving it empty.
         var captureVirtualDisplay = false
         /// The size to make it at, defaulting to the shape the host builds for a phone.
@@ -181,6 +183,12 @@ struct CaptureProbe {
                 case "--virtual-display":
                     virtualDisplay = true
 
+                case "--virtual-count":
+                    guard let value = iterator.next(), let count = Int(value), (1...3).contains(count) else {
+                        throw ProbeError(message: "--virtual-count needs an integer from 1 through 3")
+                    }
+                    virtualDisplayCount = count
+
                 case "--capture":
                     captureVirtualDisplay = true
 
@@ -227,7 +235,8 @@ struct CaptureProbe {
             usage: CaptureProbe [--seconds N] [--output PATH] [--source ID|TITLE]
                                 [--frame-rate N] [--list] [--synthetic] [--pipeline]
                                 [--mosaic A,B,…] [--canvas WxH] [--compose-check]
-                                [--thumbnails] [--virtual-display [--virtual-size WxH]]
+                                [--thumbnails] [--virtual-display [--virtual-size WxH]
+                                 [--virtual-count N]]
                                 [--resources [--burn N] [--interval S]] [--request-access]
 
               --seconds N      how long to capture for (default 3)
@@ -267,6 +276,10 @@ struct CaptureProbe {
               --virtual-size WxH
                                the size to make the virtual display at (default 1290x2796,
                                the shape the host builds for a phone)
+              --virtual-count N
+                               keep N distinct virtual displays alive together (1...3), remove
+                               the first while the others remain, then remove the rest. This
+                               proves distinct product/serial identities and their modes coexist
               --capture        stream the virtual display for the whole hold through the
                                ordinary capture path, so the frames and the file it writes
                                are the proof that it is captureable at all
@@ -911,38 +924,67 @@ struct CaptureProbe {
         let before = VirtualDisplay.activeDisplayIDs()
         log("displays before: \(described(before))")
 
-        let display = try VirtualDisplay(size: options.virtualSize)
-        let displayID = display.displayID
+        var displays: [VirtualDisplay] = []
+        for offset in 0..<options.virtualDisplayCount {
+            displays.append(try VirtualDisplay(
+                size: options.virtualSize,
+                name: "Capture Probe \(offset + 1)",
+                serialNumber: UInt32(offset + 1),
+                productID: 0x5045 + UInt32(offset),
+                isPhoneManaged: true
+            ))
+            for display in displays { _ = display.restoreCurrentMode() }
+        }
+        let displayIDs = displays.map(\.displayID)
+        guard Set(displayIDs).count == displays.count else {
+            throw ProbeError(message: "multiple virtual displays were assigned the same display ID: \(displayIDs)")
+        }
         let after = VirtualDisplay.activeDisplayIDs()
         log("displays after:  \(described(after))")
 
         // `init` already waited for this. Asked again because the exit criterion is stated in
         // terms of the display list, and the list is the thing a reader has to be able to see.
-        guard after.contains(displayID) else {
+        guard displayIDs.allSatisfy(after.contains) else {
             throw ProbeError(message: """
-                a display was created as \(displayID) and the window server's list does not have \
-                it: \(described(after))
+                displays were created as \(displayIDs) and the window server's list does not have \
+                all of them: \(described(after))
                 """)
         }
 
-        let bounds = CGDisplayBounds(displayID)
-        let millimetres = CGDisplayScreenSize(displayID)
-        log("""
-            display \(displayID) at \(Int(bounds.origin.x)),\(Int(bounds.origin.y)) · \
-            \(Int(bounds.width))×\(Int(bounds.height)) points · \
-            \(CGDisplayPixelsWide(displayID))×\(CGDisplayPixelsHigh(displayID)) pixels · \
-            panel \(Int(millimetres.width))×\(Int(millimetres.height)) mm
-            """)
+        for displayID in displayIDs {
+            let bounds = CGDisplayBounds(displayID)
+            let millimetres = CGDisplayScreenSize(displayID)
+            log("""
+                display \(displayID) at \(Int(bounds.origin.x)),\(Int(bounds.origin.y)) · \
+                \(Int(bounds.width))×\(Int(bounds.height)) points · \
+                \(CGDisplayPixelsWide(displayID))×\(CGDisplayPixelsHigh(displayID)) pixels · \
+                panel \(Int(millimetres.width))×\(Int(millimetres.height)) mm
+                """)
+            let expectedWidth = Int(options.virtualSize.height)
+            let expectedHeight = Int(options.virtualSize.width)
+            guard CGDisplayPixelsWide(displayID) == expectedWidth,
+                  CGDisplayPixelsHigh(displayID) == expectedHeight
+            else {
+                let modes = (CGDisplayCopyAllDisplayModes(displayID, nil) as? [CGDisplayMode] ?? [])
+                    .map { "\($0.pixelWidth)×\($0.pixelHeight)" }
+                    .joined(separator: ", ")
+                throw ProbeError(message: """
+                    display \(displayID) lost its requested landscape mode: expected \
+                    \(expectedWidth)×\(expectedHeight), got \
+                    \(CGDisplayPixelsWide(displayID))×\(CGDisplayPixelsHigh(displayID)); modes: \(modes)
+                    """)
+            }
+        }
 
         // Whether the display is still invisible to AppKit, which is the reason the host names
         // it from its own registry rather than from `NSScreen` (see the note above).
         let inAppKit = NSScreen.screens.contains { screen in
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-            return number?.uint32Value == displayID
+            return displayIDs.contains(number?.uint32Value ?? 0)
         }
         log("AppKit: \(inAppKit ? "in NSScreen.screens" : "not in NSScreen.screens, so the catalogue must name it")")
 
-        try await checkCatalogueHas(displayID)
+        for displayID in displayIDs { try await checkCatalogueHas(displayID) }
 
         if options.captureVirtualDisplay {
             // The hold, spent streaming it. Everything downstream is the probe's ordinary capture
@@ -950,7 +992,7 @@ struct CaptureProbe {
             // asking for it this way, because a stream that went through a special case for
             // virtual displays would prove the special case and not the feature.
             var capture = options
-            capture.source = "display:\(displayID)"
+            capture.source = "display:\(displayIDs[0])"
             log("streaming it for \(String(format: "%.1f", options.seconds))s")
             try await runCapture(capture)
         } else {
@@ -958,20 +1000,37 @@ struct CaptureProbe {
             try await Task.sleep(for: .seconds(options.seconds))
         }
 
-        let removed = display.remove()
+        let firstID = displayIDs[0]
+        let removed = displays.removeFirst().remove()
+        let afterFirstRemoval = VirtualDisplay.activeDisplayIDs()
+        guard removed,
+              !afterFirstRemoval.contains(firstID),
+              displays.allSatisfy({ afterFirstRemoval.contains($0.displayID) })
+        else {
+            throw ProbeError(message: """
+                removing the first virtual display disturbed another one: \
+                \(described(afterFirstRemoval))
+                """)
+        }
+        for display in displays {
+            guard display.remove() else {
+                throw ProbeError(message: "virtual display \(display.displayID) did not leave")
+            }
+        }
         let end = VirtualDisplay.activeDisplayIDs()
         log("displays after teardown: \(described(end))")
-        guard removed, !end.contains(displayID) else {
+        guard displayIDs.allSatisfy({ !end.contains($0) }) else {
             throw ProbeError(message: """
-                the virtual display was torn down and is still there: \(described(end)). A display \
+                a virtual display was torn down and is still there: \(described(end)). A display \
                 that outlives its object is a monitor the user cannot get rid of, and once this \
                 process has exited there is nothing left holding a switch for it.
                 """)
         }
 
         log("""
-            virtual display OK · \(Int(options.virtualSize.width))×\(Int(options.virtualSize.height)) \
-            appeared as \(displayID) and left when it was released
+            virtual display OK · \(displays.count + 1) at \
+            \(Int(options.virtualSize.width))×\(Int(options.virtualSize.height)) appeared as \
+            \(displayIDs) and left independently when released
             """)
     }
 

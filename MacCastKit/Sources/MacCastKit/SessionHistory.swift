@@ -373,16 +373,45 @@ public enum RelayTime {
 
 public enum SessionHistoryStore {
     private static let key = "Peering.sessionHistory"
-    private static let limit = 30
+    public static let visibleLimit = 20
 
     public static func load() -> [ClientSessionRecord] {
         guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([ClientSessionRecord].self, from: data)) ?? []
+        guard let decoded = try? JSONDecoder().decode([ClientSessionRecord].self, from: data) else {
+            return []
+        }
+        let kept = kept(decoded)
+        if kept.count != decoded.count { save(kept) }
+        return kept
     }
 
     public static func save(_ records: [ClientSessionRecord]) {
-        let kept = Array(records.prefix(limit))
-        guard let data = try? JSONEncoder().encode(kept) else { return }
+        guard let data = try? JSONEncoder().encode(kept(records)) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    /// The twenty visible records, plus any extra records the current relay allowance still needs.
+    /// A burst of short sessions must not make the meter forget minutes the relay is still billing.
+    public static func kept(_ records: [ClientSessionRecord], at moment: Date = Date()) -> [ClientSessionRecord] {
+        let windowStart = RelayAllowance.windowStart(windowNumber: RelayAllowance.windowNumber(at: moment))
+        let visibleIDs = Set(records.prefix(visibleLimit).map(\.id))
+        return records.filter { visibleIDs.contains($0.id) || $0.endedAt >= windowStart }
+    }
+}
+
+/// What the bounded recent history adds up to.
+///
+/// These are deliberately not called lifetime totals: the twenty-first newer session removes the
+/// oldest record, and its time and bytes leave the summary with it.
+public struct SessionHistorySummary: Equatable, Sendable {
+    public let sessionCount: Int
+    public let connectedSeconds: TimeInterval
+    public let videoBytes: Int64
+
+    public init(records: [ClientSessionRecord]) {
+        let visible = records.prefix(SessionHistoryStore.visibleLimit)
+        sessionCount = visible.count
+        connectedSeconds = visible.reduce(0) { $0 + $1.connectedSeconds }
+        videoBytes = visible.reduce(0) { $0 + max(0, $1.videoBytesReceived) }
     }
 }

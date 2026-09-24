@@ -136,9 +136,7 @@ extension MacSession {
             model.sessionHistory.removeAll { $0.id == record.id }
         }
         model.sessionHistory.insert(record, at: 0)
-        if model.sessionHistory.count > 30 {
-            model.sessionHistory.removeLast(model.sessionHistory.count - 30)
-        }
+        model.sessionHistory = SessionHistoryStore.kept(model.sessionHistory)
         SessionHistoryStore.save(model.sessionHistory)
 
         activeSessionHistoryID = nil

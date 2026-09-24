@@ -41,6 +41,7 @@ final class PlanAccessTests: XCTestCase {
         .macros: .pro,
         .highBitrate: .pro,
         .mosaic: .pro,
+        .virtualDisplays: .pro,
     ]
 
     /// The row above, as a table, because that is how three of the four copies of this map are

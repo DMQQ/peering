@@ -28,13 +28,17 @@ private enum Screen: CaseIterable, Identifiable {
         }
     }
 
+    /// One weight for all five. `.macbook.and.iphone` and `server.rack` carry no filled variant —
+    /// they are composite device glyphs, not simple shapes — so outline is the one style every
+    /// symbol here actually has, and the other three are held to it rather than the reverse. Mixed,
+    /// the bar read as two icons that had not finished loading beside three that had.
     var symbol: String {
         switch self {
         case .connect: "macbook.and.iphone"
         case .servers: "server.rack"
-        case .sessions: "clock.fill"
-        case .faq: "questionmark.circle.fill"
-        case .settings: "gearshape.fill"
+        case .sessions: "clock"
+        case .faq: "questionmark.circle"
+        case .settings: "gearshape"
         }
     }
 }

@@ -403,11 +403,6 @@ extension SessionModel {
         return included
     }
 
-    var isPiPSupported: Bool { SessionPiP.isSupported }
-    var pipLastAttempt: String? { SessionPiP.shared.lastAttempt }
-    var pipLastRefusal: String? { SessionPiP.shared.lastRefusal }
-
-    func startPiP() { SessionPiP.shared.start() }
     func setPiPAutoStart(_ on: Bool) { SessionPiP.shared.autoStart = on }
 
     /// Called when the app is backgrounded with a session up.
@@ -469,7 +464,24 @@ extension SessionModel {
     }
 
     func enteringForeground() {
-        SessionActivity.shared.returningToForeground()
+        // If the card is still showing the Mac as dropped from the background timeout, and that
+        // Mac is already back within reach, jump straight to "reconnecting" instead of leaving
+        // "dropped" up for the round trip `resumeIfNeeded()` below is about to make. The check is
+        // ``reachability(ofHost:)``, the same one the picker's own dot reads, so the two agree the
+        // moment the app is back on screen rather than a beat later while the dial is in flight.
+        if let session = activeSession,
+           !session.phase.holdsSession,
+           !session.userEndedDeliberately,
+           let hostID = session.hostID,
+           reachability(ofHost: hostID).isReachable {
+            SessionActivity.shared.showReconnecting(
+                hostName: session.hostName ?? "the Mac",
+                startedAt: session.sessionStartedAt,
+                path: MacSession.activityPath(session.connectionPath)
+            )
+        } else {
+            SessionActivity.shared.returningToForeground()
+        }
         endBackgroundAssertion()
 
         // The App Store's answer, re-read before anything is armed from it again: a subscription that ran

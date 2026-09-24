@@ -26,8 +26,8 @@ extension HostStatusView {
             // something is live says more than a label that changes one word.
             HStack(alignment: .center, spacing: 14) {
                 Text(capturingTitle)
-                    .font(HostDisplayFont.display(26))
-                    .tracking(-0.4)
+                    .font(HostDisplayFont.display(21))
+                    .tracking(-0.3)
                     .lineLimit(1)
 
                 Spacer(minLength: 12)
@@ -120,11 +120,6 @@ extension HostStatusView {
     /// Whatever is actually being sent, and the display when nothing is — which is also what a
     /// connection captures until the client asks for something else, so the frame does not change
     /// shape the moment a stream starts.
-    /// The shape the frame should be.
-    ///
-    /// Whatever is actually being sent, and the display when nothing is — which is also what a
-    /// connection captures until the client asks for something else, so the frame does not change
-    /// shape the moment a stream starts.
     var previewAspect: CGFloat {
         if let preview, preview.height > 0 {
             return CGFloat(preview.width) / CGFloat(preview.height)
@@ -147,28 +142,11 @@ extension HostStatusView {
     /// legitimate thing to share, and its shape would otherwise ask for a frame taller than the
     /// window it is in — so past that the picture letterboxes instead, and the layout is not held
     /// hostage by the narrowest thing someone might have picked.
-    /// How tall the picture's frame is: as tall as the pane is wide, in the picture's own shape.
-    ///
-    /// A band of fixed height was the first thing this was, and it was wrong for the reason any
-    /// fixed frame around a variable picture is wrong — a Mac display is wider than it is tall by
-    /// half again, so a wide short band left a stripe of black down each side of the picture and a
-    /// wide window made the stripe wider instead of the picture larger. The frame takes the
-    /// picture's shape, and the picture fills it.
-    ///
-    /// Capped at 4:3, which is the one place the shape does not win. A single tall window is a
-    /// legitimate thing to share, and its shape would otherwise ask for a frame taller than the
-    /// window it is in — so past that the picture letterboxes instead, and the layout is not held
-    /// hostage by the narrowest thing someone might have picked.
     var previewHeight: CGFloat {
         let panel = max((paneWidth > 0 ? paneWidth : 1000) - Self.paneInset * 2, 320)
         return min(max(panel / previewAspect, 220), panel * 0.75)
     }
 
-    /// The picture itself, in a frame cut to its own shape.
-    ///
-    /// The letterbox is black because that is what the phone is being sent, so the two show the
-    /// same frame — and it should be visible only where the picture genuinely does not fill the
-    /// shape, which is the capped case above rather than every case.
     /// The picture itself, in a frame cut to its own shape.
     ///
     /// The letterbox is black because that is what the phone is being sent, so the two show the
@@ -246,8 +224,6 @@ extension HostStatusView {
         }
     }
 
-    /// The catalogue's name for the source where there is one, and a description of the state
-    /// where there is not — a bare display ID would be a worse answer than an honest sentence.
     /// The catalogue's name for the source where there is one, and a description of the state
     /// where there is not — a bare display ID would be a worse answer than an honest sentence.
     var capturingTitle: String {

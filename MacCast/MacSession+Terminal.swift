@@ -905,6 +905,13 @@ extension MacSession {
             selectedTerminalID = id
             append(note: message)
             model.notifier.terminalNeedsAttention(message, sessionID: id, macName: hostName)
+        case .commandFinished(let id, let command, let duration, _):
+            let named = command.map { "\u{201C}\($0)\u{201D}" }
+                ?? terminals.first(where: { $0.id == id }).map { "Terminal \u{201C}\($0.name)\u{201D}" }
+                ?? "Terminal"
+            let message = "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration))."
+            append(note: message)
+            model.notifier.terminalFinishedWork(message, sessionID: id, macName: hostName)
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].isRunning = false

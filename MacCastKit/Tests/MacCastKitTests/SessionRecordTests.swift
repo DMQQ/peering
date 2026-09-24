@@ -505,6 +505,59 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertTrue(halfASecondShort.wasInterrupted)
     }
 
+    // MARK: - Recent history
+
+    func testRecentHistoryKeepsTwentySessions() {
+        XCTAssertEqual(SessionHistoryStore.visibleLimit, 20)
+    }
+
+    func testOldRecentHistoryIsPrunedToTheVisibleTwenty() {
+        let now = Date(timeIntervalSince1970: 86_400 * 20_000 + 3_600)
+        let old = now.addingTimeInterval(-RelayAllowance.windowLength * 2)
+        let records = (0..<25).map { offset in
+            record(path: .lan, startedAt: old.addingTimeInterval(Double(offset)), duration: 1)
+        }
+
+        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 20)
+    }
+
+    func testHiddenSessionsInTheCurrentRelayWindowAreKeptForTheMeter() {
+        let now = Date(timeIntervalSince1970: 86_400 * 20_000 + 3_600)
+        let records = (0..<25).map { offset in
+            record(path: .relay, startedAt: now.addingTimeInterval(Double(-offset - 10)), duration: 1)
+        }
+
+        XCTAssertEqual(SessionHistoryStore.kept(records, at: now).count, 25)
+        XCTAssertEqual(SessionHistorySummary(records: records).sessionCount, 20)
+    }
+
+    func testRecentHistorySummaryAddsConnectedTimeAndVideoBytes() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let summary = SessionHistorySummary(records: [
+            record(
+                path: .lan,
+                startedAt: start,
+                duration: 3_600,
+                connectedSegments: [DateInterval(start: start, duration: 600)],
+                bytes: 1_500
+            ),
+            record(path: .relay, startedAt: start, duration: 300, bytes: 2_500),
+        ])
+
+        XCTAssertEqual(summary.sessionCount, 2)
+        XCTAssertEqual(summary.connectedSeconds, 900)
+        XCTAssertEqual(summary.videoBytes, 4_000)
+    }
+
+    func testRecentHistorySummaryDoesNotSubtractCorruptNegativeBytes() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let summary = SessionHistorySummary(records: [
+            record(path: .lan, startedAt: start, duration: 1, bytes: -100),
+        ])
+
+        XCTAssertEqual(summary.videoBytes, 0)
+    }
+
     // MARK: - The window
 
     /// The window is the relay's arithmetic and not a calendar's: epoch days, so the meter and

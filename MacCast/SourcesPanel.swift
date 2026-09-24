@@ -3,6 +3,19 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
+/// The shape a virtual display is made at when the phone asks for one with one tap.
+///
+/// A single fixed shape rather than a picker of sizes and starting orientations: choosing a
+/// panel size before you have even seen it is a decision nobody asked to make, and the size and
+/// orientation picker that used to sit in front of this row was the single most-skipped step in
+/// this feature, tapped past rather than filled in. A real iPhone panel size, the same one
+/// ``VirtualDisplay/phoneShaped`` defaults to, landscape — because a virtual display is worked at
+/// like a monitor, not held like a phone.
+private enum VirtualDisplaySizePreset {
+    static let portraitWidth = 1290
+    static let portraitHeight = 2796
+}
+
 /// What the Mac can be made to share, as a floating panel.
 ///
 /// The same list the sheet used to hold, rebuilt for a panel instead of a `List`. A `List` brings
@@ -36,6 +49,28 @@ struct SourcesPanel: View {
     /// is filled in reading order, so a tile's place is the place it was chosen in.
     @State private var picked: [CaptureSourceDescriptor] = []
 
+    /// The managed display an alert is asking a new name for, or `nil` when none is.
+    @State private var renameVirtualDisplayTarget: CaptureSourceDescriptor?
+    @State private var renameVirtualDisplayDraft = ""
+
+    /// Whether a tap on ``addVirtualDisplayButton`` is still waiting on the Mac.
+    ///
+    /// Making a display is not instant — the window server takes up to a few seconds, and the
+    /// host does not answer this command directly, only by the catalogue eventually growing a
+    /// new row. Without this, a tap that had already landed looked exactly like one that had not,
+    /// which is what taught a real person to tap it four more times.
+    @State private var isAddingVirtualDisplay = false
+    /// The managed displays a tap on their remove button is still waiting on, by descriptor ID.
+    /// A set rather than one flag, because more than one may be mid-removal at once.
+    @State private var pendingVirtualDisplayRemovalIDs: Set<String> = []
+
+    /// How long a pending add or remove is trusted before this panel gives up waiting and lets
+    /// the control be pressed again. Longer than the host's own confirmation retry (twelve tries,
+    /// half a second apart — see ``HostModel/confirmManagedDisplayThroughCatalogue(_:)``), so an
+    /// honest failure is reported by the Mac's own activity log before this spinner gives up on
+    /// it and invites a second attempt on top of the first.
+    private static let virtualDisplayPendingTimeout: Duration = .seconds(7)
+
     var body: some View {
         // **Everything scrolls, and only the picking controls are pinned.**
         //
@@ -63,6 +98,7 @@ struct SourcesPanel: View {
 
                 if let catalog = model.catalog, !catalog.all.isEmpty {
                     screensSection(catalog.displays)
+                    if !buildingMosaic { virtualDisplaysSection }
                     // **One section per application, with its windows under it.** The catalogue
                     // offers applications and windows as two flat lists, which is what the Mac
                     // can enumerate rather than what anybody is looking for: a Mac with ten
@@ -98,6 +134,20 @@ struct SourcesPanel: View {
         .padding(.horizontal, 10)
         .reportChromeFrame(.panel, into: $chromeFrames)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+        .alert("Rename display", isPresented: Binding(
+            get: { renameVirtualDisplayTarget != nil },
+            set: { if !$0 { renameVirtualDisplayTarget = nil } }
+        )) {
+            TextField("Name", text: $renameVirtualDisplayDraft)
+            Button("Save") {
+                let name = renameVirtualDisplayDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if case .display(let id) = renameVirtualDisplayTarget?.source, !name.isEmpty {
+                    model.send(.renameVirtualDisplay(displayID: id, name: name))
+                }
+                renameVirtualDisplayTarget = nil
+            }
+            Button("Cancel", role: .cancel) { renameVirtualDisplayTarget = nil }
+        }
     }
 
     private var searchField: some View {
@@ -158,6 +208,194 @@ struct SourcesPanel: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    /// Every display this Mac made in software, and the one way to add or remove more of them.
+    ///
+    /// **Its own labelled group, apart from ``screensSection(_:)``.** A display made this way
+    /// looks exactly like a real monitor everywhere else this panel draws one, and a phone with
+    /// no way to tell them apart is a phone asking "is that real" of every tile it does not
+    /// recognise. This heading is the answer: everything under it exists only in software,
+    /// whether the Mac's own switch made it or this phone did, and nothing outside it does.
+    ///
+    /// **The switch-made display is drawn here too, without a rename or remove control.** It is
+    /// free on every plan and is the Mac's own setting, not something this phone may reach into
+    /// — only the phone-managed displays under it carry both controls, and only adding another
+    /// one is what the plan gates. See ``VirtualDisplayManagementSupport``.
+    @ViewBuilder
+    private var virtualDisplaysSection: some View {
+        if ownedVirtualDisplay != nil || model.hostSupportsVirtualDisplayManagement {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    SectionLabel("Virtual Displays")
+                    Spacer()
+                    if model.hostSupportsVirtualDisplayManagement {
+                        PlanLocked(capability: .virtualDisplays, placement: .trailing) {
+                            addVirtualDisplayButton
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    if let ownedVirtualDisplay {
+                        virtualDisplayRow(ownedVirtualDisplay, removable: false)
+                    }
+                    ForEach(Array(managedVirtualDisplays.enumerated()), id: \.element.id) { index, descriptor in
+                        if index > 0 || ownedVirtualDisplay != nil { Controls.divider }
+                        virtualDisplayRow(descriptor, removable: true)
+                    }
+                }
+                .rowSurface()
+            }
+            // The honest signal that a pending add or remove actually landed: the catalogue
+            // changed shape. Clearing the spinners here rather than only on the timeout is what
+            // makes the ordinary case feel instant instead of always taking the full seven
+            // seconds.
+            .onChange(of: managedVirtualDisplays.count) { _, _ in isAddingVirtualDisplay = false }
+            .onChange(of: managedVirtualDisplays.map(\.id)) { _, ids in
+                pendingVirtualDisplayRemovalIDs.formIntersection(ids)
+            }
+        }
+    }
+
+    /// The Mac's own switch-made display, or `nil` while that switch is off. At most one of
+    /// these ever exists, unlike ``managedVirtualDisplays``.
+    private var ownedVirtualDisplay: CaptureSourceDescriptor? {
+        model.catalog?.displays.first { $0.isVirtualDisplay && !$0.isManagedVirtualDisplay }
+    }
+
+    /// The displays this feature may be asked to remove, in the catalogue's own order.
+    private var managedVirtualDisplays: [CaptureSourceDescriptor] {
+        model.catalog?.displays.filter(\.isManagedVirtualDisplay) ?? []
+    }
+
+    /// One row: tapping the picture or the name looks at that display, same as tapping any
+    /// screen's tile, and `removable` says whether this phone may also rename or take it away.
+    private func virtualDisplayRow(_ descriptor: CaptureSourceDescriptor, removable: Bool) -> some View {
+        let isLive = descriptor.id == model.activeSourceID
+        let isPendingRemoval = pendingVirtualDisplayRemovalIDs.contains(descriptor.id)
+
+        return HStack(spacing: 10) {
+            Button {
+                choose(descriptor)
+            } label: {
+                HStack(spacing: 10) {
+                    // The same picture a physical screen's tile shows, at row height rather than
+                    // tile height. A generic monitor glyph here was the other half of "why do
+                    // virtual displays look different from real ones" — the icon never changed
+                    // no matter what was actually on screen, so nothing here answered "is that
+                    // one still showing my desktop" the way every other row in this panel does.
+                    ZStack {
+                        ColorPalette.surface
+                        if let thumbnail = descriptor.thumbnail,
+                           let image = UIImage(data: thumbnail.jpegData) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        } else {
+                            Image(systemName: "display")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .frame(width: 40, height: 26)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(isLive ? ColorPalette.accent : ColorPalette.ink.opacity(0.18), lineWidth: isLive ? 1.5 : 1)
+                    }
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(descriptor.title)
+                            .font(.subheadline.weight(isLive ? .semibold : .medium))
+                            .foregroundStyle(isLive ? ColorPalette.accent : ColorPalette.ink)
+                        if let subtitle = descriptor.subtitle {
+                            Text(subtitle)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isPendingRemoval)
+            .opacity(isPendingRemoval ? 0.5 : 1)
+
+            if removable {
+                Button {
+                    renameVirtualDisplayDraft = descriptor.title
+                    renameVirtualDisplayTarget = descriptor
+                } label: {
+                    Image(systemName: "pencil.circle")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isPendingRemoval)
+                .accessibilityLabel("Rename \(descriptor.title)")
+
+                Button {
+                    guard case .display(let id) = descriptor.source else { return }
+                    pendingVirtualDisplayRemovalIDs.insert(descriptor.id)
+                    model.send(.removeVirtualDisplay(displayID: id))
+                    Task {
+                        try? await Task.sleep(for: Self.virtualDisplayPendingTimeout)
+                        pendingVirtualDisplayRemovalIDs.remove(descriptor.id)
+                    }
+                } label: {
+                    if isPendingRemoval {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .frame(width: 17, height: 17)
+                    } else {
+                        Image(systemName: "minus.circle")
+                            .font(.system(size: 17))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isPendingRemoval)
+                .accessibilityLabel(isPendingRemoval ? "Removing \(descriptor.title)" : "Remove \(descriptor.title)")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    /// One tap, one display, at a fixed phone-shaped landscape size — no picker in front of it.
+    /// See ``VirtualDisplaySizePreset``.
+    private var addVirtualDisplayButton: some View {
+        let atLimit = managedVirtualDisplays.count >= VirtualDisplayManagementSupport.maximumManagedDisplayCount
+        let disabled = atLimit || isAddingVirtualDisplay
+        return Button {
+            isAddingVirtualDisplay = true
+            model.send(.addVirtualDisplay(
+                name: "",
+                width: VirtualDisplaySizePreset.portraitWidth,
+                height: VirtualDisplaySizePreset.portraitHeight,
+                startLandscape: true
+            ))
+            Task {
+                try? await Task.sleep(for: Self.virtualDisplayPendingTimeout)
+                isAddingVirtualDisplay = false
+            }
+        } label: {
+            if isAddingVirtualDisplay {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 20, height: 20)
+            } else {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(atLimit ? Color.secondary : ColorPalette.accent)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .help(atLimit ? "Already at the limit of \(VirtualDisplayManagementSupport.maximumManagedDisplayCount) added displays" : "Add a display")
+        .accessibilityLabel(isAddingVirtualDisplay ? "Adding a display" : "Add a display")
     }
 
     /// The arrangement that is on screen: the way back to it, and the way to change it.
@@ -423,7 +661,13 @@ struct SourcesPanel: View {
     /// says which one it is in a way a photograph of one of its windows does not.
     @ViewBuilder
     private func screensSection(_ descriptors: [CaptureSourceDescriptor]) -> some View {
-        let matches = filtered(descriptors)
+        // Real screens only, apart from building a mosaic. A virtual display has its own
+        // labelled group in ``virtualDisplaysSection`` the rest of the time, so it does not also
+        // turn up here as an unmarked tile indistinguishable from a real monitor — but a mosaic
+        // is picked from tiles with a badge showing where each one landed, which that group does
+        // not draw, so excluding it there instead would have made a virtual display the one
+        // source in the app that cannot go into an arrangement.
+        let matches = filtered(descriptors).filter { buildingMosaic || !$0.isVirtualDisplay }
         if !matches.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel("Screens")

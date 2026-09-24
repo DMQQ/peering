@@ -72,11 +72,11 @@ public struct SSHConnectionRecord: Identifiable, Codable, Sendable, Hashable {
 /// The connection log, saved whole — the same JSON-blob-in-`UserDefaults` shape as the host list.
 ///
 /// The newest record is at the front, and the array is what gets drawn, so ``limit`` is the length
-/// of the list on screen as well as on disk. Fifty is several months for most people and is small
+/// of the list on screen as well as on disk. Twenty matches the remote-session history and is small
 /// enough that the blob stays a thing `UserDefaults` is the right home for.
 public struct SSHConnectionHistoryStore: Sendable {
     public static let key = "Peering.sshConnectionHistory"
-    public static let limit = 50
+    public static let limit = 20
 
     // `UserDefaults` is not `Sendable` — it is a mutable reference type — but it is
     // documented as thread-safe, and the alternative is dropping `Sendable` from a store whose
@@ -90,7 +90,10 @@ public struct SSHConnectionHistoryStore: Sendable {
     public func load() -> [SSHConnectionRecord] {
         guard let data = defaults.data(forKey: Self.key) else { return [] }
         do {
-            return try JSONDecoder().decode([SSHConnectionRecord].self, from: data)
+            let decoded = try JSONDecoder().decode([SSHConnectionRecord].self, from: data)
+            let kept = Array(decoded.prefix(Self.limit))
+            if kept.count != decoded.count { save(kept) }
+            return kept
         } catch {
             historyLog.error("could not read the SSH connection log: \(String(describing: error), privacy: .public)")
             return []

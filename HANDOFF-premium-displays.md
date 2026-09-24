@@ -1,5 +1,13 @@
 # Premium: multiple virtual displays
 
+> Update later on 24 September 2026: this feature is now implemented in the working tree. The
+> standalone `CaptureProbe --virtual-display --virtual-count 3` proof created three simultaneous
+> panels at 2796×1290, found all three in the ScreenCaptureKit catalogue, removed the first without
+> disturbing the other two, then removed the rest. The probe also disproved the serial-only idea
+> below: separate serials produced separate IDs but reset every panel to 800×600. The working
+> implementation gives every extra display a distinct product/serial pair and reapplies all chosen
+> modes after an add.
+
 Written 24 September 2026, at the end of a session that shipped two smaller things first and
 scoped this one without starting it. Read `CLAUDE.md` and `AGENTS.md` first.
 

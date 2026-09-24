@@ -87,14 +87,19 @@ extension SessionModel {
 
     /// What the finished sessions on this phone say about the direct path.
     ///
-    /// Read off ``sessionHistory`` alone, which is the store's own window: the last thirty sessions
-    /// this phone recorded, and no more. A session still up is not one of them — it has no record
-    /// yet, and its outcome is exactly the thing that is not yet known — so a punch that is working
+    /// Read off the visible twenty records. The store may retain extra current-day records for the
+    /// relay meter, but hidden quota bookkeeping must not quietly enlarge a statistic the list
+    /// beneath it cannot show. A session still up has no record yet, so a punch that is working
     /// right now shows up here when it ends rather than while it runs. The arithmetic, the
     /// denominator and what an empty history does are all in
     /// ``DirectPathSummary/init(over:)``, where they can be checked with no device.
     var directPathSummary: DirectPathSummary? {
-        DirectPathSummary(over: sessionHistory)
+        DirectPathSummary(over: Array(sessionHistory.prefix(SessionHistoryStore.visibleLimit)))
+    }
+
+    /// Count, connected time and video bytes over the same bounded list the Sessions tab shows.
+    var recentSessionSummary: SessionHistorySummary {
+        SessionHistorySummary(records: sessionHistory)
     }
 
     /// Which 24-hour window the relay is counting in: epoch seconds divided into days.

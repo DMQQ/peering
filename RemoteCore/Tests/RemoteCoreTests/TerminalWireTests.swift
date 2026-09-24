@@ -85,6 +85,7 @@ struct TerminalWireTests {
             .renamed(info),
             .output(sessionID: id, data: Data("ready\r\n".utf8)),
             .attention(sessionID: id, kind: .confirmation, message: "Terminal “Deploy” needs a response."),
+            .commandFinished(sessionID: id, command: "npm run build", duration: 65.5, exitStatus: 1),
             .exited(sessionID: id, status: 0),
             .closed(sessionID: id),
             .failed(sessionID: id, message: "Could not start the shell."),
