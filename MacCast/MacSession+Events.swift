@@ -38,6 +38,10 @@ extension MacSession {
                 case .stopAndShowFailure:
                     UserDefaults.standard.set(false, forKey: SessionModel.resumeKey)
                     shouldScheduleReconnect = false
+                    // Nothing will dial this Mac again, so it stops being one the app is putting
+                    // back. Left set, the failure would be shown under a header that went on saying
+                    // it was reconnecting, and the screen would never hand back to the picker.
+                    isComingBack = false
                 }
             }
             if phase.holdsSession {
@@ -290,7 +294,10 @@ extension MacSession {
                 // resumed one still has the mosaic's own id as its source.
                 let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
                 if !remembered.isEmpty {
-                    model.showMosaic(remembered)
+                    // Asked for, not remembered: this is the arrangement the store already holds,
+                    // thinned by what this catalogue can see, and writing the thinned version back
+                    // would lose a window to a catalogue that merely failed to list it.
+                    model.showMosaic(remembered, remembering: false)
                 } else if let source = model.sourceToRestore(hostID: hostID, catalog: catalog) {
                     // **After the arrangement, before the first display.** One source is the
                     // weaker statement of what an arrangement says: a Mac the user arranged is a
@@ -453,6 +460,9 @@ extension MacSession {
             // Only the labels belong on the main actor.
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
             isVideoStreaming = true
+            // A picture has been sent to this Mac's attempt, which is the fact the relay handover
+            // is allowed by, and it is sticky because a config is: see ``MacSession/hasHadPicture``.
+            hasHadPicture = true
             // The one place the picture on screen can turn out to be a different picture. This is
             // published rather than acted on: the zoom and the pan that have to answer to it live
             // in the screen, and ``PictureIdentity`` is the whole of what the screen needs to

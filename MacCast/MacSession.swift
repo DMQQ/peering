@@ -132,6 +132,14 @@ final class MacSession: Identifiable {
     /// True while the video channel is delivering frames (not ended/absent).
     var isVideoStreaming = false
 
+    /// Whether this Mac has been sent a picture at all, at any point in this attempt.
+    ///
+    /// Sticky, unlike ``isVideoStreaming``, and it is what a handover from the relay to the LAN is
+    /// allowed by: `isVideoStreaming` is false both before the first config and for a session whose
+    /// picture the user has paused, and only the first of those has nothing on screen to interrupt.
+    /// See ``SessionModel/apply(_:)``'s `.updated`.
+    var hasHadPicture = false
+
     /// Which channel the picture is arriving on. `.control` means the Mac's network is not letting
     /// video through and the session has fallen back. See ``VideoFallbackPolicy``.
     var videoTransport: VideoTransport = .primary
@@ -214,8 +222,12 @@ final class MacSession: Identifiable {
     /// two flags that answer it live in different places, and one of them is only true for the
     /// first moments of a dial. `.ready` is excluded by name because every other flag stays true
     /// through it: they describe an attempt, and an attempt that arrived is over.
+    /// The user's own word ends it, whoever else says otherwise: `isComingBack` is set when the
+    /// session is built and cleared only where a ladder runs out, so a Quit tapped while a Mac was
+    /// being put back left the session screen up saying it was reconnecting, the picker never came
+    /// back, and nothing on screen could be pressed to leave it.
     var isBeingPutBack: Bool {
-        guard phase != .ready else { return false }
+        guard phase != .ready, !userEndedDeliberately else { return false }
         return isResumingAfterDrop || isComingBack
     }
 
@@ -418,12 +430,21 @@ final class MacSession: Identifiable {
     }
 
     /// How wide the things in the arrangement are, which is what its tiles are shaped by.
+    var mosaicTileAspect: Double { tileAspect(for: mosaicChoices) }
+
+    /// The same, for an arrangement that is not the stored one yet.
+    ///
+    /// **The ask is built before ``mosaicChoices`` holds it**, so the shaping has to be a function of
+    /// the choices being asked for rather than of the ones being replaced. Read from the session
+    /// instead, a canvas for the same arrangement came out at a different shape depending on which
+    /// door asked: the panel and ``returnToMosaic()`` knew what the windows were, while a restore
+    /// after a reconnect used the fallback aspect, so the arrangement came back a different shape.
     ///
     /// The median of what the catalogue knows, and a window if it knows nothing: the median ignores
     /// the one odd window rather than being dragged by it, and sources the catalogue cannot describe
     /// are left out of the count rather than guessed at.
-    var mosaicTileAspect: Double {
-        let aspects = mosaicChoices
+    func tileAspect(for choices: [MosaicChoice]) -> Double {
+        let aspects = choices
             .compactMap { catalog?.descriptor(for: $0.source)?.pixelSize }
             .filter { $0.width > 0 && $0.height > 0 }
             .map { Double($0.width / $0.height) }

@@ -146,8 +146,22 @@ extension SessionModel {
 
     /// The same, keeping whatever sizes the tiles already had: adding or removing a window is not a reason
     /// to reset the arrangement's shape.
-    func showMosaic(_ choices: [MosaicChoice]) {
-        guard let layout = MosaicGrid.layout(choices: choices, viewport: mosaicViewport) else {
+    ///
+    /// - Parameter remembering: whether this ask is the user arranging something, or the app putting back
+    ///   what they arranged. A restore is the second, and it must not write what it thinned: it asks with an
+    ///   arrangement filtered by what the catalogue can see, and a window that a catalogue merely failed to
+    ///   list would then be gone from the store as well as from the picture.
+    func showMosaic(_ choices: [MosaicChoice], remembering: Bool = true) {
+        // **Shaped by the choices being asked for, not by the ones already on screen.** The canvas's
+        // aspect comes from how wide the arrangement's windows are, and reading that off the session
+        // meant a restore, which runs before the new choices are stored, shaped its canvas from the
+        // fallback instead. The same arrangement therefore came back a different shape from the one
+        // it was built at. See ``MacSession/tileAspect(for:)``.
+        guard let layout = MosaicGrid.layout(
+            choices: choices,
+            viewport: mosaicViewport,
+            tileAspect: activeSession?.tileAspect(for: choices) ?? MosaicGrid.windowAspect
+        ) else {
             return
         }
         // Anything held down on the Mac is let go first: what is on screen is about to be a picture with
@@ -161,7 +175,7 @@ extension SessionModel {
         // Remembered as the *choices*, not as the rectangles being sent to the Mac: an arrangement is a
         // place the user returns to, and the windows it was made of is what survives a restart and a
         // rotation. See ``MosaicArrangementStore``.
-        if let hostID = currentHostID {
+        if remembering, let hostID = currentHostID {
             MosaicArrangementStore.save(choices, hostID: hostID)
         }
         selectSource(.mosaic(layout))

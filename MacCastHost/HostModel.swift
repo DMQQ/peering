@@ -828,7 +828,11 @@ final class HostModel {
             // waiting for an application to launch. It is also the first read of the catalogue,
             // which is what needs Screen Recording permission: a refusal here is logged and ignored,
             // and the video path reports it properly if the client then asks for a source.
-            coordinator?.refreshCatalog()
+            //
+            // Immediate, because this client is not a change to the list: it is waiting to ask for
+            // the source it was last on, and the interval between pushes would hold that up for as
+            // long as three seconds while this Mac captures a display nobody asked for.
+            coordinator?.refreshCatalog(immediate: true)
             acquireSleepAssertion()
 
         case .clientDisconnected(let clientID, let clientName):

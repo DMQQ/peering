@@ -24,8 +24,15 @@ extension SessionModel {
             }
             // If we raced Bonjour on cold launch and lost, starting a relay session before the
             // local browser had time to find the Mac, switch to LAN as soon as it does appear,
-            // but only while the relay connection is still establishing. Once the session is
-            // carrying a picture, an interruption costs more than the relay does.
+            // but only while the relay has nothing on screen yet. Once the session is carrying a
+            // picture, an interruption costs more than the relay does.
+            //
+            // **"Nothing on screen yet" and not "still dialling", which is a couple of hundred
+            // milliseconds on a warm socket.** A browser that was suspended with the app usually
+            // finds the Mac *after* that, and a Mac that had been on this network the whole time was
+            // then left being reached over a relay in another country for the rest of the session.
+            // The interruption is what the rule is protecting, so the test is the picture: see
+            // ``MacSession/hasHadPicture``.
             //
             // **Replaced rather than dialled beside it, and that is a bug fix rather than a
             // tidy-up.** This is the same Mac met a moment later by a better route, not a second
@@ -37,9 +44,17 @@ extension SessionModel {
             // as a second-Mac paywall appearing while reconnecting to one Mac.
             if let session = activeSession,
                session.connectionPath == .relay,
-               session.phase != .ready,
+               session.phase != .ready || !session.hasHadPicture,
                let hostID = UserDefaults.standard.string(forKey: Self.lastHostIDKey),
                let host = hosts.first(where: { $0.id == hostID }) {
+                // **Marked as the app's own attempt, which nothing the user did asked for.** This
+                // dial hands a relay connection over to the LAN one, and without the flag the new
+                // session is a Mac being opened: the connecting card goes up over a session that is
+                // simply changing paths, and the picker shows underneath it while the phase is
+                // `idle`. See ``MacSession/isComingBack``, which is what carries the flag the rest
+                // of the way, and the cold-launch restoration, which is the other dial with this
+                // shape.
+                isResuming = true
                 reconnect(session, to: .discovered(host))
             }
             self.resumeIfNeeded()

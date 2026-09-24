@@ -497,9 +497,42 @@ extension SessionModel {
         // in a suspended process, so starting one now is the difference between a list that is there when
         // the user looks and one that fills in several seconds later.
         if browseFailed { restartBrowsing() }
+
+        // **A moment for the local network to answer before the ladder leaves for the relay.** Bonjour
+        // is the only thing that can say whether this Mac is on this network, and it is the one answer a
+        // spell in the background spoils: the browser is suspended with the app and its daemon connection
+        // can die, so a resume that goes out the instant the app is back finds no Macs, dials the relay,
+        // and is then handed over to the LAN a beat later, which costs the picture twice. Paid only when
+        // a session names a Mac the list does not have, which is exactly the case that would have gone to
+        // the relay anyway, so a Mac that is already visible resumes without waiting.
+        let waitingForALocalMac = sessions.contains { session in
+            guard let hostID = session.hostID else { return false }
+            return !hosts.contains { $0.id == hostID }
+        }
+        guard waitingForALocalMac else {
+            resumeEveryMac()
+            return
+        }
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(Self.localMacGrace))
+            guard let self else { return }
+            self.resumeEveryMac()
+        }
+    }
+
+    /// How long the local network is given to name a Mac before the relay is dialled. See
+    /// ``enteringForeground()``.
+    private static let localMacGrace = 900
+
+    /// Puts every Mac back, and repaints the picture that came with it.
+    ///
+    /// Split out of ``enteringForeground()`` so that the wait above can sit in front of it: what it
+    /// does is the same either way. See ``MacSession/resumeWithoutWaiting()`` for why a rung already
+    /// running is cut short first.
+    private func resumeEveryMac() {
         // **The ladder's pending wait is cut short before it is consulted.** A Mac partway through a
         // rung would otherwise spend the rest of it in front of the user, waiting for time that has
-        // already passed. See ``MacSession/resumeWithoutWaiting()``.
+        // already passed.
         for session in sessions { session.resumeWithoutWaiting() }
         resumeIfNeeded()
         // The layer's contents do not survive the background and the host sends nothing new for a Mac

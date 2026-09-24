@@ -391,8 +391,17 @@ final class VideoCoordinator: @unchecked Sendable {
     }
 
     /// How long a freshly attached client is given to say what it wants before this Mac picks
-    /// for it. About a round trip, which is what the phone's ask costs.
-    private static let firstAskGrace = Duration.milliseconds(250)
+    /// for it.
+    ///
+    /// A round trip was the whole of this number, and a round trip is not the whole of the wait:
+    /// the phone asks from what the catalogue names, so its ask goes out a round trip *after* that
+    /// list arrives, and the list costs an enumeration and a screen's worth of icons to build. A
+    /// quarter of a second therefore lost the race on every connection whose ask has any distance
+    /// to travel, which is visible as a desktop appearing first and being replaced.
+    ///
+    /// Paid by a client that asks for nothing, which is one that has never chosen a source, and
+    /// paid once per video connection. See ``ensureCapturing()``.
+    private static let firstAskGrace = Duration.seconds(1)
 
     private func scheduleEnsureCapturingLocked(generation: UInt64) {
         scheduleLifecycleLocked { [weak self] in
@@ -471,11 +480,16 @@ final class VideoCoordinator: @unchecked Sendable {
 /// a full enumeration of the Mac's applications, its windows and its desktops, with a screenshot of
 /// every Space in it, on the same machine that is compositing the picture. The last request is always
 /// honoured, so nothing genuinely asked for is skipped.
-    func refreshCatalog() {
+///
+/// - Parameter immediate: skip the interval, for the one caller that is not a change to the list but
+///   a client with none: see ``HostModel``'s `.clientConnected`. A client waits on this list before
+///   it can ask for the source it was last on, and the interval was holding that up for up to three
+///   seconds, which is how a desktop came to appear before the arrangement the phone had asked for.
+    func refreshCatalog(immediate: Bool = false) {
         lock.withLock {
             guard pendingCatalogPush == nil else { return }
             let since = lastCatalogPushAt.map { Date().timeIntervalSince($0) } ?? .infinity
-            let wait = max(0, Self.catalogPushInterval - since)
+            let wait = immediate ? 0 : max(0, Self.catalogPushInterval - since)
             pendingCatalogPush = Task { [weak self] in
                 if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
                 guard let self else { return }
