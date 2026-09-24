@@ -384,7 +384,10 @@ final class HostSession: @unchecked Sendable {
             // Same terms once more. The failure this prevents lands when somebody opens the Apps
             // panel, an ordinary thing to do, and it would end the session rather than show a grid
             // of names.
-            supportsSourceThumbnails: true
+            supportsSourceThumbnails: true,
+            // Same terms once more: a virtual display rotates only for a client that has said it
+            // will report its orientation, so an older phone gets the display shape it always had.
+            supportsDeviceOrientation: true
         ))
 
         if alreadyPaired {

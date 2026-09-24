@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import IOKit.pwr_mgt
 import Observation
@@ -9,19 +10,15 @@ import os
 /// Host diagnostics, visible with:
 /// `log stream --predicate 'subsystem == "pl.dmq.peering.host"'`
 ///
-/// The window is not always reachable — a headless run, a background launch, a user who
-/// cannot see the screen — and every failure mode in this app is silent by nature. Logging
-/// to the unified log means "the client connected but nothing happened" is answerable
-/// without a debugger.
+/// The window is not always reachable and every failure mode in this app is silent by nature, so
+/// the unified log is where "the client connected but nothing happened" is answerable.
 private let hostLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
 
 /// Main-actor state for the host window.
 ///
 /// The networking layer knows nothing about SwiftUI and emits ``HostEvent`` values from a
-/// background queue; this type is the single place those cross back to the main actor.
-/// Keeping that hop in one file means the session state machine never has to reason about
-/// actor isolation, and there is exactly one `Task { @MainActor }` to audit rather than a
-/// scattering of them.
+/// background queue; this type is the single place those cross back to the main actor, so the
+/// session state machine never has to reason about actor isolation.
 @MainActor
 @Observable
 final class HostModel {
@@ -54,15 +51,13 @@ final class HostModel {
     }
     private(set) var pairedClientIDs: [String] = []
 
-    // Held while at least one client is connected. Released when the last client disconnects.
-    // The display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
+    // Held while at least one client is connected, released when the last one disconnects: the
+    // display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
     private var sleepAssertionID: IOPMAssertionID = 0
 
-    // The assertion that keeps the Mac up on its own, with no permission prompt. It is *not* the
-    // lid-close switch, whatever its name says: `PreventSystemSleep` is the type `caffeinate -s`
-    // takes, and macOS reads a closed lid on a different path entirely. See
-    // ``setKeepRunningWithLidClosed(_:)`` for the one that does survive a shut lid, and what it
-    // costs, and the `MARK: - Sleep prevention` note below for why this half stayed free.
+    // The assertion that keeps the Mac up on its own, with no permission prompt. It is not the
+    // lid-close switch, whatever the name says: `PreventSystemSleep` is what `caffeinate -s` takes,
+    // and macOS reads a closed lid on a different path. See ``setKeepRunningWithLidClosed(_:)``.
     private var lidSleepAssertionID: IOPMAssertionID = 0
     private var preferenceDisplaySleepAssertionID: IOPMAssertionID = 0
     private(set) var preventLidCloseSleep: Bool = UserDefaults.standard.bool(forKey: "preventLidCloseSleep")
@@ -71,39 +66,34 @@ final class HostModel {
     ///
     /// A second switch rather than a stronger version of the one above, because the two are
     /// different promises at different prices: one holds an assertion that costs nothing and dies
-    /// with this process, the other changes a machine setting through an administrator rule. One
-    /// control for both would take a password for the half that never needed one, and would bury
-    /// the price of the half that does.
+    /// with this process, the other changes a machine setting through an administrator rule.
     private static let keepRunningWithLidClosedKey = "keepRunningWithLidClosed"
 
     /// The key that records that it was *this app* that ran `pmset -a disablesleep 1`.
     ///
-    /// The distinction the whole recovery path rests on. `disablesleep` is a machine setting and
-    /// not an assertion: it outlives this process and it outlives a crash, so a host that dies
-    /// while this switch is on leaves behind a laptop that will not sleep in a bag. Nothing on the
-    /// machine records who set it, so if this app is to undo its own work without undoing somebody
-    /// else's, it has to have written the fact down first.
+    /// `disablesleep` is a machine setting, not an assertion: it outlives this process and a crash,
+    /// so a host that dies with the switch on leaves a laptop that will not sleep in a bag. Nothing
+    /// on the machine records who set it, so undoing this app's own work without undoing somebody
+    /// else's means having written that fact down first.
     private static let sleepDisabledByThisAppKey = "sleepDisabledByThisApp"
 
     /// Whether the user wants this Mac to stay up with its lid shut.
     ///
-    /// The intention, not the reading. What the machine is actually doing is `SleepDisabled` in
-    /// `pmset -g`, and the two can disagree after a crash, which is what
-    /// ``adoptLidCloseSleepSetting()`` exists to repair.
+    /// The intention, not the reading. What the machine is doing is `SleepDisabled` in `pmset -g`,
+    /// and the two disagree after a crash, which ``adoptLidCloseSleepSetting()`` repairs.
     private(set) var keepRunningWithLidClosed =
         UserDefaults.standard.bool(forKey: HostModel.keepRunningWithLidClosedKey)
 
     /// Whether `/etc/sudoers.d/peering-sleep` is doing its job, as `sudo` reports it.
     ///
     /// Nil until it has been asked, and nil again when `sudo` will not list at all, which the row
-    /// treats as not knowing rather than as not installed: the two lead to different advice, and
-    /// only one of them is worth asking for a password over.
+    /// treats as not knowing rather than as not installed: the two lead to different advice.
     private(set) var lidCloseRuleInstalled: Bool?
 
     /// Whether an administrator prompt or a process is in flight for that row.
     ///
-    /// The switch cannot move until the person in front of the password dialog has answered, and a
-    /// control that ignores a click reads as broken, so the row draws this instead of the switch.
+    /// The switch cannot move until the person at the password dialog has answered, and a control
+    /// that ignores a click reads as broken, so the row draws this instead.
     private(set) var lidCloseBusy = false
 
     /// What went wrong the last time that row was used, until the next attempt.
@@ -111,20 +101,16 @@ final class HostModel {
 
     /// What `pmset -g` last said, or `nil` before it has been read.
     ///
-    /// Kept apart from ``keepRunningWithLidClosed`` because the two answer different questions. That
-    /// one is what the user asked for and this one is what the machine is doing, and the whole
-    /// reason the recovery code exists is that they come apart: a crash, a force quit, a hand edit
-    /// of `/etc/sudoers.d` or somebody else's `pmset` all leave one true and the other false. The
-    /// row reads both, so "switched on and not in force" can be said out loud instead of being a
-    /// Mac that quietly will not sleep.
+    /// Kept apart from ``keepRunningWithLidClosed``, which is what the user asked for. The two come
+    /// apart after a crash, a force quit, a hand edit of `/etc/sudoers.d` or somebody else's
+    /// `pmset`, and the row reads both so "switched on and not in force" can be said out loud.
     private(set) var lidCloseSystemState: LidCloseSleep.SleepDisabledState?
 
     /// The one thing this app does before a window exists.
     ///
-    /// The lid-close check is here rather than in ``start()``, which runs when the window is
-    /// opened, because the Mac this matters on is the one nobody is looking at: it was set to open
-    /// at login and left in a corner, with its window closed. The launch that follows a crash is
-    /// exactly that launch.
+    /// The lid-close check is here rather than in ``start()``, which runs when the window opens,
+    /// because the Mac this matters on is the one nobody is looking at: set to open at login, left
+    /// in a corner with its window closed. The launch after a crash is exactly that launch.
     init() {
         Task { await adoptLidCloseSleepSetting() }
         startResourceSampling()
@@ -132,27 +118,25 @@ final class HostModel {
 
     /// Whether a given trusted device is attached right now.
     ///
-    /// Matched on the ID, which is the only thing the two lists have in common. The name is the
-    /// client's to choose, two devices can present the same one, and comparing it against a list
-    /// of IDs is a question that is always false — which is how a connected iPhone came to read
-    /// as merely "Trusted".
+    /// Matched on the ID, the only thing the two lists have in common. The name is the client's to
+    /// choose and two devices can present the same one, so comparing a name against a list of IDs
+    /// is a question that is always false.
     func isConnected(_ id: String) -> Bool {
         connectedClients.contains { $0.id == id }
     }
     /// Everything the host has said, newest last.
     ///
-    /// Kept as entries rather than as formatted lines so the window can show when each thing
-    /// happened and which of them went wrong, and can hand the whole list over in one copy.
+    /// Entries rather than formatted lines, so the window can show when each thing happened and
+    /// which of them went wrong.
     private(set) var log: [HostLogEntry] = []
 
     let permissions = Permissions()
 
-    /// Owned here and driven from two places at once, which is why it is a `@unchecked
-    /// Sendable` type with its own lock rather than main-actor state: commands arrive on the
-    /// network queue (see the `onCommand` wiring in ``start()``), while the input transform
-    /// is written from wherever the coordinator reports one, and the teardown release runs
-    /// on the main actor. Hopping either one to the other would put pointer events behind
-    /// SwiftUI or the whole UI behind a command queue, so the isolation lives in the type.
+    /// Driven from two places at once, which is why it is `@unchecked Sendable` with its own lock
+    /// rather than main-actor state: commands arrive on the network queue (see the `onCommand`
+    /// wiring in ``start()``), the input transform is written from wherever the coordinator reports
+    /// one, and the teardown release runs on the main actor. Hopping either to the other would put
+    /// pointer events behind SwiftUI or the UI behind a command queue.
     private let input = InputInjector()
 
     /// Physical display brightness is separate from the captured pixels, which is what lets the
@@ -162,22 +146,21 @@ final class HostModel {
 
     /// The capture source the client last asked for.
     ///
-    /// Cleared once the switch has been applied, and deliberately left set when it failed —
-    /// a rejected switch means the client and the host now disagree about what is on screen,
-    /// and the window is the only place that disagreement can be seen.
+    /// Cleared once the switch has been applied, and deliberately left set when it failed: a
+    /// rejected switch means the client and the host disagree about what is on screen, and the
+    /// window is the only place that disagreement can be seen.
     private(set) var pendingCaptureSource: CaptureSource?
 
     /// What is actually being streamed, once a switch has been applied.
     ///
-    /// The answer to the question someone sitting at the Mac asks first: *what can they see?*
-    /// ``pendingCaptureSource`` above is the ask rather than the answer — it is cleared on
-    /// success and left set on failure, which makes it useful for spotting a disagreement and
-    /// useless for saying what is on screen.
+    /// ``pendingCaptureSource`` above is the ask rather than the answer, cleared on success and
+    /// left set on failure, which makes it useful for spotting a disagreement and useless for
+    /// saying what is on screen.
     private(set) var capturingSource: CaptureSource?
 
-    /// The last catalogue the resolver built, kept so a source can be named rather than shown
-    /// as a number. A ``CaptureSource`` is a display ID or a pid; "DELL P2212H" is the thing a
-    /// person recognizes.
+    /// The last catalogue the resolver built, kept so a source can be named rather than shown as a
+    /// number: a ``CaptureSource`` is a display ID or a pid, and "DELL P2212H" is what a person
+    /// recognizes.
     private(set) var catalog: CaptureCatalog?
 
     /// The display name of what is being captured, if the catalogue can name it.
@@ -188,35 +171,27 @@ final class HostModel {
 
     /// Everything this app has put on the network since it started, picture and sound.
     ///
-    /// A counter rather than a rate, because a rate is a subtraction between two readings and
-    /// the resources panel is where that subtraction happens: see `ResourceMeter`, which is
-    /// where it is tested. `nil` before there is a coordinator at all, which is a different
-    /// answer from a coordinator that has sent nothing: the first is "this app is not hosting
-    /// yet", the second is a zero the panel can print.
+    /// A counter rather than a rate: the subtraction that makes a rate is `ResourceMeter`'s, where
+    /// it is tested. `nil` before there is a coordinator at all, which is a different answer from a
+    /// coordinator that has sent nothing: the first is "this app is not hosting yet", the second is
+    /// a zero the panel can print.
     var streamedBytes: UInt64? {
         guard let stats = coordinator?.streamStatistics else { return nil }
-        // The two are counted separately because they are different kinds of traffic, and added
-        // here because a user asking what this app sends is asking about the total. Widened on
-        // the way out: the streamer counts in `Int`, and a byte count that has reached the
-        // panel is a byte count with a sign it does not want.
+        // Counted separately because they are different kinds of traffic, added here because a user
+        // asking what this app sends means the total. Widened on the way out: the streamer counts
+        // in `Int`, and a byte count that has reached the panel is one with a sign it does not want.
         return UInt64(max(0, stats.bytesSent + stats.audioBytesSent))
     }
 
     /// What this app is costing the Mac, for the menu's readings.
     ///
-    /// **On the model rather than on the window it used to be read in**, because the menu is where
-    /// these are read now and a menu bar app is usually run with its window closed. It is sampled
-    /// on a timer from the moment the app launches, which is the one place this differs from the
-    /// panel it replaces: that sampled only while its card was on screen, and a menu cannot do the
-    /// same thing, because a rate is a difference between two readings — sampling when the menu
-    /// opens would show nothing at all the first time and a figure for the interval since the last
-    /// time somebody looked on the second.
-    ///
-    /// The cost of always sampling is the one the sampler's own note describes: two syscalls and
-    /// a subtraction every two seconds, next to an encoder that is producing sixty frames of it.
+    /// On the model rather than the window, because the menu is where these are read now and a menu
+    /// bar app usually runs with its window closed. Sampled on a timer from launch because a rate is
+    /// a difference between two readings: sampling when the menu opens would show nothing the first
+    /// time and the whole interval since somebody last looked on the second.
     var resources = HostResourceSampler()
 
-    /// Keeps ``resources`` current. Started once, and never stopped: an app that is not hosting is
+    /// Keeps ``resources`` current. Started once and never stopped: an app that is not hosting is
     /// still an app somebody may open the menu to ask about, and "nothing measurable" is a real
     /// answer that a blank row is not.
     private func startResourceSampling() {
@@ -231,14 +206,9 @@ final class HostModel {
 
     /// The last name each device gave when it connected.
     ///
-    /// A trusted device is stored as a pin, and a pin is a public key — there is no name in it.
-    /// The name arrives with a connection and is gone when it ends, so without keeping it the
-    /// device list can only offer an ID for anything not attached right now, and an ID is not
-    /// something anyone recognises as their phone.
-    ///
-    /// Persisted, because the case this exists for is the device that is *not* here: a list
-    /// that only names devices while they are connected has forgotten the name by the time it
-    /// is needed.
+    /// A pin is a public key and carries no name, and the name arrives with a connection and goes
+    /// when it ends, so without keeping it the device list can only offer an ID for anything not
+    /// attached right now. Persisted, because the case this is for is the device that is *not* here.
     private(set) var clientNames: [String: String] =
         UserDefaults.standard.dictionary(forKey: HostModel.clientNamesKey) as? [String: String] ?? [:]
 
@@ -251,19 +221,16 @@ final class HostModel {
 
     /// A still of what is being streamed, for the window's preview.
     ///
-    /// `nil` when nothing is being captured. That is the honest answer rather than the last
-    /// picture taken — a window still showing a frame from ten minutes ago would be claiming
-    /// the phone can see something it cannot.
-    ///
-    /// The caller decides how often to ask, because the caller is the view: a window that is
-    /// closed, or behind another one, has no business taking screenshots of this Mac.
+    /// `nil` when nothing is being captured: the honest answer rather than the last picture taken,
+    /// since a window still showing a frame from ten minutes ago would claim the phone can see
+    /// something it cannot. The caller decides how often to ask, because the caller is the view.
     func snapshot(maxWidth: Int = 640) async -> CGImage? {
         await coordinator?.snapshot(maxWidth: maxWidth)
     }
 
-    /// Capture, encode and send. Deliberately not main-actor bound — see ``VideoCoordinator``.
-    /// Nil until the first client opens a video connection, because building one touches the
-    /// capture catalogue, which needs Screen Recording permission.
+    /// Capture, encode and send. Deliberately not main-actor bound. Nil until the first client opens
+    /// a video connection, because building one touches the capture catalogue, which needs Screen
+    /// Recording permission.
     private var coordinator: VideoCoordinator?
 
     /// Runs while at least one client is attached. See ``startScreenWatch()``.
@@ -271,9 +238,8 @@ final class HostModel {
 
     /// The capture problem the attached clients have already been told about.
     ///
-    /// Held so the same one is not announced twice. A denied Screen Recording grant fails again
-    /// on every attempt to start a stream, and a phone told the same thing four times is a phone
-    /// whose notices get ignored. See ``announceCaptureProblem(_:)``.
+    /// Held so the same one is not announced twice: a denied Screen Recording grant fails again on
+    /// every attempt to start a stream, and a phone told the same thing four times ignores it.
     private var announcedCaptureProblem: String?
 
     private var server: HostServer?
@@ -281,21 +247,18 @@ final class HostModel {
 
     /// What the test button in Settings last had to say, shown beside it.
     ///
-    /// **Because the question it answers is "does this work at all", and the answer here is only
-    /// ever half of it.** A registered token means a phone handed one over while a session was up;
-    /// without one there is nothing to send to, which is the likeliest reason nothing has ever
-    /// arrived. Whether the relay then reached APNs is not visible from this Mac at any price: the
-    /// relay holds the key and answers nothing.
+    /// Only half the answer to "does this work at all": a registered token means a phone handed one
+    /// over while a session was up, and whether the relay then reached APNs is not visible from this
+    /// Mac at any price, since the relay holds the key and answers nothing.
     private(set) var pushTestResult: String?
 
     /// Sends the same banner the terminal attention path sends, on purpose.
     @discardableResult
     func sendTestPush() -> String {
-        // **`registeredPushTokens` and not `allPushTokens`.** The second leaves out every phone
-        // that is connected, because a terminal needing attention is told to a connected phone over
-        // the session rather than pushed to it, so asking it here answered "no device" every time
-        // the person pressing the button had the phone in their hand. Which is the whole of why
-        // this button appeared to say the feature had never worked.
+        // `registeredPushTokens` and not `allPushTokens`: the second leaves out every connected
+        // phone, because a terminal needing attention is told to a connected phone over the session
+        // rather than pushed, so asking it here answers "no device" whenever the person pressing the
+        // button has the phone in their hand.
         let tokens = server?.registeredPushTokens() ?? []
         guard !tokens.isEmpty else {
             let message = "No device has registered a token with this Mac. Connect the phone once with this build installed."
@@ -325,8 +288,8 @@ final class HostModel {
     private var identity: SelfSignedIdentity?
     private var spaceObserver: NSObjectProtocol?
 
-    /// A visible tail of what has happened. Bounded because this is a status window, not a
-    /// log viewer, and an unbounded array in `@Observable` state re-renders forever.
+    /// A visible tail of what has happened. Bounded because this is a status window, not a log
+    /// viewer, and an unbounded array in `@Observable` state re-renders forever.
     private static let maxEvents = 60
 
     // MARK: - Port
@@ -335,9 +298,9 @@ final class HostModel {
 
     /// The port this Mac listens on.
     ///
-    /// Read once at launch and written when it changes, because a Mac that needs a different
-    /// port needs it every time rather than once. Out of range or unset falls back to the
-    /// default, so a bad value in the defaults store cannot leave the host unable to start.
+    /// Read once at launch and written when it changes, because a Mac that needs a different port
+    /// needs it every time. Out of range or unset falls back to the default, so a bad value in the
+    /// defaults store cannot leave the host unable to start.
     private static func storedPort() -> UInt16 {
         let stored = UserDefaults.standard.integer(forKey: portKey)
         guard let port = UInt16(exactly: stored), port > 0 else { return ProtocolInfo.defaultPort }
@@ -346,8 +309,8 @@ final class HostModel {
 
     /// What the menu bar icon should be showing.
     ///
-    /// Computed here rather than in the scene, for the reason the scene already gives: an
-    /// `@Observable` read inside `MenuBarExtra`'s label is what invalidates it.
+    /// Computed here rather than in the scene: an `@Observable` read inside `MenuBarExtra`'s label
+    /// is what invalidates it.
     var menuBarState: HostMenuBarState {
         guard permissions.allRequiredGranted else { return .setupRequired }
         guard status.isListening else { return .stopped }
@@ -360,8 +323,8 @@ final class HostModel {
 
     /// The port that is actually bound, once there is one.
     ///
-    /// Preferred over ``port`` for anything shown to the user: the two are the same while the
-    /// listener is up, and while it is down the configured value is a claim about the future.
+    /// Preferred over ``port`` for anything shown to the user: the two agree while the listener is
+    /// up, and while it is down the configured value is a claim about the future.
     var boundPort: UInt16 {
         if case .listening(let bound) = status { return bound }
         return port
@@ -401,27 +364,23 @@ final class HostModel {
     /// Everything that has to happen on the way out, including the half of the lid-close switch
     /// that makes it safe to have.
     ///
-    /// **The restore is why this exists at all now.** `pmset -a disablesleep 1` is a machine
-    /// setting: it outlives this process, so a Mac whose owner turned it on and then quit the app
-    /// would be a Mac that never sleeps again, with nothing on screen to say why. The restore runs
-    /// only when this app is the one that set it, so a machine whose sleep was disabled by
-    /// something else is left exactly as it was found; that test, and the marker it reads, are
-    /// explained on ``sleepDisabledByThisAppKey``.
+    /// `pmset -a disablesleep 1` is a machine setting and outlives this process, so a Mac whose
+    /// owner turned it on and quit the app would never sleep again with nothing on screen to say
+    /// why. The restore runs only when this app set it, so a machine disabled by something else is
+    /// left as it was found; see ``sleepDisabledByThisAppKey``.
     ///
-    /// Synchronous, and it stays that way: the process is going away, so there is no later in
-    /// which to finish an `await`, and the command it runs either has the right to run or fails in
-    /// milliseconds without asking anything. See ``LidCloseSleepControl/restoreSleepSilently()``.
+    /// Synchronous, and it stays that way: the process is going away, so there is no later in which
+    /// to finish an `await`.
     func prepareForTermination() {
         publishHostWidgetState(listening: false)
         // First, because it is the one thing here that changes the user's Mac in a way they would
-        // have to repair from outside this app: everything below is a setting being put back, and
-        // this is a monitor being taken away. The window server does collect a virtual display
-        // when the process holding it dies (measured on macOS 27, by killing one), but that is an
-        // undocumented courtesy of a private API, and the one outcome worth spending a few
-        // hundred milliseconds to not depend on.
+        // have to repair from outside this app: everything below is a setting being put back, this
+        // is a monitor being taken away. The window server does collect a virtual display when the
+        // process dies, but that is an undocumented courtesy of a private API and not worth
+        // depending on.
         removeVirtualDisplay()
-        // Cancelled before the restore rather than after, so a check that is already in flight
-        // cannot land on a model that is on its way out and put the switch back on.
+        // Cancelled before the restore rather than after, so a check already in flight cannot land
+        // on a model that is on its way out and put the switch back on.
         batteryWatchdog?.cancel()
         batteryWatchdog = nil
         restoreSleepDisabledIfOurs()
@@ -430,16 +389,15 @@ final class HostModel {
     /// Puts the machine back to sleeping normally, if it was this app that stopped it.
     ///
     /// A failure here leaves the marker in place on purpose: the setting is still on, and the next
-    /// launch is the next chance to undo it. The case that produces one is the rule having been
-    /// taken away by hand, which is also the case where nothing else could have undone it.
+    /// launch is the next chance to undo it.
     private func restoreSleepDisabledIfOurs() {
         guard UserDefaults.standard.bool(forKey: Self.sleepDisabledByThisAppKey) else { return }
         switch LidCloseSleepControl.restoreSleepSilently() {
         case .done:
             UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
         case .failed(let message):
-            // Straight to the unified log rather than through ``record(_:level:)``: the window is
-            // closing, and an entry appended to a list nobody will read is not a diagnostic.
+            // Straight to the unified log rather than ``record(_:level:)``: the window is closing
+            // and an entry in a list nobody will read is not a diagnostic.
             hostLog.notice("could not restore lid-close sleep on quit: \(message, privacy: .public)")
         case .cancelled:
             break
@@ -449,9 +407,9 @@ final class HostModel {
     /// Changes the port, and restarts the listener if one is running.
     ///
     /// A restart rather than a rebind, because there is no rebinding: the port is fixed when the
-    /// listener is created. It is a heavy way to change one number — the capture stream and every
-    /// connected device go with it — but the alternative is a host that reports one port and
-    /// listens on another, which is worse in every way that matters.
+    /// listener is created. Heavy for one number, since the capture stream and every connected
+    /// device go with it, but the alternative is a host that reports one port and listens on
+    /// another.
     func setPort(_ newPort: UInt16) {
         guard newPort != port, newPort > 0 else { return }
         port = newPort
@@ -468,15 +426,12 @@ final class HostModel {
     private static let captureFrameRateKey = "captureFrameRate"
     private static let captureCodecKey = "captureCodec"
 
-    /// What the picture is made of: how many pixels a frame carries, and how many frames a
-    /// second.
+    /// What the picture is made of: how many pixels a frame carries, and how many frames a second.
     ///
-    /// Both are stored the way ``storedPointerSize()`` is, with a value this version cannot
-    /// read falling back to the default rather than to the other case — a key written by some
-    /// later build must not be able to leave the stream smaller or slower than anyone chose.
-    /// The frame rate needs no absence check the way ``storedEnlargePointer()`` does:
-    /// `integer(forKey:)` answers 0 for a key that was never written, and 0 is not a rate any
-    /// stream can be built at, so the two cases cannot be confused.
+    /// A value this version cannot read falls back to the default rather than to the other case, so
+    /// a key written by a later build cannot leave the stream smaller or slower than anyone chose.
+    /// The frame rate needs no absence check: `integer(forKey:)` answers 0 for a key never written,
+    /// and 0 is not a rate any stream can be built at.
     private static func storedCaptureResolution() -> CaptureResolution {
         UserDefaults.standard.string(forKey: captureResolutionKey)
             .flatMap { CaptureResolution(rawValue: $0) } ?? .full
@@ -497,11 +452,9 @@ final class HostModel {
 
     /// These take effect on the next stream, not on the one already running.
     ///
-    /// Not a shortcut, and the rows in the window say as much: a surface's size and its frame
-    /// interval are fixed when the `SCStream` is built, so a capture already in flight cannot
-    /// be changed — it can only be replaced, which would drop the picture and cost a keyframe
-    /// for a setting the user is still deciding on. There is no safe in-place change for these
-    /// two properties: both define the capture and encoder timelines.
+    /// A surface's size and its frame interval are fixed when the `SCStream` is built, so a capture
+    /// in flight can only be replaced, which would drop the picture and cost a keyframe for a
+    /// setting the user is still deciding on. Both define the capture and encoder timelines.
     func setCaptureResolution(_ resolution: CaptureResolution) {
         captureResolution = resolution
         UserDefaults.standard.set(resolution.rawValue, forKey: Self.captureResolutionKey)
@@ -522,11 +475,9 @@ final class HostModel {
 
     /// Hands the pair to the coordinator, which reads them when a capture starts.
     ///
-    /// Silent while nothing is listening, which is the ordinary case rather than a failure:
-    /// the values live in the stored properties above, and ``start()`` gives a coordinator
-    /// built afterwards both of them. Written as one call for that reason — a coordinator
-    /// that had been told one half of the pair would build the next stream out of two
-    /// different moments.
+    /// Silent while nothing is listening, which is ordinary rather than a failure: the values live
+    /// in the stored properties above and ``start()`` gives a coordinator built afterwards both.
+    /// Written as one call so a coordinator cannot build the next stream out of two moments.
     private func applyCaptureFormat() {
         coordinator?.setCaptureFormat(resolution: captureResolution, frameRate: captureFrameRate)
     }
@@ -537,11 +488,9 @@ final class HostModel {
 
     /// Whether this Mac is showing the phone-shaped display that exists only in software.
     ///
-    /// Stored, because it is a change to the user's Mac rather than to a session: the display
-    /// comes back at the next launch if it was on at the last one, exactly as the switch says.
-    /// There is no case where the switch is on and the display is not: a failed creation turns the
-    /// switch back off and says why, because a monitor the user cannot see and a switch that
-    /// claims it is there are worse than either on its own.
+    /// Stored, because it is a change to the user's Mac rather than to a session: the display comes
+    /// back at the next launch if it was on at the last. There is no case where the switch is on
+    /// and the display is not: a failed creation turns it back off and says why.
     private(set) var virtualDisplayEnabled = UserDefaults.standard.bool(forKey: HostModel.virtualDisplayKey)
 
     /// Why the last attempt failed, if it did, for the row to show.
@@ -549,7 +498,7 @@ final class HostModel {
 
     /// Whether this Mac's system software has the API at all.
     ///
-    /// Read by the row so the switch can be offered as off-and-unavailable rather than thrown and
+    /// Read by the row so the switch is offered as off-and-unavailable rather than thrown and
     /// failing, and by ``start()`` so a Mac that never had it does not try at every launch.
     var canShowVirtualDisplay: Bool { VirtualDisplay.isAvailable }
 
@@ -560,33 +509,41 @@ final class HostModel {
 
     /// The display this host made, held for as long as it should exist.
     ///
-    /// **The model is the owner, and that is the whole teardown design.** The display goes away
-    /// when the last reference to it does, so everything that has to take it down (the switch,
-    /// Stop, quitting, and a process that dies without either) comes down to this property
-    /// reaching `nil` or the process ending. Keeping it anywhere else (a view, a task, a static)
-    /// would be a monitor the user cannot get rid of.
+    /// The model is the owner and that is the teardown design: the display goes away when the last
+    /// reference to it does, so every path that has to take it down (the switch, Stop, quitting, a
+    /// process that dies without either) comes down to this property reaching `nil`. Keeping it
+    /// anywhere else would be a monitor the user cannot get rid of.
     private var virtualDisplay: VirtualDisplay?
+
+    /// Whether a display is being made right now.
+    ///
+    /// The wait inside ``VirtualDisplay`` turns the main run loop, so a second click can arrive
+    /// while the first display is still being made. The window server refuses a second display with
+    /// the same vendor, product and serial outright ("no displayID available"), so that click has
+    /// to be dropped rather than attempted.
+    private var isMakingVirtualDisplay = false
 
     /// Turns the phone-shaped display on or off, at the user's request.
     ///
-    /// Synchronous, and deliberately: the display arrives in well under a second and the row's
-    /// switch has to end up where the display actually is, not where it was asked to be. The
-    /// only thing that makes this slow enough to notice is the wait for the window server to
-    /// take the display, which is bounded at three seconds by ``VirtualDisplay``.
+    /// Synchronous, and deliberately: the row's switch has to end up where the display actually is,
+    /// not where it was asked to be. The only thing slow enough to notice is the wait for the
+    /// window server to take the display, bounded at three seconds by ``VirtualDisplay``. The one
+    /// part that is not synchronous is confirming a display this process cannot see, which asks the
+    /// catalogue rather than guess; see ``confirmThroughCatalogue(_:)``.
     func setVirtualDisplay(_ wanted: Bool) {
-        guard wanted != virtualDisplayEnabled else { return }
+        guard wanted != virtualDisplayEnabled, !isMakingVirtualDisplay else { return }
 
         guard wanted else {
-            // The switch stays on if the display would not leave, and the row says why. A switch
-            // that reads off over a monitor that is still on screen is the one lie this row is
-            // arranged to make impossible, and it is the state the user cannot get out of.
+            // The switch stays on if the display would not leave, and the row says why: a switch
+            // that reads off over a monitor still on screen is the one lie this row exists to make
+            // impossible, and it is the state the user cannot get out of.
             guard removeVirtualDisplay() else { return }
             virtualDisplayFailure = nil
             virtualDisplayEnabled = false
             UserDefaults.standard.set(false, forKey: Self.virtualDisplayKey)
             record("Phone display removed")
-            // The catalogue is what the phone's picker is drawn from, and a source that is gone
-            // has to leave it as visibly as it arrived.
+            // The catalogue is what the phone's picker is drawn from, and a source that is gone has
+            // to leave it as visibly as it arrived.
             coordinator?.refreshCatalog()
             return
         }
@@ -598,10 +555,12 @@ final class HostModel {
             return
         }
 
+        isMakingVirtualDisplay = true
+        defer { isMakingVirtualDisplay = false }
         do {
             let display = try VirtualDisplay()
-            // Stored before anything else can fail, so a display that is on screen is one the
-            // model can always take away again.
+            // Stored before anything else can fail, so a display on screen is one the model can
+            // always take away again.
             virtualDisplay = display
             virtualDisplayEnabled = true
             virtualDisplayFailure = nil
@@ -611,6 +570,9 @@ final class HostModel {
                 \(virtualDisplaySize) · pick it on the iPhone to arrange windows on
                 """)
             coordinator?.refreshCatalog()
+            // The window server took it, so it is on this Mac either way. What the display list
+            // could not say is whether the phone can be shown it.
+            if !display.appearedInList { confirmThroughCatalogue(display) }
         } catch {
             virtualDisplay = nil
             virtualDisplayEnabled = false
@@ -621,16 +583,52 @@ final class HostModel {
         }
     }
 
+    /// Asks the capture catalogue whether the phone can actually be offered a display.
+    ///
+    /// The catalogue and not this process's own display list, because the catalogue is what the
+    /// picker on the iPhone is drawn from. The window server creates and enables the display while
+    /// `CGGetActiveDisplayList` reports only the built-in panel for the whole wait (see
+    /// ``VirtualDisplay/appearedInList``), so a list that disagrees is not evidence of nothing. A
+    /// display the catalogue never offers is one this row must not claim.
+    ///
+    /// ScreenCaptureKit is slow to notice a panel that did not exist a moment ago, so this polls.
+    /// A confirmation that lands after the user has toggled again finds a different display and
+    /// does nothing.
+    private func confirmThroughCatalogue(_ display: VirtualDisplay) {
+        let id = display.displayID
+        Task { @MainActor [weak self] in
+            for _ in 0..<12 {
+                guard let self, self.virtualDisplay?.displayID == id else { return }
+                if self.catalog?.descriptor(for: .display(id)) != nil { return }
+                self.coordinator?.refreshCatalog()
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            guard let self, self.virtualDisplay?.displayID == id else { return }
+            let message = """
+                The display is on this Mac, but the capture catalogue does not offer it, so the \
+                phone cannot pick it.
+                """
+            self.record("Phone display is not offered to the phone · \(message)", level: .failure)
+            // The switch has to end up where the display is, and a monitor the phone cannot be
+            // shown is one this row promised and cannot deliver. Removal can itself fail, in which
+            // case the switch stays on and the row says that instead.
+            self.virtualDisplayFailure = message
+            if self.removeVirtualDisplay() {
+                self.virtualDisplayEnabled = false
+                UserDefaults.standard.set(false, forKey: Self.virtualDisplayKey)
+                self.coordinator?.refreshCatalog()
+            }
+        }
+    }
+
     /// Takes the display away before the process does, and reports whether it went.
     ///
-    /// Called from the switch, from Stop, and from the termination hook, because a display that
+    /// Called from the switch, from Stop and from the termination hook, because a display that
     /// outlives the app is the one failure of this feature the user cannot repair from inside it.
-    /// The wait is inside ``VirtualDisplay/remove()``; at quit there is time for it, and the
-    /// alternative is a phantom monitor.
     ///
-    /// **Kept rather than dropped when it will not leave.** This property is the app's only handle
-    /// on the display, so forgetting a display that is still on screen would be forgetting the
-    /// monitor the user is looking at, which is the one thing here that cannot be undone.
+    /// Kept rather than dropped when it will not leave: this property is the app's only handle on
+    /// the display, so forgetting one that is still on screen would be forgetting the monitor the
+    /// user is looking at.
     @discardableResult
     private func removeVirtualDisplay() -> Bool {
         guard let display = virtualDisplay else { return true }
@@ -647,15 +645,15 @@ final class HostModel {
 
     func start() {
         guard server == nil else { return }
-        // There is no useful partial host. Without Screen Recording the client receives no
-        // picture; without Accessibility its input is silently discarded. The root onboarding
-        // owns requesting both grants and calls back here only when they are actually present.
+        // There is no useful partial host: without Screen Recording the client receives no picture,
+        // without Accessibility its input is silently discarded. Onboarding requests both and calls
+        // back here only when they are present.
         guard permissions.allRequiredGranted else {
             status = .idle
             return
         }
-        // Before anything opens a session of its own: whatever is in the store at this moment
-        // was left by the last process. See ``adoptAbandonedSessions()``.
+        // Before anything opens a session of its own: whatever is in the store at this moment was
+        // left by the last process. See ``adoptAbandonedSessions()``.
         adoptAbandonedSessions()
         status = .starting
         if preventLidCloseSleep {
@@ -685,27 +683,20 @@ final class HostModel {
         record("Identity ready · key \(identity.publicKeyBytes.count) bytes")
 
         // Until something is being captured there is no captured surface to map into, so the
-        // pointer is mapped against the display the user is actually looking at. That is a
-        // reasonable guess rather than a placeholder: it is exactly right for display
-        // capture, which is what a client gets if it never picks a source.
+        // pointer is mapped against the display the user is looking at. That is exactly right for
+        // display capture, which is what a client gets if it never picks a source.
         input.transform = DisplayGeometry.activeTransform()
 
-        // Built here but not started. Constructing a pipeline only stores the resolver —
-        // reading the catalogue is what needs permission, and that happens on the first
-        // video connection.
+        // Built here but not started: constructing a pipeline only stores the resolver, and reading
+        // the catalogue is what needs permission, which happens on the first video connection.
         //
-        // The resolver is handed an invalidation callback that reaches the coordinator built
-        // below it. Going through `self` rather than capturing the coordinator directly is
-        // what makes that possible without a placeholder: the callback fires on whatever
-        // thread observed the notification, and this is the same main-actor hop every other
-        // callback in this method already takes.
-        // Re-push the catalog when the user switches Spaces so the client's Space picker
-        // updates immediately instead of waiting for the next app launch/quit.
-        //
-        // This push is about the *number* the picker highlights, which has to follow the user
-        // as they move. The picture of the desktop they arrive on is taken by the resolver on
-        // its own schedule — it has to wait for the switch to finish on screen — and it pushes
-        // a second, updated catalogue once it has one. Neither push can stand in for the other.
+        // The resolver's invalidation callback reaches the coordinator built below it, going through
+        // `self` because the callback fires on whatever thread observed the notification and this is
+        // the same main-actor hop every other callback here takes.
+        // Re-push the catalog when the user switches Spaces, so the number the client's Space picker
+        // highlights follows them. The picture of the desktop they arrive on is taken by the
+        // resolver on its own schedule, once the switch has finished on screen, and pushes a second
+        // catalogue. Neither push stands in for the other.
         let spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil,
@@ -720,11 +711,10 @@ final class HostModel {
         }
         let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec)
         let coordinator = VideoCoordinator(pipeline: pipeline)
-        // Before any capture can start — the first video connection may arrive seconds from
-        // now, and a coordinator that had not been told would build the first stream of the
-        // session out of its own defaults and quietly disagree with the window. The setters
-        // cannot do this from here: they go through ``applyCaptureFormat()``, which writes to
-        // the property below, and this coordinator is not that property yet.
+        // Before any capture can start: the first video connection may arrive seconds from now, and
+        // a coordinator not told would build the first stream of the session from its own defaults.
+        // The setters cannot do it from here, since they write to the property below and this
+        // coordinator is not that property yet.
         coordinator.setCaptureFormat(
             resolution: captureResolution,
             frameRate: captureFrameRate
@@ -747,15 +737,14 @@ final class HostModel {
             }
         }
         coordinator.onInputTransform = { [weak self] transform in
-            // Written straight through rather than hopped to the main actor: `input` is not
-            // UI state, and its `transform` is lock-guarded for exactly this reason.
+            // Straight through, not hopped to the main actor: `input` is not UI state and its
+            // `transform` is lock-guarded for exactly this.
             guard let transform else { return }
             self?.input.transform = transform
         }
-        // The same value, from the only observer that sees it change. For an application or a
-        // window this is the authoritative answer — the one above is built from geometry read
-        // when capture started, and a window dragged two seconds later has moved since. See
-        // ``CapturePipeline/inputTransform()``, which asks the callers to prefer this.
+        // The same value from the only observer that sees it change. For an application or a window
+        // this is the authoritative answer: the one above is built from geometry read when capture
+        // started, and a window dragged two seconds later has moved since.
         coordinator.onGeometry = { [weak self] geometry in
             guard let transform = geometry.inputTransform else { return }
             self?.input.transform = transform
@@ -770,42 +759,39 @@ final class HostModel {
             Task { @MainActor [weak self] in self?.apply(event) }
         }
 
-        // The server has already established that a live authorized control session holds
-        // this client's key — that check is the only thing standing between an open port and
-        // the user's screen, and it is not repeated here.
+        // The server has already established that a live authorized control session holds this
+        // client's key. That check is the only thing between an open port and the user's screen,
+        // and it is not repeated here.
         server.onVideoConnection = { [weak coordinator] peer in
             coordinator?.handleVideoConnection(peer)
         }
 
         // A client whose picture is not arriving asks for it on the control channel, and that
-        // request has to reach the pipeline along with the connection it arrived on. Straight
-        // through, off the main actor: deciding it is a question about sockets and an encoder,
-        // and hoisting it to the actor that draws the window would only put it behind the
-        // window. See ``VideoCoordinator/setVideoTransport(_:clientKey:controlPeer:)``.
+        // request has to reach the pipeline with the connection it arrived on. Straight through,
+        // off the main actor: deciding it is a question about sockets and an encoder.
         server.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
             coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)
         }
 
-        // And the same shape for the relay's datagram path: the session's request comes with
-        // the client's key and the allocation the relay handed over, and the answer is the
-        // secret that seals what goes on it — or nil, which the session turns into silence and
-        // the client reads as "the picture stays where it is".
+        // The same shape for the relay's datagram path: the request comes with the client's key and
+        // the allocation the relay handed over, and the answer is the secret that seals what goes on
+        // it, or nil, which the session turns into silence and the client reads as "the picture stays
+        // where it is".
         server.onVideoKeyRequest = { [weak coordinator] clientKey, relay in
             coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay)
         }
 
-        // And the picture's on/off switch, which is the same shape once more: straight through,
-        // off the main actor, because it is a decision about a socket and an encoder. Nothing
-        // here ends a session, so a client that asks for no frames keeps its control channel,
-        // its shells and the sleep assertion this Mac holds while it is connected, and only the
-        // frames stop. See ``VideoCoordinator/setVideoEnabled(_:clientKey:)``.
+        // And the picture's on/off switch, the same shape once more: straight through, off the main
+        // actor, because it is a decision about a socket and an encoder. Nothing here ends a session,
+        // so a client that asks for no frames keeps its control channel, its shells and the sleep
+        // assertion this Mac holds while it is connected, and only the frames stop.
         server.onVideoEnabled = { [weak coordinator] clientKey, enabled in
             coordinator?.setVideoEnabled(enabled, clientKey: clientKey)
         }
 
-        // `input` is captured directly rather than reached through `self`, and deliberately
-        // so: injecting a mouse move is not UI work, and hopping to the main actor would put
-        // every pointer event behind whatever SwiftUI happens to be doing.
+        // `input` is captured directly rather than reached through `self`: injecting a mouse move is
+        // not UI work, and hopping to the main actor would put every pointer event behind whatever
+        // SwiftUI happens to be doing.
         let input = self.input
         server.onCommand = { [weak self] command in
             if case .setCaptureSource(let source) = command {
@@ -821,13 +807,17 @@ final class HostModel {
                 }
                 return
             }
+            if case .reportDeviceOrientation(let isLandscape) = command {
+                Task { @MainActor [weak self] in
+                    self?.applyDeviceOrientation(isLandscape: isLandscape)
+                }
+                return
+            }
             if case .switchToSpace(let display, let index) = command {
                 Task { @MainActor [weak self] in
-                    // The result used to be discarded. `performSwitch` returns whether the
-                    // window server *accepted* the move, and that is the whole difference
-                    // between a tile that works and one that silently does nothing — the two
-                    // are indistinguishable from the phone, and were indistinguishable from
-                    // here as well.
+                    // `performSwitch` returns whether the window server *accepted* the move, which
+                    // is the whole difference between a tile that works and one that silently does
+                    // nothing. The two are indistinguishable from the phone.
                     let switched = switchToSpace(display: display, index: index)
                     self?.record(
                         switched
@@ -849,15 +839,14 @@ final class HostModel {
                 return
             }
             if case .refreshSpacePreviews = command {
-                // Not hopped to the main actor: the capture is the resolver's own work on its
-                // own queue, and the only main-actor thing in it is reading the Space lists,
-                // which it does itself. `setStreamQuality` above is the same shape.
+                // Not hopped to the main actor: the capture is the resolver's own work on its own
+                // queue, and the only main-actor part, reading the Space lists, it does itself.
                 coordinator.refreshSpacePreviews()
                 return
             }
             if case .refreshSourceThumbnails = command {
-                // The same shape again: the screenshots are taken on the resolver's own tasks
-                // and the answer travels on the catalogue push, so nothing here waits.
+                // The same shape: the screenshots are taken on the resolver's own tasks and the
+                // answer travels on the catalogue push, so nothing here waits.
                 coordinator.refreshSourceThumbnails()
                 return
             }
@@ -868,8 +857,7 @@ final class HostModel {
             if case .lockScreen = command {
                 Task { @MainActor in
                     let src = CGEventSource(stateID: .hidSystemState)
-                    // `Q` is keycode 12. 0x19 is `L`, which made the remote lock action
-                    // appear to do nothing while the rest of the command path was healthy.
+                    // Keycode 12 is `Q`. 0x19 is `L`, which is silently not the lock shortcut.
                     let down = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: true)
                     let up   = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: false)
                     down?.flags = [.maskCommand, .maskControl]
@@ -880,24 +868,22 @@ final class HostModel {
                 }
                 return
             }
-            // **A mosaic takes no input, and this is where that is true.** Every other source
-            // is something a click can mean on; a canvas is not, because which machine
-            // coordinate a point means depends on which tile it landed in, and that is decided
-            // by the app rather than posted at the Mac. The client sends nothing while a canvas
-            // is up, so this is the belt to that brace: a stray input would otherwise be placed
-            // through the last single-source transform, which is a click on a window nobody is
-            // looking at. Selecting a tile is an ordinary source switch, and input works again
-            // the moment that arrives.
+            // A mosaic takes no input. Every other source is something a click can mean on; a
+            // canvas is not, because which machine coordinate a point means depends on which tile
+            // it landed in, and the app decides that rather than posting it at the Mac. The client
+            // sends nothing while a canvas is up, so this is the belt to that brace: a stray input
+            // would otherwise be placed through the last single-source transform, a click on a
+            // window nobody is looking at. Selecting a tile is an ordinary source switch.
             if command.isUserInput, coordinator.isShowingMosaic {
                 return
             }
             input.perform(command)
         }
 
-        // **The reading is asked of the pasteboard rather than of one type on it**, because only
-        // this end can find out whether what was copied is a picture or a line of text, and the
-        // answer decides how it travels. Both callbacks hop to the main thread: `NSPasteboard` is
-        // not safe from anywhere else, and the session's own queue is not it.
+        // The reading is asked of the pasteboard rather than of one type on it, because only this
+        // end can find out whether what was copied is a picture or a line of text, and the answer
+        // decides how it travels. Both hop to the main thread: `NSPasteboard` is not safe from
+        // anywhere else, and the session's queue is not the main thread.
         server.onRequestClipboard = {
             DispatchQueue.main.sync { ClipboardPasteboard.read() }
         }
@@ -926,10 +912,10 @@ final class HostModel {
             let watcher = NativeTerminalWatcher()
             watcher.onAttention = { [weak server, weak registration] message in
                 let tokens = server?.allPushTokens() ?? []
-                // **The one line that answers "why did nothing arrive".** A terminal watched from
-                // outside has no session channel to be told over: the only way this reaches the
-                // phone is a token the phone handed over while a session was up, and with none
-                // there is nothing to send to and nothing on screen to say so.
+                // The line that answers "why did nothing arrive": a terminal watched from outside
+                // has no session channel to be told over, so the only way this reaches the phone is
+                // a token handed over while a session was up. With none there is nothing to send to
+                // and nothing on screen to say so.
                 if tokens.isEmpty {
                     hostLog.notice("a terminal needs the user and no device token is registered: \(message, privacy: .public)")
                 }
@@ -946,20 +932,17 @@ final class HostModel {
             self.server = nil
         }
 
-        // Last, deliberately. The display takes a few hundred milliseconds to appear and this
-        // waits for it, and nothing above is waiting on the display: a client that connects during
-        // those milliseconds is served a catalogue without it and pushed a second one when it
-        // arrives, which is the path a display made by hand takes as well.
+        // Last, deliberately: the display takes a few hundred milliseconds to appear and this waits
+        // for it, and nothing above is waiting on the display. A client that connects during those
+        // milliseconds is served a catalogue without it and pushed a second one when it arrives.
         restoreVirtualDisplay()
     }
 
     /// Brings back the phone-shaped display if the switch was on when this Mac was last quit.
     ///
-    /// Two lines rather than one because the switch is turned off first: ``setVirtualDisplay(_:)``
-    /// refuses a request that matches the state it already believes, and at this point the belief
-    /// comes from `UserDefaults` while the display itself is known not to exist. Turning the flag
-    /// off first is what makes this a request to *show* the display rather than a no-op, and it
-    /// leaves the two in step if that request fails.
+    /// The switch is turned off first, because ``setVirtualDisplay(_:)`` refuses a request matching
+    /// the state it already believes and at this point the belief comes from `UserDefaults` while
+    /// the display is known not to exist. That is what makes this a request to *show* it.
     private func restoreVirtualDisplay() {
         guard virtualDisplayEnabled, virtualDisplay == nil else { return }
         virtualDisplayEnabled = false
@@ -967,15 +950,14 @@ final class HostModel {
     }
 
     func stop() {
-        // Before the listener goes, while the reason is still on screen. Stopping is the
-        // one disconnect that is not the client's doing, so a modifier it was holding when
-        // the user pressed Stop is exactly as stuck as one held by a client that crashed.
-        // The sessions cancelled below may or may not report a disconnect of their own
-        // depending on how far their handshake had got, so this does not wait on them.
+        // Before the listener goes, while the reason is still on screen. Stopping is the one
+        // disconnect that is not the client's doing, so a modifier held when the user pressed Stop
+        // is exactly as stuck as one held by a client that crashed. The sessions cancelled below
+        // may or may not report a disconnect of their own, so this does not wait on them.
         input.releaseAll()
         setPrivacyMode(false)
-        // Before the listener goes, and before the process can outlive it: a stopped host that
-        // has left a monitor behind is the one state the user cannot repair from the window.
+        // Before the listener goes, and before the process can outlive it: a stopped host that has
+        // left a monitor behind is the one state the user cannot repair from the window.
         removeVirtualDisplay()
         server?.stop()
         server = nil
@@ -994,17 +976,15 @@ final class HostModel {
 
     /// Switches what is being captured, at the client's request.
     ///
-    /// The switch happens inside the coordinator: the capture stream is rebuilt for the new
-    /// source while the video connection is left alone, so the client sees a new config and
-    /// keyframe rather than a reconnect. See ``VideoCoordinator/switchSource(_:)`` for why
-    /// the stream is rebuilt instead of having its filter swapped in place. Because the new
-    /// source is looked up at switch time, one that has since disappeared fails here rather
-    /// than at connection time, which is why the failure names the source.
+    /// The stream is rebuilt for the new source while the video connection is left alone, so the
+    /// client sees a new config and keyframe rather than a reconnect. The new source is looked up
+    /// at switch time, so one that has since disappeared fails here rather than at connection time,
+    /// which is why the failure names the source.
     private func applyCaptureSource(_ source: CaptureSource) {
         guard let coordinator else {
-            // Nothing is being captured, so there is nothing to switch. The request is kept
-            // so the window shows what the client last asked for; a client that has not
-            // opened a video connection yet will get the default source, not this one.
+            // Nothing is being captured, so there is nothing to switch. The request is kept so the
+            // window shows what the client last asked for; a client that has not opened a video
+            // connection yet gets the default source, not this one.
             record("Capture source requested before any video connection")
             return
         }
@@ -1013,8 +993,8 @@ final class HostModel {
             do {
                 try await coordinator.switchSource(source)
                 self?.pendingCaptureSource = nil
-                // After the switch rather than before: raising an app whose capture then
-                // fails would bring the wrong thing forward and leave it there.
+                // After the switch rather than before: raising an app whose capture then fails
+                // would bring the wrong thing forward and leave it there.
                 self?.raiseApplication(for: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
@@ -1023,26 +1003,36 @@ final class HostModel {
         }
     }
 
-    /// Brings a captured application to the front, so that what the client sees and where its
-    /// clicks land are the same thing.
+    /// Rotates the virtual display to match the phone, and rebuilds the stream at the new size
+    /// when that display is the one currently on screen.
     ///
-    /// Capturing an application is not the same as controlling it, and the gap between the two
-    /// is invisible from the client. ScreenCaptureKit composites the app's *windows*; for a
-    /// single-window app, `desktopIndependentWindow` captures that window's content exactly, with
-    /// no backdrop and no regard for what is drawn over it. So the client sees the app whether it
-    /// is occluded, minimised, or on another Space. Input does not work that way: every event goes
-    /// to the HID tap, where the window server hit-tests the *real* screen and hands the click to
-    /// whatever is genuinely at those coordinates. The user therefore sees the app, clicks where
-    /// it appears to be, and hits whatever is actually on top of it — the app looks painted on
-    /// rather than present.
+    /// ``VirtualDisplay/setOrientation(landscape:)`` only ever switches a `CGDisplayMode`, which
+    /// is not something ``VideoCoordinator`` watches for on its own: the display-added/removed
+    /// notification its catalogue listens for does not distinguish a mode switch from nothing
+    /// happening at all. So the same source is asked for again, through the exact path a client's
+    /// own tap on a Sources tile takes, which is what makes the stream re-read the display's now
+    /// different pixel size rather than go on encoding the shape it started with.
+    private func applyDeviceOrientation(isLandscape: Bool) {
+        guard let virtualDisplay, virtualDisplay.setOrientation(landscape: isLandscape) else { return }
+        if case .display(let id) = capturingSource, id == virtualDisplay.displayID {
+            applyCaptureSource(.display(id))
+        }
+    }
+
+    /// Brings a captured application to the front, so what the client sees and where its clicks
+    /// land are the same thing.
+    ///
+    /// Capturing an application is not controlling it, and the gap is invisible from the client.
+    /// ScreenCaptureKit composites the app's *windows*, so the client sees the app whether it is
+    /// occluded, minimised or on another Space. Input goes to the HID tap, where the window server
+    /// hit-tests the real screen and hands the click to whatever is genuinely at those coordinates.
+    /// The user sees the app, clicks where it appears to be, and hits whatever is on top of it.
     ///
     /// `.activateAllWindows` rather than a plain activation, because ``InputTransform`` for an
-    /// application is the union of *every* window it owns: raising only the main one would leave
-    /// the transform describing a box that is still partly behind something else.
+    /// application is the union of every window it owns.
     ///
-    /// The cost is real and worth stating: this moves the app in front of whatever the Mac's own
-    /// user was doing, and switches Spaces if its windows are elsewhere. That is what anyone
-    /// sitting at the Mac would have to do to use it as well.
+    /// The cost: this moves the app in front of whatever the Mac's own user was doing, and switches
+    /// Spaces if its windows are elsewhere.
     private func raiseApplication(for source: CaptureSource) {
         guard case .application(let pid) = source,
               let running = NSRunningApplication(processIdentifier: pid)
@@ -1051,8 +1041,8 @@ final class HostModel {
         running.activate(options: [.activateAllWindows])
     }
 
-    /// Opens a GUI application by the bundle identifier offered in the catalogue, then
-    /// follows it into application capture. Executable paths never cross the network.
+    /// Opens a GUI application by the bundle identifier offered in the catalogue, then follows it
+    /// into application capture. Executable paths never cross the network.
     private func launchApplication(bundleIdentifier: String) {
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-")
         guard !bundleIdentifier.isEmpty,
@@ -1067,10 +1057,18 @@ final class HostModel {
         if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
             .first(where: { $0.activationPolicy == .regular }) {
             running.activate()
-            switchToLaunchedApplication(running)
+            let target = launchTargetDisplayID
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let target {
+                    await self.relocateLaunchedApplication(running, toDisplay: target)
+                }
+                self.switchToLaunchedApplication(running)
+            }
             return
         }
 
+        let target = launchTargetDisplayID
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { [weak self] application, error in
@@ -1086,9 +1084,84 @@ final class HostModel {
                 }
                 self.record("Opened \(application.localizedName ?? bundleIdentifier)")
                 self.coordinator?.refreshCatalog()
+                if let target {
+                    await self.relocateLaunchedApplication(application, toDisplay: target)
+                }
                 self.switchToLaunchedApplication(application)
             }
         }
+    }
+
+    /// The display a freshly launched app's windows should land on: the one the client is
+    /// currently looking at, so the app picker never hands back a window on a desktop the phone
+    /// cannot see. `NSWorkspace` has no notion of "the client's display" — left alone, a launch
+    /// opens onto whatever the Mac's own window server considers current, which on a Mac driving
+    /// a virtual display is the built-in screen's desktop, not the virtual one.
+    ///
+    /// Falls back to the virtual display whenever one exists, even while the client is looking at
+    /// a single captured application: that display's Space is what the phone otherwise treats as
+    /// home, and a launch has nowhere else meaningful to prefer.
+    private var launchTargetDisplayID: UInt32? {
+        if case .display(let id) = capturingSource { return id }
+        return virtualDisplay?.displayID
+    }
+
+    /// Moves every window `application` currently owns onto `displayID`'s bounds.
+    ///
+    /// Spaces are a window/display pairing kept by the window server, not a property of the
+    /// window itself: a window whose position crosses onto another display joins whatever Space
+    /// that display is currently showing. So repositioning is all this needs — no Space switch,
+    /// and nothing about `SpaceReader`'s chord dance applies here.
+    ///
+    /// Polled rather than tried once: a launch completion can precede the app actually having a
+    /// window, the same race ``switchToLaunchedApplication`` already accounts for.
+    private func relocateLaunchedApplication(_ application: NSRunningApplication, toDisplay displayID: UInt32) async {
+        for attempt in 0..<20 {
+            if relocateWindows(ofPID: application.processIdentifier, toDisplay: displayID) { return }
+            if attempt < 19 {
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+        }
+    }
+
+    /// Repositions every movable window of `pid` into `displayID`'s bounds. Returns whether it
+    /// found any windows at all, which is what the poll above is waiting on.
+    private func relocateWindows(ofPID pid: pid_t, toDisplay displayID: UInt32) -> Bool {
+        var ref: CFTypeRef?
+        let appElement = AXUIElementCreateApplication(pid)
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &ref) == .success,
+              let windows = ref as? [AXUIElement], !windows.isEmpty
+        else { return false }
+
+        let bounds = CGDisplayBounds(displayID)
+        for (index, window) in windows.enumerated() {
+            var settable: DarwinBoolean = false
+            guard AXUIElementIsAttributeSettable(window, kAXPositionAttribute as CFString, &settable) == .success,
+                  settable.boolValue
+            else { continue }
+
+            var size = CGSize.zero
+            var sizeRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+               let sizeValue = sizeRef, CFGetTypeID(sizeValue) == AXValueGetTypeID() {
+                AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+            }
+
+            // Cascaded so a second window launched moments later is not stacked exactly on the
+            // first, and clamped so a window sized for the Mac's own screen does not spill off a
+            // much smaller virtual display.
+            let offset = CGFloat(index) * 24
+            let maxX = max(bounds.minX, bounds.maxX - size.width)
+            let maxY = max(bounds.minY, bounds.maxY - size.height)
+            var origin = CGPoint(
+                x: min(bounds.minX + 40 + offset, maxX),
+                y: min(bounds.minY + 40 + offset, maxY)
+            )
+
+            guard let value = AXValueCreate(.cgPoint, &origin) else { continue }
+            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, value)
+        }
+        return true
     }
 
     private func switchToLaunchedApplication(_ application: NSRunningApplication) {
@@ -1099,8 +1172,8 @@ final class HostModel {
         let source = CaptureSource.application(application.processIdentifier)
         pendingCaptureSource = source
 
-        // A launch completion can precede creation of the first capturable window. Poll the
-        // observable result instead of assuming that the process being alive means SCK has it.
+        // A launch completion can precede creation of the first capturable window, so poll the
+        // observable result rather than assuming a live process means SCK has something to capture.
         Task { [weak self, weak coordinator] in
             guard let self, let coordinator else { return }
             var lastError: Error?
@@ -1127,8 +1200,8 @@ final class HostModel {
         guard let pins else { return }
         if pins.removeAll() {
             pairedClientIDs = []
-            // The names go with the pins. Keeping them would leave a device list that can name
-            // phones it will never let back in, which is a worse answer than not knowing.
+            // The names go with the pins: keeping them would leave a device list naming phones it
+            // will never let back in.
             clientNames = [:]
             UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
             record("All paired clients removed")
@@ -1139,15 +1212,14 @@ final class HostModel {
 
     /// Revokes one phone without disturbing the others.
     ///
-    /// Go through the server while it is running so an already-connected phone is disconnected
-    /// as well as removed from the Keychain. Before startup there cannot be an active session,
-    /// so the store itself is sufficient.
+    /// Go through the server while it is running so an already-connected phone is disconnected as
+    /// well as removed from the Keychain. Before startup there cannot be an active session, so the
+    /// store itself is sufficient.
     /// Drops a phone's connection and leaves it trusted.
     ///
-    /// Deliberately not forgetful: the pin stays, so the same phone reconnects on its own, and no
-    /// pairing code is needed. What it is for is the case where the session should stop *now* —
-    /// someone else wants the screen, or the wrong device is attached — and the answer until now
-    /// was "Forget", which is a much bigger hammer than the problem.
+    /// Not forgetful: the pin stays, so the same phone reconnects on its own and no pairing code is
+    /// needed. For the case where the session should stop now, because someone else wants the
+    /// screen or the wrong device is attached.
     func disconnect(clientID: String) {
         server?.disconnect(clientID: clientID)
         record("Disconnected \(displayName(for: clientID))")
@@ -1191,9 +1263,8 @@ final class HostModel {
                     ConnectedClient(id: clientID, name: clientName, since: Date())
                 )
             }
-            // Recorded before anything is shown, so the name outlives the connection that
-            // carried it. A client may rename itself between sessions, which is why this is
-            // assigned rather than only inserted.
+            // Recorded before anything is shown, so the name outlives the connection that carried
+            // it. Assigned rather than only inserted, because a client may rename itself.
             if clientNames[clientID] != clientName {
                 clientNames[clientID] = clientName
                 UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
@@ -1201,11 +1272,10 @@ final class HostModel {
             beginSession(id: clientID, name: clientName)
             startScreenWatch()
             record("\(clientName) connected · \(detail)")
-            // A client that has just arrived has no source list, so it is sent one now
-            // rather than waiting for an application to launch. It is also the first read of
-            // the catalogue, which is what needs Screen Recording permission — a refusal
-            // here is logged and otherwise ignored, and the video path reports it properly
-            // if the client then asks for a source.
+            // A client that has just arrived has no source list, so it is sent one now rather than
+            // waiting for an application to launch. It is also the first read of the catalogue,
+            // which is what needs Screen Recording permission: a refusal here is logged and ignored,
+            // and the video path reports it properly if the client then asks for a source.
             coordinator?.refreshCatalog()
             acquireSleepAssertion()
 
@@ -1215,13 +1285,11 @@ final class HostModel {
             // The last one out stops the watch. Anybody still attached keeps being told.
             if connectedClients.isEmpty { stopScreenWatch() }
             record("\(clientName) disconnected")
-            // The moment nothing is left that can release what this client was holding.
-            // A client that dies mid-chord or mid-drag takes its key-up with it, and the
-            // Mac would otherwise sit holding ⌘ or a mouse button until a real one arrived
-            // from the physical keyboard — see ``InputInjector/releaseAll()``, which is
-            // where the reasoning lives. Only on the *last* client: the held state is the
-            // Mac's, so releasing it while another client is still connected would drop a
-            // modifier that client is holding for real.
+            // The moment nothing is left that can release what this client was holding: a client
+            // that dies mid-chord or mid-drag takes its key-up with it, and the Mac would sit
+            // holding ⌘ or a mouse button until a real one arrived from the keyboard. Only on the
+            // last client, because the held state is the Mac's, so releasing it while another
+            // client is connected would drop a modifier that client is holding for real.
             if connectedClients.isEmpty {
                 input.releaseAll()
                 releaseSleepAssertion()
@@ -1233,8 +1301,8 @@ final class HostModel {
             record(isRemote
                    ? "Pairing request from \(clientName), over the relay"
                    : "Pairing request from \(clientName)")
-            // Code intentionally not logged: the unified log is readable by any local process,
-            // and the digits are already on screen for the user to compare.
+            // The code is not logged: the unified log is readable by any local process, and the
+            // digits are already on screen for the user to compare.
             hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
 
         case .pairingCompleted(let clientName, let accepted):
@@ -1245,8 +1313,8 @@ final class HostModel {
 
         case .failed(let message):
             record(message)
-            // A failure while listening is worth surfacing as status; a per-connection
-            // failure is not, or one bad client would blank out a healthy listener.
+            // A failure while listening is worth surfacing as status; a per-connection one is not,
+            // or one bad client would blank out a healthy listener.
             if !status.isListening {
                 status = .failed(message)
             }
@@ -1254,8 +1322,8 @@ final class HostModel {
     }
 
     private func record(_ message: String, level: HostLogEntry.Level = .info) {
-        // `.public` because these lines are the diagnostics, and the one genuinely sensitive
-        // value — the pairing code — is already displayed on screen during pairing.
+        // `.public` because these lines are the diagnostics, and the one sensitive value, the
+        // pairing code, is deliberately never in them.
         hostLog.notice("\(message, privacy: .public)")
         log.append(HostLogEntry(level: level, message: message))
         if log.count > Self.maxEvents {
@@ -1297,30 +1365,28 @@ final class HostModel {
 
     /// Finished sessions, newest first.
     ///
-    /// Persisted, and bounded: a host that has been running for months should not carry a
-    /// year of history around in `UserDefaults` to answer a question about this week.
+    /// Persisted and bounded: a host running for months should not carry a year of history in
+    /// `UserDefaults` to answer a question about this week.
     private(set) var sessions: [HostSessionRecord] =
         UserDefaults.standard.data(forKey: HostModel.sessionsKey)
             .flatMap { try? JSONDecoder().decode([HostSessionRecord].self, from: $0) } ?? []
 
     /// A session that has begun and has not been written down as finished.
     ///
-    /// Persisted as it goes, which is the whole point: a record written only at the end is
-    /// lost whenever the end never arrives — the host is quit, crashes, or is rebuilt while a
-    /// phone is attached. Those are exactly the sessions someone would want to look up, and
-    /// they were the ones going missing.
+    /// Persisted as it goes, because a record written only at the end is lost whenever the end
+    /// never arrives: the host is quit, crashes, or is rebuilt while a phone is attached, which is
+    /// exactly the session someone would want to look up.
     private struct OpenSession: Codable {
         var deviceName: String
         var started: Date
-        /// The streamer's byte count when this session began. The count is cumulative and
-        /// never reset, so a session's cost is the difference between a later read and this.
+        /// The streamer's byte count when this session began. The count is cumulative and never
+        /// reset, so a session's cost is the difference between a later read and this.
         var bytesAtStart: Int
-        /// The last moment this session was known to be alive. Becomes its end time if no
-        /// end ever arrives, which is the honest answer: it was alive then, and nothing since.
+        /// The last moment this session was known to be alive. Becomes its end time if no end ever
+        /// arrives, which is the honest answer: it was alive then, and nothing since.
         var lastSeen: Date
-        /// Bytes counted as of ``lastSeen``. Kept up to date as the session runs rather than
-        /// derived at the end, because for a session that never ends there is no end to derive
-        /// it from.
+        /// Bytes counted as of ``lastSeen``. Kept current as the session runs rather than derived at
+        /// the end, because a session that never ends has no end to derive it from.
         var bytes: Int
     }
 
@@ -1340,11 +1406,11 @@ final class HostModel {
 
     /// Whatever was in flight when the host last stopped.
     ///
-    /// Its presence at launch *is* the signal: nothing else clears this store, so if an entry
-    /// survives to a fresh process then a phone was attached when the last one ended, and no
-    /// disconnect was ever going to arrive for it.
-    /// Whether the store has been checked for what the last process abandoned. Once per
-    /// process: after that, anything in `openSessions` is one of *our* sessions, running.
+    /// Its presence at launch is the signal: nothing else clears this store, so an entry surviving
+    /// to a fresh process means a phone was attached when the last one ended, and no disconnect was
+    /// ever going to arrive for it.
+    /// Whether the store has been checked for what the last process abandoned. Once per process:
+    /// after that, anything in `openSessions` is one of ours, running.
     private var hasAdoptedAbandonedSessions = false
 
     private func adoptAbandonedSessions() {
@@ -1396,8 +1462,8 @@ final class HostModel {
     /// Keeps the in-flight sessions' figures current.
     ///
     /// Called from the screen watch, which already ticks every two seconds while anybody is
-    /// attached. Written every thirtieth tick rather than every one — this is `UserDefaults`,
-    /// and a figure that is half a minute stale is worth more than a write per tick.
+    /// attached. Written every thirtieth tick rather than every one, since this is `UserDefaults`
+    /// and a figure half a minute stale is worth more than a write per tick.
     private func touchOpenSessions() {
         guard !openSessions.isEmpty, let sent = coordinator?.streamStatistics.bytesSent else { return }
         let now = Date()
@@ -1409,24 +1475,21 @@ final class HostModel {
         saveOpenSessions()
     }
 
-    /// Watches whether the screen being streamed can be seen at all, and says so when it
-    /// cannot.
+    /// Watches whether the screen being streamed can be seen at all, and says so when it cannot.
     ///
-    /// The failure this removes is silent by construction. A sleeping display still produces a
-    /// perfectly healthy stream — frames on time, at full rate, every one of them black — so
-    /// from the phone it is indistinguishable from a broken camera, and there is nothing in
-    /// the protocol that said otherwise. `notice` is that missing sentence.
+    /// The failure is silent by construction: a sleeping display still produces a healthy stream,
+    /// frames on time and at full rate, every one of them black, so from the phone it is
+    /// indistinguishable from a broken camera.
     ///
-    /// Only ever about a display. An application or a window is drawn by the window server
-    /// whether or not a panel is lit, so a picture of one is real with every screen dark —
-    /// which is the case that makes this worth saying only for a display.
+    /// Only ever about a display. An application or a window is drawn by the window server whether
+    /// or not a panel is lit, so a picture of one is real with every screen dark.
     private func screenNotice() -> NoticePayload? {
         guard case .display(let id)? = capturingSource else { return nil }
 
-        // Gone rather than dark. `online` is what separates the two: a sleeping display is
-        // still connected, and a lid shut with no external screen attached leaves nothing to
-        // have a picture of at all. Both arrive at the phone as black, and they are not the
-        // same problem — one is a tap away from fixed, the other needs a different source.
+        // Gone rather than dark: `online` separates the two. A sleeping display is still connected,
+        // while a lid shut with no external screen leaves nothing to have a picture of at all. Both
+        // arrive at the phone as black and they are not the same problem, since one is a tap away
+        // from fixed and the other needs a different source.
         if CGDisplayIsOnline(id) == 0 {
             return NoticePayload(
                 message: "That display is no longer connected. Choose another from Sources.",
@@ -1445,32 +1508,27 @@ final class HostModel {
     /// Tells whoever is attached why there is no picture, when the reason is one they cannot see
     /// from where they are.
     ///
-    /// **This is the fresh-install failure, and it is silent on both ends.** With Screen Recording
-    /// not yet allowed, macOS refuses the stream before a frame exists: this window goes on saying
-    /// the Mac is serving, the phone goes on saying it is opening the video channel, and neither
-    /// of them ever says the true thing. The phone cannot work it out: from its side a Mac that
-    /// cannot capture and a Mac with nothing to show look identical, so the host is the only
-    /// place the sentence can come from.
+    /// The fresh-install failure, and silent on both ends: with Screen Recording not yet allowed,
+    /// macOS refuses the stream before a frame exists, so the window goes on saying the Mac is
+    /// serving and the phone goes on saying it is opening the video channel. The phone cannot work
+    /// it out, since a Mac that cannot capture and one with nothing to show look identical from
+    /// there, so the host is the only place the sentence can come from.
     ///
-    /// Only for the failures that have something to say to the far end; ``CaptureError/clientNotice``
-    /// decides which those are. Announced once per problem rather than once per attempt, and the
-    /// record is per-process on purpose: a grant cannot take effect without a relaunch, so a
-    /// problem announced here stays true for the life of this run.
+    /// Only for failures with something to say to the far end; ``CaptureError/clientNotice`` decides
+    /// which those are. Announced once per problem, not once per attempt, and the record is
+    /// per-process on purpose: a grant cannot take effect without a relaunch.
     private func announceCaptureProblem(_ error: CaptureError) {
         guard let notice = error.clientNotice, let message = notice.message else { return }
         guard message != announcedCaptureProblem else { return }
         announcedCaptureProblem = message
         server?.broadcastNotice(notice)
-        // The Mac's own activity list gets it too, beside the failure that caused it. It is
-        // already recorded there through `apply(.failed(_:))`; this is the line that says the
-        // other device was told, which is what an operator reading a report needs to know.
+        // The Mac's own activity list gets the line that says the other device was told.
         record("Told the connected device why there is no picture.", level: .warning)
     }
 
     /// Runs ``screenNotice()`` while anyone is attached.
     ///
-    /// Nobody attached means nobody to tell, and a host that checks its own screen every two
-    /// seconds to say nothing is a host talking to itself.
+    /// Nobody attached means nobody to tell.
     private func startScreenWatch() {
         guard screenWatchTask == nil else { return }
         screenWatchTask = Task { [weak self] in
@@ -1480,7 +1538,7 @@ final class HostModel {
                 guard let self else { return }
 
                 // Every thirtieth tick of two seconds, so an abandoned session still has a
-                // believable end time and a size rather than a zero.
+                // believable end time and size rather than a zero.
                 ticks += 1
                 if ticks % 30 == 0 { self.touchOpenSessions() }
 
@@ -1492,8 +1550,7 @@ final class HostModel {
                     if let message = notice?.message {
                         self.record("Screen not visible · \(message)", level: .warning)
                     } else if wasSayingSomething {
-                        // Said so when it went dark, so it owes the all-clear. The warning
-                        // above is the one line in this window that resolves itself.
+                        // It said so when the screen went dark, so it owes the all-clear.
                         self.record("Screen visible again")
                     }
                 }
@@ -1534,23 +1591,14 @@ final class HostModel {
 
     /// Toggles what the settings screen calls "Keep Mac awake": the free half of sleep prevention.
     ///
-    /// **What the assertion does and does not buy, because the name overpromises.** The type is
-    /// `PreventSystemSleep`, the one `caffeinate -s` acquires, and it stops the Mac going to sleep
-    /// on its own: idle timers, a stalled download, nothing to do. Closing the lid is a *different*
-    /// path in macOS, and whether the assertion covers it depends on the machine: a laptop with no
-    /// external display in clamshell stays awake on some Macs and sleeps on others. What does
-    /// survive a lid close on every Mac is `pmset -a disablesleep 1`, which needs administrator
-    /// rights and outlives a crash, and which is the switch below rather than this one.
+    /// The type is `PreventSystemSleep`, the one `caffeinate -s` acquires, and it stops the Mac
+    /// sleeping on its own: idle timers, a stalled download, nothing to do. Closing the lid is a
+    /// different path in macOS, and whether the assertion covers it depends on the machine. What
+    /// survives a lid close on every Mac is `pmset -a disablesleep 1`, which needs administrator
+    /// rights and is the switch below rather than this one.
     ///
-    /// The caption on the switch says the same thing in the same words, and the two have to: the
-    /// comment that used to be here claimed the assertion survives a lid close on most Macs, which
-    /// contradicted the screen the user was reading it on.
-    ///
-    /// Being process-scoped is the one property worth having on this half: the OS releases the
-    /// assertion when this process exits, so the free switch can never leave a Mac unable to
-    /// sleep. ``setKeepRunningWithLidClosed(_:)`` buys the same guarantee with a marker, a quit
-    /// hook and a launch check, which is most of the reason it is a second switch and not this one
-    /// with more force behind it.
+    /// Being process-scoped is the property worth having here: the OS releases the assertion when
+    /// this process exits, so this switch can never leave a Mac unable to sleep.
     func setPreventLidCloseSleep(_ on: Bool) {
         preventLidCloseSleep = on
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
@@ -1609,21 +1657,19 @@ final class HostModel {
 
     /// Turns "keep running with the lid closed" on or off.
     ///
-    /// **The switch the assertion above cannot be.** A closed lid is a separate path in macOS, and
-    /// the only public switch that survives one is `pmset -a disablesleep`, which needs
-    /// administrator rights and, once set, stays set: through this process, through a crash, and
-    /// through a reboot. Three things follow from that, and they are the whole of this section.
+    /// The switch the assertion above cannot be: the only public setting that survives a closed lid
+    /// is `pmset -a disablesleep`, which needs administrator rights and, once set, stays set through
+    /// this process, a crash and a reboot. Three things follow from that:
     ///
     /// It is applied through a scoped sudoers rule rather than by prompting every time, so the
-    /// password is asked for once. ``LidCloseSleep`` holds the text of that rule and the reasons
-    /// for its shape, and its tests are what keep it from being a rule that grants more than the
-    /// window promises.
+    /// password is asked for once. ``LidCloseSleep`` holds the text of that rule and what keeps it
+    /// from granting more than the window promises.
     ///
-    /// It is undone on the way out, see ``prepareForTermination()``, because a Mac left unable to
-    /// sleep with nothing on screen to explain it is a worse outcome than the feature is good.
+    /// It is undone on the way out (``prepareForTermination()``), because a Mac left unable to sleep
+    /// with nothing on screen to explain it is worse than the feature is good.
     ///
-    /// And it is re-examined on the way in, see ``adoptLidCloseSleepSetting()``, because a crash
-    /// skips the first of those two and the setting survives the crash.
+    /// And it is re-examined on the way in (``adoptLidCloseSleepSetting()``), because a crash skips
+    /// the first of those and the setting survives the crash.
     ///
     /// The stored intention is written only once the machine has actually been changed, so the
     /// switch being on is a statement about the Mac rather than about the last click.
@@ -1632,15 +1678,15 @@ final class HostModel {
         lidCloseBusy = true
         defer {
             lidCloseBusy = false
-            // Started or stopped on every exit from this function rather than at each of its six
-            // return points, because a switch that moves without its watchdog moving with it is a
-            // Mac that either stops being watched or keeps a task alive for nothing.
+            // On every exit rather than at each of the six return points, because a switch that
+            // moves without its watchdog moving with it either stops being watched or keeps a task
+            // alive for nothing.
             updateBatteryWatchdog()
         }
         lidCloseFailure = nil
 
         // The rule comes first when it is wanted: it is what makes the command below silent, and
-        // it is the only part of this that costs a password.
+        // the only part of this that costs a password.
         if wanted, !(await ensureLidCloseRule()) { return }
 
         switch await applySleepDisabled(wanted) {
@@ -1651,10 +1697,9 @@ final class HostModel {
             record("Could not change lid-close sleep prevention: \(message)", level: .failure)
             return
         case .alreadyThere:
-            // The switch follows the intention and the marker does not follow the setting, which is
-            // the whole of the difference between adopting a setting and stealing one: this app
-            // found the Mac like this, so undoing it is not its business, and the quit path would
-            // otherwise do exactly that.
+            // The switch follows the intention and the marker does not follow the setting: this app
+            // found the Mac like this, so undoing it is not its business, and a marker written here
+            // would make the quit path do exactly that.
             keepRunningWithLidClosed = wanted
             UserDefaults.standard.set(wanted, forKey: Self.keepRunningWithLidClosedKey)
             record(wanted
@@ -1666,13 +1711,13 @@ final class HostModel {
             break
         }
 
-        // Read after the change rather than assumed from it, for the reason the whole section
-        // exists: the switch is a request and this is what the machine did with it.
+        // Read after the change rather than assumed from it: the switch is a request and this is
+        // what the machine did with it.
         lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
         keepRunningWithLidClosed = wanted
         UserDefaults.standard.set(wanted, forKey: Self.keepRunningWithLidClosedKey)
-        // The marker is this app's record of a change it made to the machine, and it is what the
-        // quit and launch paths use to know whether undoing that change is this app's business.
+        // The marker records a change this app made to the machine, which is what the quit and
+        // launch paths read to know whether undoing it is this app's business.
         UserDefaults.standard.set(wanted, forKey: Self.sleepDisabledByThisAppKey)
         record(wanted
             ? "Lid-close sleep prevention on; this Mac stays up with the lid shut, on battery included"
@@ -1685,18 +1730,15 @@ final class HostModel {
 
     /// How often the charge is read while the Mac is being kept up.
     ///
-    /// A minute, against a threshold of ten per cent. At the draw of a Mac running with its screen
-    /// off that is a good deal finer than it needs to be, and the cost of the margin being too fine
-    /// is one small process a minute in the one state where the battery is at risk.
+    /// A minute against a threshold of ten per cent: finer than it needs to be, and the cost of a
+    /// too-fine margin is one small process a minute in the one state where the battery is at risk.
     private static let batteryCheckInterval: TimeInterval = 60
 
     /// Starts or stops the battery check, to match the switch.
     ///
-    /// **The rail the other three do not replace.** Restoring on quit needs the app to be quit, the
+    /// The rail the other three do not replace: restoring on quit needs the app to be quit, the
     /// launch repair needs it to be launched again, and the switch needs somebody to remember it.
-    /// A Mac shut in a bag at ninety per cent has none of those coming, and what it has instead is
-    /// this: a check that runs while the machine is on its way down and takes the decision out of
-    /// the hands of somebody who is not there.
+    /// A Mac shut in a bag at ninety per cent has none of those coming.
     private func updateBatteryWatchdog() {
         batteryWatchdog?.cancel()
         batteryWatchdog = nil
@@ -1712,7 +1754,7 @@ final class HostModel {
 
                 // Turned off through the ordinary path rather than by running `pmset` behind the
                 // model's back, so the switch, the marker and the machine all move together and the
-                // pane does not go on reading "on" over a Mac that has been allowed to sleep.
+                // pane does not go on reading "on" over a Mac allowed to sleep.
                 await self.setKeepRunningWithLidClosed(false)
                 self.record(
                     "Battery is down to \(LidCloseSleep.batteryFloor)%, so this Mac sleeps normally again. Kept awake with the lid shut it would have run the battery flat rather than sleeping through the last of it.",
@@ -1730,9 +1772,8 @@ final class HostModel {
 
     /// Reads whether the administrator rule is doing its job.
     ///
-    /// Asked of `sudo` rather than of the disk, see ``LidCloseSleep/grants(inSudoListing:)``, and
-    /// asked again every time the settings pane is opened rather than once at launch, so that a
-    /// rule someone removed by hand in another window is what the row ends up describing.
+    /// Asked of `sudo` rather than of the disk, and re-asked every time the settings pane opens, so
+    /// a rule someone removed by hand is what the row ends up describing.
     func checkLidCloseSleepRule() async {
         guard let grants = await LidCloseSleepControl.ruleGrants() else {
             lidCloseRuleInstalled = nil
@@ -1744,8 +1785,7 @@ final class HostModel {
     /// Takes the administrator rule away again, for someone who wants it gone.
     ///
     /// One prompt, and the same prompt undoes the setting: both halves run as root in one shell
-    /// script, in that order, because the rule is what lets this app turn the setting off later.
-    /// See ``LidCloseSleep/removeScript()``.
+    /// script in that order, because the rule is what lets this app turn the setting off later.
     func removeLidCloseRule() async {
         guard !lidCloseBusy else { return }
         lidCloseBusy = true
@@ -1770,38 +1810,33 @@ final class HostModel {
 
     /// Puts the machine and the switch back into agreement, once, at launch.
     ///
-    /// **The crash path, and the reason it is a decision rather than a line of code.** A clean quit
-    /// turns the setting back off and clears the marker. A crash does neither, and `disablesleep`
-    /// survives a crash and a reboot, so what this finds is a Mac that was left unable to sleep
-    /// some time ago. The three answers it can reach are in
+    /// The crash path: a clean quit turns the setting back off and clears the marker, a crash does
+    /// neither, and `disablesleep` survives a crash and a reboot, so what this finds is a Mac left
+    /// unable to sleep some time ago. The three answers it can reach are in
     /// ``LidCloseSleep/launchAction(systemState:setByThisApp:isPreferred:)``, which is a value with
     /// tests because the mistake worth preventing, undoing a setting somebody else made, cannot be
     /// reproduced on demand by crashing a process.
     func adoptLidCloseSleepSetting() async {
         let state = await LidCloseSleepControl.sleepDisabledState()
-        // What the machine is doing, kept so the row can say when it disagrees with the switch. The
-        // switch is the intention and this is the reading, and the two come apart after a crash, a
-        // force quit or a hand edit. That disagreement used to be visible only as a red line inside
-        // the Settings pane for one session, so a Mac that had stopped sleeping looked exactly like
-        // a Mac that had not.
+        // What the machine is doing, kept so the row can say when it disagrees with the switch: the
+        // switch is the intention and this is the reading, and a crash, a force quit or a hand edit
+        // puts the two out of step.
         lidCloseSystemState = state
 
-        // **Where a claim about a setting that is gone gets dropped.** The marker says this app
-        // turned the setting on; a reading of `off` says it is not on, whoever did it, so the claim
-        // is stale and only harm can come of keeping it. Harm with a concrete shape: a stale marker
-        // plus some other tool later setting `disablesleep` reads as "on, and ours" at the next
-        // launch, and the quit path then turns that tool's setting off. Not done on `.unknown`,
-        // because forgetting ownership on a reading that failed is how a Mac ends up unable to
-        // sleep with nothing left claiming it.
+        // Where a claim about a setting that is gone gets dropped. The marker says this app turned
+        // the setting on; a reading of `off` says it is not on, whoever did it, so keeping the claim
+        // can only do harm: a stale marker plus some other tool later setting `disablesleep` reads
+        // as "on, and ours" at the next launch, and the quit path then turns that tool's setting
+        // off. Not done on `.unknown`, because forgetting ownership on a failed reading is how a Mac
+        // ends up unable to sleep with nothing left claiming it.
         if LidCloseSleep.shouldForgetOwnership(systemState: state) {
             UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
         }
 
-        // Asked once at launch as well as when the Settings pane opens, because the menu bar draws
-        // the same switch and is the place it is usually flipped from. Without this the menu would
-        // have to guess, and its options are a switch that silently fails or a door to a window
-        // somebody did not want to open. `sudo -n -l` cannot raise a dialog, so it costs
-        // milliseconds and nothing else.
+        // Asked at launch as well as when the Settings pane opens, because the menu bar draws the
+        // same switch and is where it is usually flipped from; without it the menu has to guess
+        // between a switch that silently fails and a door to a window nobody wanted to open.
+        // `sudo -n -l` cannot raise a dialog, so it costs milliseconds and nothing else.
         await checkLidCloseSleepRule()
 
         let setByThisApp = UserDefaults.standard.bool(forKey: Self.sleepDisabledByThisAppKey)
@@ -1816,18 +1851,16 @@ final class HostModel {
             switch LidCloseSleepControl.restoreSleepSilently() {
             case .done:
                 UserDefaults.standard.set(false, forKey: Self.sleepDisabledByThisAppKey)
-                // Re-read after the change, the way ``setKeepRunningWithLidClosed(_:)`` does and
-                // for the same reason: the reading above was taken before this ran, and it is the
-                // reading the menu draws. Assumed instead of read, a Mac this function has just
-                // put back under the setting reports itself as not under it for the rest of the
-                // session, which is the one line the menu must never get wrong.
+                // Re-read after the change, the way ``setKeepRunningWithLidClosed(_:)`` does: the
+                // reading above was taken before this ran and it is the reading the menu draws.
+                // Assumed instead of read, a Mac this function has just restored reports itself as
+                // still disabled for the rest of the session.
                 lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
                 record("Sleep was still disabled by Peering from a previous run; this Mac sleeps on a closed lid again")
             case .failed(let message):
                 lidCloseFailure = message
-                // Two sentences rather than one with a description spliced into it: the command's
-                // own words have no full stop to end them, so the second sentence used to arrive
-                // welded onto the first.
+                // Two sentences rather than one with a description spliced in: the command's own
+                // words have no full stop to end them.
                 record("This Mac still will not sleep with the lid closed. Switching the row off and on again in Settings is the repair. The command said: \(message)", level: .failure)
             case .cancelled:
                 break
@@ -1836,9 +1869,9 @@ final class HostModel {
             switch await LidCloseSleepControl.setSleepDisabled(true) {
             case .done:
                 UserDefaults.standard.set(true, forKey: Self.sleepDisabledByThisAppKey)
-                // The path this whole reading exists for: without it, every launch that re-applies
-                // the setting leaves the cached reading at the `.off` that made the re-apply
-                // necessary, and the menu says "not in force" over a Mac that is.
+                // Without this, every launch that re-applies the setting leaves the cached reading
+                // at the `.off` that made the re-apply necessary, and the menu says "not in force"
+                // over a Mac that is.
                 lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
                 record("Lid-close sleep prevention re-applied; it had been cleared on this Mac since the last run")
             case .failed(let message):
@@ -1848,8 +1881,8 @@ final class HostModel {
                 break
             }
         case .leaveAlone:
-            // Not ours to undo, and saying so is the point: nothing else in this app can explain
-            // why a Mac has stopped sleeping on its lid.
+            // Not ours to undo, and saying so is the point: nothing else in this app can explain why
+            // a Mac has stopped sleeping on its lid.
             record("This Mac has sleep disabled and Peering did not do it, so it is being left alone")
         case .none:
             break
@@ -1857,22 +1890,21 @@ final class HostModel {
 
         // Reachable after every path above, including the ones that changed nothing: a switch that
         // survived a crash is a Mac that has been up with its lid shut since before this process
-        // started, which is exactly when a battery check is most worth having.
+        // started, which is when a battery check is most worth having.
         updateBatteryWatchdog()
     }
 
     /// Puts the rule in place if it is not there, and answers whether it ended up there.
     ///
-    /// Checked after installing rather than assumed, and assumed to be false when `sudo` will not
-    /// say: the file is written by another process, as root, and the only trustworthy answer about
-    /// what `sudo` will do next is `sudo`'s own.
+    /// Checked after installing rather than assumed, and assumed false when `sudo` will not say: the
+    /// file is written by another process as root, and the only trustworthy answer about what `sudo`
+    /// will do next is `sudo`'s own.
     private func ensureLidCloseRule() async -> Bool {
-        // **The cache is re-checked before it is trusted, and the re-check is what makes the switch
-        // work at all.** It is filled when the Settings pane opens, and the file can be gone since:
-        // deleted by hand, removed by the button, or never installed for this account. Trusting it
-        // means skipping the install prompt and then failing the very command it was there to make
-        // silent, which leaves the switch on with nothing behind it and the raw refusal from `sudo`
-        // on screen. `sudo -n -l` cannot put a dialog up, so asking again costs milliseconds.
+        // The cache is re-checked before it is trusted. It is filled when the Settings pane opens
+        // and the file can be gone since, deleted by hand, removed by the button, or never installed
+        // for this account. Trusting it means skipping the install prompt and then failing the very
+        // command it was there to make silent, leaving the switch on with nothing behind it and the
+        // raw refusal from `sudo` on screen.
         if lidCloseRuleInstalled == true {
             await checkLidCloseSleepRule()
             if lidCloseRuleInstalled == true { return true }
@@ -1899,12 +1931,11 @@ final class HostModel {
 
     /// How an attempt to change the machine setting ended, in the four ways it can.
     ///
-    /// Four rather than the three ``LidCloseSleepControl/Outcome`` has, because the fourth is not
-    /// like the others: ``alreadyThere`` means the Mac is where it was asked to be and *this app did
-    /// not put it there*. That has to be told apart from a change this app made, because the marker
-    /// that lets it undo its own work on quit must not be written for a setting that is somebody
-    /// else's. A Mac whose clamshell setting is held by another tool and whose marker says
-    /// otherwise is a Mac that stops sleeping the first time Peering quits.
+    /// Four rather than the three ``LidCloseSleepControl/Outcome`` has, because ``alreadyThere``
+    /// means the Mac is where it was asked to be and this app did not put it there. That has to be
+    /// told apart from a change this app made: the marker that lets it undo its own work on quit
+    /// must not be written for somebody else's setting, or the Mac stops sleeping the first time
+    /// Peering quits.
     private enum SleepApplication {
         /// This app ran the command and the machine changed.
         case applied
@@ -1916,37 +1947,33 @@ final class HostModel {
 
     /// Applies the setting, asking for a password only if the silent route has nothing to offer.
     ///
-    /// The rule is normally what makes this silent. It can be gone, deleted by hand or by the
-    /// button in Settings, and the case that matters then is turning the switch *off*: a Mac whose
-    /// sleep is disabled and whose rule has been taken away cannot be put back any other way, and
-    /// a switch that will not turn off is worse than one password prompt. The prompt is skipped
-    /// when the machine is already where it was asked to be, which is what makes switching off a
-    /// Mac that sleeps normally cost nothing at all.
+    /// The rule is normally what makes this silent, and it can be gone, deleted by hand or by the
+    /// button in Settings. The case that matters then is turning the switch *off*: a Mac whose sleep
+    /// is disabled and whose rule has been taken away cannot be put back any other way, and a switch
+    /// that will not turn off is worse than one password prompt. The prompt is skipped when the
+    /// machine is already where it was asked to be.
     ///
-    /// **The already-there answer is read before the prompt is considered, and never as a
-    /// success.** A Mac that is already in the wanted state when the silent command fails is a Mac
-    /// whose setting comes from somewhere else: another tool's sudoers rule, or somebody typing
-    /// `pmset` themselves. There is nothing for this app to do and nothing for it to claim.
+    /// The already-there answer is read before the prompt is considered and never as a success: a
+    /// Mac already in the wanted state when the silent command fails has its setting from somewhere
+    /// else, and there is nothing for this app to do or to claim.
     private func applySleepDisabled(_ wanted: Bool) async -> SleepApplication {
         let target: LidCloseSleep.SleepDisabledState = wanted ? .on : .off
 
-        // **Read before writing, because an exit status cannot tell a change from an agreement.**
+        // Read before writing, because an exit status cannot tell a change from an agreement:
         // `sudo -n pmset -a disablesleep 1` exits 0 whether it flipped the setting or found it
-        // already flipped, and the difference is the whole of who owns it: a Mac whose clamshell
-        // sleep another tool had already disabled would be claimed by this app, and the quit path
-        // would then turn that other tool's setting off. Asking the machine first costs one process
-        // more than the command itself and it is the only thing that separates the two cases.
+        // already flipped, and the difference is who owns it. Claiming a setting another tool
+        // disabled would make the quit path turn that tool's setting off.
         if await LidCloseSleepControl.sleepDisabledState() == target { return .alreadyThere }
 
         let outcome = await LidCloseSleepControl.setSleepDisabled(wanted)
         if case .cancelled = outcome { return .cancelled }
 
         if case .failed(let message) = outcome {
-            // **The cache is re-read rather than believed here, and this is the branch that most
-            // needs it.** It is where somebody arrives having just deleted the rule by hand, and
-            // where turning the switch off is the only thing that can undo a Mac that has stopped
-            // sleeping. Believing a stale "the rule is installed" is what withholds the one
-            // password prompt that can still put it back.
+            // The cache is re-read rather than believed here, which is the branch that most needs
+            // it: this is where somebody arrives having just deleted the rule by hand, and where
+            // turning the switch off is the only thing that can undo a Mac that has stopped
+            // sleeping. Believing a stale "the rule is installed" withholds the one password prompt
+            // that can still put it back.
             await checkLidCloseSleepRule()
             guard lidCloseRuleInstalled != true else { return .failed(message) }
             return Self.application(of: await LidCloseSleepControl.setSleepDisabledAskingForAdmin(
@@ -1993,10 +2020,9 @@ final class HostModel {
 
     /// The name shown to a client in its device list.
     ///
-    /// `Host.current().localizedName` is the "Computer Name" from Sharing settings —
-    /// "Damian's MacBook Pro" — which is what the user actually recognises. The raw
-    /// hostname (`damians-macbook-pro`) is only a fallback: it is what Bonjour would
-    /// advertise by default, and a list of those is unreadable.
+    /// `Host.current().localizedName` is the "Computer Name" from Sharing settings, which is what
+    /// the user recognises. The raw hostname is only a fallback, since a list of those is
+    /// unreadable.
     private static var defaultDeviceName: String {
         if let localized = Host.current().localizedName, !localized.isEmpty {
             return localized

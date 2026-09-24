@@ -22,6 +22,31 @@ Two symptoms, both reported from the phone, both still reproducing at the time o
 They may or may not be the same fault. Nothing established so far joins them, and the assumption
 that they were the same cost several rebuild cycles.
 
+**Update, later the same day.** `c4e82d8` changes four things below and takes the client trace out
+with them. Nothing has been measured on the device since, so read the two symptoms above as
+reported and then addressed, not as reproducing:
+
+- **The movement's landing no longer hands the frame over.** It writes the departing picture's
+  transform and the line after it re-solves that transform for the arriving one, and a frame
+  released between the two is drawn at the departing picture's scale: traced, `drawn=2.0111
+  pan=-216,121` and then the same window at its own `drawn=1.0 pan=0,0` six milliseconds later.
+  The release is left to the update pass, the only place that can write the transform and hand the
+  frame over in one commit. **This is the second symptom**, and it is also the best candidate for
+  the "wrong window for a moment" hypothesis below: nothing was showing the wrong window, the
+  right one was drawn at the wrong size.
+- **`settleArrival` runs when the movement has stopped, as well as when the frame is ready.**
+  Readiness alone let it run mid movement and write the arriving picture's placement while the
+  departing picture was still on the layer: placement at 930.328, frame on the layer at 930.530,
+  the whole arrangement drawn at the window's transform for those 205ms.
+- **`arrangementMorph` divides the drawn scale by the base.** Stored undivided it applies the base
+  twice, and a turn into landscape landed the canvas at `387x241` where the one it replaced was
+  `172x322`, then glided up to its own `516x322`.
+- **A window coming home is not dimmed.** The veil went up in the same pass that handed the canvas
+  over, which is a flash of black at the one moment the user is watching the picture.
+
+**The first symptom is not addressed by any of this**: a canvas that fills in over a second or two
+after a zoom out is still the tile that never delivers a frame, and that is unmeasured.
+
 ## Things that were tried and did not work
 
 ### Ordering the transform against the frame swap
@@ -153,13 +178,17 @@ change that would give the snapshot.
 
 ## Instruments
 
-- `MacCast/FlickerDiagnostics.swift`, `flickerTrace(...)`, DEBUG only, written to stdout and read
-  with `xcrun devicectl device process launch --console --terminate-existing --device <udid>
-  pl.dmq.peering`. **The device must be unlocked or the launch fails** with an error whose text
-  does not say so. The `VideoLayerView` lines report the transform actually written
-  (`layer transform zoom=... still=...`) and the moment the frame is handed over
-  (`layer releases the held frame at zoom=...`). These are the only trustworthy source for what
-  the picture is drawn at; do not infer it from `zoom` and `base`.
+- **The client trace is gone as of `c4e82d8`.** It was `MacCast/FlickerDiagnostics.swift`,
+  `flickerTrace(...)`, DEBUG only, written to stdout and read with `xcrun devicectl device process
+  launch --console --terminate-existing --device <udid> pl.dmq.peering`. **The device must be
+  unlocked or the launch fails** with an error whose text does not say so. To get it back:
+  `git show c4e82d8^:MacCast/FlickerDiagnostics.swift`, and note that the transform line needs
+  `VideoLayerView/picturePixelSize` restored with it, which came out in the same commit. What is
+  worth restoring first is the pair in `VideoLayerView`: the transform actually written
+  (`layer transform drawn=... picture=WxH pan=...,... still=...`) and the moment the frame is handed
+  over (`layer releases the held frame at zoom=...`). Those were the only trustworthy source for what
+  the picture is drawn at; do not infer it from `zoom` and `base`. Everything the trace produced
+  before it came out is quoted in the comments of the code it changed, and in the update above.
 - The host's unified log, subsystem `pl.dmq.peering.host`, categories `capture`, `video`,
   `spaces`, `session`. `/usr/bin/log show --predicate 'subsystem == "pl.dmq.peering.host"' --last 15m --style compact`.
   zsh's `log` builtin shadows the command; use the full path.

@@ -243,6 +243,10 @@ extension MacSession {
             hostSupportsSourceThumbnails = SourceThumbnailSupport.maySend(
                 hostDeclared: hello.supportsSourceThumbnails
             )
+            // And once more, for the virtual display's shape. See ``DeviceOrientationSupport``.
+            hostSupportsDeviceOrientation = DeviceOrientationSupport.maySend(
+                hostDeclared: hello.supportsDeviceOrientation
+            )
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.

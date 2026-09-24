@@ -96,6 +96,10 @@ extension SessionModel {
     /// ``MacSession/hostSupportsSourceThumbnails``.
     var hostSupportsSourceThumbnails: Bool { activeSession?.hostSupportsSourceThumbnails ?? false }
 
+    /// Whether this Mac will rotate a virtual display to match the phone. See
+    /// ``MacSession/hostSupportsDeviceOrientation``.
+    var hostSupportsDeviceOrientation: Bool { activeSession?.hostSupportsDeviceOrientation ?? false }
+
     var activeSessionHistoryID: UUID? {
         get { activeSession?.activeSessionHistoryID }
         set { activeSession?.activeSessionHistoryID = newValue }

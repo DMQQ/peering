@@ -551,9 +551,10 @@ extension RemoteScreen {
         pictureGlide = nil
         pictureAim = nil
         placedPictureID = nil
-        // **A movement that ends by being taken over releases the frame as well.** The glide that
-        // would have released it is gone, so nothing else will; without this the picture waits on
-        // a movement that no longer exists. See ``RemoteScreen/pictureIsPlaced``.
+        // **A movement that ends by being taken over releases the frame as well.** The other end
+        // of a movement is ``RemoteScreen/settleArrival(force:)``, which a takeover never reaches;
+        // without this the picture waits on a movement that no longer exists. See
+        // ``RemoteScreen/pictureIsPlaced`` for the release the landing does.
         model.renderer.releaseHeldFrame()
         // A movement the user has taken over drops the arrival it was waiting for: applying it
         // afterwards would write the zoom and pan of the picture they have just left. See

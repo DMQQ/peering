@@ -143,9 +143,17 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// travels cut into pieces by ``ClipboardTransfer``.
     case pushClipboardImage(png: Data)
 
+    /// Tells the host which way the phone is currently held, so a virtual display can rotate its
+    /// shape to match rather than being letterboxed inside whatever the phone shows.
+    ///
+    /// Sent only to a Mac that has declared ``ServerHello/supportsDeviceOrientation``. A state
+    /// report rather than a delta, so ``coalescing`` treats it like ``mouseMove(to:)``: only the
+    /// latest one before the host gets to it is worth acting on.
+    case reportDeviceOrientation(isLandscape: Bool)
+
     public var coalescing: Coalescing {
         switch self {
-        case .mouseMove:
+        case .mouseMove, .reportDeviceOrientation:
             return .replaceLatest
         case .joystickMove, .scroll:
             return .accumulate
@@ -179,7 +187,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
              .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode, .lockScreen,
-             .requestClipboard, .pushClipboard, .pushClipboardImage:
+             .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation:
             return false
         }
     }
@@ -197,7 +205,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
              .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
              .refreshSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard,
-             .pushClipboard, .pushClipboardImage:
+             .pushClipboard, .pushClipboardImage, .reportDeviceOrientation:
             return false
         }
     }

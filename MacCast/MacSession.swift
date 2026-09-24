@@ -449,6 +449,10 @@ final class MacSession: Identifiable {
     /// opens, so sending it to a Mac that cannot decode it ends the session.
     var hostSupportsSourceThumbnails = false
 
+    /// What this Mac said about rotating a virtual display to match the phone. See
+    /// ``DeviceOrientationSupport/maySend(hostDeclared:)``.
+    var hostSupportsDeviceOrientation = false
+
     /// Whether the picture is stopped because this client asked for it to be.
     ///
     /// Not the same as the picture being stopped: a sleeping screen, a failed stream and a pause this

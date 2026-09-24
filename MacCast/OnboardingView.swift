@@ -152,11 +152,11 @@ struct OnboardingView: View {
         // below in the same words and were not duplicated; this one was nowhere else in the
         // product, so it is a page now rather than something the move would have deleted.
         //
-        // A glyph page rather than one with a screenshot, which is what a page with no picture of
-        // its own draws. It is about a moment when nobody is looking at the phone, so there is no
-        // screen of this app to photograph for it.
+        // Drawn rather than photographed: it is about a moment when nobody is looking at the
+        // phone, so there is no screen of this app to capture for it, and the notification is the
+        // whole of what the reader has to see.
         Page(
-            content: .feature(icon: "bell.badge"),
+            content: .notification,
             title: "Told when a shell is waiting",
             body: """
                 A build that finishes, a prompt for a password, a command that wants an answer: \
@@ -496,7 +496,7 @@ struct OnboardingView: View {
                     .offset(y: shown ? 0 : 14)
                     .animation(motion(delay: 0.09), value: shown)
 
-                if case .feature = page.content {
+                if page.content.wordsAreHeld {
                     Text(page.body)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -555,10 +555,7 @@ struct OnboardingView: View {
     /// page without a device to it later cannot quietly inherit a rule that has nothing to say
     /// about it.
     private static var measuredPages: [Page] {
-        Self.pages.filter { page in
-            if case .plans = page.content { return false }
-            return true
-        }
+        Self.pages.filter { $0.content.wordsAreHeld }
     }
 
     private var wordsRuler: some View {
@@ -569,7 +566,7 @@ struct OnboardingView: View {
                         .font(DisplayFont.display(.largeTitle))
                         .tracking(-1)
 
-                    if case .feature = page.content {
+                    if page.content.wordsAreHeld {
                         Text(page.body)
                             .font(.subheadline)
                             .fixedSize(horizontal: false, vertical: true)
@@ -870,6 +867,10 @@ struct OnboardingView: View {
             picture(icon: icon, screenshot: tabletScreenshot ?? screenshot)
                 .id(index)
                 .transition(.opacity)
+        case .notification:
+            NotificationBanner()
+                .id(index)
+                .transition(.opacity)
         case .plans:
             Color.black
         }
@@ -885,6 +886,9 @@ struct OnboardingView: View {
         switch Self.pages[offset].content {
         case .feature(let icon, let screenshot, _):
             picture(icon: icon, screenshot: screenshot)
+
+        case .notification:
+            NotificationBanner()
 
         case .plans:
             // Never drawn — the last page takes the device away — but the switch has to answer.
@@ -1231,16 +1235,29 @@ struct OnboardingView: View {
 
         /// What the page puts in the stage at the top.
         ///
-        /// A type rather than a view so that the two kinds of page — the four that describe the app
-        /// and the one that asks for money — are told apart by the same list, in the same order,
-        /// with the same page dots, rather than by an index comparison somewhere in the body.
+        /// A type rather than a view so that the kinds of page are told apart by the same list, in
+        /// the same order, with the same page dots, rather than by an index comparison somewhere in
+        /// the body.
         enum Content {
             /// A page about something the app does. `screenshot` is the phone capture; `tabletScreenshot`
             /// is the iPad capture shown on regular-width layouts. Either is `nil` until taken, in which
             /// case the frame shows its glyph.
             case feature(icon: String, screenshot: String? = nil, tabletScreenshot: String? = nil)
+            /// The page whose picture is drawn rather than captured: this app's own notification,
+            /// which ``NotificationBanner`` draws.
+            case notification
             /// The last page: what there is to buy.
             case plans
+
+            /// Whether this page's words go in the block every other page's do, the one held to the
+            /// tallest of them. The plans page is the one that does not: it lays itself out from the
+            /// top and draws its own body.
+            var wordsAreHeld: Bool {
+                switch self {
+                case .feature, .notification: return true
+                case .plans: return false
+                }
+            }
         }
     }
 }
@@ -1749,6 +1766,113 @@ private struct MacDrawing<Screen: View>: View {
                     height: height * MacStageMetrics.scoopHeight
                 )
         }
+    }
+}
+
+// MARK: - The drawn notification
+
+/// The picture on the page about being told: this app's own notification, on a phone nobody is
+/// looking at.
+///
+/// Drawn rather than captured because there is nothing to capture: the notification arrives while
+/// the app is closed, and it is the whole of the picture. Every number is a fraction of the screen
+/// width, the unit every other drawing in this file is written in, so the one drawing lands in the
+/// phone frame and in the iPad's without a second version of it.
+///
+/// The type runs roughly a fifth larger than a real notification's. The tour draws a phone about
+/// 200 points wide, where an honest 13-point app name is seven points and the weight that separates
+/// it from the title stops reading.
+private struct NotificationBanner: View {
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+
+            ZStack(alignment: .top) {
+                Color.black
+
+                card(width: width)
+                    .padding(.top, proxy.size.height * 0.30)
+            }
+        }
+        // The page's own words say this, and a notification read aloud is one this reader never got.
+        .accessibilityHidden(true)
+    }
+
+    private func card(width: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: width * 0.055, style: .continuous)
+        let tile = width * 0.105
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: width * 0.025) {
+                icon(tile)
+
+                Text("Peering")
+                    .font(.system(size: width * 0.038, weight: .semibold))
+                    .foregroundStyle(ColorPalette.ink.opacity(0.70))
+
+                Spacer(minLength: width * 0.02)
+
+                Text("now")
+                    .font(.system(size: width * 0.038))
+                    .foregroundStyle(ColorPalette.ink.opacity(0.55))
+            }
+
+            // The app's own two strings, as ``SessionNotifier`` builds them: its title, and the
+            // Mac's sentence with the Mac's name in front of it. The name is the one the tour's
+            // second page already shows.
+            Text("Terminal needs you")
+                .font(.system(size: width * 0.045, weight: .semibold))
+                .foregroundStyle(ColorPalette.ink)
+                .padding(.top, width * 0.020)
+
+            Text("Damian's MacBook Pro: Terminal \u{201C}prod\u{201D} is waiting for a password.")
+                .font(.system(size: width * 0.038))
+                .foregroundStyle(ColorPalette.ink.opacity(0.85))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, width * 0.005)
+        }
+        .lineLimit(1)
+        .padding(.horizontal, width * 0.035)
+        .padding(.vertical, width * 0.030)
+        .frame(width: width * 0.96, alignment: .leading)
+        // The row surface's own fill and the card's own hairline, in the frame's units rather than
+        // in points: those helpers carry a 14 and a 24, and a fixed radius inside a box that is
+        // 200 points wide on one device and 350 on the other is two different shapes.
+        .background {
+            shape.fill(
+                LinearGradient(
+                    colors: [.white.opacity(0.09), .white.opacity(0.045)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        }
+        .overlay {
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [.white.opacity(0.20), .white.opacity(0.05)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        }
+    }
+
+    /// The app's icon, which is what a notification shows rather than a glyph tile. Its dark
+    /// appearance is a near-black plate with white pears, and ``Pears`` is that mark with the plate
+    /// keyed out, so the plate and the scale are the icon's own.
+    private func icon(_ size: CGFloat) -> some View {
+        Image("Pears")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size * 0.85)
+            .frame(width: size, height: size)
+            .background {
+                RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous)
+                    .fill(ColorPalette.backdrop)
+            }
     }
 }
 

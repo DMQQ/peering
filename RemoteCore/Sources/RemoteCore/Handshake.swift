@@ -87,6 +87,15 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Optional and additive, so `nil` reads as "no", and the command is sent only on a `true`.
     public var supportsSourceThumbnails: Bool?
 
+    /// Whether this Mac will rotate a virtual display's shape to match the phone's own
+    /// orientation. See ``RemoteCommand/reportDeviceOrientation(isLandscape:)``.
+    ///
+    /// A capability on the same argument as the three above: the command is harmless to an old
+    /// Mac's *decoder* only because it is never sent to one. Optional and additive, so `nil`
+    /// reads as "no", and the client keeps quiet about its orientation rather than have it land
+    /// on a Mac with nothing to do with it.
+    public var supportsDeviceOrientation: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -96,7 +105,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsVideoPause: Bool? = nil,
         supportsClipboardImages: Bool? = nil,
         supportsMosaic: Bool? = nil,
-        supportsSourceThumbnails: Bool? = nil
+        supportsSourceThumbnails: Bool? = nil,
+        supportsDeviceOrientation: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -107,6 +117,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsMosaic = supportsMosaic
         self.supportsSourceThumbnails = supportsSourceThumbnails
+        self.supportsDeviceOrientation = supportsDeviceOrientation
     }
 }
 
