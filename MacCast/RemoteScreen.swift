@@ -65,6 +65,13 @@ struct RemoteScreen: View {
 
     @State var openPanel: Panel?
     @State var statusBarExpanded = true
+    /// The width of the bar while it is closed, which is the pill plus the four circles beside it.
+    ///
+    /// Read so that the panel opens into at least that much: the circles are laid out outside the
+    /// pill, and removing them without this would let the bar grow shorter at the moment it opens,
+    /// which is the opposite of the movement. Measured rather than added up because the pill is as
+    /// wide as the Mac's name.
+    @State var collapsedBarWidth: CGFloat = 0
     /// Whether the portrait dock has opened onto the controls that did not earn a permanent
     /// place in it. Portrait's alone: the landscape rails have the height to show them all.
     @State var dockExpanded = false
@@ -172,6 +179,14 @@ struct RemoteScreen: View {
     /// cannot follow, because the windows are one composited surface on the Mac, so what travels is
     /// the outline and the name. See ``MosaicOverlay``.
     @State var heldPoint: CGPoint?
+
+    /// When the arrangement the phone is asking for stopped being the one on screen, if it has.
+    ///
+    /// The clock behind ``mosaicBordersHeld``: a rebuild of an arrangement is the Mac tearing one
+    /// canvas down and building another, and the borders are held back for it rather than drawn over
+    /// the black. Stamped only for a change the Mac has to build again, so a reorder keeps its own
+    /// feedback.
+    @State var mosaicRebuildStartedAt: Date?
 
     let minimumZoom: CGFloat = 0.5
     let maximumZoom: CGFloat = 8
@@ -344,8 +359,19 @@ struct RemoteScreen: View {
             }
         }
         .background {
-            KeyboardCapture(model: model, isFocused: $model.showKeyboard)
-                .frame(width: 0, height: 0)
+            // One keyboard, two views, and the mode is what decides which. Unicode mode goes
+            // through a field because that is where iOS keeps autocorrection and prediction, and
+            // keycode mode goes through the bare view because there is no text in it to correct:
+            // the characters are translated into Mac keystrokes as they arrive. See
+            // ``KeyboardTypingView``.
+            switch model.keyboardMode {
+            case .unicode:
+                KeyboardTypingCapture(model: model, isFocused: $model.showKeyboard)
+                    .frame(width: 0, height: 0)
+            case .keycode:
+                KeyboardCapture(model: model, isFocused: $model.showKeyboard)
+                    .frame(width: 0, height: 0)
+            }
         }
         .sheet(isPresented: $showsTerminals) {
             TerminalPanel()
@@ -434,25 +460,15 @@ struct RemoteScreen: View {
         }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }
-
-            if panel == .sources {
-                // The host never photographs these on its own, so without this the grid shows
-                // nothing but outlines. Guarded because the request is a command an older Mac cannot
-                // decode. See ``SourceThumbnailSupport``.
-                if model.hostSupportsSourceThumbnails {
-                    model.send(.refreshSourceThumbnails)
-                }
-
-                // Desktop pictures are photographs rather than a stream and are re-taken on the
-                // host's own schedule, so opening the panel is the moment to ask for fresh ones.
-                // Guarded on the grid's own predicate rather than a version: this command arrived
-                // with a protocol bump, so the handshake already guarantees the Mac can decode it.
-                if panel == .sources,
-                   let info = model.catalog?.spaceInfo,
-                   SourcesPanel.showsDesktops(info) {
-                    model.send(.refreshSpacePreviews)
-                }
-            }
+            if panel == .sources { askForSourcePictures() }
+        }
+        // **And again when a session comes up with the grid already on screen.** The ask above is
+        // keyed on the panel opening, and a reconnect changes nothing about the panel: it stayed
+        // open across the whole of it. What changed is the Mac on the other end, whose pictures of
+        // its own windows do not survive a relaunch there, so the grid sat on its outlines until the
+        // panel was closed and opened again.
+        .onChange(of: model.phase) { _, phase in
+            if phase == .ready { askForSourcePictures() }
         }
         .confirmationDialog(
             "Quit the active Mac app?",
@@ -625,6 +641,32 @@ struct RemoteScreen: View {
 
     // MARK: - Keyboard input bar
 
+    /// The mark that says the line is still open and where the next character goes.
+    ///
+    /// **The bar is the only place a caret can be.** The Mac's own is in the Mac's own window, at
+    /// whatever the Mac is holding; this one belongs to the sentence the bar is showing, and it is
+    /// drawn the way ``TerminalStarting`` draws its own: a short bar of ink, on for most of the
+    /// cycle and off for the rest, because an even square wave reads as a lamp flashing.
+    ///
+    /// Driven by a `TimelineView` rather than by a repeating animation: `repeatForever` is cancelled
+    /// the moment this row is laid out again, and the row is laid out again every time the picture
+    /// changes size, which leaves a caret that blinks until something happens and then never again.
+    private struct TypingCaret: View {
+        var body: some View {
+            TimelineView(.periodic(from: .now, by: 0.12)) { context in
+                let isOn = context.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: 1.0) < 0.62
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(ColorPalette.ink)
+                    .frame(width: 2, height: 14)
+                    .opacity(isOn ? 1 : 0)
+            }
+            // Decoration for the eye only: the line it marks is what a reader needs, and it is
+            // already in the label beside it.
+            .accessibilityHidden(true)
+        }
+    }
+
     var keyboardInputBar: some View {
         HStack(spacing: 10) {
             // **Leftmost, and a key rather than a glyph.** It used to be a bare chevron on the far
@@ -638,12 +680,19 @@ struct RemoteScreen: View {
             // What the bar is for, said in the words that change: the leading keyboard glyph that
             // used to stand here went with the move above, and this line was always the state it
             // was drawing.
-            Text(model.typedPreview.isEmpty ? "Typing…" : model.typedPreview)
-                .font(.system(.footnote, design: .monospaced))
-                .foregroundStyle(model.typedPreview.isEmpty ? Color.secondary : Color.primary)
-                .lineLimit(1)
-                .truncationMode(.head)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            //
+            // **And the caret after it, which is the other half of what a text field is.** Every
+            // other field on the phone has one and this bar did not: it showed the sentence the Mac
+            // was being sent with nothing at the end of it to say that more was coming, or where.
+            HStack(spacing: 1) {
+                Text(model.typedPreview.isEmpty ? "Typing…" : model.typedPreview)
+                    .font(.system(.footnote, design: .monospaced))
+                    .foregroundStyle(model.typedPreview.isEmpty ? Color.secondary : Color.primary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                TypingCaret()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // The software keyboard's Return arrives as text, and keycode mode has no keycode for a
             // newline, so a real Return is only reachable from a key like this one.

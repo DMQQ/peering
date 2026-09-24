@@ -302,6 +302,30 @@ extension RemoteScreen {
     /// scanned, narrow enough that it stays clear of the rails on a phone held sideways.
     static let panelWidth: CGFloat = 520
 
+    /// Asks the Mac for the pictures the sources panel draws: a photograph of every window and
+    /// display it offers, and fresh pictures of the desktops behind them.
+    ///
+    /// One place, because two things ask: the panel opening, and a session coming up while the panel
+    /// is already on screen. Neither host keeps these pictures for long — they are taken on demand
+    /// and pruned against the sources the Mac is offering now — so a reconnect to a Mac that has
+    /// been relaunched in between is a grid of outlines until something asks again.
+    ///
+    /// Guarded because the request is a command an older Mac cannot decode. See
+    /// ``SourceThumbnailSupport``.
+    func askForSourcePictures() {
+        guard openPanel == .sources else { return }
+        if model.hostSupportsSourceThumbnails {
+            model.send(.refreshSourceThumbnails)
+        }
+        // Desktop pictures are photographs rather than a stream and are re-taken on the host's own
+        // schedule, so this is the moment to ask for fresh ones. Guarded on the grid's own predicate
+        // rather than a version: this command arrived with a protocol bump, so the handshake already
+        // guarantees the Mac can decode it.
+        if let info = model.catalog?.spaceInfo, SourcesPanel.showsDesktops(info) {
+            model.send(.refreshSpacePreviews)
+        }
+    }
+
     /// Puts the panel away once the user has picked something from it, if that is what they asked
     /// for.
     ///

@@ -197,7 +197,10 @@ extension RemoteScreen {
             compactKeyButton(icon: "chevron.down", keyCode: 125)
             compactKeyButton(icon: "chevron.right", keyCode: 124)
             compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
-            compactKeyButton(icon: "delete.backward", keyCode: 51)
+            // Through the model rather than as a bare keycode, so the typed preview loses the
+            // character with the Mac's own line: sent directly, the Mac deleted and the preview
+            // kept what it had, which is a bar showing text that no longer exists anywhere.
+            compactCapButton(icon: "delete.backward") { model.handleBackspace() }
         }
     }
 
@@ -426,7 +429,7 @@ extension RemoteScreen {
         case .down: RailButton(icon: "chevron.down", label: "Down") { sendKey(keyCode: 125) }
         case .left: RailButton(icon: "chevron.left", label: "Left") { sendKey(keyCode: 123) }
         case .right: RailButton(icon: "chevron.right", label: "Right") { sendKey(keyCode: 124) }
-        case .delete: RailButton(icon: "delete.backward", label: "Delete") { sendKey(keyCode: 51) }
+        case .delete: RailButton(icon: "delete.backward", label: "Delete") { model.handleBackspace() }
         }
     }
 

@@ -127,6 +127,13 @@ final class HostModel {
     /// Physical display brightness is separate from the captured pixels, which is what lets the
     /// phone keep seeing a Mac whose local panels are dark.
     private let displayPrivacy = DisplayPrivacyController()
+
+    /// The other half of the same feature: a black cover over every display the brightness pass
+    /// above will not touch, which is the whole of what a third-party monitor gets.
+    private let privacyCurtain = DisplayPrivacyCurtain()
+
+    /// Set while Privacy Mode is on, so a display attached mid-session gets covered too.
+    private var displayObserver: NSObjectProtocol?
     private(set) var privacyModeEnabled = false
 
     /// The capture source the client last asked for.
@@ -426,6 +433,9 @@ final class HostModel {
         let resolver = ScreenCaptureSourceResolver { [weak self] in
             Task { @MainActor [weak self] in self?.coordinator?.refreshCatalog() }
         }
+        // Wired here rather than at the cover, because a cover taken back down is the one thing
+        // this side of the feature cannot be told about in the call that raised it.
+        privacyCurtain.onUncovered = { [weak self] refusals in self?.reportUncovered(refusals) }
         let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec)
         let coordinator = VideoCoordinator(pipeline: pipeline)
         // Before any capture can start: the first video connection may arrive seconds from now, and
@@ -730,7 +740,7 @@ final class HostModel {
                 self?.pendingCaptureSource = nil
                 // After the switch rather than before: raising an app whose capture then fails
                 // would bring the wrong thing forward and leave it there.
-                self?.raiseApplication(for: source)
+                self?.raiseSource(for: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 self?.record("Could not switch capture source: \(message)", level: .failure)
@@ -884,32 +894,108 @@ final class HostModel {
         }
     }
 
-    /// Dims or restores every display for which macOS exposes brightness control.
+    /// Darkens every display this Mac can be dark, and covers the rest.
+    ///
+    /// Two mechanisms, because neither reaches every display. A brightness write is the good one
+    /// where it holds: nothing is drawn over the picture, so the phone's stream is untouched by
+    /// construction, and the Mac's own brightness-up key still brings the panel back. A display
+    /// that will not take the write is covered instead by a window that the window server keeps
+    /// out of any capture, which reaches the picture the same way and survives a monitor whose
+    /// own firmware refuses what macOS hands it.
     private func setPrivacyMode(_ enabled: Bool) {
         if enabled {
             guard !privacyModeEnabled else { return }
-            do {
-                let count = try displayPrivacy.enable()
-                privacyModeEnabled = true
-                record("Privacy Mode enabled on \(count) display\(count == 1 ? "" : "s")")
-            } catch {
-                privacyModeEnabled = false
-                let message = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
-                record("Could not enable Privacy Mode: \(message)", level: .failure)
-                server?.broadcastNotice(NoticePayload(
-                    message: "Privacy Mode could not dim this Mac's displays.",
-                    symbol: "display.trianglebadge.exclamationmark"
-                ))
-            }
+            // Before the cover goes up, so a display that arrives while it is up is not missed:
+            // nothing else tells the host that the Mac's display list changed.
+            observeDisplayChanges(true)
+            privacyModeEnabled = true
+            applyPrivacyCover()
         } else {
             guard privacyModeEnabled else {
                 // Also repairs a persisted level after an interrupted run.
                 displayPrivacy.restore()
                 return
             }
-            displayPrivacy.restore()
             privacyModeEnabled = false
-            record("Privacy Mode disabled; display brightness restored")
+            observeDisplayChanges(false)
+            displayPrivacy.restore()
+            privacyCurtain.lift()
+            record("Privacy Mode off; displays restored")
+        }
+    }
+
+    /// Dims every display that takes a brightness write, covers the ones that do not, and says
+    /// what it managed.
+    ///
+    /// Called again for a display attached during a session, which is why it works from the
+    /// display list rather than from anything remembered: a display nobody has hidden is exactly
+    /// what this feature promises not to have.
+    private func applyPrivacyCover() {
+        let dimmed = (try? displayPrivacy.enable()) ?? []
+        let covered = privacyCurtain.cover(
+            DisplayPrivacyController.activeDisplayIDs().filter {
+                // A display this host made itself has no panel in front of anyone, so there is
+                // nothing in front of it to cover.
+                !dimmed.contains($0) && VirtualDisplay.name(for: $0) == nil
+            }
+        )
+
+        let total = dimmed.count + covered.covered.count
+        guard total > 0 else {
+            let reason = covered.refused.first?.reason ?? "no display here takes a brightness change"
+            record("Could not enable Privacy Mode: \(reason)", level: .failure)
+            server?.broadcastNotice(NoticePayload(
+                message: "Privacy Mode could not darken this Mac's displays.",
+                symbol: "display.trianglebadge.exclamationmark"
+            ))
+            return
+        }
+        // Said as what happened rather than as a success: a Mac with one third-party monitor dims
+        // nothing at all and is still private, and a Mac where the cover failed is not.
+        record("""
+            Privacy Mode on \(total) display\(total == 1 ? "" : "s") \
+            (\(dimmed.count) dimmed, \(covered.covered.count) covered)
+            """)
+        reportUncovered(covered.refused)
+    }
+
+    /// Says, and tells the phone, about a display Privacy Mode left visible.
+    ///
+    /// Reached twice for one enable: once for a display no cover could be put on at all, and once
+    /// from ``DisplayPrivacyCurtain`` for a cover that had to come back down, which the window
+    /// server only answers after the call that put it up has returned.
+    private func reportUncovered(_ refusals: [DisplayPrivacyCurtain.Refusal]) {
+        guard !refusals.isEmpty else { return }
+        for refusal in refusals {
+            record("Privacy Mode could not cover \(refusal.display): \(refusal.reason)", level: .failure)
+        }
+        server?.broadcastNotice(NoticePayload(
+            message: refusals.count == 1
+                ? "One of this Mac's displays is still visible: Privacy Mode could not cover it."
+                : "\(refusals.count) of this Mac's displays are still visible: Privacy Mode could not cover them.",
+            symbol: "display.trianglebadge.exclamationmark"
+        ))
+    }
+
+    /// Watches the display list for as long as there is a cover to keep up to date.
+    private func observeDisplayChanges(_ observing: Bool) {
+        guard observing != (displayObserver == nil) else { return }
+        if observing {
+            displayObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                // Hopped rather than assumed: keeping the covers up to date is main-actor work,
+                // and the queue this notification arrives on is not a promise this file can check.
+                Task { @MainActor [weak self] in
+                    guard let self, self.privacyModeEnabled else { return }
+                    self.applyPrivacyCover()
+                }
+            }
+        } else if let observer = displayObserver {
+            NotificationCenter.default.removeObserver(observer)
+            displayObserver = nil
         }
     }
 

@@ -199,6 +199,26 @@ final class MacSession: Identifiable {
     /// treated as one that is. Cleared the moment a session is up again.
     var hasGivenUpResuming = false
 
+    /// Whether this dial is a Mac being put back rather than opened.
+    ///
+    /// **The one resume a session cannot recognise on its own.** Everything else about a Mac
+    /// survives the ladder: it builds a new session object per attempt and carries `hasBeenReady`
+    /// across, which is what ``isResumingAfterDrop`` reads. A cold launch has no object to carry
+    /// anything from, because iOS killed the process, so the intent arrives with the dial instead
+    /// and is put here by ``SessionModel/connect(to:replacing:)``.
+    var isComingBack = false
+
+    /// Whether this Mac is being put back, and is not back yet.
+    ///
+    /// The question the header asks, and the reason it is asked here rather than in the view: the
+    /// two flags that answer it live in different places, and one of them is only true for the
+    /// first moments of a dial. `.ready` is excluded by name because every other flag stays true
+    /// through it: they describe an attempt, and an attempt that arrived is over.
+    var isBeingPutBack: Bool {
+        guard phase != .ready else { return false }
+        return isResumingAfterDrop || isComingBack
+    }
+
     /// Set while a dropped session is being put back, so the Live Activity can say so rather
     /// than keep claiming a connection that is not there.
     var isReconnecting = false
@@ -253,6 +273,26 @@ final class MacSession: Identifiable {
         }
     }
 
+    /// Puts this Mac back now rather than when the ladder's next rung comes due.
+    ///
+    /// **The wait is a wall clock and the app is not running for most of it.** A phone put away
+    /// mid-resume comes back with part of a rung spent and the rest still to go, while the person
+    /// holding it looks at a picture that stopped moving: nothing about the Mac changed during the
+    /// pause, so there is nothing for the wait to be spacing out. Called as the app comes to the
+    /// front, which is the one moment that can be known.
+    ///
+    /// Only where the Mac can be dialled from where it stands, because the other case is a Mac that
+    /// Bonjour cannot see, and there cutting the wait short would spend the rung rather than skip it:
+    /// the ladder advances by one per attempt and the next attempt is what the wait was for.
+    func resumeWithoutWaiting() {
+        guard reconnectTask != nil, let hostID else { return }
+        let visible = model.hosts.contains { $0.id == hostID }
+        let byRelay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
+        guard visible || byRelay else { return }
+        stopReconnecting()
+        resumeIfNeeded()
+    }
+
     /// Arms the next attempt, if there is one left to make.
     ///
     /// A resume gets the shorter ladder, chosen here rather than kept in the session because it has
@@ -264,6 +304,10 @@ final class MacSession: Identifiable {
             : SessionModel.reconnectDelays
         guard reconnectAttempt < delays.count else {
             isReconnecting = false
+            // And the flag a cold launch set, for the same reason and one more: nothing will dial
+            // this Mac again in this launch, so a header that went on saying it was coming back
+            // would be describing an attempt that no longer exists.
+            isComingBack = false
             // Running out is the moment the app stops behaving like a session that is coming back:
             // this flag turns the remote screen over to the picker. The banner is not re-posted,
             // because `SessionAwareness` refuses a repeat of the phase it is already in.

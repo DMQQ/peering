@@ -278,19 +278,25 @@ extension RemoteScreen {
             // and is therefore a beat behind.
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
             guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
-            // **And nothing for a picture the arrangement has moved on from.** From the moment a
-            // window is added or taken away until the canvas showing the new arrangement arrives,
-            // the Mac is tearing the old one down and building the new one, and the layout it last
-            // sent describes a grid that is on its way out: the borders were drawn over the black
-            // of the rebuild and then jumped to the grid that replaced it. They arrive with the
-            // picture now, which is what the appearance and disappearance of this whole layer is
-            // for. A reorder is not this case and is deliberately not hidden: the canvas is the
-            // same one, so the Mac sends no config and there would be nothing to wait for.
+            // **And nothing for a picture the arrangement has moved on from, while the rebuild
+            // lasts.** From the moment a window is added or taken away until the canvas showing the
+            // new arrangement arrives, the Mac is tearing the old one down and building the new one,
+            // and the layout it last sent describes a grid that is on its way out: the borders were
+            // drawn over the black of the rebuild and then jumped to the grid that replaced it. They
+            // arrive with the picture instead, which is what the appearance and disappearance of
+            // this whole layer is for.
             //
-            // The × controls go with them, which is a second reason to hide: they carry the index
-            // of the tile they sit on, and an index from a grid that is leaving names the wrong
-            // window in the grid that is arriving. See ``removeMosaicTile(at:)``.
-            return sameArrangement(asked, arrived) ? asked : nil
+            // **Bounded, and that is the half that matters.** A hold with no deadline never ends: a
+            // Mac that goes on rebuilding, or that has quietly dropped a window the phone still
+            // lists, never sends back the arrangement being asked for, and borders waiting for it
+            // are borders nobody ever sees. Past the grace the Mac's own layout is drawn, which is
+            // the one that matches the picture on screen. See ``mosaicBordersHeld``.
+            //
+            // The × controls are held with them, which is a second reason to hold them: they carry
+            // the index of the tile they sit on, and an index from a grid that is leaving names the
+            // wrong window in the grid that is arriving. See ``removeMosaicTile(at:)``.
+            if mosaicBordersHeld { return nil }
+            return sameArrangement(asked, arrived) ? asked : arrived
         }
 
         // Nothing on the way back: borders drawn for an arrangement not yet built sit over a picture
@@ -298,6 +304,30 @@ extension RemoteScreen {
         // that window. See ``mosaicReturnTransform()``.
         return nil
     }
+
+    /// Whether the borders are held back for a rebuild the picture has not caught up with.
+    ///
+    /// True from the moment the arrangement changes in a way the Mac has to build again, and false
+    /// again as soon as its own layout says the same thing or once ``mosaicRebuildGrace`` has
+    /// passed. Both ends are load-bearing: the comparison ends the hold early in the ordinary case,
+    /// where the Mac answers with the arrangement it built, and the deadline ends it in the one
+    /// where the Mac never answers at all.
+    private var mosaicBordersHeld: Bool {
+        guard let started = mosaicRebuildStartedAt,
+              let asked = model.mosaicLayout,
+              let arrived = model.pictureMosaicLayout,
+              !sameArrangement(asked, arrived)
+        else { return false }
+        return Date().timeIntervalSince(started) < Self.mosaicRebuildGrace
+    }
+
+    /// How long a rebuild may hold the borders back.
+    ///
+    /// Longer than a rebuild takes on a Mac that is going to finish one, since the tiles are started
+    /// one at a time and the first canvas waits up to 700ms for the ones that have not delivered
+    /// (see ``MosaicCompositor/tick()``), and short enough that a rebuild which is never going to
+    /// finish costs the picture its tile edges for a moment rather than for good.
+    private static let mosaicRebuildGrace: TimeInterval = 2.5
 
     /// Whether two arrangements are the same canvas holding the same windows.
     ///
@@ -487,6 +517,13 @@ extension RemoteScreen {
         // Keyed on whether the borders are drawn at all rather than on whether the Mac has answered:
         // on the way back from a tile they appear the moment the user asks. See ``shownMosaicLayout``.
         .animation(Motion.settle, value: shownMosaicLayout != nil)
+        // **Only a change the Mac has to build again stamps the clock.** A reorder is the same canvas
+        // holding the same windows, the Mac answers it with nothing at all, and holding the borders
+        // for it would take away the outline the finger is carrying. See ``mosaicBordersHeld``.
+        .onChange(of: model.mosaicLayout) { _, asked in
+            guard let asked, let arrived = model.pictureMosaicLayout else { return }
+            if !sameArrangement(asked, arrived) { mosaicRebuildStartedAt = Date() }
+        }
         .ignoresSafeArea()
     }
 

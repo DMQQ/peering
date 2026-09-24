@@ -297,6 +297,144 @@ final class KeyboardCaptureView: UIView, UIKeyInput {
     }
 }
 
+/// The keyboard's text, held by a field rather than by nothing.
+///
+/// **Because autocorrection, prediction and dictation are the text system's, and the text system
+/// needs a document to offer them to.** The view above is a keyboard with no text behind it: iOS
+/// gives it no suggestions, and its `autocorrectionType` is a property nothing reads. Unicode-mode
+/// typing is held here instead — a real field, kept out of sight — and what the Mac is told is what
+/// the field just did, character for character, including the replacements the system makes on its
+/// own account: "teh" arriving as "the" is this working rather than a fault.
+///
+/// Invisible on purpose. The user is typing into the Mac, and everything worth seeing about that is
+/// in the picture: the Mac's own text, the Mac's own caret. What this feeds is the suggestion bar
+/// above the keyboard and the app's own typed preview, which is where the caret for this belongs.
+final class KeyboardTypingView: UITextField, UITextFieldDelegate {
+    var onType: ((String) -> Void)?
+    var onDelete: ((Int) -> Void)?
+    var onKey: ((UIKeyboardHIDUsage, Bool, UIKeyModifierFlags) -> Void)?
+    var onReturn: (() -> Void)?
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    init() {
+        super.init(frame: .zero)
+        delegate = self
+        // The point of the field: the sentence above the keyboard, and the corrections in it.
+        autocorrectionType = .yes
+        // Not spelled out: terminal output is not English prose, and a red underline under a path
+        // reads as a warning about the path.
+        spellCheckingType = .no
+        // Capitalisation stays off. This types into the Mac's own applications, and a shell prompt
+        // that capitalises the first word of every command is worse than one that never does.
+        autocapitalizationType = .none
+        keyboardType = .default
+        returnKeyType = .send
+        // Nothing is drawn: not the text, not the caret, and no background that would show through
+        // the picture. `isHidden` would be the obvious way and is the one thing that cannot be
+        // used, because a hidden view can never become first responder.
+        textColor = .clear
+        tintColor = .clear
+        backgroundColor = .clear
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not built from a nib") }
+
+    /// Sends the edit rather than describing it, and then lets the field do it.
+    ///
+    /// **The field has to keep the text.** It is the document autocorrection reads, so refusing the
+    /// change to keep the buffer empty would be refusing the feature; and this is also the one place
+    /// the system's own edits are visible — a correction arrives here as a replacement, which is how
+    /// it can be said to the Mac as what it is: the old word's characters deleted, the new word typed.
+    func textField(
+        _ textField: UITextField,
+        shouldChangeCharactersIn range: NSRange,
+        replacementString string: String
+    ) -> Bool {
+        // Counted in characters, because a backspace on the Mac removes one of those: the range
+        // arrives in UTF-16 units, where an emoji is two of them and one of these.
+        let replaced = ((textField.text ?? "") as NSString).substring(with: range).count
+        if replaced > 0 { onDelete?(replaced) }
+        if !string.isEmpty { onType?(string) }
+        return true
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        // The line is committed on the Mac, so the buffer that fed the suggestions is finished with:
+        // kept, the next word's correction would be spelled against the last one's.
+        reset()
+        onReturn?()
+        return false
+    }
+
+    /// Empties the buffer without telling the Mac anything, which is right in both cases it is
+    /// called: what the buffer held has already been sent, and a Return has just committed it.
+    func reset() {
+        text = ""
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let key = press.key else { continue }
+            handled = true
+            onKey?(key.keyCode, true, key.modifierFlags)
+        }
+        // Swallowed, exactly as the view above swallows them: a hardware key is a keycode with
+        // modifiers the Mac should receive as keys, and a press left to `super` would be turned into
+        // text by the text system and arrive a second time as a character.
+        if !handled { super.pressesBegan(presses, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let key = press.key else { continue }
+            handled = true
+            onKey?(key.keyCode, false, key.modifierFlags)
+        }
+        if !handled { super.pressesEnded(presses, with: event) }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        pressesEnded(presses, with: event)
+    }
+}
+
+/// The unicode-mode wrapper: the same job as ``KeyboardCapture`` over a field that holds text.
+struct KeyboardTypingCapture: UIViewRepresentable {
+    let model: SessionModel
+    @Binding var isFocused: Bool
+
+    func makeUIView(context: Context) -> KeyboardTypingView {
+        let view = KeyboardTypingView()
+        view.onType = { [weak model] text in model?.handleTypedText(text) }
+        view.onDelete = { [weak model] count in
+            // One at a time, because that is what the Mac hears either way and what the bar's own
+            // preview undoes: a correction that replaced a word drops exactly that word's characters.
+            for _ in 0..<count { model?.handleBackspace() }
+        }
+        view.onReturn = { [weak model] in model?.pressReturn() }
+        view.onKey = { [weak model] usage, down, flags in
+            model?.handleHardwareKey(usage, down: down, flags: flags)
+        }
+        return view
+    }
+
+    func updateUIView(_ view: KeyboardTypingView, context: Context) {
+        if isFocused, !view.isFirstResponder {
+            // The same beat the other wrapper waits, for the same reason: a `becomeFirstResponder`
+            // on a view with no window yet is a silent no-op, so the keyboard would never appear.
+            DispatchQueue.main.async { view.becomeFirstResponder() }
+        } else if !isFocused, view.isFirstResponder {
+            view.resignFirstResponder()
+            // Leaving the keyboard ends the sentence the suggestions were being made for.
+            view.reset()
+        }
+    }
+}
+
 /// SwiftUI wrapper. Zero-sized: it exists to be first responder, not to be seen.
 struct KeyboardCapture: UIViewRepresentable {
     let model: SessionModel

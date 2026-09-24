@@ -242,19 +242,42 @@ private final class TerminalAppWatch: @unchecked Sendable {
               let text = ref as? String, !text.isEmpty else { return }
         let tail = String(text.suffix(4_096))
         let key = CFHash(element)
-        schedule(text: tail, key: key)
+        schedule(text: tail, title: Self.windowTitle(of: element), key: key)
     }
 
-    private func schedule(text: String, key: CFHashCode) {
+    /// What the window this text area lives in is called.
+    ///
+    /// **The only name a shell watched from outside has.** There is no session here and no name of
+    /// its own: a shell in Terminal.app is a text area inside a window, and the window's title is
+    /// what the Mac's own user sees at the top of it — "prod — zsh — 80×24". Without it a banner
+    /// could only say which *application* is asking, which is one word for every shell on the Mac.
+    private static func windowTitle(of element: AXUIElement) -> String? {
+        var windowRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &windowRef) == .success,
+              let windowRef,
+              CFGetTypeID(windowRef) == AXUIElementGetTypeID()
+        else { return nil }
+
+        var titleRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            windowRef as! AXUIElement, kAXTitleAttribute as CFString, &titleRef
+        ) == .success,
+            let title = titleRef as? String,
+            !title.isEmpty
+        else { return nil }
+        return title
+    }
+
+    private func schedule(text: String, title: String?, key: CFHashCode) {
         lock.withLock {
             pending[key]?.cancel()
-            let item = DispatchWorkItem { [weak self] in self?.check(text: text, key: key) }
+            let item = DispatchWorkItem { [weak self] in self?.check(text: text, title: title, key: key) }
             pending[key] = item
             Self.queue.asyncAfter(deadline: .now() + .milliseconds(300), execute: item)
         }
     }
 
-    private func check(text: String, key: CFHashCode) {
+    private func check(text: String, title: String?, key: CFHashCode) {
         // One alert per prompt, and the re-arm is the half that matters: the scan asks whether the
         // text ends in a question, and a program that repaints while it waits no longer ends in
         // anything, so keying on the text alone means a push per repaint. A terminal watched from
@@ -267,7 +290,15 @@ private final class TerminalAppWatch: @unchecked Sendable {
         guard lock.withLock({ awaiting.insert(key).inserted }) else { return }
 
         let noun = kind == .password ? "a password" : "confirmation"
-        let message = "\(appName) is waiting for \(noun)."
+        // **Who is asking, and for what.** The window says where, the terminal's own last line says
+        // who — "[sudo] password for damian:" is the answer to both questions, and a banner that
+        // read "Terminal is waiting for a password" answered neither: two shells on one Mac asking
+        // for two different passwords produced one identical line. The sentence is the fallback for
+        // a question that cannot be read.
+        let who = title.map { "\(appName) \u{201C}\($0)\u{201D}" } ?? appName
+        let message = TerminalAttentionDetector.question(inPlainText: text)
+            .map { "\(who): \($0)" }
+            ?? "\(who) is waiting for \(noun)."
         nativeTermLog.notice("\(message as String, privacy: .public)")
         onAttention(message)
     }

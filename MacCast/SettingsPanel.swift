@@ -386,7 +386,7 @@ struct SettingsPanel: View {
                     .font(.subheadline.weight(.medium))
             }
             .tint(ColorPalette.accent)
-            Text("Privacy Mode sets supported displays to 0% brightness without stopping the stream. Brightness is restored when you turn it off or disconnect. The Mac's physical brightness-up key always remains an escape hatch.")
+            Text("Privacy Mode darkens the Mac's displays without stopping the stream. Displays whose brightness macOS can set go to 0%; any it cannot are covered by a black screen. Either way everything is restored when you turn it off or disconnect. The Mac's physical brightness-up key still brings a dimmed display back.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

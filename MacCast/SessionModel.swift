@@ -520,7 +520,24 @@ final class SessionModel {
     var pointerSpeed: Double =
         UserDefaults.standard.object(forKey: PreferenceKeys.pointerSpeed) as? Double ?? 1
 
-    var showKeyboard = false
+    var showKeyboard = false {
+        didSet {
+            // Putting the keyboard away ends the line this bar was keeping: what it holds is the
+            // sentence the keyboard has typed since it was last emptied, and with the keyboard gone
+            // there is nothing left that would ever correct it. This is also the way out of a
+            // preview that has drifted, which is otherwise a bar showing text with no way to clear
+            // it: delete the characters, or put the keyboard down and pick it up again.
+            if !showKeyboard { typedPreview = "" }
+        }
+    }
+
+    /// What the keyboard has typed into the Mac since the line was last committed.
+    ///
+    /// The bar's own record rather than the Mac's, which is why it is emptied by Return, by a
+    /// newline arriving as text, and by the keyboard being put away: every one of those is this
+    /// side deciding it is no longer describing the same line. Anything that *sends* characters
+    /// has to go through ``handleTypedText(_:)`` and ``handleBackspace()`` — a keycode sent
+    /// directly leaves this showing a character the Mac has already lost.
     var typedPreview = ""
 
     // MARK: - Purchase
@@ -874,6 +891,11 @@ final class SessionModel {
         // `reconnectAttempt` is carried because the counter lives on the object and the object is
         // replaced on every attempt: without it a Mac that keeps failing stays on the first rung for as
         // long as it keeps failing.
+        // The third fact of the same kind, and the one that cannot be carried from `old`: a cold
+        // launch's restoration is the resume with no session behind it, so the intent arrives on the
+        // model and is handed to the object being built. See ``MacSession/isComingBack``.
+        session.isComingBack = isResuming
+
         if let old, let targetID = target.hostID, targetID == old.hostID {
             session.hasBeenReady = old.hasBeenReady
             session.reconnectAttempt = old.reconnectAttempt
@@ -1046,6 +1068,12 @@ final class SessionModel {
     /// Whether the Mac on screen dropped and is being put back. The rule is ``SessionResume``'s, and
     /// the screens ask here so that they read one answer. See ``MacSession/isResumingAfterDrop``.
     var isResumingAfterDrop: Bool { activeSession?.isResumingAfterDrop ?? false }
+
+    /// Whether the Mac on screen is being put back, including the dial a cold launch makes.
+    ///
+    /// The forwarder the header reads, so that the two flags behind it are answered in one place.
+    /// See ``MacSession/isBeingPutBack``.
+    var isBeingPutBack: Bool { activeSession?.isBeingPutBack ?? false }
 
     /// How long to wait before each attempt at putting a dropped session back.
     ///

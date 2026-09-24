@@ -457,20 +457,30 @@ final class TerminalSessionManager: @unchecked Sendable {
     }
 
     private func received(_ data: Data, from session: Session) {
-        let (attention, finish): (TerminalAttentionKind?, TerminalCommandFinishDetector.Finish?) = lock.withLock {
-            guard sessions[session.id] === session else { return (nil, nil) }
+        let (attention, finish, question): (
+            TerminalAttentionKind?, TerminalCommandFinishDetector.Finish?, String?
+        ) = lock.withLock {
+            guard sessions[session.id] === session else { return (nil, nil, nil) }
             session.history.append(data)
             if session.history.count > Self.maximumHistoryBytes {
                 session.history.removeFirst(session.history.count - Self.maximumHistoryBytes)
             }
-            return (session.attentionDetector.receive(data), session.finishDetector.receive(data))
+            let kind = session.attentionDetector.receive(data)
+            // Read inside the lock and in the same breath as the detection: the question is the
+            // tail the detection just recognised, and the tail moves on with the next output.
+            return (kind, session.finishDetector.receive(data), session.attentionDetector.question)
         }
 
         send(.output(sessionID: session.id, data: data), to: session.ownerClientID)
 
         if let attention {
             let noun = attention == .password ? "a password" : "confirmation"
-            let message = "Terminal \u{201C}\(session.name)\u{201D} is waiting for \(noun)."
+            let name = "Terminal \u{201C}\(session.name)\u{201D}"
+            // **The prompt is quoted when there is one, and it is what names whoever is asking:**
+            // "[sudo] password for damian:" says both which password and whose. The sentence stays
+            // as the fallback for a prompt that cannot be read, which is the case for anything that
+            // paints its question instead of printing it.
+            let message = question.map { "\(name): \($0)" } ?? "\(name) is waiting for \(noun)."
             send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
             pushIfDisconnected(session: session, title: "Terminal needs you", message: message)
         }

@@ -19,12 +19,57 @@ extension HostModel {
     ///
     /// The cost: this moves the app in front of whatever the Mac's own user was doing, and switches
     /// Spaces if its windows are elsewhere.
-    func raiseApplication(for source: CaptureSource) {
-        guard case .application(let pid) = source,
+    func raiseSource(for source: CaptureSource) {
+        guard let pid = Self.owningProcess(of: source),
               let running = NSRunningApplication(processIdentifier: pid)
         else { return }
 
-        running.activate(options: [.activateAllWindows])
+        bringToFront(running)
+    }
+
+    /// Which process's window this is, for the two kinds of source that have one.
+    ///
+    /// **A single window needs this for the same reason a whole application does**, and it went
+    /// without: ScreenCaptureKit composites a window whether it is in front, behind, or on another
+    /// Space, so the client is shown a window while the Mac has something else at those
+    /// coordinates, and the injected click is hit-tested against the real screen. Clicking the
+    /// prompt of a captured terminal therefore typed into whatever window happened to be over it.
+    ///
+    /// The window list rather than the resolver's catalogue: the same window server draws and
+    /// hit-tests the window, so its own answer cannot be stale, and a dragged window makes a
+    /// catalogue snapshot wrong within a second.
+    private static func owningProcess(of source: CaptureSource) -> pid_t? {
+        switch source {
+        case .application(let pid):
+            return pid
+        case .window(let id):
+            guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]]
+            else { return nil }
+            return info.first?[kCGWindowOwnerPID as String] as? pid_t
+        case .display, .mosaic:
+            // Nothing to raise: a display is every application at once, and a mosaic is a
+            // composition of several, each of which is drawn where it was left.
+            return nil
+        }
+    }
+
+    /// Brings an application to the front of the Mac's own screen.
+    ///
+    /// **`activate` is a request the window server is free to refuse, and this host is the case it
+    /// refuses.** It is a menu-bar app nobody is touching: the click that asked for this arrived over
+    /// the network, so no user is behind it as far as macOS is concerned, and AppKit says in as many
+    /// words that activation is not guaranteed and since macOS 14 is cooperative. The accessibility
+    /// API is not gated that way, the host already holds it for moving windows, and setting the
+    /// frontmost attribute is the same act as clicking the application's Dock icon.
+    ///
+    /// Both, because they answer different questions. `activate` asks for the app to be the frontmost
+    /// *process*, which is what the menu bar, the Dock and ⌘-Tab follow; the attribute is what brings
+    /// its windows forward, which is what the Mac's own user sees. Neither reports anything useful:
+    /// the activation returns a Bool nobody can act on, and the AX call nothing at all.
+    func bringToFront(_ application: NSRunningApplication) {
+        application.activate(options: [.activateAllWindows])
+        let element = AXUIElementCreateApplication(application.processIdentifier)
+        AXUIElementSetAttributeValue(element, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
     }
 
     /// Opens a GUI application by the bundle identifier offered in the catalogue, then follows it
@@ -42,7 +87,7 @@ extension HostModel {
 
         if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
             .first(where: { $0.activationPolicy == .regular }) {
-            running.activate()
+            bringToFront(running)
             let target = launchTargetDisplayID
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -69,10 +114,17 @@ extension HostModel {
                     return
                 }
                 self.record("Opened \(application.localizedName ?? bundleIdentifier)")
+                // **Asked for directly rather than left to the launch.** `activates = true` on the
+                // configuration is a request from a process with no user behind it, which is the
+                // request macOS stopped guaranteeing in 14. And once again after the windows exist:
+                // an application brought forward before it has one is an application the Mac's own
+                // user sees nothing of.
+                self.bringToFront(application)
                 self.coordinator?.refreshCatalog()
                 if let target {
                     await self.relocateLaunchedApplication(application, toDisplay: target)
                 }
+                self.bringToFront(application)
                 self.switchToLaunchedApplication(application)
             }
         }

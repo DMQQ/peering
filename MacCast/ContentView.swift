@@ -34,8 +34,15 @@ struct ContentView: View {
         // whole of the flag, and it is read first because it is the user's own last word: the cases
         // below are all about a session that is being watched. See
         // ``SessionModel/isSessionOnScreen``.
+        //
+        // **A resume with no session object behind it counts too.** A process killed in the
+        // background comes back with nothing, dials the Mac it was last on, and passes through the
+        // same phases a first connection does — so the same guard that keeps a drop on this screen
+        // has to keep this one too, or the picker shows for as long as the dial takes. There is no
+        // frame to leave up in that case, and the session screen's own header is what says what is
+        // happening: see ``MacSession/isBeingPutBack``.
         guard model.isSessionOnScreen else { return false }
-        if model.isResumingAfterDrop { return true }
+        if model.isBeingPutBack { return true }
         switch model.phase {
         case .ready, .confirming: return true
         default: return false
@@ -296,7 +303,11 @@ struct ContentView: View {
         // resume has a picture already on screen underneath and someone who was watching it. The
         // screen it comes back to is still up, so there is nothing here to cover and no reason to
         // make them wait for the ritual.
-        guard !model.isResumingAfterDrop else { return }
+        //
+        // Asked of the session, for the reason ``isRemoteScreen`` asks there: a resume is a resume
+        // whether or not a session object survived to say so, and the card is not the only modal
+        // this would otherwise be.
+        guard !model.isBeingPutBack else { return }
 
         connectingDismissTask?.cancel()
         connectingDismissTask = nil

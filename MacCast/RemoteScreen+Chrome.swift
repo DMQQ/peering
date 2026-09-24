@@ -21,6 +21,19 @@ extension RemoteScreen {
     /// what the picker is for, and the picker is a screen they already know how to reach.
     var hasSeveralMacs: Bool { model.openSessions.count > 1 }
 
+    /// How wide the bar may be on a screen that has rails down its sides.
+    ///
+    /// The space between them, with a gap's worth of daylight either side: the rails are
+    /// ``ChromeMetrics/panelWidth`` wide and inset by ``ChromeMetrics/edgeInset``, and
+    /// ``ChromeMetrics/panelGap`` is what keeps a panel from touching one. A cap rather than a
+    /// fraction of the screen, because what the bar has to clear is a control rather than a margin.
+    ///
+    /// Portrait needs none: it has no rails, and the pill's own two lines are what it must fit in.
+    func statusBarWidthCap(in available: CGFloat) -> CGFloat {
+        let perSide = ChromeMetrics.panelWidth + ChromeMetrics.edgeInset + ChromeMetrics.panelGap
+        return max(0, available - 2 * perSide)
+    }
+
     @ViewBuilder
     func sessionChrome(isLandscape: Bool, available: CGSize) -> some View {
         if isLandscape {
@@ -66,13 +79,13 @@ extension RemoteScreen {
                     Spacer(minLength: 0)
                 }
 
-                // The pill's own width plus the dots, so the cap goes on doing what it was for —
-                // keeping the pill from crossing a landscape screen — to the pill. Left at 420
-                // it would have started constraining the status rows instead, since the dots
-                // moved inside it. How many dots that is comes from ``sessionDotsWidth``, which
-                // counts them: the mosaic's is only up while an arrangement is being watched.
+                // **Capped at the space between the rails**, and it needs the cap: the pill hugs its
+                // contents, and one of those contents is the source's own name — a window's title,
+                // which on this Mac is a terminal's 74-character status line. Left alone the bar grew
+                // until it was drawn over both rails and the buttons under them. See
+                // ``RemoteScreen/statusBarWidthCap(in:)``.
                 statusBar
-                    .frame(maxWidth: Self.pillMaxWidth + sessionDotsWidth)
+                    .frame(maxWidth: statusBarWidthCap(in: available.width))
                     .tourAnchor(.screenStatus)
                 // Under the pill rather than beside it, in both orientations: the pill is about
                 // the connection the user is watching and the strip is about the others, and

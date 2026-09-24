@@ -49,43 +49,52 @@ extension RemoteScreen {
         removal: .identity
     )
 
-    /// The session's status, and the two things hung off its edge.
+    /// The bar: a status pill, four buttons floating around it, and a panel behind the pill's face.
     ///
-    /// The dots sit outside the glass rather than in the row that is inside it — see
-    /// ``sessionDots`` — so the pill holds status and the dots hold the two occasional actions,
-    /// and the outer `HStack` is what keeps them one object: attached, not merely near each other.
+    /// **Both halves of what a session needs, in the two places they belong.** While watching, the
+    /// four things somebody reaches for are on the bar itself as circles with no words: they are
+    /// pressed with the picture in front of the user, and a glyph is enough for a control that is
+    /// pressed without being read. Everything else is inside the pill, which opens into rows of
+    /// chips that say what they do, a control that can be read rather than recognised.
+    ///
+    /// The four stand down while the panel is open: it holds the same actions with their words on,
+    /// and it wants the width.
     var statusBar: some View {
+        // Two circles leading and two trailing, so the strip is balanced around the thing it is
+        // reporting on.
         HStack(alignment: .center, spacing: 5) {
-            // **The way back to the picker, leading, which is where a way back lives on this
-            // system.** It is the one control in this row that leaves the picture rather than
-            // doing something to it, and it leaves the session running: see
-            // ``SessionModel/stepAwayFromSession()``.
-            connectDot.layoutPriority(1)
-            // The dots are served first and the pill takes what is left. The pill was taking
-            // the width it wanted, which on a portrait phone pushed the terminal dot off the
-            // edge of the screen — and of the dots, the ones that are one glyph in a circle have
-            // nowhere to compress to.
-            lockDot.layoutPriority(1)
+            // The way back to the picker leads, because that is where a way back lives on this
+            // system, and the lock is the one that acts on the Mac itself.
+            if !statusBarExpanded {
+                connectDot.layoutPriority(1)
+                lockDot.layoutPriority(1)
+            }
             statusPill
-            // Between the pill and the terminal, so the two controls that are *about the picture*
-            // — how it is drawn and where it goes back to — are the two nearest the thing it is
-            // reported on, and the terminal keeps the outside edge it has always had.
-            mosaicDot.layoutPriority(1)
-            terminalDot.layoutPriority(1)
+            // The two about the picture, nearest the thing the picture is reported in.
+            if !statusBarExpanded {
+                mosaicDot.layoutPriority(1)
+                terminalDot.layoutPriority(1)
+            }
         }
-        // **The one animation on this bar, and it is for the dot that comes and goes.** The mosaic
-        // dot exists only while a tile of an arrangement is the picture, so it is drawn and removed
-        // as the user opens a tile and comes back — and everything beside it moves when it does,
-        // because the row is centred: the pill shifts and the terminal dot shifts with it. Without
-        // this they all jump a dot's width in the frame the picture changes, which reads as the
-        // screen flinching at the exact moment the picture does something else.
+        // The closed bar's own width, taken while it is closed: the panel opens into this much and
+        // no less, which is what makes the pill swallow the circles' space rather than the bar
+        // shrinking by it as they go.
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+            guard !statusBarExpanded else { return }
+            collapsedBarWidth = width
+        }
+        // **The one animation on this bar, and it is for what the pill holds.** The way into an
+        // arrangement and the window count come and go with the picture, and the pill's contents
+        // are a `VStack` whose height follows them: without this its rows would jump in the frame
+        // the picture changes, which reads as the screen flinching at the exact moment the picture
+        // does something else.
         //
         // Keyed on the one condition, so nothing else about the bar is animated by it: the pill's
         // own opening has its own spring, and a second one here would fight it.
         .animation(Motion.settle, value: model.canReturnToMosaic)
         // Narrower than the rails' own inset, on purpose: every point taken off the sides is a
         // point the pill's rows get, and the pill is the one piece of chrome that has to hold
-        // three rows of other things.
+        // several rows of other things.
         .padding(.horizontal, 6)
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
@@ -113,75 +122,59 @@ extension RemoteScreen {
         // present, and the pill should only ever grow downwards.
         ZStack(alignment: .top) {
             if statusBarExpanded {
-                VStack(alignment: .leading, spacing: 5) {
-                    // ── Row 1: who, and the way out ─────────────────────────────────
+                // Ten between the rows and six between the chips inside one: a row is a subject and
+                // its buttons, and the gaps have to say which is which.
+                VStack(alignment: .leading, spacing: 10) {
+                    // ── Row 1: who, and which path the picture is taking ────────────
                     //
                     // The name has this row to itself, which it did not before. It used to share
                     // with the clock, the latency and the quit button, and the arithmetic never
                     // worked on a phone held upright: "Damian's MacBook Pro" is the longest
                     // string in the pill by twice over, and the row could only fit it by
-                    // clipping it. The readouts moved down to the second row, where they belong
-                    // anyway — they describe the stream, and the stream's name is on the row
-                    // above.
-                    HStack(spacing: 10) {
+                    // clipping it. The readouts moved down, where they belong anyway: the path
+                    // describes the stream, and the stream's name is on the row above.
+                    HStack(spacing: 8) {
                         // Green once the session is up rather than merely connected: a socket
                         // that is open but still handshaking is not something to reassure
                         // anyone about, and the phase is the only thing that knows the
-                        // difference.
+                        // difference. The same dot as the closed pill's, so the two faces of it
+                        // cannot disagree about whether the Mac is there.
                         Circle()
-                            .fill(model.phase == .ready ? Color.green : ColorPalette.ink)
+                            .fill(isReconnectingToMac ? ColorPalette.caution : (model.phase == .ready ? Color.green : ColorPalette.ink))
                             .frame(width: 7, height: 7)
                         Text(model.hostName ?? "Mac")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                             .truncationMode(.tail)
-                        // The quit button is pinned to the far edge rather than sitting after the
-                        // name. It is the one control here you reach for without reading, and it
-                        // should be in the same place every time — which it was not, because the
-                        // pill hugs its contents and the name is a different length on every Mac.
-                        Spacer(minLength: 12)
-                        // The session's only way out, always visible in the expanded pill.
-                        Button { model.disconnect() } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 14, weight: .bold))
-                                Text("QUIT")
-                                    .font(.system(size: 11, weight: .bold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color.red.opacity(0.85), in: Capsule())
-                            // The label takes the width it needs and nothing offers to give it
-                            // any back. A quit button reading "QUI / T" is one that has been
-                            // compressed by the row, and there is no state in which that is the
-                            // right way to spend the width.
-                            .fixedSize()
-                        }
-                        .buttonStyle(RailButtonStyle(scale: 0.9))
-                        .accessibilityLabel("Quit session")
+                        // **The path, and the name yields to it.** The row used to end in a power
+                        // chip and a red QUIT capsule, and the price of both was the name: "Damian's
+                        // MacBook Pro" came out as "Damia…", on the one line whose job is to say
+                        // which Mac this is. The path is a fixed width, so it is the name that gives
+                        // way here, which is the one thing on this row that can be shortened without
+                        // losing a fact.
+                        //
+                        // No figure with it. The latency was a millisecond count and then a word,
+                        // and both are gone: this panel reports whether the session is working, and
+                        // the dot on the closed pill is the whole of that answer. Somebody who wants
+                        // the number to the millisecond has the Sessions tab, which is where a
+                        // figure that is being *studied* belongs, rather than a header somebody is
+                        // reading while they look at their Mac.
+                        Spacer(minLength: 8)
+                        connectionPathChip
                     }
 
-                    // ── Row 2: what the stream is doing, and the controls for it ────
+                    // ── Row 2: the controls that act on the picture in front of you ─
                     //
-                    // One row, where there were two. The readouts and the controls are the same
-                    // kind of thing to look at — a line of small facts about the session, some
-                    // of which can be pressed — and splitting them cost the pill a whole row of
-                    // height for two short strings. They fit together on a portrait phone with
-                    // the chips a little tighter, and the pill is a line shorter for it.
-                    HStack(spacing: 7) {
-                        // **No figure here.** It was a millisecond count and then a word, and
-                        // both are gone: the pill reports whether the session is working, and
-                        // the dot on its collapsed face is the whole of that answer. Somebody
-                        // who wants the number to the millisecond has the Sessions tab, which is
-                        // where a figure that is being *studied* belongs, rather than a header
-                        // somebody is reading while they look at their Mac.
-                        connectionPathChip
-                        qualityChip
+                    // **Labelled like the rows below it, because it is one of them.** The panel is
+                    // four rows of one shape: a subject in the column on the left, and the buttons
+                    // that act on it in the slots beside. This row is what gets pressed *while
+                    // watching*: the sound from the Mac, and the three things about the picture.
+                    // Quality is not one of them any more. It is a setting, it was a gauge glyph with
+                    // a menu behind it, and both this panel and the session's own Settings hold it
+                    // with a name on it.
+                    actionRow("Stream", systemImage: "play.rectangle") {
                         soundButton
                         fillChip
-                        // Lock and display dimming live in the dot beside the pill, leaving this
-                        // row to describe and control the stream itself.
                         if zoom > 1.01 {
                             Button {
                                 // The same reset the screen does for itself when the source
@@ -190,24 +183,90 @@ extension RemoteScreen {
                             } label: {
                                 Text("\(Int((zoom * 100).rounded()))%")
                                     .monospacedDigit()
-                                    .pillChip()
+                                    .pillChip(filling: true)
                             }
                             .buttonStyle(RailButtonStyle(scale: 0.9))
                         }
                         Button { ScreenshotShare.present() } label: {
                             Image(systemName: "camera")
-                                .pillChip()
+                                .pillChip(filling: true)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Take screenshot")
                     }
+
+                    // ── What can be done, sorted by what it is done to ─────────────
+                    //
+                    // **Three subjects, in the app's own section label, and chips beside each.** The
+                    // split is the one this panel turns on: the stream is the picture in front of the
+                    // user, the Mac is the machine at the other end, and the session is this
+                    // connection to it. Locking a Mac and darkening its displays are things done to
+                    // that machine whether or not anybody is watching; going back to the picker,
+                    // opening a shell and returning to an arrangement are all about the connection
+                    // the user is sitting in.
+                    //
+                    // Chips rather than rows: they keep the compactness of the dots that were here
+                    // before and the words of the rows that replaced them.
+                    actionRow("Mac", systemImage: "macbook") {
+                        actionChip("Lock", systemImage: "lock.fill") { model.lockMac() }
+                        actionChip(
+                            model.privacyModeEnabled ? "Restore" : "Darken",
+                            systemImage: model.privacyModeEnabled ? "sun.max" : "sun.min"
+                        ) {
+                            model.setPrivacyMode(!model.privacyModeEnabled)
+                        }
+                    }
+
+                    actionRow("Session", systemImage: "antenna.radiowaves.left.and.right") {
+                        actionChip("Connect", systemImage: "macbook.and.iphone") {
+                            model.stepAwayFromSession()
+                        }
+                        actionChip(
+                            "Terminal",
+                            // The same two facts the dot beside the pill reads: a shell running
+                            // at all fills the glyph, and one waiting for an answer goes orange.
+                            systemImage: terminalRunning > 0 ? "terminal.fill" : "terminal",
+                            tint: terminalWantsAttention ? .orange : nil
+                        ) {
+                            showsTerminals = true
+                        }
+                        if model.canReturnToMosaic {
+                            actionChip(
+                                "Mosaic",
+                                systemImage: "rectangle.split.2x2",
+                                tint: ColorPalette.accent
+                            ) {
+                                animateBackToMosaic()
+                            }
+                        }
+                    }
+
+                    // A row like the three above it, and the only one whose subject is the end of
+                    // something. Filled red rather than merely written in it: this is the one control
+                    // in the panel that cannot be taken back by pressing it again.
+                    actionRow("End", systemImage: "power") {
+                        actionChip("Quit", isDestructive: true) { model.disconnect() }
+                    }
                 }
                 // Wider on the right than the left. What ends on that side is a control — the
-                // quit button, the camera — and a control flush against the glass reads as
-                // clipped; what ends on the left is a label, which is happy at the edge.
+                // camera, the last chip — and a control flush against the glass reads as clipped;
+                // what ends on the left is a label, which is happy at the edge.
                 .padding(.leading, 16)
                 .padding(.trailing, 20)
-                .padding(.vertical, 7)
+                // The rows' own gap at the two ends of the stack, so the first and last of them are
+                // inset by what separates them rather than by less.
+                .padding(.vertical, 10)
+                // **The width of the bar it came out of, exactly.** That is where the horizontal
+                // half of the opening comes from: the closed bar is the pill plus the four circles,
+                // and the panel replaces both, so it opens into their space and grows sideways as it
+                // grows down. Fixed rather than a floor, because the rows inside are divided to fill
+                // it: a panel that could also grow to fit its rows would leave whichever rows were
+                // narrower than the widest one ending short of the glass.
+                //
+                // Until the bar has been measured once, which the guard on the measurement sees to
+                // when the panel opens before the session's own auto-collapse, the panel is as wide
+                // as its own rows.
+                .frame(width: collapsedBarWidth > 0 ? collapsedBarWidth : nil, alignment: .leading)
                 .contentShape(Rectangle())
                 // The other half of the toggle. The collapsed bar expands on a tap and the
                 // expanded one closes on the next, so it is one control with one meaning
@@ -258,18 +317,26 @@ extension RemoteScreen {
                             // second labelled direct or relay — which is a screen somebody opens
                             // on purpose rather than a header they glance at.
                             Circle()
-                                .fill(model.isVideoStreaming ? Color.green : Color.red)
+                                .fill(connectionDotTint)
                                 .frame(width: 6, height: 6)
-                                .accessibilityLabel(
-                                    model.isVideoStreaming ? "Connected" : "Not streaming"
-                                )
+                                .accessibilityLabel(connectionDotLabel)
                             Text(model.hostName ?? "Mac")
                                 .font(.caption.weight(.semibold))
                                 .lineLimit(1)
                         }
 
                         HStack(spacing: 6) {
-                            if let sourceTitle = model.activeSourceTitle {
+                            // **What the Mac is doing, in the place what it is showing used to be.**
+                            // A Mac being put back has no source to name and no frames to describe,
+                            // and this line is where the user looks to find out why the picture has
+                            // stopped: leaving the last window's title up described a session that
+                            // was no longer there.
+                            if isReconnectingToMac {
+                                Text("Reconnecting…")
+                                    .font(.caption2)
+                                    .foregroundStyle(ColorPalette.caution)
+                                    .lineLimit(1)
+                            } else if let sourceTitle = model.activeSourceTitle {
                                 Text(sourceTitle)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
@@ -284,16 +351,17 @@ extension RemoteScreen {
                                     .layoutPriority(0)
                             }
                             // **What the window is one of, while it is one of several.** A window
-                            // opened out of an arrangement leaves the arrangement behind it, and
-                            // the control that goes back to it is a bare symbol in the row above:
-                            // nothing on this screen said there was anything to go back *to*. This
-                            // says it in the app's own word — the same "N windows" a mosaic is
-                            // named with — and the way back is then the thing beside it rather
-                            // than a symbol to be discovered. See ``MacSession/canReturnToMosaic``.
+                            // opened out of an arrangement leaves the arrangement behind it, and the
+                            // row that goes back to it is one tap down: nothing *on* the collapsed
+                            // pill said there was anything to go back to. This says it in the app's
+                            // own word — the same "N windows" a mosaic is named with — and the way
+                            // back is then a row with the same name rather than a symbol to be
+                            // discovered. See ``MacSession/canReturnToMosaic``.
                             if model.canReturnToMosaic, model.mosaicChoicesList.count > 1 {
                                 Text("in \(model.mosaicChoicesList.count) windows")
                                     .font(.caption2.weight(.bold))
                                     .tracking(0.5)
+                                    .foregroundStyle(.secondary)
                                     .pillChip()
                                     .accessibilityLabel(
                                         "One of \(model.mosaicChoicesList.count) windows in a mosaic"
@@ -305,6 +373,15 @@ extension RemoteScreen {
                         // second line read as a continuation of the first.
                         .padding(.leading, 13)
                     }
+
+                    // **The one thing that says the pill is a control.** What is left on the closed
+                    // face is a report, and a report does not invite a press: every action the
+                    // session has is either floating beside the pill or inside it. This is the
+                    // app's own mark for "leads somewhere", pointing down because that is the way
+                    // the panel opens.
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
                 }
                 .padding(.leading, 16)
                 .padding(.trailing, 20)
@@ -340,67 +417,142 @@ extension RemoteScreen {
         .glassSurface(in: pillShape)
     }
 
-    /// One dot's slot: the circle, and the gap that separates it from whatever is beside it.
-    static let sessionDotWidth: CGFloat = 48 + 7
 
-    /// What the dots add to the pill's width, counted rather than assumed.
+
+
+    /// Whether the Mac on screen is being put back: a drop the ladder is retrying, or the resume that
+    /// follows the app being killed in the background.
     ///
-    /// The mosaic dot is the one of the three that comes and goes, so the number is read off the
-    /// same condition the dot is drawn from. Left at a constant this would be the pill's cap
-    /// spending a dot's worth of width it does not have the moment the third one appears, which
-    /// is the pill's contents getting squeezed by chrome that is not there.
-    var sessionDotsWidth: CGFloat {
-        Self.sessionDotWidth * (model.canReturnToMosaic ? 3 : 2)
+    /// **The one state the pill could not tell the truth about.** Its dot answers whether the picture
+    /// is arriving, which is green or red, and a Mac being reconnected to is neither: the frames
+    /// stopping is the whole reason the retry exists, so a red dot read as "this is over" while the
+    /// app was still working on it.
+    ///
+    /// Read from the session, which is where the two flags that answer it can be told apart. The
+    /// first version of this asked ``SessionModel/isResuming`` directly and was wrong for exactly the
+    /// case it was written for: that flag is cleared on the first phase that holds a session, which
+    /// a dial is, so a Mac being put back read as one being opened from the second it started.
+    var isReconnectingToMac: Bool { model.isBeingPutBack }
+
+    /// The dot's colour, in the one place both faces of the pill read it from.
+    ///
+    /// Amber for a Mac being put back, and it is the palette's caution rather than a second red: a
+    /// reconnection is a state the app is working on, not a failure. Green while the picture is
+    /// arriving and red once it has stopped, which are the two answers the dot had before.
+    var connectionDotTint: Color {
+        if isReconnectingToMac { return ColorPalette.caution }
+        return model.isVideoStreaming ? .green : .red
     }
 
-    /// How wide the pill itself is allowed to get.
-    ///
-    /// Wide enough that its two rows fit without wrapping: the Mac's name, the clock, the latency
-    /// and the quit button on one line, and the path, the quality picker, the fill and the two
-    /// tools on the next. At 420 the name wrapped onto two lines and pushed QUIT off its own —
-    /// which is what "QUI / T" was. The cap is still a cap: on a wide landscape screen the pill
-    /// stops growing rather than turning into a bar across the top of the picture.
-    static let pillMaxWidth: CGFloat = 440
+    var connectionDotLabel: String {
+        if isReconnectingToMac { return "Reconnecting to the Mac" }
+        return model.isVideoStreaming ? "Connected" : "Not streaming"
+    }
 
-    /// One dot, on the side of the pill that suits it.
+    var connectionPathChip: some View {
+        Text(connectionPathTitle)
+            // Its own voice, because it is the one thing in the row that is a readout rather than
+            // a control: small, tracked, bold and grey reads as a label at a glance, and nothing
+            // about it invites a press.
+            .font(.caption2.weight(.bold))
+            .tracking(0.5)
+            .foregroundStyle(.secondary)
+            .pillChip()
+            .accessibilityLabel("Connection path, \(connectionPathTitle)")
+    }
+
+    /// The connection path, and — when they are different — the path the picture is taking.
     ///
-    /// PiP and the terminal were two more capsules in a row that already held four, which is what
-    /// made the pill read as a toolbar with a status line at the top of it. Out here they are what
-    /// they actually are — two occasional things this session can also do — and the pill goes back
-    /// to saying what is happening.
+    /// Two facts in one chip, with the second appearing only when it is interesting. On a LAN or a
+    /// typed-in address the picture already goes straight to the Mac, so `DIRECT·P2P` would be two
+    /// spellings of one thing; on the relay the two are genuinely different paths, and the suffix is
+    /// the whole answer to whether the session punched through.
     ///
-    /// Split to the two edges rather than stacked on one: the pill spends most of its life
-    /// collapsed and is the widest thing on a landscape screen, so a pair hanging off one end
-    /// pulls it visibly off-centre. One either side balances it, and it also separates two actions
-    /// that have nothing to do with each other.
+    /// Read from ``SessionModel/usedDirectPath`` and not from the path above it, because those are
+    /// different questions: a session that punched is still relayed — the relay splices its control
+    /// connection and still meters it — and it is the *picture* that went around.
+    private var connectionPathTitle: String {
+        let connection = model.connectionPath?.rawValue ?? "None"
+        guard model.usedDirectPath, model.connectionPath == .relay else { return connection }
+        return "\(connection)·P2P"
+    }
+
+    /// One of the session's actions, as a chip: a glyph, a word or two, and what pressing it does.
     ///
-    /// This side was PiP's, and PiP does not belong here: iOS floats the picture by itself when
-    /// the app goes away, so the button started something that had already happened. What it was
-    /// actually good for was trying PiP *without* leaving and recording why it refused — a
-    /// diagnostic, and one that belongs beside the switch it explains, in Settings.
+    /// **Short words on purpose.** The row divides its width between its chips, so a long label does
+    /// not push its neighbours around, it takes width from them: "Darken" and a sun says what
+    /// "Darken the Mac's displays" says, and the Settings screen holds the long form.
     ///
-    /// Tap locks immediately. A hold opens the two related ways to leave the physical Mac alone:
-    /// lock the session, or dim its displays while keeping the remote picture alive.
-    /// Back to the picker, with the Mac left connected.
+    /// Filling, because the chip is placed in a slot rather than sized to its words. See
+    /// ``ChipSlots``. The glyph is optional for the one chip whose subject is already named by the
+    /// label on its left, which keeps the power symbol from appearing twice in the same row.
+    func actionChip(
+        _ label: String,
+        systemImage: String? = nil,
+        isDestructive: Bool = false,
+        tint: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                }
+                Text(label)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(tint ?? (isDestructive ? ColorPalette.onInk : ColorPalette.ink))
+            .pillChip(filling: true, destructive: isDestructive)
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.94))
+    }
+
+    /// Wide enough for "Session" with its glyph, so that both groups' chips start on one line.
+    static let actionLabelWidth: CGFloat = 74
+
+    /// A group of the session's actions: what they are done to, and the chips themselves beside it.
     ///
-    /// **This screen has had one way out, and it was Quit.** Ending the session in order to look at
-    /// the list of Macs is what the app asked for before this control existed: the picture is away
-    /// for as long as somebody is reading that list, and the session they were paying for went with
-    /// it. What this does instead is the same act as the picker's own row for this Mac, approached
-    /// from the other side. See ``SessionModel/stepAwayFromSession()``.
+    /// **Beside the chips rather than above them.** Above, a label cost a row per group and left
+    /// every row ending wherever its longest chip happened to end; beside them the panel is a
+    /// column of labels and a column of chips, which is the shape these same labels take in
+    /// Settings. The fixed width is what makes the two columns line up.
+    func actionRow<Content: View>(
+        _ title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Controls.sectionLabel(title, systemImage: systemImage)
+                .frame(width: Self.actionLabelWidth, alignment: .leading)
+                // Against the first row of chips rather than the top of their capsules: a 28pt chip
+                // centres its own 12pt line, which is seven points down.
+                .padding(.top, 7)
+            ChipSlots { content() }
+        }
+    }
+
+    /// The way back to the picker, with the Mac left connected.
     ///
-    /// The glyph is the Connect tab's own, because every other dot in this row wears the thing it
-    /// opens, and the thing this opens is a screen.
+    /// **This screen used to have one way out, and it was Quit.** Looking at the list of Macs meant
+    /// ending the session, and the session somebody was paying for went with it. What this does
+    /// instead is the same act as the picker's own row for this Mac, approached from the other
+    /// side. See ``SessionModel/stepAwayFromSession()``.
+    ///
+    /// The glyph is the Connect tab's own: every button on this bar wears the thing it opens, and
+    /// what this opens is a screen.
     var connectDot: some View {
         sessionDot(
             symbol: "macbook.and.iphone",
-            label: "Back to Connect, leaving the session running",
-            enabled: true
+            label: "Back to Connect, leaving the session running"
         ) {
             model.stepAwayFromSession()
         }
     }
 
+    /// Lock, and the displays, in one button: a tap locks, a hold offers both.
+    ///
+    /// The two are the same act at different strengths, and the icon says which one is on: a shield
+    /// while the displays are darkened, which is otherwise invisible from here.
     var lockDot: some View {
         Button {
             model.lockMac()
@@ -434,26 +586,17 @@ extension RemoteScreen {
 
     /// The way back into an arrangement, for as long as one of its tiles is the picture.
     ///
-    /// **A dot and not a chip in the pill**, which is where this control has been twice. It was
-    /// taken out of the pill on the argument that the pill reports on the session and a control
-    /// that navigates is not a report, and that argument still holds — what it left behind was a
-    /// way back that only existed inside the sources panel, three taps and a scroll away, for a
-    /// mode the user is *in*. The dots beside the pill are already the session's occasional
-    /// actions: the lock, the terminal. Being one tap from the arrangement you are inside is
-    /// exactly that kind of thing, and it is not a report, so nothing is being contradicted.
-    ///
-    /// Drawn only while the picture is one tile of a standing arrangement — see
-    /// ``SessionModel/canReturnToMosaic`` — because a dot that was always there would be a button
-    /// that goes nowhere for the whole of a session on a single window. Tinted with the accent
-    /// rather than the ink the other dots use, for the one reason the accent exists: this dot is
-    /// not a tool, it is a state the user is in.
+    /// Drawn only while the picture is one tile of a standing arrangement, see
+    /// ``SessionModel/canReturnToMosaic``: a button that was always there would go nowhere for the
+    /// whole of a session on a single window. Tinted with the accent rather than the ink the other
+    /// three use, for the one reason the accent exists: this is not a tool, it is a state the user
+    /// is in.
     @ViewBuilder
     var mosaicDot: some View {
         if model.canReturnToMosaic {
             sessionDot(
                 symbol: "rectangle.split.2x2",
                 label: "Back to the mosaic",
-                enabled: true,
                 tint: ColorPalette.accent
             ) {
                 // **The window shrinks into the tile it is about to hold.** The picture is asked
@@ -466,32 +609,31 @@ extension RemoteScreen {
         }
     }
 
-    /// The terminal, and the two things about it worth knowing from the session screen: that
-    /// shells are running, and that one of them is waiting for an answer.
+    /// The terminal, and the two things about it worth knowing from the session screen: that shells
+    /// are running, and that one of them is waiting for an answer.
     ///
-    /// The count is the badge rather than the label because "how many" is the question you have
-    /// while looking at it from here, and a number at the corner answers it without a tap. A dot
-    /// with nothing running says none of this and looks the same as a dot that is about to open
-    /// an empty panel, which is what it used to be.
+    /// The count is the badge rather than the words because "how many" is the question you have
+    /// while looking at it from here, and a number at the corner answers it without a tap. A glyph
+    /// with nothing running says none of this and looks the same as one about to open an empty
+    /// panel, which is what it used to be.
     var terminalDot: some View {
-        let running = model.terminals.filter(\.isRunning).count
-        let wantsAttention = model.terminals.contains { $0.attention != nil }
-        return sessionDot(
-            symbol: running > 0 ? "terminal.fill" : "terminal",
-            label: running > 0 ? "Mac terminals, \(running) running" : "Open Mac terminals",
-            enabled: true,
-            tint: wantsAttention ? .orange : (running > 0 ? ColorPalette.ink : nil),
-            badge: running > 0 ? running : nil,
-            badgeTint: wantsAttention ? .orange : ColorPalette.accent
+        sessionDot(
+            symbol: terminalRunning > 0 ? "terminal.fill" : "terminal",
+            label: terminalRunning > 0
+                ? "Mac terminals, \(terminalRunning) running"
+                : "Open Mac terminals",
+            tint: terminalWantsAttention ? .orange : nil,
+            badge: terminalRunning > 0 ? terminalRunning : nil,
+            badgeTint: terminalWantsAttention ? .orange : ColorPalette.accent
         ) {
             showsTerminals = true
         }
     }
 
+    /// One of the bar's floating buttons: a glyph in a circle of glass.
     func sessionDot(
         symbol: String,
         label: String,
-        enabled: Bool,
         tint: Color? = nil,
         badge: Int? = nil,
         badgeTint: Color = ColorPalette.accent,
@@ -502,15 +644,9 @@ extension RemoteScreen {
                 .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(tint ?? ColorPalette.ink)
                 .frame(width: 48, height: 48)
-                // Plain glass, with the press answered by the button style instead.
-                //
-                // This is not the fix for the taps these dots were swallowing — that was the
-                // badge, drawn outside the button's bounds and therefore its own hit region,
-                // which is why it is now `allowsHitTesting(false)`. The interactive glass is
-                // fine in a button; the clipboard row uses it in buttons that work. Plain is
-                // chosen here only so that one press gets one answer rather than two.
+                // Plain glass, with the press answered by the button style instead, so that one
+                // press gets one answer rather than two.
                 .glassSurface(in: Circle())
-                .opacity(enabled ? 1 : 0.4)
                 .overlay(alignment: .topTrailing) {
                     if let badge {
                         Text("\(badge)")
@@ -519,91 +655,29 @@ extension RemoteScreen {
                             .padding(.horizontal, 4)
                             .frame(minWidth: 15, minHeight: 15)
                             .background(badgeTint, in: Capsule())
-                            // Tucked inside the circle rather than hung off its corner. It
-                            // used to sit four points outside the button's bounds, which made
-                            // the badge the nearest thing to a thumb coming from that side —
-                            // and a tap that landed on the number did nothing at all.
+                            // Tucked inside the circle rather than hung off its corner. It used to
+                            // sit four points outside the button's bounds, which made the badge the
+                            // nearest thing to a thumb coming from that side, and it is its own hit
+                            // region, so a tap that landed on the number did nothing at all.
                             .offset(x: -1, y: 1)
                             .allowsHitTesting(false)
                     }
                 }
         }
         // A square hit area rather than the circle that is drawn. A circle's corners are the
-        // parts a thumb misses, and this is a one-glyph target beside the pill's edge — the one
-        // control on the screen with nothing around it to catch a near miss.
+        // parts a thumb misses, and this is a one-glyph target beside the pill's edge, with
+        // nothing around it to catch a near miss.
         .contentShape(Rectangle())
         .buttonStyle(RailButtonStyle(scale: 0.92))
-        .disabled(!enabled)
         .accessibilityLabel(label)
     }
 
-    var connectionPathChip: some View {
-        Text(connectionPathTitle)
-            // Its own voice, because it is the one thing in the row that is a readout rather than
-            // a control: small, tracked and bold reads as a label at a glance, and nothing about
-            // it invites a press.
-            .font(.caption2.weight(.bold))
-            .tracking(0.5)
-            .pillChip()
-            .accessibilityLabel("Connection path, \(connectionPathTitle)")
-    }
-
-    /// The connection path, and — when they are different — the path the picture is taking.
+    /// The two facts the terminal's button is drawn from.
     ///
-    /// Two facts in one chip, with the second appearing only when it is interesting. On a LAN or a
-    /// typed-in address the picture already goes straight to the Mac, so `DIRECT·P2P` would be two
-    /// spellings of one thing; on the relay the two are genuinely different paths, and the suffix is
-    /// the whole answer to whether the session punched through.
-    ///
-    /// Read from ``SessionModel/usedDirectPath`` and not from the path above it, because those are
-    /// different questions: a session that punched is still relayed — the relay splices its control
-    /// connection and still meters it — and it is the *picture* that went around.
-    private var connectionPathTitle: String {
-        let connection = model.connectionPath?.rawValue ?? "None"
-        guard model.usedDirectPath, model.connectionPath == .relay else { return connection }
-        return "\(connection)·P2P"
-    }
-
-    /// The stream quality, as a chip that opens the presets.
-    ///
-    /// It was four segments side by side — about a hundred and forty points of a row that also
-    /// has to hold the path, the fit, the camera and the quality. On a portrait phone that is
-    /// more than the pill has room for, and the row paid for it by pushing the terminal dot off
-    /// the screen entirely. Then it was a chip that cycled through them on tap, which fit but
-    /// said nothing: one word that changes when touched, with no way to see what else there was
-    /// or that there was anything else at all.
-    ///
-    /// A menu is the shape that keeps both. The chip is as small as the cycling one, and tapping
-    /// it shows all four with the bitrate beside each — which is the part that was missing. "Low"
-    /// and "Med" mean nothing without knowing what is being given up to get them.
-    var qualityChip: some View {
-        Menu {
-            ForEach(SessionModel.StreamQuality.allCases, id: \.self) { preset in
-                Button {
-                    withAnimation(Motion.settle) { model.setStreamQuality(preset) }
-                } label: {
-                    if preset == model.streamQuality {
-                        Label(preset.menuTitle, systemImage: "checkmark")
-                    } else {
-                        Text(preset.menuTitle)
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "speedometer")
-                Text(model.streamQuality.chipTitle)
-                    .monospacedDigit()
-            }
-            .pillChip()
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.9))
-        .menuInk()
-        .accessibilityLabel("Stream quality")
-        .accessibilityValue(model.streamQuality.chipTitle)
-    }
-
-
+    /// "How many" is the badge's business. These are what decide the glyph and the tint: whether a
+    /// shell is running at all, and whether one of them wants an answer.
+    private var terminalRunning: Int { model.terminals.filter(\.isRunning).count }
+    private var terminalWantsAttention: Bool { model.terminals.contains { $0.attention != nil } }
 
     /// Whether the Mac's sound comes out of this phone.
     ///
@@ -632,7 +706,7 @@ extension RemoteScreen {
                 withAnimation(Motion.settle) { model.hostAudioMuted.toggle() }
             } label: {
                 Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
-                    .pillChip()
+                    .pillChip(filling: true)
             }
             .buttonStyle(RailButtonStyle(scale: 0.9))
             .menuInk()
@@ -664,13 +738,12 @@ extension RemoteScreen {
                 Text(scalesToFill ? "Fill" : "Fit")
                     .monospacedDigit()
             }
-            .pillChip(selected: scalesToFill)
+            .pillChip(selected: scalesToFill, filling: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .menuInk()
         .accessibilityLabel("How the picture fits the screen")
         .accessibilityValue(scalesToFill ? "Filling this screen" : "Fitting the whole screen")
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     /// One place that knows what changing this costs, because the menu gives it two ways to
@@ -709,33 +782,90 @@ extension RemoteScreen {
 
 }
 
-/// The one surface the pill's option row is built from.
+/// The one surface the pill's buttons are built from.
 ///
-/// Four controls stand in that row and they had four appearances between them: two materials, two
-/// paddings, two glyph sizes, and a camera button that looked like a different kind of object from
-/// the chips beside it. A row of things that are all buttons has to look like one kind of thing —
-/// left to differ, the difference reads as meaning, and the eye learns that the camera is
-/// pressable and the quality is a label, which is backwards.
-///
-/// A flat fill rather than a material: the row already sits inside the pill's glass, and a second
+/// A flat fill rather than a material: the chips sit inside the pill's own glass, and a second
 /// frosted layer within it is two answers to "what is this sitting on".
 ///
-/// `selected` is the app's one accent, and here it means what it means everywhere else — this one
-/// is on.
+/// The words are the caller's colour, and in this bar that is the ink. `selected` overrides it with
+/// the app's one accent, meaning here what it means everywhere else, this one is on; `destructive`
+/// is the single filled red, carrying the palette's `onInk` because that is what reads on its own
+/// colour.
 extension View {
-    func pillChip(selected: Bool = false) -> some View {
-        self
+    @ViewBuilder
+    func pillChip(
+        selected: Bool = false,
+        filling: Bool = false,
+        destructive: Bool = false
+    ) -> some View {
+        let chip = self
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(selected ? ColorPalette.ink : Color.secondary)
             // Seven rather than nine: the merged row carries six items on a portrait phone,
             // and two points off each side of four chips is most of what it needed.
             .padding(.horizontal, 7)
             .frame(height: 28)
-            .background(
-                selected
-                    ? AnyShapeStyle(ColorPalette.selectedFill)
-                    : AnyShapeStyle(.primary.opacity(0.08)),
-                in: Capsule()
+            // For the chips that share a row with others: the row cuts its width into equal
+            // slots, and a chip is as wide as its slot rather than as wide as its own words.
+            .frame(maxWidth: filling ? .infinity : nil)
+
+        // **The plain chip's colour is the caller's.** It used to be the secondary grey here, which
+        // was right while these were readouts and wrong once they were the panel's buttons: a row of
+        // controls drawn in the same grey as the labels beside it reads as a row that is switched
+        // off. A readout says so for itself now, and a caller's own tint reaches the chip.
+        if destructive {
+            chip
+                // A filled chip carries the ink that reads on its own colour: the palette pairs
+                // every fill with one, and white on the red would be the pair nobody can read.
+                .foregroundStyle(ColorPalette.onInk)
+                .background(ColorPalette.danger, in: Capsule())
+        } else if selected {
+            chip
+                .foregroundStyle(ColorPalette.ink)
+                .background(ColorPalette.selectedFill, in: Capsule())
+        } else {
+            chip.background(.primary.opacity(0.08), in: Capsule())
+        }
+    }
+}
+
+/// Chips that divide the width they are given between them, equally.
+///
+/// **What it replaces was a flow, and a flow was the wrong shape for this.** It gave every chip the
+/// width its own words needed, which is right in a paragraph and wrong in a row of buttons: a row of
+/// two chips ended well short of a row of three, so the panel had a ragged right edge and a column
+/// of empty glass beside the shorter rows, and no two buttons in it were the same size. Cut into
+/// equal slots instead, every row ends where the panel does and every button is the size of its
+/// neighbours. What a chip cannot do, then, is be as wide as its words: the words are chosen to fit
+/// the slot, and the ones that do not fit are the labels the Settings screen holds in full.
+private struct ChipSlots: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let count = subviews.count
+        guard count > 0 else { return .zero }
+        let height = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+        guard let width = proposal.width else {
+            let natural = subviews.reduce(CGFloat.zero) { $0 + $1.sizeThatFits(.unspecified).width }
+            return CGSize(width: natural + spacing * CGFloat(count - 1), height: height)
+        }
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let count = CGFloat(subviews.count)
+        guard count > 0 else { return }
+        let slot = (bounds.width - spacing * (count - 1)) / count
+        for (index, subview) in subviews.enumerated() {
+            subview.place(
+                at: CGPoint(x: bounds.minX + (slot + spacing) * CGFloat(index), y: bounds.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: slot, height: bounds.height)
             )
+        }
     }
 }

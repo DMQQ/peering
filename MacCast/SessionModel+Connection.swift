@@ -497,6 +497,10 @@ extension SessionModel {
         // in a suspended process, so starting one now is the difference between a list that is there when
         // the user looks and one that fills in several seconds later.
         if browseFailed { restartBrowsing() }
+        // **The ladder's pending wait is cut short before it is consulted.** A Mac partway through a
+        // rung would otherwise spend the rest of it in front of the user, waiting for time that has
+        // already passed. See ``MacSession/resumeWithoutWaiting()``.
+        for session in sessions { session.resumeWithoutWaiting() }
         resumeIfNeeded()
         // The layer's contents do not survive the background and the host sends nothing new for a Mac
         // that has not changed, so this is what brings the picture back. See
