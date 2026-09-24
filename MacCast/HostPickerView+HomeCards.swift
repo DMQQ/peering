@@ -187,12 +187,11 @@ extension HomeTab {
                 .accessibilityLabel("Search again")
             }
 
-            if model.hosts.isEmpty {
-                Text(model.browseStatus)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .padding(.vertical, 4)
-            } else {
+            // The rows, and under them what the browser is saying. The line is drawn in both states
+            // rather than once inside each of them: as a pair of branches it was a different view
+            // either side of the first Mac arriving, and the two sentences cross-faded through each
+            // other in the same place.
+            if !model.hosts.isEmpty {
                 VStack(spacing: 8) {
                     ForEach(model.hosts) { host in
                         // **A Mac this device has never paired with is a pairing, and a pairing
@@ -227,12 +226,33 @@ extension HomeTab {
                             .buttonStyle(.plain)
                             .disabled(model.isBusy || !isCompatible(host))
                         }
+                        // A Mac that turned up on this network is given the moment it takes to be
+                        // seen turning up, rather than snapping into a list somebody is reading.
+                        .transition(Self.hostArrival)
                     }
                 }
-                Text(model.browseStatus).font(.caption).foregroundStyle(.secondary)
             }
+
+            Text(model.browseStatus)
+                .font(.caption)
+                .foregroundStyle(model.hosts.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                .padding(.vertical, model.hosts.isEmpty ? 4 : 0)
         }
+        // On the container rather than on each row: a Mac arriving moves the rows around it, and a
+        // transition cannot move a neighbour.
+        .animation(reduceMotion ? nil : Motion.settle, value: model.hosts)
     }
+
+    /// How a Mac arrives in the Nearby list.
+    ///
+    /// A fade and eight points of rise, and the rise is the whole of it. This list is fed by
+    /// discovery, so a row is a Mac that turned up rather than one that was placed, and a full
+    /// slide from the row's own height, which is what `.move` gives, would read as a list being
+    /// rearranged rather than as a name appearing in it.
+    private static let hostArrival = AnyTransition.modifier(
+        active: HostArrival(progress: 0),
+        identity: HostArrival(progress: 1)
+    )
 
     /// The way in for a Mac that discovery cannot produce and never will.
     ///
@@ -437,6 +457,19 @@ extension HomeTab {
 }
 
 // MARK: - Supporting types
+
+/// One row's arrival in the Nearby list, as a transition: transparent, and eight points below
+/// where it lands.
+private struct HostArrival: ViewModifier {
+    /// 0 before the Mac has been found, 1 once it has arrived.
+    let progress: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(progress)
+            .offset(y: (1 - progress) * 8)
+    }
+}
 
 struct FailurePresentation {
     let title: String
