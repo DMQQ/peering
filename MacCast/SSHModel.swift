@@ -16,6 +16,10 @@ import SSHCore
 /// `tail -f` over a slow link; this is the compromise until the renderer is incremental.
 private let scrollbackLimit = 128 * 1024
 
+/// How far past it the buffer may run before the tail is rebuilt, so trims are batched rather than paid
+/// on every chunk of a busy shell.
+private let scrollbackSlack = 32 * 1024
+
 /// One open shell, as the screen sees it.
 ///
 /// A class rather than a struct in an array, because output arrives many times a second and
@@ -117,8 +121,14 @@ final class SSHTerminal: Identifiable {
 
     fileprivate func append(_ chunk: Data) -> TerminalAttentionKind? {
         output.append(chunk)
-        if output.count > scrollbackLimit {
-            output.removeFirst(output.count - scrollbackLimit)
+        // Rebound rather than cut with `removeFirst`, which moves `Data`'s start index instead of
+        // compacting and so keeps the whole session alive behind a buffer that looks its limit.
+        if output.count > scrollbackLimit + scrollbackSlack {
+            let dropped = output.count - scrollbackLimit
+            output = Data(output.dropFirst(dropped))
+            // The screen remembers how much of this buffer it has applied, so it has to be told that
+            // those bytes are gone.
+            screenFeed.discardFront(dropped)
         }
         return attentionDetector.receive(chunk)
     }

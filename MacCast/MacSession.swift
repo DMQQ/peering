@@ -51,6 +51,18 @@ final class MacSession: Identifiable {
     /// would run two hardware decoders for one pair of eyes.
     @ObservationIgnored let renderer: VideoRenderer
 
+    /// The frames of this Mac's picture changes, held between the ask and the config that answers it.
+    ///
+    /// **Armed by the ask, not by the config, and that is the difference that matters.** A config
+    /// travels on the control connection and the frames on the video lane, so a frame can beat the
+    /// config it belongs to; enqueued with no config in front of it, it is drawn at the *previous*
+    /// picture's transform, which for a mosaic tile is the window magnified by the zoom that filled
+    /// the screen with it: a flash of text at twice its size, on some taps and not others, depending
+    /// on which socket delivered first. Held here, it waits for the transform that goes with it, and
+    /// an ask that is never answered (a window that has gone) lets go after the gate's own limit.
+    /// See ``PictureGate``.
+    @ObservationIgnored let changeGate = PictureGate()
+
     init(model: SessionModel, renderer: VideoRenderer) {
         self.model = model
         self.renderer = renderer
@@ -149,8 +161,12 @@ final class MacSession: Identifiable {
     /// cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
     var connectTask: Task<Void, Never>?
 
-    /// Whether the user asked for this session to end, read and cleared by the transition that
-    /// follows.
+    /// Whether the user asked for this session to end, for the rest of this object's life.
+    ///
+    /// Set once and never cleared: the object is one attempt at one Mac, so nothing can inherit it,
+    /// and everything that has to know the user meant it (the retry ladder, and every screen that
+    /// asks whether this session is being put back) reads it long after the transition that first
+    /// did. Clearing it there is what left a Quit showing "reconnecting" until it was tapped twice.
     ///
     /// Per Mac: `disconnect()` ends every Mac at once and each answers with its own transition, so
     /// with one shared flag the first consumed it and every Mac after that read as having dropped.
@@ -273,6 +289,18 @@ final class MacSession: Identifiable {
             stopReconnecting()
             model.isResuming = true
             model.reconnect(self, to: .discovered(host))
+        } else if reconnectAttempt == 0, let remembered = model.rememberedLANHost(hostID) {
+            // **The first rung goes out the way the session came in.** Bonjour not listing the Mac is the
+            // expected state of a resume rather than a sign it has gone, so the address kept from the
+            // last successful dial is offered before the relay, with a short timeout so a Mac that has
+            // moved costs a moment rather than the rung. From the second rung on the relay is tried.
+            stopReconnecting()
+            model.isResuming = true
+            model.reconnect(
+                self,
+                to: .discovered(remembered),
+                timeout: SessionModel.rememberedPathTimeout
+            )
         } else if model.allowsRelay, model.pins.hostIDs.contains(hostID) {
             stopReconnecting()
             model.isResuming = true
@@ -299,8 +327,11 @@ final class MacSession: Identifiable {
     func resumeWithoutWaiting() {
         guard reconnectTask != nil, let hostID else { return }
         let visible = model.hosts.contains { $0.id == hostID }
+        // A remembered address counts as dialable, and this is where it matters most: a phone coming
+        // back to the front is a phone whose Bonjour results are stale.
+        let remembered = model.rememberedLANHost(hostID) != nil
         let byRelay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
-        guard visible || byRelay else { return }
+        guard visible || remembered || byRelay else { return }
         stopReconnecting()
         resumeIfNeeded()
     }
@@ -464,9 +495,7 @@ final class MacSession: Identifiable {
     /// so, while the interface knows from the first frame. Read from the window scene, not
     /// `UIScreen.main`.
     var mosaicViewport: CGSize {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-        else {
+        guard let scene = DeviceScene.window else {
             // No scene at all, which is a state the app cannot act in rather than a case to handle:
             // a canvas a Mac will accept, so nothing downstream has to.
             return CGSize(width: 1280, height: 720)
@@ -475,7 +504,7 @@ final class MacSession: Identifiable {
         let scale = scene.screen.scale
         let longer = max(bounds.width, bounds.height) * scale
         let shorter = min(bounds.width, bounds.height) * scale
-        return scene.effectiveGeometry.interfaceOrientation.isLandscape
+        return DeviceScene.isLandscape
             ? CGSize(width: longer, height: shorter)
             : CGSize(width: shorter, height: longer)
     }

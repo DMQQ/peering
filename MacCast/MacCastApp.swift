@@ -125,6 +125,7 @@ struct MacCastApp: App {
                 .onChange(of: scenePhase) { _, phase in
                     switch phase {
                     case .active:
+                        PictureTrace.writeNow("scene active")
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
                     case .background:
@@ -133,6 +134,7 @@ struct MacCastApp: App {
                         // ``SessionModel/backgroundTimeExpired()`` — but it ends *tidy*, with
                         // the Mac told and the Live Activity taken down, instead of a socket
                         // dying unobserved and a Lock Screen card left claiming otherwise.
+                        PictureTrace.writeNow("scene background")
                         model.enteringBackground()
                     default:
                         break

@@ -49,33 +49,11 @@ struct CanvasGestureView: UIViewRepresentable {
     var onMosaicDrag: (CGPoint) -> Void = { _ in }
     /// The finger came up, or the lift was cancelled.
     var onMosaicDrop: () -> Void = {}
-    /// Whether a floating panel is open. A tap on the picture then closes it instead of clicking
-    /// the Mac — see ``GestureSurfaceView/handleTap(_:)``.
-    var isPanelOpen: Bool = false
-    /// Called when such a tap lands.
-    var onDismissPanel: () -> Void = {}
-    /// Whether the status bar is expanded. Same rule as a panel: a tap on the picture closes it
-    /// rather than reaching the Mac. One tap does one thing.
-    var isStatusBarExpanded: Bool = false
-    var onCollapseStatusBar: () -> Void = {}
-    /// Whether the software keyboard is up, and what to do when a tap lands on the picture.
-    ///
-    /// The same rule as a panel, for the same reason: the keyboard is a second thing of ours open
-    /// over the picture, and a tap that misses it belongs to closing it.
-    var isKeyboardOpen: Bool = false
-    var onDismissKeyboard: () -> Void = {}
-
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
         view.isZoomed = isZoomed
         view.blockedRegions = blockedRegions
-        view.isPanelOpen = isPanelOpen
-        view.onDismissPanel = onDismissPanel
-        view.isStatusBarExpanded = isStatusBarExpanded
-        view.onCollapseStatusBar = onCollapseStatusBar
-        view.isKeyboardOpen = isKeyboardOpen
-        view.onDismissKeyboard = onDismissKeyboard
         view.isMosaicShowing = isMosaicShowing
         view.handlers = .init(
             onTouchDown: onTouchDown,
@@ -100,12 +78,6 @@ struct CanvasGestureView: UIViewRepresentable {
         view.interactionMode = interactionMode
         view.isZoomed = isZoomed
         view.blockedRegions = blockedRegions
-        view.isPanelOpen = isPanelOpen
-        view.onDismissPanel = onDismissPanel
-        view.isStatusBarExpanded = isStatusBarExpanded
-        view.onCollapseStatusBar = onCollapseStatusBar
-        view.isKeyboardOpen = isKeyboardOpen
-        view.onDismissKeyboard = onDismissKeyboard
         view.isMosaicShowing = isMosaicShowing
         view.handlers = .init(
             onTouchDown: onTouchDown,
@@ -160,20 +132,6 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
     /// Where the window's own chrome is, in this view's coordinates. A touch that starts inside
     /// one of these belongs to a button and is never sent to the Mac.
     var blockedRegions: [CGRect] = []
-
-    /// Whether a floating panel is open, and what to do when a tap lands outside it.
-    ///
-    /// A panel is modal in intent but not in shape: it covers a corner of the picture and the
-    /// rest of the screen is still the Mac. Without this, the only way to put one away is the
-    /// button that opened it — which is a second target for a gesture the user has already made.
-    var isPanelOpen = false
-    var onDismissPanel: (() -> Void)?
-    /// The status bar, by the same rule — see ``CanvasGestureView/isStatusBarExpanded``.
-    var isStatusBarExpanded = false
-    var onCollapseStatusBar: (() -> Void)?
-    /// The same, for the software keyboard.
-    var isKeyboardOpen = false
-    var onDismissKeyboard: (() -> Void)?
 
     /// Set when a gesture began over the chrome, and cleared when it ends.
     ///
@@ -465,30 +423,18 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
-        // Checked *before* the mode guard below, because a mode that makes taps inert on the Mac
-        // is not a mode that makes them inert on this app's own chrome. A panel that could only
-        // be dismissed in one of the two modes would be a bug the user has to discover.
+        // **The picture takes the tap, whatever is floating over it.** A tap that is not on one of
+        // our own controls goes to the Mac, including while a panel, the keyboard or the expanded
+        // status bar is up. Those three used to close on a tap on the picture, and the cost was the
+        // bottom centre of the screen: the dock and the joystick float there, and so does a
+        // terminal's own prompt line, so the one place a person taps to start typing was a place
+        // where the first tap only put our own keyboard away and the second hit the dock.
         //
-        // Blocked points are excluded so the panel's own buttons still work: a tap inside one
-        // belongs to that button, and dismissing on it would close the panel out from under the
-        // tile the user was aiming at.
-        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isPanelOpen) {
-            onDismissPanel?()
-            return
-        }
-        // After the panel, so a tap that closes a panel does not also put the keyboard away: one
-        // tap, one thing closed, and the panel is the one on top.
-        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isKeyboardOpen) {
-            onDismissKeyboard?()
-            return
-        }
-        // The status bar, after the panels so that one tap closes one thing: if a panel is
-        // open it is the thing on top, and it is the one the tap was aimed at.
-        if CanvasGeometry.dismissesOverlay(at: point, regions: blockedRegions, isOpen: isStatusBarExpanded) {
-            onCollapseStatusBar?()
-            return
-        }
-        // A tap inside chrome belongs to the button that is there, whichever mode this is.
+        // Each of the three closes from its own controls instead, which it already could: the pill
+        // closes on a tap, the panel and the keyboard from the buttons that opened them.
+        //
+        // Blocked points are still excluded before anything else: a tap inside a control belongs to
+        // that control, and this is what keeps a tap on our chrome from also reaching the Mac.
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
 
         // **A mosaic comes before the mode guard, and that is not an oversight.** Selecting a

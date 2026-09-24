@@ -34,9 +34,62 @@ extension RemoteScreen {
         return max(0, available - 2 * perSide)
     }
 
+    /// The whole of the chrome put away, and one control to bring it back.
+    ///
+    /// **What it is for.** The picture is why a session exists, and every control around it is a
+    /// band of it that is not the Mac: two rails, a pill, a row of pointer keys. Somebody who is
+    /// *reading* their Mac rather than driving it touches none of them, and what they get is the
+    /// whole screen. Driving it still works: every touch that is not this disc goes to the Mac
+    /// exactly as it did.
+    ///
+    /// **The way back is the only control left, and it is deliberately in a corner.** A mode whose
+    /// exit cannot be found is a trap, so it is the same disc, size and shape and glass, as the
+    /// dots beside the pill: one control the user has already pressed, in a different corner.
+    var immersiveEscape: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Button {
+                    leaveImmersive()
+                } label: {
+                    Image(systemName: "arrow.down.right.and.arrow.up.left")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(ColorPalette.ink)
+                        .frame(width: 48, height: 48)
+                        .glassSurface(in: Circle())
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(RailButtonStyle(scale: 0.92))
+                .reportChromeFrame(.immersiveEscape, into: $chromeFrames)
+                .accessibilityLabel("Show the controls")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(ChromeMetrics.edgeInset)
+    }
+
+    /// Puts the chrome away, and lets go of every region it was claiming.
+    ///
+    /// **The regions are given up by hand, and this is the only moment that can.** A reported region
+    /// outlives the view that reported it, so the rectangles left behind by rails that are no longer
+    /// drawn are bands across the picture where nothing happens at all: the canvas refuses those
+    /// touches, and the controls that would have taken them are gone. See
+    /// ``chromeFramePresence(_:into:when:)``.
+    func enterImmersive() {
+        openPanel = nil
+        chromeFrames = [:]
+        withAnimation(Motion.settle) { isImmersive = true }
+    }
+
+    func leaveImmersive() {
+        withAnimation(Motion.settle) { isImmersive = false }
+    }
+
     @ViewBuilder
     func sessionChrome(isLandscape: Bool, available: CGSize) -> some View {
-        if isLandscape {
+        if isImmersive {
+            immersiveEscape
+        } else if isLandscape {
             ZStack(alignment: .top) {
                 // Pinned to the top rather than centred. The rails grew a button each, and a
                 // centred rail reaches far enough down that the pointer pad — which lives in
@@ -140,6 +193,13 @@ extension RemoteScreen {
 
                     floatingPanel(available, isLandscape: true)
                         .padding(.bottom, ChromeMetrics.bottomInset)
+
+                    // **Below the panel and below the controls, at the very bottom edge.** The
+                    // strip is opened over the picture and taken away again, so what it must not do
+                    // is move anything: it is the last layer of a stack that is already anchored,
+                    // and the wheel and the pointer keep the corners they have always had. See
+                    // ``applicationDock``.
+                    applicationDock
                 }
                 // Anchored to the bottom by the frame, not by the spacer above. A spacer only
                 // holds a column down while there is room to spare: the moment a panel made the
@@ -157,6 +217,16 @@ extension RemoteScreen {
                 .sessionTabs,
                 into: $chromeFrames,
                 when: hasSeveralMacs && statusBarExpanded
+            )
+            // And the dock's, for the same reason in the same place: this region belongs to the
+            // portrait dock as well as to the handle, so a rotation into landscape with nothing
+            // running would leave a band across the bottom of the picture that no control is left
+            // standing in, and so would opening a panel, which takes the handle away with it. See
+            // ``chromeFramePresence(_:into:when:)``.
+            .chromeFramePresence(
+                .dock,
+                into: $chromeFrames,
+                when: applicationDockIsOffered
             )
         } else {
             // Two layers, and the order between them is the whole of the arrangement. The pointer

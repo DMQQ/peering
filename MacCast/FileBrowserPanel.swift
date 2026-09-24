@@ -645,7 +645,7 @@ struct FileBrowserPanel: View {
                 actionTitle: "Try again",
                 action: onReload
             )
-        } else if let directory, !visible(directory).isEmpty {
+        } else if let directory, hasVisibleEntries(directory) {
             list(directory)
         } else if isFiltering, let directory, !directory.entries.isEmpty {
             // Asked before the loading branch, because a filter that matched nothing is an answer
@@ -674,7 +674,7 @@ struct FileBrowserPanel: View {
     /// Why a filter that the folder does not look like it has found nothing — the one case worth
     /// naming, because the answer is on the row below, in the eye.
     private func hiddenHint(_ directory: RemoteDirectory) -> String? {
-        guard !showsHidden, visible(directory).isEmpty else { return nil }
+        guard !showsHidden, !hasVisibleEntries(directory) else { return nil }
         let hidden = directory.entries.filter { $0.name.hasPrefix(".") && matches($0) }
         guard !hidden.isEmpty else { return nil }
         return hidden.count == 1
@@ -712,7 +712,10 @@ struct FileBrowserPanel: View {
     }
 
     private func list(_ directory: RemoteDirectory) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
+        // Filtered once for the whole list. This is drawn from three places, and computing it at
+        // each of them was three full passes over the folder per body pass.
+        let entries = visible(directory)
+        return ScrollView(.vertical, showsIndicators: false) {
             // Lazy, because a listing can be two thousand rows and a plain stack builds all of
             // them whether or not anyone scrolls that far.
             LazyVStack(spacing: 0) {
@@ -721,14 +724,14 @@ struct FileBrowserPanel: View {
                 // and the two dots are what a terminal has always called "up one level".
                 if let parent {
                     upRow(parent)
-                    if !visible(directory).isEmpty { Controls.divider }
+                    if !entries.isEmpty { Controls.divider }
                 }
-                ForEach(Array(visible(directory).enumerated()), id: \.element.name) { index, entry in
+                ForEach(Array(entries.enumerated()), id: \.element.name) { index, entry in
                     if index > 0 { Controls.divider }
                     row(entry)
                 }
                 if directory.isTruncated {
-                    if !visible(directory).isEmpty { Controls.divider }
+                    if !entries.isEmpty { Controls.divider }
                     Text("This folder has more in it than is shown here.")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
@@ -916,10 +919,22 @@ struct FileBrowserPanel: View {
     /// The filter goes second, so it narrows what is on screen rather than reaching behind the
     /// eye. A search that quietly listed dotfiles while the toggle beside it said they were
     /// hidden would be two controls disagreeing about one list.
+    /// Whether one entry is drawn: a hidden name only when hidden files are shown, and a name the
+    /// filter accepts. One predicate for the check and for the list, so the two cannot disagree about
+    /// whether a folder looks empty.
+    private func shows(_ entry: RemoteDirectoryEntry) -> Bool {
+        if !showsHidden, entry.name.hasPrefix(".") { return false }
+        return matches(entry)
+    }
+
     private func visible(_ directory: RemoteDirectory) -> [RemoteDirectoryEntry] {
-        let listed = showsHidden ? directory.entries : directory.entries.filter { !$0.name.hasPrefix(".") }
-        guard isFiltering else { return listed }
-        return listed.filter(matches)
+        directory.entries.filter(shows)
+    }
+
+    /// Whether anything would be drawn, without building the list to find out: the body asks this on
+    /// every pass, and this stops at the first row that matches.
+    private func hasVisibleEntries(_ directory: RemoteDirectory) -> Bool {
+        directory.entries.contains(where: shows)
     }
 
     /// Whether a name is one the user is looking for.

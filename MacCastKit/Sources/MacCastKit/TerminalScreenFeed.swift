@@ -9,10 +9,19 @@ import RemoteCore
 /// because the kept screen is state that outlives one render.
 public final class TerminalScreenFeed {
     private var screen: TerminalScreen?
-    /// How much of the buffer has been applied. Append-only from this end, so a count is enough.
+    /// How much of the buffer has been applied, as an offset into the buffer as it stands now.
     private var consumed = 0
 
     public init() {}
+
+    /// Says that the buffer this feed was last given has lost bytes off its front.
+    ///
+    /// The offset below only counts while the buffer grows at the back and nowhere else, so a caller
+    /// that trims its own copy from the front has to say so or the screen stops advancing.
+    public func discardFront(_ count: Int) {
+        guard count > 0 else { return }
+        consumed = max(0, consumed - count)
+    }
 
     /// The screen for this buffer, having applied whatever of it has not been applied yet.
     public func screen(for output: Data, columns: Int, rows: Int) -> TerminalScreen {
@@ -32,7 +41,10 @@ public final class TerminalScreenFeed {
             kept.resize(columns: columns, rows: rows)
         }
         if consumed < output.count {
-            kept.feed(output[consumed...])
+            // Sliced in the buffer's own index space. `Data` answers `removeFirst` by moving its
+            // start index rather than by compacting, so a buffer that has lost bytes off the front
+            // is not zero-based and a plain `output[consumed...]` is out of range.
+            kept.feed(output[(output.startIndex + consumed)...])
             consumed = output.count
         }
         screen = kept

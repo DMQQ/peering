@@ -95,6 +95,25 @@ extension SessionModel {
     /// there" and sends nothing. The result is a session that follows the desktops panel onto the second
     /// display and then refuses to come back.
     func selectSource(_ source: CaptureSource) {
+        PictureTrace.write("select \(source.stableID) mosaic=\(source.isMosaic) choices=\(mosaicChoices.count)")
+        // **The arrangement the user is coming back to, drawn from the frame it had last time.**
+        // Leaving an arrangement and returning to it is a stream torn down and a canvas of tiles
+        // built again on the Mac, measured at about a second and a quarter, and for the whole of it
+        // the phone shows the window that was tapped where the arrangement should be. The last
+        // frame this end had of *that source* is a better answer than a second of something else,
+        // and it is put up as the picture the moment the ask goes out. Only for an arrangement:
+        // a display rebuilds in a moment and a window's own stream is a frame away, so neither
+        // has a wait worth covering. See ``VideoRenderer/recalledFrame(for:)``.
+        if case .mosaic = source, source.stableID != activeSourceID,
+           let recalled = renderer.recalledFrame(for: source.stableID) {
+            activeSession?.picture = PictureIdentity(
+                sourceID: source.stableID,
+                pixelSize: recalled.pixelSize,
+                contentMovesOnItsOwn: source.contentMovesOnItsOwn
+            )
+            renderer.showRecalledFrame(recalled.sample, pixelSize: recalled.pixelSize)
+        }
+
         activeSourceID = source.stableID
         // Recorded from the source rather than the call site, so no door into this can miss it. See
         // ``MacSession/isAskingForMosaic``.
@@ -130,6 +149,13 @@ extension SessionModel {
             mosaicChoices = []
         }
 
+        // **Closed before the ask goes out, not after the answer arrives.** A frame can beat the
+        // config it belongs to (they travel on different connections), and a frame with no config in
+        // front of it is drawn at the *previous* picture's magnification: a window magnified by the
+        // zoom that had filled the screen with a tile of it, for a frame or two, on some taps and
+        // not others. The gate holds what arrives in the meantime and hands it over once the
+        // transform that belongs to it has been written. See ``MacSession/changeGate``.
+        activeSession?.changeGate.hold()
         session?.selectCaptureSource(source)
     }
 
@@ -152,6 +178,7 @@ extension SessionModel {
     ///   arrangement filtered by what the catalogue can see, and a window that a catalogue merely failed to
     ///   list would then be gone from the store as well as from the picture.
     func showMosaic(_ choices: [MosaicChoice], remembering: Bool = true) {
+        PictureTrace.write("showMosaic tiles=\(choices.count) remembering=\(remembering)")
         // **Shaped by the choices being asked for, not by the ones already on screen.** The canvas's
         // aspect comes from how wide the arrangement's windows are, and reading that off the session
         // meant a restore, which runs before the new choices are stored, shaped its canvas from the
@@ -382,6 +409,7 @@ extension SessionModel {
     /// ``MacSession/mosaicToRestore(hostID:catalog:)``.
     func dropClosedMosaicTiles() {
         guard !mosaicChoices.isEmpty, let catalog = activeSession?.catalog else { return }
+        PictureTrace.write("gap check of \(mosaicChoices.count) tiles")
 
         let living = mosaicChoices.filter { catalog.descriptor(for: $0.source) != nil }
         // Nothing is thrown away: fewer than two survivors is not an arrangement to redraw, and it is not

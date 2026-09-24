@@ -25,6 +25,109 @@ extension HostModel {
         else { return }
 
         bringToFront(running)
+
+        // **And then that window in particular.** Bringing an application to the front does not
+        // choose between its windows, and for the application that is already in front it does
+        // nothing at all — which is the case a phone moving from one window of an application to
+        // another one is always in. It was left looking at the window it had just left, drawn on
+        // top of the one it had asked for, and the click it aimed at the new window landed in the
+        // old one.
+        if case .window(let id) = source {
+            // **And again over the next second, because a window that has just appeared is not where
+            // it will be.** The first attempt is the one that matters when the source is already on
+            // screen; the rest are for the window an application made a moment ago, which has a frame
+            // only once the Mac has finished placing it, and for the first window of a launch, which
+            // does not exist yet when the switch returns.
+            if !focusWindow(id, ofProcess: pid) {
+                Task { @MainActor [weak self] in
+                    for _ in 0..<5 {
+                        try? await Task.sleep(for: .milliseconds(220))
+                        guard let self, capturingSource == source else { return }
+                        if focusWindow(id, ofProcess: pid) { return }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Makes one window of a process the one the Mac is looking at, and the one an injected click
+    /// at its coordinates lands in.
+    ///
+    /// Found by its frame, because that is the only public way to say which window on the Mac a
+    /// `CGWindowID` means: the accessibility API hands out its own elements, and the identifier it
+    /// has for a window is not the window server's. The two agree on where a window is, both in
+    /// points and in the same top-left space, so the frame is an identity here rather than a guess.
+    @discardableResult
+    private func focusWindow(_ windowID: CGWindowID, ofProcess pid: pid_t) -> Bool {
+        let appElement = AXUIElementCreateApplication(pid)
+        var ref: CFTypeRef?
+        guard let target = Self.windowFrame(windowID),
+              AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &ref) == .success,
+              let elements = ref as? [AXUIElement]
+        else { return false }
+
+        // By its frame where a frame matches, and by its name where none does: a window the Mac has
+        // not finished placing yet is at the frame it was created with, and the one thing that has
+        // already settled at that moment is what it is called.
+        let byFrame = elements.first { element in
+            guard let frame = Self.frame(of: element) else { return false }
+            // Half a point of slack: neither API rounds a window's edges the same way, and the same
+            // window read twice is otherwise two different rectangles.
+            return abs(frame.minX - target.minX) < 0.5
+                && abs(frame.minY - target.minY) < 0.5
+                && abs(frame.width - target.width) < 0.5
+                && abs(frame.height - target.height) < 0.5
+        }
+        let title = (CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]])?
+            .first?[kCGWindowName as String] as? String
+        let byName = title.flatMap { name -> AXUIElement? in
+            guard !name.isEmpty else { return nil }
+            let matches = elements.filter { element in
+                var value: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &value)
+                        == .success
+                else { return false }
+                return (value as? String) == name
+            }
+            // Only when it is unambiguous: two windows with the same name are two windows this
+            // cannot tell apart, and raising the wrong one is worse than raising neither.
+            return matches.count == 1 ? matches[0] : nil
+        }
+        guard let window = byFrame ?? byName else { return false }
+
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, window)
+        return true
+    }
+
+    /// Where the window server says a window is.
+    private static func windowFrame(_ id: CGWindowID) -> CGRect? {
+        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]],
+              let bounds = info.first?[kCGWindowBounds as String] as? [String: CGFloat]
+        else { return nil }
+        return CGRect(
+            x: bounds["X"] ?? 0,
+            y: bounds["Y"] ?? 0,
+            width: bounds["Width"] ?? 0,
+            height: bounds["Height"] ?? 0
+        )
+    }
+
+    /// Where accessibility says a window it handed out is.
+    private static func frame(of window: AXUIElement) -> CGRect? {
+        var positionRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &positionRef) == .success,
+              AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+              let positionValue = positionRef, CFGetTypeID(positionValue) == AXValueGetTypeID(),
+              let sizeValue = sizeRef, CFGetTypeID(sizeValue) == AXValueGetTypeID()
+        else { return nil }
+
+        var origin = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(positionValue as! AXValue, .cgPoint, &origin)
+        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        return CGRect(origin: origin, size: size)
     }
 
     /// Which process's window this is, for the two kinds of source that have one.

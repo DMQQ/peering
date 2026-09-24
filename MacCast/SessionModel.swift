@@ -250,6 +250,28 @@ final class SessionModel {
     }
     var hosts: [DiscoveredHost] = []
 
+    /// The Bonjour endpoint each Mac was last reached at on this network, by host ID.
+    ///
+    /// **Because the path is re-derived from Bonjour at the moment of the dial, and that is the one
+    /// moment Bonjour cannot be relied on.** A drop that follows a backgrounding is a drop whose mDNS
+    /// results went stale while the app was suspended; a re-browse takes seconds and the reconnect
+    /// ladder's first rung is one. In memory rather than on disk: an endpoint that survived a relaunch
+    /// is an address from whatever network the phone was on then.
+    private var lastLANHosts: [String: DiscoveredHost] = [:]
+
+    /// The endpoint a Mac was last reached at, if this launch has reached it on this network.
+    func rememberedLANHost(_ hostID: String) -> DiscoveredHost? {
+        lastLANHosts[hostID]
+    }
+
+    /// What one dial is allowed to take when nothing more specific is asked for, matching
+    /// `ClientSession.connect`'s own default.
+    static let standardConnectTimeout: TimeInterval = 10
+
+    /// How long the rung that dials a remembered address may take. Short, because it is the one dial
+    /// whose address may be wrong: a Mac that has moved costs this much before the relay is tried.
+    static let rememberedPathTimeout: TimeInterval = 3
+
     /// Whether each paired Mac is registered with the relay, by host ID.
     ///
     /// Three states, which is why it is not a `Set`: `true` and `false` are the relay's answers, and
@@ -623,11 +645,26 @@ final class SessionModel {
         renderer.onFirstFrame = { [weak self] in
             self?.frameArrived += 1
         }
+        renderer.onFramePlaced = { [weak self] in
+            self?.pictureDisplayed += 1
+        }
     }
 
     /// Bumped each time a frame of the stream the session just configured reaches the display layer,
     /// which is the moment the picture on screen is the picture the app describes.
     var frameArrived = 0
+
+    /// Bumped when that frame is handed to the layer, which is the moment the *screen* changes.
+    ///
+    /// **The second of two moments, and the one this app used to have no way of noticing.** The
+    /// first frame of a stream is held just short of the layer until the transform that goes with
+    /// it has been written, so ``frameArrived`` fires a layout pass early — while the layer is still
+    /// showing the picture being replaced. Everything drawn over the picture asks whether the
+    /// picture on the layer is the one the app describes (``SessionModel/hasPictureOnScreen(of:)``,
+    /// which reads the renderer), and the renderer is not observable: with nothing here, the tile
+    /// borders, the names and the ✕ buttons of an arrangement arrived when some *unrelated* state
+    /// write forced a pass, which is why they used to appear when the canvas was panned.
+    var pictureDisplayed = 0
 
     /// Whether the renderer has a frame of a stream of this size that the screen has not been told to
     /// make room for yet.
@@ -787,7 +824,13 @@ final class SessionModel {
     /// - Parameter old: the session this attempt supersedes, or `nil` when it is a Mac being opened
     ///   from the picker. A replaced session is removed rather than left to be pruned, because its
     ///   ladder has just handed over and two entries for one Mac read as "it connected twice".
-    func connect(to target: ClientSession.Target, replacing old: MacSession?) {
+    /// - Parameter timeout: how long this attempt may take. Short only for the rung of a resume that
+    ///   dials a remembered address.
+    func connect(
+        to target: ClientSession.Target,
+        replacing old: MacSession?,
+        timeout: TimeInterval = SessionModel.standardConnectTimeout
+    ) {
         guard let identity, identityFailure == nil else { return }
 
         // A Mac that is already open is brought to the front rather than dialled again: two sessions to
@@ -859,6 +902,7 @@ final class SessionModel {
             session.connectionPath = .lan
             remotePairingHostID = nil
             UserDefaults.standard.set(host.id, forKey: Self.lastHostIDKey)
+            lastLANHosts[host.id] = host
         case .relay(let hostID, _, _):
             session.connectionPath = .relay
             remotePairingHostID = nil
@@ -918,8 +962,9 @@ final class SessionModel {
         // a closure that outlives this one is a data race. It is a `let` of a `Sendable` type, so it is
         // reachable from the network queue, where no actor is going to help.
         let renderer = self.renderer
-        // One per connection: it holds the frames of this session's picture changes.
-        let changeGate = PictureGate()
+        // This Mac's own, and armed by the ask as well as by the config. See
+        // ``MacSession/changeGate``.
+        let changeGate = session.changeGate
 
         let wire = ClientSession(
             identity: identity,
@@ -991,7 +1036,7 @@ final class SessionModel {
 
         let connectTask = Task { [weak session, weak wire] in
             guard let wire else { return }
-            await wire.connect(to: target)
+            await wire.connect(to: target, timeout: timeout)
             await MainActor.run {
                 guard session?.wire === wire else { return }
                 session?.connectTask = nil

@@ -61,6 +61,17 @@ extension SessionModel {
     /// The arrangement the picture on screen is of. See ``MacSession/pictureMosaicLayout``.
     var pictureMosaicLayout: MosaicLayout? { activeSession?.pictureMosaicLayout }
 
+    /// The arrangement this end last asked the Mac for, frozen at the moment it asked. See
+    /// ``MacSession/askedMosaicLayout``.
+    ///
+    /// **This is the one that says the Mac has something to build**, and the difference from
+    /// ``mosaicLayout`` is the whole of why it is here. That one is rebuilt from the live screen and
+    /// the live catalogue, so its canvas moves on its own: the median window aspect changes whenever
+    /// the Mac's list of windows does, and the canvas is built from it. A catalogue arrives for an
+    /// application launching, for one quitting and for a change of Spaces, so a border held for a
+    /// rebuild nothing asked for is a border that blinks out on its own.
+    var askedMosaicLayout: MosaicLayout? { activeSession?.askedMosaicLayout }
+
     /// What the arrangement is made of: the sources, their order, and their sizes. See
     /// ``MacSession/mosaicChoices``.
     var mosaicChoices: [MosaicChoice] {

@@ -744,6 +744,19 @@ final class HostModel {
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 self?.record("Could not switch capture source: \(message)", level: .failure)
+                // **And the Mac stops offering it.** A source the filter cannot be built for is a
+                // source that is not there: the row the phone is looking at is a window that has
+                // closed, or one ScreenCaptureKit lists and will not render, and without this the
+                // row stays in the picker for as long as the session lasts and every press on it is
+                // a press that does nothing at all. Windows and applications only: a display is
+                // what a phone needs whatever state it is in. See
+                // ``CaptureSourceResolver/markUncapturable(_:)``.
+                if let capture = error as? CaptureError, case .sourceUnavailable = capture {
+                    switch source {
+                    case .window, .application: self?.coordinator?.markUncapturable(source)
+                    case .display, .mosaic: break
+                    }
+                }
             }
         }
     }
@@ -756,6 +769,10 @@ final class HostModel {
             // will never let back in.
             clientNames = [:]
             UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
+            // And the tokens, for the same reason and one more: a token is what lets this Mac reach
+            // a phone with no session up, so a device that is no longer paired would go on being
+            // told about terminals it can no longer open. See ``PushTokenStore``.
+            PushTokenStore.shared.forgetAll()
             record("All paired clients removed")
         } else {
             record("Could not clear paired clients", level: .failure)
@@ -790,6 +807,9 @@ final class HostModel {
         connectedClients.removeAll { $0.id == clientID }
         clientNames.removeValue(forKey: clientID)
         UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
+        // The token goes with the pin. Kept, it would let a phone this Mac no longer trusts be
+        // reached with no session up. See ``PushTokenStore``.
+        PushTokenStore.shared.forget(clientID: clientID)
         record("Forgot \(name)")
     }
 

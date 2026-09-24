@@ -24,6 +24,29 @@ private struct PendingDesktop: Equatable {
     let index: Int
 }
 
+/// Thumbnails that have already been decoded, so a body pass is not a JPEG decode per tile.
+///
+/// Guarded by the bytes rather than by the source alone, because a Mac that sends new pictures for the
+/// same windows has to have them drawn. Comparing a few kilobytes beats decoding them, and beats the
+/// fresh `UIImage` per pass that also defeated SwiftUI's own diffing.
+///
+/// A reference type so it can be held in `@State` and written from the body, which is only sound
+/// because it answers the same picture the decode would.
+@MainActor
+final class ThumbnailImages {
+    private var entries: [String: (data: Data, image: UIImage)] = [:]
+
+    func image(for key: String, data: Data) -> UIImage? {
+        if let entry = entries[key], entry.data == data { return entry.image }
+        guard let image = UIImage(data: data) else {
+            entries.removeValue(forKey: key)
+            return nil
+        }
+        entries[key] = (data, image)
+        return image
+    }
+}
+
 /// What the Mac can be made to share, as a floating panel.
 ///
 /// The same list the sheet used to hold, rebuilt for a panel instead of a `List`. A `List` brings
@@ -42,6 +65,15 @@ struct SourcesPanel: View {
 
     /// Returns to the arrangement through the screen's picture animation.
     var onReturnToMosaic: () -> Void = {}
+
+    /// Decoded tile pictures, kept for as long as the panel is open. See ``ThumbnailImages``.
+    @State private var thumbnails = ThumbnailImages()
+    /// How wide one cell of the picture grid came out, measured from the first tile that lays out.
+    ///
+    /// The grid is adaptive, so the number is the layout's rather than a constant, and a title that
+    /// has to be clipped to its own picture cannot be told how much without it. See
+    /// ``captionWidth(shape:)``.
+    @State private var tileCellWidth: CGFloat = 0
 
     @State private var query = ""
 
@@ -312,7 +344,7 @@ struct SourcesPanel: View {
                     ZStack {
                         ColorPalette.surface
                         if let thumbnail = descriptor.thumbnail,
-                           let image = UIImage(data: thumbnail.jpegData) {
+                           let image = thumbnails.image(for: descriptor.id, data: thumbnail.jpegData) {
                             Image(uiImage: image)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -615,7 +647,7 @@ struct SourcesPanel: View {
                     ColorPalette.surface
                         .overlay {
                             if let thumbnail = descriptor.thumbnail,
-                               let image = UIImage(data: thumbnail.jpegData) {
+                               let image = thumbnails.image(for: descriptor.id, data: thumbnail.jpegData) {
                                 Image(uiImage: image)
                                     .resizable()
                                     // Filled, which the shape around it has made the same thing
@@ -649,7 +681,19 @@ struct SourcesPanel: View {
                         .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
                 }
 
+                // **No wider than the picture it names.** A cell is one shape and the pictures
+                // inside it are not: a tall window is drawn as a narrow picture in the middle of a
+                // cell-wide box, and its title used to run the full width of the cell, so the name
+                // of a sliver of a window was a line of text twice its width with the picture at
+                // one end. Clipped to the picture, the two read as one tile. See
+                // ``captionWidth(shape:)``.
                 caption(descriptor, isLive: placed.isLive)
+                    .frame(maxWidth: captionWidth(shape: shape), alignment: .leading)
+            }
+            // Measured here, from whichever tile lays out first: every cell of an adaptive grid is
+            // the same width, and the arithmetic below needs one number for all of them.
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                if abs(width - tileCellWidth) > 0.5 { tileCellWidth = width }
             }
         }
         // **A tile that has just become the picture steps forward and stays there.** Tapping a
@@ -890,7 +934,10 @@ struct SourcesPanel: View {
                     ColorPalette.surface
                         .overlay {
                             if let data = display.preview(for: index)?.jpegData,
-                               let image = UIImage(data: data) {
+                               let image = thumbnails.image(
+                                   for: "\(display.displayID)-\(index)",
+                                   data: data
+                               ) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
@@ -1125,6 +1172,10 @@ struct SourcesPanel: View {
                 ForEach(group.windows) { previewTile($0, fallbackIcon: "macwindow") }
             }
         }
+        // **Room above each application, over and above the stack's own gap.** A heading, its
+        // windows and its count are one subject; set off by the same twelve points that separate a
+        // heading from its own grid, the applications read as one long list of everything.
+        .padding(.top, 8)
     }
 
     /// An application's name, its icon, and how many windows it is showing.
@@ -1312,6 +1363,17 @@ struct SourcesPanel: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: alignment == .center ? .center : .leading)
+    }
+
+    /// How wide a tile's title may be: the width of the picture, which is the box's height times
+    /// the picture's shape.
+    ///
+    /// The box is the cell wide and ``tileAspect`` tall, so a picture that is narrower than that
+    /// shape is drawn narrower than the box, and its name has to be told by how much. A picture
+    /// wider than the box is the cell wide and gets the cell's width, which is what the `min` says.
+    private func captionWidth(shape: CGFloat) -> CGFloat {
+        guard tileCellWidth > 0, Self.tileAspect > 0 else { return .infinity }
+        return min(tileCellWidth, tileCellWidth / Self.tileAspect * shape)
     }
 
     private func spoken(_ descriptor: CaptureSourceDescriptor) -> String {

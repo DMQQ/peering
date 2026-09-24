@@ -33,18 +33,6 @@ public enum CanvasGeometry {
         regions.contains { $0.contains(point) }
     }
 
-    /// Whether a tap should put something of ours away rather than reach the Mac.
-    ///
-    /// A panel and the software keyboard are the same thing from the picture's point of view:
-    /// something of ours is open over it, and a tap on the picture belongs to closing that rather
-    /// than to the Mac underneath.
-    ///
-    /// A pure decision, so it can be tested without a `UITapGestureRecognizer`. The chrome check
-    /// keeps a tap on the panel itself from counting: it belongs to the button under it.
-    public static func dismissesOverlay(at point: CGPoint, regions: [CGRect], isOpen: Bool) -> Bool {
-        isOpen && !isBlocked(point, regions: regions)
-    }
-
     /// Turns a touch into a normalized position, undoing the canvas's zoom and pan first.
     ///
     /// Normalized, never pixels: the host maps the result through its own transform, the only

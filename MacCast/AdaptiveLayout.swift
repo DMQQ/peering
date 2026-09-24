@@ -23,6 +23,32 @@ enum AdaptiveLayout {
     }
 }
 
+/// The scene the app is drawing in, and the way up the phone is being held.
+///
+/// One answer for the whole app. The screen and the mosaic's canvas used to ask this two different
+/// ways, and only one of them preferred the active scene.
+enum DeviceScene {
+    /// The scene being drawn in, preferring the active one. No array is built on the way to the answer:
+    /// this is read several times per body pass.
+    static var window: UIWindowScene? {
+        var first: UIWindowScene?
+        for scene in UIApplication.shared.connectedScenes {
+            guard let window = scene as? UIWindowScene else { continue }
+            if window.activationState == .foregroundActive { return window }
+            if first == nil { first = window }
+        }
+        return first
+    }
+
+    /// Whether the phone is being held sideways, asked of the orientation it is *moving to*.
+    ///
+    /// The only signal a rotation gives while it is happening. Read from the scene rather than from the
+    /// layout geometry, which answers landscape for an upright phone whose keyboard is up.
+    static var isLandscape: Bool {
+        window?.effectiveGeometry.interfaceOrientation.isLandscape ?? false
+    }
+}
+
 extension View {
     /// Centres a readable app column in whatever width its navigation container provides.
     ///

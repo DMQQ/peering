@@ -100,4 +100,74 @@ final class TerminalScreenFeedTests: XCTestCase {
         XCTAssertTrue(text(of: screen).contains("kept"))
         XCTAssertFalse(text(of: screen).contains("gone"), "the bytes that drew it are not in the buffer any more")
     }
+
+    /// The trim that actually happens: the buffer is cut back to exactly the length the feed last read
+    /// at, so the rebuild above never runs and the feed would stop advancing for good.
+    func testABufferTrimmedToTheLengthItWasReadAtKeepsFeeding() {
+        let feed = TerminalScreenFeed()
+        var bytes = Data("one\r\n".utf8)
+        let limit = bytes.count
+
+        _ = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        // A chunk arrives and the front is dropped, leaving the buffer the length it was.
+        bytes.append(Data("two\r\n".utf8))
+        let dropped = bytes.count - limit
+        bytes.removeFirst(dropped)
+        feed.discardFront(dropped)
+
+        let screen = feed.screen(for: bytes, columns: 20, rows: 4)
+        XCTAssertTrue(text(of: screen).contains("two"), "the chunk that arrived after the trim is on the screen")
+    }
+
+    /// And the same trim repeated, which is the steady state once a shell has filled the buffer. This
+    /// one cuts with `removeFirst`, so it also checks that the feed slices in the buffer's own index
+    /// space rather than from zero.
+    func testEveryTrimAfterTheFirstStillFeeds() {
+        func line(_ index: Int) -> Data {
+            Data(String(format: "line %03d\r\n", index).utf8)
+        }
+
+        let feed = TerminalScreenFeed()
+        var bytes = line(0)
+        bytes.append(line(1))
+        let limit = bytes.count
+        _ = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        for index in 2..<6 {
+            bytes.append(line(index))
+            let dropped = bytes.count - limit
+            bytes.removeFirst(dropped)
+            feed.discardFront(dropped)
+            _ = feed.screen(for: bytes, columns: 20, rows: 4)
+        }
+
+        let screen = feed.screen(for: bytes, columns: 20, rows: 4)
+        XCTAssertTrue(text(of: screen).contains("line 005"), "the screen followed every trim, not only the first")
+    }
+
+    /// The idiom the panel uses now: the tail is rebuilt rather than cut, so the buffer stays
+    /// zero-based.
+    func testABufferRebuiltFromItsTailKeepsFeeding() {
+        func line(_ index: Int) -> Data {
+            Data(String(format: "line %03d\r\n", index).utf8)
+        }
+
+        let feed = TerminalScreenFeed()
+        var bytes = line(0)
+        bytes.append(line(1))
+        let limit = bytes.count
+        _ = feed.screen(for: bytes, columns: 20, rows: 4)
+
+        for index in 2..<6 {
+            bytes.append(line(index))
+            let dropped = bytes.count - limit
+            bytes = Data(bytes.dropFirst(dropped))
+            feed.discardFront(dropped)
+            _ = feed.screen(for: bytes, columns: 20, rows: 4)
+        }
+
+        let screen = feed.screen(for: bytes, columns: 20, rows: 4)
+        XCTAssertTrue(text(of: screen).contains("line 005"), "the last line through the rebuilt buffer is on the screen")
+    }
 }

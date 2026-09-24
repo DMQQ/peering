@@ -277,7 +277,7 @@ extension RemoteScreen {
             // Asked of the layer rather than of ``pendingArrival``, which the arrival handler sets
             // and is therefore a beat behind.
             guard model.hasPictureOnScreen(of: model.capturePixelSize ?? .zero) else { return nil }
-            guard model.isAskingForMosaic, let asked = model.mosaicLayout else { return arrived }
+            guard model.isAskingForMosaic, let asked = model.askedMosaicLayout else { return arrived }
             // **And nothing for a picture the arrangement has moved on from, while the rebuild
             // lasts.** From the moment a window is added or taken away until the canvas showing the
             // new arrangement arrives, the Mac is tearing the old one down and building the new one,
@@ -314,7 +314,7 @@ extension RemoteScreen {
     /// where the Mac never answers at all.
     private var mosaicBordersHeld: Bool {
         guard let started = mosaicRebuildStartedAt,
-              let asked = model.mosaicLayout,
+              let asked = model.askedMosaicLayout,
               let arrived = model.pictureMosaicLayout,
               !sameArrangement(asked, arrived)
         else { return false }
@@ -520,7 +520,14 @@ extension RemoteScreen {
         // **Only a change the Mac has to build again stamps the clock.** A reorder is the same canvas
         // holding the same windows, the Mac answers it with nothing at all, and holding the borders
         // for it would take away the outline the finger is carrying. See ``mosaicBordersHeld``.
-        .onChange(of: model.mosaicLayout) { _, asked in
+        //
+        // **Watched on the ask rather than on the arrangement being worked out.** The two move for
+        // different reasons and only one of them is news: the ask changes when this end asks the Mac
+        // for something, while the derived arrangement's canvas drifts whenever the Mac's list of
+        // windows does. Watching the derived one armed the hold on a catalogue the Mac sends for an
+        // application quitting, with nothing for it to build, and the borders went away for the
+        // grace on their own. See ``SessionModel/askedMosaicLayout``.
+        .onChange(of: model.askedMosaicLayout) { _, asked in
             guard let asked, let arrived = model.pictureMosaicLayout else { return }
             if !sameArrangement(asked, arrived) { mosaicRebuildStartedAt = Date() }
         }

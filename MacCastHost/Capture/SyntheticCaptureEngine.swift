@@ -140,7 +140,7 @@ final class SyntheticCaptureEngine: CaptureFrameSource, @unchecked Sendable {
 
     var statistics: CaptureEngine.Statistics {
 // `idle` is always zero: nothing here is ever waiting for the screen to change.
-        lock.withLock { CaptureEngine.Statistics(delivered: deliveredCount, idle: 0) }
+        lock.withLock { CaptureEngine.Statistics(delivered: deliveredCount, idle: 0, unreadable: 0) }
     }
 
     var onFrame: (@Sendable (CapturedFrame) -> Void)? {

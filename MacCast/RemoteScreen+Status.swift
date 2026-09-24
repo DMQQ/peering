@@ -60,13 +60,15 @@ extension RemoteScreen {
     /// The four stand down while the panel is open: it holds the same actions with their words on,
     /// and it wants the width.
     var statusBar: some View {
-        // Two circles leading and two trailing, so the strip is balanced around the thing it is
+        // One circle leading and two trailing, so the strip is balanced around the thing it is
         // reporting on.
         HStack(alignment: .center, spacing: 5) {
-            // The way back to the picker leads, because that is where a way back lives on this
-            // system, and the lock is the one that acts on the Mac itself.
+            // The lock, which is the one that acts on the Mac itself. The way back to the picker
+            // led this row until it stopped earning its circle: it is a labelled chip inside the
+            // pill, beside the other things done to the session, and a second door to the same
+            // room is 48 points of chrome taken off the picture to say nothing the pill does not
+            // say with a word on it.
             if !statusBarExpanded {
-                connectDot.layoutPriority(1)
                 lockDot.layoutPriority(1)
             }
             statusPill
@@ -193,6 +195,15 @@ extension RemoteScreen {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Take screenshot")
+                        // The controls themselves, put away. On this row rather than among the
+                        // session's own chips, because what it acts on is the picture in front of
+                        // the user: the same subject the zoom, the fill and the camera belong to.
+                        actionChip(
+                            "Immersive",
+                            systemImage: "arrow.up.left.and.arrow.down.right"
+                        ) {
+                            enterImmersive()
+                        }
                     }
 
                     // ── What can be done, sorted by what it is done to ─────────────
@@ -218,6 +229,11 @@ extension RemoteScreen {
                     }
 
                     actionRow("Session", systemImage: "antenna.radiowaves.left.and.right") {
+                        // **The way back to the picker, with the Mac left connected.** This screen
+                        // used to have one way out and it was Quit, so looking at the list of Macs
+                        // meant ending the session, and the session somebody was paying for went
+                        // with it. The same act as the picker's own row for this Mac, approached
+                        // from the other side. See ``SessionModel/stepAwayFromSession()``.
                         actionChip("Connect", systemImage: "macbook.and.iphone") {
                             model.stepAwayFromSession()
                         }
@@ -257,9 +273,9 @@ extension RemoteScreen {
                 // inset by what separates them rather than by less.
                 .padding(.vertical, 10)
                 // **The width of the bar it came out of, exactly.** That is where the horizontal
-                // half of the opening comes from: the closed bar is the pill plus the four circles,
-                // and the panel replaces both, so it opens into their space and grows sideways as it
-                // grows down. Fixed rather than a floor, because the rows inside are divided to fill
+                // half of the opening comes from: the closed bar is the pill plus the circles
+                // around it, and the panel replaces both, so it opens into their space and grows
+                // sideways as it grows down. Fixed rather than a floor, because the rows inside are divided to fill
                 // it: a panel that could also grow to fit its rows would leave whichever rows were
                 // narrower than the widest one ending short of the glass.
                 //
@@ -528,24 +544,6 @@ extension RemoteScreen {
                 // centres its own 12pt line, which is seven points down.
                 .padding(.top, 7)
             ChipSlots { content() }
-        }
-    }
-
-    /// The way back to the picker, with the Mac left connected.
-    ///
-    /// **This screen used to have one way out, and it was Quit.** Looking at the list of Macs meant
-    /// ending the session, and the session somebody was paying for went with it. What this does
-    /// instead is the same act as the picker's own row for this Mac, approached from the other
-    /// side. See ``SessionModel/stepAwayFromSession()``.
-    ///
-    /// The glyph is the Connect tab's own: every button on this bar wears the thing it opens, and
-    /// what this opens is a screen.
-    var connectDot: some View {
-        sessionDot(
-            symbol: "macbook.and.iphone",
-            label: "Back to Connect, leaving the session running"
-        ) {
-            model.stepAwayFromSession()
         }
     }
 

@@ -473,6 +473,16 @@ final class CapturePipeline: @unchecked Sendable {
         resolver.invalidate()
     }
 
+    /// A source this pipeline has built a stream for and got nothing out of.
+    ///
+    /// The phone's catalogue goes on listing it otherwise, and every tap on it is a tap that does
+    /// nothing at all: a window ScreenCaptureKit will not render looks exactly like one it will.
+    /// See ``CaptureSourceResolver/markUncapturable(_:)``.
+    func markUncapturable(_ source: CaptureSource) {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        resolver.markUncapturable(source)
+    }
+
 /// A tile that produced no picture at all, which is a fact about the source rather than about the
 /// arrangement. Every other reason a tile is empty is a window that has closed or an application with
 /// nothing open, and both of those are answered by the catalogue as it stands. Here the window is

@@ -153,6 +153,7 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     private var stream: SCStream?
     private var deliveredCount = 0
     private var idleCount = 0
+    private var unreadableCount = 0
     private var _onFrame: (@Sendable (CapturedFrame) -> Void)?
     private var _onIdle: (@Sendable (IdleSample) -> Void)?
     private var _onStop: (@Sendable (CaptureError) -> Void)?
@@ -173,10 +174,19 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
     struct Statistics: Sendable, Equatable {
         let delivered: Int
         let idle: Int
+        /// Samples whose own frame info could not be read at all, so this side cannot tell a still
+        /// picture from a missing one.
+        ///
+        /// Apart from ``idle``, which is the evidence that a stream is alive with nothing to send:
+        /// counting these as idle would let a stream that is dropping every frame report itself as
+        /// healthy and quiet.
+        let unreadable: Int
     }
 
     var statistics: Statistics {
-        lock.withLock { Statistics(delivered: deliveredCount, idle: idleCount) }
+        lock.withLock {
+            Statistics(delivered: deliveredCount, idle: idleCount, unreadable: unreadableCount)
+        }
     }
 
     /// Called for every frame that carries an image, on the capture queue.
@@ -413,9 +423,15 @@ final class CaptureEngine: NSObject, SCStreamOutput, SCStreamDelegate, CaptureFr
         let status = info?.status
 
         guard status == .complete || status == .started else {
-// Counted before anything else, so every sample that is not a picture lands in exactly one of the
-// two counters however it is handled below. Folding idle samples into `delivered` would erase the
-// only evidence that tells a stream that is reporting from one that is not.
+            // A sample with no status at all is one this side cannot classify: it may have carried a
+            // picture that will now be dropped. It goes in its own counter rather than in `idle`,
+            // which is the number that says a quiet stream is a working one. A sample with a status
+            // is counted before anything else below, so every sample that is not a picture lands in
+            // exactly one of the two counters however it is handled.
+            guard let status else {
+                lock.withLock { unreadableCount += 1 }
+                return
+            }
             lock.withLock { idleCount += 1 }
 
             if status == .idle {

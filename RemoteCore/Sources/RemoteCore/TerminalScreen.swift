@@ -25,6 +25,18 @@ public struct TerminalScreen: Sendable {
     /// scroll.
     private var history: [[Cell]] = []
 
+    /// ``history`` already cut into runs. A row that has scrolled off never changes again, so styling
+    /// it as it leaves is the same answer as styling it on every read.
+    private var styledHistory: [TerminalStyledLine] = []
+
+    /// How many rows of scrollback are kept above the screen. Bounded here rather than at the byte
+    /// buffer the caller trims: the cells are this side's copy, so nothing about the wire bounds them.
+    private static let scrollbackLimit = 2_000
+
+    /// How far past the limit the history may run before it is cut back, so the copy is not paid on
+    /// every row that scrolls.
+    private static let scrollbackSlack = 256
+
     private var row = 0
     private var column = 0
 
@@ -84,7 +96,7 @@ public struct TerminalScreen: Sendable {
         if newRows < rows, row >= newRows {
             for _ in 0..<(row - newRows + 1) {
                 let top = grid.removeFirst()
-                if !alternate { history.append(top) }
+                record(top)
                 grid.append(blankRow)
             }
             row = newRows - 1
@@ -137,7 +149,7 @@ public struct TerminalScreen: Sendable {
         // Trailing blank rows are dropped by the same rule `visible` uses, so the two cannot
         // disagree.
         while rows.last?.runs.isEmpty == true { rows.removeLast() }
-        return history.map(styledLine) + rows
+        return styledHistory + rows
     }
 
     /// Everything, in order: what scrolled off the top, then what is on screen.
@@ -372,6 +384,7 @@ public struct TerminalScreen: Sendable {
             // The one that reaches into the history as well: how a program clears what it printed
             // before it started drawing.
             history.removeAll()
+            styledHistory.removeAll()
             clearScreen()
         default:
             break
@@ -575,10 +588,23 @@ public struct TerminalScreen: Sendable {
             return
         }
         let top = grid.removeFirst()
-        // The whole row, not its text, so the colour it was drawn in scrolls into the history with
-        // it. Rows that scroll off while the alternate screen is up are dropped instead.
-        if !alternate { history.append(top) }
+        record(top)
         grid.append(blankRow)
+    }
+
+    /// Takes a row that has scrolled off the top, styling it as it leaves and keeping the scrollback
+    /// bounded.
+    ///
+    /// The whole row rather than its text, so the colour it was drawn in scrolls into the history
+    /// with it. Rows that scroll off while the alternate screen is up are dropped instead.
+    private mutating func record(_ scrolled: [Cell]) {
+        guard !alternate else { return }
+        history.append(scrolled)
+        styledHistory.append(styledLine(scrolled))
+        guard history.count > Self.scrollbackLimit + Self.scrollbackSlack else { return }
+        let excess = history.count - Self.scrollbackLimit
+        history.removeFirst(excess)
+        styledHistory.removeFirst(excess)
     }
 
     private mutating func control(_ byte: UInt8) {

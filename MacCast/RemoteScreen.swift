@@ -75,6 +75,24 @@ struct RemoteScreen: View {
     /// Whether the portrait dock has opened onto the controls that did not earn a permanent
     /// place in it. Portrait's alone: the landscape rails have the height to show them all.
     @State var dockExpanded = false
+    /// Whether the landscape application strip has been asked for. See ``applicationDock``.
+    ///
+    /// Shut until somebody wants it, which is the whole of the design: the strip is pictures, and
+    /// pictures standing on a picture are the one thing this screen cannot afford upright. Opening
+    /// it is a gesture; closing it is the same gesture, a tap on the handle, or picking something.
+    @State var applicationDockIsUp = false
+    /// Whether the chrome is put away and the picture has the screen. See ``immersiveEscape``.
+    ///
+    /// Session-scoped rather than remembered: it is a way of looking at a Mac for a while, not a
+    /// preference about sessions, and a session that came back with no controls on it would be a
+    /// screen somebody has to work out how to leave.
+    @State var isImmersive = false
+    /// The dock's desktop pictures, decoded once each. See ``ThumbnailImages``.
+    ///
+    /// The dock's own, rather than the panel's: the panel is torn down and rebuilt every time it is
+    /// opened, and the dock is on screen for as long as the orientation is. Two caches for two
+    /// lifetimes, each of which would otherwise be the other's size.
+    @State var dockPreviews = ThumbnailImages()
     /// Which sheet of the dock is showing, by ``DockSheet/id``.
     ///
     /// Optional because that is what `scrollPosition(id:)` binds to: a pager that has not settled
@@ -269,28 +287,24 @@ struct RemoteScreen: View {
         return [.screen]
     }
 
-    /// Whether the phone is being held sideways — asked of the orientation it is *moving to*.
+    /// Whether the phone is being held sideways.
     ///
-    /// The only orientation signal a rotation gives at the start of it, and everything that depends
-    /// on the orientation reads it: `interfaceOrientation` changes when the movement has finished,
-    /// about two seconds later, along with the screen's own bounds, while `effectiveGeometry`
-    /// reports the orientation it is moving to and changes when the movement begins.
-    ///
-    /// Read from the window scene rather than the layout geometry: a phone held upright with the
-    /// keyboard up has less height than width, so `width > height` answered *landscape*.
-    var deviceIsLandscape: Bool {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?
-            .effectiveGeometry
-            .interfaceOrientation
-            .isLandscape ?? false
-    }
+    /// Everything that depends on the orientation reads it, and the reasoning for asking the scene
+    /// for the orientation it is moving to lives with the one implementation.
+    /// See ``DeviceScene/isLandscape``.
+    var deviceIsLandscape: Bool { DeviceScene.isLandscape }
 
     var body: some View {
         // `Environment` gives the object but no projected value, so a local `@Bindable` is what the
         // keyboard view binds to.
         @Bindable var model = model
+        // **Read so that this whole screen re-evaluates when a frame reaches the layer.** Half of
+        // what is drawn here waits on a fact that only the renderer knows — the tile edges, the
+        // names and the ✕ buttons of an arrangement ask whether the picture on the layer is the one
+        // this app describes, and the renderer is not observable. Without this the arrangement's own
+        // drawing arrives when something unrelated forces a pass, which is why it used to appear
+        // when the canvas was moved. See ``SessionModel/pictureDisplayed``.
+        let _ = model.pictureDisplayed
         return GeometryReader { proxy in
             let isLandscape = deviceIsLandscape
             ZStack {
@@ -349,6 +363,10 @@ struct RemoteScreen: View {
             // the dock and the joystick, so this has to be an ancestor of all three. A `Color.clear`
             // on top of this stack would be over the picture and behind nothing.
             .firstRunTours(dueScreenTours) { $0.markSeen() }
+            // The disc that leaves immersive mode is the one piece of chrome whose absence leaves a
+            // region behind: it goes when it is pressed, and a region left over from it is a patch
+            // of the picture that no longer takes touches. On the stack, which outlives it.
+            .chromeFramePresence(.immersiveEscape, into: $chromeFrames, when: isImmersive)
         }
         // The keyboard must not resize the picture: a shrinking view moves every control the user
         // is aiming at.
@@ -356,21 +374,6 @@ struct RemoteScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if model.showKeyboard {
                 keyboardInputBar
-            }
-        }
-        .background {
-            // One keyboard, two views, and the mode is what decides which. Unicode mode goes
-            // through a field because that is where iOS keeps autocorrection and prediction, and
-            // keycode mode goes through the bare view because there is no text in it to correct:
-            // the characters are translated into Mac keystrokes as they arrive. See
-            // ``KeyboardTypingView``.
-            switch model.keyboardMode {
-            case .unicode:
-                KeyboardTypingCapture(model: model, isFocused: $model.showKeyboard)
-                    .frame(width: 0, height: 0)
-            case .keycode:
-                KeyboardCapture(model: model, isFocused: $model.showKeyboard)
-                    .frame(width: 0, height: 0)
             }
         }
         .sheet(isPresented: $showsTerminals) {
@@ -390,7 +393,15 @@ struct RemoteScreen: View {
         // screen is up during `.confirming` and the picture only starts at `.ready`, which is the
         // moment worth interrupting.
         .onChange(of: model.phase, initial: true) { _, phase in
-            guard phase == .ready else { return }
+            PictureTrace.begin()
+            guard phase == .ready else {
+                // **A movement does not outlive the connection it was measuring.** The view is kept
+                // across a drop, so what was in flight is still here when the picture comes back —
+                // and a carriage that was never finished is an arrangement nobody can press. See
+                // ``abandonPictureTransit()``.
+                abandonPictureTransit()
+                return
+            }
             presentLandscapeHint()
         }
         .onChange(of: interactionMode, initial: true) { _, mode in
@@ -420,6 +431,12 @@ struct RemoteScreen: View {
                 stillPan = pan
                 swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
             case .replaced:
+                PictureTrace.write("""
+                    config replacing \(PictureTrace.short(previous.pixelSize)) with \
+                    \(PictureTrace.short(current.pixelSize)) zoom=\(String(format: "%.3f", zoom)) \
+                    pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+                    locked=\(PictureTrace.short(lockedPixelSize)) glide=\(pictureGlide != nil)
+                    """)
                 // Held until the picture the config describes is on the layer: the work below is
                 // expressed against the arriving picture, and the layer is still showing the one it
                 // replaced. See ``pendingArrival`` and ``settleArrival()``.
@@ -437,6 +454,21 @@ struct RemoteScreen: View {
                 // the departing calibration.
                 settleArrival()
             }
+        }
+        // **What is drawn over the picture, traced for the same reason the geometry is.** A tile tap
+        // puts two things on screen: the picture, and the black shape that hides the rest of the
+        // arrangement while a window comes out of it. The picture's own numbers came back correct
+        // for every tap in the trace, so what is left to look at is the hole, whose rectangle is
+        // measured through one picture before the window arrives and through the other after — the
+        // one measurement in this app that changes hands mid-movement. See ``carriedWindow``.
+        .onChange(of: carriedWindow) { _, hole in
+            PictureTrace.write("""
+                hole \(PictureTrace.short(hole)) zoom=\(String(format: "%.3f", zoom)) \
+                placed=\(placedPictureID != nil)
+                """)
+        }
+        .onChange(of: shownMosaicLayout) { _, layout in
+            PictureTrace.write("overlay tiles=\(layout?.tiles.count ?? 0) carrying=\(carriedWindow != nil)")
         }
         // Turning the phone re-asks for the arrangement: the canvas takes the screen's own shape, so
         // a rotation is a different layout with a different identifier, and the Mac goes on capturing
@@ -520,6 +552,14 @@ struct RemoteScreen: View {
         arrivalDeadline = nil
         let previous = pending.previous
         let current = pending.current
+        PictureTrace.write("""
+            settle \(PictureTrace.short(previous.pixelSize)) -> \
+            \(PictureTrace.short(current.pixelSize)) canvas=\(PictureTrace.short(canvasSize)) \
+            zoom=\(String(format: "%.3f", zoom)) pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+            locked=\(PictureTrace.short(lockedPixelSize)) base=\(String(format: "%.3f", pictureBaseScale)) \
+            effective=\(String(format: "%.3f", effectiveZoom)) glide=\(pictureGlide != nil) \
+            forced=\(force) still=\(model.renderer.hasStillPicture) aim=\(pictureAim?.sourceID ?? "nil")
+            """)
 
         // The picture on screen at this instant, at the scale it is drawn at here: the still holds
         // it while the live layer takes the new frame, at this scale rather than at the one the
@@ -591,6 +631,11 @@ struct RemoteScreen: View {
         }
 
         if let placed {
+            PictureTrace.write("""
+                placed \(PictureTrace.short(carried)) -> zoom=\(String(format: "%.3f", placed.zoom)) \
+                pan=\(String(format: "%.1f,%.1f", placed.pan.width, placed.pan.height)) \
+                glide=\(pictureGlide != nil)
+                """)
             lockedPixelSize = current.pixelSize
             zoom = placed.zoom
             placedPictureID = current.sourceID
@@ -626,6 +671,11 @@ struct RemoteScreen: View {
             // panel, a rotation, a window resized since the catalogue was read. One already at rest
             // is left alone; one that is not is moved to it.
             cancelPictureGlide()
+            PictureTrace.write("""
+                unsolved zoom=\(String(format: "%.3f", zoom)) \
+                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+                atRest=\(pictureIsAtRest) previous=\(PictureTrace.short(previous.pixelSize))
+                """)
             // The picture has changed, whatever is about to be done with its framing: the base scale
             // is measured against the picture on screen, and from here that is this one. See
             // ``RemoteScreen/pictureBaseScale``.
@@ -641,34 +691,44 @@ struct RemoteScreen: View {
 
     // MARK: - Keyboard input bar
 
-    /// The mark that says the line is still open and where the next character goes.
+
+    /// The modifiers, and the two keys with no other home while the keyboard is up.
     ///
-    /// **The bar is the only place a caret can be.** The Mac's own is in the Mac's own window, at
-    /// whatever the Mac is holding; this one belongs to the sentence the bar is showing, and it is
-    /// drawn the way ``TerminalStarting`` draws its own: a short bar of ink, on for most of the
-    /// cycle and off for the rest, because an even square wave reads as a lamp flashing.
-    ///
-    /// Driven by a `TimelineView` rather than by a repeating animation: `repeatForever` is cancelled
-    /// the moment this row is laid out again, and the row is laid out again every time the picture
-    /// changes size, which leaves a caret that blinks until something happens and then never again.
-    private struct TypingCaret: View {
-        var body: some View {
-            TimelineView(.periodic(from: .now, by: 0.12)) { context in
-                let isOn = context.date.timeIntervalSinceReferenceDate
-                    .truncatingRemainder(dividingBy: 1.0) < 0.62
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(ColorPalette.ink)
-                    .frame(width: 2, height: 14)
-                    .opacity(isOn ? 1 : 0)
+    /// With the keyboard up, the dock and both rails are behind it, so nothing else on this screen can
+    /// be pressed. Esc is the only way out of a Mac menu or a completion list and no iOS keyboard has
+    /// one; Tab is how a Mac moves focus and completes. See ``ModifierBar``.
+    private var keyboardKeyRow: some View {
+        HStack(spacing: 8) {
+            ModifierBar()
+            HStack(spacing: 6) {
+                compactKeyButton(icon: "escape", keyCode: 53)
+                    .accessibilityLabel("Escape")
+                compactKeyButton(icon: "arrow.right.to.line", keyCode: 48)
+                    .accessibilityLabel("Tab")
             }
-            // Decoration for the eye only: the line it marks is what a reader needs, and it is
-            // already in the label beside it.
-            .accessibilityHidden(true)
         }
     }
 
     var keyboardInputBar: some View {
-        HStack(spacing: 10) {
+        VStack(spacing: 8) {
+            // The field at the top, furthest from the thumb: it is read rather than pressed.
+            keyboardInputRow
+            keyboardKeyRow
+            // Nearest the keyboard, because it is the row the thumb reaches for most. The arrows move
+            // the Mac's insertion point, which is the only way to reach the middle of a sentence that
+            // lives on the other machine. See ``arrowStrip(withReturn:)``.
+            arrowStrip(withReturn: false)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
+        .padding(.horizontal, ChromeMetrics.edgeInset)
+        .padding(.top, ChromeMetrics.edgeInset)
+    }
+
+    /// The field, what it is holding, and the two keys that work on it.
+    private var keyboardInputRow: some View {
+        HStack(alignment: .bottom, spacing: 10) {
             // **Leftmost, and a key rather than a glyph.** It used to be a bare chevron on the far
             // side of Return, which is the end of the row the key that *sends* lives at and not the
             // end the key that *leaves* belongs at; drawn as a glyph it read as a caption for the
@@ -677,33 +737,38 @@ struct RemoteScreen: View {
             compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
 
-            // What the bar is for, said in the words that change: the leading keyboard glyph that
-            // used to stand here went with the move above, and this line was always the state it
-            // was drawing.
+            // **The field itself, and it is a real one.** It holds the sentence, so iOS gives it a caret
+            // that can be moved and reports every edit as a range plus a replacement, which is what
+            // makes correcting the middle of a line work.
             //
-            // **And the caret after it, which is the other half of what a text field is.** Every
-            // other field on the phone has one and this bar did not: it showed the sentence the Mac
-            // was being sent with nothing at the end of it to say that more was coming, or where.
-            HStack(spacing: 1) {
-                Text(model.typedPreview.isEmpty ? "Typing…" : model.typedPreview)
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(model.typedPreview.isEmpty ? Color.secondary : Color.primary)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                TypingCaret()
+            // No height of its own, deliberately: the wrapper answers with the height the sentence
+            // needs, so the field grows a line at a time and this bar rises with it.
+            KeyboardTypingCapture(
+                model: model,
+                isFocused: Binding(
+                    get: { model.showKeyboard },
+                    set: { model.showKeyboard = $0 }
+                )
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            // Darker than the glass it sits on: a field reads as recessed, and white text wants a
+            // darker ground. The hairline is what keeps it a field over a bright desktop.
+            .background(
+                ColorPalette.backdrop.opacity(0.55),
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             // The software keyboard's Return arrives as text, and keycode mode has no keycode for a
             // newline, so a real Return is only reachable from a key like this one.
             compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
-        .padding(.horizontal, ChromeMetrics.edgeInset)
-        .padding(.top, ChromeMetrics.edgeInset)
     }
 
 }

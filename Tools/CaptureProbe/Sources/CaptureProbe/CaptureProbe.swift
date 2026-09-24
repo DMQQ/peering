@@ -101,6 +101,8 @@ struct CaptureProbe {
         var burners = 0
         /// The interval between resource samples, in seconds.
         var interval: Double = 2
+        /// Dump every window both APIs can see. See ``dumpWindows()``.
+        var windows = false
 
         mutating func parse(_ arguments: ArraySlice<String>) throws {
             var iterator = arguments.makeIterator()
@@ -132,6 +134,9 @@ struct CaptureProbe {
 
                 case "--list":
                     listOnly = true
+
+                case "--windows":
+                    windows = true
 
                 case "--synthetic":
                     synthetic = true
@@ -330,6 +335,11 @@ struct CaptureProbe {
 
         let granted = CGPreflightScreenCaptureAccess()
         log("screen recording preflight: \(granted ? "granted" : "NOT granted")")
+
+        if options.windows {
+            try await dumpWindows()
+            return
+        }
 
         if options.listOnly {
             try await listSources()

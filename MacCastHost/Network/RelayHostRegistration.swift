@@ -15,6 +15,22 @@ final class RelayHostRegistration: @unchecked Sendable {
     private var task: Task<Void, Never>?
     private var connection: RelaySignallingConnection?
 
+    /// A push this Mac wanted to send while there was no relay to send it through.
+    private struct PendingNotification: Sendable {
+        let token: String
+        let title: String
+        let body: String
+    }
+
+    /// How many notifications may wait for the relay.
+    ///
+    /// The reconnect ladder starts at a second and reaches thirty, so the ordinary case spends
+    /// almost none of it here. The ceiling is for a Mac whose relay has been unreachable for hours,
+    /// and past it the oldest go: a notification about a terminal is worth less the later it lands.
+    private static let maximumPending = 16
+
+    private var pending: [PendingNotification] = []
+
     init(
         device: DeviceIdentity,
         identity: SelfSignedIdentity,
@@ -40,18 +56,76 @@ final class RelayHostRegistration: @unchecked Sendable {
         lock.unlock()
     }
 
-    /// Asks the relay to push an APNs notification to the given device token. Fire-and-forget:
-    /// a push sent while the signalling socket is down is lost, not queued.
+    /// Asks the relay to push an APNs notification to the given device token.
+    ///
+    /// Queued rather than dropped when the signalling socket is down: a Mac between registration
+    /// attempts is usually a Mac whose phone is not connected either, so a push dropped here is one
+    /// nobody could have been told about another way.
     func notifyDevice(token: String, title: String, body: String) {
-        let connection = lock.withLock { connection }
-        guard let connection else { return }
-        Task.detached {
-            do {
-                try await connection.send(.notifyDevice(token: token, title: title, body: body))
-            } catch {
-                relayLog.error("the relay did not take a notification for \(token, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        var overflowed = 0
+        var heldForRelay = false
+
+        let batch = lock.withLock { () -> (RelaySignallingConnection, [PendingNotification])? in
+            pending.append(PendingNotification(token: token, title: title, body: body))
+            if pending.count > Self.maximumPending {
+                overflowed = pending.count - Self.maximumPending
+                pending.removeFirst(overflowed)
+            }
+            guard let connection else {
+                heldForRelay = true
+                return nil
+            }
+            let items = pending
+            pending.removeAll(keepingCapacity: true)
+            return (connection, items)
+        }
+
+        // Logged outside the lock, because `os_log` is not a thing to do while holding one.
+        if overflowed > 0 {
+            relayLog.notice("\(overflowed, privacy: .public) notification(s) dropped: the relay has been unreachable for longer than this queue covers")
+        }
+        if heldForRelay {
+            relayLog.notice("holding \(self.pendingCount(), privacy: .public) notification(s) until this Mac is registered with the relay")
+        }
+        guard let batch else { return }
+        send(batch.1, over: batch.0)
+    }
+
+    /// Sends a batch in order, and puts back whatever the relay did not take.
+    private func send(_ items: [PendingNotification], over connection: RelaySignallingConnection) {
+        guard !items.isEmpty else { return }
+        Task.detached { [weak self] in
+            for (index, item) in items.enumerated() {
+                do {
+                    try await connection.send(.notifyDevice(token: item.token, title: item.title, body: item.body))
+                } catch {
+                    relayLog.error("the relay did not take a notification for \(item.token, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    // Back to the front, in order, so the next registration sends these before
+                    // anything that was queued behind them.
+                    self?.requeue(Array(items[index...]))
+                    return
+                }
             }
         }
+    }
+
+    /// Sends what was queued while there was no relay. Called when a registration is answered.
+    private func flush(over connection: RelaySignallingConnection) {
+        let items = lock.withLock { () -> [PendingNotification] in
+            let items = pending
+            pending.removeAll(keepingCapacity: true)
+            return items
+        }
+        send(items, over: connection)
+    }
+
+    private func requeue(_ items: [PendingNotification]) {
+        guard !items.isEmpty else { return }
+        lock.withLock { pending.insert(contentsOf: items, at: 0) }
+    }
+
+    private func pendingCount() -> Int {
+        lock.withLock { pending.count }
     }
 
     func stop() {
@@ -110,6 +184,9 @@ final class RelayHostRegistration: @unchecked Sendable {
                             registered = true
                             attempt = 0
                             onStatus("Registered with getpeering.app")
+                            // Anything held while there was no relay goes now, in the order it was
+                            // raised. See ``notifyDevice(token:title:body:)``.
+                            flush(over: connection)
                         }
                     case .sessionReady(let session):
                         onSession(session)

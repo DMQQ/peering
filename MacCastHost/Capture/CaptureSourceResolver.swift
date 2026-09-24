@@ -95,6 +95,17 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     private var snapshot: SCShareableContent?
     private var installedApplicationsCache: [InstalledApplicationDescriptor]?
     private var isStale = true
+
+    /// When an enumeration with no window in it was first seen. See ``serve(_:)``.
+    ///
+    /// Nil whenever the last reading found a window, which is almost always. Under ``lock``.
+    private var firstWindowlessReadAt: Date?
+
+    /// How long readings with no window in them have to persist before one is believed.
+    ///
+    /// Several times the length of the Space change that produces them, and short enough that a Mac
+    /// that really has nothing open is reported while the user is still looking at what they closed.
+    private static let windowlessReadGrace: TimeInterval = 6
     private var observers: [NSObjectProtocol] = []
 
     /// What each desktop looked like the last time the host was on it. Keyed by Space ID, so a
@@ -267,11 +278,64 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             throw CaptureError.from(error)
         }
 
-        lock.withLock {
+        let (content, note) = lock.withLock { serve(fresh) }
+        if let note { resolverLog.notice("\(note, privacy: .public)") }
+        return content
+    }
+
+    /// Takes a reading as this Mac's windows, or serves the last one instead.
+    ///
+    /// **A reading with no window in it is not this Mac.** Every row the phone can be offered is
+    /// built from a window: a window's row is the window, and an application's is the union of the
+    /// windows it owns, so one reading with no window on any display is a picker with nothing in it,
+    /// whichever way ScreenCaptureKit arrived at it. It arrives at it for a beat around a Space
+    /// change, which is exactly when the phone is looking at the picker and asking for pictures, and
+    /// believing the reading empties that picker for as long as the reading stays cached.
+    ///
+    /// So a first reading like this is not cached and the last good one is served in its place: the
+    /// next caller looks again, and a Mac that really does have nothing open is believed once
+    /// windowless readings ``windowlessReadGrace`` apart agree.
+    ///
+    /// Returns what to serve and, when there is something worth saying, the line to say about it.
+    /// Under ``lock``, called with it held.
+    private func serve(_ fresh: SCShareableContent) -> (SCShareableContent, String?) {
+        guard Self.foundNoWindow(fresh) else {
+            firstWindowlessReadAt = nil
             snapshot = fresh
             isStale = false
+            return (fresh, nil)
         }
-        return fresh
+
+        let first = firstWindowlessReadAt ?? Date()
+        let isFirstOfEpisode = firstWindowlessReadAt == nil
+        firstWindowlessReadAt = first
+        let doubtedFor = Date().timeIntervalSince(first)
+
+        guard doubtedFor < Self.windowlessReadGrace else {
+            snapshot = fresh
+            isStale = false
+            return (fresh, """
+                no window on any display for \(Int(doubtedFor.rounded()))s; \
+                taking the enumeration at its word
+                """)
+        }
+
+        // Left out of date, so the next caller reads the window server instead of being handed
+        // this reading straight back.
+        isStale = true
+        let serving = snapshot ?? fresh
+        let note = isFirstOfEpisode
+            ? "the enumeration found no window on any display, so the last listing stands until the next reading agrees"
+            : nil
+        return (serving, note)
+    }
+
+    /// Whether an enumeration came back with nothing the phone could be shown.
+    ///
+    /// Asked of the windows rather than of `applications`: an application with no window on a
+    /// display has no row either, so the windows alone answer the question.
+    private static func foundNoWindow(_ content: SCShareableContent) -> Bool {
+        !content.windows.contains(where: isUserFacingWindow)
     }
 
     /// Marks the enumeration out of date without announcing it.
@@ -752,7 +816,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // each report a regular activation policy on some macOS versions and own surfaces
             // that are not windows a person means to capture.
             if let bundleIdentifier = running?.bundleIdentifier,
-               Self.systemSurfaces.contains(bundleIdentifier) {
+               Self.isSystemSurface(bundleIdentifier) {
                 continue
             }
 
@@ -859,10 +923,67 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// minimised one, and one on a Space this Mac is not showing. ScreenCaptureKit lists all
     /// three and renders none of them.
     private static func isUserFacingWindow(_ window: SCWindow) -> Bool {
-        window.windowLayer == 0
-            && window.isOnScreen
-            && window.frame.width >= 1
-            && window.frame.height >= 1
+        guard window.windowLayer == 0,
+              window.isOnScreen,
+              window.frame.width >= 1,
+              window.frame.height >= 1
+        else { return false }
+        // **And by whose it is, which is the cause rather than the symptom.** The system's own
+        // surfaces report a regular activation policy on some macOS versions and own windows that
+        // look like any other; this is the same rule the application rows are filtered by, applied
+        // here as well, because a window is not told apart from an application's window by anything
+        // the enumeration says.
+        if let bundleIdentifier = NSRunningApplication(
+            processIdentifier: window.owningApplication?.processID ?? 0
+        )?.bundleIdentifier, isSystemSurface(bundleIdentifier) {
+            return false
+        }
+        return !isNamelessSurface(window)
+    }
+
+    /// Whether this is a window the system made for an application's own use rather than one a
+    /// person is looking at.
+    ///
+    /// **The net under the rule that catches the ones that are named after a service.** Most
+    /// nameless surfaces belong to a `<Name>UIService` process and are let go by
+    /// ``isSystemSurface(_:)``; this is for the same shape coming from somewhere else, which is a
+    /// surface a regular application made for itself and never titled.
+    ///
+    /// **The title is the only thing that identifies one, and the system's own word for "window" is
+    /// the only title nobody ever means.** Such a surface is listed with everything else, it is
+    /// photographed as a black rectangle, and a stream built for it either cannot be filtered or
+    /// says nothing at all: a row in the phone's picker that does nothing when it is pressed, for as
+    /// long as the two ends are connected. Traced from one: a Dictionary window titled "Window",
+    /// black in the picker, unpressable, and impossible to tell from a real window by any field
+    /// ``CaptureSourceDescriptor`` carries.
+    ///
+    /// **Matched as a set of words rather than by unit**, because a title is a string the system
+    /// localises: the same surface is "Fenêtre" on a French Mac. Only the standalone word counts, so
+    /// an application whose window is called "Window Manager" is left alone.
+    private static func isNamelessSurface(_ window: SCWindow) -> Bool {
+        guard let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            return false
+        }
+        return systemWindowTitles.contains(title.lowercased())
+    }
+
+    private static let systemWindowTitles: Set<String> = [
+        "window", "fenêtre", "fenster", "ventana", "finestra", "venster", "okno", "ikkuna",
+    ]
+
+    /// Whether this bundle identifier belongs to the system rather than to a person's application.
+    ///
+    /// **Two rules, because the surfaces come in two shapes.** A short list of identifiers, for the
+    /// ones this app has been caught by; and a name pattern, for a whole family nobody can
+    /// enumerate: `<Name>UIService` is how the system names the little processes behind a lookup
+    /// popover, a link preview and a share sheet, and they own windows with no name at all. Traced
+    /// from one with ``Tools/CaptureProbe``: `LinkedNotesUIService`, a 254×254 window titled
+    /// "Window" on layer 25, listed with every other window and indistinguishable from one a person
+    /// is looking at. On the phone it was a row under the application's own name that photographed
+    /// as a black rectangle and did nothing when it was pressed. See ``isNamelessSurface(_:)`` for
+    /// the belt to this pair of braces.
+    private static func isSystemSurface(_ bundleIdentifier: String) -> Bool {
+        systemSurfaces.contains(bundleIdentifier) || bundleIdentifier.hasSuffix("UIService")
     }
 
     /// The system's own surfaces: regular by activation policy, and not applications.

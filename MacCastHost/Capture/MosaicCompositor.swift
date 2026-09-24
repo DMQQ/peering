@@ -274,7 +274,7 @@ final class MosaicCompositor: CaptureFrameSource, @unchecked Sendable {
 /// screen to move. That matters to the host's own diagnosis, whose "capturing, nothing new to send"
 /// branch is taken on idle samples without delivered frames.
     var statistics: CaptureEngine.Statistics {
-        lock.withLock { CaptureEngine.Statistics(delivered: deliveredCount, idle: 0) }
+        lock.withLock { CaptureEngine.Statistics(delivered: deliveredCount, idle: 0, unreadable: 0) }
     }
 
     /// How many tiles have produced a picture at all, for the host window's status line.

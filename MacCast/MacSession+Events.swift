@@ -133,10 +133,17 @@ extension MacSession {
 
             // **This Mac's own answer, cleared as it is read.** One flag served every Mac, and
             // ending several at once meant the first transition consumed it: the rest were read as
-            // having dropped and armed a ladder that could never complete. See
-            // ``MacSession/userEndedDeliberately``.
+            // having dropped and armed a ladder that could never complete.
+            //
+            // **And it stays on the record rather than being cleared here, which it used to be.**
+            // This transition is not the only reader: everything that asks whether a session is
+            // being put back reads it too, a moment later, and a user who tapped Quit was left
+            // looking at a screen that said it was reconnecting while nothing was reconnecting at
+            // all. Their second tap ended it only because that tap changes no phase, and a phase
+            // that does not change consumes nothing. Nothing needs it cleared, either: every
+            // attempt at a Mac is a new session object, and the flag goes with the object it was
+            // set on. See ``MacSession/userEndedDeliberately``.
             let userEnded = userEndedDeliberately
-            userEndedDeliberately = false
             // A session that ended without the user asking is put back on its own. The flag
             // inside `scheduleReconnect` is what decides whether this was theirs; the phase alone
             // cannot tell a drop from a disconnect.
@@ -293,6 +300,7 @@ extension MacSession {
                 // connected: a session that was already showing something keeps showing it, and a
                 // resumed one still has the mosaic's own id as its source.
                 let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
+                PictureTrace.write("catalog restore: remembered \(remembered.count) tiles, catalog sees \(catalog.windows.count) windows")
                 if !remembered.isEmpty {
                     // Asked for, not remembered: this is the arrangement the store already holds,
                     // thinned by what this catalogue can see, and writing the thinned version back
@@ -469,6 +477,9 @@ extension MacSession {
             // decide. It is a value, so a config that describes the stream it already described
             // (a change of lane, a re-attach) leaves it equal and costs nothing.
             picture = pictureIdentity(of: config)
+            // Which source the frames arriving now belong to, told because a frame is a picture with
+            // no name on it. See ``VideoRenderer/framesBelongTo``.
+            renderer.framesBelongTo = picture?.sourceID
             // **And the arrangement the picture is of, recorded here for the same reason.** A
             // config is the Mac answering the ask — the mosaic it built, or the single source it
             // switched back to — so it is the moment the picture and this end's idea of it agree

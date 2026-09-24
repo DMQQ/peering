@@ -74,6 +74,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// replaced. Anything drawn from the config rather than from this is drawn for a picture
     /// nobody can see yet. See ``RemoteScreen/pendingArrival``.
     private var _onFirstFrame: (@MainActor @Sendable () -> Void)?
+    private var _onFramePlaced: (@MainActor @Sendable () -> Void)?
+    private var _framesBelongTo: String?
 
     var onFirstFrame: (@MainActor @Sendable () -> Void)? {
         get { lock.withLock { _onFirstFrame } }
@@ -154,12 +156,20 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// the flicker it was avoiding, which is what it did before any of this existed.
     private static let heldTailBudget = 240
 
-    /// How long a held frame waits before a newer one displaces it.
+    /// How long a held frame waits before it is drawn whether the screen asked for it or not.
     ///
     /// A hold that is never released leaves the decoder without the keyframe it has to start on,
     /// so it cannot be unbounded. The screen asks for it within a frame or two; this is the answer
-    /// to a main thread that never gets round to asking.
-    private static let heldFrameBudget: UInt64 = 600_000_000
+    /// to a screen that never gets round to asking.
+    ///
+    /// **Past the screen's own deadline, and that is the part that has to be right.** The screen
+    /// gives an arrival one and a half seconds before it settles the placement by force
+    /// (``RemoteScreen/settleArrival(force:)``), and a movement it is still running can hold the
+    /// frame for as long as it runs. A clock shorter than either releases the picture while the
+    /// transform on the layer still belongs to the one it replaces, which is drawn at the wrong
+    /// scale for a moment: the arrival is a *flicker* of a window at the canvas tile's
+    /// magnification instead of a picture that never came. Late is the failure to prefer.
+    private static let heldFrameBudget: UInt64 = 2_500_000_000
 
     /// Hands the held frame to the layer, which is the screen saying its transform is ready.
     ///
@@ -178,6 +188,12 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return (heldFirstFrame, heldTail)
         }
         guard let held else { return }
+        PictureTrace.write("release held · the screen asked")
+        // **The picture is on the layer, so anything drawn over it is now drawn for the right one.**
+        // Hopped rather than called: this path runs on the main thread when the screen asks and on
+        // the video queue when a newer frame displaces a stranded one, and the caller is a view.
+        let placed = lock.withLock { _onFramePlaced }
+        Task { @MainActor in placed?() }
         // **On the caller's thread, inside the caller's transaction, and that is the whole point.**
         // A hop to the video queue would put the enqueue in a later commit than the transform, and
         // the frame would still spend a moment on screen at the departing picture's scale — the
@@ -201,7 +217,108 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         }
     }
 
+    /// Called on the main actor when a held frame is handed to the layer, which is the moment the
+    /// picture on screen is the picture the app describes.
+    ///
+    /// **The second of the two moments, and the one nothing else in this app notices.** `onFirstFrame`
+    /// says the renderer *has* the frame; this says the layer does, which is a layout pass later and
+    /// is what every piece of drawing over the picture waits for. The renderer is not observable, so
+    /// without a callback here a view that reads ``Snapshot`` cannot re-evaluate at that moment, and
+    /// the arrangement's tile edges appear when something unrelated forces a pass. See
+    /// ``SessionModel/pictureDisplayed``.
+    var onFramePlaced: (@MainActor @Sendable () -> Void)? {
+        get { lock.withLock { _onFramePlaced } }
+        set { lock.withLock { _onFramePlaced = newValue } }
+    }
+
+    // MARK: - The picture a source had last time
+
+    /// The last frame of each source this renderer has shown, and the size it was.
+    ///
+    /// **Why it is worth the memory.** Leaving an arrangement and coming back to it is a stream
+    /// torn down and a canvas of tiles built again on the Mac, measured at about a second and a
+    /// quarter, and for the whole of it the phone shows the picture that was replaced: the window
+    /// that was tapped, at the size of a window, where the arrangement should be. The last thing
+    /// that *was* the arrangement is a better answer than a second of something else, and this end
+    /// is the only end that has it.
+    ///
+    /// Keyed by source rather than by nothing, because it is only right for the source it came
+    /// from: an arrangement's id is a hash of its layout, so an edited arrangement is a different
+    /// source and does not inherit the old canvas.
+    private var framesBySource: [String: (sample: CMSampleBuffer, pixelSize: CGSize)] = [:]
+
+    /// How many sources are kept. Compressed frames of whole screens, so not many.
+    private static let rememberedSourceCount = 6
+
+    /// Which source the frames arriving now belong to.
+    ///
+    /// Told rather than inferred: a frame is a picture with no name on it, and only the session
+    /// knows what it asked the Mac for.
+    var framesBelongTo: String? {
+        get { lock.withLock { _framesBelongTo } }
+        set { lock.withLock { _framesBelongTo = newValue } }
+    }
+
+    /// Keeps one frame as the last this source had.
+    private func remember(_ sample: CMSampleBuffer) {
+        lock.withLock {
+            guard let source = _framesBelongTo else { return }
+            framesBySource[source] = (sample, currentSizeLocked())
+            guard framesBySource.count > Self.rememberedSourceCount,
+                  let oldest = framesBySource.keys.first(where: { $0 != source })
+            else { return }
+            framesBySource.removeValue(forKey: oldest)
+        }
+    }
+
+    /// The frame one source had the last time it was on screen, if this renderer showed one.
+    func recalledFrame(for source: String) -> (sample: CMSampleBuffer, pixelSize: CGSize)? {
+        lock.withLock { framesBySource[source] }
+    }
+
+    /// Draws a recalled frame as the picture on the layer, before the Mac has described it again.
+    ///
+    /// **Put to the layer as if a config had arrived, because that is what everything drawn over
+    /// the picture asks about.** The tile edges, the names and the ✕ buttons of an arrangement
+    /// appear when the layer's picture is one of the size this app describes; a recalled frame that
+    /// left the generation alone would be an arrangement with nothing drawn over it until the real
+    /// stream arrived, which is the wait this exists to remove. The real config, when it comes,
+    /// describes the same source at the same size, so it reads as the same picture and nothing is
+    /// placed twice. See ``recalledFrame(for:)``.
+    func showRecalledFrame(_ frame: CMSampleBuffer, pixelSize: CGSize) {
+        queue.async { [weak self] in
+            guard let self, let renderer = self.renderer else { return }
+            // The picture being replaced is not the still's business: this *is* the picture, and it
+            // is drawn now rather than under a fade.
+            renderer.flush(removingDisplayedImage: false)
+            renderer.enqueue(frame)
+            self.lock.withLock {
+                let generation = self.snapshot.configGeneration + 1
+                self.snapshot = Snapshot()
+                self.snapshot.configGeneration = generation
+                self.snapshot.hasConfig = true
+                self.snapshot.pixelWidth = Int(pixelSize.width)
+                self.snapshot.pixelHeight = Int(pixelSize.height)
+                self.snapshot.codec = self.snapshot.codec
+                self.snapshot.awaitingKeyframe = false
+                self.snapshot.readyGeneration = generation
+                self.snapshot.displayedGeneration = generation
+                self.lastEnqueued = frame
+            }
+        }
+    }
+
+    /// The size the layer is currently describing, with the lock held.
+    private func currentSizeLocked() -> CGSize {
+        CGSize(width: CGFloat(snapshot.pixelWidth), height: CGFloat(snapshot.pixelHeight))
+    }
+
     /// The same, for a hold the screen never asked about. Runs on the video queue.
+    ///
+    /// Called by the deadline armed where the hold is taken, and by a frame that arrives with
+    /// nothing held. Age-checked rather than fire-once, so a deadline armed for one hold cannot
+    /// release the next one: a config that replaces the stream replaces the hold, and the frame
+    /// behind the new config is younger than the budget when the old clock runs out.
     private func releaseStrandedFrame(on renderer: AVSampleBufferVideoRenderer) {
         let stranded = lock.withLock {
             () -> (head: CMSampleBuffer, tail: [CMSampleBuffer])? in
@@ -216,6 +333,20 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
             return (held.sample, tail)
         }
         guard let stranded else { return }
+        PictureTrace.write("release stranded · the clock ran out, \(stranded.tail.count) behind")
+        // The same fact as ``releaseHeldFrame()`` reports, for a picture that arrived without being
+        // asked for: this side of the app drawing over it is waiting either way.
+        if let placed = lock.withLock({ _onFramePlaced }) {
+            Task { @MainActor in placed() }
+        }
+        // Said out loud, because this is the screen failing to ask rather than a picture arriving
+        // late: it means the transform on the layer is whatever the last update pass left, and how
+        // often it happens is the only measure of whether that update pass is being missed.
+        videoLog.notice("""
+            the picture waited \(Int(Self.heldFrameBudget / 1_000_000), privacy: .public)ms for the \
+            screen and was drawn anyway, with \(stranded.tail.count, privacy: .public) frame(s) \
+            behind it
+            """)
         renderer.enqueue(stranded.head)
         // The whole run, for the reason ``releaseHeldFrame()`` gives.
         for sample in stranded.tail { renderer.enqueue(sample) }
@@ -404,6 +535,19 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
                 self.snapshot.readyGeneration = self.snapshot.configGeneration
                 self.lastKeyframeSample = sample
             }
+            // **The deadline is armed here, because nothing else will arm it.** The screen asks for
+            // the held frame within a frame or two of this, and while it does not, every frame that
+            // follows is waiting behind it rather than passing the check below — so the only thing
+            // left to let the picture go is a clock. Without one, a hold on a Mac whose screen is
+            // not changing waits for the user to touch something over there: ``releaseStrandedFrame``
+            // is only ever reached by a frame, and a still screen sends none. What the user sees is
+            // a black rectangle that appears the moment they pinch, which cancels a movement and
+            // releases the frame through the same door. See ``heldFrameBudget``.
+            queue.asyncAfter(deadline: .now() + .nanoseconds(Int(Self.heldFrameBudget))) { [weak self] in
+                guard let self, let renderer = self.renderer else { return }
+                self.releaseStrandedFrame(on: renderer)
+            }
+
             let landed = lock.withLock { _onFirstFrame }
             Task { @MainActor in landed?() }
             return
@@ -430,6 +574,8 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
         // A held frame that a newer one has caught up with is let go rather than lost.
         releaseStrandedFrame(on: renderer)
         renderer.enqueue(sample)
+        // Kept for this source, so coming back to it is not a second of the picture it replaced.
+        remember(sample)
         self.lock.withLock {
             self.lastEnqueued = sample
             if frame.isKeyframe { self.lastKeyframeSample = sample }
@@ -713,6 +859,8 @@ struct VideoLayerView: UIViewRepresentable {
     /// ``VideoHostView/stillContentView``.
     final class Coordinator {
         var showsStill = false
+        /// What the live layer was last drawn at, in points. See ``PictureTrace``.
+        var drawnSize: CGSize = .zero
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -769,6 +917,22 @@ struct VideoLayerView: UIViewRepresentable {
             view.contentView.alpha = 0
         }
         CATransaction.commit()
+
+        // **What the live layer is actually drawn at**, which is the number the flicker is about:
+        // a frame that arrives while the transform still belongs to the picture it replaces is seen
+        // at that picture's scale, and this is the only place the two are committed together.
+        // Recorded only when it changes, because a movement writes it sixty times a second and the
+        // question is where it jumped rather than how it travelled. See ``PictureTrace``.
+        let drawn = view.contentView.frame.size
+        if abs(drawn.width - context.coordinator.drawnSize.width) > 1
+            || abs(drawn.height - context.coordinator.drawnSize.height) > 1 {
+            context.coordinator.drawnSize = drawn
+            PictureTrace.write("""
+                draw \(PictureTrace.short(drawn)) zoom=\(String(format: "%.3f", zoom)) \
+                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+                placed=\(pictureIsPlaced) still=\(showsStill)
+                """)
+        }
 
         // **And the frame goes to the layer only now**, while the live layer is hidden and the
         // still is covering it. See ``VideoRenderer/releaseHeldFrame()``.

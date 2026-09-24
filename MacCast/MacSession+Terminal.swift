@@ -861,6 +861,10 @@ extension MacSession {
         changeFailures.removeValue(forKey: id)
     }
 
+    /// How much a shell's output may run past its limit before the tail is rebuilt, so the copy is
+    /// paid once per this many bytes rather than once per chunk.
+    static let outputSlack = 64 * 1024
+
     func apply(terminal event: TerminalEvent) {
         switch event {
         case .snapshot(let infos):
@@ -895,8 +899,15 @@ extension MacSession {
             terminals[index].attention = nil
             terminals[index].failure = nil
             let limit = 512 * 1024
-            if terminals[index].output.count > limit {
-                terminals[index].output.removeFirst(terminals[index].output.count - limit)
+            // Rebound rather than cut with `removeFirst`, which moves `Data`'s start index instead of
+            // compacting and so keeps the whole stream alive behind a buffer that looks its limit. The
+            // copy is why it is paid once per slack rather than per chunk.
+            if terminals[index].output.count > limit + Self.outputSlack {
+                let dropped = terminals[index].output.count - limit
+                terminals[index].output = Data(terminals[index].output.dropFirst(dropped))
+                // The screen is fed this buffer as a stream and remembers how much of it it has
+                // applied, so it has to be told that those bytes are gone.
+                terminals[index].screenFeed.discardFront(dropped)
             }
         case .attention(let id, let kind, let message):
             if let index = terminals.firstIndex(where: { $0.id == id }) {

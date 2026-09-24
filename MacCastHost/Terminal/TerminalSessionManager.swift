@@ -106,7 +106,6 @@ final class TerminalSessionManager: @unchecked Sendable {
     private let lock = NSLock()
     private var sessions: [UUID: Session] = [:]
     private var sinks: [String: Sink] = [:]
-    private var pushTokenByClientID: [String: String] = [:]
     private var writes: [WriteKey: PendingWrite] = [:]
 
     /// Called when a terminal needs the user's attention, or has finished a command worth
@@ -119,8 +118,11 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// The APNs tokens of clients that have registered for push but are not connected over the
     /// control channel. Used by native-terminal watching to push outside of Peering sessions.
     func allPushTokens() -> [String] {
-        lock.withLock {
-            pushTokenByClientID.compactMap { clientID, token in
+        // Read before the lock below rather than inside it: the store has a lock of its own, and one
+        // lock order held everywhere is one fewer way for the two to deadlock.
+        let tokens = PushTokenStore.shared.tokensByClient()
+        return lock.withLock {
+            tokens.compactMap { clientID, token in
                 sinks[clientID] == nil ? token : nil
             }
         }
@@ -133,14 +135,18 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// than pushed, so "does this Mac hold a token at all" answered no whenever a phone was
     /// connected.
     func registeredPushTokens() -> [String] {
-        lock.withLock { Array(pushTokenByClientID.values) }
+        Array(PushTokenStore.shared.tokensByClient().values)
     }
 
     /// How many of the registered phones are connected right now.
     func connectedPushClientCount() -> Int {
-        lock.withLock { pushTokenByClientID.keys.filter { sinks[$0] != nil }.count }
+        let clients = PushTokenStore.shared.tokensByClient().keys
+        return lock.withLock { clients.filter { sinks[$0] != nil }.count }
     }
     private static let maximumHistoryBytes = 512 * 1024
+    /// How far past it a shell's history may run before the tail is rebuilt, so trims are batched rather
+    /// than paid on every chunk.
+    private static let historySlackBytes = 64 * 1024
     private static let maximumSessionsPerClient = 10
 
     /// One terminal's write to one path.
@@ -310,7 +316,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             let hex = tokenData.isEmpty
                 ? nil
                 : tokenData.map { String(format: "%02x", $0) }.joined()
-            lock.withLock { pushTokenByClientID[clientID] = hex }
+            PushTokenStore.shared.set(hex, for: clientID)
         }
     }
 
@@ -462,8 +468,11 @@ final class TerminalSessionManager: @unchecked Sendable {
         ) = lock.withLock {
             guard sessions[session.id] === session else { return (nil, nil, nil) }
             session.history.append(data)
-            if session.history.count > Self.maximumHistoryBytes {
-                session.history.removeFirst(session.history.count - Self.maximumHistoryBytes)
+            // Rebound rather than cut with `removeFirst`, which moves `Data`'s start index instead of
+            // compacting and so keeps the whole stream alive behind a buffer that looks its limit.
+            if session.history.count > Self.maximumHistoryBytes + Self.historySlackBytes {
+                let dropped = session.history.count - Self.maximumHistoryBytes
+                session.history = Data(session.history.dropFirst(dropped))
             }
             let kind = session.attentionDetector.receive(data)
             // Read inside the lock and in the same breath as the detection: the question is the
@@ -504,11 +513,10 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// The other half of ``onPushNeeded``: the same "no session channel to answer over" check both
     /// kinds of event share, factored out once there were two of them.
     private func pushIfDisconnected(session: Session, title: String, message: String) {
-        let (isConnected, pushToken) = lock.withLock {
-            (sinks[session.ownerClientID] != nil, pushTokenByClientID[session.ownerClientID])
-        }
-        if !isConnected, let pushToken {
-            onPushNeeded?(pushToken, title, message)
+        let token = PushTokenStore.shared.token(for: session.ownerClientID)
+        let isConnected = lock.withLock { sinks[session.ownerClientID] != nil }
+        if !isConnected, let token {
+            onPushNeeded?(token, title, message)
         }
     }
 

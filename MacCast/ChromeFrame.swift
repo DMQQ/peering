@@ -29,6 +29,11 @@ enum ChromeRegion: Hashable {
     /// the Mac behind the strip — and the strip sits directly over the picture's top edge.
     case sessionTabs
     case dock
+    /// The one control that is left while the rest of the chrome is put away.
+    ///
+    /// A region of its own rather than the pill's, which it replaces: the two are never on screen
+    /// together, and a name that says what is there is worth more than a case saved.
+    case immersiveEscape
 }
 
 /// Reports where a piece of chrome is, in the canvas's coordinates.

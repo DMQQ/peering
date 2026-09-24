@@ -231,95 +231,45 @@ enum KeycodeMap {
     }
 }
 
-/// An invisible view that owns the keyboard.
-///
-/// Both keyboard modes route through one view because iOS gives them through different
-/// doors, and a client that opened only one of them would be unable to type in the other:
-///
-/// - The **software** keyboard delivers `UIKeyInput` callbacks — `insertText` and
-///   `deleteBackward` — which carry characters rather than keys.
-/// - A **hardware** keyboard delivers `UIPress` objects through the responder chain, which
-///   carry `UIKeyboardHIDUsage` and the modifier flags with them.
-final class KeyboardCaptureView: UIView, UIKeyInput {
-    var onText: ((String) -> Void)?
-    var onDeleteBackward: (() -> Void)?
-    var onKey: ((UIKeyboardHIDUsage, Bool, UIKeyModifierFlags) -> Void)?
-
-    /// Set by the SwiftUI wrapper so the two modes can behave differently. When keycode mode
-    /// is on, `insertText` is still delivered — the wrapper turns it into key presses.
-    var isHardwareKeycodeMode = false
-
-    override var canBecomeFirstResponder: Bool { true }
-    override var canResignFirstResponder: Bool { true }
-
-    // Always "has text" so the software keyboard keeps its backspace key available even when
-    // the field is empty. Without it, backspace disappears the moment the user clears what
-    // they typed, which is exactly when they want it.
-    var hasText: Bool { true }
-
-    func insertText(_ text: String) {
-        onText?(text)
-    }
-
-    func deleteBackward() {
-        onDeleteBackward?()
-    }
-
-    var keyboardType: UIKeyboardType = .default
-    var autocorrectionType: UITextAutocorrectionType = .no
-    var autocapitalizationType: UITextAutocapitalizationType = .none
-    var spellCheckingType: UITextSpellCheckingType = .no
-
-    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        var handled = false
-        for press in presses {
-            guard let key = press.key else { continue }
-            handled = true
-            onKey?(key.keyCode, true, key.modifierFlags)
-        }
-        // Hardware keys are swallowed whatever the mode: left to `super`, they would beep,
-        // scroll the sheet, or dismiss the view — none of which the user asked for.
-        if !handled { super.pressesBegan(presses, with: event) }
-    }
-
-    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        var handled = false
-        for press in presses {
-            guard let key = press.key else { continue }
-            handled = true
-            onKey?(key.keyCode, false, key.modifierFlags)
-        }
-        if !handled { super.pressesEnded(presses, with: event) }
-    }
-
-    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        pressesEnded(presses, with: event)
-    }
-}
-
 /// The keyboard's text, held by a field rather than by nothing.
 ///
 /// **Because autocorrection, prediction and dictation are the text system's, and the text system
-/// needs a document to offer them to.** The view above is a keyboard with no text behind it: iOS
-/// gives it no suggestions, and its `autocorrectionType` is a property nothing reads. Unicode-mode
-/// typing is held here instead — a real field, kept out of sight — and what the Mac is told is what
-/// the field just did, character for character, including the replacements the system makes on its
-/// own account: "teh" arriving as "the" is this working rather than a fault.
+/// needs a document to offer them to.** A keyboard with no text behind it gets no suggestions, and
+/// its `autocorrectionType` is a property nothing reads. Typing is held here instead, and what the Mac
+/// is told is what the field just did, character for character, including the replacements the system
+/// makes on its own account: "teh" arriving as "the" is this working rather than a fault.
 ///
-/// Invisible on purpose. The user is typing into the Mac, and everything worth seeing about that is
-/// in the picture: the Mac's own text, the Mac's own caret. What this feeds is the suggestion bar
-/// above the keyboard and the app's own typed preview, which is where the caret for this belongs.
-final class KeyboardTypingView: UITextField, UITextFieldDelegate {
+/// It is also the only place on this side where a caret can be put anywhere but the end, which is what
+/// makes correcting the middle of a line possible at all.
+///
+/// Both modes use it: the wrapper turns the edits into keycodes in keycode mode rather than into text.
+final class KeyboardTypingView: UITextView, UITextViewDelegate {
+    /// The face the field is set in, in one place because the bar's height is worked out from it.
+    static let font = UIFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+
+    /// One line, and the most the field may grow to before it scrolls inside itself. The cap is what
+    /// keeps this a bar rather than a panel; past it the text view scrolls, and it keeps the caret in
+    /// view, so the newest line stays on screen.
+    static var oneLineHeight: CGFloat { (font.lineHeight + 8).rounded() }
+    static var maximumHeight: CGFloat { (font.lineHeight * 4 + 10).rounded() }
+
     var onType: ((String) -> Void)?
     var onDelete: ((Int) -> Void)?
     var onKey: ((UIKeyboardHIDUsage, Bool, UIKeyModifierFlags) -> Void)?
     var onReturn: (() -> Void)?
 
-    override var canBecomeFirstResponder: Bool { true }
+    /// "Typing…", because a text view has no placeholder of its own.
+    private let hint = UILabel()
 
     init() {
-        super.init(frame: .zero)
+        super.init(frame: .zero, textContainer: nil)
         delegate = self
+        isScrollEnabled = true
+        // No insets of its own, so the text sits against the well the bar draws around it. Reaching
+        // `textContainer` is what puts this on TextKit 1, the compatibility path.
+        textContainerInset = .zero
+        textContainer.lineFragmentPadding = 0
+
         // The point of the field: the sentence above the keyboard, and the corrections in it.
         autocorrectionType = .yes
         // Not spelled out: terminal output is not English prose, and a red underline under a path
@@ -330,12 +280,21 @@ final class KeyboardTypingView: UITextField, UITextFieldDelegate {
         autocapitalizationType = .none
         keyboardType = .default
         returnKeyType = .send
-        // Nothing is drawn: not the text, not the caret, and no background that would show through
-        // the picture. `isHidden` would be the obvious way and is the one thing that cannot be
-        // used, because a hidden view can never become first responder.
-        textColor = .clear
-        tintColor = .clear
+
+        font = Self.font
+        textColor = .white
+        tintColor = .white
         backgroundColor = .clear
+
+        hint.text = "Typing…"
+        hint.font = Self.font
+        hint.textColor = .placeholderText
+        hint.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(hint)
+        NSLayoutConstraint.activate([
+            hint.leadingAnchor.constraint(equalTo: leadingAnchor),
+            hint.topAnchor.constraint(equalTo: topAnchor),
+        ])
     }
 
     @available(*, unavailable)
@@ -343,35 +302,37 @@ final class KeyboardTypingView: UITextField, UITextFieldDelegate {
 
     /// Sends the edit rather than describing it, and then lets the field do it.
     ///
-    /// **The field has to keep the text.** It is the document autocorrection reads, so refusing the
-    /// change to keep the buffer empty would be refusing the feature; and this is also the one place
-    /// the system's own edits are visible — a correction arrives here as a replacement, which is how
-    /// it can be said to the Mac as what it is: the old word's characters deleted, the new word typed.
-    func textField(
-        _ textField: UITextField,
-        shouldChangeCharactersIn range: NSRange,
-        replacementString string: String
+    /// The field has to keep the text: it is the document autocorrection reads, so refusing the change
+    /// would be refusing the feature. A correction arrives here as a replacement, which is how it can be
+    /// said to the Mac as what it is.
+    func textView(
+        _ textView: UITextView,
+        shouldChangeTextIn range: NSRange,
+        replacementText text: String
     ) -> Bool {
+        // Return is a key the Mac gets, not a newline this field keeps.
+        if text == "\n" {
+            reset()
+            onReturn?()
+            return false
+        }
         // Counted in characters, because a backspace on the Mac removes one of those: the range
         // arrives in UTF-16 units, where an emoji is two of them and one of these.
-        let replaced = ((textField.text ?? "") as NSString).substring(with: range).count
+        let replaced = (textView.text as NSString).substring(with: range).count
         if replaced > 0 { onDelete?(replaced) }
-        if !string.isEmpty { onType?(string) }
+        if !text.isEmpty { onType?(text) }
         return true
     }
 
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        // The line is committed on the Mac, so the buffer that fed the suggestions is finished with:
-        // kept, the next word's correction would be spelled against the last one's.
-        reset()
-        onReturn?()
-        return false
+    func textViewDidChange(_ textView: UITextView) {
+        hint.isHidden = !textView.text.isEmpty
     }
 
     /// Empties the buffer without telling the Mac anything, which is right in both cases it is
     /// called: what the buffer held has already been sent, and a Return has just committed it.
     func reset() {
         text = ""
+        hint.isHidden = false
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
@@ -402,7 +363,7 @@ final class KeyboardTypingView: UITextField, UITextFieldDelegate {
     }
 }
 
-/// The unicode-mode wrapper: the same job as ``KeyboardCapture`` over a field that holds text.
+/// The wrapper for the field that owns the keyboard, in both modes.
 struct KeyboardTypingCapture: UIViewRepresentable {
     let model: SessionModel
     @Binding var isFocused: Bool
@@ -411,8 +372,8 @@ struct KeyboardTypingCapture: UIViewRepresentable {
         let view = KeyboardTypingView()
         view.onType = { [weak model] text in model?.handleTypedText(text) }
         view.onDelete = { [weak model] count in
-            // One at a time, because that is what the Mac hears either way and what the bar's own
-            // preview undoes: a correction that replaced a word drops exactly that word's characters.
+            // One at a time, because that is what the Mac hears either way and what the field's own
+            // text undoes: a correction that replaced a word drops exactly that word's characters.
             for _ in 0..<count { model?.handleBackspace() }
         }
         view.onReturn = { [weak model] in model?.pressReturn() }
@@ -422,10 +383,38 @@ struct KeyboardTypingCapture: UIViewRepresentable {
         return view
     }
 
+    /// **The field's height, from what is in it.** A text view has no height of its own that SwiftUI
+    /// will hold it to, and this bar has to grow as the sentence wraps rather than scroll it sideways
+    /// out of view. Bounded, so it grows the bar and not into the picture.
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: KeyboardTypingView,
+        context: Context
+    ) -> CGSize? {
+        let width = proposal.width ?? uiView.intrinsicContentSize.width
+        guard width > 0 else { return nil }
+        let needed = uiView.sizeThatFits(
+            CGSize(width: width, height: .greatestFiniteMagnitude)
+        ).height
+        return CGSize(
+            width: width,
+            height: min(
+                max(needed, KeyboardTypingView.oneLineHeight),
+                KeyboardTypingView.maximumHeight
+            )
+        )
+    }
+
     func updateUIView(_ view: KeyboardTypingView, context: Context) {
+        // Per mode, and read here rather than at construction because the mode is switchable while the
+        // keyboard is up: keycode mode sends keys, so a correction would arrive as keys for a word
+        // nobody typed.
+        let autocorrects = model.keyboardMode == .unicode
+        view.autocorrectionType = autocorrects ? .yes : .no
         if isFocused, !view.isFirstResponder {
-            // The same beat the other wrapper waits, for the same reason: a `becomeFirstResponder`
-            // on a view with no window yet is a silent no-op, so the keyboard would never appear.
+            // A beat, because the binding is set from a button press in the same runloop turn that the
+            // view is being installed in, and a `becomeFirstResponder` on a view with no window yet is
+            // a silent no-op, so the keyboard would never appear.
             DispatchQueue.main.async { view.becomeFirstResponder() }
         } else if !isFocused, view.isFirstResponder {
             view.resignFirstResponder()
@@ -435,29 +424,3 @@ struct KeyboardTypingCapture: UIViewRepresentable {
     }
 }
 
-/// SwiftUI wrapper. Zero-sized: it exists to be first responder, not to be seen.
-struct KeyboardCapture: UIViewRepresentable {
-    let model: SessionModel
-    @Binding var isFocused: Bool
-
-    func makeUIView(context: Context) -> KeyboardCaptureView {
-        let view = KeyboardCaptureView()
-        view.onText = { [weak model] text in model?.handleTypedText(text) }
-        view.onDeleteBackward = { [weak model] in model?.handleBackspace() }
-        view.onKey = { [weak model] usage, down, flags in
-            model?.handleHardwareKey(usage, down: down, flags: flags)
-        }
-        return view
-    }
-
-    func updateUIView(_ view: KeyboardCaptureView, context: Context) {
-        if isFocused, !view.isFirstResponder {
-            // A beat, because the binding is often set from a button press in the same
-            // runloop turn that the view is being installed in — and a `becomeFirstResponder`
-            // on a view with no window is a silent no-op, so the keyboard would never appear.
-            DispatchQueue.main.async { view.becomeFirstResponder() }
-        } else if !isFocused, view.isFirstResponder {
-            view.resignFirstResponder()
-        }
-    }
-}

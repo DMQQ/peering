@@ -84,6 +84,7 @@ extension SessionModel {
     /// called this function". A disconnect the user tapped is silent; one iOS forced because it is
     /// about to suspend the app is not, because a banner is the only way they will hear about it.
     func disconnect(deliberate: Bool = true) {
+        PictureTrace.write("disconnect deliberate=\(deliberate)")
         // Taken first: the card that outlives a non-deliberate end needs both to say what was lost,
         // and after the lines below they are simply nil.
         let wasStartedAt = sessionStartedAt
@@ -344,7 +345,15 @@ extension SessionModel {
             activateSession(open.id)
             return
         }
-        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        // The same preference the picker's rows have: Bonjour, then the address this launch last reached
+        // it at, and the relay only when neither can be had. See ``connectToTrusted(hostID:)``.
+        if let host = hosts.first(where: { $0.id == hostID }) {
+            connect(to: .discovered(host))
+        } else if let remembered = rememberedLANHost(hostID) {
+            connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout)
+        } else {
+            connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        }
     }
 
     /// The paired Macs that are not already open, which is what the strip's `+` offers. Most recently
@@ -362,8 +371,12 @@ extension SessionModel {
     /// The old session is removed rather than left to be pruned: it is the one being replaced and its
     /// ladder has just handed over, and leaving it would put two entries for one Mac in the strip for as
     /// long as the new attempt takes, which reads as "it connected twice".
-    func reconnect(_ session: MacSession, to target: ClientSession.Target) {
-        connect(to: target, replacing: session)
+    func reconnect(
+        _ session: MacSession,
+        to target: ClientSession.Target,
+        timeout: TimeInterval = SessionModel.standardConnectTimeout
+    ) {
+        connect(to: target, replacing: session, timeout: timeout)
     }
 
     /// Stops the active Mac being retried, *without* resetting its backoff.

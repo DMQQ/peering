@@ -282,4 +282,46 @@ struct TerminalScreenTests {
         #expect(screen.visible == [])
         #expect(screen.scrollback == [])
     }
+
+    @Test("the scrollback keeps the newest rows and drops the oldest")
+    func scrollbackIsBounded() {
+        // Bounded here rather than at the byte buffer the caller trims: the cells are this side's copy.
+        var screen = TerminalScreen(columns: 20, rows: 4)
+        for index in 0..<5_000 {
+            screen.feed(Data("line \(index)\r\n".utf8))
+        }
+
+        let kept = screen.scrollback
+        let bounded = kept.count < 3_000
+        let oldest = kept.contains { $0.hasPrefix("line 0") }
+        // The newest rows are on the screen rather than in the scrollback, so what is checked is
+        // the row just above it: the most recent one that has scrolled off.
+        let lastKept = kept.last ?? ""
+        let recent = lastKept.hasPrefix("line 49")
+
+        #expect(bounded)
+        #expect(!oldest)
+        #expect(recent)
+    }
+
+    @Test("a screen fed in pieces styles the same as one fed at once")
+    func styledMatchesAScreenBuiltInOneGo() {
+        // The kept copy of the styled rows has to be the same answer as re-styling them.
+        let bytes = Data((0..<3_000).map { "row \($0)\r\n" }.joined().utf8)
+
+        var piecemeal = TerminalScreen(columns: 20, rows: 6)
+        let raw = Array(bytes)
+        for start in stride(from: 0, to: raw.count, by: 97) {
+            piecemeal.feed(Data(raw[start..<min(start + 97, raw.count)]))
+        }
+
+        var whole = TerminalScreen(columns: 20, rows: 6)
+        whole.feed(bytes)
+
+        let stylesAgree = piecemeal.styled == whole.styled
+        let textAgrees = piecemeal.visible == whole.visible
+
+        #expect(stylesAgree)
+        #expect(textAgrees)
+    }
 }

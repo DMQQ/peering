@@ -262,10 +262,28 @@ private final class TerminalAppWatch: @unchecked Sendable {
         guard AXUIElementCopyAttributeValue(
             windowRef as! AXUIElement, kAXTitleAttribute as CFString, &titleRef
         ) == .success,
-            let title = titleRef as? String,
-            !title.isEmpty
+            let title = shortName(ofWindow: titleRef as? String)
         else { return nil }
         return title
+    }
+
+    /// The window's title without the emulator's own tail.
+    ///
+    /// Terminal.app names a window "prod — zsh — 213×46", and the last field is the terminal's grid
+    /// in characters. It is true, it is what the Mac's own user sees in the title bar, and it is no
+    /// part of the answer to "which shell is asking": in a sentence read on a locked screen it is
+    /// four characters of noise between the reader and the name. Any of the three dashes a title
+    /// might be built from, and either multiplication sign, because this is somebody else's format.
+    ///
+    /// A title that is *only* a size leaves nothing behind, and is refused: the banner falls back to
+    /// the application's name, which is what it did before it had a window to name at all.
+    private static func shortName(ofWindow title: String?) -> String? {
+        guard let title, !title.isEmpty else { return nil }
+        let gridTail = #"\s*[—–-]\s*\d+\s*[×x]\s*\d+\s*$"#
+        guard let tail = title.range(of: gridTail, options: .regularExpression) else { return title }
+        let name = String(title[title.startIndex..<tail.lowerBound])
+            .trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? nil : name
     }
 
     private func schedule(text: String, title: String?, key: CFHashCode) {

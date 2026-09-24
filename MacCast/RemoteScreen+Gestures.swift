@@ -212,12 +212,6 @@ extension RemoteScreen {
                 withAnimation(Motion.tap) { targetTile = index }
             },
             onMosaicDrop: { dropHeldTile() },
-            isPanelOpen: openPanel != nil,
-            onDismissPanel: { withAnimation(Motion.settle) { openPanel = nil } },
-            isStatusBarExpanded: statusBarExpanded,
-            onCollapseStatusBar: { collapseStatusBar() },
-            isKeyboardOpen: model.showKeyboard,
-            onDismissKeyboard: { model.showKeyboard = false }
         )
         .ignoresSafeArea()
     }
@@ -465,6 +459,13 @@ extension RemoteScreen {
     @discardableResult
     func glidePicture(to target: (zoom: CGFloat, pan: CGSize)) -> Task<Void, Never> {
         lockedPixelSize = model.capturePixelSize ?? .zero
+        PictureTrace.write("""
+            glide start zoom=\(String(format: "%.3f", zoom)) \
+            pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+            target=\(String(format: "%.3f", target.zoom)) \
+            locked=\(PictureTrace.short(lockedPixelSize)) \
+            picture=\(PictureTrace.short(model.capturePixelSize))
+            """)
         let glide = PictureGlide(
             target: target,
             startZoom: zoom,
@@ -493,6 +494,11 @@ extension RemoteScreen {
                 )
                 if zoom != next.zoom { zoom = next.zoom }
                 if pan != next.pan { pan = next.pan }
+                PictureTrace.write("""
+                    glide step zoom=\(String(format: "%.3f", zoom)) \
+                    pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
+                    t=\(String(format: "%.2f", seconds))
+                    """)
                 // A little over one and a half times the spring's response, by which point it is
                 // within a ten-thousandth of where it is going — a twentieth of a point of
                 // travel. Waiting out the rest of it would be holding the user on a frozen canvas
@@ -513,6 +519,10 @@ extension RemoteScreen {
             guard let glide = pictureGlide else { return }
             if zoom != glide.target.zoom { zoom = glide.target.zoom }
             if pan != glide.target.pan { pan = glide.target.pan }
+            PictureTrace.write("""
+                glide landed zoom=\(String(format: "%.3f", zoom)) \
+                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height))
+                """)
             pictureGlide = nil
             // **The arrival is asked again, now that the movement has stopped moving.** Its wait is
             // for the picture on the layer, and the event it is normally woken by is the frame
@@ -547,21 +557,53 @@ extension RemoteScreen {
     /// arrive — and a promise left standing is a picture clipped to a rectangle nothing is
     /// travelling towards. Callers that mean to start a movement set a new one straight after.
     func cancelPictureGlide() {
+        // Only when there was something to give up: this is called on every sample of a pinch, and
+        // a line per sample is a file that has lost the thing it was written to hold.
+        if pictureGlide != nil || pictureAim != nil {
+            PictureTrace.write("""
+                glide cancelled glide=\(pictureGlide != nil) aim=\(pictureAim?.sourceID ?? "nil") \
+                zoom=\(String(format: "%.3f", zoom)) pan=\(String(format: "%.1f,%.1f", pan.width, pan.height))
+                """)
+        }
         pictureGlide?.task?.cancel()
         pictureGlide = nil
         pictureAim = nil
         placedPictureID = nil
-        // **A movement that ends by being taken over releases the frame as well.** The other end
-        // of a movement is ``RemoteScreen/settleArrival(force:)``, which a takeover never reaches;
-        // without this the picture waits on a movement that no longer exists. See
-        // ``RemoteScreen/pictureIsPlaced`` for the release the landing does.
-        model.renderer.releaseHeldFrame()
+        // **The frame is not released from here, and that is deliberate.** It used to be, for the
+        // reason that a takeover never reaches ``RemoteScreen/settleArrival(force:)`` — and it is
+        // the one release in this app that is not the update pass. The pass writes the transform and
+        // hands the frame over in one commit; a release from a gesture callback commits on its own,
+        // so a frame that is let go here can be drawn once at the *departing* picture's scale before
+        // the transform it belongs to arrives. That is a flicker, and it is only ever a race, which
+        // is why it is seen sometimes rather than always.
+        //
+        // Nothing needs it: every line above writes state, so a pass follows, and `pictureIsPlaced`
+        // is true in that pass because the glide it was waiting on has just gone. The other end of
+        // the wait — a screen that never asks at all — is bounded in the renderer.
         // A movement the user has taken over drops the arrival it was waiting for: applying it
         // afterwards would write the zoom and pan of the picture they have just left. See
         // ``settleArrival()``.
         pendingArrival = nil
         arrivalDeadline?.cancel()
         arrivalDeadline = nil
+    }
+
+    /// Gives up whatever movement or rearrangement was in flight.
+    ///
+    /// **Called when the connection leaves `.ready`, because none of it survives the connection it
+    /// was measuring.** This view is kept across a drop on purpose — the picture stays up, and the
+    /// zoom and the open panel with it — but the transit state does not belong to the picture that
+    /// comes back. What it costs is not only a stale animation: ``PictureAim`` is a promise that a
+    /// window is being carried out of an arrangement, that promise is deliberately kept after the
+    /// window arrives, and a promise left standing across a suspend hides the tile borders and
+    /// swallows every tap that lands where a tile would have been. The arrangement comes back and
+    /// nothing in it can be pressed, which is what "it didn't remember it had a mosaic" looks like
+    /// from the outside. See ``shownMosaicLayout``.
+    func abandonPictureTransit() {
+        cancelPictureGlide()
+        heldTile = nil
+        targetTile = nil
+        heldPoint = nil
     }
 
     /// The regions a touch must not reach the Mac through.

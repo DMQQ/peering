@@ -124,7 +124,7 @@ extension RemoteScreen {
                 .buttonStyle(.bordered)
             }
 
-            arrowStrip
+            arrowStrip()
         }
         .padding(10)
         .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -190,17 +190,31 @@ extension RemoteScreen {
     /// A single row rather than the inverted T of a physical cluster: this shares a panel with
     /// the macros and the modifiers, and three rows of keys would make it taller than the thing
     /// it is helping with.
-    var arrowStrip: some View {
+    ///
+    /// Two homes, because the phone holds no text: the sentence being typed is on the Mac, so sending
+    /// the caret back through it is the only way to edit the middle of a line.
+    ///
+    /// - Parameter withReturn: the dock's row carries Return because it is that panel's whole
+    ///   navigation row; the keyboard bar's does not, because the row above it has a Return of its own.
+    func arrowStrip(withReturn: Bool = true) -> some View {
         HStack(spacing: 4) {
             compactKeyButton(icon: "chevron.left", keyCode: 123)
+                .accessibilityLabel("Left arrow")
             compactKeyButton(icon: "chevron.up", keyCode: 126)
+                .accessibilityLabel("Up arrow")
             compactKeyButton(icon: "chevron.down", keyCode: 125)
+                .accessibilityLabel("Down arrow")
             compactKeyButton(icon: "chevron.right", keyCode: 124)
-            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
+                .accessibilityLabel("Right arrow")
+            if withReturn {
+                compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
+                    .accessibilityLabel("Enter")
+            }
             // Through the model rather than as a bare keycode, so the typed preview loses the
             // character with the Mac's own line: sent directly, the Mac deleted and the preview
             // kept what it had, which is a bar showing text that no longer exists anywhere.
             compactCapButton(icon: "delete.backward") { model.handleBackspace() }
+                .accessibilityLabel("Delete")
         }
     }
 

@@ -368,34 +368,6 @@ final class MacCastPolicyTests: XCTestCase {
         XCTAssertFalse(mode.tapsReachTheMac)
     }
 
-    private var panelRegion: CGRect { CGRect(x: 0, y: 700, width: 520, height: 120) }
-
-    func testTapOnThePictureDismissesAnOpenPanel() {
-        XCTAssertTrue(CanvasGeometry.dismissesOverlay(
-            at: CGPoint(x: 200, y: 300),
-            regions: [panelRegion],
-            isOpen: true
-        ))
-    }
-
-    func testTapOnThePanelItselfDoesNotDismissIt() {
-        // The panel's own tiles and buttons are inside this rect, and a tap on one belongs to the
-        // control under it. Dismissing here would close the panel out from under the user's aim.
-        XCTAssertFalse(CanvasGeometry.dismissesOverlay(
-            at: CGPoint(x: 200, y: 750),
-            regions: [panelRegion],
-            isOpen: true
-        ))
-    }
-
-    func testTapOnThePictureIsAnOrdinaryClickWhileNoPanelIsOpen() {
-        XCTAssertFalse(CanvasGeometry.dismissesOverlay(
-            at: CGPoint(x: 200, y: 300),
-            regions: [],
-            isOpen: false
-        ))
-    }
-
     /// A drag either moves the picture or is sent to the Mac, never both. Stated as an invariant
     /// over every case so a mode added later cannot quietly be both at once — and the failure
     /// that would produce is not subtle: a picture sliding under the finger while a window moves

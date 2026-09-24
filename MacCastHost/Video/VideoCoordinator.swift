@@ -688,6 +688,19 @@ final class VideoCoordinator: @unchecked Sendable {
             return
         }
 
+// **And it stops being offered.** A window ScreenCaptureKit lists and will not render is
+// indistinguishable from a capturable one until a stream built for it says nothing at all, and this
+// is that moment: without this the window stays in the phone's list for as long as the two ends are
+// connected, and every tap on it is a tap that does nothing. A display is the exception, and not
+// because a broken one is not broken: it is the thing a phone needs whatever state it is in, and
+// taking it out of the list leaves the client with nothing to look at and nothing to ask for.
+        switch source {
+        case .window, .application:
+            pipeline.markUncapturable(source)
+        case .display, .mosaic:
+            break
+        }
+
 // Permission is fine, so the stream itself is the problem. Say what was being captured and that
 // permission was not the reason, or the next reader goes looking in System Settings for something
 // already correct.
@@ -701,6 +714,17 @@ final class VideoCoordinator: @unchecked Sendable {
 /// ``RemoteCommand/refreshSpacePreviews``.
     func refreshSpacePreviews() {
         pipeline.refreshSpacePreviews()
+    }
+
+/// A source this Mac has been asked for and cannot capture, so the catalogue stops offering it.
+///
+/// **The other half of the evidence ``markUncapturable(_:)`` is fed by.** A window a stream was
+/// built for and got nothing out of is one kind; a window whose filter cannot be built at all is
+/// another and arrives here, at the ask, before any stream exists. Both look identical from the
+/// phone: a row in the picker that does nothing when it is pressed, for as long as the two ends
+/// are connected.
+    func markUncapturable(_ source: CaptureSource) {
+        pipeline.markUncapturable(source)
     }
 
     /// Photographs every running application. See
