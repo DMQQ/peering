@@ -12,9 +12,6 @@ let joystickRadius: CGFloat = 50
 /// The remote desktop itself: picture, pointer, keyboard, and the controls for all three.
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
-    /// Read for one moment only: the app coming back to the foreground, which is the one moment an
-    /// arrival can be left waiting on a screen that was never there. See ``settleArrival(force:)``.
-    @Environment(\.scenePhase) private var scenePhase
 
     /// Persisted because observe mode's no-input promise must survive a relaunch.
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
@@ -26,12 +23,6 @@ struct RemoteScreen: View {
 
     @State var zoom: CGFloat = 1
     @State var pan: CGSize = .zero
-    /// The pixel size the current ``zoom`` factor was computed against.
-    ///
-    /// Consulted while a ``pictureGlide`` is in flight: it holds the base scale on the departing
-    /// picture's size until ``onChange(of:)`` writes this and ``zoom`` together, which is what keeps
-    /// the frame before it continuous instead of a one-frame scale jump.
-    @State var lockedPixelSize: CGSize = .zero
     @State var canvasSize: CGSize = .zero
     /// The position most recently commanded by this phone. Drawing it immediately keeps the
     /// pointer responsive even while the next video frame is still crossing the network.
@@ -123,68 +114,11 @@ struct RemoteScreen: View {
     /// reaches it anyway, and a slide while pressing starts a drag on the Mac underneath.
     @State var chromeFrames: [ChromeRegion: CGRect] = [:]
 
-    /// The movement the picture is in the middle of, if it is in one.
+    /// The picture on screen replacing another, if it is in the middle of doing that.
     ///
-    /// Either direction of the same journey: opening a tile and the arrangement coming back write
-    /// the same two numbers, and they are mutually exclusive. See
-    /// ``RemoteScreen/glidePicture(to:)``.
-    @State var pictureGlide: PictureGlide?
-
-    /// The picture a movement was aimed at, kept until that picture arrives.
-    ///
-    /// The one arrival the geometry cannot decide for itself: the zoom on the view belongs to the
-    /// picture being left, so whether it should be kept or solved is not in the number. See
-    /// ``PictureAim``.
-    @State var pictureAim: PictureAim?
-
-    /// The picture `MosaicZoom.placing` has been solved for, or `nil` while the movement is still
-    /// showing the one it is leaving.
-    ///
-    /// A config arrives a frame or two before its first picture does. See
-    /// ``RemoteScreen/carriedWindow``.
-    @State var placedPictureID: String?
-
-    /// A picture the Mac has answered with that is not on the layer yet.
-    ///
-    /// Everything the arrival writes (the zoom, the pan, the base scale, which branch the movement's
-    /// hole is measured from) is expressed against the *arriving* picture, so it waits for
-    /// ``VideoRenderer/onFirstFrame``, which is the only thing that knows the picture has changed.
-    /// Written early it draws the picture being replaced at the arriving one's scale. See
-    /// ``settleArrival()``.
-    @State var pendingArrival: PendingArrival?
-
-    /// Bounds the wait, so a stream that never delivers a first frame cannot leave the picture at
-    /// the departing calibration for good. See ``settleArrival()``.
-    @State var arrivalDeadline: Task<Void, Never>?
-
-    /// The picture being replaced, and the scale and offset it was drawn at.
-    ///
-    /// The live layer swaps its contents on a clock this app cannot see, so it is hidden for that
-    /// render and faded back in afterwards. See ``VideoLayerView/showsStill``.
-    @State var swapping = false
-    @State var stillZoom: CGFloat = 1
-    @State var stillPan: CGSize = .zero
-
-    /// Whether the outgoing picture is held under the arriving one across a swap.
-    ///
-    /// Off. The still is handed ``VideoRenderer/outgoingFrame``, the last frame this renderer gave
-    /// the *live* layer, and the layer has no flush of its own, so what covers a swap is not
-    /// reliably the picture that was on screen. Off is also what removes the flicker.
-    private static let crossFadeArrivals = false
-
-    /// The two pictures an arrival is between. See ``pendingArrival``.
-    struct PendingArrival {
-        let previous: PictureIdentity
-        let current: PictureIdentity
-    }
-
-    /// How far the veil over a turned arrangement has come up.
-    ///
-    /// An arrangement that changes shape is a different picture; what can be continuous is where it
-    /// sits. This covers the one moment that is not, the windows rearranging themselves inside that
-    /// frame. Comes up in the frame the canvas arrives and clears over the movement. See
-    /// ``RemoteScreen/arrangementMorph(from:to:)``.
-    @State var arrangementVeil: Double = 0
+    /// One value for the whole of a change: a tile opening, an arrangement coming back, a source
+    /// picked from a panel, a rotation's rebuilt canvas. See ``PictureTransition``.
+    @State var transition: PictureTransition?
 
     /// The tile a long press is holding, and the slot the finger is over.
     ///
@@ -200,14 +134,6 @@ struct RemoteScreen: View {
     /// cannot follow, because the windows are one composited surface on the Mac, so what travels is
     /// the outline and the name. See ``MosaicOverlay``.
     @State var heldPoint: CGPoint?
-
-    /// When the arrangement the phone is asking for stopped being the one on screen, if it has.
-    ///
-    /// The clock behind ``mosaicBordersHeld``: a rebuild of an arrangement is the Mac tearing one
-    /// canvas down and building another, and the borders are held back for it rather than drawn over
-    /// the black. Stamped only for a change the Mac has to build again, so a reorder keeps its own
-    /// feedback.
-    @State var mosaicRebuildStartedAt: Date?
 
     let minimumZoom: CGFloat = 0.5
     let maximumZoom: CGFloat = 8
@@ -301,13 +227,12 @@ struct RemoteScreen: View {
         // `Environment` gives the object but no projected value, so a local `@Bindable` is what the
         // keyboard view binds to.
         @Bindable var model = model
-        // **Read so that this whole screen re-evaluates when a frame reaches the layer.** Half of
-        // what is drawn here waits on a fact that only the renderer knows — the tile edges, the
-        // names and the ✕ buttons of an arrangement ask whether the picture on the layer is the one
-        // this app describes, and the renderer is not observable. Without this the arrangement's own
-        // drawing arrives when something unrelated forces a pass, which is why it used to appear
-        // when the canvas was moved. See ``SessionModel/pictureDisplayed``.
-        let _ = model.pictureDisplayed
+        // **Read so that this whole screen re-evaluates when a frame reaches the live layer.** The
+        // tile edges, the names and the ✕ buttons of an arrangement ask whether ``transition`` has
+        // ended, which is itself decided by a fact only the renderer knows, and the renderer is not
+        // observable. Without this the arrangement's own drawing arrives when something unrelated
+        // forces a pass. See ``SessionModel/frameArrived``.
+        let _ = model.frameArrived
         return GeometryReader { proxy in
             let isLandscape = deviceIsLandscape
             ZStack {
@@ -322,9 +247,7 @@ struct RemoteScreen: View {
                 mosaicOverlay
                 clientCursor
                 // Over the picture and its borders, under the chrome, which is the app's own and
-                // stays where it is. See ``arrangementVeil``.
-                arrangementVeilView
-                // Above the veil, because it is not a dim. See ``carryingScrim``.
+                // stays where it is. See ``carryingScrim``.
                 carryingScrim
                 gestures
                 // Above the gesture surface, which is why it is a layer of its own: a tap on a tile
@@ -338,13 +261,21 @@ struct RemoteScreen: View {
                 }
 
                 // The same decision the connecting card makes, and it has to be made in both
-                // places: the screen stays mounted for a resume, and a black veil with a spinner
-                // over a picture that never left is the one thing a resume must not show.
+                // places the same way: the screen stays mounted for a resume, and a black veil with
+                // a spinner over a picture that never left is the one thing a resume must not show.
+                //
+                // **`isBeingPutBack`, not `isResumingAfterDrop`.** The narrower flag needs
+                // `hasBeenReady`, which is carried from the session object a warm reconnect replaces
+                // — but a cold launch has no such object, so `hasBeenReady` starts false and stays
+                // false for the whole of that resume. This overlay then showed on top of the header
+                // pill's own "Reconnecting…", the two disagreeing about whether a resume was under
+                // way. `isBeingPutBack` is the same question ``ContentView``'s connecting card
+                // answers, and covers both cases: see ``MacSession/isBeingPutBack``.
                 //
                 // Pairing is deliberately not covered: a resumed session that somehow needs the six
                 // digits has to be able to show them. See ``PairingPrompt`` just above.
                 if (model.phase == .connecting || model.phase == .handshaking),
-                   !model.isResumingAfterDrop {
+                   !model.isBeingPutBack {
                     ProgressOverlay(
                         title: model.phase == .connecting ? "Connecting…" : "Securing the connection…",
                         detail: model.hostName
@@ -395,16 +326,14 @@ struct RemoteScreen: View {
         // Keyed to the phase rather than to appearing, because a session does not arrive ready: the
         // screen is up during `.confirming` and the picture only starts at `.ready`, which is the
         // moment worth interrupting.
-        // **An arrival waiting on a screen that was not there.** The deadline that settles one is a
-        // `Task.sleep` and a suspended app runs no timers, so a frame that landed while the app was
-        // away leaves the picture held with nothing to release it: the app comes back to the picture
-        // it left, or to a stretched frame if the hold was given up on a clock instead. Forcing the
-        // settle here writes the transform for the picture that is on the layer, and the pass that
-        // follows hands the frame over in the same commit. See ``settleArrival(force:)``.
-        .onChange(of: scenePhase, initial: true) { _, phase in
-            guard phase == .active else { return }
-            settleArrival(force: true)
-        }
+        //
+        // **A transition waiting on an app that was not there.** `Task.sleep` does not run while
+        // the app is suspended, so a transition still in flight when it was backgrounded is still
+        // in flight, frozen snapshot and all, when it comes back — which is the honest state to
+        // return to rather than one this needs to hurry. Nothing to force here any more: the same
+        // deadline that bounds a transition made while the app was in the foreground goes on
+        // bounding it now, and the frame that was waited for either arrived while the app was away
+        // (in which case ``endTransitionIfReady()`` has already run) or is still on its way.
         .onChange(of: model.phase, initial: true) { _, phase in
             PictureTrace.begin()
             guard phase == .ready else {
@@ -423,65 +352,13 @@ struct RemoteScreen: View {
         // A zoom and a pan are chosen for one picture and mean nothing against another. The picture
         // becomes a different one in exactly one place, and the model watches for it there. See
         // ``PictureIdentity/Change``, which is where a new source is told apart from the same stream
-        // described again.
+        // described again, and ``reactToPictureChange(from:to:)`` for what a change not already
+        // covered by a hero transition does about it.
         //
         // Not `initial: true`: the first picture of a session has no previous zoom to invalidate.
         .onChange(of: model.picture) { previous, current in
             guard let previous, let current else { return }
-            switch previous.change(to: current) {
-            case .unchanged:
-                break
-            case .resized:
-                // The magnification is kept, because it is a multiple of the fit. The offset is
-                // measured in points of a canvas whose picture has just changed shape, so left alone
-                // it can sit outside the range the new picture allows.
-                pan = clampedPan(pan)
-                // A change of picture is a change of picture, whichever case it arrives as: this one
-                // is the same window re-described at another resolution, the reduced-quality stream
-                // giving way to the full-quality one, a swap the user watches even though the source
-                // never changed. See ``showsStill``.
-                stillZoom = effectiveZoom
-                stillPan = pan
-                swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
-            case .replaced:
-                PictureTrace.write("""
-                    config replacing \(PictureTrace.short(previous.pixelSize)) with \
-                    \(PictureTrace.short(current.pixelSize)) zoom=\(String(format: "%.3f", zoom)) \
-                    pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-                    locked=\(PictureTrace.short(lockedPixelSize)) glide=\(pictureGlide != nil)
-                    """)
-                // Held until the picture the config describes is on the layer: the work below is
-                // expressed against the arriving picture, and the layer is still showing the one it
-                // replaced. See ``pendingArrival`` and ``settleArrival()``.
-                pendingArrival = PendingArrival(
-                    previous: pendingArrival?.previous ?? previous,
-                    current: current
-                )
-                arrivalDeadline?.cancel()
-                arrivalDeadline = Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1.5))
-                    guard !Task.isCancelled else { return }
-                    settleArrival(force: true)
-                }
-                // The frame may already be on the layer, and waiting then would leave the picture at
-                // the departing calibration.
-                settleArrival()
-            }
-        }
-        // **What is drawn over the picture, traced for the same reason the geometry is.** A tile tap
-        // puts two things on screen: the picture, and the black shape that hides the rest of the
-        // arrangement while a window comes out of it. The picture's own numbers came back correct
-        // for every tap in the trace, so what is left to look at is the hole, whose rectangle is
-        // measured through one picture before the window arrives and through the other after — the
-        // one measurement in this app that changes hands mid-movement. See ``carriedWindow``.
-        .onChange(of: carriedWindow) { _, hole in
-            PictureTrace.write("""
-                hole \(PictureTrace.short(hole)) zoom=\(String(format: "%.3f", zoom)) \
-                placed=\(placedPictureID != nil)
-                """)
-        }
-        .onChange(of: shownMosaicLayout) { _, layout in
-            PictureTrace.write("overlay tiles=\(layout?.tiles.count ?? 0) carrying=\(carriedWindow != nil)")
+            reactToPictureChange(from: previous, to: current)
         }
         // Turning the phone re-asks for the arrangement: the canvas takes the screen's own shape, so
         // a rotation is a different layout with a different identifier, and the Mac goes on capturing
@@ -526,180 +403,10 @@ struct RemoteScreen: View {
         } message: {
             Text("The Mac may ask you to save open documents first.")
         }
-        // The other half of the hold on an arrival: the frame landing is the picture changing.
-        .onChange(of: model.frameArrived) { _, _ in settleArrival() }
-        // Back out of the hold one display frame after going into it: that render is what hands the
-        // arriving frame to the layer, and the pause is for the layer to put it on the screen. A
-        // fade started first would blend into a picture that had not changed yet.
-        .onChange(of: swapping) { _, swap in
-            guard swap else { return }
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(50))
-                swapping = false
-            }
-        }
-    }
-
-    /// Does what an arrival does, now that its picture is the one on screen.
-    ///
-    /// Held back from the config that announced it, because a config is not a picture (see
-    /// ``pendingArrival``), and run when the frame lands or when the deadline gives up on it.
-    func settleArrival(force: Bool = false) {
-        guard let pending = pendingArrival else { return }
-        // Asked of the renderer rather than inferred from which of the two arrived first: the frame's
-        // hop to the main actor can beat the config's, and either can be late. `force` is the
-        // deadline, the one caller that has decided the wait is over.
-        //
-        // On the layer, or ready with nothing left moving. The placement is the *arriving* picture's
-        // transform, and writing it while the departing picture is still on the layer draws that
-        // picture at the wrong scale; the two transforms describe the same rectangle exactly when the
-        // movement has finished, which is the other moment this may run. See
-        // ``RemoteScreen/pictureIsPlaced``.
-        let settled = pictureGlide == nil && model.isReadyToPlace(of: pending.current.pixelSize)
-        guard force
-            || settled
-            || model.hasPictureOnScreen(of: pending.current.pixelSize)
-        else { return }
-        pendingArrival = nil
-        arrivalDeadline?.cancel()
-        arrivalDeadline = nil
-        let previous = pending.previous
-        let current = pending.current
-        PictureTrace.write("""
-            settle \(PictureTrace.short(previous.pixelSize)) -> \
-            \(PictureTrace.short(current.pixelSize)) canvas=\(PictureTrace.short(canvasSize)) \
-            zoom=\(String(format: "%.3f", zoom)) pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-            locked=\(PictureTrace.short(lockedPixelSize)) base=\(String(format: "%.3f", pictureBaseScale)) \
-            effective=\(String(format: "%.3f", effectiveZoom)) glide=\(pictureGlide != nil) \
-            forced=\(force) still=\(model.renderer.hasStillPicture) aim=\(pictureAim?.sourceID ?? "nil")
-            """)
-
-        // The picture on screen at this instant, at the scale it is drawn at here: the still holds
-        // it while the live layer takes the new frame, at this scale rather than at the one the
-        // arrival is about to write. Set before the branches, which disagree about the transform and
-        // agree about this. See ``VideoLayerView/showsStill``.
-        stillZoom = effectiveZoom
-        stillPan = pan
-        // Only if there is something to cover it with: an empty still under a hidden live layer is a
-        // black frame, worse than the cut it replaces.
-        swapping = Self.crossFadeArrivals && model.renderer.hasStillPicture
-
-        // A turn of the phone is a movement, not a cut: an arrangement that arrives where another
-        // was is drawn where that one was and moves into its own shape, with its borders travelling
-        // with it, and is dimmed for the instant the windows rearrange themselves inside that
-        // travelling frame. See ``arrangementMorph(from:to:)`` and ``arrangementVeil``.
-        //
-        // A window coming home is not dimmed: it slides into the slot it will occupy and the canvas
-        // appears around it, which is a change of place, and dimming it would be a flash of black at
-        // the moment the user is watching the picture.
-        if let target = arrangementMorph(from: previous, to: current) {
-            zoom = target.zoom
-            pan = target.pan
-            // Up in the frame the new canvas arrives, the same frame its first pixels do, because
-            // the frame gate holds them until this update has been laid out, and gone by the time
-            // the movement has landed.
-            arrangementVeil = 1
-            // A turn of the run loop between the two, because two writes to one value in one update
-            // are one write: the veil would be animated to nothing from nothing.
-            Task { @MainActor in
-                withAnimation(Motion.settle) { arrangementVeil = 0 }
-            }
-        }
-        // The picture the movement was carrying is put where the movement has it, and then the
-        // movement finishes on the new picture.
-        //
-        // The zoom on the view belongs to the picture being *left*: read against the window's own
-        // stream, the same number draws that window at two or three times too big. So the state is
-        // not kept and not corrected, it is *solved*, for the rectangle the movement already has the
-        // window in. See ``MacCastKit/MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)``.
-        // **Kept when the picture that arrived is the one it was for, dropped otherwise.** The hole
-        // the movement opened must outlive the arrival, or the arrangement's last frame comes back
-        // on screen for a blink; but a promise about one arrangement's window means nothing about
-        // another picture.
-        let aim = pictureAim
-        if aim?.sourceID != current.sourceID { pictureAim = nil }
-
-        let carried = aim.flatMap { aim -> CGRect? in
-            guard aim.sourceID == current.sourceID else { return nil }
-            // The departing picture's own effective zoom, not the arriving one's: in Fill mode the
-            // canvas and a window have very different base scales, and the canvas is what the movement
-            // ran against. `aim.departedSize` is the size of that canvas.
-            let departedEffectiveZoom = pictureScale.base(pixelSize: aim.departedSize, in: canvasSize) * zoom
-            return CanvasGeometry.rect(
-                normalized: aim.departedAnchor,
-                bounds: canvasSize,
-                pixelSize: aim.departedSize,
-                zoom: departedEffectiveZoom,
-                pan: pan
-            )
-        }
-        let placed = carried.flatMap { rect in
-            MosaicZoom.placing(
-                pixelSize: current.pixelSize,
-                anchor: aim?.anchor ?? NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                at: rect,
-                bounds: canvasSize,
-                scale: pictureScale
-            )
-        }
-
-        if let placed {
-            PictureTrace.write("""
-                placed \(PictureTrace.short(carried)) -> zoom=\(String(format: "%.3f", placed.zoom)) \
-                pan=\(String(format: "%.1f,%.1f", placed.pan.width, placed.pan.height)) \
-                glide=\(pictureGlide != nil)
-                """)
-            lockedPixelSize = current.pixelSize
-            zoom = placed.zoom
-            placedPictureID = current.sourceID
-            pan = placed.pan
-            // The rest of the journey, on the curve that is already running: the spring is evaluated
-            // from the progress it has reached rather than from the beginning, so a picture crossing
-            // the screen keeps its speed. See ``PictureGlide/reaim(to:progress:)``.
-            if var glide = pictureGlide {
-                let elapsed = (ContinuousClock().now - glide.startedAt) / .seconds(1)
-                let progress = Motion.settleProgress(at: elapsed, response: Motion.pictureResponse)
-                if progress < 0.995 {
-                    glide.reaim(
-                        to: (zoom: 1, pan: .zero),
-                        through: placed,
-                        progress: progress
-                    )
-                    pictureGlide = glide
-                } else {
-                    // Just past the endpoint, but the renderer can still be showing the mosaic
-                    // until the first window frame is displayed. Re-aiming at the last solvable
-                    // point keeps the in-flight animation and the window aim alive through that
-                    // hand-off instead of snapping.
-                    glide.reaim(
-                        to: (zoom: 1, pan: .zero),
-                        through: placed,
-                        progress: 0.994
-                    )
-                    pictureGlide = glide
-                }
-            }
-        } else {
-            // Nothing the movement was carrying, so nothing to keep still: a source picked out of a
-            // panel, a rotation, a window resized since the catalogue was read. One already at rest
-            // is left alone; one that is not is moved to it.
-            cancelPictureGlide()
-            PictureTrace.write("""
-                unsolved zoom=\(String(format: "%.3f", zoom)) \
-                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-                atRest=\(pictureIsAtRest) previous=\(PictureTrace.short(previous.pixelSize))
-                """)
-            // The picture has changed, whatever is about to be done with its framing: the base scale
-            // is measured against the picture on screen, and from here that is this one. See
-            // ``RemoteScreen/pictureBaseScale``.
-            lockedPixelSize = model.capturePixelSize ?? .zero
-            placedPictureID = current.sourceID
-            if pictureIsAtRest {
-                resetPicture()
-            } else {
-                glidePicture(to: (zoom: 1, pan: .zero))
-            }
-        }
+        // A frame reaching the live layer is one half of what a transition is waiting on; the other
+        // is its own animation settling, which calls the same function from inside
+        // ``beginHeroTransition(to:target:carry:)``'s own timer. See ``endTransitionIfReady()``.
+        .onChange(of: model.frameArrived) { _, _ in endTransitionIfReady() }
     }
 
     // MARK: - Keyboard input bar

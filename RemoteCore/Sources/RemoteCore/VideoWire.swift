@@ -20,6 +20,13 @@ public enum VideoCodec: String, Codable, Sendable, Equatable, CaseIterable {
 /// attached to the sample buffer, and in AVCC they stay out of band, which is where
 /// `CMVideoFormatDescriptionCreateFromH264ParameterSets` wants them on the client.
 public struct VideoStreamConfig: Codable, Sendable, Equatable {
+    /// The capture source whose frames follow this description.
+    ///
+    /// A source change is not implied by the encoded format: two windows, or a window and a
+    /// mosaic, can have byte-identical parameter sets and dimensions. Carrying the identity here
+    /// makes the config the authoritative boundary between those streams instead of asking the
+    /// receiver to guess from its most recent request.
+    public let sourceID: String
     public let codec: VideoCodec
     /// Encoded dimensions in pixels, not points: a 1512×982pt Retina display is 3024×1964 pixels,
     /// and the client needs the pixel figure to size its layer.
@@ -28,7 +35,14 @@ public struct VideoStreamConfig: Codable, Sendable, Equatable {
     /// SPS and PPS for H.264; VPS, SPS and PPS for HEVC, in that order.
     public let parameterSets: [Data]
 
-    public init(codec: VideoCodec, pixelWidth: Int, pixelHeight: Int, parameterSets: [Data]) {
+    public init(
+        sourceID: String,
+        codec: VideoCodec,
+        pixelWidth: Int,
+        pixelHeight: Int,
+        parameterSets: [Data]
+    ) {
+        self.sourceID = sourceID
         self.codec = codec
         self.pixelWidth = pixelWidth
         self.pixelHeight = pixelHeight
@@ -46,6 +60,7 @@ public struct VideoStreamConfig: Codable, Sendable, Equatable {
     /// its decoder, which at frame rate would leave it permanently re-initialising.
     public static func updated(
         from previous: VideoStreamConfig?,
+        sourceID: String,
         codec: VideoCodec,
         pixelWidth: Int,
         pixelHeight: Int,
@@ -53,6 +68,7 @@ public struct VideoStreamConfig: Codable, Sendable, Equatable {
     ) -> VideoStreamConfig? {
         guard !parameterSets.isEmpty else { return nil }
         let candidate = VideoStreamConfig(
+            sourceID: sourceID,
             codec: codec,
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight,

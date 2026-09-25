@@ -57,6 +57,9 @@ Relay/site/updates/*.zip
 # conversation, not inputs to the build, and nothing reads them.
 *-local-command-caveatcaveat-the-messages-below.txt
 *-this-session-is-being-continued-from-a-previous-c.txt
+# The prompt in the name changes with every session, so the two above catch only the openings
+# that have already happened once. The date and time the CLI prefixes are the part that does not.
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
 # The same thing from other agents, written into the repository root. Two of these
 # were tracked, 2.5 MB between them.
 codex-session-*.md

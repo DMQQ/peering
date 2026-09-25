@@ -585,7 +585,7 @@ struct CaptureProbe {
 
         let geometry = GeometryRecorder()
         let pipeline = CapturePipeline(resolver: resolver)
-        pipeline.onFrame = { frame in writer.append(frame) }
+        pipeline.onFrame = { frame, _ in writer.append(frame) }
         pipeline.onGeometry = { frameGeometry in geometry.record(frameGeometry) }
         pipeline.onFailure = { error in
             log("!! pipeline failure: \(error.errorDescription ?? "\(error)")")
@@ -1202,7 +1202,7 @@ struct CaptureProbe {
         let writer = try MovieWriter(url: url, pixelSize: layout.canvas, frameRate: layout.frameRate)
 
         let pipeline = CapturePipeline(resolver: resolver)
-        pipeline.onFrame = { frame in writer.append(frame) }
+        pipeline.onFrame = { frame, _ in writer.append(frame) }
         pipeline.onFailure = { error in
             log("!! pipeline failure: \(error.errorDescription ?? "\(error)")")
         }
@@ -1330,7 +1330,7 @@ struct CaptureProbe {
         let geometry = GeometryRecorder()
 
         let pipeline = CapturePipeline(syntheticPixelSize: size, frameRate: options.frameRate)
-        pipeline.onFrame = { frame in writer.append(frame) }
+        pipeline.onFrame = { frame, _ in writer.append(frame) }
         pipeline.onGeometry = { frameGeometry in geometry.record(frameGeometry) }
         pipeline.onFailure = { error in
             log("!! pipeline failure: \(error.errorDescription ?? "\(error)")")

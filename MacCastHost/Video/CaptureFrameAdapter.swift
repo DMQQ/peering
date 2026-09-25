@@ -46,6 +46,18 @@ final class CaptureFrameAdapter: @unchecked Sendable {
 /// arrives in.
     var config: VideoStreamConfig? { lock.withLock { _config } }
 
+    /// Forgets the description, because the source it describes is no longer the one being captured.
+    ///
+    /// **A description outlives the stream that produced it, and it is now the picture's identity.**
+    /// It is handed to a client that attaches before the new stream has produced a frame — a
+    /// reconnect, or a client arriving while the capture was switching or stopping — and that client
+    /// would then name, title and measure a picture the Mac is not sending. The new stream's own
+    /// first keyframe re-establishes it, so nothing is lost by dropping it. See
+    /// ``VideoCoordinator/serve(_:)``.
+    func forget() {
+        lock.withLock { _config = nil }
+    }
+
     struct Prepared {
         let frame: EncodedVideoFrame
 /// The description to send before ``frame``, when this frame is what established or changed it.
@@ -58,7 +70,7 @@ final class CaptureFrameAdapter: @unchecked Sendable {
     }
 
     /// Converts a frame, and reports whether it changed the stream's description.
-    func adopt(_ frame: EncodedFrame) -> Prepared {
+    func adopt(_ frame: EncodedFrame, sourceID: String) -> Prepared {
         let wire = EncodedVideoFrame(
             isKeyframe: frame.isKeyframe,
             pixelWidth: Int(frame.pixelSize.width.rounded()),
@@ -77,6 +89,7 @@ final class CaptureFrameAdapter: @unchecked Sendable {
 // client that starts decoding and one that stares at a black screen.
         let updated = VideoStreamConfig.updated(
             from: previous,
+            sourceID: sourceID,
             codec: frame.codec.wireCodec,
             pixelWidth: wire.pixelWidth,
             pixelHeight: wire.pixelHeight,

@@ -113,6 +113,7 @@ struct VideoWireTests {
     @Test("a stream config round-trips through JSON")
     func streamConfig() throws {
         let config = VideoStreamConfig(
+            sourceID: "display:1",
             codec: .h264,
             pixelWidth: 3024,
             pixelHeight: 1964,
@@ -124,6 +125,14 @@ struct VideoWireTests {
         )
         #expect(decoded == config)
         #expect(decoded.parameterSets.count == 2)
+    }
+
+    @Test("a version-17 stream config is rejected rather than assigned the requested source")
+    func oldStreamConfigHasNoInventedIdentity() {
+        let old = Data(#"{"codec":"h264","pixelWidth":3024,"pixelHeight":1964,"parameterSets":["Zw=="]}"#.utf8)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(VideoStreamConfig.self, from: old)
+        }
     }
 
     @Test("the encoded header is exactly the documented size")
@@ -252,8 +261,14 @@ struct StreamDescriptionTests {
     private let pps = Data([0x68, 0xCE, 0x3C, 0x80])
     private let otherSPS = Data([0x67, 0x42, 0xC0, 0x1F])
 
-    private func config(width: Int = 3024, height: Int = 1964, sets: [Data]? = nil) -> VideoStreamConfig {
+    private func config(
+        sourceID: String = "display:1",
+        width: Int = 3024,
+        height: Int = 1964,
+        sets: [Data]? = nil
+    ) -> VideoStreamConfig {
         VideoStreamConfig(
+            sourceID: sourceID,
             codec: .h264,
             pixelWidth: width,
             pixelHeight: height,
@@ -264,7 +279,7 @@ struct StreamDescriptionTests {
     @Test("a keyframe with no prior description establishes one")
     func firstDescription() throws {
         let produced = VideoStreamConfig.updated(
-            from: nil, codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
+            from: nil, sourceID: "display:1", codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
             parameterSets: [sps, pps]
         )
 
@@ -281,7 +296,8 @@ struct StreamDescriptionTests {
         // frames the encoder emits are not keyframes, so no description exists yet. Inventing
         // one from an empty list would hand the client a config it cannot decode with.
         let produced = VideoStreamConfig.updated(
-            from: nil, codec: .h264, pixelWidth: 3024, pixelHeight: 1964, parameterSets: []
+            from: nil, sourceID: "display:1", codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
+            parameterSets: []
         )
 
         #expect(produced == nil)
@@ -294,7 +310,8 @@ struct StreamDescriptionTests {
         // parameter sets" throws away the only copy the client can decode against.
         let previous = config()
         let produced = VideoStreamConfig.updated(
-            from: previous, codec: .h264, pixelWidth: 3024, pixelHeight: 1964, parameterSets: []
+            from: previous, sourceID: "display:1", codec: .h264, pixelWidth: 3024,
+            pixelHeight: 1964, parameterSets: []
         )
 
         #expect(produced == nil)
@@ -306,11 +323,23 @@ struct StreamDescriptionTests {
         // rebuilds its decoder on each one never renders a picture.
         let previous = config()
         let produced = VideoStreamConfig.updated(
-            from: previous, codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
+            from: previous, sourceID: "display:1", codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
             parameterSets: [sps, pps]
         )
 
         #expect(produced == nil)
+    }
+
+    @Test("a source change produces a new description even when the format is identical")
+    func sourceChangeIsAChange() throws {
+        let previous = config(sourceID: "mosaic:first")
+        let produced = VideoStreamConfig.updated(
+            from: previous, sourceID: "window:7", codec: .h264,
+            pixelWidth: 3024, pixelHeight: 1964, parameterSets: [sps, pps]
+        )
+
+        let made = try #require(produced)
+        #expect(made.sourceID == "window:7")
     }
 
     @Test("a resize produces a new description")
@@ -319,7 +348,7 @@ struct StreamDescriptionTests {
         // pipeline to rebuild the encoder. The client has to hear about it.
         let previous = config()
         let produced = VideoStreamConfig.updated(
-            from: previous, codec: .h264, pixelWidth: 1920, pixelHeight: 1080,
+            from: previous, sourceID: "display:1", codec: .h264, pixelWidth: 1920, pixelHeight: 1080,
             parameterSets: [sps, pps]
         )
 
@@ -335,7 +364,7 @@ struct StreamDescriptionTests {
         // would leave the client decoding the new stream against the old parameter sets.
         let previous = config()
         let produced = VideoStreamConfig.updated(
-            from: previous, codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
+            from: previous, sourceID: "display:1", codec: .h264, pixelWidth: 3024, pixelHeight: 1964,
             parameterSets: [otherSPS, pps]
         )
 
@@ -347,7 +376,7 @@ struct StreamDescriptionTests {
     func codecChangeIsAChange() throws {
         let previous = config()
         let produced = VideoStreamConfig.updated(
-            from: previous, codec: .hevc, pixelWidth: 3024, pixelHeight: 1964,
+            from: previous, sourceID: "display:1", codec: .hevc, pixelWidth: 3024, pixelHeight: 1964,
             parameterSets: [sps, pps]
         )
 

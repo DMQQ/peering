@@ -93,7 +93,7 @@ extension RemoteScreen {
         //
         // Keyed on the one condition, so nothing else about the bar is animated by it: the pill's
         // own opening has its own spring, and a second one here would fight it.
-        .animation(Motion.settle, value: model.canReturnToMosaic)
+        .animation(Motion.settle, value: canReturnToMosaic)
         // Narrower than the rails' own inset, on purpose: every point taken off the sides is a
         // point the pill's rows get, and the pill is the one piece of chrome that has to hold
         // several rows of other things.
@@ -257,7 +257,7 @@ extension RemoteScreen {
                         ) {
                             showsTerminals = true
                         }
-                        if model.canReturnToMosaic {
+                        if canReturnToMosaic {
                             actionChip(
                                 "Mosaic",
                                 systemImage: "rectangle.split.2x2",
@@ -384,7 +384,7 @@ extension RemoteScreen {
                             // own word — the same "N windows" a mosaic is named with — and the way
                             // back is then a row with the same name rather than a symbol to be
                             // discovered. See ``MacSession/canReturnToMosaic``.
-                            if model.canReturnToMosaic, model.mosaicChoicesList.count > 1 {
+                            if canReturnToMosaic, model.mosaicChoicesList.count > 1 {
                                 Text("in \(model.mosaicChoicesList.count) windows")
                                     .font(.caption2.weight(.bold))
                                     .tracking(0.5)
@@ -602,7 +602,7 @@ extension RemoteScreen {
     /// is in.
     @ViewBuilder
     var mosaicDot: some View {
-        if model.canReturnToMosaic {
+        if canReturnToMosaic {
             sessionDot(
                 symbol: "rectangle.split.2x2",
                 label: "Back to the mosaic",

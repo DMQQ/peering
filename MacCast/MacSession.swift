@@ -51,18 +51,6 @@ final class MacSession: Identifiable {
     /// would run two hardware decoders for one pair of eyes.
     @ObservationIgnored let renderer: VideoRenderer
 
-    /// The frames of this Mac's picture changes, held between the ask and the config that answers it.
-    ///
-    /// **Armed by the ask, not by the config, and that is the difference that matters.** A config
-    /// travels on the control connection and the frames on the video lane, so a frame can beat the
-    /// config it belongs to; enqueued with no config in front of it, it is drawn at the *previous*
-    /// picture's transform, which for a mosaic tile is the window magnified by the zoom that filled
-    /// the screen with it: a flash of text at twice its size, on some taps and not others, depending
-    /// on which socket delivered first. Held here, it waits for the transform that goes with it, and
-    /// an ask that is never answered (a window that has gone) lets go after the gate's own limit.
-    /// See ``PictureGate``.
-    @ObservationIgnored let changeGate = PictureGate()
-
     init(model: SessionModel, renderer: VideoRenderer) {
         self.model = model
         self.renderer = renderer
@@ -450,6 +438,19 @@ final class MacSession: Identifiable {
     /// identifier stops matching ``activeSourceID`` once the phone turns. Set by ``selectSource(_:)``
     /// from the source itself, so it cannot drift.
     var isAskingForMosaic = false
+
+    /// Whether this connection owes the Mac a reminder of what it was showing.
+    ///
+    /// Set every time this session reaches `.ready`, including a reconnect: the wire is a fresh
+    /// connection with a fresh capture pipeline on the other end, which remembers nothing about
+    /// what the last one was showing, however long `activeSourceID` has held that answer on this
+    /// side. The Mac gives a freshly attached client about a second to say what it wants before it
+    /// defaults to a display of its own choosing (`VideoCoordinator.firstAskGrace`), and a session
+    /// that never repeats its ask is answered by that default — which is a mosaic shown from the
+    /// last frame before the drop, replaced by a plain desktop a second later. Consumed by the next
+    /// catalogue, the first thing this end can rebuild a mosaic's canvas from. See
+    /// ``MacSession/apply(_:)``.
+    var pendingSourceReassertion = false
 
     /// The arrangement as the Mac is being asked for it, built from those choices.
     var mosaicLayout: MosaicLayout? {
@@ -964,16 +965,15 @@ final class MacSession: Identifiable {
     /// only place "can this one change size on its own" comes from. A source with no catalogue entry
     /// behind it is left as unknown rather than guessed at. See ``PictureIdentity/change(to:)``.
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
-        // The rule is ``MacCastKit/PictureIdentity/forStream(_:activeSourceID:catalog:)``; this
+        // The rule is ``MacCastKit/PictureIdentity/forStream(_:catalog:)``; this
         // reads the two things it needs off the session, which is the only part of it a test
         // cannot supply for itself.
         PictureIdentity.forStream(
             config,
-            activeSourceID: activeSourceID,
             catalog: catalog,
             // The arrangement as well as its name, because a mosaic has no catalogue row and
             // the name alone cannot say what it is.
-            source: mosaicLayout.map { CaptureSource.mosaic($0) }
+            source: askedMosaicLayout.map { CaptureSource.mosaic($0) }
         )
     }
 

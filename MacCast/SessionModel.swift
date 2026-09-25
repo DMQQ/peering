@@ -73,6 +73,9 @@ struct Macro: Identifiable, Hashable, Codable {
 @Observable
 @MainActor
 final class SessionModel {
+    /// When this process's model came up, for ``resumeTheLastMacIfNothingIsOpen()``'s own grace.
+    let launchedAt = Date()
+
     /// Which way a session's control connection is carried.
     ///
     /// Declared on ``MacSession`` and merely named here, because the answer is a property of one
@@ -645,46 +648,24 @@ final class SessionModel {
         renderer.onFirstFrame = { [weak self] in
             self?.frameArrived += 1
         }
-        renderer.onFramePlaced = { [weak self] in
-            self?.pictureDisplayed += 1
-        }
     }
 
-    /// Bumped each time a frame of the stream the session just configured reaches the display layer,
-    /// which is the moment the picture on screen is the picture the app describes.
+    /// Bumped each time a frame of the stream the session just configured reaches the live layer.
+    ///
+    /// A hero transition's cue to let its frozen snapshot go: this is the moment the picture the
+    /// app describes is actually decoded and ready, which a plain `@Observable` read of the
+    /// renderer cannot answer, since the renderer runs off the main actor and is not observable
+    /// itself. See ``isReadyToPlace(of:)``.
     var frameArrived = 0
 
-    /// Bumped when that frame is handed to the layer, which is the moment the *screen* changes.
+    /// Whether the renderer has a frame of a stream of this size ready on the live layer.
     ///
-    /// **The second of two moments, and the one this app used to have no way of noticing.** The
-    /// first frame of a stream is held just short of the layer until the transform that goes with
-    /// it has been written, so ``frameArrived`` fires a layout pass early — while the layer is still
-    /// showing the picture being replaced. Everything drawn over the picture asks whether the
-    /// picture on the layer is the one the app describes (``SessionModel/hasPictureOnScreen(of:)``,
-    /// which reads the renderer), and the renderer is not observable: with nothing here, the tile
-    /// borders, the names and the ✕ buttons of an arrangement arrived when some *unrelated* state
-    /// write forced a pass, which is why they used to appear when the canvas was panned.
-    var pictureDisplayed = 0
-
-    /// Whether the renderer has a frame of a stream of this size that the screen has not been told to
-    /// make room for yet.
-    ///
-    /// The cue an arrival waits for, and not the same as ``hasPictureOnScreen(of:)``: the first frame
-    /// of a new stream is held just short of the layer until the transform that goes with it has been
-    /// written. The size is what identifies the stream, because the order the frame and the config
-    /// reach the main actor cannot be relied on. See ``VideoRenderer/releaseHeldFrame()``.
+    /// The size is what identifies the stream, because the order a frame and its config reach the
+    /// main actor cannot be relied on.
     func isReadyToPlace(of size: CGSize) -> Bool {
         let snapshot = renderer.currentSnapshot
         return snapshot.configGeneration > 0
             && snapshot.readyGeneration == snapshot.configGeneration
-            && snapshot.pixelWidth == Int(size.width)
-            && snapshot.pixelHeight == Int(size.height)
-    }
-
-    func hasPictureOnScreen(of size: CGSize) -> Bool {
-        let snapshot = renderer.currentSnapshot
-        return snapshot.configGeneration > 0
-            && snapshot.displayedGeneration == snapshot.configGeneration
             && snapshot.pixelWidth == Int(size.width)
             && snapshot.pixelHeight == Int(size.height)
     }
@@ -952,6 +933,23 @@ final class SessionModel {
             // The catalogue itself is deliberately not carried: the Mac sends it again on `.ready`, and
             // a stale one naming sources that are gone is worse than a moment without one.
             session.activeSourceID = old.activeSourceID
+
+            // **The arrangement, for the same reason, and the one this used to leave behind.** The
+            // choices, not `isAskingForMosaic` or `askedMosaicLayout`: those are written as a side
+            // effect of asking (see `SessionModel/selectSource(_:)`), and the reconnect's own
+            // catalogue-triggered re-ask (`pendingSourceReassertion`) is what writes them again, from
+            // these. Left uncarried, `activeSourceID` went on naming the arrangement while nothing
+            // else on the new object agreed it was one — no borders, no tap to open a tile, no way
+            // back — because a mosaic built from zero choices is not a mosaic at all.
+            session.mosaicChoices = old.mosaicChoices
+
+            // The renderer and this screen survive a reconnect, so the description of the picture
+            // they are still showing has to survive with them. A fresh session used to forget this
+            // while leaving the final mosaic frame visible; until another matching config happened
+            // to arrive, the grid looked intact but had no mosaic overlay or tile hit targets.
+            // The next source-tagged config remains authoritative and will replace this value when
+            // the host actually changes pictures.
+            session.pictureMosaicLayout = old.pictureMosaicLayout
         }
 
         session.hostName = target.displayName
@@ -962,9 +960,6 @@ final class SessionModel {
         // a closure that outlives this one is a data race. It is a `let` of a `Sendable` type, so it is
         // reachable from the network queue, where no actor is going to help.
         let renderer = self.renderer
-        // This Mac's own, and armed by the ask as well as by the config. See
-        // ``MacSession/changeGate``.
-        let changeGate = session.changeGate
 
         let wire = ClientSession(
             identity: identity,
@@ -973,41 +968,22 @@ final class SessionModel {
             pins: pins,
             onEvent: { [weak session] event in
                 // The video pipeline is the one event family that must not detour through the main
-                // actor. For `.frame` that is a performance rule: at 60 Hz, hopping frames would put
-                // them behind the layout of the view drawing them. For `.config` it is a correctness
-                // rule.
+                // actor: at 60 Hz, hopping frames would put them behind the layout of the view drawing
+                // them. Both calls the renderer needs — `configure` and `enqueue` — go straight to its
+                // own serial queue from here, in the order the wire delivered them, which is what keeps
+                // a frame from decoding against the format description it was not encoded with.
                 //
-                // `ClientTransport` hands over everything it drained from one read in a single
-                // synchronous loop, so a config and the keyframe that follows it routinely arrive in the
-                // same batch. Send the config to the main actor and the keyframe wins the race: it is
-                // enqueued against the *previous* format description, and `configure` then flushes it
-                // away, the host's one guaranteed-decodable frame, leaving the client black until the
-                // encoder's next keyframe up to two seconds later. The renderer has its own serial queue,
-                // so both calls belong here, in whatever order the wire said.
+                // Nothing here waits for the screen to catch up any more: the live layer stays hidden
+                // behind a frozen snapshot of the outgoing picture for the whole of a change, so a frame
+                // that reaches it before the screen has taken its zoom back to rest is not seen by
+                // anyone. See ``VideoHostView/stillView``.
                 switch event {
                 case .video(.frame(let frame)):
-                    // Unless a picture change is in flight: the first frames of a new picture are
-                    // decoded on the renderer's own queue and can be on screen before the screen has
-                    // taken its zoom and its pan back to rest, which draws them at the *old* picture's
-                    // magnification for a frame or two. What arrives in the meantime is held here and
-                    // handed over in order. See ``PictureGate``.
-                    if !changeGate.stash(frame) {
-                        renderer.enqueue(frame)
-                    }
+                    renderer.enqueue(frame)
                     return
                 case .video(.config(let config)):
-                    changeGate.hold()
-                    Task { @MainActor in
-                        session?.apply(event)
-                        // The screen's update is laid out by the time this returns, and one more turn of
-                        // the run loop is what it takes for the layer to have been given it. Then the
-                        // picture can be drawn.
-                        try? await Task.sleep(for: .milliseconds(24))
-                        renderer.configure(config)
-                        for frame in changeGate.release() {
-                            renderer.enqueue(frame)
-                        }
-                    }
+                    renderer.configure(config)
+                    Task { @MainActor in session?.apply(event) }
                     return
                 default:
                     break
@@ -1359,7 +1335,6 @@ final class SessionModel {
     func pictureIdentity(of config: VideoStreamConfig) -> PictureIdentity {
         PictureIdentity.forStream(
             config,
-            activeSourceID: activeSourceID,
             catalog: catalog,
             source: mosaicLayout.map { CaptureSource.mosaic($0) }
         )

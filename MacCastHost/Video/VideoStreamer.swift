@@ -350,7 +350,7 @@ final class VideoStreamer: @unchecked Sendable {
 // sending keyframes of a stream nobody has the description for.
         sendConfig(config, to: peer)
         requestKeyframe()
-        videoLog.notice("video config updated · \(config.pixelWidth)×\(config.pixelHeight)")
+        videoLog.notice("video config updated · \(config.sourceID, privacy: .public) \(config.pixelWidth)×\(config.pixelHeight)")
     }
 
     // MARK: - Frames

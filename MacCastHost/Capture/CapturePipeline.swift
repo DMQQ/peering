@@ -53,13 +53,13 @@ final class CapturePipeline: @unchecked Sendable {
 /// that never resolves.
     private var awaitsKeyframe = false
 
-    private var _onFrame: (@Sendable (EncodedFrame) -> Void)?
+    private var _onFrame: (@Sendable (EncodedFrame, CaptureSource) -> Void)?
     private var _onGeometry: (@Sendable (FrameGeometry) -> Void)?
     private var _onFailure: (@Sendable (CaptureError) -> Void)?
     private var _onAudio: (@Sendable (CMSampleBuffer) -> Void)?
 
     /// Encoded frames, in order, on VideoToolbox's thread.
-    var onFrame: (@Sendable (EncodedFrame) -> Void)? {
+    var onFrame: (@Sendable (EncodedFrame, CaptureSource) -> Void)? {
         get { lock.withLock { _onFrame } }
         set { lock.withLock { _onFrame = newValue } }
     }
@@ -444,11 +444,11 @@ final class CapturePipeline: @unchecked Sendable {
 // stop and the input transform all answer about the one that is actually running.
             self.runningEngine = engine
         }
-        encoder.onFrame = { [weak self] encoded in self?.deliver(encoded) }
+        encoder.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         encoder.onFailure = { [weak self] error in self?.report(error) }
 
-        engine.onFrame = { [weak self] frame in self?.ingest(frame) }
-        engine.onIdle = { [weak self] sample in self?.idle(sample) }
+        engine.onFrame = { [weak self] frame in self?.ingest(frame, source: source) }
+        engine.onIdle = { [weak self] sample in self?.idle(sample, source: source) }
         engine.onStop = { [weak self] error in self?.report(error) }
         if let captureEngine = engine as? CaptureEngine {
             captureEngine.enableAudio()
@@ -622,7 +622,8 @@ final class CapturePipeline: @unchecked Sendable {
     // MARK: - Frame flow
 
     /// A captured frame, on the capture queue.
-    private func ingest(_ frame: CapturedFrame) {
+    private func ingest(_ frame: CapturedFrame, source: CaptureSource) {
+        guard lock.withLock({ self.source == source }) else { return }
         onGeometry?(frame.geometry)
 
 // The last point at which the frame is still this app's to draw on: after the encoder the buffer
@@ -636,7 +637,7 @@ final class CapturePipeline: @unchecked Sendable {
             overlay?.draw(into: frame.pixelBuffer, geometry: frame.geometry)
         }
 
-        encode(frame)
+        encode(frame, source: source)
     }
 
 /// A sample that carried no new picture, on the capture queue.
@@ -651,10 +652,11 @@ final class CapturePipeline: @unchecked Sendable {
 /// ``onGeometry`` is deliberately not told about these, because an idle sample's idea of where the
 /// content sits can be emptier than a frame's, and letting a sparser answer overwrite a good one would
 /// move the pointer and the taps apart.
-    private func idle(_ sample: IdleSample) {
+    private func idle(_ sample: IdleSample, source: CaptureSource) {
+        guard lock.withLock({ self.source == source }) else { return }
         guard Self.idleFramesEnabled else { return }
         guard let overlay, let frame = overlay.redraw(sample) else { return }
-        encode(frame)
+        encode(frame, source: source)
     }
 
 /// Whether an idle sample is allowed to become a frame.
@@ -673,7 +675,7 @@ final class CapturePipeline: @unchecked Sendable {
 /// the two from drifting: a frame the overlay drew a pointer into and a frame it built out of an idle
 /// sample are the same thing from here on, both going through the resize check and the keyframe
 /// bookkeeping.
-    private func encode(_ frame: CapturedFrame) {
+    private func encode(_ frame: CapturedFrame, source: CaptureSource) {
 // The stream's surface changes size when a captured window is resized: the stream keeps producing
 // frames at the new size, but the session was created for the old one and cannot encode a frame of a
 // different size at all. Rebuilding is the only option, and it costs the client a keyframe, so it
@@ -691,7 +693,7 @@ final class CapturePipeline: @unchecked Sendable {
             encoder = current
         } else {
             do {
-                encoder = try rebuildEncoder(for: size, replacing: current)
+                encoder = try rebuildEncoder(for: size, replacing: current, source: source)
             } catch {
                 report(error as? CaptureError ?? .encodingFailed("\(error)"))
                 return
@@ -711,13 +713,17 @@ final class CapturePipeline: @unchecked Sendable {
 /// resolution those two differ for a captured window: the stream is configured at half the window's
 /// size, and a window grown past that produces a surface of its own size again. The replacement keeps
 /// up with the frames rather than with the setting, so the halving comes back with the next capture.
-    private func rebuildEncoder(for size: CGSize, replacing current: VideoEncoder?) throws -> VideoEncoder {
+    private func rebuildEncoder(
+        for size: CGSize,
+        replacing current: VideoEncoder?,
+        source: CaptureSource
+    ) throws -> VideoEncoder {
         let replacement = try VideoEncoder(
             codec: codec,
             pixelSize: size,
             frameRate: current?.frameRate ?? 60
         )
-        replacement.onFrame = { [weak self] encoded in self?.deliver(encoded) }
+        replacement.onFrame = { [weak self] encoded in self?.deliver(encoded, source: source) }
         replacement.onFailure = { [weak self] error in self?.report(error) }
 
 // A new session has no keyframe that a decoder following the old one can use, so one is owed whether
@@ -737,12 +743,13 @@ final class CapturePipeline: @unchecked Sendable {
     }
 
     /// An encoded frame, on VideoToolbox's thread.
-    private func deliver(_ encoded: EncodedFrame) {
+    private func deliver(_ encoded: EncodedFrame, source: CaptureSource) {
+        guard lock.withLock({ self.source == source }) else { return }
         if encoded.isKeyframe {
             lock.withLock { awaitsKeyframe = false }
         }
         let consumer = lock.withLock { _onFrame }
-        consumer?(encoded)
+        consumer?(encoded, source)
     }
 
 /// Hands a failure to the session, on whatever thread produced it.

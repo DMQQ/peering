@@ -1,3 +1,4 @@
+import CoreMedia
 import MacCastKit
 import RemoteCore
 import SwiftUI
@@ -96,6 +97,9 @@ extension SessionModel {
     /// display and then refuses to come back.
     func selectSource(_ source: CaptureSource) {
         PictureTrace.write("select \(source.stableID) mosaic=\(source.isMosaic) choices=\(mosaicChoices.count)")
+        // Read before the write below, because it is the answer to "was this end showing an
+        // arrangement a moment ago".
+        let wasArrangement = activeSourceID?.hasPrefix("mosaic:") == true
         activeSourceID = source.stableID
         // Recorded from the source rather than the call site, so no door into this can miss it. See
         // ``MacSession/isAskingForMosaic``.
@@ -104,6 +108,23 @@ extension SessionModel {
         // later is not. See ``MacSession/askedMosaicLayout``.
         if case .mosaic(let layout) = source {
             activeSession?.askedMosaicLayout = layout
+            // **The arrangement this end is asking for is the one on screen, and the picture is
+            // what says so.** Two ways to know it, and both are needed. A config that names this
+            // exact mosaic arrived first, which is the reconnect where the Mac's own cached
+            // description beat the catalogue — the ask is then the missing layout, and no second,
+            // byte-identical config is coming to carry it. Or this end was already showing an
+            // arrangement and is asking for the same one again: the Mac is still streaming what it
+            // was, and it answers an ask it is already capturing with no config at all, so the
+            // picture would stay an arrangement nobody can touch. The canvas settles the second
+            // case, because it is the one thing about a picture the Mac could only have got from
+            // the ask, and the same canvas is the same rectangles. See ``CGSize/matches(_:)``.
+            if activeSession?.picture?.sourceID == source.stableID
+                || (wasArrangement && activeSession?.picture?.pixelSize.matchesCanvas(layout.canvas) == true) {
+                activeSession?.pictureMosaicLayout = layout
+                PictureTrace.write("  arrangement adopted for a picture already on screen")
+            } else {
+                PictureTrace.write("  arrangement asked, picture=\(activeSession?.picture?.sourceID ?? "nil") canvas=\(PictureTrace.short(activeSession?.picture?.pixelSize ?? .zero))")
+            }
         } else {
             activeSession?.askedMosaicLayout = nil
         }
@@ -131,13 +152,6 @@ extension SessionModel {
             mosaicChoices = []
         }
 
-        // **Closed before the ask goes out, not after the answer arrives.** A frame can beat the
-        // config it belongs to (they travel on different connections), and a frame with no config in
-        // front of it is drawn at the *previous* picture's magnification: a window magnified by the
-        // zoom that had filled the screen with a tile of it, for a frame or two, on some taps and
-        // not others. The gate holds what arrives in the meantime and hands it over once the
-        // transform that belongs to it has been written. See ``MacSession/changeGate``.
-        activeSession?.changeGate.hold()
         session?.selectCaptureSource(source)
     }
 
@@ -150,38 +164,6 @@ extension SessionModel {
     /// than it will build. The rectangles come from ``MosaicGrid``.
     func showMosaic(_ sources: [CaptureSource]) {
         showMosaic(sources.map { MosaicChoice(source: $0) })
-    }
-
-    /// The arrangement the user is coming back to, drawn from the frame it had last time.
-    ///
-    /// **Called when the movement into it has landed, and that timing is the whole of it.**
-    /// Leaving an arrangement and returning to it is a stream torn down and a canvas of tiles built
-    /// again on the Mac, measured at about a second and a quarter, and for the whole of it the phone
-    /// would show the window that was tapped inside the tile it just shrank into. The last frame
-    /// this end had of *that* source is a better answer, and it appears exactly where the movement
-    /// has left the window, because it is put up through the same arrival machinery any other
-    /// picture is.
-    ///
-    /// **At the ask instead, and that was wrong.** Asked for at the tap, the canvas was on screen
-    /// while the movement meant to carry the window into its tile was still running, which is an
-    /// arrangement appearing over the animation rather than after it.
-    ///
-    /// Only for an arrangement: a display rebuilds in a moment and a window's own stream is a frame
-    /// away, so neither has a wait worth covering. See ``VideoRenderer/recalledFrame(for:)``.
-    func putUpRecalledPicture() {
-        guard let asked = activeSession?.askedMosaicLayout,
-              activeSession?.isAskingForMosaic == true
-        else { return }
-        let source = CaptureSource.mosaic(asked)
-        guard source.stableID == activeSourceID,
-              let recalled = renderer.recalledFrame(for: source.stableID)
-        else { return }
-        activeSession?.picture = PictureIdentity(
-            sourceID: source.stableID,
-            pixelSize: recalled.pixelSize,
-            contentMovesOnItsOwn: source.contentMovesOnItsOwn
-        )
-        renderer.showRecalledFrame(recalled.sample, pixelSize: recalled.pixelSize)
     }
 
     /// The same, keeping whatever sizes the tiles already had: adding or removing a window is not a reason

@@ -275,14 +275,38 @@ final class MacCastPolicyTests: XCTestCase {
         // No entry behind the source the phone believes it is watching, so nothing can be said
         // about whether it moves on its own, and unknown is read as free to move.
         XCTAssertTrue(PictureIdentity.forStream(
-            config(580, 384), activeSourceID: "window:99", catalog: catalog
+            config(580, 384, sourceID: "window:99"), catalog: catalog
         ).contentMovesOnItsOwn)
 
         // And the display that *is* in the catalogue: a fixed surface, so a new size for it is a
         // different picture rather than a resize.
         XCTAssertFalse(PictureIdentity.forStream(
-            config(3024, 1964), activeSourceID: display.id, catalog: catalog
+            config(3024, 1964, sourceID: display.id), catalog: catalog
         ).contentMovesOnItsOwn)
+    }
+
+    func testTheConfigSourceWinsOverTheMostRecentRequest() {
+        let identity = PictureIdentity.forStream(
+            config(1290, 1212, sourceID: "mosaic:answer"),
+            catalog: nil,
+            source: .mosaic(MosaicLayout(
+                canvas: CGSize(width: 1290, height: 1212), tiles: [], frameRate: 15
+            ))
+        )
+
+        XCTAssertEqual(identity.sourceID, "mosaic:answer")
+    }
+
+    func testACanvasThatCameBackARoundingIsStillTheArrangementThatWasAskedFor() {
+        // The Mac builds a canvas rounded down to even, so an arrangement asked for at an odd size
+        // comes back a pixel narrower. That is the same picture, and its tiles have to stay
+        // clickable; an arrangement of another shape is not, whatever the difference in points.
+        XCTAssertTrue(
+            CGSize(width: 1291, height: 1213).matchesCanvas(CGSize(width: 1290, height: 1212))
+        )
+        XCTAssertFalse(
+            CGSize(width: 1290, height: 1088).matchesCanvas(CGSize(width: 1290, height: 1212))
+        )
     }
 
     /// A picture of a source with a fixed size, which is the default for these tests: a display
@@ -300,8 +324,9 @@ final class MacCastPolicyTests: XCTestCase {
         )
     }
 
-    private func config(_ width: Int, _ height: Int) -> VideoStreamConfig {
+    private func config(_ width: Int, _ height: Int, sourceID: String = "display:1") -> VideoStreamConfig {
         VideoStreamConfig(
+            sourceID: sourceID,
             codec: .h264,
             pixelWidth: width,
             pixelHeight: height,

@@ -3,82 +3,70 @@ import RemoteCore
 import SwiftUI
 import UIKit
 
-/// What a movement of the picture is carrying, and for which picture.
+/// A window's place in an arrangement, for the scrim a hero transition cuts a hole in while a tile
+/// grows out of, or shrinks back into, its canvas.
 ///
-/// **Both directions of the movement carry a window between two rectangles.** Opening a tile
-/// carries the window out of its tile and onto the fit it will have as the whole picture; going
-/// back carries the same window from the fit into the tile it will hold. Either way there is a
-/// part of the *arriving* picture that has a place on screen already, and a part of the picture
-/// being *left* that it is travelling through — which is the whole of what is needed to keep the
-/// picture still when it changes part-way through. See ``MosaicZoom/placing(pixelSize:anchor:at:bounds:scale:)``.
-///
-/// It is kept as fractions of each picture rather than as rectangles on screen because the
-/// rectangles move: the movement is still going when the new stream arrives, and where the window
-/// is *now* is a question that can only be answered at the instant it is asked.
-struct PictureAim: Equatable {
-    /// The picture that is arriving.
-    let sourceID: String
-    /// Whether the movement is lifting a window *out of* an arrangement, as opposed to carrying an
+/// Kept as fractions of each picture rather than as rectangles on screen because the frozen layer's
+/// rectangle moves for the whole of the transition: where the window is *now* is a question that can
+/// only be answered at the instant it is asked, against whichever picture is animating.
+struct HeroCarry: Equatable {
+    /// Whether the transition is lifting a window *out of* an arrangement, as opposed to carrying an
     /// arrangement back around one.
     ///
-    /// **The direction decides whether anything is hidden.** Going out, the picture on screen is
-    /// the arrangement and the window is a piece of it: the rest of it has to be hidden while that
-    /// piece grows, or every other window flies across the screen with it. Coming back, the window
-    /// is the whole picture and there is nothing to hide it among — a scrim there would black out
-    /// the arrangement that is on its way in, which is what a return that flickers is made of.
+    /// **The direction decides whether anything is hidden.** Going out, the frozen snapshot is the
+    /// arrangement and the window is a piece of it: the rest of it has to be hidden while that piece
+    /// grows, or every other window grows across the screen with it. Coming back, the frozen snapshot
+    /// is the window alone — a scrim there would black out the arrangement fading in behind it.
     let carriesOutOfArrangement: Bool
-    /// The part of it the movement is carrying, as a fraction of that picture: all of it for a
-    /// window arriving on its own, and one tile's worth of it for an arrangement coming back.
-    let anchor: NormalizedRect
-    /// Where that part sits inside the picture being left, as a fraction of that one, and that
-    /// picture's size. Together these say where the movement has the window at any instant.
-    let departedAnchor: NormalizedRect
-    let departedSize: CGSize
+    /// Where the window sits inside the frozen snapshot, as a fraction of it, and that snapshot's own
+    /// pixel size.
+    let frozenAnchor: NormalizedRect
+    let frozenSize: CGSize
 }
 
-/// A movement of the picture, in flight.
+/// One picture replacing another: the frozen layer's journey from where the outgoing picture was to
+/// where the arriving one belongs, and the wait for the arriving picture to actually be ready.
 ///
-/// **Kept as values rather than as the task alone.** A movement can be overtaken by the thing it
-/// was for — the Mac builds a stream faster than the journey takes — and the answer cannot be a
-/// second movement: the picture that arrives is put exactly where this one already has it, and
-/// this one's aim is changed to where the picture now belongs, keeping the clock and the starting
-/// values it already had. The curve then goes on being evaluated from where it is, so a picture
-/// crossing the screen does not stop, and set off again, halfway.
-struct PictureGlide {
-    /// Where the movement is going. Changed in place when the picture changes under it.
-    var target: (zoom: CGFloat, pan: CGSize)
-    /// The state the curve is measured from. Re-solved when the aim changes, so that the value the
-    /// curve gives *now* is the state the picture is drawn at now — see ``reaim(_:progress:)``.
-    var startZoom: CGFloat
-    var startPan: CGSize
+/// **Everything here belongs to the frozen layer alone.** The live layer never moves during a
+/// transition — it sits hidden at whatever the arriving picture's own resting transform is, written
+/// once and left alone — which is the whole difference from the mosaic's first design. Nothing here
+/// can flicker, because the one thing that used to flicker (a live video layer scaled while its
+/// content swaps under it, on two different clocks) never happens: the layer doing the animating
+/// never receives a new frame, and the layer receiving frames is never on screen until it is done
+/// receiving them. See ``VideoHostView/stillView``.
+struct PictureTransition {
+    /// Identifies this transition uniquely, so a superseding one can tell an old animation's ticks
+    /// and deadline apart from its own rather than by comparing the values they carry.
+    let token: UUID
+    /// The picture this transition is delivering. It ends only once the live layer is showing this
+    /// exact source, not merely a picture of the same size, which a resize could produce by chance.
+    let targetSourceID: String?
+
+    /// The frozen layer's own zoom and pan, in the same drawn units ``RemoteScreen/effectiveZoom``
+    /// uses, walked from `startZoom/startPan` to `endZoom/endPan`.
+    ///
+    /// Drawn rather than stored: the frozen layer's own picture never changes for the life of one
+    /// transition, so unlike the live layer there is no shifting base to divide back out, and no
+    /// reason to keep the two representations apart.
+    var zoom: CGFloat
+    var pan: CGSize
+    let startZoom: CGFloat
+    let startPan: CGSize
+    let endZoom: CGFloat
+    let endPan: CGSize
     let startedAt: ContinuousClock.Instant
     var task: Task<Void, Never>?
 
-    /// Aims the movement at `target` **through the state the picture is in**, keeping the curve.
-    ///
-    /// The curve is `start + (target − start) × progress`, and the progress it has reached is not
-    /// ours to change — so the *target* is set first and the start is then solved, backwards, for
-    /// the state the picture has to be in right now. Both halves matter, and leaving the target
-    /// alone is what made this worse than not doing it at all: the movement went on towards the
-    /// state it was aimed at *before* the picture changed, which belonged to the arrangement the
-    /// window had just left — so the window was drawn at the arrangement's zoom, kept going to it,
-    /// and nothing afterwards put it back.
-    ///
-    /// With progress near 1 there is nothing left to solve for, and the caller finishes instead.
-    mutating func reaim(
-        to target: (zoom: CGFloat, pan: CGSize),
-        through state: (zoom: CGFloat, pan: CGSize),
-        progress: Double
-    ) {
-        guard progress < 0.995 else { return }
-        self.target = target
-        let remaining = 1 - progress
-        startZoom = (state.zoom - target.zoom * progress) / remaining
-        startPan = CGSize(
-            width: (state.pan.width - target.pan.width * progress) / remaining,
-            height: (state.pan.height - target.pan.height * progress) / remaining
-        )
-    }
+    /// Whether the journey above has reached `endZoom/endPan`. The transition ends only once this is
+    /// true *and* the arriving picture is ready, whichever comes second — see
+    /// ``RemoteScreen/endTransitionIfReady()``.
+    var settled: Bool
+
+    /// The window this transition is carrying, if it is directional. `nil` for a plain cut: a source
+    /// picked from a panel, a lane switch, a rotation's rebuilt canvas, or a picture this screen did
+    /// not see coming and is merely not flickering over.
+    var carry: HeroCarry?
+
 }
 
 /// Touches, mapped through the picture.
@@ -128,12 +116,11 @@ extension RemoteScreen {
                 ))
             },
             onZoom: { factor, centre in
-                // **A hand on the picture takes it from any movement in flight.** A correction
-                // glide is the app putting the picture where it thinks it belongs; a pinch is the
-                // user saying where it belongs, and two writers with different answers is a picture
-                // that fights the fingers. Cancelled here and in the pan below, which are the two
-                // gestures that move the picture.
-                cancelPictureGlide()
+                // **A hand on the picture takes it from any transition in flight.** A hero
+                // transition is the app moving the picture on its own account; a pinch is the user
+                // saying where it belongs, and two writers with different answers is a picture that
+                // fights the fingers. See ``cancelTransition()``.
+                cancelTransition()
                 let before = zoom
                 let after = min(max(zoom * factor, minimumZoom), maximumZoom)
                 // Anchored on the fingers rather than on the middle of the screen, which is the
@@ -158,7 +145,7 @@ extension RemoteScreen {
                 // Pan gestures are clamped when the user explicitly drags the picture instead.
             },
             onPanCanvas: { translation in
-                cancelPictureGlide()
+                cancelTransition()
                 pan = clampedPan(
                     CGSize(width: pan.width + translation.width,
                            height: pan.height + translation.height)
@@ -249,7 +236,6 @@ extension RemoteScreen {
         //
         // A spring rather than the tap's short curve, because this is a thing landing: the give at
         // the end is what says the tile has been put down rather than that the drawing changed.
-        // The veil over the arrangement is on the same value, so it clears over the same movement.
         withAnimation(Motion.settle) {
             heldTile = nil
             targetTile = nil
@@ -263,30 +249,14 @@ extension RemoteScreen {
         }
     }
 
-    /// Opens one tile of the arrangement: the picture scales until that window fills the screen,
-    /// and the Mac is asked for it at the tap.
+    /// Opens one tile of the arrangement: a frozen snapshot of the arrangement grows to fill the
+    /// screen where that window sits, and the Mac is asked for the window at the tap.
     ///
-    /// **The picture moves, and nothing is drawn over it.** This was a black scrim with a hole in
-    /// it that opened out to the whole screen, on the reading that what a tap means is "this one,
-    /// not the others". It could not work, twice over. The hole was a `Path`, and a `Path` has no
-    /// animatable data — so the rectangle it was cut with could only ever jump, and what the user
-    /// saw was the dimming and then a flash. And even animated, the window inside the tile was
-    /// not the thing growing: black closed in around a picture that stayed exactly the size it
-    /// was.
-    ///
-    /// So the zoom is real. Every tile is a fraction of one picture — the canvas the Mac
-    /// composited — which means scaling the picture until the tile's rectangle is the screen *is*
-    /// the window growing to fill it, with the other tiles leaving the edges on their own. That
-    /// is the same sentence said with the picture instead of around it, and it is the only
-    /// version of it that can be said with a live video layer.
-    ///
-    /// The transform is left where the movement put it: the Mac takes a moment to build the new
-    /// stream, and until it does the last canvas frame is what is on screen — at the zoom that was
-    /// asked for, which is what the user is looking at. What ends the movement is the new picture
-    /// arriving, and the two ends of it are the same rectangle, so nothing moves when it does: the
-    /// window is drawn at the fit the moment its own stream is the picture. See
-    /// ``MosaicZoom`` for why that is true by construction rather than by luck, and ``resetPicture()``
-    /// for the reset that expresses it.
+    /// **The ask goes out at the tap, and the hero transition is only ever how it is shown.**
+    /// What is being shown and how it is shown are two decisions: the ask is not deferred to the
+    /// end of a movement, so an interrupted transition is never a tap that did nothing. It also
+    /// costs the Mac the length of the animation before it starts building the stream, which is
+    /// time the two can spend at once.
     func openMosaicTile(_ index: Int, in layout: MosaicLayout) {
         guard layout.tiles.indices.contains(index) else { return }
 
@@ -295,7 +265,7 @@ extension RemoteScreen {
         // arrangement was up is the ordinary way that happens — and there is nothing behind it to
         // open. Tapping it used to send the ask anyway, and the Mac, whose catalogue is the
         // authority on this, refuses to capture a window that is not there: no picture ever
-        // arrives, so the movement that had already run left the arrangement magnified with
+        // arrives, so the transition that had already run left the arrangement magnified with
         // nothing selected and no answer coming to put it back. Saying nothing is the whole of
         // what this can do about it, and it is the honest answer for a tile that is a card.
         guard model.catalog?.descriptor(for: layout.tiles[index].source) != nil else { return }
@@ -307,46 +277,40 @@ extension RemoteScreen {
         let sourceID = layout.tiles[index].source.stableID
         guard !model.sourcesThatOpenedNothing.contains(sourceID) else { return }
 
-        cancelPictureGlide()
-
-        // **What the movement is carrying, recorded before it starts.** The window, whole, is
-        // arriving; inside the arrangement it is leaving, it is the piece of one tile that the
-        // movement is lifting out — and the two together are what keeps the picture still if the
-        // Mac's stream arrives before the movement has finished, and what says which part of the
-        // picture is the one thing the user should be watching. See ``pictureAim``.
-        pictureAim = windowAnchor(in: layout, sourceID: sourceID).map {
-            PictureAim(
-                sourceID: sourceID,
-                carriesOutOfArrangement: true,
-                anchor: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                departedAnchor: $0,
-                departedSize: layout.canvas
-            )
-        }
-
-        // **The ask goes out at the tap, and the movement is only ever how it is shown.** Deferring
-        // the ask to the end of the movement — which the closure this used to be handed did —
-        // makes the switch depend on the movement finishing, and the movement is cancelled by
-        // anything that interrupts it: a pinch, a drag, another tap, or the very config that
-        // answers it. Every one of those was a tap that zoomed the arrangement in and then did
-        // nothing at all, with the picture left magnified over an arrangement it had not left.
-        //
-        // It also costs the Mac the length of the movement before it starts building the stream,
-        // which is time the two can spend at once: the movement describes where the window is
-        // going, so a stream that arrives part-way through is drawn at the rectangle it already
-        // occupies. See ``MosaicZoom``.
-        model.focusMosaicTile(layout.tiles[index].source)
-
-        guard let target = tileOpeningTransform(index, in: layout) else {
-            // No transform to travel with — a tile the arrangement cannot place, which is a
-            // window the catalogue has no size for. The switch is already on its way; only the
-            // movement is skipped, and with it any promise about where the picture would land.
-            // See ``MosaicZoom/opening(layout:index:sourceSize:bounds:effectiveZoom:pan:scale:)``.
-            pictureAim = nil
+        guard let anchor = windowAnchor(in: layout, sourceID: sourceID),
+              let target = tileOpeningTransform(index, in: layout)
+        else {
+            // No rectangle to travel with — a tile the arrangement cannot place, which is a window
+            // the catalogue has no size for. The switch still happens; only the animation is
+            // skipped, and with it any promise about where the picture would land.
+            model.focusMosaicTile(layout.tiles[index].source)
             return
         }
 
-        glidePicture(to: target)
+        PictureTrace.write("""
+            open tap index=\(index) source=\(sourceID) framesBelongTo=\(model.renderer.framesBelongTo ?? "nil") \
+            activeSourceID=\(model.activeSourceID ?? "nil") canvas=\(PictureTrace.short(layout.canvas)) \
+            anchor=x\(String(format: "%.3f", anchor.x)),y\(String(format: "%.3f", anchor.y)) \
+            \(String(format: "%.3f", anchor.width))x\(String(format: "%.3f", anchor.height)) \
+            target_zoom=\(String(format: "%.3f", target.zoom)) target_pan=\(String(format: "%.1f,%.1f", target.pan.width, target.pan.height))
+            """)
+
+        beginHeroTransition(
+            to: sourceID,
+            target: target,
+            carry: HeroCarry(
+                carriesOutOfArrangement: true,
+                frozenAnchor: anchor,
+                frozenSize: layout.canvas
+            )
+        )
+        // **The arrangement as it looks this instant, kept for the way back.** The Mac tears the
+        // canvas down to build this window's stream and builds it again when the user returns,
+        // measured at about a second and a quarter, and the picture frozen a moment ago is the
+        // only thing that can stand in for it. See ``VideoRenderer/mosaicSnapshot``.
+        model.renderer.rememberMosaicSnapshot()
+
+        model.focusMosaicTile(layout.tiles[index].source)
         watchTileOpening(sourceID)
     }
 
@@ -357,14 +321,9 @@ extension RemoteScreen {
     /// place it, whether it has already opened nothing once. A window the Mac cannot capture is
     /// not knowable, so the only way to find out is to ask and wait.
     ///
-    /// Waiting is the whole of it. The movement has already carried the picture in by the time the
-    /// answer would have arrived, so a tap that opens nothing leaves the arrangement magnified
-    /// with no answer coming and no way back but a pinch the user did not ask to perform. What
-    /// this does is the way back, and the record that stops it happening twice.
-    ///
     /// A second and a fifth, which is several times the Mac's own build of a stream measured from
-    /// a parked arrangement. Wrong in the other direction costs a movement back to an arrangement
-    /// the user is about to be pulled out of anyway.
+    /// a parked arrangement. Wrong in the other direction costs a transition back to an
+    /// arrangement the user is about to be pulled out of anyway.
     private func watchTileOpening(_ sourceID: String) {
         model.tileOpeningWatch?.cancel()
         model.tileOpeningWatch = Task { @MainActor in
@@ -380,232 +339,265 @@ extension RemoteScreen {
         }
     }
 
-    /// Goes back to the whole arrangement, the window shrinking into the tile it will occupy.
+    /// Goes back to the whole arrangement: a frozen snapshot of the window shrinks into the tile
+    /// it will occupy, while the Mac tears the window's stream down and builds the canvas again.
     ///
     /// **The way out of an arrangement is the way in, backwards**, and it is not a nicety: a
-    /// movement that describes what a tap did and then nothing on the way back says the app has
+    /// transition that describes what a tap did and then nothing on the way back says the app has
     /// two different ideas of what the two states are. The window shrinks to exactly the place it
     /// held in the canvas, which is also the place it is about to hold again, so the arrangement
-    /// arrives around it rather than replacing it. See ``mosaicReturnTransform()``.
+    /// arrives around it rather than replacing it.
     ///
-    /// **The ask goes out at the tap**, like a tile opening, and for the same reason: what is
-    /// being shown is the user's decision and the movement is only how it is shown, so an
-    /// interrupted movement must not be a tap that did nothing. It is also the entire wait — the
-    /// Mac tears down one stream and builds six, and it is doing that while the window is still
-    /// shrinking into its tile.
+    /// **The ask goes out at the tap**, like a tile opening, and for the same reason.
     func animateBackToMosaic() {
-        cancelPictureGlide()
         // **Whatever was waiting for a tile to open is over**, whoever decided that: the user has
         // asked for the arrangement, so a wait that outlived the ask would be this screen arguing
         // with them. See ``watchTileOpening(_:)``.
         model.tileOpeningWatch?.cancel()
 
-        // **The same thing carried, the other way round.** The window is what the movement has
-        // hold of, and the arrangement that is coming is where it belongs — so the piece of the
-        // arriving canvas that has to stay still is the tile this window will hold, and the piece
-        // of the picture being left is the window itself, whole. See ``pictureAim``.
         let sourceID = model.activeSourceID
-        let departedSize = model.capturePixelSize ?? .zero
-        pictureAim = {
-            guard let sourceID, let layout = model.mosaicLayout,
-                  let anchor = windowAnchor(in: layout, sourceID: sourceID)
-            else { return nil }
-            return PictureAim(
-                sourceID: CaptureSource.mosaic(layout).stableID,
-                carriesOutOfArrangement: false,
-                anchor: anchor,
-                departedAnchor: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                departedSize: departedSize
-            )
-        }()
-
-        // Worked out before the ask, because the ask rewrites ``SessionModel/activeSourceID``.
-        let target = mosaicReturnTransform(sourceID: sourceID ?? "")
-
-        // The ask, for the reason ``openMosaicTile(_:in:)`` gives: the arrangement is what the
-        // user asked for, and a movement that is interrupted must not take the ask with it. Here
-        // it also buys the whole of the wait: the Mac tears down one stream and builds the canvas,
-        // and it is doing that while the window is still shrinking into its tile.
-        model.returnToMosaic()
-
-        guard let target else {
+        guard let sourceID, let layout = model.mosaicLayout,
+              let anchor = windowAnchor(in: layout, sourceID: sourceID),
+              let target = mosaicReturnTransform(sourceID: sourceID)
+        else {
             // Nothing to travel to — the picture is not one of an arrangement's tiles. The switch
-            // is already on its way; only the movement is skipped, and with it any promise about
-            // where the picture would land.
-            pictureAim = nil
+            // still happens; only the animation is skipped.
+            model.returnToMosaic()
             return
         }
 
-        glidePicture(to: target)
+        beginHeroTransition(
+            to: CaptureSource.mosaic(layout).stableID,
+            target: target,
+            carry: HeroCarry(
+                carriesOutOfArrangement: false,
+                frozenAnchor: anchor,
+                frozenSize: model.capturePixelSize ?? .zero
+            )
+        )
+
+        model.returnToMosaic()
     }
 
-    /// Walks the picture from where it is to `target`.
+    /// Starts a hero transition: freezes the picture on screen, and walks that frozen snapshot from
+    /// where it is to `target` while the live layer, hidden, waits for the picture it describes.
     ///
-    /// **The one animation in this app that drives the picture rather than a drawing over it.**
-    /// The zoom and the pan reach the screen as a layer transform on a `UIView`, written frame by
-    /// frame, so there is no SwiftUI value in an animation of them for `withAnimation` to
-    /// interpolate — the curve is evaluated a step at a time instead, from the same two numbers
-    /// the animation system is given. See ``Motion/settleProgress(at:)``.
+    /// **The one animation in this app that moves a picture rather than the whole live layer.** The
+    /// frozen layer's own content never changes for the life of this transition, so unlike the
+    /// mosaic's first design there is nothing here for a decoder to race: the zoom and the pan are
+    /// walked on a plain per-frame timer, same as any other view state, because nothing downstream
+    /// of them is fighting a second writer on a different clock.
     ///
-    /// **Nothing is carried out when it lands, and that is deliberate.** The movement used to own
-    /// the source switch: it ran the switch only if it got there, so a movement that was
-    /// interrupted — by a pinch, by a drag, by the config answering it — was a tap that did
-    /// nothing but leave the picture magnified. What is being shown and how it is shown are two
-    /// decisions now, and the caller makes the first one before it starts the second.
-    ///
-    /// **Everything the loop reads is read from ``pictureGlide`` every step**, which is what lets
-    /// a movement be re-aimed while it runs instead of being cancelled and restarted. See
-    /// ``PictureGlide``.
+    /// `target` is a *stored* zoom — a multiple of the current picture's own base, in the terms
+    /// ``MosaicZoom/opening(layout:index:sourceSize:bounds:effectiveZoom:pan:scale:)`` and
+    /// ``MosaicZoom/returning(layout:sourceID:sourceSize:bounds:effectiveZoom:pan:scale:)`` return it
+    /// — because both are normalized against the picture on screen *now*, which is exactly the
+    /// picture the frozen layer is a snapshot of and whose base does not change for the whole of the
+    /// transition. Converted to a drawn scale once, here, rather than carried as a stored value the
+    /// way the live layer's ``zoom`` is: the frozen layer has no shifting base to divide back out.
     @discardableResult
-    func glidePicture(to target: (zoom: CGFloat, pan: CGSize)) -> Task<Void, Never> {
-        lockedPixelSize = model.capturePixelSize ?? .zero
-        PictureTrace.write("""
-            glide start zoom=\(String(format: "%.3f", zoom)) \
-            pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-            target=\(String(format: "%.3f", target.zoom)) \
-            locked=\(PictureTrace.short(lockedPixelSize)) \
-            picture=\(PictureTrace.short(model.capturePixelSize))
-            """)
-        let glide = PictureGlide(
-            target: target,
-            startZoom: zoom,
-            startPan: pan,
-            startedAt: ContinuousClock().now,
-            task: nil
-        )
+    func beginHeroTransition(
+        to sourceID: String?,
+        target: (zoom: CGFloat, pan: CGSize),
+        carry: HeroCarry
+    ) -> Task<Void, Never> {
+        // **Nothing to animate over means no animation.** A freeze is the frame the live layer is
+        // showing at this instant, so it cannot be the wrong tile or the wrong shape — but a layer
+        // that has displayed nothing yet has nothing to give, and switching plainly is the honest
+        // answer for a picture no one has seen.
+        guard model.renderer.freezeCurrentFrame() else {
+            return Task {}
+        }
+
+        let base = pictureBaseScale
+        let start = (zoom: effectiveZoom, pan: pan)
+        let end = (zoom: base * target.zoom, pan: target.pan)
+
+        // The live layer's own resting state for whatever arrives. Safe to write immediately: it
+        // is hidden behind the frozen layer for the whole of the transition, so nothing sees it
+        // change.
+        zoom = 1
+        pan = .zero
+
+        return startTransition(to: sourceID, from: start, to: end, carry: carry)
+    }
+
+    /// Freezes the picture in place with nothing to animate: a source picked from a panel, a lane
+    /// switch, a rotation's rebuilt canvas, or a picture that arrived without this screen having
+    /// asked for anything in particular. The frozen snapshot does not move; only the cross-fade to
+    /// the arriving picture, once it is ready, is seen.
+    private func beginPlainTransition(to sourceID: String?, resetZoom: Bool) {
+        // The same rule as a hero: no frozen picture, no transition. A cross-fade from an image
+        // nobody froze would put an older picture on screen for the whole of it.
+        guard model.renderer.freezeCurrentFrame() else { return }
+        let current = (zoom: effectiveZoom, pan: pan)
+        if resetZoom {
+            zoom = 1
+            pan = .zero
+        }
+        startTransition(to: sourceID, from: current, to: current, carry: nil)
+    }
+
+    @discardableResult
+    private func startTransition(
+        to sourceID: String?,
+        from start: (zoom: CGFloat, pan: CGSize),
+        to end: (zoom: CGFloat, pan: CGSize),
+        carry: HeroCarry?
+    ) -> Task<Void, Never> {
+        transition?.task?.cancel()
+
+        let startedAt = ContinuousClock().now
+        let alreadySettled = start.zoom == end.zoom && start.pan == end.pan
+        let token = UUID()
+        // Fixed rather than the default: the `PictureTransition` below and every reader of
+        // `transition?.token` after it have to agree on the same value, and generating a second
+        // one there would make ``endTransitionIfReady()``'s comparisons meaningless.
+
         let task = Task { @MainActor in
+            guard !alreadySettled else { return }
             let clock = ContinuousClock()
             while true {
-                guard let glide = pictureGlide else { return }
-                let seconds = (clock.now - glide.startedAt) / .seconds(1)
+                guard var current = transition, current.token == token else { return }
+                let seconds = (clock.now - startedAt) / .seconds(1)
                 let progress = Motion.settleProgress(at: seconds, response: Motion.pictureResponse)
-                // **Written only where it changes.** A movement can be aimed at the state it is
-                // already in — a correction that has nothing to correct, the tail of a movement
-                // that has finished travelling — and a write of the value a `@State` already holds
-                // is still a write: the whole screen is rebuilt, sixty times a second, to draw
-                // exactly what it drew before. See ``RemoteScreen/pictureAim`` for the one that
-                // holds a hole open after the picture has arrived.
-                let next = (
-                    zoom: glide.startZoom + (glide.target.zoom - glide.startZoom) * progress,
-                    pan: CGSize(
-                        width: glide.startPan.width + (glide.target.pan.width - glide.startPan.width) * progress,
-                        height: glide.startPan.height + (glide.target.pan.height - glide.startPan.height) * progress
-                    )
+                if seconds >= Motion.pictureResponse * 1.6 {
+                    current.zoom = end.zoom
+                    current.pan = end.pan
+                    current.settled = true
+                    // **The arrangement as it looked when the user left it, put up the moment
+                    // there is a place for it to sit still in.** Only for a return, and the picture
+                    // and the transform go together: the transform the movement has just finished
+                    // on belongs to the window, and the arrangement drawn at it lands as a canvas
+                    // shrunk into one tile. The window's own tile is where the window has just been
+                    // put either way, so nothing moves but the tiles that appear around it. See
+                    // ``VideoRenderer/mosaicSnapshot``.
+                    if current.carry?.carriesOutOfArrangement == false,
+                       let arrangement = model.renderer.mosaicSnapshot {
+                        model.renderer.hold(arrangement)
+                        let canvas = CGSize(
+                            width: CGFloat(arrangement.width),
+                            height: CGFloat(arrangement.height)
+                        )
+                        current.zoom = pictureScale.base(pixelSize: canvas, in: canvasSize)
+                        current.pan = .zero
+                    }
+                    transition = current
+                    PictureTrace.write("""
+                        settled target=\(current.targetSourceID ?? "nil") \
+                        framesBelongTo=\(model.renderer.framesBelongTo ?? "nil") \
+                        picture=\(model.picture?.sourceID ?? "nil") \
+                        ready=\(model.isReadyToPlace(of: model.capturePixelSize ?? .zero))
+                        """)
+                    endTransitionIfReady()
+                    return
+                }
+                current.zoom = start.zoom + (end.zoom - start.zoom) * progress
+                current.pan = CGSize(
+                    width: start.pan.width + (end.pan.width - start.pan.width) * progress,
+                    height: start.pan.height + (end.pan.height - start.pan.height) * progress
                 )
-                if zoom != next.zoom { zoom = next.zoom }
-                if pan != next.pan { pan = next.pan }
-                PictureTrace.write("""
-                    glide step zoom=\(String(format: "%.3f", zoom)) \
-                    pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-                    t=\(String(format: "%.2f", seconds))
-                    """)
-                // A little over one and a half times the spring's response, by which point it is
-                // within a ten-thousandth of where it is going — a twentieth of a point of
-                // travel. Waiting out the rest of it would be holding the user on a frozen canvas
-                // to watch the last pixel arrive.
-                if seconds >= Motion.pictureResponse * 1.6 { break }
-                // **Once per frame the screen can show, not more often.** Each step writes two
-                // pieces of view state, and every write re-evaluates this whole screen — the
-                // picture, the borders, the chrome — so a rate above the display's is work the
-                // user cannot see done twice over, on the main thread, in the middle of the one
-                // thing that has to stay smooth. The curve is read from the clock rather than
-                // accumulated, so a late step shows the right place rather than drifting.
+                transition = current
                 try? await Task.sleep(for: .milliseconds(16))
                 guard !Task.isCancelled else { return }
             }
-            // Landed exactly, rather than wherever the last step happened to fall: the margin
-            // above is invisible, and a picture left a fraction of a point from where it was
-            // aimed would be a transform the next reset is measured against.
-            guard let glide = pictureGlide else { return }
-            if zoom != glide.target.zoom { zoom = glide.target.zoom }
-            if pan != glide.target.pan { pan = glide.target.pan }
-            PictureTrace.write("""
-                glide landed zoom=\(String(format: "%.3f", zoom)) \
-                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height))
-                """)
-            pictureGlide = nil
-            // **The arrival is asked again, now that the movement has stopped moving.** Its wait is
-            // for the picture on the layer, and the event it is normally woken by is the frame
-            // *arriving* — which, since the renderer began holding a whole config, is the moment
-            // the frame is taken rather than the moment it is shown. Without this the arrival would
-            // sit until its 1.5 second deadline. See ``RemoteScreen/settleArrival(force:)``.
-            //
-            // **And the arrangement the user was coming back to, if this movement was the way back
-            // into one.** Put up here rather than at the ask, so it lands into the tile the window
-            // has just shrunk into instead of over the top of that movement. See
-            // ``SessionModel/putUpRecalledPicture()``.
-            model.putUpRecalledPicture()
-            // **The held frame is not released from here, and that is the last of the flicker.**
-            // The zoom written above is the *departing* picture's aim; the line below re-solves it
-            // for the arriving one. Handed over between the two, the arriving picture's first
-            // frames are drawn at the departing picture's transform — traced, a window whose
-            // stream had arrived drawn at the canvas's `drawn=2.0111 pan=-216,121` and then at its
-            // own `drawn=1.0 pan=0,0` six milliseconds later. Only an update pass can write the
-            // transform and hand the frame over in one commit, so it is the pass that does it.
-            // See ``RemoteScreen/pictureIsPlaced``.
-            settleArrival()
         }
-        pictureGlide = PictureGlide(
-            target: glide.target,
-            startZoom: glide.startZoom,
-            startPan: glide.startPan,
-            startedAt: glide.startedAt,
-            task: task
+
+        transition = PictureTransition(
+            token: token,
+            targetSourceID: sourceID,
+            zoom: start.zoom, pan: start.pan,
+            startZoom: start.zoom, startPan: start.pan,
+            endZoom: end.zoom, endPan: end.pan,
+            startedAt: startedAt, task: task,
+            settled: alreadySettled,
+            carry: carry
         )
+
+        armTransitionDeadline(token: token)
+        if alreadySettled { endTransitionIfReady() }
         return task
     }
 
-    /// Stops the movement in flight, if there is one. The state stays where the picture is.
+    /// Bounds the wait for a picture this end has already started showing a transition for.
     ///
-    /// **The promise goes with it.** What a movement is carrying is only true while it is running —
-    /// a pinch that takes the picture over, or a tap on another tile, is a movement that will never
-    /// arrive — and a promise left standing is a picture clipped to a rectangle nothing is
-    /// travelling towards. Callers that mean to start a movement set a new one straight after.
-    func cancelPictureGlide() {
-        // Only when there was something to give up: this is called on every sample of a pinch, and
-        // a line per sample is a file that has lost the thing it was written to hold.
-        if pictureGlide != nil || pictureAim != nil {
-            PictureTrace.write("""
-                glide cancelled glide=\(pictureGlide != nil) aim=\(pictureAim?.sourceID ?? "nil") \
-                zoom=\(String(format: "%.3f", zoom)) pan=\(String(format: "%.1f,%.1f", pan.width, pan.height))
-                """)
+    /// A transition that never ends leaves the picture frozen for good: the config it is waiting
+    /// for can be lost to a network hiccup, or belong to a tile that never opens (though
+    /// ``watchTileOpening(_:)`` already answers that one specifically, faster, by putting the
+    /// arrangement back). This is the backstop for everything else — past the deadline, the live
+    /// layer is shown wherever it currently is rather than left hidden behind a stale snapshot.
+    private func armTransitionDeadline(token: UUID) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            guard transition?.token == token else { return }
+            transition = nil
         }
-        pictureGlide?.task?.cancel()
-        pictureGlide = nil
-        pictureAim = nil
-        placedPictureID = nil
-        // **The frame is not released from here, and that is deliberate.** It used to be, for the
-        // reason that a takeover never reaches ``RemoteScreen/settleArrival(force:)`` — and it is
-        // the one release in this app that is not the update pass. The pass writes the transform and
-        // hands the frame over in one commit; a release from a gesture callback commits on its own,
-        // so a frame that is let go here can be drawn once at the *departing* picture's scale before
-        // the transform it belongs to arrives. That is a flicker, and it is only ever a race, which
-        // is why it is seen sometimes rather than always.
-        //
-        // Nothing needs it: every line above writes state, so a pass follows, and `pictureIsPlaced`
-        // is true in that pass because the glide it was waiting on has just gone. The other end of
-        // the wait — a screen that never asks at all — is bounded in the renderer.
-        // A movement the user has taken over drops the arrival it was waiting for: applying it
-        // afterwards would write the zoom and pan of the picture they have just left. See
-        // ``settleArrival()``.
-        pendingArrival = nil
-        arrivalDeadline?.cancel()
-        arrivalDeadline = nil
     }
 
-    /// Gives up whatever movement or rearrangement was in flight.
+    /// Ends the current transition once its animation has settled *and* the picture it is for has
+    /// actually reached the live layer — whichever of the two becomes true second. Called from every
+    /// place either half of that can change: the animation's own completion, a frame reaching the
+    /// live layer, and the picture identity changing.
+    func endTransitionIfReady() {
+        guard let transition, transition.settled,
+              model.picture?.sourceID == transition.targetSourceID,
+              model.isReadyToPlace(of: model.capturePixelSize ?? .zero)
+        else { return }
+        self.transition = nil
+    }
+
+    /// Called when a picture arrives that this screen did not already arrange a transition for: a
+    /// panel pick, a lane switch, a rotation's rebuilt canvas, or the Mac answering with something
+    /// this end never asked for.
+    ///
+    /// Nothing for a picture a hero transition already targets — ``openMosaicTile(_:in:)`` and
+    /// ``animateBackToMosaic()`` have already frozen the right snapshot and are animating it; this
+    /// would only interrupt that with a second, motionless freeze of whatever is on screen at the
+    /// moment the config happens to land.
+    func reactToPictureChange(from previous: PictureIdentity, to current: PictureIdentity) {
+        switch previous.change(to: current) {
+        case .unchanged:
+            return
+        case .resized:
+            // The magnification is kept, because it is a multiple of the fit, and a lane switch
+            // has nothing to do with what the user was looking at. The offset is measured in
+            // points of a canvas whose picture has just changed shape, so left alone it can sit
+            // outside the range the new picture allows.
+            pan = clampedPan(pan)
+            guard transition?.targetSourceID != current.sourceID else {
+                endTransitionIfReady()
+                return
+            }
+            beginPlainTransition(to: current.sourceID, resetZoom: false)
+        case .replaced:
+            guard transition?.targetSourceID != current.sourceID else {
+                endTransitionIfReady()
+                return
+            }
+            beginPlainTransition(to: current.sourceID, resetZoom: true)
+        }
+    }
+
+    /// Gives up the transition in flight, if there is one. The live layer is left wherever its
+    /// resting transform currently is, and is revealed at once.
+    ///
+    /// Called when the user's own gesture takes the picture over — see ``gestures`` — and when the
+    /// session leaves `.ready`. A transition mid-flight has no promise worth keeping past either:
+    /// the frozen snapshot it was animating belongs to a moment that has already passed.
+    func cancelTransition() {
+        guard let transition else { return }
+        transition.task?.cancel()
+        self.transition = nil
+    }
+
+    /// Gives up whatever transition or rearrangement was in flight.
     ///
     /// **Called when the connection leaves `.ready`, because none of it survives the connection it
     /// was measuring.** This view is kept across a drop on purpose — the picture stays up, and the
     /// zoom and the open panel with it — but the transit state does not belong to the picture that
-    /// comes back. What it costs is not only a stale animation: ``PictureAim`` is a promise that a
-    /// window is being carried out of an arrangement, that promise is deliberately kept after the
-    /// window arrives, and a promise left standing across a suspend hides the tile borders and
-    /// swallows every tap that lands where a tile would have been. The arrangement comes back and
-    /// nothing in it can be pressed, which is what "it didn't remember it had a mosaic" looks like
-    /// from the outside. See ``shownMosaicLayout``.
+    /// comes back.
     func abandonPictureTransit() {
-        cancelPictureGlide()
+        cancelTransition()
         heldTile = nil
         targetTile = nil
         heldPoint = nil

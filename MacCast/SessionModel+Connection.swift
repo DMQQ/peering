@@ -327,10 +327,32 @@ extension SessionModel {
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             isResuming = true
             connect(to: .discovered(host))
-        } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            isResuming = true
-            connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+            return
         }
+
+        guard let hostID, allowsRelay, pins.hostIDs.contains(hostID) else { return }
+
+        // **The same grace ``enteringForeground()`` gives a background return, given here to a cold
+        // launch too.** This runs on the first call this process makes to `resumeIfNeeded()`, which
+        // is driven by `HostBrowser`'s *own* first report — often within milliseconds of
+        // `startBrowsing()`, before a browser that has barely started has heard from Bonjour at all.
+        // Dialling the relay right there is what sent a phone straight past a Mac on its own LAN on
+        // every cold launch: the relay usually answers before that first sweep finishes, the session
+        // gets its picture, and the LAN hand-over in `apply(_:)` above never has a reason to fire —
+        // its guard is `!hasHadPicture`, and a relay session that has already sent a frame has one.
+        let elapsedMilliseconds = Date().timeIntervalSince(launchedAt) * 1000
+        guard elapsedMilliseconds >= Double(Self.localMacGrace) else {
+            Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(
+                    Self.localMacGrace - Int(elapsedMilliseconds)
+                ))
+                self?.resumeIfNeeded()
+            }
+            return
+        }
+
+        isResuming = true
+        connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
     }
 
     /// Opens a Mac that is already paired, beside the ones already open.

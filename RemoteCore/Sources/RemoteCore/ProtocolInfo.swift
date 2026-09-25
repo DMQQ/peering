@@ -52,12 +52,13 @@ public enum ProtocolInfo {
     /// carries the APNs device token, and its absence of a decoder is fatal rather than quiet: it is
     /// sent on every session becoming ready, so a host that does not know the case ends the session
     /// tens of milliseconds after it opens, and the phone redials into the same wall.
+    /// 18: `VideoStreamConfig` names the capture source its frames belong to. Without it, two
+    /// sources with the same encoded format are indistinguishable and a reconnect can show a mosaic
+    /// that the phone cannot recognise or interact with.
     ///
-    /// Not 18, and the mosaic is why: `CaptureSource` gains a case an older host cannot decode, but it
-    /// is only ever sent by the client, so a Mac that has not said it can take one never receives one
-    /// and nothing already on the wire changes shape. That entry is in
-    /// ``ServerHello/supportsMosaic`` instead, on the `supportsVideoPause` pattern.
-    public static let version: UInt16 = 17
+    /// The mosaic feature itself did not consume a protocol version: `CaptureSource` gained a case an
+    /// older host cannot decode, but it is only sent after that host advertises `supportsMosaic`.
+    public static let version: UInt16 = 18
 
     /// The largest payload a control-channel message may carry.
     ///

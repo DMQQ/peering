@@ -88,6 +88,10 @@ extension MacSession {
                 // learns where to reach this device, and whether it may is the plan's answer,
                 // which the model owns. See ``SessionModel/sendPushToken()``.
                 model.sendPushToken()
+                // Every arrival at `.ready`, a reconnect as much as a first connection: the Mac on
+                // the other end of this wire has no memory of the one before it. See
+                // ``pendingSourceReassertion``.
+                pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
                 videoStatus = "Stopped: \(message)"
@@ -290,6 +294,11 @@ extension MacSession {
             // can learn that one of the arrangement's windows is not there any more. What it does
             // about it is not immediate: see ``scheduleMosaicGapCheck()`` for why the grace exists.
             if !mosaicChoices.isEmpty { model.scheduleMosaicGapCheck() }
+            // **Consumed here, the first catalogue this connection receives.** Reading it before the
+            // branch below decides which of the two this is: a session with nothing chosen yet, or
+            // one repeating a choice the Mac has forgotten. See ``pendingSourceReassertion``.
+            let reasserting = pendingSourceReassertion
+            pendingSourceReassertion = false
             if activeSourceID == nil {
                 // **An arrangement the user left behind comes back before the default does**, and
                 // the decision has to be made here rather than after: the fallback below picks the
@@ -322,6 +331,37 @@ extension MacSession {
                     model.selectSource(source)
                 } else if let first = catalog.displays.first ?? catalog.all.first {
                     activeSourceID = first.id
+                }
+            } else if reasserting {
+                // **A reconnect, and this end already knows what it wants.** Told again rather than
+                // left to the Mac's own guess: the fresh capture pipeline behind this wire has no
+                // memory of `activeSourceID`, only the client does, and the Mac's default arrives on
+                // its own clock whether or not this end is still showing something. See
+                // ``pendingSourceReassertion``.
+                //
+                // **Read from `activeSourceID` against the arrangement, not from `isAskingForMosaic`.**
+                // This session object is new — built to replace the one the drop ended — and only
+                // `activeSourceID` and `mosaicChoices` were carried onto it (see
+                // ``SessionModel/connect(to:replacing:)``); `isAskingForMosaic` and
+                // `askedMosaicLayout` are written as a side effect of asking, which is what this is
+                // about to do. Whether the picture *was* the arrangement itself, rather than one of
+                // its tiles, is the one thing only `activeSourceID` can still say.
+                //
+                // **By prefix, not by recomputing the layout and comparing its hash.** A mosaic's
+                // `stableID` is hashed from its exact canvas size, which is itself derived from the
+                // catalogue's reported window sizes — and a catalogue re-enumerated after a reconnect
+                // reports them in whatever order and precision this pass happened to see, which is
+                // not guaranteed to be byte-identical to the one before the drop. A hash compared
+                // against a *different* hash of the same arrangement never matches, and this
+                // reassertion silently did nothing: the picture stayed the last frame from before the
+                // drop, with nothing behind it asking the Mac to keep sending it. The prefix is the
+                // one part of the id that does not move. See ``CaptureSource/stableID``.
+                if !mosaicChoices.isEmpty, activeSourceID?.hasPrefix("mosaic:") == true,
+                   model.storeManager.access.includes(.mosaic) {
+                    model.showMosaic(mosaicChoices, remembering: false)
+                } else if let activeSourceID,
+                          let descriptor = catalog.all.first(where: { $0.id == activeSourceID }) {
+                    model.selectSource(descriptor.source)
                 }
             }
         case .video(let event):
@@ -477,9 +517,9 @@ extension MacSession {
             // decide. It is a value, so a config that describes the stream it already described
             // (a change of lane, a re-attach) leaves it equal and costs nothing.
             picture = pictureIdentity(of: config)
-            // Which source the frames arriving now belong to, told because a frame is a picture with
-            // no name on it. See ``VideoRenderer/framesBelongTo``.
-            renderer.framesBelongTo = picture?.sourceID
+            // The renderer receives the source identity atomically with the config on its own
+            // serial queue. Setting it here used to race the first frame and could remember that
+            // frame under the source the stream had already left.
             // **And the arrangement the picture is of, recorded here for the same reason.** A
             // config is the Mac answering the ask — the mosaic it built, or the single source it
             // switched back to — so it is the moment the picture and this end's idea of it agree
@@ -514,9 +554,10 @@ extension MacSession {
             // version of this that read it recorded arrangements the Mac had never built. The ask
             // that was sent is what the Mac built, so that is what is matched against the canvas
             // the config states. See ``MacSession/askedMosaicLayout``.
-            if let asked = askedMosaicLayout, asked.canvas.matches(config) {
+            if let asked = askedMosaicLayout,
+               CaptureSource.mosaic(asked).stableID == config.sourceID {
                 pictureMosaicLayout = asked
-            } else if !isAskingForMosaic {
+            } else if !config.sourceID.hasPrefix("mosaic:") {
                 pictureMosaicLayout = nil
             }
             // Anything else leaves the record alone: the ask has moved on and the picture is still
@@ -600,18 +641,3 @@ extension MacSession {
     }
 }
 
-extension CGSize {
-    /// Whether this is the canvas a video config describes.
-    ///
-    /// **The canvas is what says which arrangement a picture is**, because it is the one thing
-    /// about it the Mac could not have got from anywhere but the ask. See the note at the call
-    /// site in ``MacSession/apply(video:)``.
-    ///
-    /// **Within two points, because the Mac rounds to even.** A `420v` surface is two planes and
-    /// the chroma plane is half the size, so the encoder rounds the canvas it was built for, and an
-    /// odd one would otherwise never match the picture built from it. Two points is nothing beside
-    /// the difference this is asked about, which is arrangements of different shapes.
-    func matches(_ config: VideoStreamConfig) -> Bool {
-        abs(width - CGFloat(config.pixelWidth)) < 2 && abs(height - CGFloat(config.pixelHeight)) < 2
-    }
-}

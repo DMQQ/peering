@@ -16,7 +16,10 @@ struct DeferredVideoKeyframeTests {
     }
 
     private func config(width: Int = 100) -> VideoStreamConfig {
-        VideoStreamConfig(codec: .h264, pixelWidth: width, pixelHeight: 100, parameterSets: [Data([1])])
+        VideoStreamConfig(
+            sourceID: "display:1", codec: .h264, pixelWidth: width, pixelHeight: 100,
+            parameterSets: [Data([1])]
+        )
     }
 
     @Test("a keyframe that beat display attachment is replayed once")

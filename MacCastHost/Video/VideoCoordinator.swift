@@ -130,8 +130,8 @@ final class VideoCoordinator: @unchecked Sendable {
         }
         self.streamer = streamer
 
-        pipeline.onFrame = { [weak self] encoded in
-            self?.deliver(encoded)
+        pipeline.onFrame = { [weak self] encoded, source in
+            self?.deliver(encoded, source: source)
         }
         pipeline.onGeometry = { [weak self] geometry in
             guard let self else { return }
@@ -437,6 +437,9 @@ final class VideoCoordinator: @unchecked Sendable {
             guard let self, self.isIdle(generation: generation) else { return }
             self.cancelWatchdog()
             await self.pipeline.stop()
+            // Nothing is being captured, so nothing can describe it. See
+            // ``CaptureFrameAdapter/forget()``.
+            self.adapter.forget()
             let remainsIdle = self.lock.withLock { () -> Bool in
                 self.currentSource = nil
                 return self.audience.generation == generation && self.audience.isIdle
@@ -612,6 +615,11 @@ final class VideoCoordinator: @unchecked Sendable {
 // Read under one lock, so a pair the user changed while this was queued cannot be split across two
 // streams.
         let (resolution, frameRate) = lock.withLock { (captureResolution, captureFrameRate) }
+        // Before the start, because the description it holds belongs to the source being replaced:
+        // a client attaching in the middle of this switch is served from the streamer, and a
+        // description of the picture that has just been left is worse than none at all. See
+        // ``CaptureFrameAdapter/forget()``.
+        adapter.forget()
         try await pipeline.start(
             source: source,
             frameRate: frameRate.rawValue,
@@ -872,6 +880,9 @@ final class VideoCoordinator: @unchecked Sendable {
             scheduleLifecycleLocked { [weak self, pipeline] in
                 await pipeline.stop()
                 guard let self else { return }
+                // Nothing is being captured, so nothing can describe it. See
+                // ``CaptureFrameAdapter/forget()``.
+                self.adapter.forget()
                 self.lock.withLock { self.currentSource = nil }
             }
         }
@@ -887,12 +898,12 @@ final class VideoCoordinator: @unchecked Sendable {
     // MARK: - Frame flow
 
     /// An encoded frame, on VideoToolbox's thread.
-    private func deliver(_ encoded: EncodedFrame) {
+    private func deliver(_ encoded: EncodedFrame, source: CaptureSource) {
 // The stream has proved it is alive, so the start-window watchdog has nothing left to prove. Later
 // silence is not its business, see ``watchdog``.
         cancelWatchdog()
 
-        let prepared = adapter.adopt(encoded)
+        let prepared = adapter.adopt(encoded, sourceID: source.stableID)
 
         if let config = prepared.config {
 // A frame established or changed the description. Which of the two it is decides the call: a first
