@@ -477,7 +477,16 @@ final class HostModel {
             self?.input.transform = transform
         }
         coordinator.onSourceChanged = { [weak self] source in
-            Task { @MainActor [weak self] in self?.capturingSource = source }
+            Task { @MainActor [weak self] in
+                self?.capturingSource = source
+                // **Raised here rather than at the ask, because the ask is not where a capture
+                // starts.** A source asked for while there is no video connection yet is kept and
+                // started by the connection that follows, so a phone that has just opened and
+                // reconnected captured a window the Mac had never brought to the front: the window
+                // was in the stream and behind something else on the Mac, and the first click went
+                // to whatever was over it. This is the one door every capture comes through.
+                if let source { self?.raiseSource(for: source) }
+            }
         }
         self.coordinator = coordinator
 
@@ -738,9 +747,6 @@ final class HostModel {
             do {
                 try await coordinator.switchSource(source)
                 self?.pendingCaptureSource = nil
-                // After the switch rather than before: raising an app whose capture then fails
-                // would bring the wrong thing forward and leave it there.
-                self?.raiseSource(for: source)
             } catch {
                 let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
                 self?.record("Could not switch capture source: \(message)", level: .failure)

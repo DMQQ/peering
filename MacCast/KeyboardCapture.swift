@@ -310,8 +310,13 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
         shouldChangeTextIn range: NSRange,
         replacementText text: String
     ) -> Bool {
-        // Return is a key the Mac gets, not a newline this field keeps.
-        if text == "\n" {
+        // Return is a key the Mac gets, not a newline this field keeps. **The check is on the whole
+        // replacement rather than on equality with "\n"**: the system commits a pending correction and
+        // the Return together, so "word\n" arrived as one edit, the newline was inserted into the field
+        // and no Return was ever sent.
+        if text.contains("\n") {
+            let typed = text.replacingOccurrences(of: "\n", with: "")
+            if !typed.isEmpty { onType?(typed) }
             reset()
             onReturn?()
             return false

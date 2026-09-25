@@ -174,7 +174,17 @@ extension RemoteScreen {
                     // Quality is not one of them any more. It is a setting, it was a gauge glyph with
                     // a menu behind it, and both this panel and the session's own Settings hold it
                     // with a name on it.
+                    // **A row's chips go through `AnyView`, and it is a crash fix rather than a
+                    // style choice.** A SwiftUI row's *type* is the whole nesting of everything
+                    // inside it, and the runtime resolves that type by demangling its name the first
+                    // time the row is built. This row's name had grown past what that can do on a
+                    // main thread's stack: SIGSEGV inside `decodeMangledType`, from
+                    // `__swift_instantiateConcreteTypeFromMangledNameV2` under `soundButton`, at
+                    // launch, on a phone that was reconnecting. Erasing the type here is the cure
+                    // that does not need the whole pill rebuilt: the row becomes `AnyView`, and the
+                    // chips' own type is resolved once, at a shallow stack, when the view is made.
                     actionRow("Stream", systemImage: "play.rectangle") {
+                        AnyView(Group {
                         soundButton
                         fillChip
                         if zoom > 1.01 {
@@ -204,6 +214,7 @@ extension RemoteScreen {
                         ) {
                             enterImmersive()
                         }
+                        })
                     }
 
                     // ── What can be done, sorted by what it is done to ─────────────

@@ -688,18 +688,14 @@ final class VideoCoordinator: @unchecked Sendable {
             return
         }
 
-// **And it stops being offered.** A window ScreenCaptureKit lists and will not render is
-// indistinguishable from a capturable one until a stream built for it says nothing at all, and this
-// is that moment: without this the window stays in the phone's list for as long as the two ends are
-// connected, and every tap on it is a tap that does nothing. A display is the exception, and not
-// because a broken one is not broken: it is the thing a phone needs whatever state it is in, and
-// taking it out of the list leaves the client with nothing to look at and nothing to ask for.
-        switch source {
-        case .window, .application:
-            pipeline.markUncapturable(source)
-        case .display, .mosaic:
-            break
-        }
+// **Not removed from the list, and this used to be.** A stream that produces nothing looks from here
+// exactly like a window ScreenCaptureKit will not render, and the tempting conclusion is that the
+// window is broken and should stop being offered. It is also what a window that is minimised, hidden
+// or sitting on a Space this Mac is not showing does, and those are ordinary states of a window
+// somebody is using: taking them out of the catalogue costs a Terminal its row in the picker until
+// the next launch or quit, which is a worse fault than the one it fixes. What is broken for good is
+// known at the ask instead, where the filter cannot be built at all. See
+// ``CaptureSourceResolver/markUncapturable(_:)``.
 
 // Permission is fine, so the stream itself is the problem. Say what was being captured and that
 // permission was not the reason, or the next reader goes looking in System Settings for something

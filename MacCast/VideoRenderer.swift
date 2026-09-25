@@ -835,6 +835,12 @@ nonisolated final class PictureGate: @unchecked Sendable {
 /// Hosts ``VideoDisplayView`` in SwiftUI and hands its layer to the renderer.
 struct VideoLayerView: UIViewRepresentable {
     let renderer: VideoRenderer
+    /// The picture's own size, as this app believes it, for the trace below and nothing else.
+    ///
+    /// The layer has its own answer: it is the size of the screen and it fits whatever frame it holds
+    /// into itself. The two agreeing is the whole of what keeps the picture where the app draws
+    /// everything else, and the trace is how they are compared.
+    var pictureSize: CGSize = .zero
     /// The scale the picture is drawn at, applied about its centre.
     var zoom: CGFloat = 1
     /// How far the picture is moved from the centre of its frame, in points.
@@ -927,10 +933,28 @@ struct VideoLayerView: UIViewRepresentable {
         if abs(drawn.width - context.coordinator.drawnSize.width) > 1
             || abs(drawn.height - context.coordinator.drawnSize.height) > 1 {
             context.coordinator.drawnSize = drawn
+            let snapshot = renderer.currentSnapshot
+            let frame = CGSize(
+                width: CGFloat(snapshot.pixelWidth),
+                height: CGFloat(snapshot.pixelHeight)
+            )
+            // **The picture's own rectangle on screen, as this app computes it**, next to the frame
+            // the layer is actually holding. One number is the app's belief and the other is the
+            // truth the layer draws; a picture that fills the screen while the app believes it is a
+            // band is the difference between them, and it is the difference no other line here can
+            // show. See ``PictureScale``.
+            let picture = CanvasGeometry.rect(
+                normalized: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                bounds: view.bounds.size,
+                pixelSize: pictureSize,
+                zoom: zoom,
+                pan: pan
+            )
             PictureTrace.write("""
                 draw \(PictureTrace.short(drawn)) zoom=\(String(format: "%.3f", zoom)) \
-                pan=\(String(format: "%.1f,%.1f", pan.width, pan.height)) \
-                placed=\(pictureIsPlaced) still=\(showsStill)
+                screen=\(PictureTrace.short(view.bounds.size)) \
+                belief=\(PictureTrace.short(pictureSize)) frame=\(PictureTrace.short(frame)) \
+                drawn=\(PictureTrace.short(picture)) placed=\(pictureIsPlaced) still=\(showsStill)
                 """)
         }
 

@@ -530,6 +530,11 @@ extension RemoteScreen {
             // the frame is taken rather than the moment it is shown. Without this the arrival would
             // sit until its 1.5 second deadline. See ``RemoteScreen/settleArrival(force:)``.
             //
+            // **And the arrangement the user was coming back to, if this movement was the way back
+            // into one.** Put up here rather than at the ask, so it lands into the tile the window
+            // has just shrunk into instead of over the top of that movement. See
+            // ``SessionModel/putUpRecalledPicture()``.
+            model.putUpRecalledPicture()
             // **The held frame is not released from here, and that is the last of the flicker.**
             // The zoom written above is the *departing* picture's aim; the line below re-solves it
             // for the arriving one. Handed over between the two, the arriving picture's first

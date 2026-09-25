@@ -15,6 +15,9 @@ extension RemoteScreen {
         // a layer transform, so a pan cannot trail the finger. See `VideoLayerView.updateUIView`.
         VideoLayerView(
             renderer: model.renderer,
+            // Only for the trace: the layer sizes itself to the screen and knows nothing about the
+            // picture's own dimensions. See ``VideoLayerView/pictureSize``.
+            pictureSize: model.capturePixelSize ?? .zero,
             zoom: effectiveZoom,
             pan: pan,
             pictureIsPlaced: pictureIsPlaced,

@@ -12,6 +12,9 @@ let joystickRadius: CGFloat = 50
 /// The remote desktop itself: picture, pointer, keyboard, and the controls for all three.
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
+    /// Read for one moment only: the app coming back to the foreground, which is the one moment an
+    /// arrival can be left waiting on a screen that was never there. See ``settleArrival(force:)``.
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Persisted because observe mode's no-input promise must survive a relaunch.
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
@@ -392,6 +395,16 @@ struct RemoteScreen: View {
         // Keyed to the phase rather than to appearing, because a session does not arrive ready: the
         // screen is up during `.confirming` and the picture only starts at `.ready`, which is the
         // moment worth interrupting.
+        // **An arrival waiting on a screen that was not there.** The deadline that settles one is a
+        // `Task.sleep` and a suspended app runs no timers, so a frame that landed while the app was
+        // away leaves the picture held with nothing to release it: the app comes back to the picture
+        // it left, or to a stretched frame if the hold was given up on a clock instead. Forcing the
+        // settle here writes the transform for the picture that is on the layer, and the pass that
+        // follows hands the frame over in the same commit. See ``settleArrival(force:)``.
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active else { return }
+            settleArrival(force: true)
+        }
         .onChange(of: model.phase, initial: true) { _, phase in
             PictureTrace.begin()
             guard phase == .ready else {

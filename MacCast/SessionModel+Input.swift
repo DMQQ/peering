@@ -96,24 +96,6 @@ extension SessionModel {
     /// display and then refuses to come back.
     func selectSource(_ source: CaptureSource) {
         PictureTrace.write("select \(source.stableID) mosaic=\(source.isMosaic) choices=\(mosaicChoices.count)")
-        // **The arrangement the user is coming back to, drawn from the frame it had last time.**
-        // Leaving an arrangement and returning to it is a stream torn down and a canvas of tiles
-        // built again on the Mac, measured at about a second and a quarter, and for the whole of it
-        // the phone shows the window that was tapped where the arrangement should be. The last
-        // frame this end had of *that source* is a better answer than a second of something else,
-        // and it is put up as the picture the moment the ask goes out. Only for an arrangement:
-        // a display rebuilds in a moment and a window's own stream is a frame away, so neither
-        // has a wait worth covering. See ``VideoRenderer/recalledFrame(for:)``.
-        if case .mosaic = source, source.stableID != activeSourceID,
-           let recalled = renderer.recalledFrame(for: source.stableID) {
-            activeSession?.picture = PictureIdentity(
-                sourceID: source.stableID,
-                pixelSize: recalled.pixelSize,
-                contentMovesOnItsOwn: source.contentMovesOnItsOwn
-            )
-            renderer.showRecalledFrame(recalled.sample, pixelSize: recalled.pixelSize)
-        }
-
         activeSourceID = source.stableID
         // Recorded from the source rather than the call site, so no door into this can miss it. See
         // ``MacSession/isAskingForMosaic``.
@@ -170,6 +152,38 @@ extension SessionModel {
         showMosaic(sources.map { MosaicChoice(source: $0) })
     }
 
+    /// The arrangement the user is coming back to, drawn from the frame it had last time.
+    ///
+    /// **Called when the movement into it has landed, and that timing is the whole of it.**
+    /// Leaving an arrangement and returning to it is a stream torn down and a canvas of tiles built
+    /// again on the Mac, measured at about a second and a quarter, and for the whole of it the phone
+    /// would show the window that was tapped inside the tile it just shrank into. The last frame
+    /// this end had of *that* source is a better answer, and it appears exactly where the movement
+    /// has left the window, because it is put up through the same arrival machinery any other
+    /// picture is.
+    ///
+    /// **At the ask instead, and that was wrong.** Asked for at the tap, the canvas was on screen
+    /// while the movement meant to carry the window into its tile was still running, which is an
+    /// arrangement appearing over the animation rather than after it.
+    ///
+    /// Only for an arrangement: a display rebuilds in a moment and a window's own stream is a frame
+    /// away, so neither has a wait worth covering. See ``VideoRenderer/recalledFrame(for:)``.
+    func putUpRecalledPicture() {
+        guard let asked = activeSession?.askedMosaicLayout,
+              activeSession?.isAskingForMosaic == true
+        else { return }
+        let source = CaptureSource.mosaic(asked)
+        guard source.stableID == activeSourceID,
+              let recalled = renderer.recalledFrame(for: source.stableID)
+        else { return }
+        activeSession?.picture = PictureIdentity(
+            sourceID: source.stableID,
+            pixelSize: recalled.pixelSize,
+            contentMovesOnItsOwn: source.contentMovesOnItsOwn
+        )
+        renderer.showRecalledFrame(recalled.sample, pixelSize: recalled.pixelSize)
+    }
+
     /// The same, keeping whatever sizes the tiles already had: adding or removing a window is not a reason
     /// to reset the arrangement's shape.
     ///
@@ -178,7 +192,7 @@ extension SessionModel {
     ///   arrangement filtered by what the catalogue can see, and a window that a catalogue merely failed to
     ///   list would then be gone from the store as well as from the picture.
     func showMosaic(_ choices: [MosaicChoice], remembering: Bool = true) {
-        PictureTrace.write("showMosaic tiles=\(choices.count) remembering=\(remembering)")
+        PictureTrace.write("showMosaic tiles=\(choices.count) remembering=\(remembering) viewport=\(PictureTrace.short(mosaicViewport))")
         // **Shaped by the choices being asked for, not by the ones already on screen.** The canvas's
         // aspect comes from how wide the arrangement's windows are, and reading that off the session
         // meant a restore, which runs before the new choices are stored, shaped its canvas from the
@@ -191,6 +205,7 @@ extension SessionModel {
         ) else {
             return
         }
+        PictureTrace.write("  asked canvas=\(PictureTrace.short(layout.canvas))")
         // Anything held down on the Mac is let go first: what is on screen is about to be a picture with
         // no input at all, and a modifier latched before that is one nothing here can release.
         releaseLatchedModifiers()
@@ -467,6 +482,9 @@ extension SessionModel {
         typedPreview = ""
         send(.keyDown(keyCode: 36, modifiers: latchedModifiers))
         send(.keyUp(keyCode: 36, modifiers: latchedModifiers))
+        // And the keyboard goes with the line. The bar and its field exist only while the keyboard is
+        // up, so this is what empties the field from every door into a commit, not only the keyboard's.
+        showKeyboard = false
     }
 
     /// Text from the software keyboard, routed by the current mode.
