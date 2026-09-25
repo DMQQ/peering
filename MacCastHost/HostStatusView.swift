@@ -207,6 +207,37 @@ struct HostStatusView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
+        // **The one question this feature asks, and the reason it asks it.** The keep-awake
+        // switches are the user's own instruction, and nothing in the app can know that the phone
+        // has been put away for the night: the last client leaving is the only signal there is that
+        // nobody is using this Mac. Unasked, the Mac stays awake until somebody remembers, and
+        // nobody remembers.
+        //
+        // "Let it sleep" is the default action rather than the safe-looking "Keep it awake": the
+        // whole point of the question is that the answer somebody meant to give was to let it go,
+        // and the switches stay where they were either way, so a wrong answer costs one reconnect
+        // rather than a setting to find again.
+        // **A statement and two actions, not a question and two answers.** This was titled "Keep
+        // this Mac awake?", which reads as a yes/no and then offered "Let it sleep" and "Keep it
+        // awake": the right answer to the question as written was the button that does the opposite
+        // of what the question asks. Naming the state and labelling both buttons for what they do
+        // is the whole of the fix.
+        .alert(
+            "This Mac is being kept awake and nothing is connected",
+            isPresented: Binding(
+                get: { model.asksToReleaseKeepAwake },
+                set: { if !$0 { model.asksToReleaseKeepAwake = false } }
+            )
+        ) {
+            Button("Let it sleep") {
+                Task { await model.releaseKeepAwakeNow() }
+            }
+            .keyboardShortcut(.defaultAction)
+
+            Button("Keep it awake") { model.asksToReleaseKeepAwake = false }
+        } message: {
+            Text("Sleeping is the one you forget, so it is the default. Let it sleep and this Mac goes back to sleeping on its own; the switches in Settings stay exactly where you left them, and connecting again puts it all back. Keep it awake and nothing changes.")
+        }
         .confirmationDialog(
             "Forget \(forgetDevice?.name ?? "this iPhone")?",
             isPresented: Binding(

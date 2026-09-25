@@ -136,11 +136,6 @@ struct HostMenuBarContent: View {
         // at, and whether a Mac is allowed to sleep is the sort of thing somebody wants to decide
         // while looking at the Mac rather than after opening a window and finding a pane in it.
         // The same two switches the Settings pane draws, under the same two names.
-        Toggle("Keep this Mac awake", isOn: Binding(
-            get: { model.preventLidCloseSleep },
-            set: { model.setPreventLidCloseSleep($0) }
-        ))
-
         // **Above the lid switch, because it is the one more people want.** A Mac that idle-sleeps
         // cannot be reached from anywhere, which is the failure somebody opens this menu to fix:
         // they were out, they tapped their Mac on the phone, and nothing answered. The switch
@@ -157,7 +152,49 @@ struct HostMenuBarContent: View {
             set: { model.setPreventLidCloseSleep($0) }
         ))
 
+        // **Shorter here than in the pane, and for the only reason that matters in a menu.** The
+        // pane's sentence explains why; a menu item is one line at a fixed width, and a wrapped one
+        // is unreadable. What somebody opening this menu needs is the answer, not the reasoning.
+        if model.keepAwakeWithheld {
+            Text("Not being held: this Mac sleeps on its own")
+        }
+
         lidCloseItem
+
+        // **The hours, where they are usually wanted.** The pane has the same two pickers; this is
+        // the copy that matters, because the moment somebody notices the Mac is still up at eleven
+        // at night is the moment they are looking at the menu, and sending them into a window to
+        // fix it is how a setting goes unchanged.
+        Menu("Awake hours") {
+            Toggle("Awake \(model.keepAwakeStartHour):00 to \(model.keepAwakeEndHour):00 only", isOn: Binding(
+                get: { model.keepAwakeScheduleEnabled },
+                set: { model.setKeepAwakeSchedule(enabled: $0) }
+            ))
+
+            Divider()
+
+            Picker("From", selection: Binding(
+                get: { model.keepAwakeStartHour },
+                set: { model.setKeepAwakeHours(start: $0, end: model.keepAwakeEndHour) }
+            )) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text(String(format: "%02d:00", hour)).tag(hour)
+                }
+            }
+
+            Picker("To", selection: Binding(
+                get: { model.keepAwakeEndHour },
+                set: { model.setKeepAwakeHours(start: model.keepAwakeStartHour, end: $0) }
+            )) {
+                ForEach(0..<24, id: \.self) { hour in
+                    Text(String(format: "%02d:00", hour)).tag(hour)
+                }
+            }
+
+            if model.keepAwakeScheduleEnabled, model.keepAwakeEndHour < model.keepAwakeStartHour {
+                Text("Overnight")
+            }
+        }
 
         Divider()
 
@@ -225,8 +262,19 @@ struct HostMenuBarContent: View {
             // two come apart after a crash or a hand edit. Said here as well as in the pane,
             // because the menu is where somebody looks when the Mac is doing something they did
             // not ask for and the window is closed.
-            if model.keepRunningWithLidClosed, model.lidCloseSystemState == .off {
+            if model.keepRunningWithLidClosed, !model.keepAwakeWithheld,
+               model.lidCloseSystemState == .off {
                 Text("Not in force: this Mac still sleeps on a closed lid")
+            }
+
+            // **The reminder, where somebody will actually meet it.** The prompt in the window
+            // only exists while the window does, and the window is usually shut: the menu bar item
+            // is the one piece of this app that is always on screen, so the question waits here
+            // until it is answered.
+            if model.asksToReleaseKeepAwake {
+                Button("Nobody is connected: let this Mac sleep") {
+                    Task { await model.releaseKeepAwakeNow() }
+                }
             }
         } else {
             Button("Keep running with the lid closed…") {

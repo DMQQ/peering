@@ -46,16 +46,19 @@ extension HostModel {
     ///
     /// Being process-scoped is the property worth having here: the OS releases the assertion when
     /// this process exits, so this switch can never leave a Mac unable to sleep.
+    ///
+    /// The switch records an intention and the schedule decides what is held.
+    ///
+    /// Even with no schedule set, which reads as a detour for the sake of it: going through one
+    /// place is what keeps a Mac whose window is shut from being handed its assertions back by a
+    /// switch somebody flipped at midnight. See ``applyKeepAwakeSchedule()``.
     func setPreventLidCloseSleep(_ on: Bool) {
         preventLidCloseSleep = on
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
-        if on {
-            acquireLidSleepAssertion()
-            acquirePreferenceDisplaySleepAssertion()
-        } else {
-            releaseLidSleepAssertion()
-            releasePreferenceDisplaySleepAssertion()
-        }
+        // Flipping the switch is the user asking for it again, whatever they answered when the
+        // prompt offered to let the Mac go.
+        keepAwakeReleasedByHand = false
+        Task { await applyKeepAwakeSchedule() }
     }
 
     func acquireLidSleepAssertion() {
@@ -100,6 +103,256 @@ extension HostModel {
         preferenceDisplaySleepAssertionID = 0
     }
 
+    // MARK: - The schedule
+
+    static let keepAwakeScheduleEnabledKey = "keepAwakeScheduleEnabled"
+    static let keepAwakeScheduleStartHourKey = "keepAwakeScheduleStartHour"
+    static let keepAwakeScheduleEndHourKey = "keepAwakeScheduleEndHour"
+
+    /// Seven in the morning to eleven at night: a guess at somebody's working day, and a guess is
+    /// why the row lets them move it.
+    static let keepAwakeDefaultStartHour = 7
+    static let keepAwakeDefaultEndHour = 23
+
+    /// How often the clock is consulted. A minute, against a window that is measured in hours.
+    static let keepAwakeScheduleInterval: TimeInterval = 60
+
+    /// Whether the hour `date` falls in is inside the window.
+    ///
+    /// An end before a start crosses midnight, which is the shape somebody actually wants when they
+    /// want the Mac up in the evening and down in the morning. Equal hours cover the whole day,
+    /// because a zero-width window is not a thing anybody means to ask for.
+    func keepAwakeHoursCover(_ date: Date) -> Bool {
+        let hour = Calendar.current.component(.hour, from: date)
+        let start = keepAwakeStartHour
+        let end = keepAwakeEndHour
+        if start == end { return true }
+        if start < end { return hour >= start && hour < end }
+        return hour >= start || hour < end
+    }
+
+    /// Whether a keep-awake the user asked for should be in force right now.
+    ///
+    /// **A connected client is always inside.** The point of this is to stop the Mac being up when
+    /// nobody is using it, and letting go of an assertion under a session that has already started
+    /// is the one thing it must not do: the display sleeps, and ScreenCaptureKit turns a healthy
+    /// stream into black frames.
+    var keepAwakeIsInForce: Bool {
+        if keepAwakeReleasedByHand { return false }
+        guard keepAwakeScheduleEnabled else { return true }
+        if !connectedClients.isEmpty { return true }
+        return keepAwakeHoursCover(Date())
+    }
+
+    /// Puts what is being *held* where ``keepAwakeIsInForce`` says it belongs, without touching
+    /// what the user asked for.
+    ///
+    /// The intention stays in `preventLidCloseSleep` and `keepRunningWithLidClosed`, and that is
+    /// what makes this reversible: the window opens again and the same switches put everything back
+    /// with nobody having to remember which of them were on.
+    func applyKeepAwakeSchedule() async {
+        let wanted = keepAwakeIsInForce
+
+        if wanted, preventLidCloseSleep {
+            acquireLidSleepAssertion()
+            acquirePreferenceDisplaySleepAssertion()
+        } else {
+            releaseLidSleepAssertion()
+            releasePreferenceDisplaySleepAssertion()
+        }
+
+        // **The machine setting, and only when the silent path is there.** `pmset` needs rights,
+        // and a schedule that reached for them on a clock would raise a password dialog with nobody
+        // at the machine and then leave the Mac exactly as it was. The rule is what makes this path
+        // silent; without it the row says so rather than the schedule guessing.
+        if keepRunningWithLidClosed, lidCloseRuleInstalled == true {
+            // **Compared against the cached reading rather than read again.** This runs on a clock,
+            // and `pmset -g` is a subprocess: a Mac inside its window all day would spawn one a
+            // minute to be told nothing had changed. Every path that moves the setting updates the
+            // reading, and the pane re-reads it when it opens, which is where a setting somebody
+            // moved by hand is noticed.
+            let target: LidCloseSleep.SleepDisabledState = wanted ? .on : .off
+            if lidCloseSystemState != target {
+                let outcome = await LidCloseSleepControl.setSleepDisabled(wanted)
+                if case .failed(let message) = outcome {
+                    hostLog.notice("""
+                        schedule could not move lid-close sleep to \(wanted, privacy: .public): \
+                        \(message, privacy: .public)
+                        """)
+                }
+                lidCloseSystemState = await LidCloseSleepControl.sleepDisabledState()
+            }
+        }
+
+        keepAwakeWithheld = !wanted
+            && (preventLidCloseSleep || keepRunningWithLidClosed)
+    }
+
+    /// Starts or stops the clock that opens and closes the window, and re-applies either way.
+    ///
+    /// No timer at all when the schedule is off, so a Mac that is not using this pays nothing for
+    /// it: the two switches then behave exactly as they did before it existed.
+    func updateKeepAwakeScheduleWatch() {
+        keepAwakeScheduleTask?.cancel()
+        keepAwakeScheduleTask = nil
+
+        guard keepAwakeScheduleEnabled else {
+            // Whatever the schedule was holding goes back the moment it stops being in charge.
+            Task { await applyKeepAwakeSchedule() }
+            return
+        }
+
+        keepAwakeScheduleTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.applyKeepAwakeSchedule()
+                try? await Task.sleep(for: .seconds(Self.keepAwakeScheduleInterval))
+            }
+        }
+    }
+
+    func setKeepAwakeSchedule(enabled: Bool) {
+        keepAwakeScheduleEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: Self.keepAwakeScheduleEnabledKey)
+        keepAwakeReleasedByHand = false
+        updateKeepAwakeScheduleWatch()
+    }
+
+    func setKeepAwakeHours(start: Int, end: Int) {
+        keepAwakeStartHour = start
+        keepAwakeEndHour = end
+        UserDefaults.standard.set(start, forKey: Self.keepAwakeScheduleStartHourKey)
+        UserDefaults.standard.set(end, forKey: Self.keepAwakeScheduleEndHourKey)
+        keepAwakeReleasedByHand = false
+        Task { await applyKeepAwakeSchedule() }
+    }
+
+    /// Lets go of everything the keep-awake switches are holding, now, until the window opens again
+    /// or a client connects.
+    ///
+    /// Called from the prompt on the last disconnect, and it is the same act the window's close
+    /// performs: the switches are left where the user put them, so nothing has to be remembered to
+    /// undo this.
+    func releaseKeepAwakeNow() async {
+        asksToReleaseKeepAwake = false
+        // Set before the release, so the minute clock that follows reads it and does not put it all
+        // straight back. See ``keepAwakeReleasedByHand``.
+        keepAwakeReleasedByHand = true
+        await applyKeepAwakeSchedule()
+        record("Let this Mac sleep on its own again; the switches are still set as you left them.")
+    }
+
+    /// How long the Mac is left alone before it asks whether it should still be awake.
+    ///
+    /// **Asked late, and the delay is the whole of why it is bearable.** The trigger is the last
+    /// client disconnecting, and that happens for reasons that are not somebody leaving: a phone
+    /// that switched apps, a connection that dropped and is about to come back, a deliberate look at
+    /// the picker. Asked on the instant, the question was a reaction to a disconnect; asked after a
+    /// couple of minutes of nothing, it is a reminder about a Mac that really is sitting there awake
+    /// for nobody.
+    static let keepAwakePromptGrace: Duration = .seconds(120)
+
+    /// Arms that question, replacing any already armed.
+    func scheduleKeepAwakePrompt() {
+        keepAwakePromptTask?.cancel()
+        keepAwakePromptTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.keepAwakePromptGrace)
+            guard !Task.isCancelled, let self else { return }
+            // Everything is re-checked, because two minutes is long enough for the situation to
+            // have gone: somebody reconnected, or turned a switch off, or the schedule's window
+            // shut and the Mac let go of its own accord.
+            guard self.connectedClients.isEmpty,
+                  self.keepAwakeIsInForce,
+                  self.preventLidCloseSleep || self.keepRunningWithLidClosed
+            else { return }
+            self.asksToReleaseKeepAwake = true
+        }
+    }
+
+    /// Why nothing is being held, in a sentence, or `nil` when the switches are doing what they say.
+    ///
+    /// **The switch cannot answer this on its own, which is the whole reason this exists.** After
+    /// "Let it sleep", and outside the schedule's hours, the switches are still where the user put
+    /// them by design, because that is what makes the release reversible without anybody having to
+    /// remember anything. The cost of that design is a pane with "Keep Mac awake" switched on over a
+    /// Mac that is asleep, and a user who has to guess. This is the sentence that stops the guessing.
+    var keepAwakeWithheldExplanation: String? {
+        guard keepAwakeWithheld, preventLidCloseSleep || keepRunningWithLidClosed else { return nil }
+        if keepAwakeReleasedByHand {
+            return "Let go when you said so. This Mac sleeps on its own from now on, and holds again when a device connects or you touch one of these switches."
+        }
+        let start = String(format: "%02d:00", keepAwakeStartHour)
+        return "Outside the hours you set, so this Mac sleeps on its own. It holds again at \(start), or as soon as a device connects."
+    }
+
+    /// Takes back a release the user asked for, when something says the situation has changed.
+    func rearmKeepAwake() async {
+        // And the question goes with it: somebody is using this Mac, so there is nothing left to
+        // ask about, and a prompt that outlived the reason for it is one that gets dismissed by
+        // reflex.
+        keepAwakePromptTask?.cancel()
+        keepAwakePromptTask = nil
+        asksToReleaseKeepAwake = false
+        guard keepAwakeReleasedByHand else { return }
+        keepAwakeReleasedByHand = false
+        await applyKeepAwakeSchedule()
+    }
+
+    // MARK: - The wake schedule
+
+    static let wakeScheduleHourKey = "wakeScheduleHour"
+
+    /// Reads the two things about this Mac's own power settings that the wake row draws.
+    ///
+    /// Both are `pmset` reads, so both happen together and off the main thread, and both are asked
+    /// again whenever the row appears: a setting somebody changed by hand is exactly what this is
+    /// here to show.
+    func refreshPowerReadings() async {
+        otherScheduledEvents = await LidCloseSleepControl.scheduledEvents()
+        idleSleepMinutes = await LidCloseSleepControl.idleSleepMinutes()
+    }
+
+    /// Sets or clears the daily wake, through the system's own password dialog.
+    ///
+    /// `nil` clears it. The prompt is expected and is the design rather than a shortcoming: a wake
+    /// time is set once and changed rarely, so it goes through the dialog the system owns instead of
+    /// widening the standing sudoers rule to cover `pmset repeat` for every hour of the day.
+    func setWakeSchedule(hour: Int?) async {
+        guard !wakeScheduleBusy else { return }
+        wakeScheduleBusy = true
+        defer { wakeScheduleBusy = false }
+        wakeScheduleFailure = nil
+
+        let outcome: LidCloseSleepControl.Outcome
+        if let hour {
+            outcome = await LidCloseSleepControl.setWakeSchedule(hour: hour)
+        } else {
+            outcome = await LidCloseSleepControl.clearWakeSchedule()
+        }
+
+        switch outcome {
+        case .done:
+            wakeScheduleHour = hour
+            // `nil` removes the key rather than writing a sentinel, which is what the read at launch
+            // expects to find.
+            UserDefaults.standard.set(hour, forKey: Self.wakeScheduleHourKey)
+            if let hour {
+                // `record` takes a plain string, so this is interpolation rather than an os_log
+                // one: `privacy:` belongs to the logger and not here.
+                record("This Mac will wake itself at \(LidCloseSleep.hourString(hour).prefix(5)) every day")
+            } else {
+                record("The daily wake is off; this Mac sleeps until something wakes it")
+            }
+        case .cancelled:
+            return
+        case .failed(let message):
+            wakeScheduleFailure = message
+            record("Could not change the wake schedule: \(message)", level: .failure)
+        }
+
+        await refreshPowerReadings()
+    }
+
     // MARK: - Lid-close sleep
 
     /// Turns "keep running with the lid closed" on or off.
@@ -122,6 +375,8 @@ extension HostModel {
     /// switch being on is a statement about the Mac rather than about the last click.
     func setKeepRunningWithLidClosed(_ wanted: Bool) async {
         guard !lidCloseBusy else { return }
+        // As with the switch above: asking for it is what takes back a release given to the prompt.
+        keepAwakeReleasedByHand = false
         lidCloseBusy = true
         defer {
             lidCloseBusy = false
@@ -169,6 +424,11 @@ extension HostModel {
         record(wanted
             ? "Lid-close sleep prevention on; this Mac stays up with the lid shut, on battery included"
             : "Lid-close sleep prevention off; this Mac sleeps on a closed lid again")
+
+        // And then the schedule gets its say, which outside its window is to hand the machine
+        // straight back. The switch stays where the user put it either way, so the window opening
+        // again is the whole of what puts this back.
+        await applyKeepAwakeSchedule()
     }
 
     /// How often the charge is read while the Mac is being kept up.
@@ -335,6 +595,16 @@ extension HostModel {
         // survived a crash is a Mac that has been up with its lid shut since before this process
         // started, which is when a battery check is most worth having.
         updateBatteryWatchdog()
+
+        // **And the schedule gets a second pass, now that the rule has been read.** The first one
+        // runs from `init` before this function has finished, when ``lidCloseRuleInstalled`` is
+        // still nil, so it will not touch the machine setting. Without this, a Mac launched outside
+        // its own window at login would hold `disablesleep` until somebody opened the pane.
+        //
+        // It also puts back what the switches say should be held: the assertions are the one part of
+        // this that does not survive the process, so a "Keep Mac awake" left on across a relaunch
+        // was a switch reading on over a Mac that had already forgotten it.
+        await applyKeepAwakeSchedule()
     }
 
     /// Puts the rule in place if it is not there, and answers whether it ended up there.

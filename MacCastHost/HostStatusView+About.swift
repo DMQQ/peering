@@ -1,4 +1,5 @@
 import AppKit
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -117,6 +118,20 @@ extension HostStatusView {
         let info = Bundle.main.infoDictionary
         let version = info?["CFBundleShortVersionString"] as? String ?? "unknown"
         let build = info?["CFBundleVersion"] as? String ?? "unknown"
+        // **The last crash, and where the rest of them are.** A `mailto:` body is a URL, and a
+        // backtrace in one would be truncated by whichever mail client opened it, so what goes in
+        // is the line that identifies the crash: with the version and the date it is enough to tell
+        // two reports apart, and the path is where the whole of it can be attached from.
+        let latest = CrashLog.entries(subject: "host").first
+        let crash = latest.map { entry in
+            """
+
+            Last crash: \(CrashLog.headline(of: entry))
+            \(entry.date.formatted(date: .abbreviated, time: .shortened))
+            Full reports: ~/Library/Application Support/host/Crashes
+            """
+        } ?? ""
+
         let body = """
             What happened:
 
@@ -125,7 +140,7 @@ extension HostStatusView {
 
 
             Peering for Mac \(version) (\(build))
-            \(ProcessInfo.processInfo.operatingSystemVersionString)
+            \(ProcessInfo.processInfo.operatingSystemVersionString)\(crash)
             """
 
         var components = URLComponents()

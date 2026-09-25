@@ -49,6 +49,28 @@ extension RemoteScreen {
         removal: .identity
     )
 
+    /// The width the open panel is drawn at.
+    ///
+    /// **Portrait opens nearly to the glass.** The panel is the widest thing on the bar, and every
+    /// row inside it is a subject and the buttons that act on it, so it is the one place where
+    /// width is the difference between a row that reads and a row that is clipped. Tied to the
+    /// closed bar's measured width it came out short whenever the Mac's name or the window's title
+    /// was short, which is most of the time.
+    ///
+    /// Not edge to edge: the display's own corners are round, and a panel flush to both sides has
+    /// its corners cut by them. The rails' ``ChromeMetrics/edgeInset`` is what holds it clear.
+    ///
+    /// Landscape keeps the closed bar's width, because there the panel shares the screen with the
+    /// rails and has to stay clear of them. See ``RemoteScreen/statusBarWidthCap(in:)``.
+    ///
+    /// Returns `nil` until the closed bar has been measured once, which leaves the panel as wide as
+    /// its own rows for that first frame rather than at some guessed width.
+    func expandedPanelWidth(availableWidth: CGFloat) -> CGFloat? {
+        guard collapsedBarWidth > 0, availableWidth > 0 else { return nil }
+        guard !deviceIsLandscape else { return collapsedBarWidth }
+        return availableWidth - ChromeMetrics.edgeInset * 2
+    }
+
     /// The bar: a status pill, four buttons floating around it, and a panel behind the pill's face.
     ///
     /// **Both halves of what a session needs, in the two places they belong.** While watching, the
@@ -59,7 +81,7 @@ extension RemoteScreen {
     ///
     /// The four stand down while the panel is open: it holds the same actions with their words on,
     /// and it wants the width.
-    var statusBar: some View {
+    func statusBar(availableWidth: CGFloat) -> some View {
         // One circle leading and two trailing, so the strip is balanced around the thing it is
         // reporting on.
         HStack(alignment: .center, spacing: 5) {
@@ -71,7 +93,7 @@ extension RemoteScreen {
             if !statusBarExpanded {
                 lockDot.layoutPriority(1)
             }
-            statusPill
+            statusPill(availableWidth: availableWidth)
             // The two about the picture, nearest the thing the picture is reported in.
             if !statusBarExpanded {
                 mosaicDot.layoutPriority(1)
@@ -109,7 +131,7 @@ extension RemoteScreen {
         }
     }
 
-    var statusPill: some View {
+    func statusPill(availableWidth: CGFloat) -> some View {
         // A `ZStack`, and this is the whole of why the pill grows rather than being replaced.
         //
         // It was a `Group`, and a `Group` is transparent: every modifier on one is applied to
@@ -165,15 +187,14 @@ extension RemoteScreen {
                         connectionPathChip
                     }
 
-                    // ── Row 2: the controls that act on the picture in front of you ─
+                    // ── Row 2: what comes from the Mac, and what is taken from it ──
                     //
-                    // **Labelled like the rows below it, because it is one of them.** The panel is
-                    // four rows of one shape: a subject in the column on the left, and the buttons
-                    // that act on it in the slots beside. This row is what gets pressed *while
-                    // watching*: the sound from the Mac, and the three things about the picture.
-                    // Quality is not one of them any more. It is a setting, it was a gauge glyph with
-                    // a menu behind it, and both this panel and the session's own Settings hold it
-                    // with a name on it.
+                    // **Labelled like the rows below it, because it is one of them.** A subject in
+                    // the column on the left, and the buttons that act on it in the slots beside.
+                    // This row is what gets pressed *while watching*: the sound from the Mac, and
+                    // the camera that takes its picture. Quality is not one of them any more. It is
+                    // a setting, it was a gauge glyph with a menu behind it, and both this panel and
+                    // the session's own Settings hold it with a name on it.
                     // **A row's chips go through `AnyView`, and it is a crash fix rather than a
                     // style choice.** A SwiftUI row's *type* is the whole nesting of everything
                     // inside it, and the runtime resolves that type by demangling its name the first
@@ -186,6 +207,27 @@ extension RemoteScreen {
                     actionRow("Stream", systemImage: "play.rectangle") {
                         AnyView(Group {
                         soundButton
+                        Button { ScreenshotShare.present(hostName: model.hostName) } label: {
+                            Image(systemName: "camera")
+                                .pillChip(filling: true)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Take screenshot")
+                        })
+                    }
+
+                    // ── Row 3: how the picture in front of you is shown ────────────
+                    //
+                    // **The row above had four chips and "Immersive" did not fit.** Every chip is
+                    // an equal slot of what the label leaves, so on a phone held upright that slot
+                    // came out narrower than the word and the chip was drawn clipped.
+                    //
+                    // The fit, the zoom and the immersive mode are one subject: each changes how
+                    // the picture is shown rather than what the Mac is sending, which is why they
+                    // are here and not on the row above. Erased like that one is, for the same
+                    // reason at one chip less.
+                    actionRow("View", systemImage: "eye") {
+                        AnyView(Group {
                         fillChip
                         if zoom > 1.01 {
                             Button {
@@ -199,15 +241,8 @@ extension RemoteScreen {
                             }
                             .buttonStyle(RailButtonStyle(scale: 0.9))
                         }
-                        Button { ScreenshotShare.present() } label: {
-                            Image(systemName: "camera")
-                                .pillChip(filling: true)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Take screenshot")
-                        // The controls themselves, put away. On this row rather than among the
-                        // session's own chips, because what it acts on is the picture in front of
-                        // the user: the same subject the zoom, the fill and the camera belong to.
+                        // The controls themselves, put away: the same subject again, one step
+                        // further than the fit, since this takes the app's own chrome out too.
                         actionChip(
                             "Immersive",
                             systemImage: "arrow.up.left.and.arrow.down.right"
@@ -219,7 +254,7 @@ extension RemoteScreen {
 
                     // ── What can be done, sorted by what it is done to ─────────────
                     //
-                    // **Three subjects, in the app's own section label, and chips beside each.** The
+                    // **One subject per row, in the app's own section label, and chips beside each.** The
                     // split is the one this panel turns on: the stream is the picture in front of the
                     // user, the Mac is the machine at the other end, and the session is this
                     // connection to it. Locking a Mac and darkening its displays are things done to
@@ -268,7 +303,7 @@ extension RemoteScreen {
                         }
                     }
 
-                    // A row like the three above it, and the only one whose subject is the end of
+                    // A row like the four above it, and the only one whose subject is the end of
                     // something. Filled red rather than merely written in it: this is the one control
                     // in the panel that cannot be taken back by pressing it again.
                     actionRow("End", systemImage: "power") {
@@ -283,17 +318,11 @@ extension RemoteScreen {
                 // The rows' own gap at the two ends of the stack, so the first and last of them are
                 // inset by what separates them rather than by less.
                 .padding(.vertical, 10)
-                // **The width of the bar it came out of, exactly.** That is where the horizontal
-                // half of the opening comes from: the closed bar is the pill plus the circles
-                // around it, and the panel replaces both, so it opens into their space and grows
-                // sideways as it grows down. Fixed rather than a floor, because the rows inside are divided to fill
-                // it: a panel that could also grow to fit its rows would leave whichever rows were
-                // narrower than the widest one ending short of the glass.
-                //
-                // Until the bar has been measured once, which the guard on the measurement sees to
-                // when the panel opens before the session's own auto-collapse, the panel is as wide
-                // as its own rows.
-                .frame(width: collapsedBarWidth > 0 ? collapsedBarWidth : nil, alignment: .leading)
+                // Fixed rather than a floor, because the rows inside are divided to fill it: a panel
+                // that could also grow to fit its rows would leave whichever rows were narrower
+                // than the widest one ending short of the glass. See
+                // ``RemoteScreen/expandedPanelWidth(availableWidth:)`` for how wide.
+                .frame(width: expandedPanelWidth(availableWidth: availableWidth), alignment: .leading)
                 .contentShape(Rectangle())
                 // The other half of the toggle. The collapsed bar expands on a tap and the
                 // expanded one closes on the next, so it is one control with one meaning
@@ -376,23 +405,6 @@ extension RemoteScreen {
                                     // out of the mosaic to nothing, which is a control that
                                     // exists in the code and nowhere on the screen.
                                     .layoutPriority(0)
-                            }
-                            // **What the window is one of, while it is one of several.** A window
-                            // opened out of an arrangement leaves the arrangement behind it, and the
-                            // row that goes back to it is one tap down: nothing *on* the collapsed
-                            // pill said there was anything to go back to. This says it in the app's
-                            // own word — the same "N windows" a mosaic is named with — and the way
-                            // back is then a row with the same name rather than a symbol to be
-                            // discovered. See ``MacSession/canReturnToMosaic``.
-                            if canReturnToMosaic, model.mosaicChoicesList.count > 1 {
-                                Text("in \(model.mosaicChoicesList.count) windows")
-                                    .font(.caption2.weight(.bold))
-                                    .tracking(0.5)
-                                    .foregroundStyle(.secondary)
-                                    .pillChip()
-                                    .accessibilityLabel(
-                                        "One of \(model.mosaicChoicesList.count) windows in a mosaic"
-                                    )
                             }
                             connectionPathChip
                         }
@@ -747,7 +759,7 @@ extension RemoteScreen {
                 Text(scalesToFill ? "Fill" : "Fit")
                     .monospacedDigit()
             }
-            .pillChip(selected: scalesToFill, filling: true)
+            .pillChip(filling: true)
         }
         .buttonStyle(RailButtonStyle(scale: 0.9))
         .menuInk()
@@ -796,14 +808,16 @@ extension RemoteScreen {
 /// A flat fill rather than a material: the chips sit inside the pill's own glass, and a second
 /// frosted layer within it is two answers to "what is this sitting on".
 ///
-/// The words are the caller's colour, and in this bar that is the ink. `selected` overrides it with
-/// the app's one accent, meaning here what it means everywhere else, this one is on; `destructive`
-/// is the single filled red, carrying the palette's `onInk` because that is what reads on its own
-/// colour.
+/// The words are the caller's colour, and in this bar that is the ink. `destructive` is the single
+/// filled red, carrying the palette's `onInk` because that is what reads on its own colour.
+///
+/// **No selected state.** One chip used to take the accent's blue fill to say its mode was on,
+/// while the toggle beside it in the same row said the same thing with a changed word and glyph.
+/// Two vocabularies for one fact, and the accent is for "this one is on" everywhere else in the
+/// app, which is what made the one blue chip read as a different kind of control.
 extension View {
     @ViewBuilder
     func pillChip(
-        selected: Bool = false,
         filling: Bool = false,
         destructive: Bool = false
     ) -> some View {
@@ -827,10 +841,6 @@ extension View {
                 // every fill with one, and white on the red would be the pair nobody can read.
                 .foregroundStyle(ColorPalette.onInk)
                 .background(ColorPalette.danger, in: Capsule())
-        } else if selected {
-            chip
-                .foregroundStyle(ColorPalette.ink)
-                .background(ColorPalette.selectedFill, in: Capsule())
         } else {
             chip.background(.primary.opacity(0.08), in: Capsule())
         }

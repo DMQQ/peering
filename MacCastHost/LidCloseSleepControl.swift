@@ -133,6 +133,43 @@ enum LidCloseSleepControl {
     // MARK: - Running things
 
     /// The silent `pmset` call that both of the without-a-prompt paths go through.
+    /// Sets the repeating daily wake, through the system's own password dialog.
+    ///
+    /// **The prompting path rather than the silent rule, and that is the design.** The rule exists
+    /// for the one setting that gets flipped often, which is lid-close sleep. A wake time is set
+    /// once and changed rarely, so widening a standing grant to cover `pmset repeat` would buy
+    /// nothing and hand away reach this file has taken trouble to keep narrow.
+    static func setWakeSchedule(hour: Int) async -> Outcome {
+        await runAsAdministrator(
+            shellScript: LidCloseSleep.wakeCommand(hour: hour),
+            prompt: "Peering will wake this Mac at \(LidCloseSleep.hourString(hour).prefix(5)) every day."
+        )
+    }
+
+    /// Takes the repeating schedule away, through the same dialog.
+    static func clearWakeSchedule() async -> Outcome {
+        await runAsAdministrator(
+            shellScript: LidCloseSleep.cancelScheduleCommand,
+            prompt: "Peering will take away the daily wake it set for this Mac."
+        )
+    }
+
+    /// What is scheduled right now, as `pmset -g sched` prints it, minus the system's own alarms.
+    static func scheduledEvents() async -> [String] {
+        await offTheMainThread {
+            LidCloseSleep.otherScheduledEvents(
+                inSchedOutput: run(LidCloseSleep.pmsetPath, ["-g", "sched"]).out
+            )
+        }
+    }
+
+    /// The system's own idle-sleep timer, in minutes. `0` means never.
+    static func idleSleepMinutes() async -> Int? {
+        await offTheMainThread {
+            LidCloseSleep.idleSleepMinutes(inPMSetOutput: run(LidCloseSleep.pmsetPath, ["-g"]).out)
+        }
+    }
+
     private static func applySleepDisabled(_ disabled: Bool) -> Outcome {
         let result = run(
             "/usr/bin/sudo",
@@ -271,10 +308,23 @@ struct KeepAwakeRow: View {
                 // subject and costs something: this holds an idle-sleep assertion, which needs no
                 // permission and is released when Peering quits, and it does not keep a closed Mac
                 // running. The row below does.
-                Text("Keeps this Mac awake on its own: no idle sleep, no display sleep, and no permission prompt. It does not survive the lid being shut, and the next row is the one that does. Lifted automatically when Peering quits.")
+                // Named rather than pointed at. The rows between this one and the lid row are about
+                // *when* this applies, so "the next row" stopped being true the moment they existed.
+                Text("Keeps this Mac awake on its own: no idle sleep, no display sleep, and no permission prompt. It does not survive the lid being shut, and the row about the lid is the one that does. Lifted automatically when Peering quits.")
                     .font(.caption)
                     .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // **The line that says the switch is on and nothing is happening.** Without it the
+                // only way to find out whether this Mac is being held was to guess, which is what a
+                // switch reading "on" over a sleeping Mac invites. See
+                // ``HostModel/keepAwakeWithheldExplanation``.
+                if let withheld = model.keepAwakeWithheldExplanation {
+                    Text(withheld)
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.caution)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer(minLength: 12)
@@ -290,6 +340,255 @@ struct KeepAwakeRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+}
+
+/// The window the keep-awake switches are held inside.
+///
+/// **Sits under the switch it governs, because it is not a third switch.** "Keep Mac awake" is a
+/// statement about the Mac; this is a statement about *when* that statement applies, and the two
+/// are only ever read together. Switched off, the rows above behave exactly as they did before this
+/// existed, down to the timer not existing.
+struct KeepAwakeScheduleRow: View {
+    @Environment(HostModel.self) private var model
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "clock")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(
+                        model.keepAwakeScheduleEnabled ? HostPalette.ink : HostPalette.muted
+                    )
+                    .frame(width: 26, height: 26)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Keep it awake only between these hours")
+                        .font(.subheadline.weight(.medium))
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                Toggle("", isOn: Binding(
+                    get: { model.keepAwakeScheduleEnabled },
+                    set: { model.setKeepAwakeSchedule(enabled: $0) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .tint(HostPalette.accent)
+            }
+
+            if model.keepAwakeScheduleEnabled {
+                HStack(spacing: 12) {
+                    hourPicker("From", hour: model.keepAwakeStartHour) {
+                        model.setKeepAwakeHours(start: $0, end: model.keepAwakeEndHour)
+                    }
+                    hourPicker("To", hour: model.keepAwakeEndHour) {
+                        model.setKeepAwakeHours(start: model.keepAwakeStartHour, end: $0)
+                    }
+                    // An end before the start is a window across midnight rather than a mistake,
+                    // and saying so is the difference between a setting that reads as broken and
+                    // one that reads as late.
+                    if model.keepAwakeEndHour < model.keepAwakeStartHour {
+                        Text("overnight")
+                            .font(.caption)
+                            .foregroundStyle(HostPalette.muted)
+                    }
+                }
+                .padding(.leading, 38)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private func hourPicker(
+        _ label: String, hour: Int, set: @escaping (Int) -> Void
+    ) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(HostPalette.muted)
+            Picker("", selection: Binding(get: { hour }, set: set)) {
+                ForEach(0..<24, id: \.self) { value in
+                    Text(String(format: "%02d:00", value)).tag(value)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .frame(width: 88)
+        }
+    }
+
+    /// What the window does, and then what it cannot do.
+    ///
+    /// **The second half is the part somebody has to know before they switch it on.** This can only
+    /// ever let the Mac sleep, never wake it: a window that opens while the Mac is asleep does
+    /// nothing at all, and the Mac comes back when something else wakes it. A row that promised to
+    /// wake it at seven would be promising the one thing macOS will not do for a sleeping machine.
+    private var caption: String {
+        guard model.keepAwakeScheduleEnabled else {
+            return "Off. The switches above keep this Mac awake all day and all night."
+        }
+        let start = String(format: "%02d:00", model.keepAwakeStartHour)
+        let end = String(format: "%02d:00", model.keepAwakeEndHour)
+        let sentence = "This Mac stays awake from \(start) to \(end), and sleeps the rest of the time unless you are connected to it."
+        if model.keepRunningWithLidClosed, model.lidCloseRuleInstalled != true {
+            return sentence + " The lid-close switch below needs its administrator rule before this can release it."
+        }
+        return sentence
+    }
+}
+
+/// Wakes the Mac again when the window opens.
+///
+/// **The other half of the schedule, and the half macOS does for us.** Letting the Mac go at night
+/// is only useful if something brings it back, and a Mac that is asleep cannot start its own timer.
+/// `pmset` writes the wake into the machine's own schedule, which fires with nothing running and
+/// nothing on the network: wake-on-LAN is a broadcast to a LAN, and a phone arriving over the relay
+/// is not on one.
+///
+/// It is a request rather than a promise, and the caption says so. Nothing here can know whether the
+/// wake will fire, so the row reports what was written rather than what will happen.
+struct WakeScheduleRow: View {
+    @Environment(HostModel.self) private var model
+
+    /// Whether the "this replaces what is there" question is up.
+    @State private var asksAboutReplacing = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: "alarm")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(
+                        model.wakeScheduleHour != nil ? HostPalette.ink : HostPalette.muted
+                    )
+                    .frame(width: 26, height: 26)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Wake it up every day")
+                        .font(.subheadline.weight(.medium))
+                    Text(caption)
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                if model.wakeScheduleBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 26)
+                } else {
+                    Toggle("", isOn: Binding(
+                        get: { model.wakeScheduleHour != nil },
+                        set: apply
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .tint(HostPalette.accent)
+                }
+            }
+
+            if let hour = model.wakeScheduleHour {
+                HStack(spacing: 6) {
+                    Text("Wake at")
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                    Picker("", selection: Binding(
+                        get: { hour },
+                        set: { chosen in Task { await model.setWakeSchedule(hour: chosen) } }
+                    )) {
+                        ForEach(0..<24, id: \.self) { value in
+                            Text(String(format: "%02d:00", value)).tag(value)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.small)
+                    .frame(width: 88)
+                }
+                .padding(.leading, 38)
+            }
+
+            if let failure = model.wakeScheduleFailure {
+                Text(failure)
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 38)
+            }
+
+            // **The reading that defeats everything else in this pane.** A Mac told never to
+            // idle-sleep does not sleep when the last assertion lets go, so the schedule would run,
+            // report success, and change nothing anybody could see. It is not Peering's setting and
+            // Peering does not undo it, which is exactly why it has to be said out loud.
+            if model.idleSleepMinutes == 0 {
+                Text("This Mac is set never to sleep on its own. That is a system setting rather than one of the switches here (Energy Saver, \"Prevent automatic sleeping when the display is off\"), and while it is on, nothing in this app can let this Mac sleep.")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.caution)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 38)
+            }
+
+            if !model.otherScheduledEvents.isEmpty {
+                Text("Already scheduled on this Mac: \(model.otherScheduledEvents.joined(separator: " · "))")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 38)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        // Read when the row appears rather than at launch: both are `pmset` reads, and a setting
+        // somebody changed by hand since is exactly what this is here to show.
+        .task { await model.refreshPowerReadings() }
+        .alert("Replace what is already scheduled?", isPresented: $asksAboutReplacing) {
+            Button("Replace it") {
+                Task { await model.setWakeSchedule(hour: model.keepAwakeStartHour) }
+            }
+            Button("Leave it alone", role: .cancel) {}
+        } message: {
+            Text("""
+                macOS allows one repeating power schedule, and this Mac already has one:
+
+                \(model.otherScheduledEvents.joined(separator: "\n"))
+
+                Turning this on replaces it.
+                """)
+        }
+    }
+
+    private func apply(_ on: Bool) {
+        guard on else {
+            Task { await model.setWakeSchedule(hour: nil) }
+            return
+        }
+        // One repeating pair is all `pmset` holds, so this replaces whatever is there. Asked
+        // rather than done, because overwriting somebody's own schedule without saying so is the
+        // kind of thing that is only discovered later.
+        guard model.otherScheduledEvents.isEmpty else {
+            asksAboutReplacing = true
+            return
+        }
+        Task { await model.setWakeSchedule(hour: model.keepAwakeStartHour) }
+    }
+
+    private var caption: String {
+        guard let hour = model.wakeScheduleHour else {
+            return "Off. Once this Mac has slept, nothing can reach it until something wakes it, and nothing here will."
+        }
+        return "macOS wakes this Mac at \(String(format: "%02d:00", hour)) every day. It works with nothing running and nothing on the network. On battery it may not fire."
     }
 }
 
@@ -357,7 +656,12 @@ struct LidCloseSleepRow: View {
             // crash between the write and the marker, left a switch reading "on" over a Mac that
             // slept the moment the lid shut. The app cannot promise a Mac stays up; it can promise
             // not to claim it is, and the difference between those two is this line.
-            if model.keepRunningWithLidClosed, model.lidCloseSystemState == .off {
+            // And not when something let it go on purpose. The schedule's window closing, and the
+            // prompt on the last disconnect, both leave this switch on over a machine that is
+            // sleeping normally, which is the same reading as a setting somebody removed by hand
+            // and the opposite of a problem.
+            if model.keepRunningWithLidClosed, !model.keepAwakeWithheld,
+               model.lidCloseSystemState == .off {
                 Text("Switched on, but this Mac is not doing it: pmset reports the setting as off. Switch this off and on again to put it back.")
                     .font(.caption)
                     .foregroundStyle(HostPalette.danger)

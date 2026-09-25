@@ -137,7 +137,7 @@ extension RemoteScreen {
                 // which on this Mac is a terminal's 74-character status line. Left alone the bar grew
                 // until it was drawn over both rails and the buttons under them. See
                 // ``RemoteScreen/statusBarWidthCap(in:)``.
-                statusBar
+                statusBar(availableWidth: available.width)
                     .frame(maxWidth: statusBarWidthCap(in: available.width))
                     .tourAnchor(.screenStatus)
                 // Under the pill rather than beside it, in both orientations: the pill is about
@@ -253,7 +253,7 @@ extension RemoteScreen {
                 }
 
                 VStack(spacing: 0) {
-                    statusBar
+                    statusBar(availableWidth: available.width)
                         .tourAnchor(.screenStatus)
                     // Standing permanently here, where landscape's collapses with the pill: this
                     // is the orientation the dock sits at the bottom of, and a bar of Macs that

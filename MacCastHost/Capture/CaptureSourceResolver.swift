@@ -155,11 +155,18 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// Fired when the catalogue is known to be out of date: after an app launches or quits, or a
     /// display is added, removed or reconfigured. The host re-reads ``catalog()`` and pushes the
     /// result; pushing from inside the notification would be pushing from an unrelated thread.
-    private let onInvalidate: (@Sendable () -> Void)?
+    ///
+    /// **The flag is whether the push has to go out now.** A catalogue push is coalesced against a
+    /// three-second interval, which is right for a burst of window events and wrong for a picture
+    /// somebody is waiting to see: the preview is the last thing a desktop tile needs before it
+    /// stops being a grey outline, and holding it for the rest of that interval is the difference
+    /// between a grid that fills in as you watch and one that looks stuck. See ``previewLanded()``.
+    private let onInvalidate: (@Sendable (Bool) -> Void)?
 
     /// - Parameter onInvalidate: called off the main thread whenever the source list may
-    ///   have changed. Optional so a one-shot probe can ignore it.
-    init(onInvalidate: (@Sendable () -> Void)? = nil) {
+    ///   have changed, with whether the push has to go out at once. Optional so a one-shot probe
+    ///   can ignore it.
+    init(onInvalidate: (@Sendable (Bool) -> Void)? = nil) {
         self.onInvalidate = onInvalidate
         registerObservers()
 
@@ -193,9 +200,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let content = try await shareableContent()
         // A source a capture has proved it cannot have is not offered at all: leaving it in gives
         // the phone a tile to draw and a window to open, and opening it does nothing. See
-        // ``uncapturable``.
+        // ``uncapturable`` for why the mark has a life rather than standing until something else
+        // invalidates the list.
         let offTheList = lock.withLock { uncapturable }
-        let descriptors = Self.descriptors(from: content).filter { !offTheList.contains($0.source) }
+        let now = Date()
+        let descriptors = Self.descriptors(from: content).filter { descriptor in
+            guard let marked = offTheList[descriptor.source] else { return true }
+            return now.timeIntervalSince(marked) >= Self.uncapturableGrace
+        }
         let runningBundleIDs = Set(descriptors.compactMap(\.bundleIdentifier))
         let installed = lock.withLock { installedApplicationsCache }
             ?? Self.installedApplications()
@@ -353,38 +365,58 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             isStale = true
             // A window that would not render may render now, and this is one of the few moments
             // that can be true. See ``uncapturable``.
-            uncapturable = []
+            uncapturable = [:]
             return wasCurrent
         }
         guard changed else { return }
         resolverLog.debug("capture catalogue invalidated")
-        onInvalidate?()
+        onInvalidate?(false)
     }
 
-    /// Sources a capture has proved this Mac cannot capture, by source.
+    /// Sources a capture has proved this Mac cannot capture, and when it proved it.
     ///
     /// ScreenCaptureKit lists windows it will not render, and nothing in the enumeration
     /// separates one from a window that works: its descriptor is as ordinary as any other, and a
     /// stream built for it starts and then says nothing. The only evidence there is is a capture
     /// that produced no frame at all, and this is where a mosaic's report of one goes.
     ///
-    /// Emptied by ``invalidate()``, which is a launch, a quit, a change of screen or a window
-    /// changing size: all of them the machine changing under the answer. Under ``lock``.
-    private var uncapturable: Set<CaptureSource> = []
+    /// **Dated, and the date is the whole of the fix for an app that kept disappearing.** A mark
+    /// used to stand until something invalidated the list, and `invalidate()` runs on an app
+    /// launching or quitting, a display changing or a window resizing. So a window that failed
+    /// *once* for a passing reason was gone from the phone for the rest of the session: measured
+    /// with Terminal and Zed, whose windows failed while the display under them was mid-Space
+    /// switch, and neither came back until something unrelated was launched. A mark now expires
+    /// after ``uncapturableGrace``, so the source is offered again and tried again. One that is
+    /// genuinely unrenderable fails again and is re-marked for another interval; one that failed
+    /// for a moment returns on its own.
+    ///
+    /// Emptied outright by ``invalidate()``, which is a launch, a quit, a change of screen or a
+    /// window changing size: all of them the machine changing under the answer. Under ``lock``.
+    private var uncapturable: [CaptureSource: Date] = [:]
+
+    /// How long a source stays off the list after a capture of it produced nothing.
+    ///
+    /// A minute: long enough that a window failing for a passing reason is not offered on the very
+    /// next rebuild, short enough that somebody looking for the app they left open finds it again
+    /// without relaunching anything.
+    private static let uncapturableGrace: TimeInterval = 60
 
     func markUncapturable(_ source: CaptureSource) {
-        let fresh = lock.withLock { () -> Bool in
+        let announced = lock.withLock { () -> Bool in
             isStale = true
-            return uncapturable.insert(source).inserted
+            let wasMarked = uncapturable[source]
+                .map { Date().timeIntervalSince($0) < Self.uncapturableGrace } ?? false
+            uncapturable[source] = Date()
+            return !wasMarked
         }
-        guard fresh else { return }
+        guard announced else { return }
         resolverLog.notice("""
             \(source.stableID, privacy: .public) produced no picture when it was asked for one; \
-            it is not being offered again
+            it is off the list for \(Int(Self.uncapturableGrace), privacy: .public)s
             """)
         // Announced rather than suppressed, unlike ``invalidate()``: the list really has changed,
         // and this is the push that takes the tile out of the phone's arrangement.
-        onInvalidate?()
+        onInvalidate?(false)
     }
 
     private func registerObservers() {
@@ -688,8 +720,11 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// date, read it again" signal, but not through ``invalidate()``: that one suppresses the
     /// call when the resolver is already stale, and a preview landing behind an unrelated launch
     /// would then never be pushed.
+    ///
+    /// **At once, not on the interval.** This is the one invalidation with somebody waiting on it:
+    /// the phone asked for these pictures and is drawing outlines until they arrive.
     private func previewLanded() {
-        onInvalidate?()
+        onInvalidate?(true)
     }
 
     /// The configuration a Space preview is photographed with.

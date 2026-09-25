@@ -326,6 +326,28 @@ extension RemoteScreen {
         }
     }
 
+    /// How often the desktops are re-photographed while the grid is open.
+    ///
+    /// Short enough that a desktop switched on the Mac, or a window opened on it, is on the tile
+    /// before the user has finished looking at the grid; long enough that an open panel is not
+    /// asking the Mac for a screenshot of every display several times a second. The Mac takes one
+    /// per display per ask, and this is the only thing that repeats.
+    static let desktopRefreshInterval: Duration = .seconds(4)
+
+    /// The repeat's own ask, while the grid is open: fresh pictures of the desktops, and nothing
+    /// else.
+    ///
+    /// **Not ``askForSourcePictures()``.** That one also asks for a photograph of every window the
+    /// Mac is offering, which is a capture per window. Window pictures do not go stale while the
+    /// panel is up unless something changes on the Mac, and every window event there invalidates
+    /// them anyway; the desktops are the ones that change under the user, and they are what a tile
+    /// in this grid is drawn from.
+    func askForFreshDesktops() {
+        guard openPanel == .sources else { return }
+        guard let info = model.catalog?.spaceInfo, SourcesPanel.showsDesktops(info) else { return }
+        model.send(.refreshSpacePreviews)
+    }
+
     /// Puts the panel away once the user has picked something from it, if that is what they asked
     /// for.
     ///

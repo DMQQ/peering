@@ -244,6 +244,74 @@ public enum LidCloseSleep {
         return entries
     }
 
+    // MARK: - The repeating schedule
+
+    /// The weekdays a repeating schedule covers: every day, because what the user sets here is
+    /// hours rather than days.
+    public static let scheduleWeekdays = "MTWRFSU"
+
+    /// The command that wakes this Mac at `hour` every day.
+    ///
+    /// **Firmware, not a helper.** macOS powers a sleeping Mac back on at a time written into its
+    /// own schedule, and that is the one route to being reachable that needs nothing on the network:
+    /// wake-on-LAN is a broadcast to a LAN, and a phone arriving over the relay is not on one. It is
+    /// the same `pmset` and the same one-time administrator prompt as everything else here, and it
+    /// is set once rather than held.
+    public static func wakeCommand(hour: Int) -> String {
+        "\(pmsetPath) repeat wakeorpoweron \(scheduleWeekdays) \(hourString(hour))"
+    }
+
+    /// The command that takes the repeating schedule away.
+    ///
+    /// `cancel` rather than an empty schedule: `pmset repeat` replaces the pair it is given, and
+    /// there is no argument that means "nothing".
+    public static let cancelScheduleCommand = "\(pmsetPath) repeat cancel"
+
+    /// `HH:00:00`, which is the shape `pmset` takes a time in.
+    public static func hourString(_ hour: Int) -> String {
+        String(format: "%02d:00:00", max(0, min(23, hour)))
+    }
+
+    /// The lines of `pmset -g sched` that are not one of the system's own alarms, trimmed.
+    ///
+    /// **Kept as lines, because the format is not worth parsing.** An ordinary Mac lists a handful
+    /// of one-off alarms belonging to Apple's daemons, and a repeating schedule sits among them,
+    /// and `pmset` prints `com.apple.` as the owner of the first kind. Filtering on that is enough
+    /// to show somebody what they are about to replace, and it makes no claim about a line it does
+    /// not recognise: anything that is not the system's is offered as written.
+    ///
+    /// The header line comes off with them, since it is not an event.
+    public static func otherScheduledEvents(inSchedOutput output: String) -> [String] {
+        output.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { line in
+                !line.isEmpty
+                    && !line.contains("com.apple.")
+                    && !line.lowercased().hasPrefix("scheduled power events")
+            }
+    }
+
+    // MARK: - The system's own idle-sleep timer
+
+    /// The `sleep` setting out of `pmset -g`, in minutes, or `nil` when the line is not there.
+    ///
+    /// **`0` means never, and that is a setting rather than a reading.** Energy Saver's "Prevent
+    /// automatic sleeping when the display is off" writes it, and nothing in this app did. It
+    /// matters to every other part of this file, because a Mac told never to idle-sleep does not
+    /// sleep when the last assertion lets go: the schedule would run, report success, and change
+    /// nothing anybody could see.
+    ///
+    /// The parenthetical is ignored: `sleep 0 (sleep prevented by …)` names the assertions, and the
+    /// number before it is the setting either way.
+    public static func idleSleepMinutes(inPMSetOutput output: String) -> Int? {
+        for line in output.split(separator: "\n") {
+            let fields = line.split(whereSeparator: \.isWhitespace)
+            guard fields.first == "sleep" else { continue }
+            return fields.dropFirst().first.flatMap { Int($0) }
+        }
+        return nil
+    }
+
     // MARK: - The battery
 
     /// What `pmset -g batt` says about where the power is coming from.

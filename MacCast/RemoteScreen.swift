@@ -384,6 +384,19 @@ struct RemoteScreen: View {
             if panel == nil { chromeFrames[.panel] = nil }
             if panel == .sources { askForSourcePictures() }
         }
+        // **And again on a clock, for as long as the grid is up.** The pictures are taken on
+        // demand, and until this existed the only thing that asked was the panel opening: left
+        // open, the grid went on showing whatever the Mac looked like when it was first asked,
+        // which is the wrong answer for a panel whose job is picking something that is there now.
+        // Keyed on the panel, so closing it is what stops the loop.
+        .task(id: openPanel) {
+            guard openPanel == .sources, !isImmersive else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.desktopRefreshInterval)
+                guard !Task.isCancelled else { return }
+                askForFreshDesktops()
+            }
+        }
         // **And again when a session comes up with the grid already on screen.** The ask above is
         // keyed on the panel opening, and a reconnect changes nothing about the panel: it stayed
         // open across the whole of it. What changed is the Mac on the other end, whose pictures of

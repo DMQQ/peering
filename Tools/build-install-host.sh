@@ -56,6 +56,26 @@ do
 done
 
 osascript -e 'tell application id "pl.dmq.peering.host" to quit' 2>/dev/null || true
+
+# **Waited for, and complained about, because a quit that does nothing is the quietest way this
+# script can fail.** `osascript` exits 0 whether or not an app answered, and `open` on a Mac whose
+# old copy is still running activates that copy instead of launching the new one — so the build
+# lands on disk, the script says "installed and opened", and the process that is running is the one
+# from before. Measured on 25 September 2026: a process started at 12:35 was still serving builds
+# copied over it at 12:50, and everything added in between was believed to be running and was not.
+PIDS="$(pgrep -f "Peering.app/Contents/MacOS/Peering" || true)"
+if [ -n "$PIDS" ]; then
+    for _ in $(seq 1 20); do
+        sleep 0.5
+        pgrep -f "Peering.app/Contents/MacOS/Peering" > /dev/null || break
+    done
+fi
+if pgrep -f "Peering.app/Contents/MacOS/Peering" > /dev/null; then
+    echo "The running copy of $INSTALLED_APP did not quit, so opening it would only activate the old" >&2
+    echo "binary. Quit Peering from its menu bar and run this script again." >&2
+    exit 1
+fi
+
 /usr/bin/ditto "$BUILT_APP" "$INSTALLED_APP"
 
 # `open` straight after the copy fails with error -600 (procNotFound) often enough to be worth a

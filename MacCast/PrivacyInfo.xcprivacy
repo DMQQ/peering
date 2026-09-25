@@ -15,6 +15,13 @@
   itself: the home screen widget runs in its own container and cannot read the app's defaults, so
   the Mac it opens is written to a store both targets can see.
 
+  *File timestamps, for the crash log.* `C617.1` covers reading the modification date of a file in
+  the app's own container. That is the whole of its use: a crash is written by a signal handler that
+  cannot ask the clock what time it is, because formatting a date inside one is not a safe thing to
+  do, so the file's own modification time is the crash time and it is read back on the next launch.
+  Nothing outside the app's own container is stat'd, and nothing about the timestamps leaves the
+  device, because the crash reports themselves do not.
+
   *A device identifier, and this is the line worth arguing about.* The app sends the relay an
   identifier it made for itself, kept in user defaults, and the relay writes it beside the seconds
   that identifier has spent relayed, in an append-only file. That is data leaving the device and
@@ -68,6 +75,14 @@
 			<array>
 				<string>CA92.1</string>
 				<string>1C8F.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
 			</array>
 		</dict>
 	</array>

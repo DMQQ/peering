@@ -81,8 +81,36 @@ enum Diagnostics {
             }
         }
 
+        // **The crashes, which are the one part of this nobody can describe from memory.** Somebody
+        // reporting a bug can say what they were doing and cannot say what the stack was, and this
+        // is the text that already travels with the report, both attached as a file and behind the
+        // "Copy diagnostics" row. Without it a crash report is a paragraph and a guess.
+        //
+        // Bounded on both axes: the three most recent, and only the first frames of each. A launch
+        // crash produces sixty frames of SwiftUI, and the interesting part is always the top of it.
+        let crashes = CrashLog.entries(subject: "phone").prefix(3)
+        lines.append("")
+        if crashes.isEmpty {
+            lines.append("No crashes recorded.")
+        } else {
+            lines.append("Last \(crashes.count) crash report(s):")
+            for entry in crashes {
+                lines.append("")
+                lines.append("--- \(entry.kind.rawValue) · \(format(entry.date)) ---")
+                let body = entry.text.split(separator: "\n", omittingEmptySubsequences: false)
+                lines.append(contentsOf: body.prefix(Self.framesCarried).map(String.init))
+                if body.count > Self.framesCarried {
+                    lines.append("… \(body.count - Self.framesCarried) more lines in the report")
+                }
+            }
+        }
+
         return lines.joined(separator: "\n")
     }
+
+    /// How much of one crash report travels. Forty lines: a header, and enough frames to tell a
+    /// stack overflow in a view from a protocol error in a socket.
+    private static let framesCarried = 40
 
     /// The hardware identifier rather than the marketing name.
     ///

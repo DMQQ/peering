@@ -91,6 +91,81 @@ final class HostModel {
     /// `pmset`, and the row reads both so "switched on and not in force" can be said out loud.
     var lidCloseSystemState: LidCloseSleep.SleepDisabledState?
 
+    /// Whether the Mac is kept awake only inside a window of the day.
+    ///
+    /// **The switches above have no idea whether anybody is using the Mac.** Left on they hold a
+    /// laptop awake on a desk, overnight, indefinitely, which is not what anybody means by "keep
+    /// this Mac reachable" — it is what they discover a week later when the battery has been
+    /// through a few hundred cycles. This is the half that has an opinion about *when*.
+    var keepAwakeScheduleEnabled =
+        UserDefaults.standard.bool(forKey: HostModel.keepAwakeScheduleEnabledKey)
+
+    /// The window's first hour, 0-23, inclusive.
+    var keepAwakeStartHour =
+        UserDefaults.standard.object(forKey: HostModel.keepAwakeScheduleStartHourKey) as? Int
+            ?? HostModel.keepAwakeDefaultStartHour
+
+    /// The window's last hour, 0-23, exclusive. Lower than the start means the window crosses
+    /// midnight.
+    var keepAwakeEndHour =
+        UserDefaults.standard.object(forKey: HostModel.keepAwakeScheduleEndHourKey) as? Int
+            ?? HostModel.keepAwakeDefaultEndHour
+
+    /// Whether a keep-awake the user asked for is deliberately not in force at the moment, either
+    /// because the schedule's window is shut or because they let it go by hand.
+    ///
+    /// **Kept because the pane has to be able to tell the two apart.** A Mac that something
+    /// deliberately released and a Mac whose `pmset` setting somebody removed by hand look
+    /// identical from the switch, and the second one is the state the whole recovery path exists
+    /// for: it is the one where the app is claiming to hold the Mac up and is not.
+    var keepAwakeWithheld = false
+
+    /// The clock behind the schedule. One minute, because the thing it moves is an hour wide.
+    var keepAwakeScheduleTask: Task<Void, Never>?
+
+    /// Set when the user answered the prompt by letting the Mac go by hand.
+    ///
+    /// **Its own flag rather than a release, because the release would be undone within a minute.**
+    /// The schedule re-applies on a clock, and inside its window that means putting back everything
+    /// the switches ask for, including whatever the user has just said no to. This is what makes the
+    /// answer stick until something says the situation has changed: a client connecting, or one of
+    /// the switches being touched.
+    var keepAwakeReleasedByHand = false
+
+    /// The hour this Mac is woken every day, or `nil` when it is not.
+    ///
+    /// **The half of the schedule that macOS does for us.** Letting the Mac go at night is only
+    /// useful if something brings it back, and a sleeping Mac cannot start its own timer. `pmset`
+    /// writes the wake into the machine's own schedule, which fires with nothing running and
+    /// nothing on the network: wake-on-LAN is a broadcast to a LAN, and a phone arriving over the
+    /// relay is not on one.
+    var wakeScheduleHour: Int? =
+        UserDefaults.standard.object(forKey: HostModel.wakeScheduleHourKey) as? Int
+
+    /// Whether an administrator prompt is in flight for that row.
+    var wakeScheduleBusy = false
+    var wakeScheduleFailure: String?
+
+    /// What `pmset -g sched` lists that is not one of the system's own alarms.
+    ///
+    /// Read rather than assumed, because `pmset` allows one repeating pair and setting ours
+    /// replaces whatever was there. Shown before it is replaced rather than after.
+    var otherScheduledEvents: [String] = []
+
+    /// The system's own idle-sleep timer, in minutes, with `0` meaning never.
+    var idleSleepMinutes: Int?
+
+    /// The wait between the last client leaving and the question being asked. See
+    /// ``scheduleKeepAwakePrompt()`` for why it is not asked on the instant.
+    var keepAwakePromptTask: Task<Void, Never>?
+
+    /// Asked when the last client goes, and the one prompt this feature has.
+    ///
+    /// Set rather than shown directly so the pane can raise it: a model that put a dialog up would
+    /// be a dialog from a background thread, and on a Mac with no window open it would be a dialog
+    /// from nowhere.
+    var asksToReleaseKeepAwake = false
+
     /// The one thing this app does before a window exists.
     ///
     /// The lid-close check is here rather than in ``start()``, which runs when the window opens,
@@ -99,6 +174,10 @@ final class HostModel {
     init() {
         Task { await adoptLidCloseSleepSetting() }
         startResourceSampling()
+        // The window may have opened and closed long before anybody looked at it, and this Mac was
+        // launched at login for exactly that case: without the clock started here, a Mac restarted
+        // inside its own window would sit with the schedule off until somebody opened the pane.
+        updateKeepAwakeScheduleWatch()
     }
 
     /// Whether a given trusted device is attached right now.
@@ -380,10 +459,10 @@ final class HostModel {
         // left by the last process. See ``adoptAbandonedSessions()``.
         adoptAbandonedSessions()
         status = .starting
-        if preventLidCloseSleep {
-            acquireLidSleepAssertion()
-            acquirePreferenceDisplaySleepAssertion()
-        }
+        // **Starting again is the user asking to be reachable**, so it takes back the release
+        // ``stop()`` performed and puts the keep-awake through the schedule like every other path,
+        // which outside the window is to hold nothing yet.
+        Task { await rearmKeepAwake() }
         let device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
         deviceName = device.name
         deviceID = device.id
@@ -430,8 +509,10 @@ final class HostModel {
         }
         self.spaceObserver = spaceObserver
 
-        let resolver = ScreenCaptureSourceResolver { [weak self] in
-            Task { @MainActor [weak self] in self?.coordinator?.refreshCatalog() }
+        let resolver = ScreenCaptureSourceResolver { [weak self] immediate in
+            Task { @MainActor [weak self] in
+                self?.coordinator?.refreshCatalog(immediate: immediate)
+            }
         }
         // Wired here rather than at the cover, because a cover taken back down is the one thing
         // this side of the feature cannot be told about in the call that raised it.
@@ -574,16 +655,16 @@ final class HostModel {
             }
             if case .switchToSpace(let display, let index) = command {
                 Task { @MainActor [weak self] in
-                    // `performSwitch` returns whether the window server *accepted* the move, which
-                    // is the whole difference between a tile that works and one that silently does
-                    // nothing. The two are indistinguishable from the phone.
-                    let switched = switchToSpace(display: display, index: index)
-                    self?.record(
-                        switched
-                            ? "Desktop \(index) on display \(display) accepted"
-                            : "Desktop \(index) on display \(display) refused by the window server",
-                        level: switched ? .info : .warning
-                    )
+                    guard let self else { return }
+                    // `switchToSpace` returns whether the window server *accepted* the move, which
+                    // is the difference between a tile that works and one that silently does
+                    // nothing. Whether the *picture* followed is the other half of the answer, and
+                    // it arrives later or not at all: see ``report(spaceSwitchRoute:index:display:)``.
+                    _ = switchToSpace(display: display, index: index) { route in
+                        Task { @MainActor in
+                            self.report(spaceSwitchRoute: route, index: index, display: display)
+                        }
+                    }
                 }
                 return
             }
@@ -709,6 +790,11 @@ final class HostModel {
         // may or may not report a disconnect of their own, so this does not wait on them.
         input.releaseAll()
         setPrivacyMode(false)
+        // **Nothing is being hosted, so the Mac is not being held up for anybody.** This is the
+        // clearest possible statement of "nobody is using it": the user has said so themselves.
+        // Released through the ordinary path, which leaves the switches where they were, so
+        // starting again is what puts the keep-awake back rather than a setting to go and find.
+        Task { await releaseKeepAwakeNow() }
         // Before the listener goes, and before the process can outlive it: a stopped host that has
         // left a monitor behind is the one state the user cannot repair from the window.
         virtualDisplayCreationGeneration &+= 1
@@ -860,6 +946,10 @@ final class HostModel {
             // long as three seconds while this Mac captures a display nobody asked for.
             coordinator?.refreshCatalog(immediate: true)
             acquireSleepAssertion()
+            // Somebody is using this Mac: the schedule's window is open whatever the clock says,
+            // and a release the user asked for on the last disconnect is spent. See
+            // ``keepAwakeIsInForce``.
+            Task { await rearmKeepAwake() }
 
         case .clientDisconnected(let clientID, let clientName):
             connectedClients.removeAll { $0.id == clientID }
@@ -876,6 +966,19 @@ final class HostModel {
                 input.releaseAll()
                 releaseSleepAssertion()
                 setPrivacyMode(false)
+                // **The moment this feature exists for.** The last client has gone, and whatever
+                // the keep-awake switches are holding is now being held for nobody. The schedule
+                // gets its say first: outside its window this is where the Mac is let go, and the
+                // prompt would be asking about something already done.
+                Task { @MainActor in
+                    await applyKeepAwakeSchedule()
+                    // Asked only if something is *still* being held. Outside the schedule's window
+                    // the line above has just let the Mac go, and a prompt offering to do what has
+                    // already been done is a prompt nobody can answer sensibly.
+                    if keepAwakeIsInForce, preventLidCloseSleep || keepRunningWithLidClosed {
+                        scheduleKeepAwakePrompt()
+                    }
+                }
                 // **And the displays this phone asked for go with it.** A display made at a
                 // client's request is that client's, and it is temporary by construction: left
                 // behind it is a screen the Mac's own user did not make, cannot take away from the
@@ -911,6 +1014,55 @@ final class HostModel {
             if !status.isListening {
                 status = .failed(message)
             }
+        }
+    }
+
+    /// What to tell the user about how a desktop switch reached its Space.
+    ///
+    /// **Two of these were silent, and silence is what made them expensive to find.** The route
+    /// the host falls back to moves the Space without running the Dock's window show/hide cycle, so
+    /// the display can go on compositing the desktop that was there before, with the arriving one's
+    /// windows drawn over it. On the phone that reads as a tile that shows two desktops, or as a
+    /// picture that has frozen, and it clears the moment anything on the Mac moves because the
+    /// encoder then has a frame to send. Nothing said why, so the report on the Mac said the switch
+    /// was accepted, which it was.
+    ///
+    /// The shortcut one is the case this was written for: `AXIsProcessTrusted()` and the symbol
+    /// both say the chord route is available, so the host believes it is, and the only thing that
+    /// knows otherwise is a chord that does not move anything. Measured on this Mac on 2026-09-25:
+    /// entries 79 and 80 of `com.apple.symbolichotkeys`, "Move left a space" and "Move right a
+    /// space", were enabled with no key bound, and every switch took the fallback.
+    private func report(spaceSwitchRoute route: SpaceSwitchRoute, index: Int, display: UInt32) {
+        switch route {
+        case .chord:
+            record("Desktop \(index) on display \(display) accepted")
+        case .direct(.chordDidNotLand):
+            record(
+                """
+                Desktop \(index) switched, but the picture may still show the one before it. This \
+                Mac's "Move left a space" and "Move right a space" shortcuts have no keys set, so \
+                the switch has no transition to follow. Turn them on in System Settings > Keyboard \
+                > Keyboard Shortcuts > Mission Control.
+                """,
+                level: .warning
+            )
+        case .direct(.pointerElsewhere):
+            record(
+                "Desktop \(index) switched. Move the pointer onto this display first for the picture to follow it.",
+                level: .warning
+            )
+        case .direct(.noPermission):
+            record(
+                "Desktop \(index) switched. Grant Peering the Accessibility permission for the picture to follow it.",
+                level: .warning
+            )
+        case .direct(.noApproach):
+            record("Desktop \(index) on display \(display) accepted")
+        case .refused:
+            record(
+                "Desktop \(index) on display \(display) refused by the window server",
+                level: .warning
+            )
         }
     }
 

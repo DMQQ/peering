@@ -1,4 +1,5 @@
 import AppKit
+import MacCastKit
 import SwiftUI
 
 /// The app's own delegate, for the one hook a scene cannot be trusted with.
@@ -18,6 +19,10 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
     let model = HostModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before the model is used for anything: a crash in the launch path is the one this is for,
+        // and this is the earliest point the delegate is given.
+        CrashLog.install(subject: "host")
+
         Task { @MainActor [model] in
             // ScreenCaptureKit is the authoritative permission check and it is asynchronous.
             // Wait for that answer before deciding whether setup must interrupt the user.

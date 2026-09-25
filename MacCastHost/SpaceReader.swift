@@ -312,7 +312,11 @@ func switchSpaceRelative(direction: SpaceDirection) -> Bool {
 /// unavailable, the display is gone, or the index is out of range — callers should not surface an
 /// error for a missing Space because the user might have removed it since the catalogue was sent.
 @discardableResult
-func switchToSpace(display: UInt32, index: Int) -> Bool {
+func switchToSpace(
+    display: UInt32,
+    index: Int,
+    report: (@Sendable (SpaceSwitchRoute) -> Void)? = nil
+) -> Bool {
     dispatchPrecondition(condition: .onQueue(.main))
     guard cgsSetManagedDisplayCurrentSpace != nil else { return false }
     // A fresh read on every switch, for the same reason the reader is a read rather than a
@@ -338,7 +342,7 @@ func switchToSpace(display: UInt32, index: Int) -> Bool {
         on \(target.activeID, privacy: .public), going to \(destination, privacy: .public)
         """)
 
-    return performSwitch(display: target, spaceID: destination)
+    return performSwitch(display: target, spaceID: destination, report: report)
 }
 
 // MARK: - Making the picture follow the switch
@@ -452,19 +456,30 @@ private func postKeyEvent(_ key: CGKeyCode, down: Bool) {
 /// that matters — a display that is not the one the pointer is on.
 private func chordApproach(
     display: ManagedDisplay, spaceID: Int32
-) -> (neighbour: Int32, direction: SpaceDirection)? {
-    guard canPostSpaceChords else { return nil }
+) -> ChordApproach {
+    guard canPostSpaceChords else { return .unusable(.noPermission) }
     // A chord acts on the display the pointer is on. With one screen that is always this one;
     // with two, jumping this display and then stepping would move the other one.
-    guard display.displayID == DisplayGeometry.pointerDisplayID() else { return nil }
+    guard display.displayID == DisplayGeometry.pointerDisplayID() else {
+        return .unusable(.pointerElsewhere)
+    }
 
     let spaces = display.spaces
-    guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else { return nil }
+    guard let index = spaces.firstIndex(where: { $0.id == spaceID }) else {
+        return .unusable(.noApproach)
+    }
     // The Space before it, stepping forward; or, for the first Space in the list, the one after
     // it, stepping back. Both land on the destination in a single step.
-    if index > 0 { return (spaces[index - 1].id, .right) }
-    if index < spaces.count - 1 { return (spaces[index + 1].id, .left) }
-    return nil
+    if index > 0 { return .step(neighbour: spaces[index - 1].id, direction: .right) }
+    if index < spaces.count - 1 { return .step(neighbour: spaces[index + 1].id, direction: .left) }
+    return .unusable(.noApproach)
+}
+
+/// The outcome of ``chordApproach(display:spaceID:)``: somewhere to step from, or the reason
+/// there is not.
+private enum ChordApproach {
+    case step(neighbour: Int32, direction: SpaceDirection)
+    case unusable(SpaceSwitchRoute.DirectReason)
 }
 
 /// The direct call on its own: instant, and correct only as the approach to a real transition.
@@ -479,6 +494,35 @@ private func setCurrentSpace(display: ManagedDisplay, spaceID: Int32) -> Bool {
     let cid = connection()
     guard cid > 0 else { return false }
     return setCurrent(cid, display.identifier as CFString, UInt64(spaceID)) == 0
+}
+
+/// How a switch reached the Space it was asked for.
+///
+/// **A switch that took the direct route is not a switch that worked**, and until this existed the
+/// two were indistinguishable from outside this file. The window server accepts both, the desktop
+/// changes both times, and only the picture gives the difference away, seconds later and on the
+/// phone rather than here.
+enum SpaceSwitchRoute: Sendable, Equatable {
+    /// The chord stepped onto the destination: a real transition, so the compositor redid the
+    /// picture.
+    case chord
+    /// The window server was told directly. The Space moves, and the display can go on compositing
+    /// the desktop that was there before with the arriving one's windows over it.
+    case direct(DirectReason)
+    /// The window server would not move the display at all, by either route.
+    case refused
+
+    enum DirectReason: Sendable, Equatable {
+        /// No Accessibility permission, so a posted chord is dropped in silence.
+        case noPermission
+        /// The pointer is on another display, and a chord acts on the one it is on.
+        case pointerElsewhere
+        /// The chord was posted and the display did not move.
+        case chordDidNotLand
+        /// Nowhere to step from: one Space, or the window server would not make the neighbour
+        /// current.
+        case noApproach
+    }
 }
 
 /// Moves `display` onto `spaceID`, **and makes the picture follow it.**
@@ -501,26 +545,44 @@ private func setCurrentSpace(display: ManagedDisplay, spaceID: Int32) -> Bool {
 /// same stale picture it always does; the chord that follows is a genuine transition, and redoing
 /// the composite is exactly what clears the mess. One short slide is the cost, where the switch
 /// used to be instant.
-private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
-    guard let approach = chordApproach(display: display, spaceID: spaceID) else {
+private func performSwitch(
+    display: ManagedDisplay,
+    spaceID: Int32,
+    report: (@Sendable (SpaceSwitchRoute) -> Void)? = nil
+) -> Bool {
+    let approach: (neighbour: Int32, direction: SpaceDirection)
+    switch chordApproach(display: display, spaceID: spaceID) {
+    case .step(let neighbour, let direction):
+        approach = (neighbour, direction)
+    case .unusable(let reason):
         // The stacked-desktop bug comes straight back the moment the chord route is
         // unavailable, and it comes back *silently* — the switch still happens, only the
         // picture stops following it. So say which half is missing. A second screen or a
         // display with one Space is an ordinary reason to be here and says nothing.
-        if !canPostSpaceChords {
+        if reason == .noPermission {
             spaceLog.notice("""
                 no Space chords: symbol \(postKeyboardEvent != nil, privacy: .public), \
                 accessibility \(AXIsProcessTrusted(), privacy: .public). Switching directly, \
                 which can leave the old desktop composited on screen.
                 """)
         }
-        return setCurrentSpace(display: display, spaceID: spaceID)
+        guard setCurrentSpace(display: display, spaceID: spaceID) else {
+            report?(.refused)
+            return false
+        }
+        report?(.direct(reason))
+        return true
     }
     // A neighbour the window server refuses to make current leaves the chord stepping off the
     // Space we are already on, which lands somewhere nobody asked for. The direct call is what
     // there is to fall back to.
     guard setCurrentSpace(display: display, spaceID: approach.neighbour) else {
-        return setCurrentSpace(display: display, spaceID: spaceID)
+        guard setCurrentSpace(display: display, spaceID: spaceID) else {
+            report?(.refused)
+            return false
+        }
+        report?(.direct(.noApproach))
+        return true
     }
 
     let displayID = display.displayID
@@ -551,14 +613,22 @@ private func performSwitch(display: ManagedDisplay, spaceID: Int32) -> Bool {
         // the Space has moved anywhere else then somebody else moved it, and putting it back
         // would be fighting the person using the Mac.
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(700)) {
-            guard let settled = readDisplays().first(where: { $0.displayID == displayID }),
-                  settled.activeID == approach.neighbour
-            else { return }
+            guard let now = readDisplays().first(where: { $0.displayID == displayID }),
+                  now.activeID == approach.neighbour
+            else {
+                // Moved, so the chord landed and the composite was redone with it.
+                report?(.chord)
+                return
+            }
             spaceLog.notice("""
                 chord to space \(spaceID, privacy: .public) did not land; still on \
                 \(approach.neighbour, privacy: .public), so setting it directly
                 """)
-            setCurrentSpace(display: settled, spaceID: spaceID)
+            if setCurrentSpace(display: now, spaceID: spaceID) {
+                report?(.direct(.chordDidNotLand))
+            } else {
+                report?(.refused)
+            }
         }
     }
     return true

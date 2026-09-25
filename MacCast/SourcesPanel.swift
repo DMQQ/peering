@@ -178,7 +178,15 @@ struct SourcesPanel: View {
         // The Mac's own answer to a switch, whatever it says: a list still reporting the desktop the
         // user left is a switch the window server refused, and the mark belongs back where it was.
         // See ``pendingDesktop``.
-        .onChange(of: model.catalog?.spaceInfo) { _, _ in pendingDesktop = nil }
+        //
+        // **Which desktop each display is on, and nothing else about the catalogue.** This used to
+        // watch the whole of `spaceInfo`, and that value carries the previews too: a preview landing
+        // for the *other* display changed it, dropped the optimism, and left the tile the user had
+        // just tapped drawn as the desktop they left — the exact flicker this was written to stop,
+        // arriving on its own timer every couple of seconds.
+        .onChange(of: model.catalog?.spaceInfo?.displays.map(\.current)) { _, _ in
+            pendingDesktop = nil
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if buildingMosaic { mosaicPicker }
         }

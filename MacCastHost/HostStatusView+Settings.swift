@@ -21,6 +21,14 @@ extension HostStatusView {
 
                 Divider().padding(.leading, 52)
 
+                KeepAwakeScheduleRow()
+
+                Divider().padding(.leading, 52)
+
+                WakeScheduleRow()
+
+                Divider().padding(.leading, 52)
+
                 LidCloseSleepRow()
 
                 Divider().padding(.leading, 52)

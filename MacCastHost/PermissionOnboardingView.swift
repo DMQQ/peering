@@ -165,10 +165,10 @@ struct PermissionOnboardingView: View {
     /// somebody goes looking for, which is exactly what it was, in a pane behind a menu bar icon,
     /// until this section existed.
     ///
-    /// **The same two rows the Settings pane draws**, and deliberately: same names, same captions,
-    /// same order, so the switch a user turns on here is one they can find again later. The captions
-    /// refer to each other by position ("the next row is the one that does"), which is why the order
-    /// is not a detail: the lid switch has to follow the free one.
+    /// **The same rows the Settings pane draws**, and deliberately: same names, same captions, same
+    /// order, so the switch a user turns on here is one they can find again later. The order is not
+    /// a detail: the two switches come first, then the two rows that decide *when* they apply, then
+    /// the lid switch, which is the one that costs a password and is the last thing to meet.
     ///
     /// The heading is the host's own section style rather than something invented for this screen,
     /// for the reason ``HostStatusView/sectionHeading(_:detail:)`` gives: one voice for every label
@@ -188,6 +188,14 @@ struct PermissionOnboardingView: View {
 
             VStack(spacing: 0) {
                 KeepAwakeRow()
+
+                Divider().padding(.leading, 52)
+
+                KeepAwakeScheduleRow()
+
+                Divider().padding(.leading, 52)
+
+                WakeScheduleRow()
 
                 Divider().padding(.leading, 52)
 

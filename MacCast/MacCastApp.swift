@@ -58,6 +58,15 @@ struct MacCastApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // **First, before any view exists and before anything that could crash.** Two things
+        // depend on being here rather than in a screen's `onAppear`: the file a crash is written to
+        // has to exist before the crash, and the last run's report has to be filed before this
+        // run's can overwrite it. A crash on launch is the case this is for, and the launch is
+        // exactly what a handler installed later would miss.
+        CrashLog.install(subject: "phone")
+    }
+
     var body: some Scene {
         WindowGroup {
             SecuredRootView {

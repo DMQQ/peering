@@ -65,6 +65,29 @@ if [ -f "$STAGE/site/download/Peering.dmg" ]; then
     echo "    Peering.dmg v=$DMG_V"
 fi
 
+# **The images, which were the last thing left out of this and are the reason it exists.**
+#
+# A webp here is served with a seven-day `max-age` and the pages asked for it by a name that never
+# changed, so a changed picture reached this box and stopped at the edge. Measured on 25 September
+# 2026: `app-mac.webp` was the new file on disk, the public URL returned the version from two days
+# before with `cf-cache-status: HIT` and an `age` of a day, and the same URL with a query string
+# returned the new bytes straight from the origin. The stamp below is the fix; noticing by hand is
+# not a check.
+#
+# Every file in `assets/`, not only the webps: a favicon and an `og:image` are cached the same way
+# and are just as embarrassing served stale. An image whose bytes have not changed keeps its
+# version and therefore its cache entry, which is the point of hashing the contents.
+IMAGE_VERSIONS=()
+for image in "$STAGE"/site/assets/*; do
+    [ -f "$image" ] || continue
+    IMAGE_VERSIONS+=("$(basename "$image"):$(shasum -a 256 "$image" | cut -c1-10)")
+done
+# `${arr[@]+"${arr[@]}"}` rather than a plain expansion: this is bash 3.2, where an empty array
+# under `set -u` is an unbound variable.
+for entry in ${IMAGE_VERSIONS[@]+"${IMAGE_VERSIONS[@]}"}; do
+    echo "    assets/${entry%%:*} v=${entry##*:}"
+done
+
 for page in "$STAGE"/site/*.html; do
     # The empty argument after -i is the backup suffix, and it is required on macOS. Without it
     # sed reads the next argument as the suffix and edits nothing.
@@ -77,6 +100,15 @@ for page in "$STAGE"/site/*.html; do
             -e "s#href=\"/download/Peering.dmg\"#href=\"/download/Peering.dmg?v=$DMG_V\"#g" \
             "$page"
     fi
+    for entry in ${IMAGE_VERSIONS[@]+"${IMAGE_VERSIONS[@]}"}; do
+        name="${entry%%:*}"
+        version="${entry##*:}"
+        # Matched on the closing quote rather than on the whole attribute, because these are
+        # written both as a path and as a full URL in `content=`, and both end at the delimiter.
+        # The dot in a filename is a wildcard to a regular expression, so it is escaped first.
+        escaped="$(printf '%s' "$name" | sed 's/\./\\./g')"
+        sed -i '' -e "s#/assets/$escaped\"#/assets/$name?v=$version\"#g" "$page"
+    done
 done
 
 # Checked rather than assumed, because a rewrite that silently matches nothing produces a deploy
@@ -91,6 +123,16 @@ fi
 # DMG is an old build that installs cleanly and then refuses to talk to the phone.
 if [ -n "$DMG_V" ] && ! grep -q "download/Peering.dmg?v=$DMG_V" "$STAGE"/site/*.html; then
     echo "the disk image rewrite matched no page. Has the download link changed shape?" >&2
+    exit 1
+fi
+
+# **An invariant rather than a check per asset: no asset URL may be left without a version.**
+# A per-image check only covers the images that existed when it was written, and the way this went
+# wrong the first time is exactly that — the stamps covered the stylesheet, the script and the disk
+# image, and the pictures were simply not in the list. This fails on the next one somebody adds.
+if grep -qE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html; then
+    echo "an asset URL is still unstamped, so a browser could hold the old one:" >&2
+    grep -oE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html >&2
     exit 1
 fi
 
