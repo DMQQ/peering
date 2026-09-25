@@ -207,9 +207,18 @@ extension RemoteScreen {
                     actionRow("Stream", systemImage: "play.rectangle") {
                         AnyView(Group {
                         soundButton
+                        // **The camera has a word too, and it is the longest one in the panel.**
+                        // A camera glyph alone was the last unlabelled control in a row of labelled
+                        // ones, which reads as a decoration until somebody presses it once and
+                        // learns what it does. "Screenshot" is ten characters against a slot that
+                        // holds two chips on this row, so it fits with room to spare.
                         Button { ScreenshotShare.present(hostName: model.hostName) } label: {
-                            Image(systemName: "camera")
-                                .pillChip(filling: true)
+                            HStack(spacing: 5) {
+                                Image(systemName: "camera")
+                                Text("Screenshot")
+                            }
+                            .foregroundStyle(ColorPalette.ink)
+                            .pillChip(filling: true)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Take screenshot")
@@ -726,8 +735,14 @@ extension RemoteScreen {
             Button {
                 withAnimation(Motion.settle) { model.hostAudioMuted.toggle() }
             } label: {
-                Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
-                    .pillChip(filling: true)
+                HStack(spacing: 5) {
+                    Image(systemName: model.hostAudioMuted ? "speaker.slash" : "speaker.wave.2")
+                    // The word is the action rather than the state, which is what the chips beside
+                    // it do: "Darken" becomes "Restore", and this one becomes its own opposite.
+                    Text(model.hostAudioMuted ? "Unmute" : "Mute")
+                }
+                .foregroundStyle(ColorPalette.ink)
+                .pillChip(filling: true)
             }
             .buttonStyle(RailButtonStyle(scale: 0.9))
             .menuInk()
@@ -735,34 +750,32 @@ extension RemoteScreen {
         }
     }
 
-    /// How the picture fits the screen — a menu, because "Fit" and "Fill" are not a sentence.
+    /// How the picture fits the screen: one tap, a word and an arrow that both flip.
     ///
-    /// The chip was a toggle between two words, and two words are all it had room for: a Mac's
-    /// screen is wider than a phone's, so one choice shows all of it with bars at the sides and
-    /// the other shows a full screen with the edges cut off. Neither word says which is which,
-    /// and nothing on screen did either. The menu says both in full, and marks the one that is on.
+    /// **A `Button` rather than a `Menu`, and that is the important part of its history.** This was
+    /// the only chip in the panel built as a menu label, and it drew a visibly different shade from
+    /// the seven chips around it. Naming its colour did not change that, so what differed was
+    /// something the menu label drew rather than anything this code sets. A plain button is drawn
+    /// like its neighbours by construction, and the menu's second benefit, showing both choices in
+    /// full, was not worth a control that looked like it belonged to another row.
+    ///
+    /// The two words are one letter apart and mean opposite things here, so the arrow carries as
+    /// much of it as the word does: outward fills the screen, inward shows all of it with bars at
+    /// the sides. The accessibility value spells the whole sentence out.
     var fillChip: some View {
-        Menu {
-            Button { setFill(false) } label: {
-                if !scalesToFill { Label("Fit the whole screen", systemImage: "checkmark") }
-                else { Text("Fit the whole screen") }
-            }
-            Button { setFill(true) } label: {
-                if scalesToFill { Label("Fill this screen", systemImage: "checkmark") }
-                else { Text("Fill this screen") }
-            }
+        Button {
+            setFill(!scalesToFill)
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: scalesToFill
                       ? "arrow.up.left.and.arrow.down.right"
                       : "arrow.down.right.and.arrow.up.left")
                 Text(scalesToFill ? "Fill" : "Fit")
-                    .monospacedDigit()
             }
+            .foregroundStyle(ColorPalette.ink)
             .pillChip(filling: true)
         }
-        .buttonStyle(RailButtonStyle(scale: 0.9))
-        .menuInk()
+        .buttonStyle(RailButtonStyle(scale: 0.94))
         .accessibilityLabel("How the picture fits the screen")
         .accessibilityValue(scalesToFill ? "Filling this screen" : "Fitting the whole screen")
     }
