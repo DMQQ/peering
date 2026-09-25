@@ -477,6 +477,10 @@
               are on, and how much relay time has been used.
             </p>
             <p>
+              When a Mac cannot reach your phone directly, it also asks the relay to wake it, using
+              the Apple push token your phone gave it for that one request. Not stored.
+            </p>
+            <p>
               It sees the address each device connects from, as any server does, and hands each of
               them the other's. What it can <em>read</em> is nothing, on either path.
             </p>
@@ -765,7 +769,9 @@
           </p>
           <p>
             It also sees, as any server does, the address each device connects from, and it hands
-            each of them the other's, so they can try to reach one another directly.
+            each of them the other's, so they can try to reach one another directly. And when a
+            Mac cannot reach your phone directly, it asks the relay to wake it with a push
+            notification, using the Apple push token your phone gave it for that one request.
           </p>
         </details>
         <details>

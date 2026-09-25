@@ -643,9 +643,25 @@ final class MacCastPolicyTests: XCTestCase {
         XCTAssertNil(notification)
     }
 
-    /// And the suppression is exactly one case wide. A failure on the way to a connection is the
-    /// thing banner text exists for, and a session the user ended is not a resume however much it
-    /// looks like one from the phases.
+    /// The other side of the same drop: the reconnect that follows it is not news either. Telling
+    /// the user their Mac "connected" for a trip they never saw it leave on would be the one place
+    /// this looked like spam, and it is the exact shape of a background/foreground cycle that tears
+    /// the socket down and quietly puts it back.
+    func testAResumeThatSucceedsIsNotNotified() {
+        let notification = SessionAwareness.notification(
+            from: .connecting,
+            to: .ready,
+            hostName: "Studio",
+            deliberate: false,
+            resuming: true
+        )
+
+        XCTAssertNil(notification)
+    }
+
+    /// And the suppression is exactly two cases wide, both about a drop already being put back. A
+    /// failure on the way to a connection is the thing banner text exists for, and a session the
+    /// user ended is not a resume however much it looks like one from the phases.
     func testAFailureThatIsNotAResumeStillNotifies() {
         let onTheWay = SessionAwareness.notification(
             from: .connecting,

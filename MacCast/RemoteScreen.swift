@@ -429,8 +429,21 @@ struct RemoteScreen: View {
     /// With the keyboard up, the dock and both rails are behind it, so nothing else on this screen can
     /// be pressed. Esc is the only way out of a Mac menu or a completion list and no iOS keyboard has
     /// one; Tab is how a Mac moves focus and completes. See ``ModifierBar``.
+    /// The two keys that work on the field above, plus the ones that don't: escape, tab and the
+    /// modifiers.
+    ///
+    /// **Leftmost and rightmost, and keys rather than glyphs.** Hide keyboard used to sit beside
+    /// Return on the field's own row, which is the row that is narrowest exactly when a long
+    /// sentence needs it widest. Demoted here, the two keys that work on the field bookend the row
+    /// that has room for them: Hide keyboard is the end of the row the key that *leaves* belongs
+    /// at, and Return — the software keyboard's own Return arrives as text, and keycode mode has no
+    /// keycode for a newline, so a real one is only reachable from a key like this — is the end the
+    /// key that *sends* belongs at. They wear the same cap, because nothing else in this row is
+    /// pressed the same way. See ``compactCapButton(icon:action:)``.
     private var keyboardKeyRow: some View {
         HStack(spacing: 8) {
+            compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
+                .accessibilityLabel("Hide keyboard")
             ModifierBar()
             HStack(spacing: 6) {
                 compactKeyButton(icon: "escape", keyCode: 53)
@@ -438,12 +451,17 @@ struct RemoteScreen: View {
                 compactKeyButton(icon: "arrow.right.to.line", keyCode: 48)
                     .accessibilityLabel("Tab")
             }
+            Spacer(minLength: 8)
+            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
+                .accessibilityLabel("Enter")
         }
     }
 
     var keyboardInputBar: some View {
         VStack(spacing: 8) {
-            // The field at the top, furthest from the thumb: it is read rather than pressed.
+            // The field at the top, furthest from the thumb: it is read rather than pressed. Alone
+            // on its row now, so it gets the row's full width rather than sharing it with the two
+            // keys in ``keyboardKeyRow``.
             keyboardInputRow
             keyboardKeyRow
             // Nearest the keyboard, because it is the row the thumb reaches for most. The arrows move
@@ -458,48 +476,34 @@ struct RemoteScreen: View {
         .padding(.top, ChromeMetrics.edgeInset)
     }
 
-    /// The field, what it is holding, and the two keys that work on it.
+    /// The field, and what it is holding. The keys that work on it live in ``keyboardKeyRow``,
+    /// the row below, so this row is the field's alone.
     private var keyboardInputRow: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            // **Leftmost, and a key rather than a glyph.** It used to be a bare chevron on the far
-            // side of Return, which is the end of the row the key that *sends* lives at and not the
-            // end the key that *leaves* belongs at; drawn as a glyph it read as a caption for the
-            // field. It wears the same cap as the Return beside it, because they are this row's two
-            // keys and nothing else in it is pressed. See ``compactCapButton(icon:action:)``.
-            compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
-                .accessibilityLabel("Hide keyboard")
-
-            // **The field itself, and it is a real one.** It holds the sentence, so iOS gives it a caret
-            // that can be moved and reports every edit as a range plus a replacement, which is what
-            // makes correcting the middle of a line work.
-            //
-            // No height of its own, deliberately: the wrapper answers with the height the sentence
-            // needs, so the field grows a line at a time and this bar rises with it.
-            KeyboardTypingCapture(
-                model: model,
-                isFocused: Binding(
-                    get: { model.showKeyboard },
-                    set: { model.showKeyboard = $0 }
-                )
+        // **The field itself, and it is a real one.** It holds the sentence, so iOS gives it a caret
+        // that can be moved and reports every edit as a range plus a replacement, which is what
+        // makes correcting the middle of a line work.
+        //
+        // No height of its own, deliberately: the wrapper answers with the height the sentence
+        // needs, so the field grows a line at a time and this bar rises with it.
+        KeyboardTypingCapture(
+            model: model,
+            isFocused: Binding(
+                get: { model.showKeyboard },
+                set: { model.showKeyboard = $0 }
             )
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            // Darker than the glass it sits on: a field reads as recessed, and white text wants a
-            // darker ground. The hairline is what keeps it a field over a bright desktop.
-            .background(
-                ColorPalette.backdrop.opacity(0.55),
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-            }
-
-            // The software keyboard's Return arrives as text, and keycode mode has no keycode for a
-            // newline, so a real Return is only reachable from a key like this one.
-            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
-                .accessibilityLabel("Enter")
+        )
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        // Darker than the glass it sits on: a field reads as recessed, and white text wants a
+        // darker ground. The hairline is what keeps it a field over a bright desktop.
+        .background(
+            ColorPalette.backdrop.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
         }
     }
 

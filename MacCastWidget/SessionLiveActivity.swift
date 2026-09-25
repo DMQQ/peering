@@ -10,8 +10,8 @@ import WidgetKit
 struct SessionLiveActivity: Widget {
     /// Where the Restore link goes. The app already handles this: `MacCastApp`'s `onOpenURL`
     /// routes `peering://connect` to `reconnectToLastHost()`.
-    static let restoreURL = URL(string: "peering://connect")!
-    static let endURL = URL(string: "peering://disconnect")!
+    nonisolated static let restoreURL = URL(string: "peering://connect")!
+    nonisolated static let endURL = URL(string: "peering://disconnect")!
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SessionActivityAttributes.self) { context in

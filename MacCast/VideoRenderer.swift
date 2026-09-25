@@ -181,14 +181,16 @@ nonisolated final class VideoRenderer: @unchecked Sendable {
     /// boundary, nothing here touches the layer afterwards, and `sampleBufferRenderer` — the
     /// object that is actually used — is documented as safe to enqueue into from a background
     /// thread, which is what makes running the decode path off the main actor possible at all.
+    @MainActor
     func attach(_ layer: AVSampleBufferDisplayLayer) {
-        nonisolated(unsafe) let layer = layer
+        // The renderer, not the layer. The layer's own `enqueue`/`flush` come from
+        // `AVQueuedSampleBufferRendering`, which is deprecated on this class; the modern
+        // surface is the `sampleBufferRenderer` it vends. Read here, on the main actor that
+        // `attach` is documented to be called from, since the property itself is main-actor
+        // isolated even though the renderer it returns is safe to use off it.
+        nonisolated(unsafe) let renderer = layer.sampleBufferRenderer
         queue.async { [weak self] in
             guard let self else { return }
-            // The renderer, not the layer. The layer's own `enqueue`/`flush` come from
-            // `AVQueuedSampleBufferRendering`, which is deprecated on this class; the modern
-            // surface is the `sampleBufferRenderer` it vends.
-            let renderer = layer.sampleBufferRenderer
             self.renderer = renderer
             self.lock.withLock { self.liveRenderer = renderer }
             if let frame = self.deferredKeyframe.take(), let format = self.formatDescription {

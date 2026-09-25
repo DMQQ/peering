@@ -656,7 +656,7 @@ extension MacSession {
                 // `nil` and an empty `Data` mean the same thing here and are both the end of the
                 // file, so one `guard` covers the file shrinking under us and the file simply
                 // ending on a piece boundary.
-                guard let piece = try await handle.read(upToCount: Self.writeChunkBytes), !piece.isEmpty
+                guard let piece = try handle.read(upToCount: Self.writeChunkBytes), !piece.isEmpty
                 else {
                     if sent < totalBytes {
                         wire?.sendTerminal(.writeChunk(sessionID: id, path: path, data: Data(), isLast: true))

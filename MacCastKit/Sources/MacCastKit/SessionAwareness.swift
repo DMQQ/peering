@@ -65,6 +65,11 @@ public enum SessionAwareness {
 
         switch phase {
         case .ready:
+            // Same rule as `.failed`: a Mac the app is quietly putting back on its own, most often
+            // after the background/foreground cycle tears the socket down, is not news either. The
+            // user never saw it leave, so telling them it arrived is telling them about a trip they
+            // did not know their Mac took.
+            guard !resuming else { return nil }
             return Notification(
                 kind: .connected,
                 title: "Connected to \(hostName)",

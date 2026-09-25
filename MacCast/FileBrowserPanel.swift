@@ -798,7 +798,7 @@ struct FileBrowserPanel: View {
             }
             .buttonStyle(.plain)
             .contextMenu {
-                if let onRename {
+                if onRename != nil {
                     Button("Rename", systemImage: "character.cursor.ibeam") {
                         nameDraft = entry.name
                         pendingRename = entry

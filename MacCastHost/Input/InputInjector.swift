@@ -671,9 +671,8 @@ final class InputInjector: @unchecked Sendable {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success,
               let ref, CFGetTypeID(ref) == AXUIElementGetTypeID() else { return nil }
-        // A bit cast rather than a downcast, because a `CFTypeRef` is not a class the runtime
-        // will match for us. The type ID above is the check that makes it true.
-        return unsafeBitCast(ref, to: AXUIElement.self)
+        // The type ID above is the check that makes this safe.
+        return unsafeDowncast(ref, to: AXUIElement.self)
     }
 
     /// The value of a string-valued attribute, or `nil` when the element has none.

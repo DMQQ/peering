@@ -44,7 +44,7 @@
   <div class="wrap doc-inner">
 
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated 20 September 2026</p>
+    <p class="updated">Last updated 25 September 2026</p>
 
     <div class="card callout">
       <strong>The short version.</strong> Peering has no accounts and collects nothing. There is
@@ -78,6 +78,12 @@
         have paired with, so they can be listed and reconnected to.
       </li>
       <li>
+        <strong>Push tokens for terminal alerts.</strong> On a plan that includes being told when a
+        shell has stopped and is waiting for you, your Mac keeps your iPhone's Apple push token so
+        it can send that alert later. Dropped automatically if the plan no longer includes it, if
+        the Mac forgets that iPhone, or if you remove the app from the Mac.
+      </li>
+      <li>
         <strong>Session history.</strong> The last 30 sessions: when they started, how long they
         lasted, which connection path they used, and the duration. Used to show your own usage,
         including how much relay time is left in the current 24-hour period.
@@ -85,6 +91,13 @@
       <li>
         <strong>Clipboard items.</strong> The 12 most recent pieces of text you pulled from your
         Mac are kept on the iPhone until you clear them.
+      </li>
+      <li>
+        <strong>Crash and diagnostic reports.</strong> If either app crashes, or the system
+        reports a hang, watchdog kill or resource exception through Apple's MetricKit, the last 10
+        of each are kept on that device until you clear them or delete the app. None of it is sent
+        anywhere on its own: you see the exact text before deciding whether to attach it to a
+        message to us.
       </li>
       <li>
         <strong>Your settings.</strong> Preferences such as whether relay connections are
@@ -128,7 +141,10 @@
       <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
       <li>the relay access key, for connections made with a paid plan;</li>
       <li>the IP address of each device, which any server necessarily sees, and which it hands to
-        the other device so they can try to reach each other without it.</li>
+        the other device so they can try to reach each other without it;</li>
+      <li>your iPhone's Apple push token, only when a Mac asks the relay to wake a phone it cannot
+        reach directly. It is used for that one request, passed straight to Apple, and not
+        stored.</li>
     </ul>
     <p>
       <strong>The relay cannot read what it carries.</strong> The control channel is a TLS session
@@ -168,7 +184,8 @@
     <h2>4. What we never do</h2>
     <ul>
       <li>We do not sell, rent or share your data with anyone.</li>
-      <li>We do not run analytics, crash reporting, advertising or attribution SDKs in the app.</li>
+      <li>We do not run analytics, advertising or attribution SDKs in the app, and no crash log
+        leaves your device unless you choose to attach it to a message to us.</li>
       <li>We do not build a profile of you, and there is no account to attach one to.</li>
       <li>We do not read, store or inspect what passes through the relay.</li>
       <li>We do not send your Mac's screen, sound or input anywhere other than your own iPhone.</li>

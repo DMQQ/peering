@@ -893,7 +893,11 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             }
         }
         guard result == 0 else { return nil }
-        return (String(cString: host), UInt16(String(cString: service)) ?? 0)
+        func decoded(_ buffer: [CChar]) -> String {
+            let bytes = buffer.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) }
+            return String(decoding: bytes, as: UTF8.self)
+        }
+        return (decoded(host), UInt16(decoded(service)) ?? 0)
     }
 
     /// The peer's address, said in the family this socket was built in.

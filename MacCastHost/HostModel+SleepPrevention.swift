@@ -247,10 +247,10 @@ extension HostModel {
     /// **Asked late, and the delay is the whole of why it is bearable.** The trigger is the last
     /// client disconnecting, and that happens for reasons that are not somebody leaving: a phone
     /// that switched apps, a connection that dropped and is about to come back, a deliberate look at
-    /// the picker. Asked on the instant, the question was a reaction to a disconnect; asked after a
-    /// couple of minutes of nothing, it is a reminder about a Mac that really is sitting there awake
-    /// for nobody.
-    static let keepAwakePromptGrace: Duration = .seconds(120)
+    /// the picker, an evening spent away from the desk without ending the session first. Asked on
+    /// the instant, the question was a reaction to a disconnect; asked two hours later, it is a
+    /// reminder about a Mac that really has been sitting there awake for nobody.
+    static let keepAwakePromptGrace: Duration = .seconds(7200)
 
     /// Arms that question, replacing any already armed.
     func scheduleKeepAwakePrompt() {
