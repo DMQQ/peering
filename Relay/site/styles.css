@@ -831,6 +831,13 @@ a { color: inherit; }
   color: var(--ink-55);
 }
 
+/* Same reasoning as `.doc p a`: scoped to the card's own prose so a link inside a step reads as
+   part of the sentence rather than as a button underneath it. */
+.step p a {
+  color: var(--ink);
+  text-underline-offset: 3px;
+}
+
 /* A card that had one paragraph of three sentences and now has two. The break has to be visible or
    it has not been made: at eight points the second paragraph sits as close to the first as the
    heading does, and the card reads as one block with a stray indent. */
@@ -971,8 +978,14 @@ a { color: inherit; }
 /* No scroll container here by default, which is what lets the header row stick to the viewport
    rather than to a box inside the page. A narrow page cannot have it that way: see the table block
    in the narrow-width section, where the wrapper becomes one. */
+/* Hidden until the table starts scrolling; see the media query where it is shown. */
+.plans-scroll-hint {
+  display: none;
+}
+
 .plans-wrap {
   margin-top: 44px;
+  position: relative;
   /* The one thing on this page that widened the document without meaning to.
 
      The table's cells are sticky so that a tick is never without the row it answers and never
@@ -1387,6 +1400,28 @@ a { color: inherit; }
   color: var(--ink-70);
 }
 
+/* A real screenshot on a guide page, boxed the same way `.callout` is rather than floated bare:
+   the card's hairline is what tells a reader where the app's own window ends and the page
+   resumes, which a screenshot with no edge of its own does not say by itself. */
+.doc-figure {
+  margin-top: 28px;
+  padding: 10px;
+}
+
+.doc-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius) - 10px);
+}
+
+.doc-figure figcaption {
+  margin-top: 10px;
+  padding: 0 6px 2px;
+  font-size: 13px;
+  color: var(--ink-50);
+}
+
 /* ---------- Narrow ---------- */
 
 /* Side by side, on a screen wide enough to hold the words and the devices at once. Stacked, the
@@ -1491,6 +1526,35 @@ a { color: inherit; }
   .plans { min-width: 760px; }
   .plans .corner { width: 26%; }
   .plans thead th.plan-col { width: 18.5%; }
+
+  /* iOS Safari draws no visible scrollbar and gives no hover state, so a box that scrolls
+     sideways with nothing marking its edge reads as a table that was simply cut off rather than
+     one with more to see. Said in words above the table instead. */
+  .plans-scroll-hint {
+    display: block;
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--ink-50);
+    text-align: center;
+  }
+
+  /* A row's own name and a cell's own answer both wrap onto a second line by default, but a word
+     with nowhere to break (a long product name, a run-together number) will not, and `fixed`
+     layout will not grow the column to fit it either: the word draws over the cell beside it
+     instead of inside its own. Letting it break stops that without touching the widths above. */
+  .plans .corner, .plans .group-row th, .plans tbody th[scope="row"], .plans .val {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (max-width: 480px) {
+  /* True phone widths, narrower than the breakpoint above was tuned for. The label column gives
+     up some of its share, since the same words fit in less room once they are wrapping anyway,
+     and the price columns take the difference: "every Mac you own" and "unlimited" are the
+     widest things a column carries, and 140px left them tight against the tick marks above them. */
+  .plans { min-width: 700px; }
+  .plans .corner { width: 22%; }
+  .plans thead th.plan-col { width: 19.5%; }
 }
 
 @media (max-width: 900px) {

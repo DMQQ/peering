@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Access Your Mac From Anywhere · Peering</title>
+<meta name="description" content="Pair once on your own network, then reach your Mac from anywhere: a hotel, a train, someone else's Wi-Fi, straight between the two devices when possible.">
+<link rel="canonical" href="https://getpeering.app/access-your-mac-from-anywhere">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="en_GB">
+<meta property="og:url" content="https://getpeering.app/access-your-mac-from-anywhere">
+<meta property="og:title" content="Access Your Mac From Anywhere · Peering">
+<meta property="og:description" content="Pair once at home, then reach your Mac from anywhere. Straight between the two devices when the network allows it.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Access Your Mac From Anywhere · Peering">
+<meta name="twitter:description" content="Pair once at home, then reach your Mac from anywhere. Straight between the two devices when the network allows it.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/" aria-label="Peering, home">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Pages">
+      <a href="/">Home</a>
+      <a href="/how-to-pair-iphone-mac">Pairing guide</a>
+      <a href="/remote-desktop-for-mac">Remote desktop</a>
+      <a href="/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Access Your Mac From Anywhere</h1>
+    <p class="updated">Pair once, on your own network. After that, your iPhone and Mac find each other wherever you are.</p>
+
+    <div class="card callout">
+      <strong>The short version.</strong> The first pairing needs the two devices to share a
+      network, or a scan of the Mac's device-ID QR code. Every connection after that works from a
+      hotel, a train, or someone else's Wi-Fi: your two devices try a path straight between
+      themselves first, and fall back to a relay only when the network will not allow one.
+    </div>
+
+    <h2>How the two devices find each other</h2>
+    <p>
+      Both ends sit behind networks that will not admit unsolicited traffic, so both connect
+      outward to a relay that introduces them. Once introduced, they try a path straight between
+      themselves; if that is not possible, the relay keeps carrying the session. The session
+      screen says which one you got: LAN, RELAY or DIRECT&middot;P2P, so you are never guessing.
+    </p>
+    <p>
+      The relay itself runs from a single location in Finland today, so a relayed session adds
+      more of a delay the further you are from it, most noticeably from other continents. That is
+      a starting point rather than a fixed one: more locations get added as usage grows past what
+      one can carry well.
+    </p>
+
+    <h2>What the relay can and cannot see</h2>
+    <p>
+      The control channel is a TLS session belonging to your two devices, which the relay copies
+      without terminating. Video, audio, keystrokes, pointer input and clipboard text are sealed
+      with a key the two devices exchange between themselves, one the relay is never given. It
+      is built to be too simple to break that property: a change that let it inspect, alter or
+      authorise traffic would be the wrong change.
+    </p>
+    <p>
+      What it does handle: your devices' IDs, your Mac's name, the protocol version, which plan
+      the app says you are on, and how much relay time has been used. It sees the address each
+      device connects from, as any server does, and hands each of them the other's so they can
+      try that direct path. The full detail is in the <a href="/privacy">Privacy Policy</a>.
+    </p>
+
+    <h2>Keeping a Mac reachable while you're out</h2>
+    <p>
+      A Mac that has gone to sleep cannot be reached until something wakes it, which is what the
+      away-from-home switches are for: keep it awake on its own, on a schedule, wake it up once a
+      day, or keep it running with the lid closed. All four are optional and off by default,
+      covered in <a href="/how-to-pair-iphone-mac">step two of the pairing guide</a>. Wake on LAN
+      is also built in, for waking a sleeping Mac over the network right before you connect.
+    </p>
+
+    <h2>What it costs</h2>
+    <p>
+      Reaching your Mac over your own network is free and unmetered, for as long as you like. The
+      relay, for reaching it from anywhere else, is one hour a day free, and unlimited on any paid
+      plan starting at $2.99 a month. Full comparison on the <a href="/#pricing">pricing table</a>.
+    </p>
+
+    <h2>Set it up</h2>
+    <p>
+      The relay path needs nothing extra to set up: pair your iPhone and Mac once, on the same
+      network, and every connection after that already tries the relay when it has to. The
+      <a href="/how-to-pair-iphone-mac">pairing guide</a> covers the first pairing itself,
+      including a way to pair without sharing a network at all.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/download">Download Peering for Mac</a>
+      <a class="btn btn-quiet" href="/how-to-pair-iphone-mac">Read the pairing guide</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Legal and support">
+      <a href="/download">Download</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
+  </div>
+</footer>
+
+</body>
+</html>
