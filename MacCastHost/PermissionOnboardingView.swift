@@ -52,8 +52,6 @@ struct PermissionOnboardingView: View {
                         )
                     }
 
-                    awaySection
-
                     footer
                 }
                 .frame(maxWidth: 680)
@@ -153,57 +151,6 @@ struct PermissionOnboardingView: View {
         .padding(18)
         .hostPanel()
         .accessibilityElement(children: .contain)
-    }
-
-    /// The two switches about a Mac nobody is sitting at, which are optional and say so.
-    ///
-    /// **Not a third numbered step.** The two above are required and the host is useless without
-    /// them; these are switches somebody may never touch, and numbering them beside the permissions
-    /// would make a Mac that is staying on a desk look half set up. They are here at all because
-    /// this screen is the only thing a new user reads before deciding what the app is for, and
-    /// "walk out of the house and still reach it" is part of that answer rather than a setting
-    /// somebody goes looking for, which is exactly what it was, in a pane behind a menu bar icon,
-    /// until this section existed.
-    ///
-    /// **The same rows the Settings pane draws**, and deliberately: same names, same captions, same
-    /// order, so the switch a user turns on here is one they can find again later. The order is not
-    /// a detail: the two switches come first, then the two rows that decide *when* they apply, then
-    /// the lid switch, which is the one that costs a password and is the last thing to meet.
-    ///
-    /// The heading is the host's own section style rather than something invented for this screen,
-    /// for the reason ``HostStatusView/sectionHeading(_:detail:)`` gives: one voice for every label
-    /// in the app, and this is a label.
-    private var awaySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Leaving this Mac at home")
-                    .font(HostDisplayFont.display(17))
-                    .tracking(-0.2)
-
-                Text("Optional, and both are off to begin with. Turn them on if you want to close the lid, walk out, and still reach this Mac from your iPhone.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(spacing: 0) {
-                KeepAwakeRow()
-
-                Divider().padding(.leading, 52)
-
-                KeepAwakeScheduleRow()
-
-                Divider().padding(.leading, 52)
-
-                WakeScheduleRow()
-
-                Divider().padding(.leading, 52)
-
-                LidCloseSleepRow()
-            }
-            .hostPanel()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder

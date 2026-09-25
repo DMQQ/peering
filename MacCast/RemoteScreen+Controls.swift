@@ -20,11 +20,6 @@ struct QuickAction: Identifiable {
 }
 
 /// The controls themselves.
-///
-/// An extension rather than a file of its own type: state and its gestures have to
-/// agree about what the picture is, and the view is easier to read in pieces than as
-/// one file of two thousand lines. Members are `internal` here because Swift's
-/// `private` is file-scoped — see the note in `RemoteScreen`.
 extension RemoteScreen {
     // MARK: - The six controls
     //

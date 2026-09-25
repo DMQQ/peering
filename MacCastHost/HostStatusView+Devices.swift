@@ -3,10 +3,6 @@ import RemoteCore
 import SwiftUI
 
 /// Who is trusted, who is here, and what has happened.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     /// Who is trusted, and which of them is here.
     ///

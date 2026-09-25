@@ -114,17 +114,33 @@ private struct HostRootView: View {
     @Environment(HostModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Whether this Mac has been shown the away-from-home switches before. Persisted rather than
+    /// re-derived from permission state, since it is a step in its own right — skippable, and
+    /// meant only once, not every time permissions happen to be re-checked.
+    @AppStorage("pl.dmq.peering.host.hasSeenAwaySwitchesOnboarding") private var hasSeenAwaySwitchesOnboarding = false
+
+    /// Whether this Mac has finished (or skipped) the "pair your first iPhone" step. Also set the
+    /// moment a device actually connects — see `FirstConnectionOnboardingView` — so a Mac that
+    /// gets paired without anyone clicking Done still exits onboarding.
+    @AppStorage("pl.dmq.peering.host.hasSeenFirstConnectionOnboarding") private var hasSeenFirstConnectionOnboarding = false
+
     private var ready: Bool { model.permissions.allRequiredGranted }
 
     var body: some View {
         Group {
             if !model.permissions.hasCompletedInitialCheck {
                 PermissionCheckView()
-            } else if ready {
-                HostStatusView()
+            } else if !ready {
+                PermissionOnboardingView()
+                    .transition(.opacity)
+            } else if !hasSeenAwaySwitchesOnboarding {
+                AwaySwitchesOnboardingView(onContinue: { hasSeenAwaySwitchesOnboarding = true })
+                    .transition(.opacity)
+            } else if !hasSeenFirstConnectionOnboarding {
+                FirstConnectionOnboardingView(onContinue: { hasSeenFirstConnectionOnboarding = true })
                     .transition(.opacity)
             } else {
-                PermissionOnboardingView()
+                HostStatusView()
                     .transition(.opacity)
             }
         }

@@ -3,10 +3,6 @@ import RemoteCore
 import SwiftUI
 
 /// The live picture, and the shape of its frame.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     /// What the connected device is looking at.
     ///

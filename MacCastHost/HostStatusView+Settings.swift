@@ -3,10 +3,6 @@ import RemoteCore
 import SwiftUI
 
 /// The rows that change what the host does.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -55,23 +51,20 @@ extension HostStatusView {
 
                 portRow
 
+#if DEBUG
                 Divider().padding(.leading, 52)
 
                 pushTestRow
+#endif
             }
             .hostPanel()
         }
     }
 
+#if DEBUG
     /// A notification sent on purpose, so that "it has never arrived" can be told apart from "it
-    /// was never sent".
-    ///
-    /// **Not behind `#if DEBUG`, unlike every other test affordance in this repo**, because the
-    /// only build anybody ever has of this app is a Release one: the install script builds that
-    /// configuration, so a debug-only button is a button that cannot exist on the Mac it is meant
-    /// to diagnose. This one is also the answer to a question a *user* has, which is what makes it
-    /// belong here rather than in a debug menu: a phone that receives nothing and a phone that was
-    /// never sent anything look identical from both ends, and this is the end that can tell.
+    /// was never sent". A diagnostic for a developer chasing an APNs problem, not a row a shipped
+    /// Mac should carry, so it is built out of the Release configuration the install script uses.
     var pushTestRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "bell.badge")
@@ -95,6 +88,7 @@ extension HostStatusView {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
     }
+#endif
 
     /// Whether the window shows a live still of the Mac.
     ///

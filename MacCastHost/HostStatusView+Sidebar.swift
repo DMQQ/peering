@@ -3,10 +3,6 @@ import RemoteCore
 import SwiftUI
 
 /// The rail of sections, and what sits above it.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     /// The rail of sections, drawn here rather than handed to a sidebar `List`.
     ///

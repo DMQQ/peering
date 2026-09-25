@@ -190,7 +190,6 @@ final class VideoEncoder: @unchecked Sendable {
         let width = Int(size.width)
         let height = Int(size.height)
 
-        self.codec = codec
         self.pixelSize = CGSize(width: width, height: height)
         self.frameRate = frameRate
 
@@ -199,30 +198,49 @@ final class VideoEncoder: @unchecked Sendable {
             frameRate: frameRate
         )
 
-        var session: VTCompressionSession?
-        let status = VTCompressionSessionCreate(
-            allocator: kCFAllocatorDefault,
-            width: Int32(width),
-            height: Int32(height),
-            codecType: codec.codecType,
+        func makeSession(_ codec: VideoCodec) -> (VTCompressionSession?, OSStatus) {
+            var session: VTCompressionSession?
+            let status = VTCompressionSessionCreate(
+                allocator: kCFAllocatorDefault,
+                width: Int32(width),
+                height: Int32(height),
+                codecType: codec.codecType,
 // The low-latency rate control mode is a create-time specification, not a property: it selects a
 // different encoder configuration entirely, and setting it after creation does nothing. It is what
 // keeps VideoToolbox from building up a lookahead window of frames before emitting the first one.
-            encoderSpecification: [
-                kVTVideoEncoderSpecification_EnableLowLatencyRateControl: true,
-            ] as CFDictionary,
-            imageBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            ] as CFDictionary,
-            compressedDataAllocator: nil,
+                encoderSpecification: [
+                    kVTVideoEncoderSpecification_EnableLowLatencyRateControl: true,
+                ] as CFDictionary,
+                imageBufferAttributes: [
+                    kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                ] as CFDictionary,
+                compressedDataAllocator: nil,
 // NULL, and it has to be: the header states that a session created with a C callback cannot be
 // called with the block-based encode call, which is the only variant whose callback is
 // `CM_SWIFT_SENDABLE`. That annotation is what makes the output handler legal to write under strict
 // concurrency at all.
-            outputCallback: nil,
-            refcon: nil,
-            compressionSessionOut: &session
-        )
+                outputCallback: nil,
+                refcon: nil,
+                compressionSessionOut: &session
+            )
+            return (session, status)
+        }
+
+        var (session, status) = makeSession(codec)
+        var effectiveCodec = codec
+
+// Hardware HEVC encode is not universal — some Intel Macs whose only active GPU is an older AMD
+// one cannot create a session for it. This is the one place that can fall back to H.264: by the
+// time a caller sees `CaptureError.encodingFailed`, there is no codec left to retry with, and the
+// stream simply does not start. `self.codec`, set below from whichever attempt succeeded, is what
+// every later frame and the wire handshake read, so a fallback here is never announced as HEVC.
+        if status != noErr, codec == .hevc {
+            encoderLog.notice("HEVC session creation failed (VideoToolbox error \(status)); falling back to H.264")
+            effectiveCodec = .h264
+            (session, status) = makeSession(.h264)
+        }
+
+        self.codec = effectiveCodec
 
         guard status == noErr, let session else {
             throw CaptureError.encodingFailed("could not create a session (VideoToolbox error \(status))")

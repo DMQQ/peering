@@ -10,6 +10,10 @@ import UIKit
 let joystickRadius: CGFloat = 50
 
 /// The remote desktop itself: picture, pointer, keyboard, and the controls for all three.
+///
+/// Split across `RemoteScreen+*.swift` extensions rather than kept as one file of two thousand
+/// lines. Members below stay `internal` rather than `private`, since `private` is file-scoped and
+/// would cut an extension off from state declared here.
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
 

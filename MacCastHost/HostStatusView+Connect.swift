@@ -3,10 +3,6 @@ import RemoteCore
 import SwiftUI
 
 /// How a phone gets here, and the two permissions that let it.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     /// How a phone gets here — shown only while nothing is attached.
     ///

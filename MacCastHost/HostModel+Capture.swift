@@ -23,8 +23,10 @@ extension HostModel {
         return CaptureFrameRate(rawValue: stored) ?? .sixty
     }
 
+    /// HEVC by default: every iPhone this app runs on decodes it in hardware (true since the
+    /// 2015 A9), and `VideoEncoder` falls back to H.264 itself if this Mac's GPU cannot encode it.
     static func storedCaptureCodec() -> VideoCodec {
-        UserDefaults.standard.string(forKey: captureCodecKey).flatMap(VideoCodec.init(rawValue:)) ?? .h264
+        UserDefaults.standard.string(forKey: captureCodecKey).flatMap(VideoCodec.init(rawValue:)) ?? .hevc
     }
 
     /// These take effect on the next stream, not on the one already running.

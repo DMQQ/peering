@@ -4,11 +4,6 @@ import SwiftUI
 import UIKit
 
 /// What a gesture turns into on the wire.
-///
-/// An extension rather than a file of its own type: state and its gestures have to
-/// agree about what the picture is, and the view is easier to read in pieces than as
-/// one file of two thousand lines. Members are `internal` here because Swift's
-/// `private` is file-scoped — see the note in `RemoteScreen`.
 extension RemoteScreen {
     /// Sends a wheel delta, in the unit the host builds its event in: pixels of scroll, signed the
     /// way a wheel rolled towards the user reads, so positive scrolls down.

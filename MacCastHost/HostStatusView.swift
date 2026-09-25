@@ -4,8 +4,6 @@ import CoreImage.CIFilterBuiltins
 import RemoteCore
 import SwiftUI
 
-/// The host's window: whether it is reachable, whether it has permission to do its job,
-/// and the pairing code when a client is asking to be trusted.
 /// What the window is showing.
 ///
 /// A sidebar rather than one long scroll, because the window has grown two kinds of content
@@ -49,9 +47,19 @@ enum HostSection: String, CaseIterable, Identifiable {
     }
 }
 
+/// The host's window: whether it is reachable, whether it has permission to do its job, and the
+/// pairing code when a client is asking to be trusted.
+///
+/// Split across `HostStatusView+*.swift` extensions rather than kept as one file, since the state
+/// is the window's either way and the window is easier to read in pieces than as one file of
+/// fifteen hundred lines.
 struct HostStatusView: View {
     @Environment(HostModel.self) var model
-    @State var section: HostSection = .overview
+    @State var section: HostSection
+
+    init(initialSection: HostSection = .overview) {
+        _section = State(initialValue: initialSection)
+    }
 
     /// The last still of what the connected device is seeing.
     ///
@@ -340,26 +348,11 @@ struct HostStatusView: View {
     }
 
     /// Grouped as `123 456`. Six unbroken digits are harder to compare by eye.
-    func formatted(_ code: String) -> String {
-        guard code.count == 6 else { return code }
-        let middle = code.index(code.startIndex, offsetBy: 3)
-        return "\(code[code.startIndex..<middle]) \(code[middle...])"
-    }
+    func formatted(_ code: String) -> String { formattedPairingCode(code) }
 
     /// Draws whatever ``PairingPayload`` encoded, so the strings on this side and the ones the
     /// iPhone parses are produced by one implementation rather than two that agree by hand.
-    func qrCode(encoding payload: String) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(payload.utf8)
-        filter.correctionLevel = "M"
-        guard let output = filter.outputImage?.transformed(by: .init(scaleX: 9, y: 9)) else {
-            return nil
-        }
-        let representation = NSCIImageRep(ciImage: output)
-        let image = NSImage(size: representation.size)
-        image.addRepresentation(representation)
-        return image
-    }
+    func qrCode(encoding payload: String) -> NSImage? { qrCodeImage(encoding: payload) }
 }
 
 /// The two sizes and the two rates as words.

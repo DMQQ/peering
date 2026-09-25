@@ -4,10 +4,6 @@ import RemoteCore
 import SwiftUI
 
 /// What a trusted phone can do, and what this app is.
-///
-/// An extension on the window rather than a type of its own — the state is the
-/// window's, and the window is easier to read in pieces than as one file of
-/// fifteen hundred lines.
 extension HostStatusView {
     /// What pairing actually grants, said plainly.
     ///
