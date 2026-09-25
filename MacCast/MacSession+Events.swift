@@ -118,6 +118,9 @@ extension MacSession {
                 // be describing a session that no longer exists.
                 if previous != .ready {
                     model.reconnectAttempt = 0
+                    // The episode is over, so its clock goes with it: kept, the next drop would be
+                    // judged against a window that had already run out.
+                    reconnectingSince = nil
                     sessionStartedAt = Date()
                     // The one place the two facts meet: this Mac is up, and whether it had been up
                     // before decides whether that is a session being filed or one being continued.
@@ -309,7 +312,6 @@ extension MacSession {
                 // connected: a session that was already showing something keeps showing it, and a
                 // resumed one still has the mosaic's own id as its source.
                 let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
-                PictureTrace.write("catalog restore: remembered \(remembered.count) tiles, catalog sees \(catalog.windows.count) windows")
                 if !remembered.isEmpty {
                     // Asked for, not remembered: this is the arrangement the store already holds,
                     // thinned by what this catalogue can see, and writing the thinned version back
@@ -588,6 +590,11 @@ extension MacSession {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard let self else { return }
+                // **The one tick that outlives a dial.** A Mac being put back is waited on by a
+                // ladder whose every rung ends in a failure, and a dial that never answers ends
+                // nothing: this is what stops the screen saying "Reconnecting" for as long as the
+                // network is silent. See ``SessionModel/reconnectWindow``.
+                giveUpAfterReconnectWindow()
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
                     self.captureSessionBandwidth(snapshot)

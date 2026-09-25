@@ -335,7 +335,6 @@ struct RemoteScreen: View {
         // bounding it now, and the frame that was waited for either arrived while the app was away
         // (in which case ``endTransitionIfReady()`` has already run) or is still on its way.
         .onChange(of: model.phase, initial: true) { _, phase in
-            PictureTrace.begin()
             guard phase == .ready else {
                 // **A movement does not outlive the connection it was measuring.** The view is kept
                 // across a drop, so what was in flight is still here when the picture comes back —

@@ -170,6 +170,9 @@ final class MacSession: Identifiable {
         finishSessionHistory()
         connectTask?.cancel()
         connectTask = nil
+        // Cleared here rather than in `stopReconnecting()`, which every rung of the ladder calls
+        // before dialling: this is the end of the episode, and that is not.
+        reconnectingSince = nil
         stopReconnecting()
         wire?.disconnect()
         wire = nil
@@ -245,6 +248,18 @@ final class MacSession: Identifiable {
     /// Mac that is switched off is dialled every second forever.
     var reconnectAttempt = 0
     var reconnectTask: Task<Void, Never>?
+
+    /// When the run of attempts now in progress began, or `nil` when no ladder is running.
+    ///
+    /// Carried across a dial like ``hasBeenReady`` and ``reconnectAttempt``, because an episode is
+    /// every attempt in it and each rung builds a new object. See ``SessionModel/reconnectWindow``.
+    var reconnectingSince: Date?
+
+    /// Whether this Mac has had its window to come back.
+    private var hasReconnectWindowPassed: Bool {
+        guard let began = reconnectingSince else { return false }
+        return Date().timeIntervalSince(began) >= SessionModel.reconnectWindow
+    }
 
     /// Puts this Mac back, if it dropped and the user did not end it.
     ///
@@ -330,34 +345,18 @@ final class MacSession: Identifiable {
     /// to match the counter: `reconnectAttempt` indexes into whichever ladder is being used.
     func scheduleReconnect() {
         guard reconnectTask == nil else { return }
+        // A Mac this object has already given up on is not dialled again. The window can end an
+        // episode before the counter has run out, and the events that follow the attempt it cut
+        // arrive as failures like any other, which would start the ladder over.
+        guard !hasGivenUpResuming else { return }
         let delays = isResumingAfterDrop
             ? SessionModel.resumeReconnectDelays
             : SessionModel.reconnectDelays
-        guard reconnectAttempt < delays.count else {
-            isReconnecting = false
-            // And the flag a cold launch set, for the same reason and one more: nothing will dial
-            // this Mac again in this launch, so a header that went on saying it was coming back
-            // would be describing an attempt that no longer exists.
-            isComingBack = false
-            // Running out is the moment the app stops behaving like a session that is coming back:
-            // this flag turns the remote screen over to the picker. The banner is not re-posted,
-            // because `SessionAwareness` refuses a repeat of the phase it is already in.
-            hasGivenUpResuming = true
-            // The screen is about to leave and no replacement stream will reuse its display, so this
-            // is the terminal path that releases the attachment non-deliberate teardown kept alive
-            // for the retry. A background Mac shares the active Mac's renderer and must not detach
-            // it.
-            if isActive { renderer.detach() }
-            // No phase change happened, so `sessionMoved` is not called again and the Live Activity
-            // has to be told directly or it stays on "Reconnecting…". Only for the Mac on screen: a
-            // background Mac giving up is a banner, not a card.
-            if isActive {
-                SessionActivity.shared.sessionDropped(
-                    hostName: hostName ?? "the Mac",
-                    startedAt: nil,
-                    path: Self.activityPath(connectionPath)
-                )
-            }
+        // The clock starts at the first rung of the run and is carried across every dial after it,
+        // so it measures the episode rather than the attempt.
+        if hasBeenReady, reconnectingSince == nil { reconnectingSince = Date() }
+        guard reconnectAttempt < delays.count, !hasReconnectWindowPassed else {
+            giveUpOnReconnecting()
             return
         }
         let delay = delays[reconnectAttempt]
@@ -386,6 +385,64 @@ final class MacSession: Identifiable {
         reconnectTask?.cancel()
         reconnectTask = nil
         isReconnecting = false
+    }
+
+    /// Ends the episode if its window has run out under it.
+    ///
+    /// Called from the poll this session runs while it is being put back, which is the one thing
+    /// still ticking when a dial has stopped answering: every other end here is reached by a
+    /// failure arriving, and a Mac that never answers sends none.
+    func giveUpAfterReconnectWindow() {
+        guard hasReconnectWindowPassed else { return }
+        // Said out loud because the two ways this ends look identical from the screen: a ladder
+        // that ran out of rungs, and a dial that never answered at all. Only this one gets here.
+        sessionLog.error("no answer from the Mac in \(Int(SessionModel.reconnectWindow))s, giving up")
+        giveUpOnReconnecting()
+    }
+
+    /// Stops trying, and leaves this Mac as one that is not coming back.
+    ///
+    /// One end for both ways a ladder finishes: out of rungs, or out of time.
+    private func giveUpOnReconnecting() {
+        stopReconnecting()
+        reconnectingSince = nil
+        // A restoration that never got its answer ends the same way one that failed to connect
+        // does: the persisted request goes, so the next launch does not open this again.
+        if !hasBeenReady, isComingBack {
+            UserDefaults.standard.set(false, forKey: SessionModel.resumeKey)
+        }
+        // And the flag a cold launch set, for the same reason and one more: nothing will dial this
+        // Mac again in this launch, so a header that went on saying it was coming back would be
+        // describing an attempt that no longer exists.
+        isComingBack = false
+        // Running out is the moment the app stops behaving like a session that is coming back: this
+        // flag turns the remote screen over to the picker. The banner is not re-posted, because
+        // `SessionAwareness` refuses a repeat of the phase it is already in.
+        hasGivenUpResuming = true
+        // A dial still in flight is ended here rather than left to answer a session that has
+        // stopped listening. It reports its own end as a `.disconnected`, which the guard at the
+        // top of ``scheduleReconnect()`` is what stops from arming another rung.
+        connectTask?.cancel()
+        connectTask = nil
+        wire?.disconnect()
+        wire = nil
+        // The app started the attempt that has just been cut, and the flag saying so goes with it:
+        // left set, the user's own next dial of any Mac would be read as one of ours.
+        model.clearResumingIfNothingIsUnderWay()
+        // The screen is about to leave and no replacement stream will reuse its display, so this is
+        // the terminal path that releases the attachment non-deliberate teardown kept alive for the
+        // retry. A background Mac shares the active Mac's renderer and must not detach it.
+        if isActive { renderer.detach() }
+        // The Live Activity has to be told directly: a ladder that runs out changes no phase, so
+        // `sessionMoved` never runs for it, and the card would stay on "Reconnecting…". Only for
+        // the Mac on screen: a background Mac giving up is a banner, not a card.
+        if isActive {
+            SessionActivity.shared.sessionDropped(
+                hostName: hostName ?? "the Mac",
+                startedAt: nil,
+                path: Self.activityPath(connectionPath)
+            )
+        }
     }
 
     // MARK: - Asking this Mac for the picture, and for silence

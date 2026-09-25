@@ -551,8 +551,6 @@ struct VideoLayerView: UIViewRepresentable {
     /// ``VideoHostView/stillContentView``.
     final class Coordinator {
         var showsStill = false
-        /// What the live layer was last drawn at, in points. See ``PictureTrace``.
-        var drawnSize: CGSize = .zero
         /// The image the frozen layer is holding, so a pass that changes nothing else does not
         /// re-rasterise it.
         var stillPicture: CGImage?
@@ -614,40 +612,6 @@ struct VideoLayerView: UIViewRepresentable {
             view.contentView.alpha = 0
         }
         CATransaction.commit()
-
-        // **What the live layer is actually drawn at**, which is the number the flicker is about:
-        // a frame that arrives while the transform still belongs to the picture it replaces is seen
-        // at that picture's scale, and this is the only place the two are committed together.
-        // Recorded only when it changes, because a movement writes it sixty times a second and the
-        // question is where it jumped rather than how it travelled. See ``PictureTrace``.
-        let drawn = view.contentView.frame.size
-        if abs(drawn.width - context.coordinator.drawnSize.width) > 1
-            || abs(drawn.height - context.coordinator.drawnSize.height) > 1 {
-            context.coordinator.drawnSize = drawn
-            let snapshot = renderer.currentSnapshot
-            let frame = CGSize(
-                width: CGFloat(snapshot.pixelWidth),
-                height: CGFloat(snapshot.pixelHeight)
-            )
-            // **The picture's own rectangle on screen, as this app computes it**, next to the frame
-            // the layer is actually holding. One number is the app's belief and the other is the
-            // truth the layer draws; a picture that fills the screen while the app believes it is a
-            // band is the difference between them, and it is the difference no other line here can
-            // show. See ``PictureScale``.
-            let picture = CanvasGeometry.rect(
-                normalized: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                bounds: view.bounds.size,
-                pixelSize: pictureSize,
-                zoom: zoom,
-                pan: pan
-            )
-            PictureTrace.write("""
-                draw \(PictureTrace.short(drawn)) zoom=\(String(format: "%.3f", zoom)) \
-                screen=\(PictureTrace.short(view.bounds.size)) \
-                belief=\(PictureTrace.short(pictureSize)) frame=\(PictureTrace.short(frame)) \
-                drawn=\(PictureTrace.short(picture)) still=\(showsStill)
-                """)
-        }
 
         // The way back out is the only part that is watched, so it is the only part that is
         // animated: a hard cut here is a source change, and this is what turns it into the picture

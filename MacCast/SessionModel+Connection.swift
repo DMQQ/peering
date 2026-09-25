@@ -84,7 +84,6 @@ extension SessionModel {
     /// called this function". A disconnect the user tapped is silent; one iOS forced because it is
     /// about to suspend the app is not, because a banner is the only way they will hear about it.
     func disconnect(deliberate: Bool = true) {
-        PictureTrace.write("disconnect deliberate=\(deliberate)")
         // Taken first: the card that outlives a non-deliberate end needs both to say what was lost,
         // and after the lines below they are simply nil.
         let wasStartedAt = sessionStartedAt

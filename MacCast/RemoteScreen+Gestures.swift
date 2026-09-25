@@ -287,14 +287,6 @@ extension RemoteScreen {
             return
         }
 
-        PictureTrace.write("""
-            open tap index=\(index) source=\(sourceID) framesBelongTo=\(model.renderer.framesBelongTo ?? "nil") \
-            activeSourceID=\(model.activeSourceID ?? "nil") canvas=\(PictureTrace.short(layout.canvas)) \
-            anchor=x\(String(format: "%.3f", anchor.x)),y\(String(format: "%.3f", anchor.y)) \
-            \(String(format: "%.3f", anchor.width))x\(String(format: "%.3f", anchor.height)) \
-            target_zoom=\(String(format: "%.3f", target.zoom)) target_pan=\(String(format: "%.1f,%.1f", target.pan.width, target.pan.height))
-            """)
-
         beginHeroTransition(
             to: sourceID,
             target: target,
@@ -483,12 +475,6 @@ extension RemoteScreen {
                         current.pan = .zero
                     }
                     transition = current
-                    PictureTrace.write("""
-                        settled target=\(current.targetSourceID ?? "nil") \
-                        framesBelongTo=\(model.renderer.framesBelongTo ?? "nil") \
-                        picture=\(model.picture?.sourceID ?? "nil") \
-                        ready=\(model.isReadyToPlace(of: model.capturePixelSize ?? .zero))
-                        """)
                     endTransitionIfReady()
                     return
                 }

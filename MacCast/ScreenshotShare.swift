@@ -10,7 +10,12 @@ enum ScreenshotShare {
     /// sheet draws its first item as the header, and an image with no name draws a thumbnail with
     /// nothing under it: a camera glyph had been pressed and a wordless sheet appeared. A file
     /// carries its name into the header, into AirDrop, and into what Mail attaches.
-    private final class Item: NSObject, UIActivityItemSource {
+    /// **`nonisolated`, because the sheet asks this from its own queue.** The module's default
+    /// isolation makes everything main-actor, and this protocol's callbacks are not: the share
+    /// sheet resolves its items off the main thread, and an isolated conformance traps there
+    /// (`SIGTRAP` in `checkExpectedExecutor`, from the system reading the file it was handed).
+    /// Nothing here needs the main actor anyway: two values, held and returned.
+    private nonisolated final class Item: NSObject, UIActivityItemSource {
         let url: URL
         let subject: String
 

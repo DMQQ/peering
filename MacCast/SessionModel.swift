@@ -924,6 +924,9 @@ final class SessionModel {
         if let old, let targetID = target.hostID, targetID == old.hostID {
             session.hasBeenReady = old.hasBeenReady
             session.reconnectAttempt = old.reconnectAttempt
+            // And the clock the window is measured on, for the same reason as the counter: the run
+            // of attempts is one run however many objects it is made of.
+            session.reconnectingSince = old.reconnectingSince
 
             // And which source was on screen, because the screen is staying up: the Mac goes on
             // capturing the same display or window across a client reconnect, so a session that forgot
@@ -950,6 +953,14 @@ final class SessionModel {
             // The next source-tagged config remains authoritative and will replace this value when
             // the host actually changes pictures.
             session.pictureMosaicLayout = old.pictureMosaicLayout
+        }
+
+        // **The episode begins with the dial that starts it, not only with a rung.** A restoration
+        // and the relay-to-LAN hand-over dial once with no ladder under them, so a dial that never
+        // answers is otherwise bounded by nothing at all. A rung of a ladder already carries its
+        // clock, which is why this only starts one. See ``SessionModel/reconnectWindow``.
+        if isResuming, session.reconnectingSince == nil {
+            session.reconnectingSince = Date()
         }
 
         session.hostName = target.displayName
@@ -1120,6 +1131,17 @@ final class SessionModel {
         .seconds(1), .seconds(2), .seconds(5),
     ]
 
+    /// How long a Mac is given to come back before the app stops trying.
+    ///
+    /// The ladder's own end is a count of rungs, and a rung is a wait plus a dial that can take ten
+    /// seconds to fail on its own, so "three rungs" is not a duration: a Mac that is gone can be
+    /// waited on for half a minute, and a dial that never answers at all is not bounded by the
+    /// count in any way. This is the bound that does not depend on the network answering, and it
+    /// covers the restoration as well, which dials once and has no ladder to run out. Ten seconds
+    /// is a Mac that has to be found and shake hands, and nothing more. See
+    /// ``MacSession/giveUpAfterReconnectWindow()``.
+    static let reconnectWindow: TimeInterval = 10
+
     var reconnectTask: Task<Void, Never>? {
         get { activeSession?.reconnectTask }
         set { activeSession?.reconnectTask = newValue }
@@ -1138,6 +1160,16 @@ final class SessionModel {
     /// finished with it, so the connect is aborted before it starts. It clears itself in well under a
     /// second, and nobody asked for this attempt, so there is nobody to tell.
     var isResuming = false
+
+    /// Clears ``isResuming`` when no Mac has an attempt of its own in flight any more.
+    ///
+    /// One flag for every Mac, so the last one to finish is the one that clears it, and "is one
+    /// still running" is asked of the sessions rather than kept alongside. See
+    /// ``MacSession/giveUpOnReconnecting()``.
+    func clearResumingIfNothingIsUnderWay() {
+        guard !sessions.contains(where: { $0.isResumingAfterDrop }) else { return }
+        isResuming = false
+    }
 
     var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 

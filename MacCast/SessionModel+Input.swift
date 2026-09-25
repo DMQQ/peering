@@ -96,7 +96,6 @@ extension SessionModel {
     /// there" and sends nothing. The result is a session that follows the desktops panel onto the second
     /// display and then refuses to come back.
     func selectSource(_ source: CaptureSource) {
-        PictureTrace.write("select \(source.stableID) mosaic=\(source.isMosaic) choices=\(mosaicChoices.count)")
         // Read before the write below, because it is the answer to "was this end showing an
         // arrangement a moment ago".
         let wasArrangement = activeSourceID?.hasPrefix("mosaic:") == true
@@ -121,9 +120,6 @@ extension SessionModel {
             if activeSession?.picture?.sourceID == source.stableID
                 || (wasArrangement && activeSession?.picture?.pixelSize.matchesCanvas(layout.canvas) == true) {
                 activeSession?.pictureMosaicLayout = layout
-                PictureTrace.write("  arrangement adopted for a picture already on screen")
-            } else {
-                PictureTrace.write("  arrangement asked, picture=\(activeSession?.picture?.sourceID ?? "nil") canvas=\(PictureTrace.short(activeSession?.picture?.pixelSize ?? .zero))")
             }
         } else {
             activeSession?.askedMosaicLayout = nil
@@ -174,7 +170,6 @@ extension SessionModel {
     ///   arrangement filtered by what the catalogue can see, and a window that a catalogue merely failed to
     ///   list would then be gone from the store as well as from the picture.
     func showMosaic(_ choices: [MosaicChoice], remembering: Bool = true) {
-        PictureTrace.write("showMosaic tiles=\(choices.count) remembering=\(remembering) viewport=\(PictureTrace.short(mosaicViewport))")
         // **Shaped by the choices being asked for, not by the ones already on screen.** The canvas's
         // aspect comes from how wide the arrangement's windows are, and reading that off the session
         // meant a restore, which runs before the new choices are stored, shaped its canvas from the
@@ -187,7 +182,6 @@ extension SessionModel {
         ) else {
             return
         }
-        PictureTrace.write("  asked canvas=\(PictureTrace.short(layout.canvas))")
         // Anything held down on the Mac is let go first: what is on screen is about to be a picture with
         // no input at all, and a modifier latched before that is one nothing here can release.
         releaseLatchedModifiers()
@@ -406,7 +400,6 @@ extension SessionModel {
     /// ``MacSession/mosaicToRestore(hostID:catalog:)``.
     func dropClosedMosaicTiles() {
         guard !mosaicChoices.isEmpty, let catalog = activeSession?.catalog else { return }
-        PictureTrace.write("gap check of \(mosaicChoices.count) tiles")
 
         let living = mosaicChoices.filter { catalog.descriptor(for: $0.source) != nil }
         // Nothing is thrown away: fewer than two survivors is not an arrangement to redraw, and it is not
