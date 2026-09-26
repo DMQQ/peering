@@ -194,7 +194,9 @@ extension HomeTab {
     func runEntrance() {
         guard !entranceStarted else { return }
         entranceStarted = true
-        guard !reduceMotion else {
+        let alreadyPlayed = Self.entranceHasPlayed
+        Self.entranceHasPlayed = true
+        guard !reduceMotion, !alreadyPlayed else {
             markZoom = 1
             titleReveal = 1
             heroTravel = 1

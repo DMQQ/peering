@@ -27,6 +27,9 @@ struct HomeTab: View {
     @State var taglineWidth: CGFloat = 0
     @State var sectionsVisible = false
     @State var entranceStarted = false
+    /// Whether the entrance has played in this launch. The tab is rebuilt on the way back from a
+    /// session, and the animation is for opening the app, not for every return to it.
+    static var entranceHasPlayed = false
     @State var forgetTarget: String?
     @State var renameTarget: String?
     @State var renameDraft = ""
