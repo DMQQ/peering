@@ -568,6 +568,13 @@ struct PaywallView: View {
     private var footer: some View {
         VStack(spacing: 18) {
             VStack(spacing: 12) {
+                // What the money is for. Next to one-off purchases, a subscription reads as a
+                // choice unless it says what keeps costing.
+                Text("On your own network Peering is free. A plan pays for the relay, the server that carries your session when your Mac is somewhere else, and adds the tools for working away from it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                 // The whole inventory, one tap away.
                 //
                 // A paywall is a comparison, and a comparison is only as honest as what it leaves

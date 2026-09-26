@@ -30,6 +30,13 @@ direct where the network allows, end to end encrypted where it does not.
 This is the one field that can be changed without a review, so it is the field for news: a new
 feature, a new plan, a launch. Until there is news, the line above.
 
+The next news, ready to paste once the coding-agent angle is the one to lead with (161 characters):
+
+```
+Leave Claude Code or a build running on your Mac. When it stops to ask for permission or a
+password, your iPhone tells you, and you answer from wherever you are.
+```
+
 ## Keywords (100)
 
 ```
@@ -74,6 +81,8 @@ WHAT IT DOES
 
 • Every display, one running app, or a single window, switchable without dropping the session
 • Pointer, keyboard, scroll wheel, right-click, and a joystick for the things that want one
+• On iPad, a trackpad or mouse drives the Mac's pointer: hover, click, right-click and scroll
+• F1 to F12, Esc, Tab and the control keys a phone keyboard cannot type
 • Pinch to zoom, fit the whole screen, or fill the phone with it
 • Observe mode, when you want to watch without sending input
 • Sound from the Mac, on the phone
@@ -90,6 +99,12 @@ PRIVATE BY CONSTRUCTION
 • Each device keeps its own key and refuses anything claiming to be the other
 • Face ID lock, so an unlocked phone is not an unlocked Mac
 
+KEEP AN EYE ON YOUR CODING AGENTS
+
+Start Claude Code, Codex or a long build on your Mac and walk away. When a shell stops for you,
+whether a coding agent asking for permission, a sudo password or a yes/no, Peering tells you, in
+Terminal and iTerm windows as well as its own. Tap the banner and answer it from your phone.
+
 A TERMINAL AND A FILE BROWSER TOO
 
 • Full-screen SSH sessions with keys, passwords and port forwarding
@@ -102,6 +117,10 @@ FREE, AND WHAT A PLAN ADDS
 Peering is free on your own network for as long as you like: one Mac, one shell at a time, and
 every display, app and window it can show. Relay, Relay Plus and Pro are for reaching your Mac
 when you are away from it.
+
+Why a subscription rather than a one-off price: away from home, your session is carried by a
+relay server we run, and that server costs money every month it is on. Your own network never
+touches it, which is why that part is free.
 
 Peering for Mac is required, and is a free download at getpeering.app. Without it this app has
 nothing to connect to.
@@ -151,7 +170,7 @@ somebody else's Mac:
 | Subtitle | 30 | 27 |
 | Promotional text | 170 | 167 |
 | Keywords | 100 | 94 |
-| Description | 4000 | 2475 |
+| Description | 4000 | 3195 |
 
 Headroom left on purpose in every field: the name is the one thing that cannot be reworded after
 the first submission without losing the listing's history, so it is the shortest, and the rest have
