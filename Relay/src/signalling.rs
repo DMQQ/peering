@@ -31,7 +31,7 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::apns::ApnsClient;
+use crate::apns::{ApnsClient, PushRoute};
 use crate::protocol::{hex, unhex, ClientMessage, ServerMessage};
 use crate::quota::{Plan, QuotaTracker};
 use crate::session::{CLIENT_SLOT, HOST_SLOT, Registry, Token};
@@ -788,22 +788,30 @@ async fn dispatch(
             device_token,
             title,
             body,
+            source,
         } => {
             // Only registered Macs may ask for pushes. An unregistered connection asking for one
             // has no client to push to and no session to trace it back to.
-            if state.registered_as.is_none() {
+            let Some(host_id) = state.registered_as.clone() else {
                 return Some(ServerMessage::error(
                     "unauthorized",
                     "only registered hosts may request push notifications",
                 ));
-            }
+            };
             // Refuse absurdly large fields before they reach the APNs payload builder.
-            if device_token.len() > 128 || title.len() > 256 || body.len() > 512 {
+            if device_token.len() > 128
+                || title.len() > 256
+                || body.len() > 512
+                || source.as_ref().is_some_and(|s| s.len() > 128)
+            {
                 return Some(ServerMessage::error("invalid", "field too long"));
             }
             if let Some(apns) = settings.apns.as_ref().map(Arc::clone) {
                 tokio::spawn(async move {
-                    if let Err(e) = apns.send(&device_token, &title, &body).await {
+                    // The Mac's ID is the relay's own record of who asked, not something the Mac
+                    // says about itself, so a tap can only ever open the Mac that sent it.
+                    let route = PushRoute { host_id: &host_id, source: source.as_deref() };
+                    if let Err(e) = apns.send(&device_token, &title, &body, Some(route)).await {
                         warn!(error = %e, "APNs notification failed");
                     }
                 });

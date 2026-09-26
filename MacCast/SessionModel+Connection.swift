@@ -198,6 +198,29 @@ extension SessionModel {
     ///
     /// Bonjour wins when it has the Mac, preserving the direct LAN path. Otherwise the same stable host
     /// ID is sent to the relay; no remembered IP address is involved.
+    /// Opens the Mac a tapped notification came from and, when it names one, the window it is about.
+    func openFromNotification(hostID: String, sourceID: String?) {
+        guard pairedHostIDs.contains(hostID) else { return }
+        if let open = sessions.first(where: { $0.hostID == hostID && $0.isLive }) {
+            activateSession(open.id)
+            isSessionOnScreen = true
+            guard let sourceID else { return }
+            if let descriptor = open.catalog?.all.first(where: { $0.id == sourceID }) {
+                selectSource(descriptor)
+            } else {
+                // Not listed yet, so asked for when the next catalogue arrives.
+                open.sourceRequestedOnOpen = sourceID
+            }
+            return
+        }
+        // The session is new if the dial made one; its Mac ID is only known after the handshake.
+        let before = activeSessionID
+        connectToTrusted(hostID: hostID)
+        if let sourceID, activeSessionID != before {
+            activeSession?.sourceRequestedOnOpen = sourceID
+        }
+    }
+
     func connectToTrusted(hostID: String) {
         if let host = hosts.first(where: { $0.id == hostID }) {
             pendingHostID = nil

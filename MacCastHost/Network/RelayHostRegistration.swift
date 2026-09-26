@@ -20,6 +20,7 @@ final class RelayHostRegistration: @unchecked Sendable {
         let token: String
         let title: String
         let body: String
+        let source: String?
     }
 
     /// How many notifications may wait for the relay.
@@ -61,12 +62,12 @@ final class RelayHostRegistration: @unchecked Sendable {
     /// Queued rather than dropped when the signalling socket is down: a Mac between registration
     /// attempts is usually a Mac whose phone is not connected either, so a push dropped here is one
     /// nobody could have been told about another way.
-    func notifyDevice(token: String, title: String, body: String) {
+    func notifyDevice(token: String, title: String, body: String, source: String? = nil) {
         var overflowed = 0
         var heldForRelay = false
 
         let batch = lock.withLock { () -> (RelaySignallingConnection, [PendingNotification])? in
-            pending.append(PendingNotification(token: token, title: title, body: body))
+            pending.append(PendingNotification(token: token, title: title, body: body, source: source))
             if pending.count > Self.maximumPending {
                 overflowed = pending.count - Self.maximumPending
                 pending.removeFirst(overflowed)
@@ -97,7 +98,12 @@ final class RelayHostRegistration: @unchecked Sendable {
         Task.detached { [weak self] in
             for (index, item) in items.enumerated() {
                 do {
-                    try await connection.send(.notifyDevice(token: item.token, title: item.title, body: item.body))
+                    try await connection.send(.notifyDevice(
+                        token: item.token,
+                        title: item.title,
+                        body: item.body,
+                        source: item.source
+                    ))
                 } catch {
                     relayLog.error("the relay did not take a notification for \(item.token, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     // Back to the front, in order, so the next registration sends these before

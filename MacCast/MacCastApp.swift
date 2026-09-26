@@ -1,4 +1,5 @@
 import MacCastKit
+import UserNotifications
 import RemoteCore
 import SwiftUI
 import UIKit
@@ -65,6 +66,7 @@ struct MacCastApp: App {
         // run's can overwrite it. A crash on launch is the case this is for, and the launch is
         // exactly what a handler installed later would miss.
         CrashLog.install(subject: "phone")
+        UNUserNotificationCenter.current().delegate = NotificationRouter.shared
     }
 
     var body: some Scene {
@@ -104,6 +106,7 @@ struct MacCastApp: App {
                     // a view — see ``IntentHost``.
                     IntentHost.model = model
                     IntentHost.servers = servers
+                    NotificationRoute.deliverPending()
                     // Browsing triggers the local network permission prompt. Defer it until
                     // after the welcome flow so a first-run user sees onboarding first.
                     if hasSeenWelcome {

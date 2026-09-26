@@ -77,7 +77,11 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
     /// Asks the relay to send an APNs push to a phone that is no longer reachable over the
     /// control channel. Only a registered Mac may send this. The relay holds the APNs key;
     /// this end holds only the device token it received from the phone.
-    case notifyDevice(token: String, title: String, body: String)
+    ///
+    /// `source` is the capture source the notification is about (a terminal's window), which the
+    /// phone shows when it is tapped. Left out of the message when nil; a relay that predates it
+    /// ignores it.
+    case notifyDevice(token: String, title: String, body: String, source: String? = nil)
 
     private enum CodingKeys: String, CodingKey {
         case type, name, protocolVersion, apiKey, plan, jwsRepresentation
@@ -91,7 +95,7 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
         case hostID = "hostId"
         case clientID = "clientId"
         case videoToken
-        case token, title, body
+        case token, title, body, source
     }
 
 
@@ -147,11 +151,12 @@ public enum RelayClientMessage: Sendable, Equatable, Encodable {
             try container.encode(Self.hex(videoToken), forKey: .videoToken)
         case .ping:
             try container.encode("ping", forKey: .type)
-        case .notifyDevice(let token, let title, let body):
+        case .notifyDevice(let token, let title, let body, let source):
             try container.encode("notifyDevice", forKey: .type)
             try container.encode(token, forKey: .deviceToken)
             try container.encode(title, forKey: .title)
             try container.encode(body, forKey: .body)
+            try container.encodeIfPresent(source, forKey: .source)
         }
     }
 

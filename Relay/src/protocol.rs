@@ -163,6 +163,10 @@ pub enum ClientMessage {
         device_token: String,
         title: String,
         body: String,
+        /// The capture source the notification is about, which the phone shows when it is tapped.
+        /// Absent from Macs that predate it.
+        #[serde(default)]
+        source: Option<String>,
     },
 }
 

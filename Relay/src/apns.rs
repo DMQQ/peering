@@ -65,6 +65,37 @@ pub struct ApnsClient {
     environments: Mutex<HashMap<String, &'static str>>,
 }
 
+/// Where a tapped notification should take the phone: which Mac, and which of its sources.
+#[derive(Clone, Copy, Debug)]
+pub struct PushRoute<'a> {
+    pub host_id: &'a str,
+    pub source: Option<&'a str>,
+}
+
+/// The APNs body. Compact JSON built by hand: the shape never varies.
+///
+/// The route rides beside `aps` as custom keys, `hostId` and `source`, which is where APNs puts
+/// everything that is the app's rather than the system's.
+fn payload(
+    title: &str,
+    body: &str,
+    route: Option<PushRoute<'_>>,
+) -> Result<String, serde_json::Error> {
+    let mut payload = format!(
+        r#"{{"aps":{{"alert":{{"title":{},"body":{}}},"sound":"default"}}"#,
+        serde_json::to_string(title)?,
+        serde_json::to_string(body)?,
+    );
+    if let Some(route) = route {
+        payload.push_str(&format!(r#","hostId":{}"#, serde_json::to_string(route.host_id)?));
+        if let Some(source) = route.source {
+            payload.push_str(&format!(r#","source":{}"#, serde_json::to_string(source)?));
+        }
+    }
+    payload.push('}');
+    Ok(payload)
+}
+
 impl ApnsClient {
     pub fn from_config(
         key_path: PathBuf,
@@ -167,6 +198,7 @@ impl ApnsClient {
         device_token: &str,
         title: &str,
         body: &str,
+        route: Option<PushRoute<'_>>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let first = self
             .environments
@@ -176,13 +208,13 @@ impl ApnsClient {
             .copied()
             .unwrap_or(APNS_HOST);
 
-        match self.push(first, device_token, title, body).await {
+        match self.push(first, device_token, title, body, route).await {
             PushOutcome::Accepted => Ok(()),
             PushOutcome::Refused(failure) => {
                 let other = if first == APNS_HOST { APNS_SANDBOX_HOST } else { APNS_HOST };
                 warn!(%device_token, host = first, failure = %failure, "APNs refused the push");
 
-                match self.push(other, device_token, title, body).await {
+                match self.push(other, device_token, title, body, route).await {
                     PushOutcome::Accepted => {
                         self.environments
                             .lock()
@@ -201,15 +233,16 @@ impl ApnsClient {
         }
     }
 
-    /// One attempt against one host.
+        /// One attempt against one host.
     async fn push(
         &self,
         host: &'static str,
         device_token: &str,
         title: &str,
         body: &str,
+        route: Option<PushRoute<'_>>,
     ) -> PushOutcome {
-        match self.push_inner(host, device_token, title, body).await {
+        match self.push_inner(host, device_token, title, body, route).await {
             Ok(outcome) => outcome,
             Err(error) => PushOutcome::Failed(error),
         }
@@ -221,15 +254,10 @@ impl ApnsClient {
         device_token: &str,
         title: &str,
         body: &str,
+        route: Option<PushRoute<'_>>,
     ) -> Result<PushOutcome, Box<dyn std::error::Error + Send + Sync>> {
         let jwt = self.jwt();
-
-        // Compact JSON — serde_json would pull in more deps; the shape never varies.
-        let payload = format!(
-            r#"{{"aps":{{"alert":{{"title":{title_json},"body":{body_json}}},"sound":"default"}}}}"#,
-            title_json = serde_json::to_string(title)?,
-            body_json = serde_json::to_string(body)?,
-        );
+        let payload = payload(title, body, route)?;
         let payload_bytes = Bytes::from(payload.into_bytes());
         let content_length = payload_bytes.len().to_string();
 
@@ -293,4 +321,39 @@ enum PushOutcome {
     Refused(String),
     /// The attempt never reached Apple: DNS, TLS, HTTP/2, a socket.
     Failed(Box<dyn std::error::Error + Send + Sync>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parsed(text: &str) -> serde_json::Value {
+        serde_json::from_str(text).expect("valid JSON")
+    }
+
+    #[test]
+    fn payload_without_a_route_is_the_alert_alone() {
+        let json = parsed(&payload("Title", "Body \"quoted\"", None).unwrap());
+        assert_eq!(json["aps"]["alert"]["title"], "Title");
+        assert_eq!(json["aps"]["alert"]["body"], "Body \"quoted\"");
+        assert!(json.get("hostId").is_none());
+        assert!(json.get("source").is_none());
+    }
+
+    #[test]
+    fn payload_carries_the_route_beside_aps() {
+        let route = PushRoute { host_id: "MAC-1", source: Some("window:42") };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert_eq!(json["aps"]["sound"], "default");
+        assert_eq!(json["hostId"], "MAC-1");
+        assert_eq!(json["source"], "window:42");
+    }
+
+    #[test]
+    fn payload_with_a_host_and_no_source_names_only_the_host() {
+        let route = PushRoute { host_id: "MAC-1", source: None };
+        let json = parsed(&payload("T", "B", Some(route)).unwrap());
+        assert_eq!(json["hostId"], "MAC-1");
+        assert!(json.get("source").is_none());
+    }
 }

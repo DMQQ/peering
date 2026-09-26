@@ -123,6 +123,8 @@ final class MacSession: Identifiable {
     /// Set by Unlock: the lock screen's display it switched to, and the source to go back to once
     /// the Mac says it is unlocked. See ``SessionModel/showLockScreen(on:)``.
     var unlockDetour: (lockScreen: CaptureSource, returnTo: CaptureSource)?
+    /// A source a tapped notification asked for, shown when this session's catalogue arrives.
+    var sourceRequestedOnOpen: String?
     var videoStatus = "No video stream"
 
     /// The frames per second arriving, as measured by the last two polls. Zero until there have been

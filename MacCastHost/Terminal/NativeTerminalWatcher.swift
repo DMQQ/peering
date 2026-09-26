@@ -24,9 +24,9 @@ private let watchedBundleIDs: Set<String> = [
 ///
 /// Requires the Accessibility permission the host already holds for input injection.
 final class NativeTerminalWatcher: @unchecked Sendable {
-    /// Called on a background queue when a native terminal needs the user's response.
-    /// The argument is a human-readable sentence suitable for a push-notification body.
-    var onAttention: (@Sendable (String) -> Void)?
+    /// Called on a background queue when a native terminal needs the user's response, with a
+    /// sentence for the notification's body and the window it is in, when that could be read.
+    var onAttention: (@Sendable (String, CGWindowID?) -> Void)?
 
     private let lock = NSLock()
     private var appWatches: [pid_t: TerminalAppWatch] = [:]
@@ -80,8 +80,8 @@ final class NativeTerminalWatcher: @unchecked Sendable {
         let pid = app.processIdentifier
         guard pid > 0 else { return }
         let name = app.localizedName ?? "Terminal"
-        let watch = TerminalAppWatch(pid: pid, appName: name) { [weak self] message in
-            self?.onAttention?(message)
+        let watch = TerminalAppWatch(pid: pid, appName: name) { [weak self] message, windowID in
+            self?.onAttention?(message, windowID)
         }
         lock.withLock { appWatches[pid] = watch }
         watch.start()
@@ -102,7 +102,7 @@ final class NativeTerminalWatcher: @unchecked Sendable {
 private final class TerminalAppWatch: @unchecked Sendable {
     let pid: pid_t
     let appName: String
-    let onAttention: @Sendable (String) -> Void
+    let onAttention: @Sendable (String, CGWindowID?) -> Void
 
     private var axObserver: AXObserver?
     private var selfPtr: UnsafeMutableRawPointer?
@@ -116,7 +116,7 @@ private final class TerminalAppWatch: @unchecked Sendable {
         qos: .utility
     )
 
-    init(pid: pid_t, appName: String, onAttention: @escaping @Sendable (String) -> Void) {
+    init(pid: pid_t, appName: String, onAttention: @escaping @Sendable (String, CGWindowID?) -> Void) {
         self.pid = pid
         self.appName = appName
         self.onAttention = onAttention
@@ -242,7 +242,20 @@ private final class TerminalAppWatch: @unchecked Sendable {
               let text = ref as? String, !text.isEmpty else { return }
         let tail = String(text.suffix(4_096))
         let key = CFHash(element)
-        schedule(text: tail, title: Self.windowTitle(of: element), key: key)
+        schedule(text: tail, title: Self.windowTitle(of: element), windowID: Self.windowID(of: element), key: key)
+    }
+
+    /// The window server's ID for the window this text area is in, which is what the phone asks
+    /// to be shown when the notification is tapped.
+    private static func windowID(of element: AXUIElement) -> CGWindowID? {
+        var windowRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &windowRef) == .success,
+              let windowRef,
+              CFGetTypeID(windowRef) == AXUIElementGetTypeID()
+        else { return nil }
+        var id: CGWindowID = 0
+        guard _AXUIElementGetWindow(windowRef as! AXUIElement, &id) == .success, id != 0 else { return nil }
+        return id
     }
 
     /// What the window this text area lives in is called.
@@ -286,16 +299,18 @@ private final class TerminalAppWatch: @unchecked Sendable {
         return name.isEmpty ? nil : name
     }
 
-    private func schedule(text: String, title: String?, key: CFHashCode) {
+    private func schedule(text: String, title: String?, windowID: CGWindowID?, key: CFHashCode) {
         lock.withLock {
             pending[key]?.cancel()
-            let item = DispatchWorkItem { [weak self] in self?.check(text: text, title: title, key: key) }
+            let item = DispatchWorkItem { [weak self] in
+                self?.check(text: text, title: title, windowID: windowID, key: key)
+            }
             pending[key] = item
             Self.queue.asyncAfter(deadline: .now() + .milliseconds(300), execute: item)
         }
     }
 
-    private func check(text: String, title: String?, key: CFHashCode) {
+    private func check(text: String, title: String?, windowID: CGWindowID?, key: CFHashCode) {
         // One alert per prompt, and the re-arm is the half that matters: the scan asks whether the
         // text ends in a question, and a program that repaints while it waits no longer ends in
         // anything, so keying on the text alone means a push per repaint. A terminal watched from
@@ -318,6 +333,11 @@ private final class TerminalAppWatch: @unchecked Sendable {
             .map { "\(who): \($0)" }
             ?? "\(who) is waiting for \(noun)."
         nativeTermLog.notice("\(message as String, privacy: .public)")
-        onAttention(message)
+        onAttention(message, windowID)
     }
 }
+
+/// Maps an Accessibility window to its window server ID. Private, and used by every window
+/// manager on the Mac for want of a public equivalent; the host ships outside the App Store.
+@_silgen_name("_AXUIElementGetWindow")
+private func _AXUIElementGetWindow(_ element: AXUIElement, _ id: UnsafeMutablePointer<CGWindowID>) -> AXError

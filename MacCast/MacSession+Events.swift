@@ -303,7 +303,12 @@ extension MacSession {
             // one repeating a choice the Mac has forgotten. See ``pendingSourceReassertion``.
             let reasserting = pendingSourceReassertion
             pendingSourceReassertion = false
-            if activeSourceID == nil {
+            if let requested = sourceRequestedOnOpen,
+               let descriptor = catalog.all.first(where: { $0.id == requested }) {
+                // A notification named this window, which outranks anything remembered.
+                sourceRequestedOnOpen = nil
+                model.selectSource(descriptor)
+            } else if activeSourceID == nil {
                 // **An arrangement the user left behind comes back before the default does**, and
                 // the decision has to be made here rather than after: the fallback below picks the
                 // first display, and a mosaic asked for on top of that would be a second capture
