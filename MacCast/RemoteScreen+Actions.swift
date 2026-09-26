@@ -149,12 +149,23 @@ extension RemoteScreen {
     /// with the same thumb as the Return beside it and belongs to the same row, and while it was
     /// drawn as a bare glyph it read as a caption for the field rather than as the way out of the
     /// mode. The shape is here rather than at each control so the two cannot drift apart.
-    func compactCapButton(icon: String, action: @escaping () -> Void) -> some View {
+    /// `filled` draws the cap in ink, for the one key in a row that has to be found at a glance.
+    @ViewBuilder
+    func compactCapButton(icon: String, filled: Bool = false, action: @escaping () -> Void) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .frame(width: 40, height: 32)
-                .glassSurface(in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
+            if filled {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(ColorPalette.onInk)
+                    .frame(width: 40, height: 32)
+                    .background(ColorPalette.ink, in: shape)
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 40, height: 32)
+                    .glassSurface(in: shape, interactive: true)
+            }
         }
         .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
     }

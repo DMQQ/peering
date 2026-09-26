@@ -447,7 +447,7 @@ struct RemoteScreen: View {
     /// pressed the same way. See ``compactCapButton(icon:action:)``.
     private var keyboardKeyRow: some View {
         HStack(spacing: 8) {
-            compactCapButton(icon: "keyboard.chevron.compact.down") { model.showKeyboard = false }
+            compactCapButton(icon: "keyboard.chevron.compact.down", filled: true) { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
             ModifierBar()
             HStack(spacing: 6) {
