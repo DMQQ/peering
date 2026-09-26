@@ -13,16 +13,27 @@ struct ClipboardPanel: View {
     @Environment(SessionModel.self) private var model
     @State private var phone = PhoneClipboard.current()
     @State private var confirmed: Side?
+    @State private var refusal: String?
     @State private var showingHistory = false
 
     private enum Side { case phone, mac }
 
     var body: some View {
-        VStack(spacing: 8) {
-            phoneRow
-            macRow
-            if !model.clipboardHistory.isEmpty {
-                historyRow
+        Group {
+            if showingHistory {
+                ClipboardHistoryPanel {
+                    withAnimation(Motion.settle) { showingHistory = false }
+                }
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            } else {
+                VStack(spacing: 8) {
+                    phoneRow
+                    macRow
+                    if !model.clipboardHistory.isEmpty {
+                        historyRow
+                    }
+                }
+                .transition(.move(edge: .leading).combined(with: .opacity))
             }
         }
         .padding(10)
@@ -39,21 +50,17 @@ struct ClipboardPanel: View {
             model.pullClipboard()
         }
         .onChange(of: model.knownPhoneClipboard?.changeCount) { refreshPhone() }
-        .sheet(isPresented: $showingHistory) {
-            ClipboardHistoryPanel()
-        }
     }
 
     // MARK: - Rows
 
     private var phoneRow: some View {
-        row(side: .phone, symbol: "iphone", title: "iPhone", detail: phoneDetail, isEmpty: phone.kind == .empty) {
+        row(side: .phone, symbol: "iphone", title: "iPhone", detail: refusal ?? phoneDetail, isEmpty: phone.kind == .empty) {
             action("Send", enabled: phone.kind != .empty && isReady) {
-                if model.pushClipboard() { confirm(.phone) }
+                handle(model.pushClipboard())
             }
             action("Paste on Mac", prominent: true, enabled: phone.kind != .empty && isReady) {
-                model.pushClipboardAndPaste()
-                confirm(.phone)
+                handle(model.pushClipboardAndPaste())
             }
         }
     }
@@ -70,7 +77,7 @@ struct ClipboardPanel: View {
     private var historyRow: some View {
         PlanLocked(capability: .clipboardHistory, title: "Clipboard history", placement: .trailing) {
             Button {
-                showingHistory = true
+                withAnimation(Motion.settle) { showingHistory = true }
             } label: {
                 HStack(spacing: 11) {
                     icon("clock.arrow.circlepath")
@@ -196,7 +203,23 @@ struct ClipboardPanel: View {
     }
 
     private func refreshPhone() {
-        phone = PhoneClipboard.current()
+        let current = PhoneClipboard.current()
+        if current.changeCount != phone.changeCount { refusal = nil }
+        phone = current
+    }
+
+    private func handle(_ result: ClipboardPushResult) {
+        switch result {
+        case .sent:
+            refusal = nil
+            confirm(.phone)
+        case .imageTooLarge(let bytes):
+            let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+            let limit = ByteCountFormatter.string(fromByteCount: Int64(ClipboardLimits.maxImageBytes), countStyle: .file)
+            withAnimation(Motion.tap) { refusal = "Image too large to send (\(size), limit \(limit))" }
+        case .failed:
+            break
+        }
     }
 
     private func confirm(_ side: Side) {

@@ -397,6 +397,13 @@ struct RemoteScreen: View {
         // open, the grid went on showing whatever the Mac looked like when it was first asked,
         // which is the wrong answer for a panel whose job is picking something that is there now.
         // Keyed on the panel, so closing it is what stops the loop.
+        // One floating thing at a time: a panel and the keyboard each close the other.
+        .onChange(of: openPanel) { _, panel in
+            if panel != nil { model.showKeyboard = false }
+        }
+        .onChange(of: model.showKeyboard) { _, shown in
+            if shown { withAnimation(Motion.settle) { openPanel = nil } }
+        }
         .task(id: openPanel) {
             guard openPanel == .sources, !isImmersive else { return }
             while !Task.isCancelled {

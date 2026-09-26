@@ -12,55 +12,70 @@ import SwiftUI
 /// whatever was on the Mac at the time, and this is a list of it that survives relaunching the
 /// app. It is cleared in one tap from here.
 struct ClipboardHistoryPanel: View {
+    var onBack: () -> Void
     @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var justCopied: UUID?
     @State private var confirmsClear = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if model.clipboardHistory.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing kept yet",
-                        systemImage: "doc.on.clipboard",
-                        description: Text("Text copied from the Mac lands here, so the next copy does not lose it.")
-                    )
-                } else {
-                    List(model.clipboardHistory) { entry in
-                        row(entry)
-                    }
-                    .listStyle(.plain)
-                }
-            }
-            .navigationTitle("Clipboard")
-            .navigationBarTitleDisplayMode(.inline)
-            // The panel's own colour rather than a bar material over it, for the reason the
-            // terminal panel's header is its own colour: two greys stacked read as two apps.
-            .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    if !model.clipboardHistory.isEmpty {
-                        Button("Clear", role: .destructive) { confirmsClear = true }
+        VStack(spacing: 8) {
+            header
+            if model.clipboardHistory.isEmpty {
+                Text("Text copied from the Mac lands here, so the next copy does not lose it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(model.clipboardHistory) { entry in
+                            row(entry)
+                        }
                     }
                 }
-            }
-            .confirmationDialog(
-                "Clear the clipboard history?",
-                isPresented: $confirmsClear,
-                titleVisibility: .visible
-            ) {
-                Button("Clear", role: .destructive) { model.clearClipboardHistory() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("The Mac's own clipboard is untouched. This only forgets what this device kept.")
+                .scrollIndicators(.hidden)
+                .frame(maxHeight: 340)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .preferredColorScheme(.dark)
+        .confirmationDialog(
+            "Clear the clipboard history?",
+            isPresented: $confirmsClear,
+            titleVisibility: .visible
+        ) {
+            Button("Clear", role: .destructive) { model.clearClipboardHistory() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The Mac's own clipboard is untouched. This only forgets what this device kept.")
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Button(action: onBack) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("History")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(ColorPalette.ink)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.96))
+            .accessibilityLabel("Back to clipboard")
+
+            Spacer(minLength: 10)
+
+            if !model.clipboardHistory.isEmpty {
+                Button("Clear", role: .destructive) { confirmsClear = true }
+                    .font(.subheadline.weight(.medium))
+            }
+        }
+        .padding(.horizontal, 4)
     }
 
     private func row(_ entry: SessionModel.ClipboardEntry) -> some View {
@@ -88,10 +103,11 @@ struct ClipboardHistoryPanel: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
             }
-            .padding(.vertical, 4)
+            .padding(10)
             .contentShape(Rectangle())
+            .rowSurface()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RailButtonStyle(scale: 0.98))
         .contextMenu {
             Button("Send to Mac", systemImage: "arrow.up.doc") { model.pushToMac(entry) }
                 .menuInk()
@@ -99,11 +115,6 @@ struct ClipboardHistoryPanel: View {
                 model.removeClipboardEntry(entry.id)
             }
             .menuDanger()
-        }
-        .swipeActions(edge: .trailing) {
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                model.removeClipboardEntry(entry.id)
-            }
         }
     }
 }
