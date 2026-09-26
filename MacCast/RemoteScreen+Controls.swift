@@ -185,9 +185,8 @@ extension RemoteScreen {
     /// for continuously. They are what the rail's scrolling is for.
     @ViewBuilder
     var navigationButtons: some View {
-        // Drawn from ``DockControl`` rather than written out here, because the portrait dock ranks
-        // these five alongside its other controls and would otherwise be a second definition of
-        // them, free to drift from this one.
+        // Drawn from ``DockControl`` rather than written out here, so the portrait dock and this
+        // rail share one definition of these five.
         ForEach(DockControl.navigation) { control in
             dockControlView(control)
         }

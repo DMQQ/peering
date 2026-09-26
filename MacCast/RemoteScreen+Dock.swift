@@ -22,10 +22,13 @@ struct DockSheet: Identifiable {
     /// straight to the same row builder and an enum would mean matching on every draw.
     let controls: [DockControl]
     let edits: [QuickAction]
+    /// The application an app sheet is for. `nil` on the dock's own sheets.
+    var applicationName: String? = nil
 
     /// What this sheet holds, for the one announcement a barred dot cannot make on its own.
     var spokenName: String {
-        controls.isEmpty ? "Editing shortcuts" : "Dock controls"
+        if let applicationName { return "\(applicationName) shortcuts" }
+        return controls.isEmpty ? "Editing shortcuts" : "Dock controls"
     }
 }
 
@@ -39,48 +42,20 @@ private extension Array {
     }
 }
 
-/// The buttons the dock's first page can hold, named so that a ranking can move them about.
+/// The dock's controls, in the order it draws them.
 ///
-/// They were written into rows by hand, and the rows were what said where each one sat. Ranking
-/// them by use means the position has to come from somewhere else: each button is named here, and
-/// the page is drawn from whatever order the ranking hands back.
-///
-/// The order of the cases is the order they are drawn in before anything has been used, so it is
-/// the curated order the dock shipped with rather than an alphabetical accident.
+/// A fixed order, in groups of five so each is one sheet shut and one row open: Apps and typing
+/// first, then moving, then the rest. The dock used to reorder itself by use, and a button that
+/// moves is one nobody can find by memory.
 enum DockControl: String, CaseIterable, Identifiable {
-    // The controls that open something.
-    case mode, sources, keys, shortcuts, clipboard
-    case escape, tab, settings
-    // The five that move about the Mac, which the landscape rail keeps below its fold.
-    case up, down, left, right, delete
+    case sources, keys, clipboard, escape, tab
+    case left, up, down, right, delete
+    case shortcuts, mode, settings
 
     var id: String { rawValue }
 
     /// The navigation keys as a group, for the rail that still draws them as one.
     static let navigation: [DockControl] = [.up, .down, .left, .right, .delete]
-}
-
-/// How often each dock button has been pressed, which is what the ranking is made of.
-///
-/// Counted on the device and kept there. The app promises no analytics, and this is a convenience
-/// for one screen rather than telemetry: a small integer per button, in the standard defaults,
-/// never leaving the phone.
-///
-/// Counts only ever go up. Letting them decay would make the order drift for reasons the user
-/// cannot see, which is worse than an order that is merely stale, and a single button used hard
-/// once and never again is the price of that.
-enum DockUsage {
-    private static let key = "Peering.dockUsage"
-
-    static func counts() -> [String: Int] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: Int] ?? [:]
-    }
-
-    static func record(_ id: String) {
-        var current = counts()
-        current[id, default: 0] += 1
-        UserDefaults.standard.set(current, forKey: key)
-    }
 }
 
 /// The portrait dock and the shortcuts panel.
@@ -335,43 +310,10 @@ extension RemoteScreen {
         .frame(width: width, height: dockHeight)
     }
 
-    /// The controls, ranked: the ones used most, first.
-    var rankedControls: [DockControl] {
-        ranked(DockControl.allCases, id: \.id)
-    }
-
-    /// The edits, ranked the same way and against themselves alone.
-    var rankedEdits: [QuickAction] {
-        ranked(quickActions, id: \.id)
-    }
-
-    /// A list of buttons in the order the dock should draw them.
-    ///
-    /// The two sets rank separately, so the controls and the edits never trade places with each
-    /// other: the dock keeps saying which set is which, and only the order within each one moves.
-    ///
-    /// Read from the snapshot taken when the screen was built, never from the store on every draw.
-    /// Recording a press must not reorder the dock under the finger that made it, and a dock that
-    /// rearranges itself as it is used is one nobody can learn.
-    ///
-    /// Ties keep the order they are handed over in, which is the order the dock shipped with. So a
-    /// fresh install draws exactly what it always did, and drifts from there.
-    func ranked<Item>(_ items: [Item], id: (Item) -> String) -> [Item] {
-        items.enumerated()
-            .sorted { left, right in
-                let leftCount = dockUsage[id(left.element)] ?? 0
-                let rightCount = dockUsage[id(right.element)] ?? 0
-                guard leftCount == rightCount else { return leftCount > rightCount }
-                return left.offset < right.offset
-            }
-            .map(\.element)
-    }
-
     /// One page of the dock: five columns, and as many rows as the dock is standing at.
     ///
     /// The rows used to be written out one button at a time, and that is what said where each one
-    /// sat. A page whose contents can change has to be a list instead, so the position is decided
-    /// here from whatever order the ranking hands back.
+    /// sat. Now the page is cut from ``DockControl``'s order, which is where the position lives.
     ///
     /// One row shut and three open, so a swipe means the same thing in both states. Both pages are
     /// the same width and their rows are the same height, so a swipe slides the grid sideways
@@ -396,12 +338,6 @@ extension RemoteScreen {
                         let index = row * columns + column
                         if index < items.count {
                             item(items[index])
-                                // Counted on the way past, which is the whole of how the ranking
-                                // is learned. The snapshot the order was read from is not touched,
-                                // so this cannot move the button that was just pressed.
-                                .simultaneousGesture(TapGesture().onEnded {
-                                    DockUsage.record("\(items[index].id)")
-                                })
                         } else {
                             emptyDockSlot
                         }
@@ -422,13 +358,31 @@ extension RemoteScreen {
     /// twelve still cuts into three runs of five and below.
     var dockSheets: [DockSheet] {
         let capacity = ChromeMetrics.dockColumns * (dockExpanded ? ChromeMetrics.dockExpandedRows : 1)
-        let controls = rankedControls.chunked(into: capacity).enumerated().map { index, chunk in
+        let controls = DockControl.allCases.chunked(into: capacity).enumerated().map { index, chunk in
             DockSheet(id: "controls-\(index)", controls: chunk, edits: [])
         }
-        let edits = rankedEdits.chunked(into: capacity).enumerated().map { index, chunk in
+        let edits = quickActions.chunked(into: capacity).enumerated().map { index, chunk in
             DockSheet(id: "edits-\(index)", controls: [], edits: chunk)
         }
-        return controls + edits
+        // The app on screen gets the second place: the first sheet never moves, and what the app
+        // offers is one swipe away rather than behind every other control.
+        guard let profile = activeApplicationProfile, let first = controls.first else {
+            return controls + edits
+        }
+        let actions = profile.actions.map { action in
+            QuickAction(chord: action.title, label: action.label, accessibilityLabel: action.detail) {
+                sendKey(keyCode: action.keyCode, modifiers: action.modifiers)
+            }
+        }
+        let app = actions.chunked(into: capacity).enumerated().map { index, chunk in
+            DockSheet(
+                id: "app-\(profile.id)-\(index)",
+                controls: [],
+                edits: chunk,
+                applicationName: profile.name
+            )
+        }
+        return [first] + app + controls.dropFirst() + edits
     }
 
     /// One sheet, whichever it is.
@@ -448,11 +402,7 @@ extension RemoteScreen {
         }
     }
 
-    /// One control on the first page, addressable by itself so the ranking can place it.
-    ///
-    /// The navigation keys are drawn from here rather than as the one `@ViewBuilder` the landscape
-    /// rail still uses, because a ranking cannot move something it cannot name. They remain a group
-    /// in that rail, which is a column with the height for all five.
+    /// One control of the dock, by name.
     @ViewBuilder
     func dockControlView(_ control: DockControl) -> some View {
         switch control {
