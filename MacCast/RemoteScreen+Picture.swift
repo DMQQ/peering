@@ -8,6 +8,8 @@ import UIKit
 /// Members are `internal` here because Swift's `private` is file-scoped: state and its gestures have
 /// to agree about what the picture is, and they live in both files.
 extension RemoteScreen {
+    static let pausedCardDelay: Duration = .seconds(2)
+
     // MARK: - Picture
 
     var video: some View {
@@ -31,11 +33,20 @@ extension RemoteScreen {
             stillPicture: model.renderer.stillPicture
         )
             .ignoresSafeArea()
+            // Not at once: every reconnect is ready a moment before its first picture, and the
+            // card would flash over each one. A stream that has really stopped stays stopped.
+            .task(id: model.phase == .ready && !model.isVideoStreaming) {
+                streamLooksPaused = false
+                guard model.phase == .ready, !model.isVideoStreaming else { return }
+                try? await Task.sleep(for: Self.pausedCardDelay)
+                guard !Task.isCancelled else { return }
+                streamLooksPaused = true
+            }
             .overlay {
                 // The last decoded frame stays on screen when the capture stream has stopped (source
                 // closed, app quit), and a touch then lands on whatever the Mac shows at that
                 // position rather than on what the phone is displaying.
-                if !model.isVideoStreaming && model.phase == .ready {
+                if streamLooksPaused {
                     ZStack {
                         Color.black.opacity(0.55).ignoresSafeArea()
                         VStack(spacing: 8) {

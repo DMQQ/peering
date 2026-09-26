@@ -17,6 +17,9 @@ let joystickRadius: CGFloat = 50
 struct RemoteScreen: View {
     @Environment(SessionModel.self) var model
 
+    /// Set once a connected session has had no picture for a while. See ``pausedCardDelay``.
+    @State var streamLooksPaused = false
+
     /// Persisted because observe mode's no-input promise must survive a relaunch.
     @AppStorage(PreferenceKeys.interactionMode) var interactionMode: InteractionMode = .control
 
