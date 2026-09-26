@@ -258,9 +258,11 @@ final class SessionModel {
     /// **Because the path is re-derived from Bonjour at the moment of the dial, and that is the one
     /// moment Bonjour cannot be relied on.** A drop that follows a backgrounding is a drop whose mDNS
     /// results went stale while the app was suspended; a re-browse takes seconds and the reconnect
-    /// ladder's first rung is one. In memory rather than on disk: an endpoint that survived a relaunch
-    /// is an address from whatever network the phone was on then.
-    private var lastLANHosts: [String: DiscoveredHost] = [:]
+    /// ladder's first rung is one. Kept on disk so a relaunch can dial at once. An address from a
+    /// network the phone has since left simply loses the race to the relay. See ``DialRace``.
+    private var lastLANHosts: [String: DiscoveredHost] = RememberedLANHosts.load() {
+        didSet { RememberedLANHosts.save(lastLANHosts) }
+    }
 
     /// The endpoint a Mac was last reached at, if this launch has reached it on this network.
     func rememberedLANHost(_ hostID: String) -> DiscoveredHost? {

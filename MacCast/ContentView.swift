@@ -42,7 +42,14 @@ struct ContentView: View {
         // frame to leave up in that case, and the session screen's own header is what says what is
         // happening: see ``MacSession/isBeingPutBack``.
         guard model.isSessionOnScreen else { return false }
-        if model.isBeingPutBack { return true }
+        if model.isBeingPutBack {
+            // A launch putting back a Mac it has not reached yet stays off the Mac's screen until
+            // it is connected, so a Mac that is not there leaves the user on Connect.
+            if let session = model.activeSession, session.isComingBack, !session.hasBeenReady {
+                return model.phase == .ready
+            }
+            return true
+        }
         switch model.phase {
         case .ready, .confirming: return true
         default: return false
@@ -74,6 +81,12 @@ struct ContentView: View {
     /// failure shown on the ConnectingView as acknowledged before the picker becomes visible —
     /// otherwise the picker's alert fires for the same failure the moment the card fades away.
     @State private var acknowledgedFailure: String?
+    /// A launch that is putting a Mac back holds a bare backdrop for a moment instead of animating
+    /// Connect in, because on the same network the Mac is usually back before the moment is up.
+    @State private var holdsLaunch = UserDefaults.standard.bool(forKey: SessionModel.resumeKey)
+    /// Whether the launch's own attempt is still the one under way, so its failure stays quiet.
+    @State private var isLaunchRestore = UserDefaults.standard.bool(forKey: SessionModel.resumeKey)
+    private static let launchHold: Duration = .seconds(1)
     @State private var showsConnecting = false
     @State private var connectingSince: Date?
     /// Why the attempt failed, once it has. Held here rather than left to the picker's alert:
@@ -167,6 +180,8 @@ struct ContentView: View {
                     // reach it — the same injection the paywall gets, for the same reason.
                     .environment(model.storeManager)
                     .transition(.opacity)
+            } else if holdsLaunch {
+                ColorPalette.backdrop.ignoresSafeArea()
             } else {
                 HostPickerView(acknowledgedFailure: $acknowledgedFailure)
                     .transition(Self.screenHandover)
@@ -212,6 +227,25 @@ struct ContentView: View {
         // app in the part of a connection that has nothing to show yet.
         .onChange(of: isConnectingPhase, initial: true) { _, connecting in
             connecting ? beginConnecting() : endConnecting()
+        }
+        .task {
+            guard holdsLaunch else { return }
+            try? await Task.sleep(for: Self.launchHold)
+            withAnimation(Motion.settle) { holdsLaunch = false }
+        }
+        .onChange(of: model.phase) { _, phase in
+            guard isLaunchRestore else { return }
+            switch phase {
+            case .ready:
+                isLaunchRestore = false
+            case .failed(let message):
+                // The Mac is not there, which is not news worth a card: Connect already shows it.
+                acknowledgedFailure = message
+                isLaunchRestore = false
+                withAnimation(Motion.settle) { holdsLaunch = false }
+            default:
+                break
+            }
         }
         // A failure that lands while the card is up belongs on the card, because the card is
         // what the user is looking at. Left to the picker's alert it would appear over the top

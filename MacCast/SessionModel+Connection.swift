@@ -352,7 +352,20 @@ extension SessionModel {
             return
         }
 
-        guard let hostID, allowsRelay, pins.hostIDs.contains(hostID) else { return }
+        guard let hostID else { return }
+
+        // The address the Mac was last reached at, dialled at once and raced against the relay, so a
+        // relaunch does not wait for Bonjour to find a Mac that is sitting on the same network.
+        if let remembered = rememberedLANHost(hostID), pins.hostIDs.contains(hostID) {
+            isResuming = true
+            let relay = allowsRelay
+                ? relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac")
+                : nil
+            connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout, racingRelay: relay)
+            return
+        }
+
+        guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
 
         // **The same grace ``enteringForeground()`` gives a background return, given here to a cold
         // launch too.** This runs on the first call this process makes to `resumeIfNeeded()`, which
