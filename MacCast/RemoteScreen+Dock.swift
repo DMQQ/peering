@@ -109,6 +109,8 @@ extension RemoteScreen {
 
             MacroBar()
 
+            functionKeyRow
+
             HStack(spacing: 10) {
                 ModifierBar()
                 Spacer()
@@ -191,6 +193,33 @@ extension RemoteScreen {
     ///
     /// - Parameter withReturn: the dock's row carries Return because it is that panel's whole
     ///   navigation row; the keyboard bar's does not, because the row above it has a Return of its own.
+    /// F1 to F12, which a phone keyboard cannot send. Through ``sendKey(keyCode:modifiers:)``, so a
+    /// latched modifier applies: ⌘ then F5 is VoiceOver, ⌃ then F2 the menu bar.
+    var functionKeyRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(Array(Self.functionKeyCodes.enumerated()), id: \.offset) { index, keyCode in
+                    Button {
+                        sendKey(keyCode: keyCode)
+                    } label: {
+                        Text("F\(index + 1)")
+                            .font(.system(size: 14, weight: .medium).monospacedDigit())
+                            .frame(minWidth: 34)
+                            .padding(.horizontal, 6)
+                            .frame(height: 34)
+                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
+                    }
+                    .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
+                    .accessibilityLabel("F\(index + 1)")
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    /// The Mac's virtual key codes for F1 to F12, in order. They are not sequential.
+    static let functionKeyCodes: [UInt16] = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
+
     func arrowStrip(withReturn: Bool = true) -> some View {
         HStack(spacing: 4) {
             compactKeyButton(icon: "chevron.left", keyCode: 123)

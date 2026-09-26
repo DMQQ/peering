@@ -860,9 +860,15 @@ final class InputInjector: @unchecked Sendable {
         // Set explicitly rather than left to inherit. An event built from a null source takes
         // whatever modifiers the system currently believes are held, so a chord posted just
         // before this would otherwise rewrite the keystroke into a shortcut.
-        event.flags = cgFlags(lock.withLock { heldModifiers })
+        var flags = cgFlags(lock.withLock { heldModifiers })
+        // A real keyboard marks F1 to F12 as function keys, and some shortcuts only match with it.
+        if Self.functionKeyCodes.contains(code) { flags.insert(.maskSecondaryFn) }
+        event.flags = flags
         event.post(tap: .cghidEventTap)
     }
+
+    /// F1 to F12.
+    private static let functionKeyCodes: Set<UInt16> = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
 
     /// Applies a modifier transition and posts the flags change describing it.
     ///
