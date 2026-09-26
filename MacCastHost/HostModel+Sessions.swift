@@ -111,6 +111,19 @@ extension HostModel {
     /// Only ever about a display. An application or a window is drawn by the window server whether
     /// or not a panel is lit, so a picture of one is real with every screen dark.
     func screenNotice() -> NoticePayload? {
+        if Self.isScreenLocked {
+            // A window or an application does not include the lock screen, so its picture goes
+            // stale and every tap lands nowhere. Showing a display already shows the lock screen,
+            // so that phone only needs the flag.
+            if case .display(let id)? = capturingSource {
+                return NoticePayload(message: nil, lockedDisplayID: id)
+            }
+            return NoticePayload(
+                message: "This Mac is locked.",
+                symbol: "lock.fill",
+                lockedDisplayID: CGMainDisplayID()
+            )
+        }
         guard case .display(let id)? = capturingSource else { return nil }
 
         // Gone rather than dark: `online` separates the two. A sleeping display is still connected,
@@ -130,6 +143,12 @@ extension HostModel {
             )
         }
         return nil
+    }
+
+    /// Whether the login session is locked: the lock screen, or the screen saver with a password.
+    static var isScreenLocked: Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return session["CGSSessionScreenIsLocked"] as? Bool ?? false
     }
 
     /// Tells whoever is attached why there is no picture, when the reason is one they cannot see
@@ -160,6 +179,7 @@ extension HostModel {
         guard screenWatchTask == nil else { return }
         screenWatchTask = Task { [weak self] in
             var announced: NoticePayload?
+            var announcedTo = 0
             var ticks = 0
             while !Task.isCancelled {
                 guard let self else { return }
@@ -170,9 +190,13 @@ extension HostModel {
                 if ticks % 30 == 0 { self.touchOpenSessions() }
 
                 let notice = self.screenNotice()
-                if notice != announced {
-                    let wasSayingSomething = announced != nil
+                // Also when a phone joins, since a notice is only sent on a change and the one
+                // that just connected never heard the last.
+                let clients = self.connectedClients.count
+                if notice != announced || clients != announcedTo {
+                    let wasSayingSomething = announced?.message != nil
                     announced = notice
+                    announcedTo = clients
                     self.server?.broadcastNotice(notice ?? NoticePayload(message: nil))
                     if let message = notice?.message {
                         self.record("Screen not visible · \(message)", level: .warning)

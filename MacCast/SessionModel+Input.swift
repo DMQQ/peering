@@ -95,6 +95,21 @@ extension SessionModel {
     /// record describing a screen the video is no longer on, and the next comparison reads as "already
     /// there" and sends nothing. The result is a session that follows the desktops panel onto the second
     /// display and then refuses to come back.
+    /// Shows the display with the Mac's lock screen and opens the keyboard for the password.
+    /// The source it leaves is restored when the Mac reports the lock is gone.
+    func showLockScreen(on displayID: UInt32) {
+        guard let session = activeSession else { return }
+        let current: CaptureSource? = activeSourceID?.hasPrefix("mosaic:") == true
+            ? session.askedMosaicLayout.map { .mosaic($0) }
+            : catalog?.all.first { $0.id == activeSourceID }?.source
+        let lockScreen = CaptureSource.display(displayID)
+        if let current, current.stableID != lockScreen.stableID {
+            session.unlockDetour = (lockScreen, current)
+        }
+        selectSource(lockScreen)
+        showKeyboard = true
+    }
+
     func selectSource(_ source: CaptureSource) {
         // Read before the write below, because it is the answer to "was this end showing an
         // arrangement a moment ago".

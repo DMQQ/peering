@@ -404,6 +404,14 @@ extension MacSession {
             append(note: "Direct path: \(outcome.summary)")
         case .remoteNotice(let message):
             remoteNotice = message
+            // Unlocked: go back to what Unlock left, unless the user has moved on since.
+            if message?.lockedDisplayID == nil, let detour = unlockDetour {
+                unlockDetour = nil
+                if isActive, activeSourceID == detour.lockScreen.stableID {
+                    model.selectSource(detour.returnTo)
+                    model.showKeyboard = false
+                }
+            }
         case .textFocus(let focus):
             if isActive { model.textFocusChanged(focus) }
         case .clipboard(let payload):

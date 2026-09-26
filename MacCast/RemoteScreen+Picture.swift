@@ -61,20 +61,45 @@ extension RemoteScreen {
                 if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready {
                     ZStack {
                         Color.black.opacity(0.72).ignoresSafeArea()
+                            .allowsHitTesting(false)
                         VStack(spacing: 12) {
-                            Image(systemName: notice.symbol ?? "display.slash")
-                                .font(.system(size: 44))
-                                .foregroundStyle(.white.opacity(0.9))
-                            Text(message)
-                                .font(.headline)
-                                .foregroundStyle(.white)
-                                .multilineTextAlignment(.center)
+                            Group {
+                                Image(systemName: notice.symbol ?? "display.slash")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.white.opacity(0.9))
+                                Text(message)
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                    .multilineTextAlignment(.center)
+                                if notice.lockedDisplayID != nil {
+                                    Text("Its lock screen is on the display, not in what you are viewing.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            // Hits pass through to the Mac deliberately: an injected event is the
+                            // activity a sleeping display is waiting for, and the way out of this
+                            // screen is a tap on it.
+                            .allowsHitTesting(false)
+
+                            if let displayID = notice.lockedDisplayID {
+                                Button {
+                                    withAnimation(Motion.settle) { model.showLockScreen(on: displayID) }
+                                } label: {
+                                    Label("Unlock", systemImage: "lock.open.fill")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(ColorPalette.onInk)
+                                        .padding(.horizontal, 18)
+                                        .padding(.vertical, 10)
+                                        .background(ColorPalette.ink, in: Capsule())
+                                }
+                                .buttonStyle(RailButtonStyle(scale: 0.94, haptic: true))
+                                .padding(.top, 6)
+                            }
                         }
                         .padding(32)
                     }
-                    // Hits pass through to the Mac deliberately: an injected event is the activity a
-                    // sleeping display is waiting for, and the way out of this screen is a tap on it.
-                    .allowsHitTesting(false)
                 }
             }
     }

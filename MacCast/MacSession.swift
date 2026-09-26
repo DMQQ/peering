@@ -120,6 +120,9 @@ final class MacSession: Identifiable {
     /// Apart from `videoStatus`, which describes the stream: this describes a healthy stream whose
     /// every frame is black because the screen is asleep, and from the phone the two look identical.
     var remoteNotice: NoticePayload?
+    /// Set by Unlock: the lock screen's display it switched to, and the source to go back to once
+    /// the Mac says it is unlocked. See ``SessionModel/showLockScreen(on:)``.
+    var unlockDetour: (lockScreen: CaptureSource, returnTo: CaptureSource)?
     var videoStatus = "No video stream"
 
     /// The frames per second arriving, as measured by the last two polls. Zero until there have been

@@ -194,9 +194,15 @@ public struct NoticePayload: Codable, Sendable, Equatable {
     /// black frames and want different pictures.
     public let symbol: String?
 
-    public init(message: String?, symbol: String? = nil) {
+    /// Set while the Mac is locked: the display its lock screen is on, which is where the password
+    /// has to be typed. Present even when `message` is nil, because a phone already showing that
+    /// display has nothing to be told but still needs to know when the lock ends.
+    public let lockedDisplayID: UInt32?
+
+    public init(message: String?, symbol: String? = nil, lockedDisplayID: UInt32? = nil) {
         self.message = message
         self.symbol = symbol
+        self.lockedDisplayID = lockedDisplayID
     }
 }
 
