@@ -588,6 +588,16 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
+    /// Tells every attached client that the Mac's keyboard focus moved.
+    func broadcastTextFocus(_ focus: TextFocus) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            for session in self.controlSessions {
+                session.sendTextFocus(focus)
+            }
+        }
+    }
+
     private func closeVideoConnections(for clientKey: Data?) {
         guard let clientKey else { return }
         let closing = videoConnections.filter { $0.clientKey == clientKey }

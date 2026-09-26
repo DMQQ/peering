@@ -136,6 +136,8 @@ final class HostSession: @unchecked Sendable {
     /// What the client said about reading a picture, off its hello. `nil` is a client built before
     /// the field existed, which is a no.
     private var clientSupportsClipboardImages: Bool?
+    /// Whether the client can decode ``MessageKind/textFocus``. `nil` is a client built before it.
+    private var clientSupportsTextFocus: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     ///
@@ -345,6 +347,7 @@ final class HostSession: @unchecked Sendable {
         // Read here, not assumed: both ends speak the same protocol version, so this flag is the
         // only thing that tells a client too old to read a picture apart from one that can.
         clientSupportsClipboardImages = hello.supportsClipboardImages
+        clientSupportsTextFocus = hello.supportsTextFocus
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -643,6 +646,11 @@ final class HostSession: @unchecked Sendable {
     /// Advisory, so it never fails the session: a caption for the frames, not a complaint.
     func sendNotice(_ payload: NoticePayload) {
         send(MessageKind.notice, payload)
+    }
+
+    func sendTextFocus(_ focus: TextFocus) {
+        guard isAuthorized, clientSupportsTextFocus == true else { return }
+        send(MessageKind.textFocus, focus)
     }
 
     private func send<T: Encodable>(_ kind: MessageKind, _ value: T) {

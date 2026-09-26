@@ -28,6 +28,7 @@ struct SettingsPanel: View {
     /// Read here to say what it does in words, and in ``SessionModel`` to obey it. The default
     /// matches the model's: on, which is how the app behaved before the switch existed.
     @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
+    @AppStorage(PreferenceKeys.opensKeyboardForTextFields) private var opensKeyboardForTextFields = true
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -408,6 +409,16 @@ struct SettingsPanel: View {
             Text(model.keyboardMode.explanation)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: $opensKeyboardForTextFields) {
+                Text("Open for text fields")
+                    .font(.subheadline.weight(.medium))
+            }
+            .tint(ColorPalette.accent)
+            .padding(.top, 4)
+            Text("The keyboard opens when you click into a text field on the Mac, and closes when you click out of it, unless you opened it yourself.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

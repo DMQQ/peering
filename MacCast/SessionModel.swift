@@ -553,6 +553,25 @@ final class SessionModel {
             // preview that has drifted, which is otherwise a bar showing text with no way to clear
             // it: delete the characters, or put the keyboard down and pick it up again.
             if !showKeyboard { typedPreview = "" }
+            keyboardOpenedByFocus = false
+        }
+    }
+
+    /// Whether the keyboard is up because a Mac text field took focus, so it may close itself
+    /// again when focus leaves. A keyboard the user opened is theirs to close.
+    var keyboardOpenedByFocus = false
+
+    /// Opens the keyboard when the Mac's focus lands in a text field, and closes it on the way out
+    /// if it was opened that way. See ``TextFocus``.
+    func textFocusChanged(_ focus: TextFocus) {
+        let enabled = UserDefaults.standard.object(forKey: PreferenceKeys.opensKeyboardForTextFields) as? Bool ?? true
+        guard enabled, !isObserving, !isShowingMosaic else { return }
+        if focus.isEditable {
+            guard !showKeyboard else { return }
+            showKeyboard = true
+            keyboardOpenedByFocus = true
+        } else if keyboardOpenedByFocus {
+            showKeyboard = false
         }
     }
 

@@ -23,18 +23,24 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// it `nil`, which reads as no.
     public var supportsClipboardImages: Bool?
 
+    /// Whether this client reads ``MessageKind/textFocus``. Declared for the same reason as
+    /// ``supportsClipboardImages``: an older client cannot decode the frame kind.
+    public var supportsTextFocus: Bool?
+
     public init(
         clientID: String,
         clientName: String,
         protocolVersion: UInt16,
         wantsPairing: Bool,
-        supportsClipboardImages: Bool? = nil
+        supportsClipboardImages: Bool? = nil,
+        supportsTextFocus: Bool? = nil
     ) {
         self.clientID = clientID
         self.clientName = clientName
         self.protocolVersion = protocolVersion
         self.wantsPairing = wantsPairing
         self.supportsClipboardImages = supportsClipboardImages
+        self.supportsTextFocus = supportsTextFocus
     }
 }
 

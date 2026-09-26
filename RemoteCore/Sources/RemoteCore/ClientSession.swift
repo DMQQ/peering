@@ -120,6 +120,8 @@ public final class ClientSession: @unchecked Sendable {
         ///
         /// A payload rather than a string: a pasteboard holds a picture as readily as a line of text.
         case clipboard(ClipboardPayload)
+        /// The Mac's keyboard focus moved, and whether it landed somewhere that takes typing.
+        case textFocus(TextFocus)
         /// An audio stream event from the video channel.
         case audio(AudioEvent)
         /// A reconnectable shell session event from the authenticated control channel.
@@ -678,7 +680,8 @@ public final class ClientSession: @unchecked Sendable {
             // Declared on every connection, because what it buys is the *Mac's* restraint: a
             // picture it sends to a client that has not said this arrives at one that cannot
             // read it, and the pieces land in that client's picture lane.
-            supportsClipboardImages: true
+            supportsClipboardImages: true,
+            supportsTextFocus: true
         ))
 
         lock.withLock { state = .awaitingServerHello }
@@ -1056,6 +1059,13 @@ public final class ClientSession: @unchecked Sendable {
 
         case .clipboardContent:
             handleClipboardContent(frame)
+
+        case .textFocus:
+            // Advisory, like a notice: a payload this build cannot read costs the keyboard, not
+            // the connection.
+            if let focus = try? MessageCodec.decode(TextFocus.self, from: frame.payload) {
+                emit(.textFocus(focus))
+            }
 
         case .terminalEvent:
             if let event = try? MessageCodec.decode(TerminalEvent.self, from: frame.payload) {

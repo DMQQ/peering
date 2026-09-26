@@ -404,6 +404,8 @@ extension MacSession {
             append(note: "Direct path: \(outcome.summary)")
         case .remoteNotice(let message):
             remoteNotice = message
+        case .textFocus(let focus):
+            if isActive { model.textFocusChanged(focus) }
         case .clipboard(let payload):
             hostClipboard = payload
             clipboardPulling = false

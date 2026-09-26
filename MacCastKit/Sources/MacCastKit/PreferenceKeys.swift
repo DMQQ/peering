@@ -14,6 +14,8 @@ public enum PreferenceKeys {
     public static let hidesPanelAfterSelect = "Peering.hidesPanelAfterSelect"
     /// Whether iOS floats the picture on its own when the app goes away.
     public static let pipAutoStart = "Peering.pipAutoStart"
+    /// Whether the keyboard opens by itself when the Mac's focus lands in a text field.
+    public static let opensKeyboardForTextFields = "Peering.opensKeyboardForTextFields"
     /// Whether the first-run introduction has been seen and dismissed.
     ///
     /// Set by both of its exits, finishing the tour and skipping it, because "I have seen it" and

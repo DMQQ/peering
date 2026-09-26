@@ -308,6 +308,7 @@ final class HostModel {
 
     /// Runs while at least one client is attached. See ``HostModel/startScreenWatch()``.
     var screenWatchTask: Task<Void, Never>?
+    @ObservationIgnored let textFocusWatcher = TextFocusWatcher()
 
     /// The capture problem the attached clients have already been told about.
     ///
@@ -936,6 +937,7 @@ final class HostModel {
             }
             beginSession(id: clientID, name: clientName)
             startScreenWatch()
+            textFocusWatcher.start { [weak server] focus in server?.broadcastTextFocus(focus) }
             record("\(clientName) connected · \(detail)")
             // A client that has just arrived has no source list, so it is sent one now rather than
             // waiting for an application to launch. It is also the first read of the catalogue,
@@ -956,7 +958,10 @@ final class HostModel {
             connectedClients.removeAll { $0.id == clientID }
             endSession(id: clientID)
             // The last one out stops the watch. Anybody still attached keeps being told.
-            if connectedClients.isEmpty { stopScreenWatch() }
+            if connectedClients.isEmpty {
+                stopScreenWatch()
+                textFocusWatcher.stop()
+            }
             record("\(clientName) disconnected")
             // The moment nothing is left that can release what this client was holding: a client
             // that dies mid-chord or mid-drag takes its key-up with it, and the Mac would sit

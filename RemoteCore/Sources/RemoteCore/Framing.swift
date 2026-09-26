@@ -87,6 +87,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// from anyone who can write a source address into a packet, which is what the relay's
     /// introduction cannot vouch for. The address it arrives from is then trusted to send the picture.
     case directProbe = 0x1B
+    /// The Mac's keyboard focus moved. JSON-encoded ``TextFocus``. Sent only to a client that
+    /// declared ``ClientHello/supportsTextFocus``.
+    case textFocus = 0x1C
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {
