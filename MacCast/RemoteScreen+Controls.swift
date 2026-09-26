@@ -103,6 +103,14 @@ extension RemoteScreen {
         }
     }
 
+    var clipboardButton: some View {
+        RailButton(icon: "doc.on.clipboard", label: "Clipboard", selected: openPanel == .clipboard) {
+            withAnimation(Motion.settle) {
+                openPanel = openPanel == .clipboard ? nil : .clipboard
+            }
+        }
+    }
+
     /// Escape and tab, on the rail rather than in the shortcuts panel.
     ///
     /// These are the two keys a remote desktop reaches for constantly and a software keyboard
@@ -275,6 +283,9 @@ extension RemoteScreen {
         switch openPanel {
         case .shortcuts:
             shortcutsPanel
+                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
+        case .clipboard:
+            ClipboardPanel(chromeFrames: $chromeFrames)
                 .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .sources:
             SourcesPanel(

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// What has been pulled from the Mac, newest first.
 ///
-/// The Mac's pasteboard holds one thing, so a second Pull replaces the first — this list is the
+/// The Mac's pasteboard holds one thing, so a second pull replaces the first, and this list is the
 /// only place the earlier ones still exist. Tapping an entry puts it on this phone, which is what
 /// a clipboard list is nearly always for; sending one back the other way is in the row's menu,
 /// because it is the rarer of the two by a distance.
@@ -22,9 +22,9 @@ struct ClipboardHistoryPanel: View {
             Group {
                 if model.clipboardHistory.isEmpty {
                     ContentUnavailableView(
-                        "Nothing pulled yet",
+                        "Nothing kept yet",
                         systemImage: "doc.on.clipboard",
-                        description: Text("Pull the Mac's clipboard and it lands here, so the next pull does not lose it.")
+                        description: Text("Text copied from the Mac lands here, so the next copy does not lose it.")
                     )
                 } else {
                     List(model.clipboardHistory) { entry in

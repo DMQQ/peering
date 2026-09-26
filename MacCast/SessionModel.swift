@@ -1045,6 +1045,11 @@ final class SessionModel {
     /// identity to diff on and the text is arbitrary, including text that repeats.
     var clipboardHistoryCount = 0
 
+    /// Text this app put on the iPhone's pasteboard or read from it, and the pasteboard's change
+    /// count at the time. Reading the pasteboard asks the user, so this is the only text the
+    /// clipboard panel can show for free, and only while the count still matches.
+    var knownPhoneClipboard: (changeCount: Int, text: String)?
+
     // MARK: - Wake-on-LAN
 
     /// Sends a Wake-on-LAN magic packet for the given host ID, and says what came of it.

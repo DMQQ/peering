@@ -103,6 +103,7 @@ extension RemoteScreen {
                             // and source controls instead of among one-tap shortcuts.
                             keysButton
                             shortcutsButton
+                            clipboardButton
                             modeButton
                             sourcesButton
                             settingsButton

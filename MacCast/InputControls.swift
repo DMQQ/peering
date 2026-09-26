@@ -927,56 +927,10 @@ struct ModifierBar: View {
 struct MacroBar: View {
     @Environment(SessionModel.self) private var model
     @State private var showingMacroEditor = false
-    @State private var showingClipboardHistory = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                // Clipboard: pull from Mac, copy locally, push to Mac
-                ClipboardButton(
-                    symbol: "arrow.down.doc",
-                    label: "Pull",
-                    action: { model.pullClipboard() }
-                )
-                if model.hostClipboard != nil {
-                    ClipboardButton(
-                        symbol: "doc.on.doc",
-                        label: "Copy",
-                        action: { model.copyHostClipboard() }
-                    )
-                }
-                ClipboardButton(
-                    symbol: "arrow.up.doc",
-                    label: "Push",
-                    action: { model.pushClipboard() }
-                )
-                // Only once there is something in it, and this is the same rule the Copy button
-                // beside it follows: a button that opens an empty list is a button that teaches
-                // nothing the first time it is pressed. The history keeps filling on a plan that
-                // cannot open it, which is deliberate: it is the user's own clipboard, and the
-                // day they subscribe the last twelve things are waiting rather than starting from
-                // nothing.
-                //
-                // **The list is gated and the clipboard is not**, which is the same line the macro
-                // editor below draws: Pull, Copy and Push are free on every plan, because a phone
-                // that cannot put text on the Mac is not a remote desktop, and what Relay adds is
-                // the twelve that came before. See ``PlanCapability/clipboardHistory``.
-                if !model.clipboardHistory.isEmpty {
-                    PlanLocked(capability: .clipboardHistory, title: "Clipboard history", diameter: 34) {
-                        ClipboardButton(
-                            symbol: "clock.arrow.circlepath",
-                            label: "History",
-                            action: { showingClipboardHistory = true }
-                        )
-                    }
-                }
-
-                // Divider
-                Rectangle()
-                    .frame(width: 1, height: 22)
-                    .foregroundStyle(.white.opacity(0.2))
-                    .padding(.horizontal, 2)
-
                 ForEach(model.allMacros) { macro in
                     Button {
                         model.run(macro)
@@ -1026,26 +980,6 @@ struct MacroBar: View {
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)
         }
-        .sheet(isPresented: $showingClipboardHistory) {
-            ClipboardHistoryPanel()
-        }
-    }
-}
-
-private struct ClipboardButton: View {
-    let symbol: String
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label(label, systemImage: symbol)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 10)
-                .frame(height: 34)
-                .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.86))
     }
 }
 

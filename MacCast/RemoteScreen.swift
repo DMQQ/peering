@@ -147,6 +147,7 @@ struct RemoteScreen: View {
     /// An enum rather than a boolean per panel, so "only one at a time" is true by construction.
     enum Panel {
         case shortcuts
+        case clipboard
         case sources
         case settings
     }

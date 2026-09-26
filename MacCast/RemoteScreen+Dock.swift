@@ -49,7 +49,7 @@ private extension Array {
 /// the curated order the dock shipped with rather than an alphabetical accident.
 enum DockControl: String, CaseIterable, Identifiable {
     // The controls that open something.
-    case mode, sources, keys, shortcuts
+    case mode, sources, keys, shortcuts, clipboard
     case escape, tab, settings
     // The five that move about the Mac, which the landscape rail keeps below its fold.
     case up, down, left, right, delete
@@ -431,6 +431,7 @@ extension RemoteScreen {
         case .sources: sourcesButton
         case .keys: keysButton
         case .shortcuts: shortcutsButton
+        case .clipboard: clipboardButton
         case .escape: escapeButton
         case .tab: tabButton
         case .settings: settingsButton

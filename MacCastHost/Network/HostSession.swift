@@ -529,11 +529,9 @@ final class HostSession: @unchecked Sendable {
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
             switch command {
             case .requestClipboard:
-                // Only if there is something to send. An empty pasteboard gets silence: the
-                // client's pull is left outstanding and the next one replaces it.
-                if let payload = onRequestClipboard?() {
-                    sendClipboard(payload)
-                }
+                // Always answered: empty text when there is nothing the phone can take, so the
+                // phone can say so instead of waiting.
+                sendClipboard(onRequestClipboard?() ?? .text(""))
             case .pushClipboard(let text):
                 onReceiveClipboard?(.text(text))
             case .pushClipboardImage(let png):

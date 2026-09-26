@@ -33,16 +33,34 @@ extension SessionModel {
     /// Mac would refuse to buffer it and nothing would arrive either way. See
     /// ``ClipboardLimits/maxImageBytes``. There is no message for the user here yet, which is the
     /// one rough edge this leaves: a screenshot over the limit pushes nothing and says nothing.
-    func pushClipboard() {
-        guard phase == .ready else { return }
+    ///
+    /// Returns whether anything was sent. What was sent becomes ``hostClipboard``, since that is
+    /// now what the Mac holds.
+    @discardableResult
+    func pushClipboard() -> Bool {
+        guard phase == .ready else { return false }
         let board = UIPasteboard.general
 
         if activeSession?.hostSupportsClipboardImages == true, let png = clipboardImage(from: board) {
-            session?.pushClipboardImage(png)
-            return
+            guard session?.pushClipboardImage(png) == true else { return false }
+            hostClipboard = .image(png)
+            return true
         }
-        guard let text = board.string else { return }
+        guard let text = board.string else { return false }
+        knownPhoneClipboard = (board.changeCount, text)
         session?.send(.pushClipboard(text: text))
+        hostClipboard = .text(text)
+        return true
+    }
+
+    /// Pushes the iPhone's clipboard and presses ⌘V on the Mac, so what was copied here lands there.
+    ///
+    /// The Mac writes its pasteboard before it handles the next command, so the keystroke cannot
+    /// paste what was there before.
+    func pushClipboardAndPaste() {
+        guard pushClipboard() else { return }
+        send(.keyDown(keyCode: 9, modifiers: [.command]))
+        send(.keyUp(keyCode: 9, modifiers: [.command]))
     }
 
     /// The iPhone's pasteboard as PNG, or `nil` when it is not holding a picture.
@@ -67,8 +85,9 @@ extension SessionModel {
         guard let payload = hostClipboard else { return }
         switch payload.kind {
         case .text:
-            guard let text = payload.text else { return }
+            guard let text = payload.text, !text.isEmpty else { return }
             UIPasteboard.general.string = text
+            knownPhoneClipboard = (UIPasteboard.general.changeCount, text)
         case .image:
             guard let png = payload.carriedImage, let image = UIImage(data: png) else { return }
             UIPasteboard.general.image = image
@@ -116,6 +135,7 @@ extension SessionModel {
     /// Puts a history entry on the iPhone's pasteboard, which is what tapping one does.
     func copyToPhone(_ entry: ClipboardEntry) {
         UIPasteboard.general.string = entry.text
+        knownPhoneClipboard = (UIPasteboard.general.changeCount, entry.text)
         clipboardHistoryCount += 1
     }
 
@@ -123,6 +143,7 @@ extension SessionModel {
     func pushToMac(_ entry: ClipboardEntry) {
         guard phase == .ready else { return }
         session?.send(.pushClipboard(text: entry.text))
+        hostClipboard = .text(entry.text)
     }
 
     private func persistClipboardHistory() {

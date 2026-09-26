@@ -728,7 +728,8 @@ final class HostModel {
             DispatchQueue.main.sync { ClipboardPasteboard.read() }
         }
         server.onReceiveClipboard = { payload in
-            DispatchQueue.main.async { ClipboardPasteboard.write(payload) }
+            // Synchronous, so a ⌘V sent straight after the push pastes what was pushed.
+            DispatchQueue.main.sync { ClipboardPasteboard.write(payload) }
         }
 
         self.server = server
