@@ -74,6 +74,12 @@
 	  ignores array-valued keys, `UIBackgroundModes` among them. It compiles, it builds, and
 	  nothing appears in the plist.
 	-->
+	<!--
+	  A trackpad or mouse on iPad reaches the canvas as a pointer rather than as a simulated
+	  finger, which is what lets a right-click, hover and scrolling be told apart from a touch.
+	-->
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

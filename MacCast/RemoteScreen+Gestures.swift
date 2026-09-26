@@ -99,6 +99,11 @@ extension RemoteScreen {
                 model.send(.mouseDown(button: .right))
                 model.send(.mouseUp(button: .right))
             },
+            onHover: { point in
+                guard let normalized = normalized(point) else { return }
+                remoteCursor = normalized
+                model.send(.mouseMove(to: normalized))
+            },
             onScroll: { translation in
                 // Pixels, which is the unit the host's wheel event is built in (`units: .pixel`),
                 // at the one scale this screen moves content by — see `ScrollNotch`. Doubling a

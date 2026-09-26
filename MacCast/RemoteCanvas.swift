@@ -18,8 +18,10 @@ struct CanvasGestureView: UIViewRepresentable {
     var onTouchDown: (CGPoint) -> Void
     var onTouchMove: (CGPoint) -> Void
     var onTouchUp: (CGPoint) -> Void
-    /// Two-finger tap.
+    /// Two-finger tap, or a right-click from a trackpad or mouse.
     var onSecondaryClick: (CGPoint) -> Void
+    /// A trackpad or mouse pointer moving with no button held.
+    var onHover: (CGPoint) -> Void = { _ in }
     /// Two-finger drag: an incremental translation.
     var onScroll: (CGSize) -> Void
     /// Pinch: an incremental scale factor and the point it is centred on.
@@ -60,6 +62,7 @@ struct CanvasGestureView: UIViewRepresentable {
             onTouchMove: onTouchMove,
             onTouchUp: onTouchUp,
             onSecondaryClick: onSecondaryClick,
+            onHover: onHover,
             onScroll: onScroll,
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
@@ -84,6 +87,7 @@ struct CanvasGestureView: UIViewRepresentable {
             onTouchMove: onTouchMove,
             onTouchUp: onTouchUp,
             onSecondaryClick: onSecondaryClick,
+            onHover: onHover,
             onScroll: onScroll,
             onZoom: onZoom,
             onPanCanvas: onPanCanvas,
@@ -97,12 +101,13 @@ struct CanvasGestureView: UIViewRepresentable {
 }
 
 /// The view behind ``CanvasGestureView``.
-final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
+final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerInteractionDelegate {
     struct Handlers {
         var onTouchDown: (CGPoint) -> Void
         var onTouchMove: (CGPoint) -> Void
         var onTouchUp: (CGPoint) -> Void
         var onSecondaryClick: (CGPoint) -> Void
+        var onHover: (CGPoint) -> Void
         var onScroll: (CGSize) -> Void
         var onZoom: (CGFloat, CGPoint) -> Void
         var onPanCanvas: (CGSize) -> Void
@@ -228,6 +233,29 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         return gesture
     }()
 
+    // MARK: Trackpad and mouse
+
+    /// The pointer moving with no button down, which moves the Mac's pointer with it.
+    private lazy var hover = UIHoverGestureRecognizer(target: self, action: #selector(handleHover))
+
+    /// Trackpad and mouse-wheel scrolling. Scroll events only, never touches, so it cannot take a
+    /// finger from the two-finger drag.
+    private lazy var pointerScroll: UIPanGestureRecognizer = {
+        let gesture = UIPanGestureRecognizer(target: self, action: #selector(handlePointerScroll))
+        gesture.allowedScrollTypesMask = .all
+        gesture.allowedTouchTypes = []
+        return gesture
+    }()
+
+    /// A right-click, or a two-finger click on a trackpad.
+    private lazy var pointerSecondaryClick: UITapGestureRecognizer = {
+        let gesture = UITapGestureRecognizer(target: self, action: #selector(handleTwoFingerTap))
+        gesture.buttonMaskRequired = .secondary
+        return gesture
+    }()
+
+    private var pointerScrollPansCanvas = false
+
     private var lastReportedSize: CGSize = .zero
 
     override init(frame: CGRect) {
@@ -241,6 +269,10 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         addGestureRecognizer(twoFingerTap)
         addGestureRecognizer(oneFingerTap)
         addGestureRecognizer(mosaicLift)
+        addGestureRecognizer(hover)
+        addGestureRecognizer(pointerScroll)
+        addGestureRecognizer(pointerSecondaryClick)
+        addInteraction(UIPointerInteraction(delegate: self))
 
         // A tap must not be recognised in the middle of a drag, and a two-finger tap must not
         // fire at the end of a two-finger scroll. Both are "the gesture that moved wins".
@@ -523,6 +555,53 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate {
         let point = gesture.location(in: self)
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
         handlers?.onSecondaryClick(point)
+    }
+
+    // MARK: - Trackpad and mouse
+
+    @objc private func handleHover(_ gesture: UIHoverGestureRecognizer) {
+        guard gesture.state == .began || gesture.state == .changed else { return }
+        guard interactionMode.tapsReachTheMac, !isMosaicShowing else { return }
+        let point = gesture.location(in: self)
+        guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
+        handlers?.onHover(point)
+    }
+
+    /// Takes the same decision as a two-finger drag: the picture when zoomed in a mode that pans,
+    /// the Mac otherwise. Latched at the start for the same reason.
+    @objc private func handlePointerScroll(_ gesture: UIPanGestureRecognizer) {
+        if gesture.state == .began {
+            pointerScrollPansCanvas = interactionMode.twoFingerDragPansCanvas(isZoomed: isZoomed)
+        }
+        let moved = gesture.translation(in: self)
+        gesture.setTranslation(.zero, in: self)
+        guard moved != .zero else { return }
+        let translation = CGSize(width: moved.x, height: moved.y)
+        if pointerScrollPansCanvas {
+            handlers?.onPanCanvas(translation)
+        } else if interactionMode.tapsReachTheMac, !isMosaicShowing {
+            handlers?.onScroll(translation)
+        }
+    }
+
+    /// Hides the iPad's own pointer while it drives the Mac's, which is drawn at the same spot.
+    /// Over the chrome, in observe mode, or over a mosaic it stays, since nothing is driven there.
+    func pointerInteraction(
+        _ interaction: UIPointerInteraction,
+        regionFor request: UIPointerRegionRequest,
+        defaultRegion: UIPointerRegion
+    ) -> UIPointerRegion? {
+        guard interactionMode.tapsReachTheMac, !isMosaicShowing,
+              !CanvasGeometry.isBlocked(request.location, regions: blockedRegions)
+        else { return nil }
+        return defaultRegion
+    }
+
+    func pointerInteraction(
+        _ interaction: UIPointerInteraction,
+        styleFor region: UIPointerRegion
+    ) -> UIPointerStyle? {
+        .hidden()
     }
 
     @objc private func handlePinch(_ gesture: UIPinchGestureRecognizer) {
