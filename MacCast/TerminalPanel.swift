@@ -6,14 +6,14 @@ import SwiftUI
 /// A deliberately small native terminal surface. The Mac owns the PTY and shell; this view only
 /// displays its bounded byte history and sends exact input bytes over the authenticated session.
 struct TerminalPanel: View {
-    @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @State private var command = ""
+    @Environment(SessionModel.self) var model
+    @Environment(\.dismiss) var dismiss
+    @State var command = ""
     /// The tab whose name is being typed, and what has been typed into it so far.
-    @State private var renamingID: UUID?
-    @State private var renameText = ""
+    @State var renamingID: UUID?
+    @State var renameText = ""
     /// The terminal a close was asked for and not yet confirmed.
-    @State private var pendingClose: RemoteTerminal?
+    @State var pendingClose: RemoteTerminal?
     /// Deliberately a plain state flag rather than a `@FocusState`, and this is the whole of why
     /// the keyboard used to shut on every letter typed.
     ///
@@ -27,25 +27,25 @@ struct TerminalPanel: View {
     ///
     /// The rename field keeps `@FocusState`, because that one is a real SwiftUI `TextField` with a
     /// `.focused()` modifier and no such disagreement.
-    @State private var inputFocused = false
-    @FocusState private var renameFocused: Bool
+    @State var inputFocused = false
+    @FocusState var renameFocused: Bool
 
     /// Whether the terminal's tips have been seen. See ``Tour``.
     ///
     /// The same flag ``SSHTerminalScreen`` reads, and the same steps: the deck and the command row
     /// are one set of controls shown on two screens. The log is not one of them — it belongs to
     /// the shell tour, which is the other screen's.
-    @AppStorage(PreferenceKeys.hasSeenTourTerminal) private var hasSeenTourTerminal = false
+    @AppStorage(PreferenceKeys.hasSeenTourTerminal) var hasSeenTourTerminal = false
 
     /// The log's type size, which is also what decides how much of a shell fits across the screen.
     /// See ``TerminalMetrics/TextSize``. Both terminals read the same preference, so a size set in
     /// one is the size in the other.
-    @AppStorage(PreferenceKeys.terminalTextSize) private var textSize = TerminalMetrics.TextSize.regular.rawValue
+    @AppStorage(PreferenceKeys.terminalTextSize) var textSize = TerminalMetrics.TextSize.regular.rawValue
 
     /// The same, as the number the layout wants.
-    private var fontSize: CGFloat { TerminalMetrics.TextSize.named(textSize).points }
+    var fontSize: CGFloat { TerminalMetrics.TextSize.named(textSize).points }
 
-    private var dueTerminalTours: [Tour] {
+    var dueTerminalTours: [Tour] {
         hasSeenTourTerminal ? [] : [.terminal]
     }
 
@@ -54,37 +54,37 @@ struct TerminalPanel: View {
     /// This panel had the same fault as the SSH one: `.defaultScrollAnchor(.bottom)` pins the
     /// anchor as content grows, so a program redrawing continuously dragged the view back to the
     /// bottom every time the finger lifted.
-    @State private var stickToBottom = true
+    @State var stickToBottom = true
 
     /// The commands both terminals keep one tap away. Owned by the app, because the SSH terminal
     /// shows the same list.
-    @Environment(QuickCommands.self) private var quickCommands
-    @State private var isEditingQuickCommands = false
+    @Environment(QuickCommands.self) var quickCommands
+    @State var isEditingQuickCommands = false
 
     /// Whether the command history is showing. Off by default — see the button in ``input(_:)``.
-    @State private var showsHistory = false
+    @State var showsHistory = false
 
     /// Whether the panel is showing the Mac's folders instead of the terminal.
     ///
     /// The terminal is not put away while this is on: it is still connected, still running, and
     /// still receiving output, and the panel is only showing something else. What the browser does
     /// to the shell is change its directory, and only when a folder is opened.
-    @State private var isBrowsing = false
+    @State var isBrowsing = false
     /// Whether dotfiles are listed. The panel filters them itself, so the Mac sends everything and
     /// both browsers this protocol serves can be shown the same.
-    @State private var showsHiddenFiles = false
+    @State var showsHiddenFiles = false
 
     /// The folder the browser is showing, and `nil` for as long as that is still the Mac's home
     /// folder with its path not yet resolved — the one path this side cannot work out for itself.
     ///
     /// The model's, not the panel's: this panel is rebuilt every time it is opened, and the folder
     /// a Mac is being browsed at is not something that should be forgotten in between.
-    private var browsingPath: String? {
+    var browsingPath: String? {
         guard let id = model.selectedTerminalID else { return nil }
         return model.browsingPath(for: id)
     }
 
-    private var selected: RemoteTerminal? {
+    var selected: RemoteTerminal? {
         guard let id = model.selectedTerminalID else { return nil }
         return model.terminals.first { $0.id == id }
     }
@@ -240,7 +240,7 @@ struct TerminalPanel: View {
     /// The name starts as what the tab is already called, so the common edit is one word changed
     /// rather than a name remembered. Emptying it is meaningful: the Mac reads an empty name as
     /// "stop calling it that" and goes back to naming the terminal after what is run in it.
-    private func beginRename(_ terminal: RemoteTerminal) {
+    func beginRename(_ terminal: RemoteTerminal) {
         model.selectTerminal(terminal.id)
         renameText = terminal.name
         renamingID = terminal.id
@@ -249,7 +249,7 @@ struct TerminalPanel: View {
         Task { @MainActor in renameFocused = true }
     }
 
-    private func renameField(_ terminal: RemoteTerminal) -> some View {
+    func renameField(_ terminal: RemoteTerminal) -> some View {
         TextField("Name", text: $renameText)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -269,7 +269,7 @@ struct TerminalPanel: View {
             }
     }
 
-    private func commitRename(_ id: UUID) {
+    func commitRename(_ id: UUID) {
         // Cleared first, so the focus change that follows — this sets the flag the field watches
         // — finds nothing left to commit and stops here rather than sending the name twice.
         guard renamingID == id else { return }
@@ -297,7 +297,7 @@ struct TerminalPanel: View {
     /// The name on a tab is a working title — the last command run there, or a name typed onto
     /// the tab itself — so the strip has to hold names of any length and stay readable while
     /// they change under it.
-    private var tabStrip: some View {
+    var tabStrip: some View {
         TabStrip(items: model.terminals, selection: model.selectedTerminalID) { terminal, isSelected in
             chip(terminal, isSelected: isSelected)
         } accessory: {
@@ -327,7 +327,7 @@ struct TerminalPanel: View {
     /// shell with nothing printed in it yet is still a shell, killed by the same tap. So anything
     /// running, or anything that has said something, is asked about; a terminal that stopped on
     /// its own and printed nothing goes without ceremony, because there is nothing there to close.
-    private func requestClose(_ terminal: RemoteTerminal) {
+    func requestClose(_ terminal: RemoteTerminal) {
         if terminal.isRunning || !terminal.output.isEmpty {
             pendingClose = terminal
         } else {
@@ -335,7 +335,7 @@ struct TerminalPanel: View {
         }
     }
 
-    private func chip(_ terminal: RemoteTerminal, isSelected: Bool) -> some View {
+    func chip(_ terminal: RemoteTerminal, isSelected: Bool) -> some View {
         let state = terminal.state
         let isRenaming = renamingID == terminal.id
         // No cross while a name is being typed. The field is what the tab is for then, and a
@@ -399,7 +399,7 @@ struct TerminalPanel: View {
     /// One line and one weight for every seam, because these are one object cut into strips. A
     /// seam a point heavier in one place than another is the kind of thing that reads as sloppy
     /// without anyone being able to say why.
-    private var hairline: some View {
+    var hairline: some View {
         Rectangle()
             .fill(Color.white.opacity(0.08))
             .frame(height: 1)
@@ -415,7 +415,7 @@ struct TerminalPanel: View {
     /// recognisable as a state, and the names in the strip do not shuffle sideways as the marks in
     /// front of them come and go.
     @ViewBuilder
-    private func mark(for state: TerminalState) -> some View {
+    func mark(for state: TerminalState) -> some View {
         switch state {
         case .starting:
             ProgressView()
@@ -450,7 +450,7 @@ struct TerminalPanel: View {
     /// is the one thing on the strip that has to be found at a glance, and a selected tab that had
     /// gone quiet would be the one place it could be missed. Colour is the exception the palette
     /// allows and this is where it is spent.
-    private func nameColour(for state: TerminalState, isSelected: Bool) -> Color {
+    func nameColour(for state: TerminalState, isSelected: Bool) -> Color {
         if let tint = state.tint { return tint }
         if state == .stopped { return ColorPalette.ink.opacity(0.3) }
         return isSelected ? ColorPalette.ink : Color.secondary
@@ -460,7 +460,7 @@ struct TerminalPanel: View {
     ///
     /// A `ZStack` rather than a `Group`, so that the two states are two views a container can
     /// cross-fade between rather than two branches of an `if` with nothing around them to animate.
-    private func output(_ terminal: RemoteTerminal) -> some View {
+    func output(_ terminal: RemoteTerminal) -> some View {
         ZStack {
             if terminal.output.isEmpty, terminal.isRunning {
                 TerminalStarting()
@@ -473,7 +473,7 @@ struct TerminalPanel: View {
         .animation(Motion.tap, value: terminal.output.isEmpty)
     }
 
-    private func log(_ terminal: RemoteTerminal) -> some View {
+    func log(_ terminal: RemoteTerminal) -> some View {
         ScrollViewReader { reader in
             // Two scroll views rather than one with two axes, and that is the whole of why the
             // output stops dragging itself sideways.
@@ -547,14 +547,14 @@ struct TerminalPanel: View {
     /// Not zero, because a scroll view rarely lands exactly on the edge and a terminal that stops
     /// following output because it is 2 points short of the end is worse than one that follows
     /// slightly too eagerly.
-    private static let bottomSlack: CGFloat = 24
+    static let bottomSlack: CGFloat = 24
 
     /// Character cells, from the measured size of the log. See ``TerminalMetrics``.
     ///
     /// Reported rather than kept: the grid a shell is drawn on belongs to the shell, and the rows
     /// only ever grow there, which is what keeps the keyboard from resizing a terminal. See
     /// ``MacSession/resizeTerminal(_:columns:rows:)``.
-    private func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
+    func applySize(_ size: CGSize, to terminal: RemoteTerminal) {
         guard size.width > 0, size.height > 0 else { return }
         model.resizeTerminal(
             terminal.id,
@@ -573,7 +573,7 @@ struct TerminalPanel: View {
     /// a heuristic that scans a line for the word "error".
     ///
     /// Both panels now go through one renderer, so a colour means the same thing in each.
-    private func coloured(_ terminal: RemoteTerminal) -> AttributedString {
+    func coloured(_ terminal: RemoteTerminal) -> AttributedString {
         guard !terminal.output.isEmpty else {
             // Only reached by a terminal that stopped without printing anything — the running and
             // empty case is ``TerminalStarting``, which is drawn rather than written. "Starting
@@ -594,7 +594,7 @@ struct TerminalPanel: View {
     ///
     /// A tap puts the command in the field rather than sending it. A list that runs things when
     /// you touch it is a list you cannot browse on a phone.
-    private func historyStrip(_ id: UUID) -> some View {
+    func historyStrip(_ id: UUID) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 Image(systemName: "clock.arrow.circlepath")
@@ -623,7 +623,7 @@ struct TerminalPanel: View {
         .overlay(alignment: .top) { hairline }
     }
 
-    private func input(_ terminal: RemoteTerminal) -> some View {
+    func input(_ terminal: RemoteTerminal) -> some View {
         HStack(spacing: 8) {
             // Leftmost: keyboard dismiss — the far end of the row from send so the two actions
             // cannot be confused. Always shown so there is no layout jump as focus changes.
@@ -688,513 +688,5 @@ struct TerminalPanel: View {
         // band across the bottom of a black panel and read as chrome from a different app.
         .background(Color.black)
         .overlay(alignment: .top) { hairline }
-    }
-
-    // MARK: - Browsing
-
-    /// The browser, or the file it is showing, in the terminal's place.
-    ///
-    /// **In place of, never over.** Two things in this panel make an overlay impossible rather
-    /// than merely untidy: the log carries a tap that sends focus to the keyboard, so anything
-    /// laid on top of it leaks every stray tap to the terminal; and terminal output re-asserts
-    /// first responder on the field whenever it is focused, so during a `tail -f` an overlay's own
-    /// controls would lose the keyboard dozens of times a second. Swapping them also leaves the
-    /// PTY size alone: the `GeometryReader` that reports it lives on the log, so with the log out
-    /// of the hierarchy nothing is measured and ``applySize``'s change guard makes the return trip
-    /// a no-op — no reflow, and no `vim` redrawn at a size it never had.
-    private func browsing(_ terminal: RemoteTerminal) -> some View {
-        VStack(spacing: 0) {
-            if let preview = model.filePreview, preview.terminalID == terminal.id {
-                FilePreviewPanel(
-                    preview: preview,
-                    failure: model.browseFailure(preview.path, sessionID: terminal.id),
-                    isSaving: model.isWritingFile(sessionID: terminal.id),
-                    saveFailure: model.saveFailure(sessionID: terminal.id),
-                    onRevealPath: { reveal($0, in: terminal) },
-                    onClose: { model.closePreview() },
-                    // A shell that has ended cannot be written through, for the reason it cannot
-                    // be listed through: the Mac refuses every request that names it. Absent
-                    // rather than failing on the tap, so the pencil is not offered over a file
-                    // that the next save would only be refused.
-                    onSave: terminal.isRunning
-                        ? { model.saveFile($0, sessionID: terminal.id) }
-                        : nil
-                    // Reading and editing a file stay free; handing it to the phone does not, and
-                    // the panel gates the share button itself. See
-                    // ``PlanCapability/fileTransfer`` for where the line is drawn and why it is
-                    // drawn there rather than around the whole browser.
-                )
-            } else {
-                FileBrowserPanel(
-                    path: browsingPath,
-                    directory: model.directory(browsingPath, sessionID: terminal.id),
-                    isLoading: model.isLoadingDirectory(browsingPath, sessionID: terminal.id),
-                    // A shell that has ended is not a folder that failed. The Mac refuses every
-                    // browse request for one — a stopped shell has no directory to change into —
-                    // and the panel says that itself rather than asking and spinning at a Mac that
-                    // has already answered.
-                    //
-                    // An upload that failed shares the slot, as it does on the SSH browser and for
-                    // the reason recorded there: it is a fact about this folder, the next attempt
-                    // clears it, and a second place for a sentence to appear in a panel this short
-                    // would be a second layout to keep right.
-                    failure: terminal.isRunning
-                        ? (model.uploadFailure(sessionID: terminal.id)
-                            ?? model.browseFailure(browsingPath, sessionID: terminal.id))
-                        : "This shell has ended. Open a new terminal to browse your Mac's files.",
-                    showsHidden: showsHiddenFiles,
-                    // The Mac blocks inside the listing call while macOS puts a Files-and-Folders
-                    // question on its screen, and nothing about that reaches this phone: the
-                    // request is simply outstanding. So the wait says what it is probably waiting
-                    // for, and where the answer is. It is a guess with a delay on it — see the
-                    // panel — and it is the only thing the user can act on from here.
-                    waitingHint: "If your Mac is asking whether Peering may read this folder, answer it there.",
-                    // What a folder being sent is doing, or what the last one came to. One line,
-                    // and the only thing on this screen that says a run of hundreds of operations
-                    // is happening at all. See ``FileBrowserPanel/progress``.
-                    progress: model.folderProgress(sessionID: terminal.id),
-                    onOpen: { open($0, in: terminal) },
-                    onNavigate: { navigate(to: $0, in: terminal) },
-                    onRevealPath: { reveal($0, in: terminal) },
-                    onReload: {
-                        guard terminal.isRunning else { return }
-                        model.listDirectory(browsingPath, sessionID: terminal.id)
-                    },
-                    // Absent while the shell has ended, for the same reason the folder cannot be
-                    // listed then: there is nothing left to send a file down, and an upload button
-                    // that opens a picker and then fails is worse than no button.
-                    onUpload: terminal.isRunning
-                        ? { model.uploadFile($0, sessionID: terminal.id) }
-                        : nil,
-                    // Everything the picker or a drop can hand over, folders and all, as one run.
-                    // See ``MacSession/uploadItems(_:sessionID:)``.
-                    onUploadItems: terminal.isRunning
-                        ? { model.uploadItems($0, sessionID: terminal.id) }
-                        : nil,
-                    // The other direction is the same capability and the panel's own gate, so a
-                    // plan that moves files both ways or a plan that does not move them at all
-                    // needs no value passed down. The `nil` above stays a fact about this session
-                    // rather than about the account: a shell that has ended draws no upload button
-                    // at all, where a plan without file transfer draws one that cannot be pressed.
-                    // And absent for the same reason: a run button types a command into a shell, so
-                    // a shell that has ended is one with nothing to type into.
-                    onRun: terminal.isRunning ? { run($0, in: terminal) } : nil,
-                    // The Mac's own answer to "what happens to it", and the reason the two browsers
-                    // hand this in rather than sharing one: Peering moves things to the Trash on
-                    // the Mac, where they can be put back, and there is no such thing on an SFTP
-                    // server. Two machines, two weights on one word.
-                    deleteHint: "It can be put back from the Trash on your Mac.",
-                    // The three changes, absent together and for a reason of their own on top of
-                    // the shell being live: a change names a path, and until the Mac has said where
-                    // this browser opens there is no path to name. `canMake` is the pair.
-                    onCreate: canMake(terminal)
-                        ? { model.createEntry($0, kind: $1, in: folder, sessionID: terminal.id) }
-                        : nil,
-                    onRename: canMake(terminal)
-                        ? { model.renameEntry($0, to: $1, in: folder, sessionID: terminal.id) }
-                        : nil,
-                    onDelete: canMake(terminal)
-                        ? { model.deleteEntry($0, in: folder, sessionID: terminal.id) }
-                        : nil,
-                    isChanging: model.isChangingFile(sessionID: terminal.id),
-                    changeFailure: model.changeFailure(sessionID: terminal.id)
-                )
-            }
-            browseControls(terminal)
-        }
-    }
-
-    /// The row under the browser, which is ``FileBrowseBar`` — the same row the SSH terminal draws
-    /// under its browser, because it is the same set of controls acting on the same kind of list.
-    /// What differs between the two is only what each closure asks and of which machine.
-    private func browseControls(_ terminal: RemoteTerminal) -> some View {
-        FileBrowseBar(
-            isEnabled: terminal.isRunning,
-            showsHidden: showsHiddenFiles,
-            onInterrupt: { send("\u{03}", to: terminal.id) },
-            onEscape: { send("\u{1B}", to: terminal.id) },
-            onTab: { send("\t", to: terminal.id) },
-            onReload: { model.listDirectory(browsingPath, sessionID: terminal.id) },
-            onToggleHidden: { showsHiddenFiles.toggle() }
-        )
-    }
-
-    /// The switch between the terminal and the Mac's files, as one action rather than two.
-    ///
-    /// It sends nothing to the shell. Browsing is a way of looking at the Mac's folders and, when
-    /// a folder is opened, of asking the shell to change directory — there is no state here the
-    /// shell is told about. What it does either way is draw the difference: the button that calls
-    /// this is in the header on both screens — see ``TerminalModeButton``.
-    private func toggleBrowsing(_ terminal: RemoteTerminal) {
-        withAnimation(Motion.tap) { isBrowsing.toggle() }
-        if isBrowsing {
-            // Asked for on every entry rather than only the first: a folder is the one screen
-            // where what is on it can have changed since it was last looked at. Not asked for
-            // at all from a shell that has ended, which would be refused and would leave the
-            // refusal on the terminal's tab — a mark about browsing, on a terminal.
-            if terminal.isRunning { model.listDirectory(browsingPath, sessionID: terminal.id) }
-        } else {
-            model.closePreview()
-        }
-    }
-
-    /// Where something would be made, renamed or deleted. Only meaningful when ``canMake``.
-    ///
-    /// The empty string is unreachable rather than a fallback: ``canMake(_:)`` is false whenever
-    /// there is no browsing path, and every closure that reads this is `nil` at the same time.
-    private var folder: String { browsingPath ?? "" }
-
-    /// Whether this browser can change anything on the Mac.
-    ///
-    /// Both halves are needed. The shell has to be running, because every change is a request
-    /// through it; and the folder has to have resolved, because a change names a path and the path
-    /// is the one thing this panel does not have until the Mac has said where the browser opens.
-    private func canMake(_ terminal: RemoteTerminal) -> Bool {
-        terminal.isRunning && browsingPath != nil
-    }
-
-    /// A row was tapped: folders are entered, files are read.
-    private func open(_ entry: RemoteDirectoryEntry, in terminal: RemoteTerminal) {
-        let path = childPath(entry.name, of: browsingPath)
-        if entry.isDirectory {
-            navigate(to: path, in: terminal)
-        } else {
-            model.previewFile(path, sessionID: terminal.id)
-        }
-    }
-
-    /// Runs an executable file, in a shell of its own.
-    ///
-    /// The confirmation has already happened — the panel holds it, so that neither browser can be
-    /// the one that forgot it. What is left is the command and where it goes.
-    ///
-    /// A **new tab** rather than this terminal, and the difference is worth naming: the shell
-    /// behind this browser is one the user has been typing into, and a file that prints for a
-    /// minute, prompts for a password or runs until it is interrupted should not take that over.
-    /// Leaving the browser as well, because the whole reason someone pressed Run is to see what
-    /// came out of it, and the output goes to the terminal that just opened.
-    private func run(_ entry: RemoteDirectoryEntry, in terminal: RemoteTerminal) {
-        let path = childPath(entry.name, of: browsingPath)
-        model.runInNewTerminal(ShellPath.runCommand(for: path))
-        withAnimation(Motion.tap) { isBrowsing = false }
-    }
-
-    /// Goes into a folder: the browser shows it, and the shell changes directory to it.
-    ///
-    /// The `cd` goes through ``SessionModel/sendTerminalBytes(_:to:)`` rather than
-    /// ``SessionModel/sendTerminalInput(_:to:)``, and that is the whole difference between browsing
-    /// and typing. The other one retitles the tab to the command it just sent and files that
-    /// command in the history, so a minute of looking through folders would leave the user's
-    /// history full of `cd` and their terminal called `cd -- '/Users/…'`.
-    private func navigate(to path: String, in terminal: RemoteTerminal) {
-        model.setBrowsingPath(path, for: terminal.id)
-        model.listDirectory(path, sessionID: terminal.id)
-        model.sendTerminalBytes(Array("cd -- \(ShellPath.quoted(path))\r".utf8), to: terminal.id)
-    }
-
-    /// Puts a path on the command line, which is what a path is usually wanted for.
-    ///
-    /// Back to the terminal as well as into the field: the field is not on screen while the
-    /// browser is, and a path put somewhere nobody can see it is a tap that did nothing. Quoted,
-    /// because a path is data and the shell is a shell — what goes in the field is the form that
-    /// runs when Return is pressed. The keyboard comes up with it, exactly as the history strip
-    /// does when a command is tapped there.
-    private func reveal(_ path: String, in terminal: RemoteTerminal) {
-        withAnimation(Motion.tap) { isBrowsing = false }
-        model.closePreview()
-        command = ShellPath.quoted(path)
-        inputFocused = true
-    }
-
-    /// One key's bytes, to one shell. Raw rather than through `sendTerminalInput`, which appends
-    /// a carriage return and retitles the tab: a control character is not a command, and a tab
-    /// called "⌃C" would be a tab named after a keystroke.
-    private func send(_ text: String, to id: UUID) {
-        model.sendTerminalBytes(Array(text.utf8), to: id)
-    }
-
-    private func submit(to id: UUID) {
-        guard !command.isEmpty else { return }
-        // **Before it is sent, and for the reason the terminal is small at all.** A full-screen
-        // program lays itself out for eighty columns, and on a phone held upright the only size
-        // that holds eighty is the smallest one: run this and the first thing the user sees is the
-        // two-thirds of it that fits. See ``TerminalProgram``.
-        if TerminalProgram.prefersSmallText(command) {
-            textSize = TerminalMetrics.TextSize.tiny.rawValue
-        }
-        model.sendTerminalInput(command, to: id)
-        command = ""
-        inputFocused = true
-    }
-}
-
-/// What the terminal shows while the Mac is starting the shell.
-///
-/// The panel used to say "Starting login shell…" in the same grey, in the same place, as the
-/// output — so the one thing on screen that was *not* the shell looked exactly like the shell, and
-/// a terminal that had not printed anything yet was indistinguishable from one that had died. This
-/// is drawn as what it is instead: a prompt waiting for a program, with a cursor blinking on it and
-/// the sentence filling in underneath.
-///
-/// A timeline rather than a repeating animation, for the reason given on ``Wordmark``: a
-/// `repeatForever` loop is cancelled by whatever re-layout lands on top of it and does not come
-/// back, and this one never even gets that far — the state it belongs to is replaced by the first
-/// byte of real output, which is a re-layout.
-/// Internal rather than private since the SSH terminal became a second caller — see
-/// ``SSHTerminalScreen``. "Waiting for a shell to say something" is the same state whether the
-/// shell is on the user's Mac or on a server, and a second copy would be the two that drift.
-struct TerminalStarting: View {
-    /// One tick for both movements. The cursor's blink and the dots filling in are the same kind of
-    /// event at the same weight, and running them at two different rates is the thing that makes a
-    /// loading screen feel like two loading screens.
-    private static let tick: TimeInterval = 0.12
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: Self.tick)) { context in
-            let elapsed = context.date.timeIntervalSinceReferenceDate
-            // On for most of the cycle and off for the rest, which is how a terminal's own cursor
-            // behaves: a square wave at even duty reads as a lamp flashing rather than as a cursor.
-            let caretIsOn = elapsed.truncatingRemainder(dividingBy: 1.0) < 0.62
-            let dots = Int(elapsed.truncatingRemainder(dividingBy: 1.2) / 0.4) + 1
-
-            VStack(spacing: 13) {
-                HStack(spacing: 7) {
-                    Text("❯")
-                        .foregroundStyle(ColorPalette.accent)
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .fill(ColorPalette.ink)
-                        .frame(width: 9, height: 16)
-                        .opacity(caretIsOn ? 1 : 0)
-                }
-
-                HStack(spacing: 0) {
-                    Text("Starting login shell")
-                    // A fixed slot for the dots, so the sentence does not shuffle left and right
-                    // three times a second while somebody is reading it.
-                    Text(String(repeating: ".", count: dots))
-                        .frame(width: 22, alignment: .leading)
-                }
-            }
-            .font(.system(size: 13, design: .monospaced))
-            .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        // Says the one true thing about a moving picture, rather than reading out whichever number
-        // of dots the finger happened to land on.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Starting login shell")
-    }
-}
-
-/// A terminal command field whose Return key is handled without resigning first responder. SwiftUI
-/// TextField's submit action dismisses the keyboard before its callback, which creates a visible
-/// close/reopen cycle even when focus is immediately restored.
-struct TerminalCommandField: UIViewRepresentable {
-    @Binding var text: String
-    @Binding var isFocused: Bool
-    let placeholder: String
-    let isEnabled: Bool
-    let onSubmit: () -> Void
-
-    /// The row's height, in the one place both terminals read it from.
-    static let height: CGFloat = 30
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    func makeUIView(context: Context) -> UITextField {
-        let field = UITextField()
-        field.delegate = context.coordinator
-        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
-        field.autocorrectionType = .no
-        field.autocapitalizationType = .none
-        field.returnKeyType = .send
-        field.font = .monospacedSystemFont(ofSize: 17, weight: .regular)
-        field.textColor = .white
-        field.tintColor = .white
-        field.clearButtonMode = .never
-        return field
-    }
-
-    /// **The width it is handed, not the width its text wants.** A `UITextField` sizes itself to
-    /// its contents and SwiftUI takes that as this view's size, so a long command widened the field
-    /// and the whole row with it, pushing the send button off the screen instead of scrolling
-    /// inside a field of its own size. The nil case falls back to the field's own answer.
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
-        CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width, height: Self.height)
-    }
-
-    func updateUIView(_ field: UITextField, context: Context) {
-        context.coordinator.parent = self
-        // **Only what this field did not type itself.** ``Coordinator/changed(_:)`` reports every
-        // keystroke into ``text``, and a render already in flight carries the value from a
-        // keystroke ago, so comparing the field against it wrote that older string back into the
-        // field: characters came out in the wrong order and the caret jumped into the middle of
-        // what had been typed. What changes ``text`` from outside — a history chip, a path handed
-        // over by the browser, the field emptied by a send — is what this branch is for, and none
-        // of those is what the field last reported.
-        //
-        // attributedText rather than `field.text =`, which would strip every attribute the syntax
-        // colouring is made of on the next pass.
-        if context.coordinator.reported != text {
-            let sel = field.selectedTextRange
-            field.attributedText = Self.highlighted(text)
-            field.selectedTextRange = sel
-            context.coordinator.reported = text
-        }
-        field.placeholder = placeholder
-        field.isEnabled = isEnabled
-        if isFocused, !field.isFirstResponder {
-            field.becomeFirstResponder()
-        } else if !isFocused, field.isFirstResponder {
-            field.resignFirstResponder()
-        }
-    }
-
-    /// Syntax-coloured version of the command string.
-    ///
-    /// Three things are coloured, and everything else is white:
-    /// - Flags (`-x`, `--long`) are dimmed — they are structure, not the point of the command.
-    /// - Quoted strings get the caution amber — the boundaries of a string are what go wrong.
-    /// - Shell operators (`|`, `>`, `;`, `&&`, ...) get the accent blue — they are the seams.
-    /// Variables (`$VAR`) are slightly dimmed as well.
-    static func highlighted(_ text: String) -> NSAttributedString {
-        let base: [NSAttributedString.Key: Any] = [
-            .font: UIFont.monospacedSystemFont(ofSize: 17, weight: .regular),
-            .foregroundColor: UIColor.white
-        ]
-        guard !text.isEmpty else { return NSAttributedString(string: text, attributes: base) }
-        let out = NSMutableAttributedString(string: text, attributes: base)
-
-        var i = text.startIndex
-        while i < text.endIndex {
-            // Quoted string: "..." or '...'
-            if text[i] == "\"" || text[i] == "'" {
-                let q = text[i]; let start = i
-                i = text.index(after: i)
-                while i < text.endIndex && text[i] != q {
-                    if text[i] == "\\" {
-                        i = text.index(after: i)
-                        if i < text.endIndex { i = text.index(after: i) }
-                    } else {
-                        i = text.index(after: i)
-                    }
-                }
-                if i < text.endIndex { i = text.index(after: i) }
-                out.addAttribute(.foregroundColor,
-                    value: UIColor(red: 0.97, green: 0.75, blue: 0.35, alpha: 0.90),
-                    range: NSRange(start..<i, in: text))
-                continue
-            }
-
-            // Shell operators: | ; & > < ( )
-            if "|;&><()".contains(text[i]) {
-                let start = i
-                i = text.index(after: i)
-                // Two-character operators: || && >>
-                if i < text.endIndex && (text[i] == text[start] || (text[start] == ">" && text[i] == ">")) {
-                    i = text.index(after: i)
-                }
-                out.addAttribute(.foregroundColor, value: UIColor.systemBlue,
-                    range: NSRange(start..<i, in: text))
-                continue
-            }
-
-            // Variable: $VAR or ${VAR}
-            if text[i] == "$" {
-                let start = i
-                i = text.index(after: i)
-                if i < text.endIndex && text[i] == "{" {
-                    i = text.index(after: i)
-                    while i < text.endIndex && text[i] != "}" { i = text.index(after: i) }
-                    if i < text.endIndex { i = text.index(after: i) }
-                } else {
-                    while i < text.endIndex && (text[i].isLetter || text[i].isNumber || text[i] == "_") {
-                        i = text.index(after: i)
-                    }
-                }
-                out.addAttribute(.foregroundColor, value: UIColor.white.withAlphaComponent(0.65),
-                    range: NSRange(start..<i, in: text))
-                continue
-            }
-
-            // Word: command name, argument, or flag
-            if !text[i].isWhitespace {
-                let start = i
-                while i < text.endIndex && !text[i].isWhitespace && !"\"'|;&><$()".contains(text[i]) {
-                    i = text.index(after: i)
-                }
-                if String(text[start..<i]).hasPrefix("-") {
-                    out.addAttribute(.foregroundColor, value: UIColor.white.withAlphaComponent(0.50),
-                        range: NSRange(start..<i, in: text))
-                }
-                continue
-            }
-
-            i = text.index(after: i)
-        }
-
-        return out
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        var parent: TerminalCommandField
-
-        /// The text this field last reported, which is what tells its own keystroke apart from a
-        /// change made to ``TerminalCommandField/text`` by something outside it. See
-        /// ``TerminalCommandField/updateUIView(_:context:)``.
-        var reported = ""
-
-        init(_ parent: TerminalCommandField) { self.parent = parent }
-
-        @objc func changed(_ field: UITextField) {
-            let text = field.text ?? ""
-            parent.text = text
-            reported = text
-            // **Not while the keyboard is still composing.** UIKit forbids replacing the text under
-            // a marked range, and a keystroke that arrives inside one — dictation, a candidate, a
-            // dead key on a hardware keyboard — is a string UIKit has not committed yet. Doing it
-            // there is the second way this field could reorder what was typed; the colour lands on
-            // the keystroke that follows instead.
-            guard field.markedTextRange == nil else { return }
-            // Re-colour after the text changes, preserving the cursor.
-            let sel = field.selectedTextRange
-            field.attributedText = TerminalCommandField.highlighted(text)
-            field.selectedTextRange = sel
-        }
-
-        // Feed UIKit focus events back into the SwiftUI binding. Without these, updateUIView
-        // sees isFocused=false on the re-render that immediately follows a keystroke (because
-        // SwiftUI re-renders on text change before the binding reflects the field's focus), and
-        // calls resignFirstResponder() — which is why the keyboard closes on the first letter.
-        func textFieldDidBeginEditing(_ textField: UITextField) {
-            if !parent.isFocused { parent.isFocused = true }
-        }
-
-        func textFieldDidEndEditing(_ textField: UITextField) {
-            if parent.isFocused { parent.isFocused = false }
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            parent.onSubmit()
-            return false
-        }
-    }
-}
-
-private extension TerminalState {
-    /// The colour a tab wears for this state, or nothing for the states that are not asking for
-    /// anything — those are drawn in the strip's own greys.
-    ///
-    /// Brightness is the palette's rule and hue is its exception, and this is the second place
-    /// the exception is earned. A tab is 12 points of monospaced text in a row of near-identical
-    /// ones, and three shades of white at arm's length are one shade: "this terminal wants a
-    /// password" has to be findable at a glance or it is decoration.
-    var tint: Color? {
-        switch self {
-        case .attention: return ColorPalette.accent
-        case .failed: return ColorPalette.danger
-        case .starting, .running, .stopped: return nil
-        }
     }
 }

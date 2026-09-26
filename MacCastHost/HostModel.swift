@@ -34,22 +34,22 @@ final class HostModel {
         }
     }
 
-    private(set) var status: Status = .idle {
+    var status: Status = .idle {
         didSet { publishHostWidgetState() }
     }
-    private(set) var deviceName = "" {
+    var deviceName = "" {
         didSet { publishHostWidgetState() }
     }
-    private(set) var deviceID = ""
+    var deviceID = ""
 
     /// Present only while a first-time pairing is waiting on the user's comparison.
-    private(set) var pairing: PairingPrompt?
-    private(set) var lastOutcome: PairingOutcome?
+    var pairing: PairingPrompt?
+    var lastOutcome: PairingOutcome?
 
-    private(set) var connectedClients: [ConnectedClient] = [] {
+    var connectedClients: [ConnectedClient] = [] {
         didSet { publishHostWidgetState() }
     }
-    private(set) var pairedClientIDs: [String] = []
+    var pairedClientIDs: [String] = []
 
     // Held while at least one client is connected, released when the last one disconnects: the
     // display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
@@ -192,7 +192,7 @@ final class HostModel {
     ///
     /// Entries rather than formatted lines, so the window can show when each thing happened and
     /// which of them went wrong.
-    private(set) var log: [HostLogEntry] = []
+    var log: [HostLogEntry] = []
 
     let permissions = Permissions()
 
@@ -201,19 +201,19 @@ final class HostModel {
     /// wiring in ``start()``), the input transform is written from wherever the coordinator reports
     /// one, and the teardown release runs on the main actor. Hopping either to the other would put
     /// pointer events behind SwiftUI or the UI behind a command queue.
-    private let input = InputInjector()
+    let input = InputInjector()
 
     /// Physical display brightness is separate from the captured pixels, which is what lets the
     /// phone keep seeing a Mac whose local panels are dark.
-    private let displayPrivacy = DisplayPrivacyController()
+    let displayPrivacy = DisplayPrivacyController()
 
     /// The other half of the same feature: a black cover over every display the brightness pass
     /// above will not touch, which is the whole of what a third-party monitor gets.
-    private let privacyCurtain = DisplayPrivacyCurtain()
+    let privacyCurtain = DisplayPrivacyCurtain()
 
     /// Set while Privacy Mode is on, so a display attached mid-session gets covered too.
-    private var displayObserver: NSObjectProtocol?
-    private(set) var privacyModeEnabled = false
+    var displayObserver: NSObjectProtocol?
+    var privacyModeEnabled = false
 
     /// The capture source the client last asked for.
     ///
@@ -227,12 +227,12 @@ final class HostModel {
     /// ``pendingCaptureSource`` above is the ask rather than the answer, cleared on success and
     /// left set on failure, which makes it useful for spotting a disagreement and useless for
     /// saying what is on screen.
-    private(set) var capturingSource: CaptureSource?
+    var capturingSource: CaptureSource?
 
     /// The last catalogue the resolver built, kept so a source can be named rather than shown as a
     /// number: a ``CaptureSource`` is a display ID or a pid, and "DELL P2212H" is what a person
     /// recognizes.
-    private(set) var catalog: CaptureCatalog?
+    var catalog: CaptureCatalog?
 
     /// The display name of what is being captured, if the catalogue can name it.
     var capturingSourceTitle: String? {
@@ -265,7 +265,7 @@ final class HostModel {
     /// Keeps ``resources`` current. Started once and never stopped: an app that is not hosting is
     /// still an app somebody may open the menu to ask about, and "nothing measurable" is a real
     /// answer that a blank row is not.
-    private func startResourceSampling() {
+    func startResourceSampling() {
         Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -280,10 +280,10 @@ final class HostModel {
     /// A pin is a public key and carries no name, and the name arrives with a connection and goes
     /// when it ends, so without keeping it the device list can only offer an ID for anything not
     /// attached right now. Persisted, because the case this is for is the device that is *not* here.
-    private(set) var clientNames: [String: String] =
+    var clientNames: [String: String] =
         UserDefaults.standard.dictionary(forKey: HostModel.clientNamesKey) as? [String: String] ?? [:]
 
-    private static let clientNamesKey = "Peering.clientNames"
+    static let clientNamesKey = "Peering.clientNames"
 
     /// What to call a device: its own name if it has ever said one, otherwise its ID.
     func displayName(for clientID: String) -> String {
@@ -304,7 +304,7 @@ final class HostModel {
     /// Recording permission.
     /// Written only from ``start()`` and ``stop()``; every other `HostModel+*.swift` file only
     /// reads it.
-    private(set) var coordinator: VideoCoordinator?
+    var coordinator: VideoCoordinator?
 
     /// Runs while at least one client is attached. See ``HostModel/startScreenWatch()``.
     var screenWatchTask: Task<Void, Never>?
@@ -317,15 +317,15 @@ final class HostModel {
     var announcedCaptureProblem: String?
 
     /// Written only from ``start()`` and ``stop()``; ``HostModel+Sessions.swift`` only reads it.
-    private(set) var server: HostServer?
-    private var relayRegistration: RelayHostRegistration?
+    var server: HostServer?
+    var relayRegistration: RelayHostRegistration?
 
     /// What the test button in Settings last had to say, shown beside it.
     ///
     /// Only half the answer to "does this work at all": a registered token means a phone handed one
     /// over while a session was up, and whether the relay then reached APNs is not visible from this
     /// Mac at any price, since the relay holds the key and answers nothing.
-    private(set) var pushTestResult: String?
+    var pushTestResult: String?
 
     /// Sends the same banner the terminal attention path sends, on purpose.
     @discardableResult
@@ -358,14 +358,14 @@ final class HostModel {
         record(message)
         return message
     }
-    private var nativeTerminalWatcher: NativeTerminalWatcher?
-    private var pins: PinStore?
-    private var identity: SelfSignedIdentity?
-    private var spaceObserver: NSObjectProtocol?
+    var nativeTerminalWatcher: NativeTerminalWatcher?
+    var pins: PinStore?
+    var identity: SelfSignedIdentity?
+    var spaceObserver: NSObjectProtocol?
 
     /// A visible tail of what has happened. Bounded because this is a status window, not a log
     /// viewer, and an unbounded array in `@Observable` state re-renders forever.
-    private static let maxEvents = 60
+    static let maxEvents = 60
 
     /// What the host is configured to listen on, whether or not it currently is. See
     /// ``HostModel+Port.swift``.
@@ -444,760 +444,6 @@ final class HostModel {
     /// second add/remove (or the Mac switch) is dropped during either window so a limit check and a
     /// fallback choice cannot be invalidated by another mutation landing in the middle.
     var isMakingVirtualDisplay = false
-
-    // MARK: - Lifecycle
-
-    func start() {
-        guard server == nil else { return }
-        // There is no useful partial host: without Screen Recording the client receives no picture,
-        // without Accessibility its input is silently discarded. Onboarding requests both and calls
-        // back here only when they are present.
-        guard permissions.allRequiredGranted else {
-            status = .idle
-            return
-        }
-        // Before anything opens a session of its own: whatever is in the store at this moment was
-        // left by the last process. See ``adoptAbandonedSessions()``.
-        adoptAbandonedSessions()
-        status = .starting
-        // **Starting again is the user asking to be reachable**, so it takes back the release
-        // ``stop()`` performed and puts the keep-awake through the schedule like every other path,
-        // which outside the window is to hold nothing yet.
-        Task { await rearmKeepAwake() }
-        let device = DeviceIdentity.loadOrCreate(defaultName: Self.defaultDeviceName)
-        deviceName = device.name
-        deviceID = device.id
-
-        let pins = PinStore(service: "pl.dmq.peering.pins")
-        self.pins = pins
-        pairedClientIDs = pins.peerIDs
-
-        let identity: SelfSignedIdentity
-        do {
-            // The common name is decorative — the peer takes the real name from
-            // `ServerHello`, so renaming the Mac never invalidates anything.
-            identity = try SelfSignedIdentity.loadOrCreate(role: .server, commonName: device.name)
-        } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-            status = .failed(message)
-            record("Identity unavailable: \(message)", level: .failure)
-            return
-        }
-        self.identity = identity
-        record("Identity ready · key \(identity.publicKeyBytes.count) bytes")
-
-        // Until something is being captured there is no captured surface to map into, so the
-        // pointer is mapped against the display the user is looking at. That is exactly right for
-        // display capture, which is what a client gets if it never picks a source.
-        input.transform = DisplayGeometry.activeTransform()
-
-        // Built here but not started: constructing a pipeline only stores the resolver, and reading
-        // the catalogue is what needs permission, which happens on the first video connection.
-        //
-        // The resolver's invalidation callback reaches the coordinator built below it, going through
-        // `self` because the callback fires on whatever thread observed the notification and this is
-        // the same main-actor hop every other callback here takes.
-        // Re-push the catalog when the user switches Spaces, so the number the client's Space picker
-        // highlights follows them. The picture of the desktop they arrive on is taken by the
-        // resolver on its own schedule, once the switch has finished on screen, and pushes a second
-        // catalogue. Neither push stands in for the other.
-        let spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.coordinator?.refreshCatalog()
-        }
-        self.spaceObserver = spaceObserver
-
-        let resolver = ScreenCaptureSourceResolver { [weak self] immediate in
-            Task { @MainActor [weak self] in
-                self?.coordinator?.refreshCatalog(immediate: immediate)
-            }
-        }
-        // Wired here rather than at the cover, because a cover taken back down is the one thing
-        // this side of the feature cannot be told about in the call that raised it.
-        privacyCurtain.onUncovered = { [weak self] refusals in self?.reportUncovered(refusals) }
-        let pipeline = CapturePipeline(resolver: resolver, codec: captureCodec)
-        let coordinator = VideoCoordinator(pipeline: pipeline)
-        // Before any capture can start: the first video connection may arrive seconds from now, and
-        // a coordinator not told would build the first stream of the session from its own defaults.
-        // The setters cannot do it from here, since they write to the property below and this
-        // coordinator is not that property yet.
-        coordinator.setCaptureFormat(
-            resolution: captureResolution,
-            frameRate: captureFrameRate
-        )
-        coordinator.onCatalog = { [weak self] catalog in
-            Task { @MainActor [weak self] in
-                // Kept as well as forwarded: the window names the capture source from it.
-                self?.catalog = catalog
-                self?.server?.broadcastCatalog(catalog)
-            }
-        }
-        coordinator.onStatus = { [weak self] message in
-            Task { @MainActor [weak self] in self?.record(message) }
-        }
-        coordinator.onFailure = { [weak self] error in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.apply(.failed(error.localizedDescription))
-                self.announceCaptureProblem(error)
-            }
-        }
-        coordinator.onInputTransform = { [weak self] transform in
-            // Straight through, not hopped to the main actor: `input` is not UI state and its
-            // `transform` is lock-guarded for exactly this.
-            guard let transform else { return }
-            self?.input.transform = transform
-        }
-        // The same value from the only observer that sees it change. For an application or a window
-        // this is the authoritative answer: the one above is built from geometry read when capture
-        // started, and a window dragged two seconds later has moved since.
-        coordinator.onGeometry = { [weak self] geometry in
-            guard let transform = geometry.inputTransform else { return }
-            self?.input.transform = transform
-        }
-        coordinator.onSourceChanged = { [weak self] source in
-            Task { @MainActor [weak self] in
-                self?.capturingSource = source
-                // **Raised here rather than at the ask, because the ask is not where a capture
-                // starts.** A source asked for while there is no video connection yet is kept and
-                // started by the connection that follows, so a phone that has just opened and
-                // reconnected captured a window the Mac had never brought to the front: the window
-                // was in the stream and behind something else on the Mac, and the first click went
-                // to whatever was over it. This is the one door every capture comes through.
-                if let source { self?.raiseSource(for: source) }
-            }
-        }
-        self.coordinator = coordinator
-
-        let server = HostServer(identity: identity, device: device, pins: pins, port: port)
-        server.onEvent = { [weak self] event in
-            Task { @MainActor [weak self] in self?.apply(event) }
-        }
-
-        // The server has already established that a live authorized control session holds this
-        // client's key. That check is the only thing between an open port and the user's screen,
-        // and it is not repeated here.
-        server.onVideoConnection = { [weak coordinator] peer in
-            coordinator?.handleVideoConnection(peer)
-        }
-
-        // A client whose picture is not arriving asks for it on the control channel, and that
-        // request has to reach the pipeline with the connection it arrived on. Straight through,
-        // off the main actor: deciding it is a question about sockets and an encoder.
-        server.onVideoTransport = { [weak coordinator] clientKey, request, controlPeer in
-            coordinator?.setVideoTransport(request, clientKey: clientKey, controlPeer: controlPeer)
-        }
-
-        // The same shape for the relay's datagram path: the request comes with the client's key and
-        // the allocation the relay handed over, and the answer is the secret that seals what goes on
-        // it, or nil, which the session turns into silence and the client reads as "the picture stays
-        // where it is".
-        server.onVideoKeyRequest = { [weak coordinator] clientKey, relay in
-            coordinator?.enableVideoDatagrams(clientKey: clientKey, relay: relay)
-        }
-
-        // And the picture's on/off switch, the same shape once more: straight through, off the main
-        // actor, because it is a decision about a socket and an encoder. Nothing here ends a session,
-        // so a client that asks for no frames keeps its control channel, its shells and the sleep
-        // assertion this Mac holds while it is connected, and only the frames stop.
-        server.onVideoEnabled = { [weak coordinator] clientKey, enabled in
-            coordinator?.setVideoEnabled(enabled, clientKey: clientKey)
-        }
-
-        // `input` is captured directly rather than reached through `self`: injecting a mouse move is
-        // not UI work, and hopping to the main actor would put every pointer event behind whatever
-        // SwiftUI happens to be doing.
-        let input = self.input
-        let textFocusWatcher = self.textFocusWatcher
-        server.onCommand = { [weak self] command in
-            if case .setCaptureSource(let source) = command {
-                Task { @MainActor [weak self] in
-                    self?.pendingCaptureSource = source
-                    self?.applyCaptureSource(source)
-                }
-                return
-            }
-            if case .launchApplication(let bundleIdentifier) = command {
-                Task { @MainActor [weak self] in
-                    self?.launchApplication(bundleIdentifier: bundleIdentifier)
-                }
-                return
-            }
-            if case .reportDeviceOrientation(let isLandscape) = command {
-                Task { @MainActor [weak self] in
-                    self?.applyDeviceOrientation(isLandscape: isLandscape)
-                }
-                return
-            }
-            if case .addVirtualDisplay(let name, let width, let height, let startLandscape) = command {
-                Task { @MainActor [weak self] in
-                    self?.addVirtualDisplay(
-                        name: name,
-                        width: width,
-                        height: height,
-                        startLandscape: startLandscape
-                    )
-                }
-                return
-            }
-            if case .removeVirtualDisplay(let displayID) = command {
-                Task { @MainActor [weak self] in
-                    await self?.removeVirtualDisplay(displayID: displayID)
-                }
-                return
-            }
-            if case .renameVirtualDisplay(let displayID, let name) = command {
-                Task { @MainActor [weak self] in
-                    self?.renameVirtualDisplay(displayID: displayID, name: name)
-                }
-                return
-            }
-            if case .switchToSpace(let display, let index) = command {
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    // `switchToSpace` returns whether the window server *accepted* the move, which
-                    // is the difference between a tile that works and one that silently does
-                    // nothing. Whether the *picture* followed is the other half of the answer, and
-                    // it arrives later or not at all: see ``report(spaceSwitchRoute:index:display:)``.
-                    _ = switchToSpace(display: display, index: index) { route in
-                        Task { @MainActor in
-                            self.report(spaceSwitchRoute: route, index: index, display: display)
-                        }
-                    }
-                }
-                return
-            }
-            if case .switchSpace(let direction) = command {
-                Task { @MainActor in
-                    switchSpaceRelative(direction: direction)
-                }
-                return
-            }
-            if case .setStreamQuality(let fps, let bitrateKbps) = command {
-                coordinator.setStreamQuality(fps: fps, bitrateKbps: bitrateKbps)
-                return
-            }
-            if case .refreshSpacePreviews = command {
-                // Not hopped to the main actor: the capture is the resolver's own work on its own
-                // queue, and the only main-actor part, reading the Space lists, it does itself.
-                coordinator.refreshSpacePreviews()
-                return
-            }
-            if case .refreshSourceThumbnails = command {
-                // The same shape: the screenshots are taken on the resolver's own tasks and the
-                // answer travels on the catalogue push, so nothing here waits.
-                coordinator.refreshSourceThumbnails()
-                return
-            }
-            if case .setPrivacyMode(let enabled) = command {
-                Task { @MainActor [weak self] in self?.setPrivacyMode(enabled) }
-                return
-            }
-            if case .lockScreen = command {
-                Task { @MainActor in
-                    let src = CGEventSource(stateID: .hidSystemState)
-                    // Keycode 12 is `Q`. 0x19 is `L`, which is silently not the lock shortcut.
-                    let down = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: true)
-                    let up   = CGEvent(keyboardEventSource: src, virtualKey: 12, keyDown: false)
-                    down?.flags = [.maskCommand, .maskControl]
-                    up?.flags   = [.maskCommand, .maskControl]
-                    down?.post(tap: .cghidEventTap)
-                    up?.post(tap: .cghidEventTap)
-                    hostLog.notice("lock screen shortcut posted")
-                }
-                return
-            }
-            // A mosaic takes no input. Every other source is something a click can mean on; a
-            // canvas is not, because which machine coordinate a point means depends on which tile
-            // it landed in, and the app decides that rather than posting it at the Mac. The client
-            // sends nothing while a canvas is up, so this is the belt to that brace: a stray input
-            // would otherwise be placed through the last single-source transform, a click on a
-            // window nobody is looking at. Selecting a tile is an ordinary source switch.
-            if command.isUserInput, coordinator.isShowingMosaic {
-                return
-            }
-            input.perform(command)
-            if case .mouseUp(.left) = command {
-                textFocusWatcher.clicked(at: input.clickLocation)
-            }
-        }
-
-        // The reading is asked of the pasteboard rather than of one type on it, because only this
-        // end can find out whether what was copied is a picture or a line of text, and the answer
-        // decides how it travels. Both hop to the main thread: `NSPasteboard` is not safe from
-        // anywhere else, and the session's queue is not the main thread.
-        server.onRequestClipboard = {
-            DispatchQueue.main.sync { ClipboardPasteboard.read() }
-        }
-        server.onReceiveClipboard = { payload in
-            // Synchronous, so a ⌘V sent straight after the push pastes what was pushed.
-            DispatchQueue.main.sync { ClipboardPasteboard.write(payload) }
-        }
-
-        self.server = server
-
-        do {
-            try server.start()
-            let registration = RelayHostRegistration(
-                device: device,
-                identity: identity,
-                onSession: { [weak server] session in server?.connectThroughRelay(session) },
-                onStatus: { [weak self] message in
-                    Task { @MainActor [weak self] in self?.record(message) }
-                }
-            )
-            server.onPushNeeded = { [weak registration] token, title, message in
-                registration?.notifyDevice(token: token, title: title, body: message)
-            }
-            relayRegistration = registration
-            registration.start()
-
-            let watcher = NativeTerminalWatcher()
-            watcher.onAttention = { [weak server, weak registration] message, windowID in
-                let tokens = server?.allPushTokens() ?? []
-                // The line that answers "why did nothing arrive": a terminal watched from outside
-                // has no session channel to be told over, so the only way this reaches the phone is
-                // a token handed over while a session was up. With none there is nothing to send to
-                // and nothing on screen to say so.
-                if tokens.isEmpty {
-                    hostLog.notice("a terminal needs the user and no device token is registered: \(message, privacy: .public)")
-                }
-                for token in tokens {
-                    registration?.notifyDevice(
-                        token: token,
-                        title: "Terminal needs you",
-                        body: message,
-                        source: windowID.map { CaptureSource.window($0).stableID }
-                    )
-                }
-            }
-            watcher.start()
-            nativeTerminalWatcher = watcher
-        } catch {
-            let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-            status = .failed(message)
-            record(message)
-            self.server = nil
-        }
-
-        // And no display is made here. A virtual display is a screen this Mac did not have until a
-        // phone asked for one, and starting the host is not asking: see ``managedVirtualDisplays``.
-    }
-
-    /// Stops listening, and takes everything a session was holding with it.
-    ///
-    /// A modifier a client left held, the privacy it asked for, the sleep it was keeping off, and
-    /// every display it asked this Mac to make: all of it goes, because a stopped host that has left
-    /// a monitor behind is the one state the user cannot repair from this window.
-    func stop() {
-        virtualDisplayTeardownDepth += 1
-        defer { virtualDisplayTeardownDepth -= 1 }
-        // Before the listener goes, while the reason is still on screen. Stopping is the one
-        // disconnect that is not the client's doing, so a modifier held when the user pressed Stop
-        // is exactly as stuck as one held by a client that crashed. The sessions cancelled below
-        // may or may not report a disconnect of their own, so this does not wait on them.
-        input.releaseAll()
-        setPrivacyMode(false)
-        // **Nothing is being hosted, so the Mac is not being held up for anybody.** This is the
-        // clearest possible statement of "nobody is using it": the user has said so themselves.
-        // Released through the ordinary path, which leaves the switches where they were, so
-        // starting again is what puts the keep-awake back rather than a setting to go and find.
-        Task { await releaseKeepAwakeNow() }
-        // Before the listener goes, and before the process can outlive it: a stopped host that has
-        // left a monitor behind is the one state the user cannot repair from the window.
-        virtualDisplayCreationGeneration &+= 1
-        removeAllManagedVirtualDisplays()
-        server?.stop()
-        server = nil
-        relayRegistration?.stop()
-        relayRegistration = nil
-        nativeTerminalWatcher?.stop()
-        nativeTerminalWatcher = nil
-        coordinator?.stop()
-        coordinator = nil
-        if let observer = spaceObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
-            spaceObserver = nil
-        }
-        status = .idle
-    }
-
-    /// Switches what is being captured, at the client's request.
-    ///
-    /// The stream is rebuilt for the new source while the video connection is left alone, so the
-    /// client sees a new config and keyframe rather than a reconnect. The new source is looked up
-    /// at switch time, so one that has since disappeared fails here rather than at connection time,
-    /// which is why the failure names the source.
-    func applyCaptureSource(_ source: CaptureSource) {
-        guard let coordinator else {
-            // Nothing is being captured, so there is nothing to switch. The request is kept so the
-            // window shows what the client last asked for; a client that has not opened a video
-            // connection yet gets the default source, not this one.
-            record("Capture source requested before any video connection")
-            return
-        }
-
-        Task { [weak self] in
-            do {
-                try await coordinator.switchSource(source)
-                self?.pendingCaptureSource = nil
-            } catch {
-                let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
-                self?.record("Could not switch capture source: \(message)", level: .failure)
-                // **And the Mac stops offering it.** A source the filter cannot be built for is a
-                // source that is not there: the row the phone is looking at is a window that has
-                // closed, or one ScreenCaptureKit lists and will not render, and without this the
-                // row stays in the picker for as long as the session lasts and every press on it is
-                // a press that does nothing at all. Windows and applications only: a display is
-                // what a phone needs whatever state it is in. See
-                // ``CaptureSourceResolver/markUncapturable(_:)``.
-                if let capture = error as? CaptureError, case .sourceUnavailable = capture {
-                    switch source {
-                    case .window, .application: self?.coordinator?.markUncapturable(source)
-                    case .display, .mosaic: break
-                    }
-                }
-            }
-        }
-    }
-
-    func unpairAll() {
-        guard let pins else { return }
-        if pins.removeAll() {
-            pairedClientIDs = []
-            // The names go with the pins: keeping them would leave a device list naming phones it
-            // will never let back in.
-            clientNames = [:]
-            UserDefaults.standard.removeObject(forKey: Self.clientNamesKey)
-            // And the tokens, for the same reason and one more: a token is what lets this Mac reach
-            // a phone with no session up, so a device that is no longer paired would go on being
-            // told about terminals it can no longer open. See ``PushTokenStore``.
-            PushTokenStore.shared.forgetAll()
-            record("All paired clients removed")
-        } else {
-            record("Could not clear paired clients", level: .failure)
-        }
-    }
-
-    /// Revokes one phone without disturbing the others.
-    ///
-    /// Go through the server while it is running so an already-connected phone is disconnected as
-    /// well as removed from the Keychain. Before startup there cannot be an active session, so the
-    /// store itself is sufficient.
-    /// Drops a phone's connection and leaves it trusted.
-    ///
-    /// Not forgetful: the pin stays, so the same phone reconnects on its own and no pairing code is
-    /// needed. For the case where the session should stop now, because someone else wants the
-    /// screen or the wrong device is attached.
-    func disconnect(clientID: String) {
-        server?.disconnect(clientID: clientID)
-        record("Disconnected \(displayName(for: clientID))")
-    }
-
-    func unpair(clientID: String) {
-        guard let pins else { return }
-        let removed = server?.unpair(clientID: clientID) ?? pins.remove(peerID: clientID)
-        guard removed else {
-            record("Could not remove \(displayName(for: clientID))", level: .failure)
-            return
-        }
-
-        let name = displayName(for: clientID)
-        pairedClientIDs.removeAll { $0 == clientID }
-        connectedClients.removeAll { $0.id == clientID }
-        clientNames.removeValue(forKey: clientID)
-        UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
-        // The token goes with the pin. Kept, it would let a phone this Mac no longer trusts be
-        // reached with no session up. See ``PushTokenStore``.
-        PushTokenStore.shared.forget(clientID: clientID)
-        record("Forgot \(name)")
-    }
-
-    func refreshPermissions() {
-        permissions.refresh()
-    }
-
-    // MARK: - Event handling
-
-    private func apply(_ event: HostEvent) {
-        switch event {
-        case .listening(let port):
-            status = .listening(port: port)
-            record("Listening on port \(port) as “\(deviceName)”")
-
-        case .stopped:
-            status = .idle
-            record("Stopped listening")
-
-        case .clientConnected(let clientID, let clientName, let detail):
-            if !isConnected(clientID) {
-                connectedClients.append(
-                    ConnectedClient(id: clientID, name: clientName, since: Date())
-                )
-            }
-            // Recorded before anything is shown, so the name outlives the connection that carried
-            // it. Assigned rather than only inserted, because a client may rename itself.
-            if clientNames[clientID] != clientName {
-                clientNames[clientID] = clientName
-                UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
-            }
-            // Before the source the phone names in its hello is looked up: a window moved or
-            // resized while nobody was connected would otherwise be captured where it used to be.
-            coordinator?.forgetWindowListIfStale()
-            beginSession(id: clientID, name: clientName)
-            startScreenWatch()
-            textFocusWatcher.start { [weak server] focus in server?.broadcastTextFocus(focus) }
-            record("\(clientName) connected · \(detail)")
-            // A client that has just arrived has no source list, so it is sent one now rather than
-            // waiting for an application to launch. It is also the first read of the catalogue,
-            // which is what needs Screen Recording permission: a refusal here is logged and ignored,
-            // and the video path reports it properly if the client then asks for a source.
-            //
-            // Immediate, because this client is not a change to the list: it is waiting to ask for
-            // the source it was last on, and the interval between pushes would hold that up for as
-            // long as three seconds while this Mac captures a display nobody asked for.
-            coordinator?.refreshCatalog(immediate: true)
-            acquireSleepAssertion()
-            // Somebody is using this Mac: the schedule's window is open whatever the clock says,
-            // and a release the user asked for on the last disconnect is spent. See
-            // ``keepAwakeIsInForce``.
-            Task { await rearmKeepAwake() }
-
-        case .clientDisconnected(let clientID, let clientName):
-            connectedClients.removeAll { $0.id == clientID }
-            endSession(id: clientID)
-            // The last one out stops the watch. Anybody still attached keeps being told.
-            if connectedClients.isEmpty {
-                stopScreenWatch()
-                textFocusWatcher.stop()
-            }
-            record("\(clientName) disconnected")
-            // The moment nothing is left that can release what this client was holding: a client
-            // that dies mid-chord or mid-drag takes its key-up with it, and the Mac would sit
-            // holding ⌘ or a mouse button until a real one arrived from the keyboard. Only on the
-            // last client, because the held state is the Mac's, so releasing it while another
-            // client is connected would drop a modifier that client is holding for real.
-            if connectedClients.isEmpty {
-                input.releaseAll()
-                releaseSleepAssertion()
-                setPrivacyMode(false)
-                // **The moment this feature exists for.** The last client has gone, and whatever
-                // the keep-awake switches are holding is now being held for nobody. The schedule
-                // gets its say first: outside its window this is where the Mac is let go, and the
-                // prompt would be asking about something already done.
-                Task { @MainActor in
-                    await applyKeepAwakeSchedule()
-                    // Asked only if something is *still* being held. Outside the schedule's window
-                    // the line above has just let the Mac go, and a prompt offering to do what has
-                    // already been done is a prompt nobody can answer sensibly.
-                    if keepAwakeIsInForce, preventLidCloseSleep || keepRunningWithLidClosed {
-                        scheduleKeepAwakePrompt()
-                    }
-                }
-                // **And the displays this phone asked for go with it.** A display made at a
-                // client's request is that client's, and it is temporary by construction: left
-                // behind it is a screen the Mac's own user did not make, cannot take away from the
-                // app that made it, and finds again every time they look at the display list. This
-                // is the same sentence as the three lines above — nothing is left that can release
-                // what the client was holding, so this releases it — and it is here rather than on
-                // a command from the phone because a phone that quits, is killed or crashes sends
-                // nothing at all. The cost is a client that drops and reconnects losing its extra
-                // displays with the connection; they are three taps to make again, and the
-                // arrangement they were carrying is a thing the phone remembers how to ask for.
-                removeAllManagedVirtualDisplays()
-            }
-
-        case .pairingCode(let code, let clientName, let isRemote):
-            pairing = PairingPrompt(clientName: clientName, code: code, isRemote: isRemote)
-            record(isRemote
-                   ? "Pairing request from \(clientName), over the relay"
-                   : "Pairing request from \(clientName)")
-            // The code is not logged: the unified log is readable by any local process, and the
-            // digits are already on screen for the user to compare.
-            hostLog.notice("pairing code displayed for \(clientName, privacy: .public)")
-
-        case .pairingCompleted(let clientName, let accepted):
-            pairing = nil
-            lastOutcome = PairingOutcome(clientName: clientName, accepted: accepted)
-            pairedClientIDs = pins?.peerIDs ?? []
-            record(accepted ? "Paired with \(clientName)" : "Pairing with \(clientName) rejected")
-
-        case .failed(let message):
-            record(message)
-            // A failure while listening is worth surfacing as status; a per-connection one is not,
-            // or one bad client would blank out a healthy listener.
-            if !status.isListening {
-                status = .failed(message)
-            }
-        }
-    }
-
-    /// What to tell the user about how a desktop switch reached its Space.
-    ///
-    /// **Two of these were silent, and silence is what made them expensive to find.** The route
-    /// the host falls back to moves the Space without running the Dock's window show/hide cycle, so
-    /// the display can go on compositing the desktop that was there before, with the arriving one's
-    /// windows drawn over it. On the phone that reads as a tile that shows two desktops, or as a
-    /// picture that has frozen, and it clears the moment anything on the Mac moves because the
-    /// encoder then has a frame to send. Nothing said why, so the report on the Mac said the switch
-    /// was accepted, which it was.
-    ///
-    /// The shortcut one is the case this was written for: `AXIsProcessTrusted()` and the symbol
-    /// both say the chord route is available, so the host believes it is, and the only thing that
-    /// knows otherwise is a chord that does not move anything. Measured on this Mac on 2026-09-25:
-    /// entries 79 and 80 of `com.apple.symbolichotkeys`, "Move left a space" and "Move right a
-    /// space", were enabled with no key bound, and every switch took the fallback.
-    private func report(spaceSwitchRoute route: SpaceSwitchRoute, index: Int, display: UInt32) {
-        switch route {
-        case .chord:
-            record("Desktop \(index) on display \(display) accepted")
-        case .direct(.chordDidNotLand):
-            record(
-                """
-                Desktop \(index) switched, but the picture may still show the one before it. This \
-                Mac's "Move left a space" and "Move right a space" shortcuts have no keys set, so \
-                the switch has no transition to follow. Turn them on in System Settings > Keyboard \
-                > Keyboard Shortcuts > Mission Control.
-                """,
-                level: .warning
-            )
-        case .direct(.pointerElsewhere):
-            record(
-                "Desktop \(index) switched. Move the pointer onto this display first for the picture to follow it.",
-                level: .warning
-            )
-        case .direct(.noPermission):
-            record(
-                "Desktop \(index) switched. Grant Peering the Accessibility permission for the picture to follow it.",
-                level: .warning
-            )
-        case .direct(.noApproach):
-            record("Desktop \(index) on display \(display) accepted")
-        case .refused:
-            record(
-                "Desktop \(index) on display \(display) refused by the window server",
-                level: .warning
-            )
-        }
-    }
-
-    func record(_ message: String, level: HostLogEntry.Level = .info) {
-        // `.public` because these lines are the diagnostics, and the one sensitive value, the
-        // pairing code, is deliberately never in them.
-        hostLog.notice("\(message, privacy: .public)")
-        log.append(HostLogEntry(level: level, message: message))
-        if log.count > Self.maxEvents {
-            log.removeFirst(log.count - Self.maxEvents)
-        }
-    }
-
-    /// Darkens every display this Mac can be dark, and covers the rest.
-    ///
-    /// Two mechanisms, because neither reaches every display. A brightness write is the good one
-    /// where it holds: nothing is drawn over the picture, so the phone's stream is untouched by
-    /// construction, and the Mac's own brightness-up key still brings the panel back. A display
-    /// that will not take the write is covered instead by a window that the window server keeps
-    /// out of any capture, which reaches the picture the same way and survives a monitor whose
-    /// own firmware refuses what macOS hands it.
-    private func setPrivacyMode(_ enabled: Bool) {
-        if enabled {
-            guard !privacyModeEnabled else { return }
-            // Before the cover goes up, so a display that arrives while it is up is not missed:
-            // nothing else tells the host that the Mac's display list changed.
-            observeDisplayChanges(true)
-            privacyModeEnabled = true
-            applyPrivacyCover()
-        } else {
-            guard privacyModeEnabled else {
-                // Also repairs a persisted level after an interrupted run.
-                displayPrivacy.restore()
-                return
-            }
-            privacyModeEnabled = false
-            observeDisplayChanges(false)
-            displayPrivacy.restore()
-            privacyCurtain.lift()
-            record("Privacy Mode off; displays restored")
-        }
-    }
-
-    /// Dims every display that takes a brightness write, covers the ones that do not, and says
-    /// what it managed.
-    ///
-    /// Called again for a display attached during a session, which is why it works from the
-    /// display list rather than from anything remembered: a display nobody has hidden is exactly
-    /// what this feature promises not to have.
-    private func applyPrivacyCover() {
-        let dimmed = (try? displayPrivacy.enable()) ?? []
-        let covered = privacyCurtain.cover(
-            DisplayPrivacyController.activeDisplayIDs().filter {
-                // A display this host made itself has no panel in front of anyone, so there is
-                // nothing in front of it to cover.
-                !dimmed.contains($0) && VirtualDisplay.name(for: $0) == nil
-            }
-        )
-
-        let total = dimmed.count + covered.covered.count
-        guard total > 0 else {
-            let reason = covered.refused.first?.reason ?? "no display here takes a brightness change"
-            record("Could not enable Privacy Mode: \(reason)", level: .failure)
-            server?.broadcastNotice(NoticePayload(
-                message: "Privacy Mode could not darken this Mac's displays.",
-                symbol: "display.trianglebadge.exclamationmark"
-            ))
-            return
-        }
-        // Said as what happened rather than as a success: a Mac with one third-party monitor dims
-        // nothing at all and is still private, and a Mac where the cover failed is not.
-        record("""
-            Privacy Mode on \(total) display\(total == 1 ? "" : "s") \
-            (\(dimmed.count) dimmed, \(covered.covered.count) covered)
-            """)
-        reportUncovered(covered.refused)
-    }
-
-    /// Says, and tells the phone, about a display Privacy Mode left visible.
-    ///
-    /// Reached twice for one enable: once for a display no cover could be put on at all, and once
-    /// from ``DisplayPrivacyCurtain`` for a cover that had to come back down, which the window
-    /// server only answers after the call that put it up has returned.
-    private func reportUncovered(_ refusals: [DisplayPrivacyCurtain.Refusal]) {
-        guard !refusals.isEmpty else { return }
-        for refusal in refusals {
-            record("Privacy Mode could not cover \(refusal.display): \(refusal.reason)", level: .failure)
-        }
-        server?.broadcastNotice(NoticePayload(
-            message: refusals.count == 1
-                ? "One of this Mac's displays is still visible: Privacy Mode could not cover it."
-                : "\(refusals.count) of this Mac's displays are still visible: Privacy Mode could not cover them.",
-            symbol: "display.trianglebadge.exclamationmark"
-        ))
-    }
-
-    /// Watches the display list for as long as there is a cover to keep up to date.
-    private func observeDisplayChanges(_ observing: Bool) {
-        guard observing != (displayObserver == nil) else { return }
-        if observing {
-            displayObserver = NotificationCenter.default.addObserver(
-                forName: NSApplication.didChangeScreenParametersNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                // Hopped rather than assumed: keeping the covers up to date is main-actor work,
-                // and the queue this notification arrives on is not a promise this file can check.
-                Task { @MainActor [weak self] in
-                    guard let self, self.privacyModeEnabled else { return }
-                    self.applyPrivacyCover()
-                }
-            }
-        } else if let observer = displayObserver {
-            NotificationCenter.default.removeObserver(observer)
-            displayObserver = nil
-        }
-    }
 
     /// The whole log as text, for the window's copy button.
     var logText: String { log.plainText }

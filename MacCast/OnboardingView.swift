@@ -19,11 +19,11 @@ import UIKit
 struct OnboardingView: View {
     var onFinish: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(StoreManager.self) private var store
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    @Environment(StoreManager.self) var store
 
-    @State private var index = 0
+    @State var index = 0
     /// How much room the pages leave above their words, which is how tall the device is drawn.
     ///
     /// Reported by the pages themselves rather than worked out here, because it is whatever is left
@@ -31,20 +31,20 @@ struct OnboardingView: View {
     /// is one line on every page and the words are held to ``tallestWords`` on every page — so five
     /// views writing to one value is one answer rather than a race. When it was not true the race
     /// was the least of it: the device simply came out a different size on the fourth page.
-    @State private var stageHeight: CGFloat = 0
+    @State var stageHeight: CGFloat = 0
     /// The tallest title-and-body block on any page, which is what every page's words are held to.
     ///
     /// Measured rather than written down — see ``bodyHeight`` for what the written-down version
     /// cost — and measured all at once rather than page by page, for the reason ``wordsRuler``
     /// gives. The largest ever seen rather than the last one seen, because it is written from more
     /// than one place and a plain assignment would be decided by whichever wrote last.
-    @State private var tallestWords: CGFloat = 0
+    @State var tallestWords: CGFloat = 0
     /// Whether the current page's contents have arrived, or are on their way in.
     ///
     /// One flag for the whole tour rather than one per page, and it is only ever read by the page
     /// that is on screen — see ``pageView(_:at:)``. Off-screen pages answer `true` regardless, so
     /// that the page being swiped away never empties itself in front of the user on its way out.
-    @State private var contentVisible = false
+    @State var contentVisible = false
     /// The plan the last page is pointed at, or `nil` for the free one.
     ///
     /// **Opens on the cheapest rung that costs anything, which is neither of the two defaults this
@@ -53,22 +53,22 @@ struct OnboardingView: View {
     /// opened on free next, which fixed the pitch and left the free plan as the only control on the
     /// page shaped like the way forward. Free is a row of its own one tap below and the Skip in the
     /// corner is the other way past it, so the biggest button here is the one that buys something.
-    @State private var chosen: StoreManager.Tier? = .relay
+    @State var chosen: StoreManager.Tier? = .relay
 
     /// How often this page offers to bill. Opens on monthly so the lower number is the first one
     /// read; the yearly is one tap away and the switch shows what it saves.
-    @State private var period: BillingPeriod = .monthly
+    @State var period: BillingPeriod = .monthly
 
     /// Whether the first page's download address has just been copied, which is what turns the
     /// clipboard into a tick for a moment. See ``copyAddress``.
-    @State private var addressCopied = false
+    @State var addressCopied = false
 
     /// What the free row says, built from the number the relay actually meters.
     ///
     /// Read off ``RelayPlan`` for the reason every other allowance claim in the app is: "half an
     /// hour" typed onto a screen beside a server configured for one hour is the drift that
     /// turns a promise into a support email.
-    private static var freeLine: String {
+    static var freeLine: String {
         "\(RelayPlan.free.allowanceSpelling.capitalized) of relay a day, on one Mac"
     }
 
@@ -80,9 +80,9 @@ struct OnboardingView: View {
     /// the number that was meant to be holding it and left that one page's stage a different height
     /// from the rest. Left here as a floor so that the first layout pass, before anything has been
     /// measured, starts somewhere sane.
-    private static let bodyHeight: CGFloat = 124
+    static let bodyHeight: CGFloat = 124
 
-    private static let pages: [Page] = [
+    static let pages: [Page] = [
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppMac"),
             title: "Install it once",
@@ -194,7 +194,7 @@ struct OnboardingView: View {
     /// The phone layout is intentionally kept as the original implementation. A narrow iPad
     /// window therefore behaves like an iPhone instead of trying to squeeze a two-column layout
     /// into Split View.
-    private var compactWidthBody: some View {
+    var compactWidthBody: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
             light
@@ -235,7 +235,7 @@ struct OnboardingView: View {
     /// The stage and copy each get a real column rather than letting the phone grow to consume
     /// every point an iPad offers. The pager still owns the entire surface, so swiping, page
     /// animation, the plan choice, and the fixed actions work exactly as they do on iPhone.
-    private var regularWidthBody: some View {
+    var regularWidthBody: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
             light
@@ -262,7 +262,7 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder
-    private func regularWidthPage(_ page: Page, at offset: Int) -> some View {
+    func regularWidthPage(_ page: Page, at offset: Int) -> some View {
         let here = offset == index
         let shown = here ? contentVisible : true
 
@@ -278,7 +278,7 @@ struct OnboardingView: View {
     ///
     /// Text leads on the left, in reading order, with the device it describes beside it rather
     /// than in front of it — see ``regularWidthStage``, which mirrors this column.
-    private func regularWidthDevicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+    func regularWidthDevicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
         HStack(spacing: 56) {
             VStack(alignment: .leading, spacing: 22) {
                 heading(page.title, lit: lit)
@@ -314,7 +314,7 @@ struct OnboardingView: View {
 
     /// Plans stay a readable column rather than expanding each choice across the iPad. The list
     /// keeps its own scrolling, which also makes this fit short landscape and Stage Manager sizes.
-    private func regularWidthPlansPage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+    func regularWidthPlansPage(_ page: Page, shown: Bool, lit: Bool) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             heading(page.title, lit: lit)
                 .opacity(shown ? 1 : 0)
@@ -342,7 +342,7 @@ struct OnboardingView: View {
 
     /// The shared iPad stage is capped in both dimensions. This is the key difference from the
     /// compact layout: extra canvas becomes breathing room, not a billboard-sized phone.
-    private var regularWidthStage: some View {
+    var regularWidthStage: some View {
         GeometryReader { proxy in
             if !isLast {
                 let columnWidth = max((proxy.size.width - 152) / 2, 1)
@@ -388,7 +388,7 @@ struct OnboardingView: View {
     /// to the tallest page's so that the box comes out the same height on all five. The sixth page
     /// is a list, and none of that is true of a list.
     @ViewBuilder
-    private func pageView(_ page: Page, at offset: Int) -> some View {
+    func pageView(_ page: Page, at offset: Int) -> some View {
         // The page being looked at animates; every other page is simply in place, so that the one
         // leaving during a button-led change keeps its contents while it slides out.
         let here = offset == index
@@ -416,7 +416,7 @@ struct OnboardingView: View {
     /// the body's, so the hole it left was the hole that was always there. The heading is at the
     /// top now, the switch is under it, and the list takes everything that is left: the room the
     /// heading was holding open is the room the list scrolls in.
-    private func plansPage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+    func plansPage(_ page: Page, shown: Bool, lit: Bool) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             heading(page.title, lit: lit)
                 .opacity(shown ? 1 : 0)
@@ -446,7 +446,7 @@ struct OnboardingView: View {
     /// is the whole of what makes a screen look like one where money is about to change hands, and
     /// "strictly not required" is a bad bet when being wrong costs a rejection and being right
     /// costs a row of caption text.
-    private var legalLinks: some View {
+    var legalLinks: some View {
         HStack(spacing: 18) {
             Link("Privacy Policy", destination: Legal.privacy)
             Link("Terms of Use", destination: Legal.terms)
@@ -462,7 +462,7 @@ struct OnboardingView: View {
     }
 
     /// Every other page: the box the device is drawn in, and the words under it.
-    private func devicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
+    func devicePage(_ page: Page, shown: Bool, lit: Bool) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             // The stage: everything above the title, and as tall as the page can spare.
             //
@@ -528,530 +528,6 @@ struct OnboardingView: View {
         .padding(.bottom, 6)
     }
 
-    // MARK: - The stage
-
-    /// The five pages with devices on them, their words laid out at once and thrown away, so that
-    /// the tallest of them can size every one of their words blocks.
-    ///
-    /// **The plans page is not one of them.** It is the one page with no device to size, so it is
-    /// the one page whose words are not held to anything; measuring it here would let a long
-    /// heading it does not have to answer for go into the height the other five are held to.
-    ///
-    /// This is what makes the device one device. Every page holds its words to the tallest block any
-    /// page has, and the tallest block is a fact about the whole tour — which the pager will not
-    /// tell you, because a page style `TabView` builds the page you are on and its neighbours and
-    /// no further. Measuring the pages as they are visited is measuring them one at a time: the
-    /// number grows every time the tour turns and the device shrinks with it, which looks exactly
-    /// like a device that is a different size on every page, and was. Five blocks in one stack is
-    /// the whole answer on the first frame, without waiting for the fourth page to be built.
-    ///
-    /// It is a background rather than a member of the layout, so it costs the screen nothing but the
-    /// measurement, and it is hidden rather than removed because a view that is not laid out has no
-    /// height to report.
-    ///
-    /// **Everything a page draws goes in here too, and the download row is the proof.** A page whose
-    /// words are taller than this ruler believes them to be is a page that pushes its own contents
-    /// past the block sized to hold them, which is the same fault ``bodyHeight`` describes from the
-    /// other side: the device is sized from the room the words leave, so the ruler being short is
-    /// the device being wrong on every page.
-    /// The pages whose words are held to the tallest of them, which is every page but the plans.
-    ///
-    /// Asked as a question about the content rather than written down as a range, so that adding a
-    /// page without a device to it later cannot quietly inherit a rule that has nothing to say
-    /// about it.
-    private static var measuredPages: [Page] {
-        Self.pages.filter { $0.content.wordsAreHeld }
-    }
-
-    private var wordsRuler: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(Array(Self.measuredPages.enumerated()), id: \.offset) { _, page in
-                VStack(alignment: .leading, spacing: 18) {
-                    Text(page.title)
-                        .font(DisplayFont.display(.largeTitle))
-                        .tracking(-1)
-
-                    if page.content.wordsAreHeld {
-                        Text(page.body)
-                            .font(.subheadline)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    if case .mac = page.device {
-                        downloadLink
-                    }
-                }
-            }
-        }
-        // The pages' own padding, so that every body here wraps at the width it wraps at there.
-        .padding(.horizontal, 22)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
-            tallestWords = max(tallestWords, height)
-        }
-        .hidden()
-        .accessibilityHidden(true)
-        // Drawn for its height and nothing else, and since the download row it now measures is a
-        // link, it has to be told: a hidden view is still a view that takes taps, and five of these
-        // stacked behind the pages would be five invisible targets on the screen it is measuring.
-        .allowsHitTesting(false)
-    }
-
-    /// The way off the first page and onto the Mac, as a row under its words.
-    ///
-    /// **A row rather than an address inside a sentence.** The first page is the only place in the
-    /// app that tells somebody where the other half of the product comes from, and it used to say
-    /// it in the middle of a paragraph: nothing to press, nothing to copy, and an address set in the
-    /// same grey as the prose around it. The address is the whole of the instruction, so it is what
-    /// this row is and the largest type on the page after the title.
-    ///
-    /// The row is the target rather than the words in it, and it is drawn on ``rowSurface()``, which
-    /// is the one filled surface in the app and the one shape that says a thing can be pressed
-    /// without a button having to. The arrow points out of the app, which is what the link does: the
-    /// Mac app is a download rather than an App Store install, so the tap leaves for a browser.
-    ///
-    /// Not a button of its own beside the primary one at the bottom: the tour's way forward is one
-    /// control in one place, and this is a fact about the page rather than the way to leave it.
-    ///
-    /// **Two controls in one row, and the trailing one is a clipboard.** The address is as often
-    /// something to say out loud or paste into a message as it is something to open, and this screen
-    /// is the only place in the app that knows it: an address on a phone with no way to copy it
-    /// means reading it off the display and typing it into something else, which is the one thing
-    /// this row exists to avoid. So the row opens and the button copies, as two labelled targets
-    /// rather than one target that guesses.
-    ///
-    /// The whole path is written out rather than the host alone, because the host alone is not the
-    /// address anybody types: `getpeering.app` alone lands on a page one tap further from the file,
-    /// and a copy button that copies something other than what is written above it is worse than no
-    /// copy button at all.
-    private var downloadLink: some View {
-        HStack(spacing: 4) {
-            Link(destination: PeeringSite.download) {
-                HStack(spacing: 12) {
-                    Text("getpeering.app/download")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(ColorPalette.ink)
-                        // One line at every text size, because the address is the one string here
-                        // that cannot be wrapped: broken across two lines it stops looking like
-                        // something to type. It shrinks instead, which it has room to do.
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "arrow.up.right")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 16)
-                .padding(.trailing, 4)
-                .padding(.vertical, 13)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(RailButtonStyle(scale: 0.98))
-            .accessibilityLabel("Download Peering for Mac from getpeering.app")
-
-            copyAddress
-        }
-        .padding(.trailing, 10)
-        .rowSurface()
-    }
-
-    /// The clipboard half of the row above.
-    ///
-    /// It answers in place rather than off to the side, as the diagnostics card's copy button does:
-    /// the tick appears where the tap landed, which is the only place a user who has just tapped
-    /// will look, and it goes back on its own so that the row is not left claiming to have copied
-    /// something an hour later.
-    private var copyAddress: some View {
-        Button {
-            UIPasteboard.general.string = "getpeering.app/download"
-            addressCopied = true
-            Task {
-                try? await Task.sleep(for: .seconds(2))
-                addressCopied = false
-            }
-        } label: {
-            Image(systemName: addressCopied ? "checkmark" : "doc.on.doc")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(addressCopied ? ColorPalette.ink : .secondary)
-                // A 44-point target around a 17-point glyph. The row it sits in is a comfortable
-                // one to press anywhere on, and this is the control in it that must not be.
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.94))
-        .accessibilityLabel(addressCopied ? "Address copied" : "Copy the download address")
-    }
-
-    /// The room above the words, holding the machines for the whole tour.
-    ///
-    /// This used to be a page's own business — five pages, five frames — and five frames is what it
-    /// looked like: pressing Next slid one phone off the left of the screen while another slid in
-    /// from the right, shrinking as it came, so the object the tour is about left and returned on
-    /// every page. A device that does that is not one device. Drawn here instead, once, and what
-    /// moves between pages is what it is holding.
-    ///
-    /// **One stage, and not one shape.** The first page is about there being two apps, so what it
-    /// holds is the pair — the Mac with the phone in front of it — and the other four hold the phone
-    /// alone, which is why the pair is solved from the same box as the phone and not given a stage
-    /// of its own. The box has to fit the tallest of them, and it does, because they are sized from
-    /// it rather than against each other.
-    ///
-    /// The last page has nothing to hold. The device is taken away rather than kept and refilled,
-    /// and the three plans are that page's own content rather than something drawn in here: they
-    /// are a list to press, and the same rows inside a phone would read as a picture of a screen
-    /// rather than as something to touch. So on that page the stage draws nothing at all and the
-    /// page lays itself out from the top.
-    ///
-    /// **Two machines and one of each, which is what lets the phone grow.** The phone is drawn once
-    /// for the whole tour (see ``StageLayout`` for what that replaced), and the Mac is drawn beside
-    /// it on the one page that has one. Between the first page and the second the Mac fades and the
-    /// phone, which has been standing in front of it at ``MacAndPhoneMetrics/phoneScreen`` of the
-    /// display, travels to the middle of the stage and grows to fill it: the same drawing at a new
-    /// scale, rather than one phone leaving and a larger one arriving under cover of a cross-fade.
-    private var stage: some View {
-        GeometryReader { proxy in
-            let laid = stageLayout(in: proxy.size)
-
-            ZStack {
-                // The Mac, on the page whose whole argument it is: the app is a second download,
-                // and the phone is holding the reason to go and get it.
-                if case .mac = Self.pages[index].device {
-                    MacDrawing(displayHeight: laid.macDisplay ?? 1) { deviceScreen }
-                        .offset(laid.macOffset)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-
-                // **The one device the tour is about**, and it is given a shorter departure than
-                // everything else on this screen. The last page is a list to read rather than a
-                // picture to look at, and a phone that spends the whole page turn fading out of the
-                // corner of an eye is a phone that is still there while the reader has started
-                // reading. It goes in a seventh of a second, which reads as the device having been
-                // taken away rather than as one that is leaving.
-                if !isLast {
-                    PhoneStage { phoneScreen }
-                        .scaleEffect(laid.phoneScale, anchor: .center)
-                        .offset(laid.phoneOffset)
-                        .allowsHitTesting(false)
-                        .transition(.opacity.animation(.easeOut(duration: 0.14)))
-                }
-            }
-            // The stage fills its box rather than sizing to what is in it, because a `GeometryReader`
-            // places its content at the top leading corner: without this the machines would be
-            // centred in a box the size of themselves and then pinned to the corner of the real one.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(height: stageHeight)
-        .padding(.horizontal, 22)
-        // One animation for the whole stage, because a page turn is one event: the Mac leaving, the
-        // phone growing and the picture inside it dissolving all start on the same frame or the
-        // movement reads as three things happening at once. `settle` rather than a curve, because
-        // the phone is an object with weight being moved rather than a fade, and it is the only
-        // thing on this screen that a page turn makes *travel*, so its arrival is the page turn.
-        .animation(Motion.settle, value: index)
-    }
-
-    /// Where the stage's two machines stand, in the box it has been given.
-    ///
-    /// **Solved rather than laid out, and that is the whole of what makes the phone grow.** The
-    /// phone used to be laid out twice: once as a child of the pair's `HStack` on the first page, at
-    /// ``MacAndPhoneMetrics/phoneScreen`` of the Mac's display, and once alone and centred on the
-    /// other four. Two layouts is two objects, and the cross-fade between them was covering for the
-    /// fact that there was nothing continuous to watch: pressing Next slid one phone away and a
-    /// second, larger one in, and the tour's subject left the screen and came back on every page it
-    /// moved to. One phone, drawn at the size it is when it is alone and moved to wherever the page
-    /// wants it, is a phone that grows.
-    ///
-    /// The numbers are the pair's own, read in the units ``MacAndPhoneMetrics`` already writes them
-    /// in: fractions of the Mac's display width. ``MacAndPhoneMetrics/displayHeight(in:)`` returns
-    /// the display height that makes the pair fit the box, the display's width follows from its
-    /// aspect, and the rest is the `HStack`'s arithmetic written out: two children bottom-aligned
-    /// on one floor, the phone standing over the Mac's right-hand edge by
-    /// ``MacAndPhoneMetrics/overlap`` of the display, the Mac lifted off that floor by
-    /// ``MacAndPhoneMetrics/macLift`` because of the two the near one is the low one.
-    ///
-    /// The box's middle is the origin of both offsets, so the standalone phone's offset is zero:
-    /// that is what "centred" means and it is why only the pair needs arithmetic.
-    private func stageLayout(in box: CGSize) -> StageLayout {
-        // The phone on its own, which is the size the drawing is built at. It has to be: the pair's
-        // phone is the *smaller* of the two, so building at the pair's size and scaling up would
-        // leave every page after the first rendering a photograph of a phone at 120% of what
-        // somebody drew.
-        let alone = PhoneStageMetrics.screenHeight(in: box) * PhoneStageMetrics.aspect
-
-        var laid = StageLayout()
-        guard case .mac = Self.pages[index].device else { return laid }
-
-        let parts = MacAndPhoneMetrics.parts
-        let displayHeight = MacAndPhoneMetrics.displayHeight(in: box)
-        let display = displayHeight * MacStageMetrics.aspect
-
-        // The pair, in points.
-        let macWidth = display * parts.macWidth
-        let macHeight = display * parts.macHeight
-        let macColumn = display * parts.macColumn
-        let pairWidth = display * parts.width
-        let pairHeight = display * parts.height
-
-        // The Mac is the pair's left-hand child, standing on the floor the pair's height puts under
-        // it. Its drawing sits at the top of the column it stands in, which is that column less the
-        // lift the pair gives it, so what is measured from the box's middle has to come back up by
-        // the difference between the column and the drawing.
-        laid.macDisplay = displayHeight
-        laid.macOffset = CGSize(
-            width: -pairWidth / 2 + macWidth / 2,
-            height: pairHeight / 2 - macColumn + macHeight / 2
-        )
-
-        // And the phone is the right-hand one, bottom-aligned, drawn over the Mac's edge.
-        laid.phoneScale = display * MacAndPhoneMetrics.phoneScreen / alone
-        laid.phoneOffset = CGSize(
-            width: pairWidth / 2 - display * parts.phoneWidth / 2,
-            height: pairHeight / 2 - display * parts.phoneHeight / 2
-        )
-        return laid
-    }
-
-    /// Where the stage's machines stand on the page being shown, solved from the box it has.
-    ///
-    /// A value rather than two sets of views, because the phone is one of them: everything the tour
-    /// draws for four of its six pages is a scale and an offset applied to a single drawing.
-    private struct StageLayout {
-        /// The Mac's display height, or `nil` on every page but the first. Read by ``MacDrawing``,
-        /// which is only ever built when this is not `nil`. The fallback in the stage is there to
-        /// keep the arithmetic total rather than to be used.
-        var macDisplay: CGFloat?
-        /// Where the Mac's drawing sits, measured from the middle of the box.
-        var macOffset: CGSize = .zero
-
-        /// The phone, against the size it is drawn at. One on the five pages it is alone.
-        var phoneScale: CGFloat = 1
-        var phoneOffset: CGSize = .zero
-    }
-
-    /// What is inside the frame, whichever machine the frame is.
-    ///
-    /// Keyed by the page so the picture inside the frame cross-dissolves as the words slide. One
-    /// frame that swaps its contents reads as one device; one frame whose contents change instantly
-    /// reads as a cut between two clips.
-    private var deviceScreen: some View {
-        screen(for: index)
-            .id(index)
-            .transition(.opacity)
-    }
-
-    /// What the phone is holding, which is not always what the page is about.
-    ///
-    /// The first page is about the Mac app, and the phone standing in front of it is holding *this*
-    /// app's own first screen (see ``companionScreen(_:)``). Every other page puts the page's own
-    /// picture in the phone, which is what ``deviceScreen`` is.
-    ///
-    /// The two are the same picture on the first page and the second, which is worth knowing before
-    /// changing either: the pair's companion and the second page's screenshot are both `AppConnect`,
-    /// so the picture inside the frame does not change as the phone grows out of the pair. The
-    /// reader is watching one app's screen all the way from the small phone to the large one.
-    @ViewBuilder
-    private var phoneScreen: some View {
-        if case .mac(let companion) = Self.pages[index].device {
-            companionScreen(companion)
-        } else {
-            deviceScreen
-        }
-    }
-
-    /// What the tablet frame holds on regular-width layouts.
-    ///
-    /// Prefers the page's `tabletScreenshot` when one exists, and falls back to the phone screenshot
-    /// so that a page without a tablet capture yet is not left with a glyph on iPad while it has a
-    /// real picture on iPhone.
-    @ViewBuilder
-    private var tabletScreen: some View {
-        switch Self.pages[index].content {
-        case .feature(let icon, let screenshot, let tabletScreenshot):
-            picture(icon: icon, screenshot: tabletScreenshot ?? screenshot)
-                .id(index)
-                .transition(.opacity)
-        case .notification:
-            NotificationBanner()
-                .id(index)
-                .transition(.opacity)
-        case .plans:
-            Color.black
-        }
-    }
-
-    /// What the device is holding while a given page is on screen.
-    ///
-    /// The frame is the constant and this is the variable, which is the same arrangement the file
-    /// used to describe from the other end: the shape of the app is the same from the first page to
-    /// the last, and each page's picture lands inside it.
-    @ViewBuilder
-    private func screen(for offset: Int) -> some View {
-        switch Self.pages[offset].content {
-        case .feature(let icon, let screenshot, _):
-            picture(icon: icon, screenshot: screenshot)
-
-        case .notification:
-            NotificationBanner()
-
-        case .plans:
-            // Never drawn — the last page takes the device away — but the switch has to answer.
-            Color.black
-        }
-    }
-
-    /// The second picture on the first page: what the phone in front of the Mac is showing.
-    ///
-    /// Not a page's picture, which is why it does not come through ``screen(for:)`` — it is the
-    /// same app the reader is holding, on the screen that asks for a Mac, and it is there to make
-    /// the page's pair read as two ends of one product rather than as a laptop and a phone. Its
-    /// fallback glyph is a phone rather than the Mac's window, because what is missing in that
-    /// case is a picture of *this* app.
-    @ViewBuilder
-    private func companionScreen(_ screenshot: String) -> some View {
-        picture(icon: "iphone", screenshot: screenshot)
-            // Keyed by its own name so it cross-dissolves like every other screen does when the
-            // tour turns a page.
-            .id(screenshot)
-            .transition(.opacity)
-    }
-
-    /// A screenshot, or the glyph that stands in for one that has not been taken yet.
-    ///
-    /// Naming a screenshot before taking it is the ordinary order to work in — the page is written,
-    /// then the picture is made — so this is a state the tour is expected to pass through rather
-    /// than a mistake. The frame still draws, so the page has the same shape as its neighbours, and
-    /// the glyph says which page is waiting for its picture.
-    @ViewBuilder
-    private func picture(icon: String, screenshot: String?) -> some View {
-        if let screenshot, UIImage(named: screenshot) != nil {
-            Image(screenshot)
-                .resizable()
-                .scaledToFill()
-        } else {
-            placeholder(icon)
-        }
-    }
-
-    /// The glyph a frame shows while the page it belongs to has no screenshot to put in it: what
-    /// ``picture(icon:screenshot:)`` falls back to.
-    private func placeholder(_ symbol: String) -> some View {
-        ZStack {
-            Color.black
-
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [.white.opacity(0.13), .clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 62
-                    )
-                )
-
-            Image(systemName: symbol)
-                .font(.system(size: 30, weight: .light))
-                .foregroundStyle(ColorPalette.ink)
-        }
-    }
-
-    /// The three plans, as compactly as they can be told apart.
-    ///
-    /// Rows rather than cards with the full feature lists, because this is not the screen that
-    /// sells them — it is the page that says there is something to decide before the introduction
-    /// is over, at the one moment the user has just been told what the app does. The comparison is
-    /// one tap away and is where the detail belongs; a page of three feature lists inside a swipe
-    /// is a page nobody reads, on a screen that is trying to be finished with.
-    @ViewBuilder
-    private var plans: some View {
-        if store.isPro {
-            // Somebody who has already paid, looking at the tour again from Settings. There is
-            // nothing to sell them, so the page states rather than asks.
-            VStack(spacing: 10) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 40, weight: .light))
-                    .foregroundStyle(ColorPalette.accent)
-
-                Text("You are on Pro")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(ColorPalette.ink)
-
-                Text("Every Mac, relay without a limit, and every update from here on.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } else if store.products.isEmpty {
-            VStack(spacing: 12) {
-                ProgressView().tint(ColorPalette.ink)
-                Text(store.productsUnavailable
-                     ? "The App Store could not be reached. You can choose a plan later in Settings."
-                     : "Loading plans…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } else {
-            VStack(spacing: 10) {
-                BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 10) {
-                        // Free first, because it is the floor the other three are measured from
-                        // rather than a fourth thing on offer.
-                        PlanChoice(
-                            name: "Free",
-                            line: Self.freeLine,
-                            price: "No charge",
-                            recommended: false,
-                            selected: chosen == nil,
-                            select: { chosen = nil }
-                        )
-
-                        ForEach(StoreManager.Tier.allCases) { tier in
-                            PlanChoice(
-                                name: tier.name,
-                                line: tier.tagline,
-                                price: store.priceLabel(for: tier, period: period) ?? "···",
-                                recommended: tier.isRecommended,
-                                selected: chosen == tier,
-                                features: tier.features,
-                                select: { chosen = tier }
-                            )
-                        }
-                    }
-                    .animation(Motion.tap, value: chosen)
-                    .animation(Motion.tap, value: period)
-                }
-                // Three plans with their feature lists are taller than the room the page leaves
-                // them, so the list is cut at both ends of the scroll. A hard cut through the
-                // middle of a card reads as a card that has been sliced, which is the one thing a
-                // list that is scrollable should never look like. The last few points fade into
-                // the backdrop instead, and the same at the top, where the cards pass under the
-                // switch.
-                //
-                // A mask rather than a gradient drawn over the ends: the page already sits on
-                // ``ColorPalette/backdrop``, so fading the content out is fading it to the colour
-                // that is already there, and nothing here has to know what that colour is.
-                .mask {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .black.opacity(0.25), location: 0),
-                            .init(color: .black, location: 0.025),
-                            .init(color: .black, location: 0.95),
-                            .init(color: .clear, location: 1)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
-            }
-        }
-    }
-
     /// A page's title, which is a *name* and is set as one: the display face, negatively tracked,
     /// with the light that crosses the wordmark travelling over it.
     ///
@@ -1065,14 +541,14 @@ struct OnboardingView: View {
     /// price rather than a taste), and it is only drawn on the page being looked at. The `TabView`
     /// builds this page's neighbours, and a sweep running behind two pages nobody can see is three
     /// timelines for one effect.
-    private func heading(_ title: String, lit: Bool) -> some View {
+    func heading(_ title: String, lit: Bool) -> some View {
         Text(title)
             .font(DisplayFont.display(.largeTitle))
             .tracking(-1)
             .sheen(active: lit && !reduceMotion)
     }
 
-    private func motion(delay: Double) -> Animation? {
+    func motion(delay: Double) -> Animation? {
         reduceMotion ? nil : Motion.arrive.delay(delay)
     }
 
@@ -1087,7 +563,7 @@ struct OnboardingView: View {
     /// Sized against the width class rather than left at the phone's numbers everywhere: those
     /// were chosen next to a phone's `.largeTitle` heading, and beside the same heading grown into
     /// an iPad's regular-width column the row read as a phone detail left behind at its own scale.
-    private var indicator: some View {
+    var indicator: some View {
         let isRegular = horizontalSizeClass == .regular
         let dotSize: CGFloat = isRegular ? 8 : 6
         let activeWidth: CGFloat = isRegular ? 32 : 24
@@ -1110,7 +586,7 @@ struct OnboardingView: View {
     /// The contents are taken away for one frame before being animated in, and the frame matters:
     /// setting the flag to `false` and `true` in the same update animates from `true` to `true`,
     /// which is no animation at all and is how this kind of stagger usually ends up doing nothing.
-    private func revealContent() {
+    func revealContent() {
         guard !reduceMotion else {
             contentVisible = true
             return
@@ -1132,7 +608,7 @@ struct OnboardingView: View {
     /// screen on the last one and climbed away from where the landing had left it. With one control
     /// in this stack the button sits at the landing's distance on every page, which is the number
     /// the two screens agree on, and it no longer costs the page above it any room to say so.
-    private var actions: some View {
+    var actions: some View {
         VStack(spacing: 2) {
             WelcomePrimaryButton(
                 title: primaryTitle,
@@ -1145,18 +621,18 @@ struct OnboardingView: View {
         .padding(.top, 8)
     }
 
-    private var isLast: Bool { index == Self.pages.count - 1 }
+    var isLast: Bool { index == Self.pages.count - 1 }
 
     /// Whether the page on screen is offering a plan, which is the last one and only while there
     /// is something left to buy.
-    private var showsPlans: Bool { isLast && !store.isPro }
+    var showsPlans: Bool { isLast && !store.isPro }
 
     /// The button's label, which is the price on the page that has one.
     ///
     /// The price belongs on the button rather than only on the rows above it: those say what each
     /// tier is, and this is the moment the money is decided, so it is the last place the number
     /// can be read before it is spent.
-    private var primaryTitle: String {
+    var primaryTitle: String {
         guard showsPlans else { return isLast ? "Get started" : "Next" }
 
         // Free chosen, or a rung the store has not priced yet. The button says what it does rather
@@ -1171,7 +647,7 @@ struct OnboardingView: View {
         return "Continue with \(chosen.name) · \(price)"
     }
 
-    private func primaryAction() {
+    func primaryAction() {
         // No tier chosen is the free plan, and the free plan is not a purchase: it is the button
         // that finishes the introduction. A rung with no product behind it is the same case for
         // the same reason its label is, which is that the button said as much before it was
@@ -1198,7 +674,7 @@ struct OnboardingView: View {
     /// finger — so its contents are left alone. A page the button moves to arrives with the whole
     /// screen sliding sideways, and the contents coming up inside it afterwards is the difference
     /// between turning a page and watching the page that was already there be replaced.
-    private func advance() {
+    func advance() {
         guard !isLast else {
             onFinish()
             return
@@ -1207,7 +683,7 @@ struct OnboardingView: View {
         withAnimation(Motion.arrive) { index += 1 }
     }
 
-    private var light: some View {
+    var light: some View {
         RadialGradient(
             colors: [.white.opacity(0.07), .clear],
             center: .top,
@@ -1219,7 +695,7 @@ struct OnboardingView: View {
     }
 
     /// One page of the tour: what it is about, and what it says.
-    private struct Page {
+    struct Page {
         let content: Content
         let title: String
         let body: String
@@ -1273,766 +749,4 @@ struct OnboardingView: View {
             }
         }
     }
-}
-
-/// The frame's numbers, outside the view because a generic type cannot hold static storage — and
-/// named in one place, as the Connect header's are, because they are one decision about a shape.
-enum PhoneStageMetrics {
-    /// The screenshot's own proportions. A frame that did not match them would letterbox or crop
-    /// every image put inside it, which is the one thing a frame must not do.
-    static var aspect: CGFloat { 603.0 / 1311.0 }
-
-    /// The bezel, as a fraction of the screen it surrounds rather than as a number of points.
-    ///
-    /// The site's mockup is a fixed 310-point body with 10 points of padding, and this frame is
-    /// derived from whatever height the stage can spare — so the same 10 points here was 4.8% of
-    /// the picture at the size the tour actually draws it, against the 3.4% the site draws the
-    /// identical device at. A fixed border in one place and a derived one in the other is two
-    /// devices, and the fat one is the one nobody drew. This is the site's own ratio: its padding
-    /// over the 290-point screen it pads.
-    static let bezel: CGFloat = 10.0 / 290.0
-
-    /// Corner as a fraction of the body's width, and of the screen's — the site's 46 and 37 points
-    /// against its 310-point body and 290-point screen.
-    static let bodyCorner: CGFloat = 0.148
-    static let screenCorner: CGFloat = 0.128
-
-    /// The device's own colour, and the hairline of light along its edge.
-    ///
-    /// **Black, because that is what the front of an iPhone is.** The bezel around the display is
-    /// the same black glass as the display, so face on the device is one black rectangle with a
-    /// machined highlight around it, and the screen in it is a hole in that black rather than a
-    /// picture in a frame. It used to be white at 18% fading to 5%, which over this near-black
-    /// backdrop is not a device at all but a bright band, and a bright band is what the eye
-    /// measures when it decides how thick a frame is, which is what was making this look like a
-    /// mount. The two near-black greys it became were the right idea at half strength: a laptop lid
-    /// has a bezel of its own colour, and a phone's does not.
-    ///
-    /// ``MacStageMetrics/lid`` has been black all along, so this is the two machines agreeing about
-    /// what these devices look like rather than a detail the phone lost. Nothing goes with it
-    /// either: the shape is described by ``rim``, which is the light along the outside edge and the
-    /// same highlight the Mac has, and that was the only thing describing it in the first place.
-    static let body = Color.black
-    static let rim = LinearGradient(
-        colors: [.white.opacity(0.30), .white.opacity(0.08)],
-        startPoint: .top,
-        endPoint: .bottom
-    )
-    static let rimWidth: CGFloat = 1
-
-    /// The screen's height, given the box the whole device has to fit inside.
-    ///
-    /// Solved rather than measured in two passes, because the bezel is a fraction of the screen and
-    /// the screen is the thing being solved for. Both limits — the box's height and its width —
-    /// are linear in the screen's height once the bezel is written in terms of it, so each is a
-    /// division and the tighter one wins. The floor keeps a zero-sized box, which is what the
-    /// first layout pass offers, from being a division into something the geometry reader cannot
-    /// draw.
-    static func screenHeight(in box: CGSize) -> CGFloat {
-        let byHeight = box.height / (1 + 2 * aspect * bezel)
-        let byWidth = box.width / (aspect * (1 + 2 * bezel))
-        return max(min(byHeight, byWidth), 1)
-    }
-}
-
-/// The phone the tour holds up: one frame on every page, with only its screen changing.
-///
-/// The pages are about a single object, and a stage that is a bare glyph on one page and a card on
-/// the next reads as five different screens rather than five views of one. So the frame is the
-/// constant and the screen inside it is the variable — the shape is the app's shape from the first
-/// page to the last, and each page's picture lands inside it.
-///
-/// **Sized at one, and moved by the stage.** This is the phone as it is when it is alone, and it is
-/// the only size the drawing is ever built at: the first page wants it smaller, standing in front of
-/// the Mac, and the stage scales this down to put it there (see ``OnboardingView/stageLayout(in:)``).
-/// Scaling the drawing down to a size and holding it there is one phone; drawing it at the pair's
-/// size and scaling it up to this one would be a phone rendered at 120% of itself for the rest of
-/// the tour.
-///
-/// The proportions are the marketing site's own mockup, down to the bezel and the corner: that
-/// picture of the app and this one are the same claim about what the app looks like, and two
-/// devices with different corner radii would be two claims.
-private struct PhoneStage<Screen: View>: View {
-    @ViewBuilder var screen: () -> Screen
-
-    var body: some View {
-        GeometryReader { proxy in
-            // Height is the constraint on a phone and width almost never is — but a short, wide
-            // window is exactly where a height-only sum runs off the edge, so both are asked.
-            let screenHeight = PhoneStageMetrics.screenHeight(in: proxy.size)
-
-            PhoneDrawing(screenWidth: screenHeight * PhoneStageMetrics.aspect) { screen() }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
-/// The phone's body, bezel, screen and island, at a width the caller has already solved for.
-///
-/// Split out of ``PhoneStage`` so that drawing a phone and deciding how big it is are two jobs: the
-/// stage solves one size for a box, and this draws at whatever size it is handed. Everything inside
-/// is the site's mockup, drawn from the screen's width and nothing else, which is also what makes
-/// the drawing safe to scale, because every part of it is a fraction of that one number.
-struct PhoneDrawing<Screen: View>: View {
-    /// The screen's own width. The bezel, the body and the corners are all fractions of it, so this
-    /// is the one number the drawing needs.
-    let screenWidth: CGFloat
-    @ViewBuilder var screen: () -> Screen
-
-    var body: some View {
-        let screenHeight = screenWidth / PhoneStageMetrics.aspect
-        let bezel = screenWidth * PhoneStageMetrics.bezel
-        let bodyWidth = screenWidth + bezel * 2
-        let bodyHeight = screenHeight + bezel * 2
-        let body = RoundedRectangle(
-            cornerRadius: bodyWidth * PhoneStageMetrics.bodyCorner,
-            style: .continuous
-        )
-
-        body
-            .fill(PhoneStageMetrics.body)
-            .overlay {
-                screen()
-                    .frame(width: screenWidth, height: screenHeight)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: screenWidth * PhoneStageMetrics.screenCorner,
-                            style: .continuous
-                        )
-                    )
-                    // The island is part of the phone rather than part of the picture, so it is
-                    // drawn here rather than expected in every screenshot. A screenshot of this
-                    // app already has one — its own is black on a black backdrop — and the two
-                    // land in the same place on the same device.
-                    .overlay(alignment: .top) {
-                        Capsule()
-                            .fill(.black)
-                            .frame(width: screenWidth * 0.30, height: screenHeight * 0.038)
-                            .padding(.top, screenHeight * 0.019)
-                    }
-            }
-            .frame(width: bodyWidth, height: bodyHeight)
-            // The machined edge, drawn inside the body rather than around it so that the
-            // highlight is the last thing on the device and not a ring floating off it. One
-            // point, following the same light as the body it sits on.
-            .overlay {
-                body.strokeBorder(PhoneStageMetrics.rim, lineWidth: PhoneStageMetrics.rimWidth)
-            }
-            .shadow(color: .black.opacity(0.55), radius: 22, y: 10)
-    }
-}
-
-// MARK: - Tablet frame
-
-/// The iPad frame's numbers, matched to the site's phone mockup in method: every dimension is a
-/// fraction of the screen width so the drawing stays in proportion at any size.
-///
-/// Dimensions are based on a portrait iPad Pro 11-inch (834×1194 points). The bezel is proportionally
-/// thinner than the phone's — an iPad's front face has less glass around its display — and the corner
-/// radius is more moderate. Everything else (black body, machined rim, same shadow) keeps the two
-/// frames reading as the same family rather than as two unrelated shapes.
-private enum TabletStageMetrics {
-    /// Portrait screenshot proportions for an 11-inch iPad Pro (834×1194 points).
-    static var aspect: CGFloat { 834.0 / 1194.0 }
-
-    /// Bezel as a fraction of the screen width. Thinner than the phone's 7/290 because an iPad's
-    /// display sits closer to its edges.
-    static let bezel: CGFloat = 10.0 / 834.0
-
-    /// Body and screen corners as fractions of the body's width and screen's width respectively.
-    /// Smaller than the phone's 0.148, matching the gentler radius of a real iPad.
-    static let bodyCorner: CGFloat = 0.068
-    static let screenCorner: CGFloat = 0.056
-
-    static let body = Color.black
-
-    /// The screen's height given the box the whole device has to fit inside.
-    static func screenHeight(in box: CGSize) -> CGFloat {
-        let byHeight = box.height / (1 + 2 * aspect * bezel)
-        let byWidth = box.width / (aspect * (1 + 2 * bezel))
-        return max(min(byHeight, byWidth), 1)
-    }
-}
-
-/// The iPad's body, bezel and screen at a width the caller has already solved for.
-///
-/// Parallel to ``PhoneDrawing``: same construction logic, same rim treatment, same shadow, different
-/// proportions. The tablet has no Dynamic Island so none is drawn here.
-private struct TabletDrawing<Screen: View>: View {
-    let screenWidth: CGFloat
-    @ViewBuilder var screen: () -> Screen
-
-    var body: some View {
-        let screenHeight = screenWidth / TabletStageMetrics.aspect
-        let bezel = screenWidth * TabletStageMetrics.bezel
-        let bodyWidth = screenWidth + bezel * 2
-        let bodyHeight = screenHeight + bezel * 2
-        let bodyShape = RoundedRectangle(
-            cornerRadius: bodyWidth * TabletStageMetrics.bodyCorner,
-            style: .continuous
-        )
-
-        bodyShape
-            .fill(TabletStageMetrics.body)
-            .overlay {
-                screen()
-                    .frame(width: screenWidth, height: screenHeight)
-                    .clipShape(
-                        RoundedRectangle(
-                            cornerRadius: screenWidth * TabletStageMetrics.screenCorner,
-                            style: .continuous
-                        )
-                    )
-            }
-            .frame(width: bodyWidth, height: bodyHeight)
-            .overlay {
-                bodyShape.strokeBorder(PhoneStageMetrics.rim, lineWidth: PhoneStageMetrics.rimWidth)
-            }
-            .shadow(color: .black.opacity(0.55), radius: 22, y: 10)
-    }
-}
-
-/// The iPad the regular-width tour holds up: one frame on every non-Mac page, with only its screen
-/// changing. Parallel to ``PhoneStage`` but uses ``TabletStageMetrics`` for its proportions.
-private struct TabletStage<Screen: View>: View {
-    @ViewBuilder var screen: () -> Screen
-
-    var body: some View {
-        GeometryReader { proxy in
-            let screenHeight = TabletStageMetrics.screenHeight(in: proxy.size)
-            TabletDrawing(screenWidth: screenHeight * TabletStageMetrics.aspect) { screen() }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-    }
-}
-
-/// The Mac's frame, from the site's `.mac` mockup, which is the same drawing.
-///
-/// **Fractions rather than points, for the reason ``PhoneStageMetrics`` argues at length**: the
-/// site draws these machines at a fixed size and this file derives them from whatever the stage can
-/// spare, so a fixed border in one place and a derived one in the other is two machines. Every
-/// number below is the site's ratio, and changing one means changing `styles.css` with it.
-enum MacStageMetrics {
-    /// The display's own proportions, 1512 by 982. A frame that did not match them would letterbox
-    /// or crop the one picture it exists to hold, and the capture it holds is exactly this shape.
-    static var aspect: CGFloat { 1512.0 / 982.0 }
-
-    /// The lid's bezel, as a fraction of the display it surrounds.
-    static let bezel: CGFloat = 0.017
-    /// The lid's top corners, and its lower ones. The lower pair is much tighter, which is the
-    /// shape rather than a detail: the lid is a panel, and only its top edge is a machined roll.
-    static let lidCorner: CGFloat = 0.030
-    static let lidLowerCorner: CGFloat = 0.009
-
-    /// The base, as fractions of the lid it sits under and of its own height.
-    static let baseHeight: CGFloat = 0.030
-    /// Wider than the lid. This is the whole of why the two read as one machine rather than as a
-    /// screen standing on a bar.
-    static let baseOverhang: CGFloat = 1.055
-    static let baseCorner: CGFloat = 0.36
-
-    /// The camera housing, which every MacBook Pro since 2021 has.
-    ///
-    /// Part of the machine rather than part of the picture: a screenshot cannot contain it, because
-    /// it is not something the display draws, it is something the display is missing. Drawn over
-    /// whatever is in the screen, in the black of the housing.
-    static let notchWidth: CGFloat = 0.092
-    static let notchHeight: CGFloat = 0.026
-    static let notchCorner: CGFloat = 0.013
-
-    /// The scoop in the front edge, which is the one detail that says MacBook rather than laptop.
-    static let scoopWidth: CGFloat = 0.15
-    static let scoopHeight: CGFloat = 0.55
-
-    /// The machines' own colours. The lid is black, because the lid of a MacBook is black glass and
-    /// the bezel and the housing in it are the same black; that is the whole point of the notch,
-    /// which is a cut in the display rather than a shape stuck onto it. The base is the site's two
-    /// greys, and the rim is the phone's own, because it is the same machined edge.
-    static let lid = Color.black
-    static let baseTop = Color(red: 0.110, green: 0.110, blue: 0.122)
-    static let baseBottom = Color(red: 0.043, green: 0.043, blue: 0.051)
-    static let scoop = Color(red: 0.024, green: 0.024, blue: 0.027)
-    static let hinge = LinearGradient(
-        colors: [.clear, .white.opacity(0.20), .clear],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
-}
-
-/// The pair's own numbers, which are the site's `.stage` rules written as fractions of the Mac's
-/// display — the same unit `styles.css` uses, for the same reason.
-///
-/// **The first page is about there being two apps**, so its stage is the pair and not a machine: a
-/// laptop alone on the page that says "install this on your Mac" leaves the reader holding the half
-/// of the product nobody is talking about. The arrangement is the marketing site's hero, down to
-/// the overlap and the lift: the same two screenshots in the same two frames, because it is the
-/// same claim about the product and two compositions would be two claims.
-///
-/// The fraction the phone is drawn at is not the true one. An honest 14-inch MacBook beside an
-/// honest iPhone draws the phone at about half the width it is given here, and a screenshot nobody
-/// can read is not a screenshot. It is the fraction that keeps both legible.
-private enum MacAndPhoneMetrics {
-    /// The phone's screen, as a fraction of the Mac's display width.
-    static let phoneScreen: CGFloat = 0.46
-
-    /// How far the phone stands over the Mac's right-hand edge, as a fraction of the display width.
-    /// This is the site's `-0.14`, and it is what makes the phone *in front of* the Mac rather than
-    /// beside it.
-    static let overlap: CGFloat = 0.14
-
-    /// How much the Mac is lifted above the floor the phone stands on, as a fraction of the display
-    /// width. The site's `margin-bottom` on the Mac, and the whole of why the pair reads as two
-    /// objects on one surface rather than as one picture cropped twice.
-    static let macLift: CGFloat = 0.035
-
-    /// The pair's parts, named so that the solve for its size and the arithmetic that stands the
-    /// phone in it cannot drift apart.
-    ///
-    /// This used to be an `HStack` with the Mac and the phone in it, and the parts were the
-    /// expressions inside its two children. The phone cannot be a child of it any more: it has to
-    /// be one drawing across the whole tour so that it can grow from the pair into the stage. So
-    /// the `HStack` was written out as the arithmetic it always was, and these are the terms it
-    /// comes to. Both readers are in ``OnboardingView/stageLayout(in:)`` now; the sum is here
-    /// because the numbers are the pair's rather than the stage's.
-    ///
-    /// Every length is a multiple of the Mac's display width, which is the site's own unit.
-    struct Parts {
-        /// The Mac's widest part, which is its base.
-        let macWidth: CGFloat
-        /// The Mac's own height, and its height including the lift it stands on.
-        let macHeight: CGFloat
-        let macColumn: CGFloat
-        /// The phone's body, over the screen it holds.
-        let phoneWidth: CGFloat
-        let phoneHeight: CGFloat
-        /// What the two make together, which is what the box is fitted against.
-        let width: CGFloat
-        let height: CGFloat
-    }
-
-    static var parts: Parts {
-        let mac = MacStageMetrics.self
-        let phone = PhoneStageMetrics.self
-
-        let lid = 1 + 2 * mac.bezel
-        let phoneWidth = phoneScreen * (1 + 2 * phone.bezel)
-        let phoneHeight = phoneScreen * (1 / phone.aspect + 2 * phone.bezel)
-        // The bezel above and below the display, and the base under it. The lift is not part of the
-        // machine and is not counted here: it is what the Mac stands on, not what it is.
-        let macHeight = 1 / mac.aspect + 2 * mac.bezel + lid * mac.baseHeight
-
-        return Parts(
-            macWidth: lid * mac.baseOverhang,
-            macHeight: macHeight,
-            macColumn: macHeight + macLift,
-            phoneWidth: phoneWidth,
-            phoneHeight: phoneHeight,
-            // The phone drawn *over* the Mac's edge, so the pair is narrower than its two parts by
-            // the strip they share. This is the `HStack`'s negative spacing.
-            width: lid * mac.baseOverhang + phoneWidth - overlap,
-            // The taller of the two columns, because they stand on one floor. It is the phone: a
-            // laptop is wide and a phone is nearly all screen.
-            height: max(macHeight + macLift, phoneHeight)
-        )
-    }
-
-    /// The display's height, given the box the pair has to fit inside.
-    ///
-    /// Solved rather than measured in two passes, for the reason
-    /// ``PhoneStageMetrics/screenHeight(in:)`` gives, and by the same method: every dimension of
-    /// both machines is linear in the display's height once every fraction is written in terms of
-    /// it, so the width limit and the height limit are each one division and the tighter one wins.
-    ///
-    /// **Two limits that the Mac alone does not have.** The width now carries the phone across the
-    /// Mac's right edge, and the height now has to clear the phone, which is the taller of the two
-    /// — a phone standing on the same surface as a laptop, and a phone is nearly all screen.
-    ///
-    /// Everything here is written in units of the Mac's display *width*, which is the site's own
-    /// unit: the display's height is the one term that has to be turned into it, and every other
-    /// number is already a fraction of it. What the box then decides is the one scale both machines
-    /// are drawn at, which is why the two limits are the pair's own width and height and nothing
-    /// else.
-    static func displayHeight(in box: CGSize) -> CGFloat {
-        let parts = Self.parts
-
-        // A display width is a display height times the aspect, so each limit is the box divided by
-        // its own ratio: the aspect appears once, because both limits are measured in widths.
-        let byHeight = box.height / (MacStageMetrics.aspect * parts.height)
-        let byWidth = box.width / (MacStageMetrics.aspect * parts.width)
-        return max(min(byHeight, byWidth), 1)
-    }
-}
-
-/// The lid, the screen, the notch and the base, at a size the caller has already solved for.
-///
-/// **A second frame rather than a second screen for the first one.** The tour's pages are about
-/// what the app does, and the one page that is about the Mac app has nothing to show until that
-/// app has been installed: a phone frame with a Mac screenshot inside it would be the one drawing
-/// in this file that says something untrue about the product. Its proportions come from the same
-/// place ``PhoneDrawing``'s do, which is the site, so the two devices are one claim about what
-/// these machines look like.
-///
-/// Drawn from a size rather than solving for one, for the reason ``PhoneDrawing`` is: the page that
-/// holds it is solving one size for two machines (this one and the phone standing over it), so
-/// neither may size itself, and a stage that held a Mac alone would be a ``GeometryReader`` with a
-/// division in it rather than a drawing.
-struct MacDrawing<Screen: View>: View {
-    /// The display's own height. The bezel, the lid, the base and the notch are all fractions of
-    /// it or of the display's width, which follows from this one number.
-    let displayHeight: CGFloat
-    @ViewBuilder var screen: () -> Screen
-
-    var body: some View {
-        let displayWidth = displayHeight * MacStageMetrics.aspect
-        let bezel = displayWidth * MacStageMetrics.bezel
-        let lidWidth = displayWidth + bezel * 2
-        let lidHeight = displayHeight + bezel * 2
-        let baseHeight = lidWidth * MacStageMetrics.baseHeight
-        let lid = UnevenRoundedRectangle(
-            topLeadingRadius: lidWidth * MacStageMetrics.lidCorner,
-            bottomLeadingRadius: lidWidth * MacStageMetrics.lidLowerCorner,
-            bottomTrailingRadius: lidWidth * MacStageMetrics.lidLowerCorner,
-            topTrailingRadius: lidWidth * MacStageMetrics.lidCorner,
-            style: .continuous
-        )
-
-        VStack(spacing: 0) {
-            lid
-                .fill(MacStageMetrics.lid)
-                .overlay {
-                    screen()
-                        .frame(width: displayWidth, height: displayHeight)
-                        // Concentric with the lid, which is the site's own `--screen-r`: the
-                        // screen's corner is the lid's less the bezel that surrounds it, so
-                        // the black between the two is the same width all the way round.
-                        .clipShape(
-                            RoundedRectangle(
-                                cornerRadius: lidWidth * MacStageMetrics.lidCorner - bezel,
-                                style: .continuous
-                            )
-                        )
-                        .overlay(alignment: .top) {
-                            notch(width: displayWidth, height: displayHeight)
-                        }
-                }
-                .frame(width: lidWidth, height: lidHeight)
-                // The machined edge, drawn inside the body rather than around it, the same way
-                // and for the same reason the phone's is.
-                .overlay {
-                    lid.strokeBorder(PhoneStageMetrics.rim, lineWidth: PhoneStageMetrics.rimWidth)
-                }
-
-            base(width: lidWidth * MacStageMetrics.baseOverhang, height: baseHeight)
-        }
-        .shadow(color: .black.opacity(0.62), radius: 26, y: 16)
-    }
-
-    private func notch(width: CGFloat, height: CGFloat) -> some View {
-        let shape = UnevenRoundedRectangle(
-            bottomLeadingRadius: height * MacStageMetrics.notchCorner,
-            bottomTrailingRadius: height * MacStageMetrics.notchCorner,
-            style: .continuous
-        )
-
-        // Pure black, and nothing drawn on it. It carried a hairline of white at 16% down its
-        // inside edge, on the reasoning that the housing is a black shape on a black bezel and
-        // needs an edge to read as a cut rather than as a smudge. That is not what a notch looks
-        // like: it is a hole in the display, nothing catches the light inside it face on, and the
-        // line made it read as a shape laid on top of the screen instead of missing from it.
-        //
-        // It is the phone's island's own treatment, which has never had an edge either. The two
-        // are the same thing on the same kind of glass, so they are drawn the same way, and what
-        // tells the notch apart from the menu bar behind it is the menu bar, which is a capture of
-        // a real desktop and is never this black.
-        return shape
-            .fill(.black)
-            .frame(width: width * MacStageMetrics.notchWidth, height: height * MacStageMetrics.notchHeight)
-    }
-
-    private func base(width: CGFloat, height: CGFloat) -> some View {
-        UnevenRoundedRectangle(
-            bottomLeadingRadius: height * MacStageMetrics.baseCorner,
-            bottomTrailingRadius: height * MacStageMetrics.baseCorner,
-            style: .continuous
-        )
-        .fill(
-            LinearGradient(
-                colors: [MacStageMetrics.baseTop, MacStageMetrics.baseBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-        .frame(width: width, height: height)
-        // The lit hinge where the base meets the lid, so the two read as one machine rather than as
-        // a screen standing on a bar.
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(MacStageMetrics.hinge)
-                .frame(height: 1)
-        }
-        // The scoop in the front edge, centred and hung from the top of the base.
-        .overlay(alignment: .top) {
-            Capsule()
-                .fill(MacStageMetrics.scoop)
-                .frame(
-                    width: width * MacStageMetrics.scoopWidth,
-                    height: height * MacStageMetrics.scoopHeight
-                )
-        }
-    }
-}
-
-// MARK: - The drawn notification
-
-/// The picture on the page about being told: this app's notifications on a phone nobody is
-/// looking at.
-///
-/// Drawn rather than captured because there is nothing to capture: the notifications arrive while
-/// the app is closed. Every number is a fraction of the screen width, the unit every other drawing
-/// in this file is written in, so the one drawing lands in the phone frame and in the iPad's without
-/// a second version of it.
-///
-/// The type runs roughly a fifth larger than a real notification's. The tour draws a phone about
-/// 200 points wide, where an honest 13-point app name is seven points and the weight that separates
-/// it from the title stops reading.
-private struct NotificationBanner: View {
-    private static let examples = [
-        Example(
-            title: "Build finished",
-            body: "Damian's MacBook Pro: `xcodebuild` completed successfully.",
-            age: "now"
-        ),
-        Example(
-            title: "Terminal needs you",
-            body: "Damian's MacBook Pro: Terminal “prod” is waiting for a password.",
-            age: "2m"
-        ),
-        Example(
-            title: "Command needs an answer",
-            body: "Damian's MacBook Pro: Terminal is waiting for your input.",
-            age: "8m"
-        )
-    ]
-
-    var body: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-
-            ZStack(alignment: .top) {
-                Image("NotificationWallpaper")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-
-                LinearGradient(
-                    colors: [.black.opacity(0.04), .black.opacity(0.20)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-
-                VStack(spacing: width * 0.005) {
-                    Text("Wednesday, September 24")
-                        .font(.system(size: width * 0.036, weight: .semibold))
-
-                    Text("9:41")
-                        .font(.system(size: width * 0.175, weight: .thin))
-                        .tracking(-width * 0.006)
-                }
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.16), radius: width * 0.012, y: width * 0.006)
-                .padding(.top, proxy.size.height * 0.075)
-
-                VStack(spacing: width * 0.025) {
-                    ForEach(Self.examples) { example in
-                        card(example, width: width)
-                    }
-                }
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, proxy.size.height * 0.075)
-            }
-        }
-        // The page's own words say this, and a notification read aloud is one this reader never got.
-        .accessibilityHidden(true)
-    }
-
-    private func card(_ example: Example, width: CGFloat) -> some View {
-        let shape = RoundedRectangle(cornerRadius: width * 0.055, style: .continuous)
-        let tile = width * 0.085
-
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: width * 0.025) {
-                icon(tile)
-
-                Text("Peering")
-                    .font(.system(size: width * 0.038, weight: .semibold))
-                    .foregroundStyle(ColorPalette.ink.opacity(0.70))
-
-                Spacer(minLength: width * 0.02)
-
-                Text(example.age)
-                    .font(.system(size: width * 0.033))
-                    .foregroundStyle(ColorPalette.ink.opacity(0.55))
-            }
-
-            Text(example.title)
-                .font(.system(size: width * 0.040, weight: .semibold))
-                .foregroundStyle(ColorPalette.ink)
-                .padding(.top, width * 0.014)
-
-            Text(example.body)
-                .font(.system(size: width * 0.033))
-                .foregroundStyle(ColorPalette.ink.opacity(0.85))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, width * 0.003)
-        }
-        .lineLimit(1)
-        .padding(.horizontal, width * 0.035)
-        .padding(.vertical, width * 0.023)
-        .frame(width: width * 0.92, alignment: .leading)
-        // The row surface's own fill and the card's own hairline, in the frame's units rather than
-        // in points: those helpers carry a 14 and a 24, and a fixed radius inside a box that is
-        // 200 points wide on one device and 350 on the other is two different shapes.
-        .background {
-            shape.fill(
-                LinearGradient(
-                    colors: [.white.opacity(0.09), .white.opacity(0.045)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-        }
-        .overlay {
-            shape.strokeBorder(
-                LinearGradient(
-                    colors: [.white.opacity(0.20), .white.opacity(0.05)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                lineWidth: 1
-            )
-        }
-    }
-
-    /// The app's icon, which is what a notification shows rather than a glyph tile. Its dark
-    /// appearance is a near-black plate with white pears, and ``Pears`` is that mark with the plate
-    /// keyed out, so the plate and the scale are the icon's own.
-    private func icon(_ size: CGFloat) -> some View {
-        Image("Pears")
-            .resizable()
-            .scaledToFit()
-            .frame(width: size * 0.85)
-            .frame(width: size, height: size)
-            .background {
-                RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous)
-                    .fill(ColorPalette.backdrop)
-            }
-    }
-
-    private struct Example: Identifiable {
-        let title: String
-        let body: String
-        let age: String
-
-        var id: String { title }
-    }
-}
-
-// MARK: - Plan choice
-
-/// One plan on the last page: what it is called, what it costs, and one line about what it is for.
-///
-/// The row's subject is a tier rather than a product, so it is drawn whether or not the store has
-/// answered and only the price waits on the answer — a list that appears in pieces as the products
-/// arrive is a list that looks like it is still loading after it has finished.
-/// One rung of the ladder on the last page, the free one included.
-///
-/// Takes the four strings rather than a ``StoreManager/Tier``, because the free plan has no tier:
-/// it is the floor the other three are measured from and it is not for sale, so it has no product,
-/// no price and no badge. A row that took a tier and special-cased free inside itself would put
-/// that branch in the one place a reader checks when asking what the free plan includes.
-private struct PlanChoice: View {
-    let name: String
-    /// What the rung is, in one line, on the axis the ladder is built on.
-    let line: String
-    /// The displayed price, including the free row's explicit "No charge" label.
-    let price: String
-    let recommended: Bool
-    let selected: Bool
-    var features: [String] = []
-    let select: () -> Void
-
-    var body: some View {
-        Button(action: select) {
-            VStack(alignment: .leading, spacing: 8) {
-                if recommended {
-                    Text("Best value")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(0.4)
-                        .foregroundStyle(ColorPalette.accent)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(ColorPalette.accent.opacity(0.18), in: Capsule())
-                }
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name)
-                        .font(DisplayFont.display(21))
-                        .tracking(-0.5)
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
-
-                    Text(price)
-                        .font(DisplayFont.display(26))
-                        .tracking(-0.8)
-                        .foregroundStyle(ColorPalette.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.68)
-                }
-
-                Text(line)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                if !features.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(features, id: \.self) { feature in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(ColorPalette.ink.opacity(0.45))
-                                    .frame(width: 10, alignment: .leading)
-
-                                Text(feature)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                    .padding(.top, 2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .cardSurface()
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .strokeBorder(ColorPalette.accent, lineWidth: 1.5)
-                    .opacity(selected ? 1 : 0)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        }
-        .buttonStyle(RailButtonStyle(scale: 0.985))
-        .accessibilityAddTraits(selected ? [.isSelected] : [])
-    }
-}
-
-#Preview {
-    OnboardingView(onFinish: {})
-        .environment(StoreManager())
-        .preferredColorScheme(.dark)
 }
