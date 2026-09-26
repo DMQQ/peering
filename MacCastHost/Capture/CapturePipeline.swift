@@ -465,6 +465,13 @@ final class CapturePipeline: @unchecked Sendable {
         }
     }
 
+    /// Forgets the window list if a window has moved since it was read, so the next source is looked
+    /// up where its window is now. The list is only re-read on its own while a phone is connected.
+    func forgetWindowListIfStale() {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        resolver.invalidateIfWindowsMoved()
+    }
+
     /// Something this session is capturing has gone. The phone's catalogue still lists it, so the
     /// only way it can be taken out of an arrangement is for the Mac to say so. See
     /// ``CaptureSourceResolver/invalidate()``.

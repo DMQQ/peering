@@ -467,6 +467,13 @@ public final class ClientSession: @unchecked Sendable {
         set { lock.withLock { _videoFallbackEnabled = newValue } }
     }
 
+    /// Sent in the hello so the Mac starts capturing it on arrival. See ``ClientHello/resumeSource``.
+    public var resumeSource: CaptureSource? {
+        get { lock.withLock { _resumeSource } }
+        set { lock.withLock { _resumeSource = newValue } }
+    }
+    private var _resumeSource: CaptureSource?
+
     /// The device ID a first pairing was dialled by, so the answer can be checked against it.
     ///
     /// Set by ``connect(to:timeout:)`` for every attempt, `nil` for the targets where the ID is
@@ -681,7 +688,8 @@ public final class ClientSession: @unchecked Sendable {
             // picture it sends to a client that has not said this arrives at one that cannot
             // read it, and the pieces land in that client's picture lane.
             supportsClipboardImages: true,
-            supportsTextFocus: true
+            supportsTextFocus: true,
+            resumeSource: knowsHost ? resumeSource : nil
         ))
 
         lock.withLock { state = .awaitingServerHello }
@@ -1190,17 +1198,54 @@ public final class ClientSession: @unchecked Sendable {
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.pingInterval)
                 guard !Task.isCancelled, let self else { return }
-                let ping = self.lock.withLock {
-                    self.pingLedger.record(now: DispatchTime.now().uptimeNanoseconds)
-                }
-                // The payload is what makes the reply measurable. A Mac that does not echo it
-                // answers empty, which the ledger reads as the oldest question still open.
-                let payload = (try? MessageCodec.encode(PingPayload(sequence: ping.sequence))) ?? Data()
-                self.connection()?.send(Frame(kind: .ping, payload: payload))
+                self.sendPing()
             }
         }
         pingTask = task
         lock.unlock()
+    }
+
+    private func sendPing() {
+        let ping = lock.withLock {
+            pingLedger.record(now: DispatchTime.now().uptimeNanoseconds)
+        }
+        // The payload is what makes the reply measurable. A Mac that does not echo it
+        // answers empty, which the ledger reads as the oldest question still open.
+        let payload = (try? MessageCodec.encode(PingPayload(sequence: ping.sequence))) ?? Data()
+        connection()?.send(Frame(kind: .ping, payload: payload))
+    }
+
+    /// Fails the session unless the Mac answers within a few round trips.
+    ///
+    /// For the moments a session can look healthy with nothing under it: the phone's network has
+    /// just changed, or the app has just come back from being suspended. The silence watchdog
+    /// would get there too, but only after ten seconds of a frozen picture.
+    ///
+    /// The wait is scaled to the measured round trip: a Mac on the same Wi-Fi answers in
+    /// milliseconds, and making it wait out a figure sized for the relay from abroad is most of the
+    /// time a return to the app spends on "Reconnecting".
+    public func verifyStillAnswering() {
+        let askedAt = Self.monotonicNow()
+        let (isReady, roundTrip) = lock.withLock { (state == .ready, latency.reported) }
+        guard isReady else { return }
+        let grace = Self.answerGrace(roundTripMilliseconds: roundTrip)
+        sendPing()
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(grace))
+            guard let self else { return }
+            let silent = self.lock.withLock {
+                self.state == .ready && (self.lastControlReplyAt ?? 0) < askedAt
+            }
+            guard silent else { return }
+            sessionLog.error("no answer within \(grace, privacy: .public)s of being asked; failing the session")
+            self.fail("The Mac stopped answering. It may have moved networks, or the connection was interrupted.")
+        }
+    }
+
+    /// Four round trips and a little, between 0.4 and 1.5 seconds. Unmeasured is treated as slow.
+    static func answerGrace(roundTripMilliseconds: Double?) -> TimeInterval {
+        guard let roundTripMilliseconds else { return 1.0 }
+        return min(1.5, max(0.4, roundTripMilliseconds * 4 / 1000 + 0.2))
     }
 
     /// The middle of the last few round trips, rather than the one that just came back.

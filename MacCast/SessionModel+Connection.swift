@@ -418,9 +418,10 @@ extension SessionModel {
     func reconnect(
         _ session: MacSession,
         to target: ClientSession.Target,
-        timeout: TimeInterval = SessionModel.standardConnectTimeout
+        timeout: TimeInterval = SessionModel.standardConnectTimeout,
+        racingRelay relay: ClientSession.Target? = nil
     ) {
-        connect(to: target, replacing: session, timeout: timeout)
+        connect(to: target, replacing: session, timeout: timeout, racingRelay: relay)
     }
 
     /// Stops the active Mac being retried, *without* resetting its backoff.
@@ -544,6 +545,7 @@ extension SessionModel {
             SessionActivity.shared.returningToForeground()
         }
         endBackgroundAssertion()
+        verifyLiveSessions()
 
         // The App Store's answer, re-read before anything is armed from it again: a subscription that ran
         // out while the app was off screen produced no transaction to notice it by, so the plan this
@@ -562,9 +564,11 @@ extension SessionModel {
         // and is then handed over to the LAN a beat later, which costs the picture twice. Paid only when
         // a session names a Mac the list does not have, which is exactly the case that would have gone to
         // the relay anyway, so a Mac that is already visible resumes without waiting.
+        // A Mac with a remembered address is dialled there at once, racing the relay, so it needs
+        // no wait for Bonjour.
         let waitingForALocalMac = sessions.contains { session in
             guard let hostID = session.hostID else { return false }
-            return !hosts.contains { $0.id == hostID }
+            return !hosts.contains { $0.id == hostID } && rememberedLANHost(hostID) == nil
         }
         guard waitingForALocalMac else {
             resumeEveryMac()

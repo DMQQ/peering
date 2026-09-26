@@ -397,6 +397,10 @@ final class HostSession: @unchecked Sendable {
             // can only fail.
             supportsVirtualDisplayManagement: VirtualDisplay.isAvailable
         ))
+        // A trusted client coming back names what it was watching, so capture can start now.
+        if alreadyPaired, let source = hello.resumeSource {
+            onCommand?(.setCaptureSource(source))
+        }
 
         if alreadyPaired {
             state = .ready

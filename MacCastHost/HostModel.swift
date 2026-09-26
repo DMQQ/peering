@@ -944,6 +944,9 @@ final class HostModel {
                 clientNames[clientID] = clientName
                 UserDefaults.standard.set(clientNames, forKey: Self.clientNamesKey)
             }
+            // Before the source the phone names in its hello is looked up: a window moved or
+            // resized while nobody was connected would otherwise be captured where it used to be.
+            coordinator?.forgetWindowListIfStale()
             beginSession(id: clientID, name: clientName)
             startScreenWatch()
             textFocusWatcher.start { [weak server] focus in server?.broadcastTextFocus(focus) }

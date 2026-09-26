@@ -153,6 +153,17 @@ final class MacSession: Identifiable {
     /// The task inside the current attempt, retained so a user ending or replacing the session also
     /// cancels an in-flight relay WebSocket rather than only the TCP socket it may create.
     var connectTask: Task<Void, Never>?
+    /// What this session was showing, for the next dial's hello. See ``ClientHello/resumeSource``.
+    var sourceToResume: CaptureSource? {
+        if activeSourceID?.hasPrefix("mosaic:") == true {
+            guard model.storeManager.access.includes(.mosaic) else { return nil }
+            return askedMosaicLayout.map { .mosaic($0) }
+        }
+        return catalog?.all.first { $0.id == activeSourceID }?.source
+    }
+
+    /// Two routes being dialled at once, until one is ready. See ``DialRace``.
+    var dialRace: DialRace?
 
     /// Whether the user asked for this session to end, for the rest of this object's life.
     ///
@@ -179,6 +190,7 @@ final class MacSession: Identifiable {
         // before dialling: this is the end of the episode, and that is not.
         reconnectingSince = nil
         stopReconnecting()
+        dialRace?.cancel()
         wire?.disconnect()
         wire = nil
         videoPoll?.cancel()
@@ -298,17 +310,21 @@ final class MacSession: Identifiable {
             stopReconnecting()
             model.isResuming = true
             model.reconnect(self, to: .discovered(host))
-        } else if reconnectAttempt == 0, let remembered = model.rememberedLANHost(hostID) {
-            // **The first rung goes out the way the session came in.** Bonjour not listing the Mac is the
-            // expected state of a resume rather than a sign it has gone, so the address kept from the
-            // last successful dial is offered before the relay, with a short timeout so a Mac that has
-            // moved costs a moment rather than the rung. From the second rung on the relay is tried.
+        } else if let remembered = model.rememberedLANHost(hostID) {
+            // **Every rung tries the LAN, racing the relay.** Bonjour not listing the Mac is the
+            // expected state of a resume (the Mac withdraws while a phone is connected), so the
+            // address kept from the last successful dial is dialled first and the relay joins it a
+            // moment later. See ``DialRace``.
             stopReconnecting()
             model.isResuming = true
+            let relay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
+                ? model.relayTarget(hostID: hostID, name: hostName ?? "A Mac")
+                : nil
             model.reconnect(
                 self,
                 to: .discovered(remembered),
-                timeout: SessionModel.rememberedPathTimeout
+                timeout: SessionModel.rememberedPathTimeout,
+                racingRelay: relay
             )
         } else if model.allowsRelay, model.pins.hostIDs.contains(hostID) {
             stopReconnecting()
@@ -355,7 +371,10 @@ final class MacSession: Identifiable {
         // episode before the counter has run out, and the events that follow the attempt it cut
         // arrive as failures like any other, which would start the ladder over.
         guard !hasGivenUpResuming else { return }
-        let delays = isResumingAfterDrop
+        // Not `isResumingAfterDrop`, which reads `isReconnecting`, and that is only set below: at
+        // the moment of a drop it is still false, and the drop would get the slow ladder.
+        let resuming = hasBeenReady && !userEndedDeliberately
+        let delays = resuming
             ? SessionModel.resumeReconnectDelays
             : SessionModel.reconnectDelays
         // The clock starts at the first rung of the run and is carried across every dial after it,
@@ -430,6 +449,7 @@ final class MacSession: Identifiable {
         // top of ``scheduleReconnect()`` is what stops from arming another rung.
         connectTask?.cancel()
         connectTask = nil
+        dialRace?.cancel()
         wire?.disconnect()
         wire = nil
         // The app started the attempt that has just been cut, and the flag saying so goes with it:

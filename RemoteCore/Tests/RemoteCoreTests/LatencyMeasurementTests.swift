@@ -276,3 +276,23 @@ struct ControlSilenceTests {
         #expect(!silence.hasExpired(isReady: true, readyAt: 0, lastReplyAt: 90, now: 100))
     }
 }
+
+/// How long a session is given to answer after the network changes or the app comes back.
+@Suite("Waiting for an answer")
+struct AnswerGraceTests {
+    @Test func aMacOnTheSameWiFiGetsTheFloor() {
+        #expect(ClientSession.answerGrace(roundTripMilliseconds: 8) == 0.4)
+    }
+
+    @Test func aRelayFromAbroadGetsFourRoundTrips() {
+        #expect(abs(ClientSession.answerGrace(roundTripMilliseconds: 250) - 1.2) < 0.0001)
+    }
+
+    @Test func aTerribleLinkIsCappedAtTheOldFigure() {
+        #expect(ClientSession.answerGrace(roundTripMilliseconds: 2000) == 1.5)
+    }
+
+    @Test func noMeasurementYetIsTreatedAsSlow() {
+        #expect(ClientSession.answerGrace(roundTripMilliseconds: nil) == 1.0)
+    }
+}

@@ -59,6 +59,9 @@ protocol CaptureSourceResolver: Sendable {
     /// ``markUncapturable(_:)``.
     func invalidate()
 
+    /// ``invalidate()``, but only when a window has moved or resized since the snapshot.
+    func invalidateIfWindowsMoved()
+
     /// A source this Mac has tried to capture and cannot, so the catalogue stops offering it.
     ///
     /// ScreenCaptureKit will list a window it will not render: its descriptor is as ordinary as
@@ -357,6 +360,30 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// went out while this call was still working would arrive behind the one this call produces.
     private func markStale() {
         lock.withLock { isStale = true }
+    }
+
+    /// Invalidates only if a window has moved or been resized since the snapshot was taken, read
+    /// from the window server, which answers in a millisecond where a new snapshot costs seconds.
+    /// A window captured with a stale frame puts every tap and scroll in the wrong place.
+    func invalidateIfWindowsMoved() {
+        guard let content = lock.withLock({ isStale ? nil : snapshot }) else { return }
+        guard let live = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return }
+        var frames: [CGWindowID: CGRect] = [:]
+        for info in live {
+            guard let id = info[kCGWindowNumber as String] as? CGWindowID,
+                  let bounds = info[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: bounds)
+            else { continue }
+            frames[id] = rect
+        }
+        let moved = content.windows.contains { window in
+            guard let now = frames[window.windowID] else { return false }
+            let then = window.frame
+            return abs(now.minX - then.minX) > 1 || abs(now.minY - then.minY) > 1
+                || abs(now.width - then.width) > 1 || abs(now.height - then.height) > 1
+        }
+        if moved { invalidate() }
     }
 
     func invalidate() {

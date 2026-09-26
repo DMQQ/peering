@@ -760,6 +760,7 @@ final class SessionModel {
             self?.sessions.contains { $0.isResumingAfterDrop } ?? false
         }
         watcher.onUsableChange = { [weak self] in self?.networkChanged() }
+        watcher.onPathChange = { [weak self] in self?.verifyLiveSessions() }
         networkWatcher = watcher
         watcher.start()
     }
@@ -785,6 +786,14 @@ final class SessionModel {
         for session in sessions where session.isResumingAfterDrop {
             session.stopReconnecting()
             session.resumeIfNeeded()
+        }
+    }
+
+    /// Asks every connected Mac to answer now, so one whose connection died with the old network
+    /// or with the app's suspension is redialled at once rather than after the silence watchdog.
+    func verifyLiveSessions() {
+        for session in sessions where session.phase == .ready {
+            session.wire?.verifyStillAnswering()
         }
     }
 
@@ -829,7 +838,8 @@ final class SessionModel {
     func connect(
         to target: ClientSession.Target,
         replacing old: MacSession?,
-        timeout: TimeInterval = SessionModel.standardConnectTimeout
+        timeout: TimeInterval = SessionModel.standardConnectTimeout,
+        racingRelay relay: ClientSession.Target? = nil
     ) {
         CrashLog.note("dial \(Self.hostID(of: target) ?? "unknown")\(old == nil ? "" : ", replacing a session") · \(sessions.count) open")
         guard let identity, identityFailure == nil else { return }
@@ -987,41 +997,11 @@ final class SessionModel {
         // Nothing else has to be cleared: everything below this line was this connection's, and this
         // connection is new.
 
-        // Bound once, outside the closure: a `weak` reference is a mutable variable, and reading it from
-        // a closure that outlives this one is a data race. It is a `let` of a `Sendable` type, so it is
-        // reachable from the network queue, where no actor is going to help.
-        let renderer = self.renderer
-
-        let wire = ClientSession(
-            identity: identity,
-            clientID: device.id,
-            clientName: device.name,
-            pins: pins,
-            onEvent: { [weak session] event in
-                // The video pipeline is the one event family that must not detour through the main
-                // actor: at 60 Hz, hopping frames would put them behind the layout of the view drawing
-                // them. Both calls the renderer needs — `configure` and `enqueue` — go straight to its
-                // own serial queue from here, in the order the wire delivered them, which is what keeps
-                // a frame from decoding against the format description it was not encoded with.
-                //
-                // Nothing here waits for the screen to catch up any more: the live layer stays hidden
-                // behind a frozen snapshot of the outgoing picture for the whole of a change, so a frame
-                // that reaches it before the screen has taken its zoom back to rest is not seen by
-                // anyone. See ``VideoHostView/stillView``.
-                switch event {
-                case .video(.frame(let frame)):
-                    renderer.enqueue(frame)
-                    return
-                case .video(.config(let config)):
-                    renderer.configure(config)
-                    Task { @MainActor in session?.apply(event) }
-                    return
-                default:
-                    break
-                }
-                Task { @MainActor in session?.apply(event) }
-            }
-        )
+        let race = relay == nil ? nil : DialRace(session: session)
+        session.dialRace = race
+        let (wire, gate) = makeWire(for: session, identity: identity, race: race)
+        let resumeSource = old?.hostID == target.hostID ? old?.sourceToResume : nil
+        wire.resumeSource = resumeSource
         session.wire = wire
         // The only place the container changes: a Mac that has finished is not a Mac anybody is
         // connected to and is let go of here, except a session still being retried, which has a ladder
@@ -1050,6 +1030,67 @@ final class SessionModel {
             }
         }
         session.connectTask = connectTask
+
+        if let race, let relay {
+            race.add(wire, gate: gate, path: session.connectionPath ?? .lan)
+            race.startLater(after: Self.relayHeadStart) { [weak self, weak session] in
+                guard let self, let session, session.dialRace === race else { return }
+                let (rival, rivalGate) = self.makeWire(for: session, identity: identity, race: race)
+                race.add(rival, gate: rivalGate, path: .relay)
+                rival.resumeSource = resumeSource
+                rival.videoFallbackEnabled = true
+                Task { await rival.connect(to: relay, timeout: Self.standardConnectTimeout) }
+            }
+        }
+    }
+
+    /// How long the LAN is dialled alone before the relay joins it. The LAN is free, so it gets
+    /// the first chance, but a Mac on the same network answers in well under this.
+    static let relayHeadStart: Duration = .milliseconds(300)
+
+    /// A wire whose events reach `session`, held back behind a gate while it is in a race.
+    private func makeWire(
+        for session: MacSession,
+        identity: SelfSignedIdentity,
+        race: DialRace?
+    ) -> (ClientSession, WireGate) {
+        // Bound outside the closure, which runs on the network queue. Frames and configs go straight
+        // to the renderer's own queue from there, in wire order: hopping them through the main actor
+        // would put a 60 Hz stream behind layout.
+        let renderer = self.renderer
+        let gate = WireGate(admitted: race == nil)
+        let box = WeakWire()
+        let wire = ClientSession(
+            identity: identity,
+            clientID: device.id,
+            clientName: device.name,
+            pins: pins,
+            onEvent: { [weak session, weak race] event in
+                let admitted: Bool
+                if case .video(let video) = event {
+                    switch video {
+                    case .frame(let frame):
+                        if gate.pass(video: video) { renderer.enqueue(frame) }
+                        return
+                    case .config(let config):
+                        admitted = gate.pass(video: video)
+                        if admitted { renderer.configure(config) }
+                    default:
+                        admitted = gate.isAdmitted
+                    }
+                } else {
+                    admitted = gate.isAdmitted
+                }
+                if admitted {
+                    Task { @MainActor in session?.apply(event) }
+                } else {
+                    let wire = box.wire
+                    Task { @MainActor in if let wire { race?.receive(event, from: wire) } }
+                }
+            }
+        )
+        box.wire = wire
+        return (wire, gate)
     }
 
     // MARK: - Clipboard history
@@ -1146,14 +1187,14 @@ final class SessionModel {
     ///
     /// A resume is silent: it shows a picture that has stopped moving and says nothing about it, so
     /// "still coming back" and "gone" look exactly alike, and the only difference the user can act on
-    /// is how long they are asked to wonder. Three rungs is about eight seconds, long enough for a
-    /// handover to settle.
+    /// is how long they are asked to wonder. The first rung is nearly immediate, because a drop is
+    /// now noticed as it happens rather than ten seconds later.
     ///
     /// The two ladders share a counter, which is why they are the same shape, biggest rung last:
     /// `reconnectAttempt` indexes into whichever one is in use and is carried across a dial, so the
     /// shorter list is simply the one that runs out sooner.
     static let resumeReconnectDelays: [Duration] = [
-        .seconds(1), .seconds(2), .seconds(5),
+        .milliseconds(250), .seconds(1), .seconds(3),
     ]
 
     /// How long a Mac is given to come back before the app stops trying.
@@ -1417,4 +1458,8 @@ extension Modifiers {
         if contains(.control) { names.append("⌃") }
         return names.isEmpty ? "a modifier" : names.joined()
     }
+}
+
+private nonisolated final class WeakWire: @unchecked Sendable {
+    weak var wire: ClientSession?
 }

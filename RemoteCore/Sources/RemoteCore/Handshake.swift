@@ -27,13 +27,19 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// ``supportsClipboardImages``: an older client cannot decode the frame kind.
     public var supportsTextFocus: Bool?
 
+    /// What a reconnecting client was looking at, so the Mac can start capturing it on arrival
+    /// rather than a round trip later when the client asks from the catalogue. Honoured only for a
+    /// client the Mac already trusts. Optional, so either end of an older pair ignores it.
+    public var resumeSource: CaptureSource?
+
     public init(
         clientID: String,
         clientName: String,
         protocolVersion: UInt16,
         wantsPairing: Bool,
         supportsClipboardImages: Bool? = nil,
-        supportsTextFocus: Bool? = nil
+        supportsTextFocus: Bool? = nil,
+        resumeSource: CaptureSource? = nil
     ) {
         self.clientID = clientID
         self.clientName = clientName
@@ -41,6 +47,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.wantsPairing = wantsPairing
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsTextFocus = supportsTextFocus
+        self.resumeSource = resumeSource
     }
 }
 

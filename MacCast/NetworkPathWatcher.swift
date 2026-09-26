@@ -74,12 +74,17 @@ final class NetworkPathWatcher {
         onUsableChange?()
     }
 
+    /// Called once a changed path has settled, whether or not anything is being put back.
+    var onPathChange: (() -> Void)?
+
     private func received(_ snapshot: NetworkPathSnapshot) {
+        let changed = latest != nil && latest != snapshot
         latest = snapshot
         settle?.cancel()
         settle = Task { [weak self] in
             try? await Task.sleep(for: Self.settleFor)
             guard !Task.isCancelled else { return }
+            if changed { self?.onPathChange?() }
             self?.judgeNow()
         }
     }

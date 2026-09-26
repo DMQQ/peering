@@ -365,7 +365,7 @@ final class VideoCoordinator: @unchecked Sendable {
 // be served a capped picture on the control channel because of a decision somebody else made about a
 // link that no longer exists.
             forgetTransportChoiceLocked()
-            scheduleStopIfIdleLocked(generation: audience.generation)
+            scheduleStopIfIdleLocked(generation: audience.generation, after: Self.keepCapturingAfterDrop)
             return departure
         }
 
@@ -432,6 +432,24 @@ final class VideoCoordinator: @unchecked Sendable {
         }
     }
 
+    /// How long capture outlives a viewer that dropped, so one that reconnects gets a keyframe at
+    /// once instead of waiting for a new stream. Only for a connection that closed: a pause stops
+    /// at once, because saving the battery is what it was asked for.
+    private static let keepCapturingAfterDrop = Duration.seconds(15)
+
+    /// Not a sleep on the lifecycle queue, which would hold up the next viewer's start: the stop is
+    /// queued when the time is up, and only if nobody has attached since.
+    private func scheduleStopIfIdleLocked(generation: UInt64, after delay: Duration) {
+        Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard let self else { return }
+            self.lock.withLock {
+                guard self.audience.generation == generation else { return }
+                self.scheduleStopIfIdleLocked(generation: generation)
+            }
+        }
+    }
+
     private func scheduleStopIfIdleLocked(generation: UInt64) {
         scheduleLifecycleLocked { [weak self] in
             guard let self, self.isIdle(generation: generation) else { return }
@@ -488,6 +506,10 @@ final class VideoCoordinator: @unchecked Sendable {
 ///   a client with none: see ``HostModel``'s `.clientConnected`. A client waits on this list before
 ///   it can ask for the source it was last on, and the interval was holding that up for up to three
 ///   seconds, which is how a desktop came to appear before the arrangement the phone had asked for.
+    func forgetWindowListIfStale() {
+        pipeline.forgetWindowListIfStale()
+    }
+
     func refreshCatalog(immediate: Bool = false) {
         lock.withLock {
             guard pendingCatalogPush == nil else { return }
@@ -594,6 +616,15 @@ final class VideoCoordinator: @unchecked Sendable {
 // battery the pause was asked for, spent on a picture nobody is being sent. What starts it is the
 // resume, which is a connection arriving like any other: see ``serve(_:)``.
                 guard self.lock.withLock({ !self.audience.isIdle }) else { return }
+                // A reconnecting phone asks again for what is already running. Restarting it would
+                // cost a new stream and a blank moment; a keyframe is all the phone needs.
+                if self.lock.withLock({ self.currentSource }) == source {
+                    self.pipeline.requestKeyframe()
+                    // Still announced: choosing the same window again is how the user brings it
+                    // back to the front, and that raise hangs off this.
+                    self.onSourceChanged?(source)
+                    return
+                }
                 try await self.startCapture(source)
             }
             lifecycleTail = Task { _ = await operation.result }
