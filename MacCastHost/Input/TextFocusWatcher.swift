@@ -1,6 +1,9 @@
 import ApplicationServices
 import Foundation
 import RemoteCore
+import os
+
+private let focusLog = Logger(subsystem: "pl.dmq.peering.host", category: "focus")
 
 /// Reports each move of the Mac's keyboard focus, and whether it landed somewhere that takes typing.
 ///
@@ -34,6 +37,27 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
             timer.setEventHandler { [weak self] in self?.poll() }
             timer.resume()
             self.timer = timer
+        }
+    }
+
+    /// Tells the client whether a click landed in something editable, even when focus did not move:
+    /// a tap back into the focused field, or a click on empty space that leaves the field focused.
+    func clicked(at location: CGPoint) {
+        queue.asyncAfter(deadline: .now() + .milliseconds(150)) { [self] in
+            guard timer != nil, AXIsProcessTrusted() else { return }
+            var hit: AXUIElement?
+            let found = AXUIElementCopyElementAtPosition(systemWide, Float(location.x), Float(location.y), &hit)
+            var focused: CFTypeRef?
+            if AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focused) == .success {
+                lastElement = focused.map { $0 as! AXUIElement }
+            }
+            let editable = if found == .success, let hit {
+                Self.isEditable(hit)
+            } else {
+                lastElement.map(Self.isEditable) ?? false
+            }
+            focusLog.debug("click · editable \(editable)")
+            onChange?(TextFocus(isEditable: editable))
         }
     }
 
@@ -73,7 +97,11 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         }
         var pid: pid_t = 0
         if AXUIElementGetPid(element, &pid) == .success { exposeTree(of: pid) }
-        onChange?(TextFocus(isEditable: Self.isEditable(element)))
+        var role: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+        let editable = Self.isEditable(element)
+        focusLog.debug("focus moved · \(role as? String ?? "no role", privacy: .public) · editable \(editable)")
+        onChange?(TextFocus(isEditable: editable))
     }
 
     /// Chromium and Electron apps build their accessibility tree only for assistive software, so

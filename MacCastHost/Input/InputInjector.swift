@@ -28,6 +28,9 @@ final class InputInjector: @unchecked Sendable {
     /// client has moved the pointer at all.
     private var cursor: CGPoint = .zero
 
+    /// Where the last click from the client went, in global display points.
+    var clickLocation: CGPoint { lock.withLock { cursor } }
+
     /// When the last joystick nudge arrived. See the `.joystickMove` case: it is what separates
     /// the first nudge of a gesture from the rest of one.
     private var lastJoystickAt: DispatchTime?

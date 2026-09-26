@@ -611,6 +611,7 @@ final class HostModel {
         // not UI work, and hopping to the main actor would put every pointer event behind whatever
         // SwiftUI happens to be doing.
         let input = self.input
+        let textFocusWatcher = self.textFocusWatcher
         server.onCommand = { [weak self] command in
             if case .setCaptureSource(let source) = command {
                 Task { @MainActor [weak self] in
@@ -719,6 +720,9 @@ final class HostModel {
                 return
             }
             input.perform(command)
+            if case .mouseUp(.left) = command {
+                textFocusWatcher.clicked(at: input.clickLocation)
+            }
         }
 
         // The reading is asked of the pasteboard rather than of one type on it, because only this
