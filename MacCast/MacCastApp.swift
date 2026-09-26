@@ -131,12 +131,14 @@ struct MacCastApp: App {
                 // is the moment they stop being the current news: the screen says the same
                 // thing, and the banner sitting behind it is a claim about the past — a
                 // pairing prompt from last night is the case this exists to prevent.
-                .onChange(of: scenePhase) { _, phase in
+                .onChange(of: scenePhase, initial: true) { _, phase in
                     switch phase {
                     case .active:
+                        CrashLog.setForeground(true)
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
                     case .background:
+                        CrashLog.setForeground(false)
                         // Asks for the few seconds iOS grants before it suspends an app. The
                         // session still ends when that runs out — see
                         // ``SessionModel/backgroundTimeExpired()`` — but it ends *tidy*, with

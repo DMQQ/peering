@@ -67,6 +67,8 @@ public enum CrashLog {
     /// it safe: this is read from a MetricKit queue and written once at launch, and neither of them
     /// is the main actor.
     nonisolated(unsafe) private static var storedSubject: String?
+    /// Present while the app is on screen. See ``setForeground(_:)``.
+    nonisolated(unsafe) private static var runningFile: URL?
     private static let lock = NSLock()
 
     /// How many of each kind are kept. Enough to see a pattern, few enough that this never becomes
@@ -93,16 +95,27 @@ public enum CrashLog {
         // could not do anything else, and the run that has just started is the one that can file
         // it. Its modification date is when the crash happened, which is why no clock is read in
         // the handler — formatting a time there is not a safe thing to do.
-        archive(pending, into: directory)
+        let caught = archive(pending, into: directory)
+        let running = directory.appendingPathComponent("running.txt")
+        fileUnexpectedExit(running, caughtCrash: caught, into: directory)
         prune(directory, keeping: keep)
 
-        lock.withLock { storedSubject = subject }
+        lock.withLock {
+            storedSubject = subject
+            runningFile = running
+        }
         prepareHandlerState(pending: pending, subject: subject, version: version)
 
         installExceptionHandler()
+        installAlternateStack()
 
         for signalNumber in handledSignals {
-            signal(signalNumber, handleSignal)
+            var action = sigaction()
+            action.__sigaction_u = __sigaction_u(__sa_handler: handleSignal)
+            // On the spare stack, so a stack overflow can still be written down.
+            action.sa_flags = SA_ONSTACK
+            sigemptyset(&action.sa_mask)
+            sigaction(signalNumber, &action, nil)
         }
 
         #if canImport(MetricKit)
@@ -120,12 +133,14 @@ public enum CrashLog {
         return "\(short) (\(build))"
     }
 
-    private static func archive(_ pending: URL, into directory: URL) {
+    /// Files the last run's crash, and says whether there was one.
+    @discardableResult
+    private static func archive(_ pending: URL, into directory: URL) -> Bool {
         guard let text = try? String(contentsOf: pending, encoding: .utf8),
               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
             try? FileManager.default.removeItem(at: pending)
-            return
+            return false
         }
 
         // Dated by the file's own modification time rather than by now: the file was written at the
@@ -137,6 +152,7 @@ public enum CrashLog {
         let destination = directory.appendingPathComponent("crash-\(stamp).txt")
         try? text.write(to: destination, atomically: true, encoding: .utf8)
         try? FileManager.default.removeItem(at: pending)
+        return true
     }
 
     /// Drops the oldest reports of both kinds until `keep` of each are left.
@@ -356,8 +372,27 @@ private final class MetricKitCollector: NSObject, MXMetricManagerSubscriber, @un
         }
     }
 
+    /// Only the exit counts: a memory-limit or watchdog kill is not a crash to MetricKit and
+    /// reaches the app nowhere else.
     func didReceive(_ payloads: [MXMetricPayload]) {
-        // Deliberately nothing. See the note above.
+        #if os(iOS)
+        for payload in payloads {
+            guard let exits = payload.applicationExitMetrics?.foregroundExitData else { continue }
+            let counts = [
+                ("memory limit", exits.cumulativeMemoryResourceLimitExitCount),
+                ("watchdog (main thread blocked)", exits.cumulativeAppWatchdogExitCount),
+                ("bad memory access", exits.cumulativeBadAccessExitCount),
+                ("illegal instruction", exits.cumulativeIllegalInstructionExitCount),
+                ("other abnormal exit", exits.cumulativeAbnormalExitCount),
+            ].filter { $0.1 > 0 }
+            guard !counts.isEmpty else { continue }
+            let lines = counts.map { "\($0.0): \($0.1)" }.joined(separator: "\n")
+            CrashLog.store(exitSummary: """
+                EXITS WHILE ON SCREEN, \(payload.timeStampBegin) to \(payload.timeStampEnd)
+                \(lines)
+                """)
+        }
+        #endif
     }
 }
 #endif
@@ -380,5 +415,132 @@ extension CrashLog {
     /// with no way to be told which app it is running in.
     private static var subjectForStorage: String {
         lock.withLock { storedSubject ?? Bundle.main.bundleIdentifier ?? "app" }
+    }
+}
+
+// MARK: - Exits nothing could write down
+
+/// Everything below exists for the deaths the handlers above cannot see: iOS ending the app for its
+/// memory or for a blocked main thread (`SIGKILL`, which no code survives), and a stack overflow,
+/// which used to leave the handler no stack to run on.
+extension CrashLog {
+    /// The last few things this run did, written to ``runningFile`` while the app is on screen.
+    nonisolated(unsafe) private static var trail: [String] = []
+    nonisolated(unsafe) private static var isForeground = false
+    nonisolated(unsafe) private static var sampler: DispatchSourceTimer?
+    private static let trailQueue = DispatchQueue(label: "pl.dmq.peering.crashlog.trail", qos: .utility)
+    private static let trailLength = 30
+
+    /// Tells the log whether the app is on screen.
+    ///
+    /// The marker file exists exactly while it is. An app iOS ends in the background was suspended
+    /// and is not news; one found still marked at the next launch, with no crash filed, died on
+    /// screen without a word, and that is filed with the trail it left.
+    public static func setForeground(_ foreground: Bool) {
+        trailQueue.async {
+            isForeground = foreground
+            if foreground {
+                record("on screen")
+                startSampling()
+            } else {
+                sampler?.cancel()
+                sampler = nil
+                if let file = lock.withLock({ runningFile }) {
+                    try? FileManager.default.removeItem(at: file)
+                }
+            }
+        }
+    }
+
+    /// Adds one line to the trail: a connection phase, a reconnect, a source picked.
+    ///
+    /// Cheap enough for events, never for frames: each call rewrites a small file.
+    public static func note(_ event: String) {
+        trailQueue.async { record(event) }
+    }
+
+    private static func record(_ event: String) {
+        let stamp = Date().formatted(.dateTime.hour().minute().second().secondFraction(.fractional(3)))
+        trail.append("\(stamp)  \(event)  [\(memorySummary())]")
+        if trail.count > trailLength { trail.removeFirst(trail.count - trailLength) }
+        writeTrail()
+    }
+
+    /// Every ten seconds on screen, because a leak climbs toward the memory limit between events.
+    private static func startSampling() {
+        guard sampler == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: trailQueue)
+        timer.schedule(deadline: .now() + 10, repeating: 10)
+        timer.setEventHandler { writeTrail() }
+        timer.resume()
+        sampler = timer
+    }
+
+    private static func writeTrail() {
+        guard isForeground, let file = lock.withLock({ runningFile }) else { return }
+        let text = (["memory now: \(memorySummary())", ""] + trail).joined(separator: "\n")
+        try? text.write(to: file, atomically: true, encoding: .utf8)
+    }
+
+    /// What this process holds, and how far that is from the limit iOS kills at.
+    private static func memorySummary() -> String {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size
+        )
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return "memory unknown" }
+        let used = "\(info.phys_footprint / 1_048_576) MB used"
+        #if os(iOS)
+        return "\(used), \(os_proc_available_memory() / 1_048_576) MB left"
+        #else
+        return used
+        #endif
+    }
+
+    /// Files the last run as an unexplained exit when it died on screen and nothing caught it.
+    fileprivate static func fileUnexpectedExit(_ running: URL, caughtCrash: Bool, into directory: URL) {
+        defer { try? FileManager.default.removeItem(at: running) }
+        guard !caughtCrash, let trail = try? String(contentsOf: running, encoding: .utf8) else { return }
+        let when = (try? running.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate ?? Date()
+        let stamp = ISO8601DateFormatter().string(from: when).replacingOccurrences(of: ":", with: "-")
+        let text = """
+            UNEXPECTED EXIT
+            The app stopped while on screen and left no crash report. Likely causes: iOS ended it \
+            for memory or for a blocked main thread, or it was stopped from Xcode. The time is the \
+            last entry below, within ten seconds.
+
+            \(trail)
+            """
+        try? text.write(
+            to: directory.appendingPathComponent("crash-\(stamp)-exit.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+    }
+
+    /// A stack of its own for the signal handler, on the thread that installs it (the main
+    /// thread). Without it a stack overflow faults again inside the handler and nothing is written.
+    fileprivate static func installAlternateStack() {
+        let size = Int(SIGSTKSZ)
+        guard let memory = malloc(size) else { return }
+        var stack = stack_t(ss_sp: memory, ss_size: size, ss_flags: 0)
+        sigaltstack(&stack, nil)
+    }
+
+    static func store(exitSummary text: String) {
+        guard let directory = directory(subject: subjectForStorage) else { return }
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        try? text.write(
+            to: directory.appendingPathComponent("metrickit-exits-\(stamp).txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        prune(directory, keeping: keep)
     }
 }

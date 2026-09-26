@@ -270,6 +270,7 @@ final class MacSession: Identifiable {
     /// resetting another's backoff. The `wire == nil` guard stops the retry and the browser both
     /// starting an attempt, since the wire is assigned synchronously in ``SessionModel/connect(to:)``.
     func resumeIfNeeded() {
+        CrashLog.note("resume check · \(hostID ?? "unknown") · phase \(phase) · attempt \(reconnectAttempt)")
         guard wire == nil, !phase.holdsSession else {
             if phase.holdsSession { stopReconnecting() }
             return

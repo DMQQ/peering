@@ -15,6 +15,7 @@ extension MacSession {
     func apply(_ event: ClientSession.Event) {
         switch event {
         case .phase(let phase):
+            CrashLog.note("phase \(phase) · \(hostID ?? "unknown")\(isReconnecting ? " (reconnecting)" : "")")
             var shouldScheduleReconnect = true
             // A failure during a resume is retried, not shown. See ``SessionModel/isResuming``:
             // when this Mac had already reached Ready, this is one step of the reconnect ladder

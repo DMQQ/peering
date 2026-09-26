@@ -831,6 +831,7 @@ final class SessionModel {
         replacing old: MacSession?,
         timeout: TimeInterval = SessionModel.standardConnectTimeout
     ) {
+        CrashLog.note("dial \(Self.hostID(of: target) ?? "unknown")\(old == nil ? "" : ", replacing a session") · \(sessions.count) open")
         guard let identity, identityFailure == nil else { return }
 
         // A Mac that is already open is brought to the front rather than dialled again: two sessions to
