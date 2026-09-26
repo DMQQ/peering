@@ -485,11 +485,13 @@ final class HostServer: @unchecked Sendable {
 
         session.onEnded = { [weak self] in
             guard let self else { return }
-            self.terminalManager.disconnect(clientID: session.clientID)
             // Pruning matters for more than tidiness: a finished session left in the list would
             // go on authorizing video connections, since `isAuthorized` stays true on an object
             // whose connection is gone.
             controlSessions.removeAll { $0 === session }
+            if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
+                self.terminalManager.disconnect(clientID: session.clientID)
+            }
             // And the streams it authorized end with it: a video connection that outlived its
             // control session would keep delivering the screen to a client the host believes is
             // gone.
@@ -606,6 +608,13 @@ final class HostServer: @unchecked Sendable {
     }
 
     private func emit(_ event: HostEvent) {
+        // A phone that reconnects, or races two routes, can still hold a second connection when one
+        // closes. That close is not the phone leaving, and passing it on would end the live one's
+        // session, watchers and shells. The closing session is still listed while it reports.
+        if case .clientDisconnected(let clientID, _) = event,
+           controlSessions.filter({ $0.isAuthorized && $0.clientID == clientID }).count > 1 {
+            return
+        }
         onEvent?(event)
     }
 }
