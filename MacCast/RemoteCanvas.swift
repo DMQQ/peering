@@ -251,6 +251,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
     private lazy var pointerSecondaryClick: UITapGestureRecognizer = {
         let gesture = UITapGestureRecognizer(target: self, action: #selector(handleTwoFingerTap))
         gesture.buttonMaskRequired = .secondary
+        gesture.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.indirectPointer.rawValue)]
         return gesture
     }()
 
