@@ -19,6 +19,8 @@ enum ChromeMetrics {
     /// contents alone.
     static let pillCollapsedRadius: CGFloat = 30
     static let pillExpandedRadius: CGFloat = 26
+    /// The landscape status bar's widest, circles included. See ``RemoteScreen/statusBarWidthCap(in:)``.
+    static let statusBarMaxWidth: CGFloat = 460
     /// Inside a rail, above the first button and below the last, and equal to the gap between two
     /// of them, so the ends read like the sides. Four is enough because the buttons are circles,
     /// narrowest exactly where a stadium rail's ends curve inwards.

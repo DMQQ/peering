@@ -118,12 +118,6 @@ extension RemoteScreen {
         // The same inset as the rails, so the pill and the panels hang from one line.
         .padding(.top, ChromeMetrics.edgeInset)
         .reportChromeFrame(.statusBar, into: $chromeFrames)
-        .task(id: model.phase) {
-            // Expand a moment when the session comes up, then collapse — through the same
-            // function a tap uses, so there is one place that knows about the pending timer.
-            guard model.phase == .ready else { return }
-            expandStatusBar()
-        }
     }
 
     func statusPill(availableWidth: CGFloat) -> some View {
@@ -795,7 +789,7 @@ extension RemoteScreen {
         // by hand would spring shut again on its own.
         statusBarCollapseTask?.cancel()
         statusBarCollapseTask = Task {
-            try? await Task.sleep(for: .seconds(4))
+            try? await Task.sleep(for: .seconds(2.5))
             guard !Task.isCancelled else { return }
             collapseStatusBar()
         }

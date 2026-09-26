@@ -23,10 +23,14 @@ extension RemoteScreen {
     /// ``ChromeMetrics/panelGap`` is what keeps a panel from touching one. A cap rather than a
     /// fraction of the screen, because what the bar has to clear is a control rather than a margin.
     ///
+    /// And never wider than ``ChromeMetrics/statusBarMaxWidth``: on a wide landscape phone or an
+    /// iPad the space between the rails is most of the screen, and a long window title would take
+    /// all of it.
+    ///
     /// Portrait needs none: it has no rails, and the pill's own two lines are what it must fit in.
     func statusBarWidthCap(in available: CGFloat) -> CGFloat {
         let perSide = ChromeMetrics.panelWidth + ChromeMetrics.edgeInset + ChromeMetrics.panelGap
-        return max(0, available - 2 * perSide)
+        return min(ChromeMetrics.statusBarMaxWidth, max(0, available - 2 * perSide))
     }
 
     /// The whole of the chrome put away, and one control to bring it back.
@@ -246,6 +250,18 @@ extension RemoteScreen {
                     // reads it — the touches the canvas must not take — follows it here.
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+
+                    // Landscape's bottom-left corner, brought over so portrait shows that it can
+                    // scroll too.
+                    ScrollWheelView(
+                        onNotch: wheelNotch(_:),
+                        label: wheelLabel,
+                        position: interactionMode == .observe ? zoomPosition : nil
+                    )
+                        .reportChromeFrame(.wheel, into: $chromeFrames)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                        .padding(.leading, ChromeMetrics.edgeInset)
+                        .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
                 }
 
                 VStack(spacing: 0) {
@@ -279,12 +295,8 @@ extension RemoteScreen {
                     }
                 }
             }
-            .onAppear {
-                // The wheel is landscape's, and its frame is in the canvas's coordinates rather
-                // than the portait layout's — so rotating back leaves a rectangle of the screen
-                // blocked for touches, over a control that is no longer there to receive them.
-                chromeFrames[.wheel] = nil
-            }
+            // The wheel goes with the keyboard, and a removed view leaves its region behind.
+            .chromeFramePresence(.wheel, into: $chromeFrames, when: !model.showKeyboard)
             // The same hazard from the strip's side, and answered the same way: this branch is
             // the one that is here while the strip is not, so this is where its region is let go
             // of when the last Mac but one is closed. See ``chromeFramePresence(_:into:when:)``.

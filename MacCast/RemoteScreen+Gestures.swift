@@ -199,6 +199,9 @@ extension RemoteScreen {
                 withAnimation(Motion.tap) { targetTile = index }
             },
             onMosaicDrop: { dropHeldTile() },
+            onPictureTap: {
+                if statusBarExpanded { collapseStatusBar() }
+            },
         )
         .ignoresSafeArea()
     }

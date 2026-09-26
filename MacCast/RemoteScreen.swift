@@ -99,11 +99,6 @@ struct RemoteScreen: View {
     /// Optional because that is what `scrollPosition(id:)` binds to: a pager that has not settled
     /// reports nothing, and `nil` means the first sheet, which is where the pager already sits.
     @State var dockPage: String?
-    /// The press counts the dock's ranking is read from, taken once when the screen is built.
-    ///
-    /// A snapshot rather than the store itself: read live, a press would reorder the dock and move
-    /// that button out from under the finger that pressed it.
-    @State var dockUsage: [String: Int] = DockUsage.counts()
     /// The pending auto-collapse, so expanding by hand can cancel the one already in flight.
     @State var statusBarCollapseTask: Task<Void, Never>?
     /// Unlike copy or paste, `⌘Q` can discard unsaved work, so the permanent button asks once
@@ -386,6 +381,12 @@ struct RemoteScreen: View {
             if model.hostSupportsDeviceOrientation {
                 model.send(.reportDeviceOrientation(isLandscape: isLandscape))
             }
+        }
+        // Here rather than on the pill: the pill is built in each orientation's own layout, so a
+        // task on it restarted on every rotation and opened the pill again.
+        .task(id: model.phase) {
+            guard model.phase == .ready else { return }
+            expandStatusBar()
         }
         .onChange(of: openPanel) { _, panel in
             if panel == nil { chromeFrames[.panel] = nil }

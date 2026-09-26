@@ -51,6 +51,8 @@ struct CanvasGestureView: UIViewRepresentable {
     var onMosaicDrag: (CGPoint) -> Void = { _ in }
     /// The finger came up, or the lift was cancelled.
     var onMosaicDrop: () -> Void = {}
+    /// A tap that landed on the picture rather than on our chrome. It still reaches the Mac.
+    var onPictureTap: () -> Void = {}
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
@@ -70,7 +72,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onMosaicTap: onMosaicTap,
             onMosaicLift: onMosaicLift,
             onMosaicDrag: onMosaicDrag,
-            onMosaicDrop: onMosaicDrop
+            onMosaicDrop: onMosaicDrop,
+            onPictureTap: onPictureTap
         )
         return view
     }
@@ -95,7 +98,8 @@ struct CanvasGestureView: UIViewRepresentable {
             onMosaicTap: onMosaicTap,
             onMosaicLift: onMosaicLift,
             onMosaicDrag: onMosaicDrag,
-            onMosaicDrop: onMosaicDrop
+            onMosaicDrop: onMosaicDrop,
+            onPictureTap: onPictureTap
         )
     }
 }
@@ -118,6 +122,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         var onMosaicLift: (CGPoint) -> Void
         var onMosaicDrag: (CGPoint) -> Void
         var onMosaicDrop: () -> Void
+        var onPictureTap: () -> Void
     }
 
     var handlers: Handlers?
@@ -463,12 +468,15 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         // terminal's own prompt line, so the one place a person taps to start typing was a place
         // where the first tap only put our own keyboard away and the second hit the dock.
         //
-        // Each of the three closes from its own controls instead, which it already could: the pill
-        // closes on a tap, the panel and the keyboard from the buttons that opened them.
+        // The panel and the keyboard close from the buttons that opened them. The pill also closes
+        // on a tap here, but the tap still goes through to the Mac, so nothing is swallowed.
         //
         // Blocked points are still excluded before anything else: a tap inside a control belongs to
         // that control, and this is what keeps a tap on our chrome from also reaching the Mac.
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
+
+        // Closes the expanded pill without swallowing the tap: it still goes on to the Mac below.
+        handlers?.onPictureTap()
 
         // **A mosaic comes before the mode guard, and that is not an oversight.** Selecting a
         // tile sends no input: it asks the Mac for that one source, which is the same kind of
