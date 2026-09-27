@@ -15,10 +15,12 @@ struct SettingsTab: View {
     @AppStorage(PreferenceKeys.liveActivities) private var liveActivitiesEnabled = true
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
     @AppStorage(PreferenceKeys.hidesPanelAfterSelect) private var hidesPanelAfterSelect = true
+    @AppStorage(PreferenceKeys.opensKeyboardForTextFields) private var opensKeyboardForTextFields = true
     @AppStorage(PreferenceKeys.interactionMode) private var interactionMode: InteractionMode = .control
     @AppStorage(PreferenceKeys.scalesToFill) private var scalesToFill = false
     @AppStorage(PreferenceKeys.streamQuality) private var streamQuality: SessionModel.StreamQuality = .auto
     @State private var deviceNameDraft = ""
+    @State private var query = ""
     /// Whether the copy has just happened, so the row can say so and then stop saying so.
     @State private var copiedDiagnostics = false
     @State private var showingMailComposer = false
@@ -35,22 +37,26 @@ struct SettingsTab: View {
                             "Settings",
                             detail: "Defaults for this device and every session."
                         )
-                        deviceSection
-                        controlsSection
-                        qualitySection
-                        remoteAccessSection
-                        securitySection
-                        pipSection
-                        homeScreenWidgetSection
-                        liveActivitySection
-                        notificationsSection
-                        if !model.pairedHostIDs.isEmpty { trustedMacsSection }
-                        identitySection
+                        SettingsSearchField(query: $query)
+                        if shows(.device) { deviceSection }
+                        if shows(.controls) { controlsSection }
+                        if shows(.quality) { qualitySection }
+                        if shows(.remoteAccess) { remoteAccessSection }
+                        if shows(.security) { securitySection }
+                        if shows(.pip) { pipSection }
+                        if shows(.widget) { homeScreenWidgetSection }
+                        if shows(.liveActivity) { liveActivitySection }
+                        if shows(.notifications) { notificationsSection }
+                        if !model.pairedHostIDs.isEmpty, shows(.trustedMacs) { trustedMacsSection }
+                        if shows(.identity) { identitySection }
 #if DEBUG
-                        developerSection
+                        if shows(.developer) { developerSection }
 #endif
-                        moreSection
-                        legalSection
+                        if shows(.more) { moreSection }
+                        if shows(.legal) { legalSection }
+                        if SettingsSearch.hasNoMatch(query) {
+                            SettingsSearch.noResults(query)
+                        }
                     }
                     .adaptiveContentColumn()
                     .padding(.horizontal, 18)
@@ -71,6 +77,10 @@ struct SettingsTab: View {
                 if !focused { commitDeviceName() }
             }
         }
+    }
+
+    private func shows(_ section: SettingsSearch.Section) -> Bool {
+        SettingsSearch.matches(section, query)
     }
 
     private var deviceSection: some View {
@@ -128,6 +138,14 @@ struct SettingsTab: View {
                     Text(mode.label).tag(mode)
                 }
             }
+
+            Controls.divider
+
+            Controls.toggle(
+                "Open keyboard for text fields",
+                systemImage: "keyboard.badge.ellipsis",
+                isOn: $opensKeyboardForTextFields
+            )
 
             Controls.divider
 

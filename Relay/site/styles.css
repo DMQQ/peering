@@ -1308,7 +1308,8 @@ a { color: inherit; }
 
 .foot-links {
   display: flex;
-  gap: 22px;
+  flex-wrap: wrap;
+  gap: 10px 22px;
   font-size: 15px;
   margin-left: auto;
 }
@@ -1374,6 +1375,13 @@ a { color: inherit; }
   margin-top: 40px;
 }
 
+.doc h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 24px;
+  color: var(--ink);
+}
+
 .doc p, .doc li {
   margin-top: 12px;
   color: var(--ink-55);
@@ -1421,6 +1429,45 @@ a { color: inherit; }
   font-size: 13px;
   color: var(--ink-50);
 }
+
+.doc-table-wrap {
+  margin-top: 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.doc-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.doc-table th,
+.doc-table td {
+  padding: 12px 14px 12px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ink-55);
+}
+
+.doc-table th {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.doc-table td:first-child { color: var(--ink); }
+
+.doc-table tr:last-child td { border-bottom: 0; }
+
+.doc .related {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.doc .related h2 { margin-top: 0; }
 
 /* ---------- Narrow ---------- */
 

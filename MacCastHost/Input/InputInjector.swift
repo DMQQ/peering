@@ -366,7 +366,8 @@ final class InputInjector: @unchecked Sendable {
         case .setCaptureSource, .launchApplication, .switchToSpace, .setStreamQuality,
              .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode,
              .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
-             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay:
+             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
+             .performWindowAction, .openNewWindow:
             // Handled upstream, in the host's own routing, before this method is called.
             break
         }

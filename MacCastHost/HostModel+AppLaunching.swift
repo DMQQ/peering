@@ -59,12 +59,22 @@ extension HostModel {
     /// points and in the same top-left space, so the frame is an identity here rather than a guess.
     @discardableResult
     private func focusWindow(_ windowID: CGWindowID, ofProcess pid: pid_t) -> Bool {
+        guard let window = Self.accessibilityWindow(windowID, ofProcess: pid) else { return false }
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(
+            AXUIElementCreateApplication(pid), kAXFocusedWindowAttribute as CFString, window
+        )
+        return true
+    }
+
+    /// The accessibility element for a window server window.
+    private static func accessibilityWindow(_ windowID: CGWindowID, ofProcess pid: pid_t) -> AXUIElement? {
         let appElement = AXUIElementCreateApplication(pid)
         var ref: CFTypeRef?
         guard let target = Self.windowFrame(windowID),
               AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &ref) == .success,
               let elements = ref as? [AXUIElement]
-        else { return false }
+        else { return nil }
 
         // By its frame where a frame matches, and by its name where none does: a window the Mac has
         // not finished placing yet is at the frame it was created with, and the one thing that has
@@ -93,11 +103,143 @@ extension HostModel {
             // cannot tell apart, and raising the wrong one is worse than raising neither.
             return matches.count == 1 ? matches[0] : nil
         }
-        guard let window = byFrame ?? byName else { return false }
+        return byFrame ?? byName
+    }
 
-        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, window)
-        return true
+    /// Presses a window's close, minimise or zoom button, then refreshes the catalogue so the
+    /// phone's list follows.
+    func performWindowAction(_ action: WindowAction, windowID: CGWindowID) {
+        guard let pid = Self.owningProcess(of: .window(windowID)),
+              let window = Self.accessibilityWindow(windowID, ofProcess: pid)
+        else {
+            record("Could not find that window to \(action.rawValue)", level: .failure)
+            return
+        }
+        let buttonAttribute = switch action {
+        case .close: kAXCloseButtonAttribute
+        case .minimize: kAXMinimizeButtonAttribute
+        case .zoom: kAXZoomButtonAttribute
+        }
+        var ref: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, buttonAttribute as CFString, &ref) == .success,
+           let button = ref, CFGetTypeID(button) == AXUIElementGetTypeID() {
+            AXUIElementPerformAction(button as! AXUIElement, kAXPressAction as CFString)
+        } else if action == .minimize {
+            AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        } else {
+            record("That window has no \(action.rawValue) button", level: .failure)
+            return
+        }
+        Task { @MainActor [weak self] in
+            // The window takes a moment to animate away before the window server stops listing it.
+            try? await Task.sleep(for: .milliseconds(400))
+            self?.coordinator?.refreshWindowList()
+        }
+    }
+
+    /// Opens another window of a running application through its own "New Window" menu item,
+    /// then follows the new window into capture once it exists.
+    ///
+    /// The menu rather than a shortcut, because the shortcut differs: ⌘N in Zed is a new file
+    /// inside the current window. ⌘N is only the fallback for an app whose menu has no such item.
+    /// One that is not running is launched instead, which opens its first window.
+    func openNewWindow(bundleIdentifier: String) {
+        guard let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first(where: { $0.activationPolicy == .regular })
+        else {
+            launchApplication(bundleIdentifier: bundleIdentifier)
+            return
+        }
+        bringToFront(running)
+        let pid = running.processIdentifier
+        let before = Set(Self.windowIDs(ofProcess: pid))
+        Task { @MainActor [weak self] in
+            // Keys posted before the application is frontmost go to whatever was.
+            try? await Task.sleep(for: .milliseconds(250))
+            if !Self.pressNewWindowMenuItem(ofProcess: pid) {
+                Self.postCommandN(to: pid)
+            }
+            for _ in 0..<10 {
+                try? await Task.sleep(for: .milliseconds(200))
+                guard let self else { return }
+                if let fresh = Self.windowIDs(ofProcess: pid).first(where: { !before.contains($0) }) {
+                    self.coordinator?.refreshWindowList()
+                    self.pendingCaptureSource = .window(fresh)
+                    self.applyCaptureSource(.window(fresh))
+                    // Once more after it has settled: a window that has just appeared can still
+                    // be missing its title and picture on the first pass.
+                    try? await Task.sleep(for: .seconds(1))
+                    self.coordinator?.refreshWindowList()
+                    return
+                }
+            }
+            self?.coordinator?.refreshWindowList()
+        }
+    }
+
+    /// Finds and presses the first item in the app's menu bar titled "New Window", looking one
+    /// submenu deep for apps like Terminal that file it under a profile list.
+    private static func pressNewWindowMenuItem(ofProcess pid: pid_t) -> Bool {
+        func children(_ element: AXUIElement) -> [AXUIElement] {
+            var ref: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &ref) == .success
+            else { return [] }
+            return ref as? [AXUIElement] ?? []
+        }
+        func title(_ element: AXUIElement) -> String {
+            var ref: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &ref)
+            return ref as? String ?? ""
+        }
+        func enabled(_ element: AXUIElement) -> Bool {
+            var ref: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &ref)
+            return (ref as? Bool) ?? true
+        }
+
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            AXUIElementCreateApplication(pid), kAXMenuBarAttribute as CFString, &ref
+        ) == .success, let bar = ref, CFGetTypeID(bar) == AXUIElementGetTypeID()
+        else { return false }
+
+        // Menu bar item → its menu → the menu's items.
+        for topItem in children(bar as! AXUIElement) {
+            for menu in children(topItem) {
+                for item in children(menu) where title(item).hasPrefix("New Window") && enabled(item) {
+                    // An item with a submenu (Terminal's profiles) is pressed through its first entry.
+                    if let submenu = children(item).first,
+                       let first = children(submenu).first(where: enabled) {
+                        return AXUIElementPerformAction(first, kAXPressAction as CFString) == .success
+                    }
+                    return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success
+                }
+            }
+        }
+        return false
+    }
+
+    private static func postCommandN(to pid: pid_t) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let keyN: CGKeyCode = 45
+        for down in [true, false] {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: keyN, keyDown: down)
+            else { continue }
+            event.flags = .maskCommand
+            event.postToPid(pid)
+        }
+    }
+
+    /// The process's on-screen, normal-layer windows, front to back.
+    private static func windowIDs(ofProcess pid: pid_t) -> [CGWindowID] {
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        return list.compactMap { info in
+            guard info[kCGWindowOwnerPID as String] as? pid_t == pid,
+                  info[kCGWindowLayer as String] as? Int == 0
+            else { return nil }
+            return info[kCGWindowNumber as String] as? CGWindowID
+        }
     }
 
     /// Where the window server says a window is.

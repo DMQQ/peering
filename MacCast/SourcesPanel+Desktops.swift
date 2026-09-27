@@ -85,7 +85,7 @@ extension SourcesPanel {
             VStack(alignment: .leading, spacing: 6) {
                 if namesScreen(info, display) { chip(for: display) }
 
-                LazyVGrid(columns: Self.previewColumns, alignment: .leading, spacing: Self.tileGap) {
+                Self.tileRow {
                     // Offsets rather than `1...count`, which is an empty range when a display
                     // reports nothing and traps on the way.
                     ForEach(0..<display.count, id: \.self) { offset in
@@ -99,9 +99,7 @@ extension SourcesPanel {
                 }
             }
         } else {
-            LazyVGrid(columns: Self.previewColumns, alignment: .leading, spacing: Self.tileGap) {
-                previewTile(descriptor, fallbackIcon: "display")
-            }
+            previewTile(descriptor, fallbackIcon: "display", height: Self.packedTileHeight)
         }
     }
 
@@ -224,7 +222,7 @@ extension SourcesPanel {
                 // The same box and the same picture the preview tiles are built from, so a row of
                 // desktops and a row of windows are measured the same way. A desktop's own
                 // picture goes in it at the screen's shape rather than at 16:10.
-                Self.tileBox {
+                Self.tileBox(height: Self.packedTileHeight, shape: shape) {
                     ColorPalette.surface
                         .overlay {
                             if let data = display.preview(for: index)?.jpegData,
@@ -269,6 +267,7 @@ extension SourcesPanel {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(width: Self.packedTileHeight * shape)
         }
         // The tile that has just become the picture steps forward, exactly as it does in the
         // grids above: the face of the thing the user is now watching should be the part that
@@ -359,10 +358,10 @@ extension SourcesPanel {
     /// The Mac's own answer, or the one this phone has just asked for and has not yet seen it
     /// confirm. See ``pendingDesktop``.
     func desktopIsCurrent(_ display: SpaceDisplay, index: Int) -> Bool {
-        if let pending = pendingDesktop,
-           pending.display == display.displayID,
-           pending.index == index {
-            return true
+        // A tap on this screen answers for it until the Mac does, so the desktop being left loses
+        // its mark at the same moment the new one gains it rather than when the list arrives.
+        if let pending = pendingDesktop, pending.display == display.displayID {
+            return pending.index == index
         }
         return index == display.current
     }

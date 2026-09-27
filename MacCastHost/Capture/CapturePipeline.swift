@@ -473,6 +473,12 @@ final class CapturePipeline: @unchecked Sendable {
         resolver.invalidateIfWindowsMoved()
     }
 
+    /// The window list has changed because this host changed it, so the cached one is wrong.
+    func forgetWindowList() {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        resolver.invalidate()
+    }
+
     /// Something this session is capturing has gone. The phone's catalogue still lists it, so the
     /// only way it can be taken out of an arrangement is for the Mac to say so. See
     /// ``CaptureSourceResolver/invalidate()``.

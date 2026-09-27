@@ -938,8 +938,7 @@ struct MacroBar: View {
                         Text(macro.title)
                             .font(.system(size: 14, weight: .medium))
                             .padding(.horizontal, 12)
-                            .frame(height: 34)
-                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
+                            .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
@@ -968,8 +967,8 @@ struct MacroBar: View {
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 13, weight: .medium))
-                            .frame(width: 34, height: 34)
-                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
+                            .frame(width: 34)
+                            .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                     .accessibilityLabel("Edit macros")

@@ -29,28 +29,33 @@ struct SettingsPanel: View {
     /// matches the model's: on, which is how the app behaved before the switch existed.
     @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
     @AppStorage(PreferenceKeys.opensKeyboardForTextFields) private var opensKeyboardForTextFields = true
+    @State private var query = ""
+
+    private func shows(_ section: SettingsSearch.Section) -> Bool {
+        SettingsSearch.matches(section, query)
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 16) {
-                session
-                activity
-                stream
-                picture
-                panels
-                privacy
-                keyboard
-                macros
-                pairedMacs
-                thisDevice
+                SettingsSearchField(query: $query)
+                if shows(.sessionInfo) { session }
+                if shows(.activity) { activity }
+                if shows(.stream) { stream }
+                if shows(.sessionPicture) { picture }
+                if shows(.sessionPanels) { panels }
+                if shows(.privacy) { privacy }
+                if shows(.sessionKeyboard) { keyboard }
+                if shows(.macros) { macros }
+                if shows(.pairedMacs) { pairedMacs }
+                if shows(.thisDevice) { thisDevice }
+                if SettingsSearch.hasNoMatch(query, in: SettingsSearch.panelSections) {
+                    SettingsSearch.noResults(query)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 10)
-        .reportChromeFrame(.panel, into: $chromeFrames)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
         .confirmationDialog(
             "Lock this Mac?",
             isPresented: $confirmLock,

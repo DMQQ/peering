@@ -802,6 +802,9 @@ final class SessionModel {
     func verifyLiveSessions() {
         for session in sessions where session.phase == .ready {
             session.wire?.verifyStillAnswering()
+            if !session.isVideoStreaming {
+                session.wire?.retryVideoAfterNetworkChange()
+            }
         }
     }
 

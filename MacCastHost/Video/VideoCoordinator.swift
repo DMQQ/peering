@@ -515,6 +515,12 @@ final class VideoCoordinator: @unchecked Sendable {
         pipeline.forgetWindowListIfStale()
     }
 
+    /// Drops the cached window list and sends the phone a fresh one, for a change this host made.
+    func refreshWindowList() {
+        pipeline.forgetWindowList()
+        refreshCatalog(immediate: true)
+    }
+
     func refreshCatalog(immediate: Bool = false) {
         lock.withLock {
             if let pending = pendingCatalogPush {

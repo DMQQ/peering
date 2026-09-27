@@ -138,6 +138,9 @@ struct MacCastApp: App {
                     switch phase {
                     case .active:
                         CrashLog.setForeground(true)
+                        // Back in the app, the full screen shows the picture, so the floating
+                        // window goes without waiting for its restore button.
+                        SessionPiP.shared.stop()
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
                     case .background:

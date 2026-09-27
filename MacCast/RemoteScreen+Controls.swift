@@ -126,10 +126,8 @@ extension RemoteScreen {
 
     /// The actions reached for while looking at the Mac rather than at Peering itself.
     ///
-    /// Ordered by frequency because the rail is intentionally scrollable on shorter phones:
-    /// copy, paste and terminal interrupt remain visible first. Destructive quit is present as
-    /// requested, but below the everyday edits and behind a confirmation so an edge tap cannot
-    /// close an app with unsaved work.
+    /// Copy and paste first. Quit is last and behind a confirmation, so an edge tap cannot close an
+    /// app with unsaved work.
     @ViewBuilder
     var landscapeQuickActions: some View {
         ForEach(quickActions) { quickAction in
@@ -144,11 +142,8 @@ extension RemoteScreen {
 
     /// The same set as data, because two layouts draw it now.
     ///
-    /// These were eight hand-written buttons in the rail, and the portrait dock needs the same
-    /// eight in a grid. Written out twice, the two copies would disagree about what a chord does
-    /// the first time either was touched, which is exactly the drift the one `RailButton` was
-    /// built to stop. The order is the rail's, and it is an order rather than a set: copy, paste
-    /// and terminal interrupt come first because the rail scrolls them into view first.
+    /// The rail and the portrait dock both draw it. Five, so the dock holds them on one page; the
+    /// rest (⌃C, ⌘S, ⌘W and more) are in the Shortcuts panel.
     var quickActions: [QuickAction] {
         [
             QuickAction(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
@@ -157,20 +152,11 @@ extension RemoteScreen {
             QuickAction(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
                 sendKey(keyCode: 9, modifiers: [.command])
             },
-            QuickAction(chord: "⌃C", label: "Stop", accessibilityLabel: "Control C") {
-                sendKey(keyCode: 8, modifiers: [.control])
-            },
             QuickAction(chord: "⌘Z", label: "Undo", accessibilityLabel: "Undo") {
                 sendKey(keyCode: 6, modifiers: [.command])
             },
             QuickAction(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
                 sendKey(keyCode: 7, modifiers: [.command])
-            },
-            QuickAction(chord: "⌘S", label: "Save", accessibilityLabel: "Save") {
-                sendKey(keyCode: 1, modifiers: [.command])
-            },
-            QuickAction(chord: "⌘W", label: "Close", accessibilityLabel: "Close window") {
-                sendKey(keyCode: 13, modifiers: [.command])
             },
             QuickAction(chord: "⌘Q", label: "Quit", accessibilityLabel: "Quit active application") {
                 confirmsQuitApplication = true
@@ -279,27 +265,43 @@ extension RemoteScreen {
         // shorter than the ceiling — the shortcuts panel nearly always — grows to the ceiling and
         // centres its contents inside it. Bottom-aligned, the frame is still the ceiling but the
         // panel sits at the bottom of it, which is where a panel belongs.
-        switch openPanel {
+        if let panel = openPanel {
+            // One surface for every panel, so switching between them reshapes it and swaps what is
+            // inside rather than dropping one panel and sliding in the next.
+            ZStack(alignment: .bottom) {
+                // Full width, so a switch only changes the height, and one geometry group, so the
+                // rows that scroll sideways do not animate their own layout in from the side.
+                panelContent(panel)
+                    .frame(maxWidth: .infinity)
+                    .geometryGroup()
+                    .id(panel)
+                    .transition(.blurReplace(.downUp))
+            }
+            .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 10)
+            .reportChromeFrame(.panel, into: $chromeFrames)
+            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder
+    private func panelContent(_ panel: Panel) -> some View {
+        switch panel {
         case .shortcuts:
             shortcutsPanel
-                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .clipboard:
             ClipboardPanel(chromeFrames: $chromeFrames)
-                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .sources:
             SourcesPanel(
                 chromeFrames: $chromeFrames,
                 onSelect: closePanelAfterSelection,
                 onReturnToMosaic: animateBackToMosaic
             )
-                .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
         case .settings:
             SettingsPanel(chromeFrames: $chromeFrames) {
                 withAnimation(Motion.settle) { openPanel = .sources }
             }
-            .frame(maxWidth: Self.panelWidth, maxHeight: ceiling(available, isLandscape), alignment: .bottom)
-        case nil:
-            EmptyView()
         }
     }
 

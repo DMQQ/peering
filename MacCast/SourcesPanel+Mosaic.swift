@@ -182,16 +182,26 @@ extension SourcesPanel {
     /// it may be, so a tall window is a narrow tile rather than a tall one. See ``tileBox`` and
     /// ``tileShape(for:)``.
     func previewTile(
-        _ descriptor: CaptureSourceDescriptor, fallbackIcon: String
+        _ descriptor: CaptureSourceDescriptor, fallbackIcon: String, height: CGFloat? = nil
     ) -> some View {
         let placed = placement(of: descriptor)
         let shape = Self.tileShape(for: descriptor)
+        let pictureWidth = height.map { $0 * shape }
+
+        let controls = tileControls(for: descriptor)
+        let showsControls = !controls.isEmpty && windowControlsFor == descriptor.id
+        let isPendingRemoval = pendingVirtualDisplayRemovalIDs.contains(descriptor.id)
 
         return Button {
+            guard Date().timeIntervalSince(windowControlsShownAt) > 0.6 else { return }
+            if windowControlsFor != nil {
+                withAnimation(Motion.tap) { windowControlsFor = nil }
+                return
+            }
             choose(descriptor)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                Self.tileBox {
+                Self.tileBox(height: height, shape: shape) {
                     ColorPalette.surface
                         .overlay {
                             if let thumbnail = descriptor.thumbnail,
@@ -227,6 +237,9 @@ extension SourcesPanel {
                         // On the picture, not on the box: a number in the corner of a box that is
                         // twice the width of what it sits beside is a number by itself.
                         .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
+                        .overlay {
+                            if showsControls { tileControlBar(controls) }
+                        }
                 }
 
                 // **No wider than the picture it names.** A cell is one shape and the pictures
@@ -236,12 +249,13 @@ extension SourcesPanel {
                 // one end. Clipped to the picture, the two read as one tile. See
                 // ``captionWidth(shape:)``.
                 caption(descriptor, isLive: placed.isLive)
-                    .frame(maxWidth: captionWidth(shape: shape), alignment: .leading)
+                    .frame(maxWidth: pictureWidth ?? captionWidth(shape: shape), alignment: .leading)
             }
+            .frame(width: pictureWidth)
             // Measured here, from whichever tile lays out first: every cell of an adaptive grid is
             // the same width, and the arithmetic below needs one number for all of them.
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
-                if abs(width - tileCellWidth) > 0.5 { tileCellWidth = width }
+                if height == nil, abs(width - tileCellWidth) > 0.5 { tileCellWidth = width }
             }
         }
         // **A tile that has just become the picture steps forward and stays there.** Tapping a
@@ -253,8 +267,103 @@ extension SourcesPanel {
         .scaleEffect(placed.isLive ? Self.tileGrowth : 1)
         .animation(Motion.settle, value: placed.isLive)
         .buttonStyle(RailButtonStyle(scale: 0.94))
+        .disabled(isPendingRemoval)
+        .opacity(isPendingRemoval ? 0.5 : 1)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.45).onEnded { _ in
+                guard !controls.isEmpty, !buildingMosaic else { return }
+                windowControlsShownAt = Date()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                withAnimation(Motion.morph) { windowControlsFor = descriptor.id }
+            }
+        )
         // The picture is the point of the tile and carries no text of its own, so the label is
         // what a screen reader announces instead of a wall of unlabelled images.
         .accessibilityLabel(spoken(descriptor))
     }
+
+    /// The buttons a long press on this tile offers, in the Mac's title-bar order.
+    ///
+    /// A window gets the Mac's own three. A display this app added gets the same dots for what can
+    /// be done to it: red removes it, yellow renames it.
+    func tileControls(for descriptor: CaptureSourceDescriptor) -> [TileControl] {
+        switch descriptor.source {
+        case .window(let id):
+            let send = { (action: WindowAction) in
+                model.send(.performWindowAction(windowID: id, action: action))
+            }
+            return [
+                TileControl(colour: TileControl.red, symbol: "xmark", label: "Close window") { send(.close) },
+                TileControl(colour: TileControl.yellow, symbol: "minus", label: "Minimise window") { send(.minimize) },
+                TileControl(colour: TileControl.green, symbol: "arrow.up.left.and.arrow.down.right", label: "Zoom window") { send(.zoom) },
+            ]
+        case .display(let id) where descriptor.isManagedVirtualDisplay && includesVirtualDisplays:
+            return [
+                TileControl(colour: TileControl.red, symbol: "xmark", label: "Remove \(descriptor.title)") {
+                    removeVirtualDisplay(descriptor, id: id)
+                },
+                TileControl(colour: TileControl.yellow, symbol: "pencil", label: "Rename \(descriptor.title)") {
+                    renameVirtualDisplayDraft = descriptor.title
+                    renameVirtualDisplayTarget = descriptor
+                },
+            ]
+        default:
+            return []
+        }
+    }
+
+    /// The dots, drawn over the middle of the tile on one glass capsule.
+    ///
+    /// The one place the panel uses colours other than the state blue: these are quoting the
+    /// Mac's own title-bar buttons, and they are recognised by their colours before anything else.
+    func tileControlBar(_ controls: [TileControl]) -> some View {
+        HStack(spacing: 10) {
+            ForEach(controls) { tileControlButton($0) }
+        }
+        .padding(8)
+        .glassSurface(in: Capsule())
+        .transition(Self.badge)
+    }
+
+    /// One button's face: glass tinted the button's colour on iOS 26, a plain dot before it.
+    @ViewBuilder
+    private func trafficLight(_ colour: Color) -> some View {
+        if #available(iOS 26.0, *) {
+            Color.clear.glassEffect(.regular.tint(colour).interactive(), in: Circle())
+        } else {
+            Circle().fill(colour)
+        }
+    }
+
+    private func tileControlButton(_ control: TileControl) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            control.action()
+            withAnimation(Motion.tap) { windowControlsFor = nil }
+        } label: {
+            trafficLight(control.colour)
+                .frame(width: 26, height: 26)
+                .overlay {
+                    Image(systemName: control.symbol)
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundStyle(.black.opacity(0.55))
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.85))
+        .accessibilityLabel(control.label)
+    }
+}
+
+/// One of the dots a long press shows on a tile.
+struct TileControl: Identifiable {
+    static let red = Color(red: 1.0, green: 0.37, blue: 0.34)
+    static let yellow = Color(red: 1.0, green: 0.74, blue: 0.18)
+    static let green = Color(red: 0.16, green: 0.79, blue: 0.25)
+
+    let colour: Color
+    let symbol: String
+    let label: String
+    let action: () -> Void
+    var id: String { label }
 }

@@ -226,6 +226,18 @@ extension HostModel {
                 }
                 return
             }
+            if case .performWindowAction(let windowID, let action) = command {
+                Task { @MainActor [weak self] in
+                    self?.performWindowAction(action, windowID: windowID)
+                }
+                return
+            }
+            if case .openNewWindow(let bundleIdentifier) = command {
+                Task { @MainActor [weak self] in
+                    self?.openNewWindow(bundleIdentifier: bundleIdentifier)
+                }
+                return
+            }
             if case .switchToSpace(let display, let index) = command {
                 Task { @MainActor [weak self] in
                     guard let self else { return }

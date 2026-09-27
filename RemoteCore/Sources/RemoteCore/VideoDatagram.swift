@@ -474,9 +474,7 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         // The relay's family decides the socket's, because the relay is the destination every
         // session has and the peer is the one that might not exist. IPv6 is preferred: two ends on
         // IPv6 need no hole punch. IPv4 is the fallback where there is no IPv6 reachability.
-        guard let resolved = Self.resolve(host: host, port: port, family: AF_INET6, numeric: false)
-                           ?? Self.resolve(host: host, port: port, family: AF_INET, numeric: false)
-        else {
+        guard let resolved = Self.resolveRacing(host: host, port: port) else {
             throw VideoDatagramError.unresolvedHost(host)
         }
         relayAddress = resolved.address
@@ -918,11 +916,65 @@ public final class VideoDatagramSocket: @unchecked Sendable {
             return resolved
         }
         guard family == AF_INET6 else { return nil }
+        // On an IPv6-only network (NAT64, which App Review uses) a v4 literal has to go through the
+        // resolver to be synthesised into a routable v6 address; `::ffff:` goes nowhere there.
+        // Checked as a literal first, so a name from the relay still never reaches the resolver.
+        var v4 = in_addr()
+        if inet_pton(AF_INET, host, &v4) == 1,
+           let synthesised = resolve(host: host, port: port, family: AF_INET6, numeric: false, flags: AI_DEFAULT) {
+            return synthesised
+        }
         // Spelled rather than assembled byte by byte: `::ffff:` and an IPv4 literal is itself a valid
         // IPv6 numeric address, so the resolver does the work and there is no prefix to get wrong. A
         // host that is not an address at all fails here, which is the correct answer.
         return resolve(host: "::ffff:\(host)", port: port, family: AF_INET6, numeric: true)
     }
+
+    /// Asks for the IPv6 and IPv4 answers at once and takes the first that arrives.
+    ///
+    /// Asked one after the other, a slow resolver on cellular made the two waits add up. IPv6 is
+    /// still preferred: an IPv4 answer is held for ``ipv6Preference`` in case IPv6 is about to land.
+    /// The losing lookup is left to finish on its own thread and its answer is dropped.
+    private static func resolveRacing(
+        host: String,
+        port: UInt16
+    ) -> (address: sockaddr_storage, length: socklen_t)? {
+        typealias Answer = (address: sockaddr_storage, length: socklen_t)
+        final class Race: @unchecked Sendable {
+            let lock = NSLock()
+            let done = DispatchSemaphore(value: 0)
+            var v6: Answer?
+            var v4: Answer?
+            var finished = 0
+        }
+        let race = Race()
+        for family in [AF_INET6, AF_INET] {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let answer = resolve(host: host, port: port, family: family, numeric: false)
+                race.lock.withLock {
+                    if family == AF_INET6 { race.v6 = answer } else { race.v4 = answer }
+                    race.finished += 1
+                }
+                race.done.signal()
+            }
+        }
+
+        var deadline: DispatchTime = .distantFuture
+        while true {
+            if race.done.wait(timeout: deadline) == .timedOut {
+                return race.lock.withLock { race.v6 ?? race.v4 }
+            }
+            let (v6, v4, finished) = race.lock.withLock { (race.v6, race.v4, race.finished) }
+            if let v6 { return v6 }
+            if finished == 2 { return v4 }
+            if v4 != nil, deadline == .distantFuture {
+                deadline = .now() + ipv6Preference
+            }
+        }
+    }
+
+    /// How long an IPv4 answer waits for IPv6 to arrive, as in Happy Eyeballs (RFC 8305).
+    private static let ipv6Preference: DispatchTimeInterval = .milliseconds(50)
 
     /// Resolves `host` and `port` into a socket address, restricted to `family`.
     ///
@@ -932,12 +984,14 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         host: String,
         port: UInt16,
         family: Int32,
-        numeric: Bool
+        numeric: Bool,
+        flags: Int32 = 0
     ) -> (address: sockaddr_storage, length: socklen_t)? {
         var hints = addrinfo()
         hints.ai_family = family
         hints.ai_socktype = SOCK_DGRAM
-        if numeric { hints.ai_flags = AI_NUMERICHOST }
+        hints.ai_flags = flags
+        if numeric { hints.ai_flags |= AI_NUMERICHOST }
 
         var info: UnsafeMutablePointer<addrinfo>?
         guard getaddrinfo(host, String(port), &hints, &info) == 0, let first = info else {

@@ -112,12 +112,8 @@ extension SourcesPanel {
     /// margin outside the glass card out of that number, and the tiles hung off the screen. An
     /// adaptive grid cannot make that mistake, because the width it divides is the width it is
     /// actually drawn in.
-    static var previewColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: tileMinimumWidth), spacing: tileGap)]
-    }
-
     static var iconColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: iconMinimumWidth), spacing: iconGap)]
+        Array(repeating: GridItem(.flexible(), spacing: iconGap, alignment: .top), count: 5)
     }
 
     /// The width a picture tile asks for. Adaptive columns give every cell at least this much and
@@ -142,11 +138,35 @@ extension SourcesPanel {
     /// tall one and a wide one fills the width without being stretched. It is also what makes a
     /// row of differently shaped tiles a row: every tile is measured against the same box rather
     /// than against its neighbours, so the names under them stay on one line.
-    static func tileBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        Color.clear
-            .aspectRatio(tileAspect, contentMode: .fit)
-            .overlay(alignment: .topLeading) { content() }
+    ///
+    /// Given a height, the box is exactly the picture instead, for rows that pack tiles by their
+    /// own widths.
+    @ViewBuilder
+    static func tileBox<Content: View>(
+        height: CGFloat? = nil, shape: CGFloat = tileAspect, @ViewBuilder content: () -> Content
+    ) -> some View {
+        if let height {
+            content().frame(width: height * shape, height: height)
+        } else {
+            Color.clear
+                .aspectRatio(tileAspect, contentMode: .fit)
+                .overlay(alignment: .topLeading) { content() }
+        }
     }
+
+    /// Tiles in one row that scrolls sideways, with room for the live tile's growth, which the
+    /// scroll view would otherwise clip.
+    static func tileRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: tileGap) { content() }
+                .padding(tileRoom)
+        }
+        .scrollIndicators(.hidden)
+        .padding(-tileRoom)
+    }
+
+    /// The row height of packed window tiles: the height a 16:10 tile has at the grid's floor.
+    static let packedTileHeight: CGFloat = tileMinimumWidth / tileAspect
 
     /// The two ends ``tileShape(_:)`` holds a shape between.
     ///
@@ -209,20 +229,8 @@ extension SourcesPanel {
     /// border, which is a ring cut open rather than the mark of the one being watched.
     static let tileRoom: CGFloat = 6
 
-    /// The size of a Home Screen icon, which is what this grid is quoting.
-    ///
-    /// **Close to the width of a column, and that is the number that matters.** An adaptive grid
-    /// gives every cell at least ``iconMinimumWidth`` and then spreads the leftover width evenly
-    /// between them, so a small icon in a wide cell is not a small icon — it is the same icon with
-    /// a gutter either side of it, and a row of those reads as a grid with something missing
-    /// rather than as a grid. 74 in a cell that comes out around 86 leaves the few points a
-    /// Home Screen leaves and no more.
-    static let iconSize: CGFloat = 74
-    /// The corner `ApplicationIcon` derives from ``iconSize``, needed here for the mark behind it.
-    static let iconCorner: CGFloat = iconSize * (11.0 / 42.0)
-    /// Just the icon and its gutter. Anything more and the grid spends its leftover width on gaps
-    /// it does not need, which is exactly the state this number is here to prevent.
-    static let iconMinimumWidth: CGFloat = iconSize + 8
+    /// The icon size before the grid has measured a cell: five fit across the narrowest phone.
+    static let iconSize: CGFloat = 56
     static let iconGap: CGFloat = 8
 
     /// Adds or removes one source from the arrangement being built.

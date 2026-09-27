@@ -74,8 +74,15 @@ struct SourcesPanel: View {
     /// has to be clipped to its own picture cannot be told how much without it. See
     /// ``captionWidth(shape:)``.
     @State var tileCellWidth: CGFloat = 0
+    /// How wide one column of the installed-apps grid came out, so the icons can fill it.
+    @State var iconCellWidth: CGFloat = 0
 
     @State var query = ""
+
+    /// The window tile showing its title-bar buttons after a long press, if any.
+    @State var windowControlsFor: CaptureSourceDescriptor.ID?
+    /// When those buttons appeared, so the tap that ends the long press does not also pick the tile.
+    @State var windowControlsShownAt = Date.distantPast
 
     /// Whether the panel is picking several sources rather than one.
     ///
@@ -102,7 +109,7 @@ struct SourcesPanel: View {
     @State var renameVirtualDisplayTarget: CaptureSourceDescriptor?
     @State var renameVirtualDisplayDraft = ""
 
-    /// Whether a tap on ``addVirtualDisplayButton`` is still waiting on the Mac.
+    /// Whether a tap on ``addVirtualDisplayTile(height:)`` is still waiting on the Mac.
     ///
     /// Making a display is not instant — the window server takes up to a few seconds, and the
     /// host does not answer this command directly, only by the catalogue eventually growing a
@@ -146,8 +153,9 @@ struct SourcesPanel: View {
                 }
 
                 if let catalog = model.catalog, !catalog.all.isEmpty {
-                    screensSection(catalog.displays)
+                    // Virtual displays first: below the screens they were easy to miss.
                     if !buildingMosaic { virtualDisplaysSection }
+                    screensSection(catalog.displays)
                     // **One section per application, with its windows under it.** The catalogue
                     // offers applications and windows as two flat lists, which is what the Mac
                     // can enumerate rather than what anybody is looking for: a Mac with ten
@@ -191,10 +199,6 @@ struct SourcesPanel: View {
             if buildingMosaic { mosaicPicker }
         }
         .padding(10)
-        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 10)
-        .reportChromeFrame(.panel, into: $chromeFrames)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
         .alert("Rename display", isPresented: Binding(
             get: { renameVirtualDisplayTarget != nil },
             set: { if !$0 { renameVirtualDisplayTarget = nil } }

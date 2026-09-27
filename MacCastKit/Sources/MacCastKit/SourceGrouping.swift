@@ -26,6 +26,11 @@ public struct ApplicationGroup: Identifiable, Equatable, Sendable {
     /// application's icon, so a group always has one if the Mac sent any at all.
     public let iconPNGData: Data?
 
+    /// The application's bundle identifier, from its own row or any of its windows'.
+    public var bundleIdentifier: String? {
+        application?.bundleIdentifier ?? windows.lazy.compactMap(\.bundleIdentifier).first
+    }
+
     /// That application's windows, in the order the catalogue lists them.
     public let windows: [CaptureSourceDescriptor]
 

@@ -38,6 +38,11 @@ public enum MouseButton: UInt8, Codable, Sendable {
     case middle = 2
 }
 
+/// What a window's title-bar button does: red, yellow, green.
+public enum WindowAction: String, Codable, Sendable {
+    case close, minimize, zoom
+}
+
 public enum SpaceDirection: String, Codable, Sendable {
     case left, right
 }
@@ -168,6 +173,10 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// Asks the host to give a display a new name, on the same terms as
     /// ``removeVirtualDisplay(displayID:)``: `displayID` must be one this host made.
     case renameVirtualDisplay(displayID: UInt32, name: String)
+    /// Presses one of a window's title-bar buttons. `windowID` is a `CGWindowID`.
+    case performWindowAction(windowID: UInt32, action: WindowAction)
+    /// Opens another window of a running application, as ⌘N would.
+    case openNewWindow(bundleIdentifier: String)
 
     public var coalescing: Coalescing {
         switch self {
@@ -180,7 +189,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails,
              .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
              .pushClipboardImage, .addVirtualDisplay, .removeVirtualDisplay,
-             .renameVirtualDisplay:
+             .renameVirtualDisplay, .performWindowAction, .openNewWindow:
             return .none
         }
     }
@@ -207,7 +216,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
              .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode, .lockScreen,
              .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
-             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay:
+             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
+             .performWindowAction, .openNewWindow:
             return false
         }
     }
@@ -226,7 +236,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
              .refreshSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard,
              .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
-             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay:
+             .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
+             .performWindowAction, .openNewWindow:
             return false
         }
     }

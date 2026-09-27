@@ -17,6 +17,12 @@
 
 - [Home](https://getpeering.app/): what Peering does, how pairing works, features, pricing, FAQ.
 - [Download](https://getpeering.app/download): get the Mac app.
+- [Remote desktop for Mac](https://getpeering.app/remote-desktop-for-mac): controlling a Mac from an iPhone.
+- [Access your Mac from anywhere](https://getpeering.app/access-your-mac-from-anywhere): how the connection works off your own network.
+- [Keep your Mac awake for remote access](https://getpeering.app/keep-mac-awake-for-remote-access): the switches that keep a Mac reachable, lid closed included.
+- [Notifications for coding agents](https://getpeering.app/coding-agent-notifications): being told when a shell or an agent is waiting for an answer.
+- [Remote desktop apps compared](https://getpeering.app/remote-desktop-apps-compared): Peering beside Screens, Jump, Chrome Remote Desktop, TeamViewer, AnyDesk and RustDesk.
+- [Screens alternative](https://getpeering.app/screens-alternative): Peering and Screens, side by side.
 - [Privacy Policy](https://getpeering.app/privacy): what the app and the relay can and cannot see.
 - [Terms of Use](https://getpeering.app/terms): terms of use.
 

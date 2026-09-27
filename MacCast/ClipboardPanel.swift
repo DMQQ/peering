@@ -24,7 +24,7 @@ struct ClipboardPanel: View {
                 ClipboardHistoryPanel {
                     withAnimation(Motion.settle) { showingHistory = false }
                 }
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.blurReplace(.downUp))
             } else {
                 VStack(spacing: 8) {
                     phoneRow
@@ -33,14 +33,10 @@ struct ClipboardPanel: View {
                         historyRow
                     }
                 }
-                .transition(.move(edge: .leading).combined(with: .opacity))
+                .transition(.blurReplace(.downUp))
             }
         }
         .padding(10)
-        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 10)
-        .reportChromeFrame(.panel, into: $chromeFrames)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
         .onAppear { model.pullClipboard() }
         .onReceive(NotificationCenter.default.publisher(for: UIPasteboard.changedNotification)) { _ in
             refreshPhone()
@@ -56,6 +52,15 @@ struct ClipboardPanel: View {
 
     private var phoneRow: some View {
         row(side: .phone, symbol: "iphone", title: "iPhone", detail: refusal ?? phoneDetail, isEmpty: phone.kind == .empty) {
+            if phone.kind == .text, !phoneTextIsKnown {
+                // Reading asks the user, so only on a tap. "Allow" in the app's settings stops it.
+                action("Show", enabled: true) {
+                    let board = UIPasteboard.general
+                    if let text = board.string {
+                        model.knownPhoneClipboard = (board.changeCount, text)
+                    }
+                }
+            }
             action("Send", enabled: phone.kind != .empty && isReady) {
                 handle(model.pushClipboard())
             }
@@ -169,13 +174,17 @@ struct ClipboardPanel: View {
 
     private var isReady: Bool { model.phase == .ready }
 
+    private var phoneTextIsKnown: Bool {
+        model.knownPhoneClipboard?.changeCount == phone.changeCount
+    }
+
     private var phoneDetail: String {
         switch phone.kind {
         case .text:
             if let known = model.knownPhoneClipboard, known.changeCount == phone.changeCount {
                 return known.text
             }
-            return "Text copied"
+            return "Text copied in another app"
         case .image: return "Image copied"
         case .empty: return "Nothing copied"
         }

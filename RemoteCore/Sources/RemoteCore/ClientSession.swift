@@ -1397,6 +1397,30 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
+    /// Dials the video socket now, with a whole ladder, when the phone's network has moved.
+    ///
+    /// A socket still open on the old path is replaced: it would otherwise wait out its own timeout
+    /// before the ladder even started.
+    public func retryVideoAfterNetworkChange() {
+        lock.lock()
+        guard state == .ready, wantsPicture, !usesRelayedSingleStream else {
+            lock.unlock()
+            return
+        }
+        let pending = videoReconnectTask
+        videoReconnectTask = nil
+        videoReconnectLadder.reset()
+        let stale = video
+        video = nil
+        let connecting = videoConnectTask
+        videoConnectTask = nil
+        lock.unlock()
+        pending?.cancel()
+        connecting?.cancel()
+        stale?.cancel()
+        openVideoIfNeeded()
+    }
+
     /// Arms the next attempt at the video socket, if there is one left to make.
     ///
     /// Called when a video socket that was carrying the picture closes for a reason that was not our
@@ -1419,10 +1443,10 @@ public final class ClientSession: @unchecked Sendable {
         }
         guard let delay = videoReconnectLadder.next() else {
             lock.unlock()
-            // Said out loud once, because the alternative is a frozen frame. The session itself
-            // stays up: the shells, the clipboard and the assertion that keeps the Mac awake all
-            // still work on it.
-            emit(.video(.ended("The video channel did not come back.")))
+            // A session left up without its picture sat on "Stream paused" for good after a network
+            // switch. Failing it hands the Mac to the session ladder, which redials on the new path.
+            sessionLog.error("the video channel did not come back; failing the session")
+            fail("The video channel did not come back.")
             return
         }
         let task = Task { [weak self] in
@@ -1459,6 +1483,10 @@ public final class ClientSession: @unchecked Sendable {
             lock.unlock()
             return
         }
+        let generation = connectGeneration
+        lock.unlock()
+        // Built outside the lock: its init resolves the relay's name with a blocking getaddrinfo,
+        // which on a slow LTE resolver held the main thread past the launch watchdog.
         let socket: VideoDatagramSocket
         do {
             socket = try VideoDatagramSocket(
@@ -1473,10 +1501,15 @@ public final class ClientSession: @unchecked Sendable {
             //
             // The wish is dropped rather than retried: the cause, an allocation whose token or port
             // is not what the wire contract fixes them at, would be the same next time.
-            wantsVideoDatagrams = false
-            lock.unlock()
+            lock.withLock { wantsVideoDatagrams = false }
             sessionLog.error("could not open the relay's video datagram socket: \(String(describing: error), privacy: .public)")
             emit(.note("Could not open the relay's video path; the picture will share the control channel."))
+            return
+        }
+        lock.lock()
+        guard wantsVideoDatagrams, videoDatagrams == nil, connectGeneration == generation else {
+            lock.unlock()
+            socket.cancel()
             return
         }
         videoDatagrams = socket

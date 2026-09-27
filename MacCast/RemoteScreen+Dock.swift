@@ -5,8 +5,8 @@ import UIKit
 /// One screenful of the dock: as many buttons as it has cells for.
 ///
 /// The dock stands at one row or at three, so the same list is cut into a different number of
-/// these depending on which. Shut, the thirteen controls are three sheets and the eight edits are
-/// two; open, each set is a single sheet, because fifteen cells hold the lot.
+/// these depending on which. Shut, the thirteen controls are three sheets and the five edits are
+/// one; open, each set is a single sheet, because fifteen cells hold the lot.
 ///
 /// **That is the correction.** There were two fixed pages, one per set, and a swipe moved between
 /// them. Shut, that meant page one showed five of the thirteen controls while the open page one
@@ -39,6 +39,74 @@ private extension Array {
         return stride(from: 0, to: count, by: size).map {
             Array(self[$0 ..< Swift.min($0 + size, count)])
         }
+    }
+}
+
+/// The shortcuts panel's key rows, one at a time behind a row of tabs.
+///
+/// Stacked, the application's keys, the macros and F1 to F12 were three scrolling rows of the same
+/// chip and read as one wall of keys.
+struct ShortcutSets: View {
+    let application: (name: String, row: AnyView)?
+    let functionKeys: AnyView
+
+    private enum Set: Hashable { case application, macros, functionKeys }
+
+    @State private var chosen: Set?
+
+    private var sets: [(Set, String)] {
+        var sets: [(Set, String)] = []
+        if let application { sets.append((.application, application.name)) }
+        sets.append((.macros, "Shortcuts"))
+        sets.append((.functionKeys, "F1–F12"))
+        return sets
+    }
+
+    /// The application's keys when there are some, since they are the ones picked for what is on
+    /// screen. A choice that no longer exists falls back the same way.
+    private var shown: Set {
+        if let chosen, sets.contains(where: { $0.0 == chosen }) { return chosen }
+        return application == nil ? .macros : .application
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 16) {
+                ForEach(sets, id: \.0) { set, title in
+                    Button {
+                        withAnimation(Motion.tap) { chosen = set }
+                    } label: {
+                        Text(title)
+                            .font(.subheadline.weight(set == shown ? .semibold : .medium))
+                            .foregroundStyle(set == shown ? ColorPalette.ink : ColorPalette.ink.opacity(0.5))
+                            .lineLimit(1)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(set == shown ? [.isSelected] : [])
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 4)
+
+            Group {
+                switch shown {
+                case .application: application?.row
+                case .macros: MacroBar()
+                case .functionKeys: functionKeys
+                }
+            }
+            .frame(height: 34)
+        }
+    }
+}
+
+extension View {
+    /// A key in the shortcuts panel: a flat tint, since the panel under it is already glass.
+    func keyChip() -> some View {
+        frame(height: 34)
+            .background(ColorPalette.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 }
 
@@ -78,31 +146,21 @@ extension RemoteScreen {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
-            if let profile = activeApplicationProfile {
-                applicationActions(profile)
-            }
-
-            MacroBar()
-
-            functionKeyRow
+            ShortcutSets(
+                application: activeApplicationProfile.map { profile in
+                    (profile.name, AnyView(applicationActions(profile)))
+                },
+                functionKeys: AnyView(functionKeyRow)
+            )
 
             HStack(spacing: 10) {
                 ModifierBar()
-                Spacer()
-                Button(model.keyboardMode.label) {
-                    model.setKeyboardMode(model.keyboardMode == .unicode ? .keycode : .unicode)
-                }
-                .font(.caption.weight(.semibold))
-                .buttonStyle(.bordered)
+                Spacer(minLength: 0)
             }
 
             arrowStrip()
         }
         .padding(10)
-        .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 10)
-        .reportChromeFrame(.panel, into: $chromeFrames)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     /// What the Mac is showing, if we know anything about it.
@@ -128,32 +186,24 @@ extension RemoteScreen {
     /// Absent entirely for an application nobody has written a profile for, rather than shown
     /// empty. A heading with nothing under it is worse than no heading.
     func applicationActions(_ profile: ApplicationProfile) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionLabel(profile.name)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(profile.actions) { action in
-                        Button {
-                            sendKey(keyCode: action.keyCode, modifiers: action.modifiers)
-                        } label: {
-                            Text(action.title)
-                                .font(.system(size: 14, weight: .medium))
-                                .padding(.horizontal, 12)
-                                .frame(height: 34)
-                                .glassSurface(
-                                    in: RoundedRectangle(cornerRadius: 9, style: .continuous),
-                                    interactive: true
-                                )
-                        }
-                        .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
-                        // The keystroke is the visible label and the reason is not, so the
-                        // reason is what gets spoken.
-                        .accessibilityLabel(action.detail)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(profile.actions) { action in
+                    Button {
+                        sendKey(keyCode: action.keyCode, modifiers: action.modifiers)
+                    } label: {
+                        Text(action.title)
+                            .font(.system(size: 14, weight: .medium))
+                            .padding(.horizontal, 12)
+                            .keyChip()
                     }
+                    .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
+                    // The keystroke is the visible label and the reason is not, so the
+                    // reason is what gets spoken.
+                    .accessibilityLabel(action.detail)
                 }
-                .padding(.horizontal, 2)
             }
+            .padding(.horizontal, 2)
         }
     }
 
@@ -181,8 +231,7 @@ extension RemoteScreen {
                             .font(.system(size: 14, weight: .medium).monospacedDigit())
                             .frame(minWidth: 34)
                             .padding(.horizontal, 6)
-                            .frame(height: 34)
-                            .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
+                            .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
                     .accessibilityLabel("F\(index + 1)")
@@ -350,7 +399,7 @@ extension RemoteScreen {
     /// Every sheet of the dock, in the order they are swiped through.
     ///
     /// Controls first and edits after, each cut into runs of as many buttons as the dock has cells
-    /// for. Shut that is five, so the twelve controls are three sheets and the eight edits two;
+    /// for. Shut that is five, so the twelve controls are three sheets and the five edits one;
     /// open it is fifteen, so each set is one sheet. The dots follow from this rather than being a
     /// fixed pair, which is the point: what a swipe moves by is the same in both states.
     ///

@@ -480,6 +480,7 @@ struct VideoKeyMessageTests {
         // 18 makes the video config name its source. A 17 client guesses from its latest request,
         // so an identical-format source switch or reconnect can leave a visible mosaic that it
         // cannot recognise or interact with.
-        #expect(ProtocolInfo.version == 18)
+        // 19 adds the window title-bar buttons and opening a new window from the phone.
+        #expect(ProtocolInfo.version == 19)
     }
 }

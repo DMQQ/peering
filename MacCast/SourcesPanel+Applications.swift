@@ -28,14 +28,61 @@ extension SourcesPanel {
                 applicationHeading(group)
             }
 
-            LazyVGrid(columns: Self.previewColumns, alignment: .leading, spacing: Self.tileGap) {
-                ForEach(group.windows) { previewTile($0, fallbackIcon: "macwindow") }
+            // One row per application, scrolling sideways, with the + outside the scroll so it is
+            // always in the same place however many windows there are.
+            HStack(alignment: .top, spacing: Self.tileGap) {
+                Self.tileRow {
+                    ForEach(group.windows) {
+                        previewTile($0, fallbackIcon: "macwindow", height: Self.packedTileHeight)
+                    }
+                }
+                if !buildingMosaic, let bundle = group.bundleIdentifier {
+                    newWindowTile(bundle)
+                }
             }
         }
         // **Room above each application, over and above the stack's own gap.** A heading, its
         // windows and its count are one subject; set off by the same twelve points that separate a
         // heading from its own grid, the applications read as one long list of everything.
         .padding(.top, 8)
+    }
+
+    /// A tile after an application's windows that asks the Mac for one more.
+    func newWindowTile(_ bundleIdentifier: String) -> some View {
+        addTile(label: "New window") {
+            model.send(.openNewWindow(bundleIdentifier: bundleIdentifier))
+            onSelect()
+        }
+    }
+
+    /// The dashed + tile at the end of a row of tiles, the same height as them.
+    ///
+    /// Outlined and dashed rather than filled: it is a place a tile could be, not one.
+    func addTile(
+        label: String, busy: Bool = false, disabled: Bool = false,
+        height: CGFloat = packedTileHeight, action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(ColorPalette.ink.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .overlay {
+                    if busy {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "plus")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(disabled ? .tertiary : .secondary)
+                    }
+                }
+                .frame(width: height * 0.75, height: height)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.94))
+        .disabled(disabled || busy)
+        .accessibilityLabel(busy ? "\(label), in progress" : label)
     }
 
     /// An application's name, its icon, and how many windows it is showing.
@@ -124,7 +171,8 @@ extension SourcesPanel {
                                 ApplicationIcon(
                                     data: application.iconPNGData,
                                     fallback: "app.dashed",
-                                    size: Self.iconSize
+                                    // The whole column, less a few points so neighbours do not touch.
+                                    size: iconCellWidth > 0 ? iconCellWidth - 4 : Self.iconSize
                                 )
                                 Text(application.title)
                                     .font(.system(size: 10))
@@ -135,6 +183,10 @@ extension SourcesPanel {
                         }
                         .buttonStyle(RailButtonStyle(scale: 0.94))
                         .accessibilityLabel(application.title)
+                        .frame(maxWidth: .infinity)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                            if abs(width - iconCellWidth) > 0.5 { iconCellWidth = width }
+                        }
                     }
                 }
                 Text("Not running yet. Choosing one opens it on the Mac.")

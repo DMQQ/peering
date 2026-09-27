@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>Peering · your Mac, from anywhere</title>
-<meta name="description" content="The screen of your Mac, on your iPhone. Pair them once on your own network, then reach your Mac from anywhere, end to end encrypted and straight between them.">
+<title>Peering: Remote Desktop for Mac from Your iPhone</title>
+<meta name="description" content="See and control your Mac from your iPhone. Pair once on your own network, then reach it from anywhere: no account, end to end encrypted, free on your own network.">
 <link rel="canonical" href="https://getpeering.app/">
 <meta name="theme-color" content="#0a0a0c">
 <link rel="icon" href="/assets/favicon.png" type="image/png">
@@ -18,7 +18,7 @@
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="en_GB">
 <meta property="og:url" content="https://getpeering.app/">
-<meta property="og:title" content="Peering · your Mac, from anywhere">
+<meta property="og:title" content="Peering: Remote Desktop for Mac from Your iPhone">
 <meta property="og:description" content="The screen of your Mac, on your iPhone. Pair the two once, then reach your Mac from anywhere, end to end encrypted.">
 <meta property="og:image" content="https://getpeering.app/assets/og.png">
 <meta property="og:image:type" content="image/png">
@@ -27,7 +27,7 @@
 <meta property="og:image:alt" content="The Peering site: the wordmark and tagline beside a Mac and an iPhone running the app.">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Peering · your Mac, from anywhere">
+<meta name="twitter:title" content="Peering: Remote Desktop for Mac from Your iPhone">
 <meta name="twitter:description" content="The screen of your Mac, on your iPhone. Pair the two once, then reach your Mac from anywhere, end to end encrypted.">
 <meta name="twitter:image" content="https://getpeering.app/assets/og.png">
 <meta name="twitter:image:alt" content="The Peering site: the wordmark and tagline beside a Mac and an iPhone running the app.">
@@ -49,6 +49,110 @@
     "priceCurrency": "USD",
     "description": "Free to use on your own network. Relay plans, for reaching a Mac from another network, are monthly or yearly."
   }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Can the relay see my screen or my controls?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. It forwards the encrypted connection between your paired devices and cannot read the video, audio, clipboard text, keystrokes or pointer input inside it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does the relay know about me?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Device identifiers, your Mac's name, technical compatibility information, the plan in use and relay usage needed to provide the connection. A paid connection also sends proof of the App Store purchase. No account is involved. It also sees, as any server does, the address each device connects from, and it hands each of them the other's, so they can try to reach one another directly. And when a Mac cannot reach your phone directly, it asks the relay to wake it with a push notification, using the Apple push token your phone gave it for that one request."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an account?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Peering creates an identity on each device and stores it in that device's Keychain. There is nothing to sign up for and no password."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why do the two screens show a code?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Each device creates its own key. The six digits are how you confirm that the device you are pairing with is the one in front of you. Once you confirm it, both devices remember the other's public key."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I transfer files?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, on your Mac and on any server you add over SSH. Walk the folders, open a file, change it and save it, upload one from your phone, and save a copy down to Files. You can also make a file or a folder, rename one, and delete one: on your own Mac that moves it to the Bin, while on a server it is gone and the confirmation says so."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if my phone changes network?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The session cannot survive it: the address the Mac was sending to stops existing. The connection does not fail or close, it goes quiet, and an app that waits for an error sits on the last frame forever. Peering counts the quiet and ends the session after ten seconds of it, so you are told. Join the new network, tap the Mac, and you are back."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does my screen go through your servers?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Only when it has to. Your two devices try a path straight between themselves first. The relay introduces them, and carries the session when that path cannot be opened. Both are encrypted the same, and the relay reads neither."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work on a network I do not control?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Once paired, your two devices find each other over the internet, so it works from a hotel, a train, or someone else's Wi-Fi. They try a path straight between themselves first, and fall back to the relay when the network will not allow one. The local network only has to be shared for the first pairing."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which Macs and iPhones does it work on?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Any Mac running macOS 15 (Sequoia) or later, on Apple silicon or Intel. Any iPhone or iPad running iOS 18 or later, including older devices that cannot upgrade to iOS 26."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I reach a Mac that has gone to sleep?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Wake it over the network right before you connect. For a Mac you would rather never went to sleep in the first place, the host app has switches for that too: awake on its own, on a schedule, or awake even with the lid closed."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can more than one iPhone connect to the same Mac?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, on every plan. What a plan limits is how many Macs one iPhone can pair with, not how many iPhones a Mac trusts."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I stop a Mac being reachable, or remove a device?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Press Stop on the Mac and it stops listening, on its own network and over the relay both. To remove one iPhone without stopping the Mac for everyone else, forget it from the Devices list in the host app; forgetting one there and unpairing it from the iPhone are two separate steps, since either device can end a pairing."
+      }
+    }
+  ]
 }
 </script>
 </head>
@@ -876,10 +980,14 @@
       <img src="/assets/pears-128.webp" alt="" width="24" height="24">
       <span>Peering</span>
     </div>
-    <nav class="foot-links" aria-label="Legal and support">
+    <nav class="foot-links" aria-label="Guides, legal and support">
       <a href="/how-to-pair-iphone-mac">Pairing guide</a>
       <a href="/remote-desktop-for-mac">Remote desktop</a>
       <a href="/access-your-mac-from-anywhere">From anywhere</a>
+      <a href="/keep-mac-awake-for-remote-access">Mac at home</a>
+      <a href="/coding-agent-notifications">Coding agents</a>
+      <a href="/remote-desktop-apps-compared">Compare apps</a>
+      <a href="/screens-alternative">Screens alternative</a>
       <a href="/download">Download</a>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
