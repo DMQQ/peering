@@ -440,46 +440,34 @@ final class StoreManager {
         /// keeps rather than the server, which is the trust level the whole map is kept at.
         static let macCount = "Every Mac"
 
-        /// What this rung actually adds, one line per row of the site's pricing table.
+        /// Everything the plan includes, one line per row of the site's pricing table.
         ///
-        /// **Three lists that have to add up between them.** The site prints this ladder as a
-        /// table, and a card that leaves out the thing its rung is *for* is a card that sells the
-        /// rung below it. Pro was doing exactly that: its list named macros and the bitrate, and
-        /// not ``PlanCapability/concurrentSessions``, which is the only row on the ladder that
-        /// costs the service money every time it is used and the only reason to be on the top rung
-        /// rather than the middle one. The top tier read as "Relay Plus with macros" while the
-        /// table beside it said otherwise.
-        ///
-        /// The first line of each paid rung above the entry one is the rung below it, so the lists
-        /// nest rather than repeat, and `features` stays a description of what is *added* at the
-        /// price rather than a second copy of everything the plan includes.
+        /// Whole lists rather than "Everything in the tier below" plus the additions: a card read
+        /// on its own looked like it offered less than the one beside it.
         var features: [String] {
+            let relay = [
+                "Unlimited relay every day",
+                "Every Mac you own, instead of one",
+                "Sound from the Mac, and Picture in Picture",
+                "Files that move both ways",
+                "The clipboard history",
+                "Told when a terminal needs you",
+            ]
+            let plus = [
+                "Several shells at once, as tabs",
+                "Virtual displays, the Mac's own and any you add",
+            ]
             switch self {
             case .relay:
-                return [
-                    "Unlimited relay every day",
-                    "Every Mac you own, instead of one",
-                    "Sound from the Mac, and Picture in Picture",
-                    "Files that move both ways",
-                    "The clipboard history",
-                    "Told when a terminal needs you",
-                    "Everything free has, and all of it stays free",
-                ]
+                return relay
             case .relayPlus:
-                return [
-                    "Everything in Relay",
-                    "Unlimited relay time",
-                    "Several shells at once, as tabs",
-                    "Virtual displays, the Mac's own and any you add",
-                ]
+                return relay + plus
             case .pro:
-                return [
-                    "Everything in Relay Plus",
+                return relay + plus + [
                     "Several Macs open at the same time",
                     "Macros, snippets and quick commands",
                     "Several of the Mac's windows in one picture",
                     "The sharpest picture over the relay",
-                    "Every feature added while you are subscribed",
                 ]
             }
         }
