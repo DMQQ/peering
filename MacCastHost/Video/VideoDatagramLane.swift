@@ -38,6 +38,13 @@ final class VideoDatagramLane: @unchecked Sendable {
 /// this end's own; see ``sentence(for:)``.
     private var probeStatus: ClientSession.DirectPath = .notTried
 
+    var isDirectOpen: Bool {
+        lock.withLock {
+            if case .open = probeStatus { return true }
+            return false
+        }
+    }
+
 /// The last discovery that threw, kept so that one is said once rather than on every re-ask.
 ///
 /// Its own state because it is its own fault: "the relay has not said where the client is" is an

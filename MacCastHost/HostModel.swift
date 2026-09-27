@@ -267,13 +267,20 @@ final class HostModel {
     /// answer that a blank row is not.
     func startResourceSampling() {
         Task { @MainActor [weak self] in
+            var tick = 0
             while !Task.isCancelled {
                 guard let self else { return }
-                resources.sample(bytesSent: streamedBytes ?? 0)
-                try? await Task.sleep(for: .seconds(2))
+                if tick % 10 == 0 { resources.sample(bytesSent: streamedBytes ?? 0) }
+                let open = coordinator?.isDirectPathOpen ?? false
+                if directPathOpen != open { directPathOpen = open }
+                tick += 1
+                try? await Task.sleep(for: .seconds(1))
             }
         }
     }
+
+    /// Whether the served relayed client's video has found its way around the relay.
+    var directPathOpen = false
 
     /// The last name each device gave when it connected.
     ///

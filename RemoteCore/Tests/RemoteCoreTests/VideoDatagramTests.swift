@@ -481,6 +481,7 @@ struct VideoKeyMessageTests {
         // so an identical-format source switch or reconnect can leave a visible mosaic that it
         // cannot recognise or interact with.
         // 19 adds the window title-bar buttons and opening a new window from the phone.
-        #expect(ProtocolInfo.version == 19)
+        // 20 adds the picker watching thumbnails, so the host pushes changed ones.
+        #expect(ProtocolInfo.version == 20)
     }
 }

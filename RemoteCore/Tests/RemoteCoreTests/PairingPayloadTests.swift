@@ -13,8 +13,20 @@ struct PairingPayloadTests {
     @Test("a device ID survives the round trip through the QR payload")
     func roundTrip() throws {
         let payload = PairingPayload.encode(hostID: macID)
-        #expect(payload == "peering://mac?id=\(macID)")
+        #expect(payload == "https://getpeering.app/mac?id=\(macID)")
         #expect(try PairingPayload.hostID(from: payload) == macID)
+    }
+
+    @Test("the older scheme form and the www host still read")
+    func otherSpellings() throws {
+        #expect(try PairingPayload.hostID(from: "peering://mac?id=\(macID)") == macID)
+        #expect(try PairingPayload.hostID(from: "https://www.getpeering.app/mac?id=\(macID)") == macID)
+        #expect(throws: PairingPayloadError.unrecognisedCode) {
+            try PairingPayload.hostID(from: "https://getpeering.app/download?id=\(macID)")
+        }
+        #expect(throws: PairingPayloadError.unrecognisedCode) {
+            try PairingPayload.hostID(from: "https://example.com/mac?id=\(macID)")
+        }
     }
 
     @Test("a bare ID is accepted, which is what a paste gives")
@@ -137,7 +149,7 @@ struct PairingPayloadTests {
             try PairingPayload.hostID(from: code)
         }
         // And they are distinguishable without parsing at all, by the host component.
-        #expect(identifier.hasPrefix("peering://mac?"))
+        #expect(identifier.hasPrefix("https://getpeering.app/mac?"))
         #expect(code.hasPrefix("peering://pair?"))
     }
 

@@ -537,6 +537,11 @@ async fn write_response(
 /// Turns a request path into a file under `root`, or `None` if it is not one this server will
 /// serve. See the safety rules in the module comment.
 fn resolve(root: &Path, path: &str) -> Option<PathBuf> {
+    // The one dotted path served: Apple fetches it by this exact name, with no extension.
+    if path == APPLE_APP_SITE_ASSOCIATION {
+        return Some(root.join(&APPLE_APP_SITE_ASSOCIATION[1..]));
+    }
+
     let decoded = percent_decode(path)?;
 
     if decoded.contains('\0') || decoded.contains('\\') {
@@ -605,7 +610,12 @@ fn cache_control_for(file: &Path) -> &'static str {
     }
 }
 
+const APPLE_APP_SITE_ASSOCIATION: &str = "/.well-known/apple-app-site-association";
+
 fn content_type(file: &Path) -> &'static str {
+    if file.ends_with(".well-known/apple-app-site-association") {
+        return "application/json";
+    }
     match file.extension().and_then(|extension| extension.to_str()) {
         Some("html") => "text/html; charset=utf-8",
         Some("css") => "text/css; charset=utf-8",
@@ -746,6 +756,16 @@ mod tests {
         assert_eq!(resolve(root, "/privacy").unwrap(), root.join("privacy.html"));
         assert_eq!(resolve(root, "/privacy/").unwrap(), root.join("privacy.html"));
         assert_eq!(resolve(root, "//privacy").unwrap(), root.join("privacy.html"));
+    }
+
+    #[test]
+    fn serves_the_apple_app_site_association_and_no_other_dotted_path() {
+        let root = Path::new("/srv/site");
+        let file = resolve(root, "/.well-known/apple-app-site-association").unwrap();
+        assert_eq!(file, root.join(".well-known/apple-app-site-association"));
+        assert_eq!(content_type(&file), "application/json");
+        assert!(resolve(root, "/.well-known/other").is_none());
+        assert!(resolve(root, "/.well-known/apple-app-site-association/../../etc").is_none());
     }
 
     #[test]

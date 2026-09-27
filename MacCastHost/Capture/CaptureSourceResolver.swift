@@ -56,6 +56,11 @@ protocol CaptureSourceResolver: Sendable {
     /// draws one, and the client is the only end that knows one is on screen.
     func refreshSourceThumbnails() async
 
+    /// One pass of the watch loop: re-photographs the sources and pushes the catalogue only when a
+    /// picture changed. Re-enumerates windows only when `reenumerate` is set, since that costs far
+    /// more than the screenshots.
+    func refreshChangedSourceThumbnails(reenumerate: Bool) async
+
     /// The list may be out of date, and the next ``catalog()`` should enumerate again.
     ///
     /// No notification covers a window closing, so the capture noticing is the only way to find
@@ -618,13 +623,21 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// a capture that was refused or timed out, and the closed-window case is covered anyway by
     /// the prune in ``catalog()``.
     func refreshSourceThumbnails() async {
+        await photographSources(reenumerate: true, pushOnlyOnChange: false)
+    }
+
+    func refreshChangedSourceThumbnails(reenumerate: Bool) async {
+        await photographSources(reenumerate: reenumerate, pushOnlyOnChange: true)
+    }
+
+    private func photographSources(reenumerate: Bool, pushOnlyOnChange: Bool) async {
         // A fresh enumeration first, because this arrives when a client opens the picker, the one
         // place a stale list is visible as a fault. Window opens and closes inside a running
         // application post no notification at all, so a window made since the last push is
         // missing from the list the client is drawing and no amount of pushing fixes that from
         // the Mac's side. Re-reading costs one enumeration on an action the user has just taken
         // by hand, and it is what makes the picker show what is on the Mac now.
-        markStale()
+        if reenumerate { markStale() }
         guard let content = try? await shareableContent() else {
             resolverLog.notice("could not re-read the capture catalogue, so the picker is showing the last one")
             return
@@ -659,8 +672,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
             for _ in 0..<min(Self.thumbnailConcurrency, sources.count) { addNext() }
             while let result = await group.next() {
-                if let thumbnail = result.thumbnail {
-                    self.sourceThumbnails.store(thumbnail, for: result.source)
+                if let thumbnail = result.thumbnail,
+                   self.sourceThumbnails.store(thumbnail, for: result.source) {
                     stored += 1
                 }
                 addNext()
@@ -668,9 +681,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             return stored
         }
 
-        resolverLog.notice("""
+        if pushOnlyOnChange, landed == 0 { return }
+        resolverLog.debug("""
             source thumbnails: \(landed, privacy: .public) of \
-            \(sources.count, privacy: .public) photographed
+            \(sources.count, privacy: .public) changed
             """)
         // The same signal a Space preview uses, and for the same reason: this is a change to the
         // catalogue that no notification about the source list covers. See ``previewLanded()``.

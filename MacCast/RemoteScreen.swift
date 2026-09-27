@@ -394,9 +394,10 @@ struct RemoteScreen: View {
             guard model.phase == .ready else { return }
             expandStatusBar()
         }
-        .onChange(of: openPanel) { _, panel in
+        .onChange(of: openPanel) { previous, panel in
             if panel == nil { chromeFrames[.panel] = nil }
             if panel == .sources { askForSourcePictures() }
+            if previous == .sources, panel != .sources { stopWatchingSourcePictures() }
         }
         // **And again on a clock, for as long as the grid is up.** The pictures are taken on
         // demand, and until this existed the only thing that asked was the panel opening: left
@@ -411,7 +412,10 @@ struct RemoteScreen: View {
                 withAnimation(Motion.settle) { showsKeyboardBar = false }
             }
         }
-        .onDisappear { model.isPanelOpen = false }
+        .onDisappear {
+            model.isPanelOpen = false
+            if openPanel == .sources { stopWatchingSourcePictures() }
+        }
         .onChange(of: model.showKeyboard, initial: true) { _, shown in
             withAnimation(Motion.settle) {
                 showsKeyboardBar = shown

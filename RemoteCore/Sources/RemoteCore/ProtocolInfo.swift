@@ -56,10 +56,12 @@ public enum ProtocolInfo {
     /// sources with the same encoded format are indistinguishable and a reconnect can show a mosaic
     /// that the phone cannot recognise or interact with.
     /// 19: `performWindowAction` and `openNewWindow`, the title-bar buttons and ⌘N from the phone.
+    /// 20: `watchSourceThumbnails`, the picker telling the host it is open so the host pushes
+    /// changed thumbnails instead of the phone asking.
     ///
     /// The mosaic feature itself did not consume a protocol version: `CaptureSource` gained a case an
     /// older host cannot decode, but it is only sent after that host advertises `supportsMosaic`.
-    public static let version: UInt16 = 19
+    public static let version: UInt16 = 20
 
     /// The largest payload a control-channel message may carry.
     ///

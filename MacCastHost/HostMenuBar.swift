@@ -80,207 +80,637 @@ struct HostMenuBarLabel: View {
     }
 
     private static func image(for state: HostMenuBarState) -> NSImage {
-        guard let base = NSImage(systemSymbolName: state.symbol, accessibilityDescription: nil)
-        else { return NSImage() }
+        guard let pears = NSImage(named: "MenuBarPears") else { return NSImage() }
+        let size = NSSize(width: 20, height: 18)
+        // Drawn in the handler so `labelColor` resolves against the menu bar's appearance each
+        // time; a coloured dot means the image cannot be a template.
+        let image = NSImage(size: size, flipped: false) { rect in
+            let glyph = NSRect(x: 0, y: 0, width: 18, height: 18)
+            NSColor.labelColor.withAlphaComponent(state == .stopped ? 0.5 : 1).setFill()
+            glyph.fill()
+            pears.draw(in: glyph, from: .zero, operation: .destinationIn, fraction: 1)
 
-        // Falls back to the uncoloured symbol rather than to nothing: a template glyph is a
-        // worse icon than this one and a far better one than an empty space in the menu bar.
-        let coloured = base.withSymbolConfiguration(
-            NSImage.SymbolConfiguration(paletteColors: [state.colour])
-        ) ?? base
-        coloured.isTemplate = false
-        return coloured
+            let dot = NSRect(x: rect.maxX - 7, y: 0, width: 7, height: 7)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            state.colour.setFill()
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 }
 
-/// The menu itself. Built when it is opened, so the elapsed times are current to the second
-/// the user looked rather than to whenever the model last changed.
+/// The menu bar panel. A window-style extra rather than a menu, so it can carry live timers,
+/// switches and readings instead of one disabled string per line.
 struct HostMenuBarContent: View {
     @Environment(HostModel.self) private var model
+    @Environment(Updater.self) private var updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if !model.permissions.allRequiredGranted {
-            Text("Setup required")
-        } else if model.connectedClients.isEmpty {
-            Text(model.status.isListening ? "Waiting for a device" : "Not hosting")
-        } else {
-            ForEach(model.connectedClients) { client in
-                Text("\(client.name) · \(client.elapsedDescription())")
+        VStack(alignment: .leading, spacing: 12) {
+            header
+
+            if let version = updater.availableVersion {
+                updateRow(version)
             }
-        }
 
-        Divider()
-
-        if model.permissions.allRequiredGranted {
-            Button(model.status.isListening ? "Stop hosting" : "Start hosting") {
-                model.status.isListening ? model.stop() : model.start()
+            if !model.permissions.allRequiredGranted {
+                setupCard
+            } else {
+                if !model.connectedClients.isEmpty {
+                    devicesCard
+                }
+                awakeCard
+                resourcesRow
             }
+
+            footer
         }
+        .background(PanelWindowEntrance())
+        .padding(14)
+        .frame(width: 320)
+        .animation(HostMotion.state, value: model.connectedClients.count)
+        .animation(HostMotion.state, value: updater.availableVersion)
+    }
 
-        Divider()
+    // MARK: Header
 
-        resourceReadings
+    private var header: some View {
+        HStack(spacing: 11) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 36, height: 36)
+                                .accessibilityHidden(true)
 
-        Button(model.permissions.allRequiredGranted ? "Open Peering" : "Finish Setup…") {
-            openWindow(id: MacCastHostApp.mainWindowID)
-            // The window may open behind whatever has focus; a menu bar item that appears to do
-            // nothing is worse than one that is missing.
-            NSApp.activate()
-        }
-
-        Divider()
-
-        // **The two switches, in the menu, because this is where the host is actually met.** It is
-        // a background agent: the window is where it is set up and the menu is where it is glanced
-        // at, and whether a Mac is allowed to sleep is the sort of thing somebody wants to decide
-        // while looking at the Mac rather than after opening a window and finding a pane in it.
-        // The same two switches the Settings pane draws, under the same two names.
-        // **Above the lid switch, because it is the one more people want.** A Mac that idle-sleeps
-        // cannot be reached from anywhere, which is the failure somebody opens this menu to fix:
-        // they were out, they tapped their Mac on the phone, and nothing answered. The switch
-        // below is about the lid and is the harder of the two — it needs an administrator rule —
-        // and the two were the same subject in this menu until this line existed, so the only
-        // thing offered for "I want to reach it" was the one that costs a password prompt.
-        //
-        // A display that goes dark is fine and deliberately not prevented here by anything new:
-        // the control channel stays up, so terminals, SSH and the clipboard all work with the
-        // screen off, and only the picture is black. What breaks everything is the *system*
-        // sleeping, which is what this assertion stops.
-        Toggle("Keep Mac reachable", isOn: Binding(
-            get: { model.preventLidCloseSleep },
-            set: { model.setPreventLidCloseSleep($0) }
-        ))
-
-        // **Shorter here than in the pane, and for the only reason that matters in a menu.** The
-        // pane's sentence explains why; a menu item is one line at a fixed width, and a wrapped one
-        // is unreadable. What somebody opening this menu needs is the answer, not the reasoning.
-        if model.keepAwakeWithheld {
-            Text("Not being held: this Mac sleeps on its own")
-        }
-
-        lidCloseItem
-
-        // **The hours, where they are usually wanted.** The pane has the same two pickers; this is
-        // the copy that matters, because the moment somebody notices the Mac is still up at eleven
-        // at night is the moment they are looking at the menu, and sending them into a window to
-        // fix it is how a setting goes unchanged.
-        Menu("Awake hours") {
-            Toggle("Awake \(model.keepAwakeStartHour):00 to \(model.keepAwakeEndHour):00 only", isOn: Binding(
-                get: { model.keepAwakeScheduleEnabled },
-                set: { model.setKeepAwakeSchedule(enabled: $0) }
-            ))
-
-            Divider()
-
-            Picker("From", selection: Binding(
-                get: { model.keepAwakeStartHour },
-                set: { model.setKeepAwakeHours(start: $0, end: model.keepAwakeEndHour) }
-            )) {
-                ForEach(0..<24, id: \.self) { hour in
-                    Text(String(format: "%02d:00", hour)).tag(hour)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Peering")
+                    .font(HostDisplayFont.display(17))
+                    .tracking(-0.4)
+                    .foregroundStyle(Color.primary)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: statusColor.opacity(0.7), radius: 3)
+                    Text(statusText)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.secondary)
+                        .lineLimit(1)
                 }
             }
 
-            Picker("To", selection: Binding(
-                get: { model.keepAwakeEndHour },
-                set: { model.setKeepAwakeHours(start: model.keepAwakeStartHour, end: $0) }
-            )) {
-                ForEach(0..<24, id: \.self) { hour in
-                    Text(String(format: "%02d:00", hour)).tag(hour)
+            Spacer(minLength: 0)
+
+            if model.permissions.allRequiredGranted {
+                powerButton
+            }
+        }
+    }
+
+    private var powerButton: some View {
+        let on = model.status.isListening
+        return Button {
+            on ? model.stop() : model.start()
+        } label: {
+            Image(systemName: "power")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(on ? Color.white : Color.secondary)
+                .frame(width: 32, height: 32)
+                .background(on ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.08)), in: Circle())
+                .overlay(Circle().strokeBorder(on ? .clear : Color.primary.opacity(0.12)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(PressableStyle())
+        .help(on ? "Stop hosting" : "Start hosting")
+        .accessibilityLabel(on ? "Stop hosting" : "Start hosting")
+    }
+
+    private var statusColor: Color {
+        if !model.permissions.allRequiredGranted { return Color.orange }
+        if !model.connectedClients.isEmpty { return Color.green }
+        switch model.status {
+        case .listening: return Color.accentColor
+        case .starting, .idle: return Color.secondary.opacity(0.75)
+        case .failed: return Color.red
+        }
+    }
+
+    private var statusText: String {
+        if !model.permissions.allRequiredGranted { return "Setup required" }
+        if !model.connectedClients.isEmpty {
+            let count = model.connectedClients.count
+            return count == 1 ? "Streaming to 1 device" : "Streaming to \(count) devices"
+        }
+        switch model.status {
+        case .idle: return "Not hosting"
+        case .starting: return "Starting…"
+        case .listening: return "Waiting for a device"
+        case .failed(let message): return message
+        }
+    }
+
+    // MARK: Cards
+
+    private func updateRow(_ version: String) -> some View {
+        Button { updater.check() } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Update available")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                    Text("Version \(version)")
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                }
+                Spacer(minLength: 0)
+                Text("Install")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.accentColor, in: Capsule())
+            }
+            .padding(10)
+            .background(
+                Color.accentColor.opacity(0.14),
+                in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+                    .strokeBorder(Color.accentColor.opacity(0.4))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .disabled(!updater.canCheck)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private var setupCard: some View {
+        card {
+            HStack(spacing: 10) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.orange)
+                Text("Peering needs Screen Recording and Accessibility before a phone can connect.")
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var devicesCard: some View {
+        card(title: "Connected") {
+            // A timeline rather than a formatted string, so the timers run while the panel is open.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                VStack(spacing: 8) {
+                    ForEach(model.connectedClients) { client in
+                        HStack(spacing: 9) {
+                            Image(systemName: "iphone")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.primary)
+                                .frame(width: 26, height: 26)
+                                .background(Color.primary.opacity(0.08), in: Circle())
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(client.name)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(Color.primary)
+                                        .lineLimit(1)
+                                    pathBadge(for: client)
+                                }
+                                Text(usageEstimate)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.secondary)
+                                    .lineLimit(1)
+                                    .contentTransition(.numericText())
+                            }
+                            Spacer(minLength: 0)
+                            Text(client.elapsedDescription(now: context.date))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Color.secondary)
+                                .contentTransition(.numericText())
+                        }
+                    }
                 }
             }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
 
-            if model.keepAwakeScheduleEnabled, model.keepAwakeEndHour < model.keepAwakeStartHour {
-                Text("Overnight")
+    private func pathBadge(for client: ConnectedClient) -> some View {
+        let label = !client.viaRelay ? "LAN" : model.directPathOpen ? "P2P" : "RELAY"
+        return Text(label)
+            .font(.system(size: 9, weight: .bold))
+            .tracking(0.4)
+            .foregroundStyle(Color.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.18)))
+            .help(!client.viaRelay ? "On this network" : model.directPathOpen
+                ? "Over the internet, straight to the device" : "Over the internet, through the relay")
+    }
+
+    /// The host's own cost shared evenly across the attached devices, which is an estimate:
+    /// capture and encoding are one pipeline, not one per device.
+    private var usageEstimate: String {
+        guard let rates = model.resources.rates else { return "Measuring…" }
+        let share = Double(max(1, model.connectedClients.count))
+        let cpu = HostResourceSampler.percent(rates.cpuOfMachine / share)
+        return "≈ \(cpu) CPU · \(HostResourceSampler.networkText(rates.bytesPerSecond / share))"
+    }
+
+    private var awakeCard: some View {
+        card(title: "Staying awake") {
+            VStack(spacing: 10) {
+                switchRow(
+                    "Keep Mac reachable",
+                    symbol: "wifi",
+                    isOn: Binding(
+                        get: { model.preventLidCloseSleep },
+                        set: { model.setPreventLidCloseSleep($0) }
+                    ),
+                    note: model.keepAwakeWithheld ? "Not being held: this Mac sleeps on its own" : nil
+                )
+
+                lidCloseRow
+
+                if model.asksToReleaseKeepAwake {
+                    Button {
+                        Task { await model.releaseKeepAwakeNow() }
+                    } label: {
+                        Text("Nobody is connected: let this Mac sleep")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color.primary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.primary.opacity(0.08), in: Capsule())
+                    }
+                    .buttonStyle(PressableStyle())
+                }
+
+                Divider().overlay(Color.primary.opacity(0.12))
+
+                awakeHoursRow
             }
         }
-
-        Divider()
-
-        // The same draft the About pane builds, offered where the app is actually being looked at
-        // when something has gone wrong. Nothing about the session is in it: the version and the
-        // macOS release are the whole of what travels, which is what makes this a menu item rather
-        // than a form to fill in.
-        Button("Report an issue…") {
-            NSWorkspace.shared.open(HostStatusView.reportURL)
-        }
-
-        Divider()
-
-        Button("Quit Peering") {
-            model.stop()
-            NSApp.terminate(nil)
-        }
-        .keyboardShortcut("q")
     }
 
-    /// What this app is costing the Mac, in the menu, where somebody watching a mosaic is already
-    /// looking.
-    ///
-    /// **Moved here from the window, and not merely relocated.** These were a card in the
-    /// Overview section, which meant opening a window and finding the right part of it to answer a
-    /// question that arrives while a session is running — is this heavy because of what I am doing,
-    /// or is it always like this. The menu is where a menu bar app is actually met, and it is the
-    /// same one gesture from anywhere.
-    ///
-    /// Menu rows are one string each rather than a label and a value, so the caption the tiles
-    /// carried underneath their figures is folded into the line: "12% of this Mac" is the whole
-    /// reading, and the part that says *of this Mac* is the part that matters, because every other
-    /// CPU figure a person has seen is about the machine rather than about one process in it.
-    ///
-    /// `Text` is a disabled menu item, which is what a reading should be — it is not a thing to
-    /// click, and a menu of things that look pressable and do nothing is worse than a menu of
-    /// facts.
     @ViewBuilder
-    private var resourceReadings: some View {
-        let rates = model.resources.rates
-        Text("Resources")
-        Text("CPU \(rates.map(HostResourceSampler.cpuPercent) ?? "…") of this Mac")
-        Text("Memory \(model.resources.memoryBytes > 0 ? HostResourceSampler.memoryText(model.resources.memoryBytes) : "…") in use")
-        Text("Network \(rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…") sent")
-    }
-
-    /// The lid switch, or the way to set it up, depending on whether the rule is already in place.
-    ///
-    /// **A door rather than a switch that does nothing.** Turning this on needs an administrator
-    /// rule installed once, and that first install raises a password dialog. Raised from a menu
-    /// item, the dialog arrives with no explanation attached to it and no way to read one first,
-    /// which is the wrong place to ask somebody for their password. So before the rule exists the
-    /// menu offers the setup as a door into the pane where the explanation lives, and the switch
-    /// itself appears only once flipping it is silent.
-    @ViewBuilder
-    private var lidCloseItem: some View {
+    private var lidCloseRow: some View {
         if model.lidCloseRuleInstalled == true {
-            Toggle("Keep running with the lid closed", isOn: Binding(
-                get: { model.keepRunningWithLidClosed },
-                set: { wanted in Task { await model.setKeepRunningWithLidClosed(wanted) } }
-            ))
+            let notInForce = model.keepRunningWithLidClosed && !model.keepAwakeWithheld
+                && model.lidCloseSystemState == .off
+            switchRow(
+                "Run with the lid closed",
+                symbol: "laptopcomputer",
+                isOn: Binding(
+                    get: { model.keepRunningWithLidClosed },
+                    set: { wanted in Task { await model.setKeepRunningWithLidClosed(wanted) } }
+                ),
+                note: notInForce ? "Not in force: this Mac still sleeps on a closed lid" : nil
+            )
             .disabled(model.lidCloseBusy)
-
-            // The switch is what was asked for and the reading is what the Mac is doing, and the
-            // two come apart after a crash or a hand edit. Said here as well as in the pane,
-            // because the menu is where somebody looks when the Mac is doing something they did
-            // not ask for and the window is closed.
-            if model.keepRunningWithLidClosed, !model.keepAwakeWithheld,
-               model.lidCloseSystemState == .off {
-                Text("Not in force: this Mac still sleeps on a closed lid")
-            }
-
-            // **The reminder, where somebody will actually meet it.** The prompt in the window
-            // only exists while the window does, and the window is usually shut: the menu bar item
-            // is the one piece of this app that is always on screen, so the question waits here
-            // until it is answered.
-            if model.asksToReleaseKeepAwake {
-                Button("Nobody is connected: let this Mac sleep") {
-                    Task { await model.releaseKeepAwakeNow() }
-                }
-            }
         } else {
-            Button("Keep running with the lid closed…") {
-                openWindow(id: MacCastHostApp.mainWindowID)
-                NSApp.activate()
+            Button { openMainWindow() } label: {
+                HStack(spacing: 9) {
+                    rowIcon("laptopcomputer")
+                    Text("Run with the lid closed")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.primary)
+                    Spacer(minLength: 0)
+                    Text("Set up")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color.secondary.opacity(0.75))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+        }
+    }
+
+    private var awakeHoursRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            switchRow(
+                "Only during set hours",
+                symbol: "clock",
+                isOn: Binding(
+                    get: { model.keepAwakeScheduleEnabled },
+                    set: { model.setKeepAwakeSchedule(enabled: $0) }
+                ),
+                note: nil
+            )
+
+            if model.keepAwakeScheduleEnabled {
+                HStack(spacing: 6) {
+                    hourPicker(
+                        get: { model.keepAwakeStartHour },
+                        set: { model.setKeepAwakeHours(start: $0, end: model.keepAwakeEndHour) }
+                    )
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color.secondary.opacity(0.75))
+                    hourPicker(
+                        get: { model.keepAwakeEndHour },
+                        set: { model.setKeepAwakeHours(start: model.keepAwakeStartHour, end: $0) }
+                    )
+                    Spacer(minLength: 0)
+                    if model.keepAwakeEndHour < model.keepAwakeStartHour {
+                        Text("Overnight")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(Color.secondary)
+                    }
+                }
+                .padding(.leading, 35)
+                .transition(.opacity)
             }
         }
+        .animation(HostMotion.state, value: model.keepAwakeScheduleEnabled)
+    }
+
+    private func hourPicker(get: @escaping () -> Int, set: @escaping (Int) -> Void) -> some View {
+        Menu {
+            ForEach(0..<24, id: \.self) { hour in
+                Button(String(format: "%02d:00", hour)) { set(hour) }
+            }
+        } label: {
+            Text(String(format: "%02d:00", get()))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color.primary)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color.primary.opacity(0.08), in: Capsule())
+    }
+
+    private var resourcesRow: some View {
+        let rates = model.resources.rates
+        let memory = model.resources.memoryBytes
+        return HStack(spacing: 8) {
+            reading("CPU", rates.map(HostResourceSampler.cpuPercent) ?? "…")
+            reading("Memory", memory > 0 ? HostResourceSampler.memoryText(memory) : "…")
+            reading("Sent", rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…")
+        }
+    }
+
+    private func reading(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .contentTransition(.numericText())
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(Color.secondary.opacity(0.75))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.12))
+        )
+    }
+
+    // MARK: Footer
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Button { openMainWindow() } label: {
+                Text(model.permissions.allRequiredGranted ? "Open Peering" : "Finish Setup")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 30)
+                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.12))
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+
+            iconButton("exclamationmark.bubble", help: "Report an issue") {
+                NSWorkspace.shared.open(HostStatusView.reportURL)
+            }
+            iconButton("power.circle", help: "Quit Peering") {
+                model.stop()
+                NSApp.terminate(nil)
+            }
+            .keyboardShortcut("q")
+        }
+    }
+
+    // MARK: Pieces
+
+    private func card<Content: View>(title: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let title {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.secondary.opacity(0.75))
+            }
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.controlRadius + 2, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.12))
+        )
+    }
+
+    private func switchRow(_ title: String, symbol: String, isOn: Binding<Bool>, note: String?) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            rowIcon(symbol, lit: isOn.wrappedValue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.primary)
+                if let note {
+                    Text(note)
+                        .font(.caption2)
+                        .foregroundStyle(Color.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.top, 5)
+            Spacer(minLength: 0)
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .padding(.top, 4)
+        }
+    }
+
+    private func rowIcon(_ symbol: String, lit: Bool = false) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(lit ? Color.white : Color.secondary)
+            .frame(width: 26, height: 26)
+            .background(lit ? AnyShapeStyle(Color.accentColor.opacity(0.85)) : AnyShapeStyle(Color.primary.opacity(0.08)), in: Circle())
+            .animation(HostMotion.state, value: lit)
+    }
+
+    private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.secondary)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .help(help)
+        .accessibilityLabel(help)
+    }
+
+    private func openMainWindow() {
+        // Closes the panel first; it would otherwise sit over the window it just opened.
+        NSApp.keyWindow?.close()
+        openWindow(id: MacCastHostApp.mainWindowID)
+        NSApp.activate()
+    }
+}
+
+/// Zooms the panel's window in from the menu bar, and back out when it closes.
+///
+/// Animated on the window rather than on its content: the system shows the panel at full
+/// opacity, so it is caught here before the first frame and taken back to transparent.
+private struct PanelWindowEntrance: NSViewRepresentable {
+    final class Probe: NSView {
+        private var observer: NSObjectProtocol?
+        private var exitObserver: NSObjectProtocol?
+        private var animating = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            guard let window else { return }
+            animate(window)
+            // The window is kept and reshown on every click, so each showing is its own entrance.
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.animate(window) }
+            }
+            exitObserver.map(NotificationCenter.default.removeObserver)
+            exitObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.animateExit(from: window) }
+            }
+        }
+
+        /// The panel is ordered out the moment it resigns key, so the exit plays on a snapshot
+        /// in a stand-in window at the same place.
+        private func animateExit(from window: NSWindow) {
+            guard let content = window.contentView,
+                  let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { return }
+            content.cacheDisplay(in: content.bounds, to: rep)
+            let snapshot = NSImage(size: content.bounds.size)
+            snapshot.addRepresentation(rep)
+
+            let ghost = NSWindow(contentRect: window.frame, styleMask: .borderless, backing: .buffered, defer: false)
+            ghost.isReleasedWhenClosed = false
+            ghost.backgroundColor = .clear
+            ghost.isOpaque = false
+            ghost.hasShadow = true
+            ghost.level = window.level
+            ghost.ignoresMouseEvents = true
+            let image = NSImageView(image: snapshot)
+            image.frame = content.bounds
+            image.wantsLayer = true
+            image.layer?.cornerRadius = 16
+            image.layer?.cornerCurve = .continuous
+            image.layer?.masksToBounds = true
+            ghost.contentView = image
+            ghost.orderFront(nil)
+
+            if let layer = image.layer {
+                let bounds = layer.bounds
+                var to = CATransform3DMakeTranslation(bounds.midX, bounds.maxY, 0)
+                to = CATransform3DScale(to, 0.75, 0.75, 1)
+                to = CATransform3DTranslate(to, -bounds.midX, -bounds.maxY, 0)
+                let zoom = CABasicAnimation(keyPath: "transform")
+                zoom.fromValue = CATransform3DIdentity
+                zoom.toValue = to
+                zoom.duration = 0.2
+                zoom.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0, 0.8, 0.4)
+                zoom.fillMode = .forwards
+                zoom.isRemovedOnCompletion = false
+                layer.add(zoom, forKey: "exit")
+            }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                ghost.animator().alphaValue = 0
+            } completionHandler: {
+                ghost.orderOut(nil)
+            }
+        }
+
+        private func animate(_ window: NSWindow) {
+            // Both the first showing and becoming key arrive for the first click.
+            guard !animating else { return }
+            animating = true
+            window.alphaValue = 0
+            // Scaled about the top centre, so the panel grows out of the menu bar icon.
+            window.contentView?.wantsLayer = true
+            if let layer = window.contentView?.layer {
+                let bounds = layer.bounds
+                var from = CATransform3DMakeTranslation(bounds.midX, bounds.maxY, 0)
+                from = CATransform3DScale(from, 0.75, 0.75, 1)
+                from = CATransform3DTranslate(from, -bounds.midX, -bounds.maxY, 0)
+                let zoom = CABasicAnimation(keyPath: "transform")
+                zoom.fromValue = from
+                zoom.toValue = CATransform3DIdentity
+                zoom.duration = 0.32
+                zoom.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1.05)
+                layer.add(zoom, forKey: "entrance")
+            }
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = 1
+            } completionHandler: { [weak self] in
+                self?.animating = false
+            }
+        }
+    }
+
+    func makeNSView(context: Context) -> Probe { Probe() }
+    func updateNSView(_ nsView: Probe, context: Context) {}
+}
+
+private struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(HostMotion.press, value: configuration.isPressed)
     }
 }

@@ -69,10 +69,10 @@ final class SourceThumbnailCache: @unchecked Sendable {
 ///
 /// `SCStreamConfiguration`'s dimensions are pixels and not points. Half a desktop preview, because
 /// this is drawn in a grid tile rather than across a panel.
-    static let pixelWidth = 320
+    static let pixelWidth = 240
 
     /// JPEG quality, and JPEG rather than PNG for the reason ``SourceThumbnail`` gives.
-    static let jpegQuality: CGFloat = 0.6
+    static let jpegQuality: CGFloat = 0.45
 
     /// The picture for one source, or `nil` if none has been taken.
     func thumbnail(for source: CaptureSource) -> SourceThumbnail? {
@@ -85,8 +85,15 @@ final class SourceThumbnailCache: @unchecked Sendable {
 /// rebuilt from scratch on every launch and quit, and a position is not a name. The same
 /// application would otherwise keep its picture, lose it, or inherit the one above it depending
 /// only on what else was running.
-    func store(_ thumbnail: SourceThumbnail, for source: CaptureSource) {
-        lock.withLock { shots[source.stableID] = thumbnail }
+    /// Returns whether the picture differs from the one already held. The encoder is
+    /// deterministic, so identical pixels give identical bytes.
+    @discardableResult
+    func store(_ thumbnail: SourceThumbnail, for source: CaptureSource) -> Bool {
+        lock.withLock {
+            guard shots[source.stableID]?.jpegData != thumbnail.jpegData else { return false }
+            shots[source.stableID] = thumbnail
+            return true
+        }
     }
 
 /// Drops every picture whose application is no longer offered.

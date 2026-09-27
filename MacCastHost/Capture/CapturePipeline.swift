@@ -230,6 +230,29 @@ final class CapturePipeline: @unchecked Sendable {
         Task { await resolver.refreshSourceThumbnails() }
     }
 
+    private var thumbnailWatch: Task<Void, Never>?
+
+/// Keeps the picker's thumbnails current while it is open. One pass at a time, a second apart, so
+/// a Mac with many windows never stacks captures on top of the live stream.
+    func watchSourceThumbnails(_ watching: Bool) {
+        guard case .capture(let resolver, _, _) = backend else { return }
+        lock.withLock {
+            thumbnailWatch?.cancel()
+            thumbnailWatch = nil
+            guard watching else { return }
+            thumbnailWatch = Task {
+                await resolver.refreshSourceThumbnails()
+                var pass = 0
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    guard !Task.isCancelled else { return }
+                    pass += 1
+                    await resolver.refreshChangedSourceThumbnails(reenumerate: pass % 5 == 0)
+                }
+            }
+        }
+    }
+
 /// A still of what is being streamed, or `nil` when nothing is.
 ///
 /// Asked for by the host window, which shows it. Deliberately not the frames the stream itself is

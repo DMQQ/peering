@@ -25,6 +25,19 @@ struct AwaySwitchesOnboardingView: View {
                     }
                     .hostPanel()
 
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("After a restart")
+                            .font(HostDisplayFont.display(17))
+                            .tracking(-0.2)
+                        Text("Peering has to be running to be reached. Open it at login if this Mac should be reachable after it restarts.")
+                            .font(.caption)
+                            .foregroundStyle(HostPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        LaunchAtLoginRow()
+                            .hostPanel()
+                            .padding(.top, 4)
+                    }
+
                     Button("Continue", action: onContinue)
                         .controlSize(.large)
                         .buttonStyle(.borderedProminent)
@@ -52,7 +65,7 @@ struct AwaySwitchesOnboardingView: View {
                     .tracking(-1)
                     .multilineTextAlignment(.center)
 
-                Text("Optional, and both off to begin with. Turn them on to close the lid, walk out, and still reach this Mac from your iPhone. Change these anytime from Settings.")
+                Text("Optional, and all off to begin with. Turn them on to close the lid, walk out, and still reach this Mac from your iPhone. Change these anytime from Settings.")
                     .font(.system(size: 15))
                     .foregroundStyle(HostPalette.muted)
                     .multilineTextAlignment(.center)

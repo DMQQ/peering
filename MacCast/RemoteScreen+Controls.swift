@@ -314,10 +314,17 @@ extension RemoteScreen {
     ///
     /// Guarded because the request is a command an older Mac cannot decode. See
     /// ``SourceThumbnailSupport``.
+    func stopWatchingSourcePictures() {
+        if model.hostSupportsSourceThumbnails {
+            model.send(.watchSourceThumbnails(false))
+        }
+    }
+
     func askForSourcePictures() {
         guard openPanel == .sources else { return }
         if model.hostSupportsSourceThumbnails {
-            model.send(.refreshSourceThumbnails)
+            // The Mac keeps these current from here on and pushes only what changed.
+            model.send(.watchSourceThumbnails(true))
         }
         // Desktop pictures are photographs rather than a stream and are re-taken on the host's own
         // schedule, so this is the moment to ask for fresh ones. Guarded on the grid's own predicate

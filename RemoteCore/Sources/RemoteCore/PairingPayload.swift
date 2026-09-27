@@ -30,8 +30,9 @@ public enum PairingPayloadError: LocalizedError, Sendable, Equatable {
 ///
 /// `peering://pair?code=NNNNNN` carries the short authentication string, the value both screens
 /// derive from the pairing transcript and the two people compare: it authorises the pairing.
-/// `peering://mac?id=<uuid>` carries the Mac's device ID, an address rather than a secret, which
-/// holds no authority and proves nothing about the Mac that answers.
+/// `https://getpeering.app/mac?id=<uuid>` (formerly `peering://mac?id=<uuid>`) carries the Mac's
+/// device ID, an address rather than a secret, which holds no authority and proves nothing about
+/// the Mac that answers.
 ///
 /// Both parsers live together so that each refuses the other's code as a property of the format.
 public enum PairingPayload {
@@ -46,6 +47,11 @@ public enum PairingPayload {
     public static let identifierHost = "mac"
 
     public static let codeKey = "code"
+
+    /// The web form of the device-ID code, which the iPhone app claims as a universal link. A
+    /// camera scan without the app installed lands on the site instead of nowhere.
+    public static let linkDomain = "getpeering.app"
+    public static let linkPath = "/mac"
     public static let identifierKey = "id"
 
     /// The one spelling of a device ID that everything compares in: uppercase and hyphenated, which
@@ -62,10 +68,17 @@ public enum PairingPayload {
         // its own store, so a value that is not a UUID is a bug worth seeing rather than hiding.
         let value = canonicalIdentifier(hostID) ?? hostID
         var components = URLComponents()
-        components.scheme = scheme
-        components.host = identifierHost
+        components.scheme = "https"
+        components.host = linkDomain
+        components.path = linkPath
         components.queryItems = [URLQueryItem(name: identifierKey, value: value)]
-        return components.string ?? "\(scheme)://\(identifierHost)?\(identifierKey)=\(value)"
+        return components.string ?? "https://\(linkDomain)\(linkPath)?\(identifierKey)=\(value)"
+    }
+
+    /// Whether this is the web form of the device-ID code.
+    public static func isHostLink(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else { return false }
+        return (host == linkDomain || host == "www." + linkDomain) && url.path == linkPath
     }
 
     /// The QR payload for a short authentication string.
@@ -97,6 +110,9 @@ public enum PairingPayload {
         else {
             throw PairingPayloadError.notAnIdentifier(text)
         }
+        if scheme == "https", let url = components.url, isHostLink(url) {
+            return try identifier(in: components)
+        }
         guard scheme == Self.scheme else { throw PairingPayloadError.unrecognisedCode }
 
         switch components.host?.lowercased() ?? "" {
@@ -105,16 +121,20 @@ public enum PairingPayload {
             // code, so this is said plainly rather than as "not an ID".
             throw PairingPayloadError.shortAuthenticationCode
         case identifierHost:
-            let value = components.queryItems?.first { $0.name == identifierKey }?.value ?? ""
-            guard let canonical = canonicalIdentifier(value) else {
-                throw PairingPayloadError.notAnIdentifier(value)
-            }
-            return canonical
+            return try identifier(in: components)
         default:
             // Includes `peering://connect`, the Live Activity's own URL, and any QR code that has
             // nothing to do with this app.
             throw PairingPayloadError.unrecognisedCode
         }
+    }
+
+    private static func identifier(in components: URLComponents) throws -> String {
+        let value = components.queryItems?.first { $0.name == identifierKey }?.value ?? ""
+        guard let canonical = canonicalIdentifier(value) else {
+            throw PairingPayloadError.notAnIdentifier(value)
+        }
+        return canonical
     }
 
     /// Reads a six-digit code out of a scanned payload, or `nil` if it is not one.

@@ -22,10 +22,10 @@ extension HostModel {
             status = .idle
             record("Stopped listening")
 
-        case .clientConnected(let clientID, let clientName, let detail):
+        case .clientConnected(let clientID, let clientName, let viaRelay, let detail):
             if !isConnected(clientID) {
                 connectedClients.append(
-                    ConnectedClient(id: clientID, name: clientName, since: Date())
+                    ConnectedClient(id: clientID, name: clientName, since: Date(), viaRelay: viaRelay)
                 )
             }
             // Recorded before anything is shown, so the name outlives the connection that carried
@@ -63,6 +63,7 @@ extension HostModel {
             if connectedClients.isEmpty {
                 stopScreenWatch()
                 textFocusWatcher.stop()
+                coordinator?.watchSourceThumbnails(false)
             }
             record("\(clientName) disconnected")
             // The moment nothing is left that can release what this client was holding: a client

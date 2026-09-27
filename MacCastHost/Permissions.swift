@@ -68,7 +68,14 @@ final class Permissions {
 #endif
         refreshAccessibility()
         // CGPreflightScreenCaptureAccess reflects the old CG TCC entry, not the
-        // ScreenCaptureKit entry that macOS 15 tracks separately. Probe SCK directly.
+        // ScreenCaptureKit entry that macOS 15 tracks separately, so SCK stays the authority.
+        // But the SCK probe enumerates every window and took seconds at launch behind a
+        // spinner: a preflight "yes" is trusted to show the window now, and the probe that
+        // follows corrects it if SCK disagrees. A "no" still waits for SCK.
+        if !hasCompletedInitialCheck, CGPreflightScreenCaptureAccess() {
+            screenRecordingGranted = true
+            hasCompletedInitialCheck = true
+        }
         Task { @MainActor in await self.probeScreenCaptureKit() }
     }
 

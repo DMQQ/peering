@@ -361,6 +361,7 @@ final class HostSession: @unchecked Sendable {
         emit(.clientConnected(
             clientID: clientID,
             clientName: clientName,
+            viaRelay: arrivedThroughRelay,
             detail: "\(connection.negotiatedTLSVersion) · \(presentedKey.count)-byte key"
         ))
 

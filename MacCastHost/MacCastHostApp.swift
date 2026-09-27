@@ -91,10 +91,11 @@ struct MacCastHostApp: App {
         MenuBarExtra {
             HostMenuBarContent()
                 .environment(model)
+                .environment(updater)
         } label: {
             HostMenuBarLabel(state: model.menuBarState)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
 
         // The standard place for it, in the app menu under About. Sparkle's own driver puts up the
         // window; all this does is offer the verb.

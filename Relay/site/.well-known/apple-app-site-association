@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["55RA6Q9VSR.pl.dmq.peering"],
+        "components": [
+          { "/": "/mac", "comment": "A Mac's pairing link: /mac?id=<device ID>" }
+        ]
+      }
+    ]
+  }
+}

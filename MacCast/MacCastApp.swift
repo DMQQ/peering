@@ -157,6 +157,16 @@ struct MacCastApp: App {
                 // identity and the sockets all live in this process — so it hands over with the
                 // one instruction it can give. Live Activity buttons use the same channel.
                 .onOpenURL { url in
+                    // A Mac's QR code scanned with the camera, arriving as a universal link.
+                    if PairingPayload.isHostLink(url) {
+                        guard let hostID = try? PairingPayload.hostID(from: url.absoluteString) else { return }
+                        if model.pairedHostIDs.contains(hostID) {
+                            model.connectToTrusted(hostID: hostID)
+                        } else {
+                            model.pairWithRemoteMac(hostID: hostID)
+                        }
+                        return
+                    }
                     guard url.scheme == "peering" else { return }
                     switch url.host {
                     case "connect":

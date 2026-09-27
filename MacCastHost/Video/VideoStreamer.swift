@@ -61,6 +61,8 @@ final class VideoStreamer: @unchecked Sendable {
 /// asks for the lane, which is a request like every other move between lanes. See ``useDatagrams(_:)``.
     private var datagrams: VideoDatagramLane?
 
+    var isDirectOpen: Bool { lock.withLock { datagrams }?.isDirectOpen ?? false }
+
 /// The description of the stream being sent, held so it can be re-sent.
 ///
 /// Parameter sets are out of band in H.264, so a decoder that has never been told them cannot start

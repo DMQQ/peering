@@ -29,53 +29,50 @@ extension HostStatusView {
                         : "Press Start to make this Mac available."
                 )
 
-                VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 12) {
                     connectRow(
                         symbol: "wifi",
                         title: "On the same network",
                         detail: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time."
                     )
-                    Divider().padding(.leading, 44)
                     connectRow(
                         symbol: "number",
                         title: "By address",
-                        detail: "If discovery is blocked where you are, enter this Mac's address and port \(model.boundPort) by hand."
+                        detail: "If discovery is blocked where you are, enter this Mac's address and port \(String(model.boundPort)) by hand."
                     )
-                    Divider().padding(.leading, 44)
                     connectRow(
-                        symbol: "globe",
+                        symbol: "qrcode",
                         title: "From anywhere",
-                        detail: "Once paired, this Mac stays reachable through the relay on any network. A first pairing can go that way too: use the device ID in Devices."
+                        detail: "Scan the code in the sidebar with Peering. Once paired, this Mac stays reachable through the relay on any network."
                     )
                 }
-                .hostPanel()
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
     func connectRow(symbol: String, title: String, detail: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(HostPalette.ink)
+                .frame(width: 32, height: 32)
+                .background(HostPalette.raised, in: Circle())
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.caption)
                 .foregroundStyle(HostPalette.muted)
-                .frame(width: 26, height: 26)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous)
+                .strokeBorder(HostPalette.litEdge, lineWidth: 1)
+        )
     }
-
-    // MARK: - Pairing
 
     @ViewBuilder
     var pairingSection: some View {

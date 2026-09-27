@@ -789,6 +789,11 @@ final class VideoCoordinator: @unchecked Sendable {
         pipeline.refreshSourceThumbnails()
     }
 
+    /// See ``RemoteCommand/watchSourceThumbnails(_:)``.
+    func watchSourceThumbnails(_ watching: Bool) {
+        pipeline.watchSourceThumbnails(watching)
+    }
+
     /// A still of what is being streamed. See ``CapturePipeline/snapshot(maxWidth:)``.
     func snapshot(maxWidth: Int) async -> CGImage? {
         await pipeline.snapshot(maxWidth: maxWidth)
@@ -946,6 +951,7 @@ final class VideoCoordinator: @unchecked Sendable {
     /// Diagnostics for the host window.
     var statistics: CapturePipeline.Statistics { pipeline.statistics }
     var streamStatistics: VideoStreamer.Stats { streamer.stats }
+    var isDirectPathOpen: Bool { streamer.isDirectOpen }
 
     // MARK: - Frame flow
 

@@ -28,9 +28,87 @@ extension HostStatusView {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
-            Spacer(minLength: 0)
+            // Shown only where it fits: the window sizes to its content, so a card that forced
+            // height here made the sidebar taller than the screen and looped layout into a crash.
+            ViewThatFits(in: .vertical) {
+                sidebarQRCode
+                Color.clear.frame(height: 0)
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            if let version = updater.availableVersion {
+                updateBanner(version)
+                    .padding(10)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
         }
+        .animation(HostMotion.state, value: updater.availableVersion)
         .background(HostPalette.backdrop)
+    }
+
+    /// This Mac's ID as a code, for adding it from a phone on any network.
+    @ViewBuilder
+    var sidebarQRCode: some View {
+        if PairingPayload.canonicalIdentifier(model.deviceID) != nil,
+           let image = qrCode(encoding: PairingPayload.encode(hostID: model.deviceID)) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Add this Mac")
+                    .font(HostDisplayFont.display(15))
+                    .tracking(-0.2)
+                    .foregroundStyle(HostPalette.ink)
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 132, height: 132)
+                    .padding(10)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel("This Mac's device ID, as a QR code")
+                Text("Scan with Peering on your iPhone, from any network.")
+                    .font(.caption2)
+                    .foregroundStyle(HostPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .hostPanel(cornerRadius: HostPalette.panelRadius - 4)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 10)
+            .opacity(model.status.isListening ? 1 : 0.4)
+            .help(model.status.isListening ? model.deviceID : "Press Start first: a Mac that is not hosting cannot be reached by this code.")
+        }
+    }
+
+    /// Opens Sparkle's own window, which carries the notes and the install.
+    func updateBanner(_ version: String) -> some View {
+        Button { updater.check() } label: {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(HostPalette.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Update available")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(HostPalette.ink)
+                    Text("Version \(version). Click to install.")
+                        .font(.caption)
+                        .foregroundStyle(HostPalette.muted)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .background(
+                HostPalette.accent.opacity(0.16),
+                in: RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous)
+                    .strokeBorder(HostPalette.accent.opacity(0.4))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: HostPalette.controlRadius, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!updater.canCheck)
     }
 
     /// One section. Selection is a fill rather than a tint, which is what the phone's rail does
@@ -149,7 +227,7 @@ extension HostStatusView {
             .buttonStyle(HostHostingButtonStyle(isHosting: model.status.isListening))
             .animation(HostMotion.state, value: model.status.isListening)
 
-            Text("Port \(model.boundPort) · protocol v\(ProtocolInfo.version)")
+            Text(verbatim: "Port \(model.boundPort) · protocol v\(ProtocolInfo.version)")
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(HostPalette.faint)
         }

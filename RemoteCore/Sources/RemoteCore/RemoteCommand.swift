@@ -125,6 +125,10 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
     /// ``ServerHello/supportsSourceThumbnails``, so a Mac built before this command existed is
     /// never sent one.
     case refreshSourceThumbnails
+    /// The picker's grid opening (`true`) or closing (`false`). While it is open the host keeps
+    /// re-photographing the sources and pushes the catalogue only when a picture changed, so the
+    /// tiles follow the Mac without the phone polling.
+    case watchSourceThumbnails(Bool)
     /// Dims supported physical displays to zero brightness while leaving capture running.
     /// `false` restores the levels saved when the mode was enabled.
     case setPrivacyMode(enabled: Bool)
@@ -187,7 +191,7 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
         case .mouseDown, .mouseUp, .keyDown, .keyUp, .textInput, .switchSpace,
              .switchToSpace, .setCaptureSource, .launchApplication, .setStreamQuality,
              .setVideoEnabled, .refreshSpacePreviews, .refreshSourceThumbnails,
-             .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
+             .watchSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard,
              .pushClipboardImage, .addVirtualDisplay, .removeVirtualDisplay,
              .renameVirtualDisplay, .performWindowAction, .openNewWindow:
             return .none
@@ -214,8 +218,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
              .switchSpace, .switchToSpace, .joystickMove:
             return true
         case .setCaptureSource, .launchApplication, .setStreamQuality, .setVideoEnabled,
-             .refreshSpacePreviews, .refreshSourceThumbnails, .setPrivacyMode, .lockScreen,
-             .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
+             .refreshSpacePreviews, .refreshSourceThumbnails, .watchSourceThumbnails,
+             .setPrivacyMode, .lockScreen, .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
              .performWindowAction, .openNewWindow:
             return false
@@ -234,8 +238,8 @@ public enum RemoteCommand: Codable, Sendable, Equatable {
             return true
         case .switchSpace, .switchToSpace, .setCaptureSource, .launchApplication,
              .setStreamQuality, .setVideoEnabled, .refreshSpacePreviews,
-             .refreshSourceThumbnails, .setPrivacyMode, .lockScreen, .requestClipboard,
-             .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
+             .refreshSourceThumbnails, .watchSourceThumbnails, .setPrivacyMode, .lockScreen,
+             .requestClipboard, .pushClipboard, .pushClipboardImage, .reportDeviceOrientation,
              .addVirtualDisplay, .removeVirtualDisplay, .renameVirtualDisplay,
              .performWindowAction, .openNewWindow:
             return false

@@ -8,7 +8,7 @@ enum HostEvent: Sendable {
     case listening(port: UInt16)
     case stopped
 
-    case clientConnected(clientID: String, clientName: String, detail: String)
+    case clientConnected(clientID: String, clientName: String, viaRelay: Bool, detail: String)
     case clientDisconnected(clientID: String, clientName: String)
 
     /// The six digits to show the user. Present only during a first pairing.
@@ -30,6 +30,7 @@ struct ConnectedClient: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
     let since: Date
+    let viaRelay: Bool
 
     /// Elapsed time since this device attached, for both the window and the menu bar.
     ///

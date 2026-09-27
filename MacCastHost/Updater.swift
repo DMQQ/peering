@@ -25,7 +25,11 @@ final class Updater {
     /// guessing at three states instead of reading one.
     private(set) var canCheck = false
 
+    /// The version the last check found, or nil when this build is current.
+    private(set) var availableVersion: String?
+
     @ObservationIgnored private let controller: SPUStandardUpdaterController
+    @ObservationIgnored private let delegate = Delegate()
     @ObservationIgnored private var observation: NSKeyValueObservation?
 
     init() {
@@ -35,7 +39,7 @@ final class Updater {
         // and it is spent on the picture.
         controller = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: delegate,
             userDriverDelegate: nil
         )
 
@@ -46,6 +50,23 @@ final class Updater {
             // changed the value, and `@Observable` state written off the main actor is a data race
             // the compiler cannot see through the Objective-C boundary.
             Task { @MainActor in self?.canCheck = canCheck }
+        }
+
+        delegate.onFound = { [weak self] version in self?.availableVersion = version }
+        // Silent: fills the banner without putting up Sparkle's window.
+        controller.updater.checkForUpdateInformation()
+    }
+
+    private final class Delegate: NSObject, SPUUpdaterDelegate {
+        var onFound: (@MainActor (String?) -> Void)?
+
+        func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+            let version = item.displayVersionString
+            Task { @MainActor in self.onFound?(version) }
+        }
+
+        func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+            Task { @MainActor in self.onFound?(nil) }
         }
     }
 

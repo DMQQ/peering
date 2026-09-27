@@ -1,121 +1,165 @@
 import AppKit
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
 /// The live picture, and the shape of its frame.
 extension HostStatusView {
-    /// What the connected device is looking at.
-    ///
-    /// First in the window, because it is the question this app exists to answer for whoever is
-    /// sitting at the Mac. Everything else — who is attached, whether a permission is granted —
-    /// is context for this one fact.
     var nowShowingSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // No eyebrow. "LIVE SESSION" sat above this title in tracked capitals and said what
-            // the green pill in the sidebar and the green pill in the footer below already said —
-            // but the cost was not the repetition, it was the shape: a small tracked caption over
-            // a larger line is the skeleton every generated dashboard wears, and it made a window
-            // with real information in it look like a mock-up. The title carries itself.
-            //
-            // The state it was announcing is on the right, where it is worth more: a dot beside
-            // the name of the device that is actually connected. A dot that is only there when
-            // something is live says more than a label that changes one word.
-            HStack(alignment: .center, spacing: 14) {
-                Text(capturingTitle)
-                    .font(HostDisplayFont.display(21))
-                    .tracking(-0.3)
-                    .lineLimit(1)
-
-                Spacer(minLength: 12)
-
-                if let client = connectedClient {
-                    VStack(alignment: .trailing, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(HostPalette.success)
-                                .frame(width: 6, height: 6)
-                                .shadow(color: HostPalette.success.opacity(0.6), radius: 4)
-                            Text(client.name)
-                                .font(.system(size: 12, weight: .semibold))
-                                .lineLimit(1)
-                        }
-                        Text(client.elapsedDescription())
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(HostPalette.muted)
-                    }
+        VStack(alignment: .leading, spacing: 14) {
+            previewPane
+                .overlay(alignment: .bottomLeading) { previewCaption }
+                .clipShape(RoundedRectangle(cornerRadius: HostPalette.panelRadius - 3, style: .continuous))
+                .hostPrimaryPanel()
+                .overlay {
+                    RoundedRectangle(cornerRadius: HostPalette.panelRadius + 3, style: .continuous)
+                        .strokeBorder(HostPalette.ink.opacity(heroHovered ? 0.14 : 0), lineWidth: 1)
                 }
+                .animation(HostMotion.hover, value: heroHovered)
+                .onHover { heroHovered = $0 }
+
+            HStack(alignment: .top, spacing: 12) {
+                deviceTile
+                streamTile
+                reachTile
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 16)
-            .padding(.bottom, 13)
-
-            VStack(spacing: 0) {
-                previewPane
-
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(capturingSource == nil ? HostPalette.raised : HostPalette.ink.opacity(0.12))
-                        Image(systemName: capturingIcon)
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(capturingSource == nil ? HostPalette.faint : HostPalette.ink)
-                    }
-                    .frame(width: 40, height: 40)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(capturingDetail)
-                            .font(.callout.weight(.medium))
-                            .foregroundStyle(HostPalette.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer(minLength: 12)
-
-                    if capturingSource != nil {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(HostPalette.success)
-                                .frame(width: 6, height: 6)
-                                .shadow(color: HostPalette.success.opacity(0.6), radius: 4)
-                            Text("Live")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(HostPalette.ink)
-                        }
-                        .padding(.horizontal, 9)
-                        .frame(height: 25)
-                        .background(HostPalette.raised, in: Capsule())
-                        .overlay { Capsule().strokeBorder(HostPalette.hairline, lineWidth: 1) }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(HostPalette.surface)
-            }
-            // Concentric with the bezel outside it — the panel's radius less the panel's own
-            // padding. Two radii that are close but not equal is the thing that reads as sloppy
-            // without anyone being able to say why.
-            .clipShape(RoundedRectangle(cornerRadius: HostPalette.panelRadius - 3, style: .continuous))
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .hostPrimaryPanel()
-        // The pointer's arrival used to scale this panel by two points in a thousand, which is
-        // not something anybody can see and was something everybody paid for: `scaleEffect` sits
-        // *outside* `hostPrimaryPanel`, so the panel's 28-point shadow was inside the animated
-        // content and had to be blurred again on every frame of the spring, for a movement of two
-        // points on a pane this wide. The bezel lighting up is the same acknowledgement for the
-        // price of one stroke, and a one-point stroke does not blur.
-        .overlay {
-            RoundedRectangle(cornerRadius: HostPalette.panelRadius + 3, style: .continuous)
-                .strokeBorder(HostPalette.ink.opacity(heroHovered ? 0.14 : 0), lineWidth: 1)
-        }
-        .animation(HostMotion.hover, value: heroHovered)
-        .onHover { heroHovered = $0 }
     }
 
-    /// The shape the frame should be.
-    ///
-    /// Whatever is actually being sent, and the display when nothing is — which is also what a
-    /// connection captures until the client asks for something else, so the frame does not change
-    /// shape the moment a stream starts.
+    /// The source's name laid over the foot of the picture, on a scrim so it reads over any desktop.
+    private var previewCaption: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(capturingTitle)
+                    .font(HostDisplayFont.display(22))
+                    .tracking(-0.3)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Image(systemName: capturingIcon)
+                        .font(.system(size: 11, weight: .medium))
+                    Text(capturingDetail)
+                        .font(.caption)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(HostPalette.muted)
+            }
+            Spacer(minLength: 12)
+            if capturingSource != nil {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(HostPalette.success)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: HostPalette.success.opacity(0.6), radius: 4)
+                    Text("Live")
+                        .font(.caption.weight(.semibold))
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay { Capsule().strokeBorder(HostPalette.hairline, lineWidth: 1) }
+            }
+        }
+        .foregroundStyle(HostPalette.ink)
+        .padding(.horizontal, 18)
+        .padding(.top, 36)
+        .padding(.bottom, 16)
+        .background(
+            LinearGradient(colors: [.clear, .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+        )
+    }
+
+    // MARK: Tiles
+
+    private var deviceTile: some View {
+        overviewTile(symbol: "iphone", title: "Device") {
+            if let client = connectedClient {
+                HStack(spacing: 6) {
+                    Text(client.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                    Text(!client.viaRelay ? "LAN" : model.directPathOpen ? "P2P" : "RELAY")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(HostPalette.muted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .overlay(Capsule().strokeBorder(HostPalette.ink.opacity(0.2)))
+                }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text("Connected for \(client.elapsedDescription(now: context.date))")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(HostPalette.muted)
+                }
+            } else {
+                Text("Nobody connected")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(HostPalette.muted)
+                Text(model.status.isListening ? "Waiting for a device" : "Press Start to host")
+                    .font(.caption)
+                    .foregroundStyle(HostPalette.faint)
+            }
+        }
+    }
+
+    private var streamTile: some View {
+        let rates = model.resources.rates
+        let memory = model.resources.memoryBytes
+        return overviewTile(symbol: "gauge.with.dots.needle.50percent", title: "Cost to this Mac") {
+            Text(rates.map { "\(HostResourceSampler.cpuPercent($0)) CPU" } ?? "Measuring…")
+                .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                .contentTransition(.numericText())
+            Text([
+                memory > 0 ? HostResourceSampler.memoryText(memory) : nil,
+                rates.map { "\(HostResourceSampler.networkText($0.bytesPerSecond)) sent" },
+            ].compactMap { $0 }.joined(separator: " · "))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(HostPalette.muted)
+                .lineLimit(1)
+        }
+    }
+
+    private var reachTile: some View {
+        let held = model.preventLidCloseSleep && !model.keepAwakeWithheld
+        return overviewTile(symbol: held ? "bolt.fill" : "moon.zzz", title: "This Mac") {
+            Text(held ? "Kept reachable" : "Sleeps on its own")
+                .font(.system(size: 14, weight: .semibold))
+            Text(model.keepRunningWithLidClosed ? "Runs with the lid closed" : "Sleeps when the lid closes")
+                .font(.caption)
+                .foregroundStyle(HostPalette.muted)
+                .lineLimit(1)
+        }
+    }
+
+    private func overviewTile<Content: View>(
+        symbol: String,
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 7) {
+                Image(systemName: symbol)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(HostPalette.muted)
+                    .frame(width: 24, height: 24)
+                    .background(HostPalette.raised, in: Circle())
+                Text(title)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(HostPalette.faint)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                content()
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: HostPalette.panelRadius, style: .continuous)
+                .strokeBorder(HostPalette.litEdge, lineWidth: 1)
+        )
+    }
+
     var previewAspect: CGFloat {
         if let preview, preview.height > 0 {
             return CGFloat(preview.width) / CGFloat(preview.height)

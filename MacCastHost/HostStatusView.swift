@@ -55,6 +55,7 @@ enum HostSection: String, CaseIterable, Identifiable {
 /// fifteen hundred lines.
 struct HostStatusView: View {
     @Environment(HostModel.self) var model
+    @Environment(Updater.self) var updater
     @State var section: HostSection
 
     init(initialSection: HostSection = .overview) {
@@ -404,4 +405,5 @@ extension View {
 #Preview {
     HostStatusView()
         .environment(HostModel())
+        .environment(Updater())
 }

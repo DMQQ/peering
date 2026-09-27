@@ -275,6 +275,10 @@ extension HostModel {
                 coordinator.refreshSourceThumbnails()
                 return
             }
+            if case .watchSourceThumbnails(let watching) = command {
+                coordinator.watchSourceThumbnails(watching)
+                return
+            }
             if case .setPrivacyMode(let enabled) = command {
                 Task { @MainActor [weak self] in self?.setPrivacyMode(enabled) }
                 return
