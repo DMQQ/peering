@@ -40,7 +40,7 @@ use std::time::Duration;
 
 use tokio::net::UdpSocket;
 use tokio::time::MissedTickBehavior;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::session::{Routed, Token, VideoRoutes};
 
@@ -172,7 +172,7 @@ async fn forward(socket: UdpSocket, routes: Arc<VideoRoutes>, idle_ttl: Duration
                 // kernel keeps repeating from turning this loop into a spin; it is not on the path
                 // a working relay takes.
                 Err(error) => {
-                    debug!(%error, "video socket failed to receive");
+                    warn!(%error, "video socket failed to receive");
                     tokio::time::sleep(RECEIVE_BACKOFF).await;
                 }
             },

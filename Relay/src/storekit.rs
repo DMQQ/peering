@@ -73,7 +73,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use rustls_pki_types::{CertificateDer, SignatureVerificationAlgorithm, UnixTime};
 use serde::Deserialize;
-use tracing::debug;
+use tracing::warn;
 use webpki::{EndEntityCert, ExtendedKeyUsageValidator, KeyPurposeIdIter};
 use x509_cert::der::Decode as _;
 use x509_cert::der::asn1::ObjectIdentifier;
@@ -512,7 +512,7 @@ impl StoreKitVerifier {
                 rejected: None,
             },
             Some(Err(reason)) => {
-                debug!(reason = reason.reason(), "receipt did not verify");
+                warn!(reason = reason.reason(), "receipt did not verify");
                 self.fallback(claimed, Some(reason))
             }
             None => self.fallback(claimed, None),

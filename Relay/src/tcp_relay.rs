@@ -96,7 +96,7 @@ async fn handle(mut stream: TcpStream, registry: Arc<Registry>) -> std::io::Resu
     // and the socket closes. A second timeout here would only duplicate that with a second number
     // to keep in step.
     let Ok(mut theirs) = peer.await else {
-        debug!("session was swept before the peer connected");
+        info!("session was swept before the peer connected; the other end never arrived");
         return Ok(());
     };
 

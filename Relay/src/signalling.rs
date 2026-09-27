@@ -384,7 +384,7 @@ async fn handle<S>(
                                 dispatch(message, &tx, &registry, &hosts, &settings, &relay_host, &mut state).await
                             }
                             Err(error) => {
-                                debug!(%peer, %error, "unparseable signalling message");
+                                warn!(%peer, %error, "unparseable signalling message; likely a client on a different version");
                                 Some(ServerMessage::error("protocol", "unrecognised message"))
                             }
                         };
@@ -554,11 +554,11 @@ async fn dispatch(
                         if device_proof::verifies(key, signature, body.as_bytes()) {
                             Some(key.clone())
                         } else {
-                            debug!(%client_id, "a client proof did not verify; metered by id");
+                            info!(%client_id, "a client proof did not verify; metered by id");
                             None
                         }
                     } else {
-                        debug!(%client_id, "a client proof was signed for a different time; metered by id");
+                        info!(%client_id, "a client proof was signed for a different time; metered by id");
                         None
                     }
                 }
@@ -566,7 +566,7 @@ async fn dispatch(
                 // Two fields of three. Not salvaged, and not worth a refusal: the client is
                 // metered by its id, which is what a build that sends none of them gets.
                 _ => {
-                    debug!(%client_id, "a client proof was incomplete; metered by id");
+                    info!(%client_id, "a client proof was incomplete; metered by id");
                     None
                 }
             };
@@ -630,7 +630,7 @@ async fn dispatch(
             }
 
             let Some(host) = hosts.entry_for(&host_id).await else {
-                debug!(%host_id, "asked for a host that is not registered");
+                info!(%host_id, "asked for a host that is not registered");
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             };
 
@@ -731,7 +731,7 @@ async fn dispatch(
                 .await
                 .is_err()
             {
-                debug!(%host_id, "host push failed");
+                warn!(%host_id, "host went away while its session was being set up");
                 registry.release(&allocated.control_token).await;
                 return Some(ServerMessage::HostOffline { device_id: host_id });
             }
