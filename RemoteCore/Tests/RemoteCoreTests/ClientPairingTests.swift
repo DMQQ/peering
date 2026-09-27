@@ -20,7 +20,7 @@ private final class LockedFlag: @unchecked Sendable {
 /// Thrown from the helpers below rather than recorded as an expectation, because a test that could
 /// not open a listener has nothing to say about the client, and the assertions that follow would be
 /// assertions about a session that never ran.
-private struct TestSetupError: Error, CustomStringConvertible {
+struct TestSetupError: Error, CustomStringConvertible {
     let description: String
     init(_ description: String) { self.description = description }
 }
@@ -33,7 +33,7 @@ private struct TestSetupError: Error, CustomStringConvertible {
 /// fails it is a machine where all of them would fail for a reason that has nothing to do with the
 /// pin. The probe's key carries a tag of its own and is destroyed immediately, so the check neither
 /// reads nor mints the identity the app runs on.
-private let keychainIsUsable: Bool = {
+let keychainIsUsable: Bool = {
     let tag = Data("pl.dmq.maccast.tests.keychain-probe.\(UUID().uuidString)".utf8)
     defer { try? SelfSignedIdentity.destroy(role: .client, keyTag: tag) }
     let identity = try? SelfSignedIdentity.loadOrCreate(
@@ -50,7 +50,7 @@ private let keychainIsUsable: Bool = {
 /// app, so a test that let it default would load the developer's own key and the teardown here
 /// would then delete it. A fresh tag per identity keeps the two apart in both directions, which is
 /// a mistake this project has already made once from a probe, in the other direction.
-private func withIdentity<T>(
+func withIdentity<T>(
     role: SelfSignedIdentity.Role,
     commonName: String,
     _ body: (SelfSignedIdentity) async throws -> T
@@ -62,7 +62,7 @@ private func withIdentity<T>(
 }
 
 /// Both ends of a test's handshake: this device, and the Mac it is deciding about.
-private func withTestEnds<T>(
+func withTestEnds<T>(
     _ body: (_ client: SelfSignedIdentity, _ mac: SelfSignedIdentity) async throws -> T
 ) async throws -> T {
     try await withIdentity(role: .client, commonName: "Test iPhone") { client in
@@ -79,7 +79,7 @@ private func withTestEnds<T>(
 /// that two tests running at once cannot see each other's pins, and teardown deletes the item
 /// rather than leaving behind the empty one `removeAll()` writes: a test run should not add to the
 /// machine's Keychain, not even something with nothing in it.
-private struct TestPins {
+struct TestPins {
     let store: ClientPinStore
     private let service = "pl.dmq.maccast.tests.clientpins"
     private let account: String
@@ -106,7 +106,7 @@ private struct TestPins {
 /// Polled rather than signalled, and that is deliberate: the session reports from whichever queue
 /// the network handed it, and what a test can honestly assert is that an event arrives, not that it
 /// arrives before the next line runs.
-private final class SessionLog: @unchecked Sendable {
+final class SessionLog: @unchecked Sendable {
     private let lock = NSLock()
     private var events: [ClientSession.Event] = []
 
@@ -163,7 +163,7 @@ private final class SessionLog: @unchecked Sendable {
 /// hello, and those are the evidence the decision is made from. So what this is instead is the
 /// smallest Mac the client will talk to: a TLS listener with a key of its own, and the frames
 /// `HostSession` answers with, in the order that file sends them.
-private final class ScriptedMac: @unchecked Sendable {
+final class ScriptedMac: @unchecked Sendable {
     private let listener: NWListener
     private let queue = DispatchQueue(label: "test.scripted-mac")
     private let lock = NSLock()
@@ -243,7 +243,7 @@ private final class ScriptedMac: @unchecked Sendable {
 /// Frames are collected into a queue and polled rather than handed back through a continuation.
 /// A scripted Mac reads two or three frames in its whole life, and polling cannot lose one to a
 /// race between the connection's queue and the test's.
-private final class MacLink: @unchecked Sendable {
+final class MacLink: @unchecked Sendable {
     private let connection: NWConnection
     private let queue = DispatchQueue(label: "test.scripted-mac.link")
     private let lock = NSLock()
@@ -419,7 +419,7 @@ private final class MacLink: @unchecked Sendable {
 /// Returns the client's hello, which is where the ID the pin is keyed by is claimed, so a test can
 /// check that the client is asking about the Mac it thinks it is.
 @discardableResult
-private func greet(_ link: MacLink, serverID: String, alreadyPaired: Bool) async throws -> ClientHello {
+func greet(_ link: MacLink, serverID: String, alreadyPaired: Bool) async throws -> ClientHello {
     let role = try await link.expect(.connectionRole)
     #expect(
         role.payload == Data([ConnectionRole.control.rawValue]),
@@ -441,7 +441,7 @@ private func greet(_ link: MacLink, serverID: String, alreadyPaired: Bool) async
 /// reading the winner of a race, and the shipped bug lived exactly in that gap: the old connect
 /// path replaced the transport's sentence with an identity one, and whether anybody saw it came
 /// down to the order two fault reporters got there in.
-private func failurePhase(_ session: ClientSession) -> String? {
+func failurePhase(_ session: ClientSession) -> String? {
     if case .failed(let message) = session.phase { return message }
     return nil
 }
@@ -497,7 +497,7 @@ private func unusedLoopbackPort() async throws -> UInt16 {
 /// Built from `NetworkFailureText` rather than written out, because the assertion it serves is that
 /// the message came from that table: a test that listed the words itself would keep passing after
 /// the table changed, which is the wrong thing for a test about the table's reach to do.
-private let transportSentences: Set<String> = [
+let transportSentences: Set<String> = [
     NetworkFailureText.describe(POSIXErrorCode.ECONNREFUSED),
     NetworkFailureText.describe(POSIXErrorCode.ECONNRESET),
     NetworkFailureText.describe(POSIXErrorCode.ETIMEDOUT),

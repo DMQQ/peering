@@ -692,7 +692,10 @@ public final class ClientSession: @unchecked Sendable {
             resumeSource: knowsHost ? resumeSource : nil
         ))
 
-        lock.withLock { state = .awaitingServerHello }
+        lock.withLock {
+            state = .awaitingServerHello
+            _phase = .handshaking
+        }
         emit(.phase(.handshaking))
         coalescer.start()
     }
@@ -964,8 +967,11 @@ public final class ClientSession: @unchecked Sendable {
             serverIdentityPublicKey: serverKey
         )
 
-        lock.withLock { state = .awaitingUserConfirmation }
         let code = PairingSAS.code(for: transcript)
+        lock.withLock {
+            state = .awaitingUserConfirmation
+            _phase = .confirming(code: code)
+        }
         emit(.phase(.confirming(code: code)))
     }
 
@@ -1022,6 +1028,7 @@ public final class ClientSession: @unchecked Sendable {
     private func becomeReady() {
         lock.withLock {
             state = .ready
+            _phase = .ready
             // The watchdog's baseline until the first pong arrives. Without it, a session whose
             // first pong is late would be judged against a silence that began before it existed.
             readyAt = Self.monotonicNow()
