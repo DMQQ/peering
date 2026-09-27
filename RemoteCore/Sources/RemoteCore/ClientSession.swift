@@ -1397,10 +1397,6 @@ public final class ClientSession: @unchecked Sendable {
         }
     }
 
-    /// Dials the video socket now, with a whole ladder, when the phone's network has moved.
-    ///
-    /// A socket still open on the old path is replaced: it would otherwise wait out its own timeout
-    /// before the ladder even started.
     public func retryVideoAfterNetworkChange() {
         lock.lock()
         guard state == .ready, wantsPicture, !usesRelayedSingleStream else {

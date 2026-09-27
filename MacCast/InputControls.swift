@@ -891,6 +891,7 @@ struct ScrollWheelView: View {
 /// not equivalent.
 struct ModifierBar: View {
     @Environment(SessionModel.self) private var model
+    var large = false
 
     /// Left-hand virtual keycodes. The protocol collapses left and right into one bit, so
     /// which side is pressed cannot be observed by the Mac.
@@ -902,7 +903,7 @@ struct ModifierBar: View {
     ]
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: large ? 8 : 6) {
             ForEach(Self.keys, id: \.title) { key in
                 let isOn = model.latchedModifiers.contains(key.bit)
                 Button {
@@ -910,7 +911,8 @@ struct ModifierBar: View {
                 } label: {
                     Text(key.title)
                         .font(.system(size: 17, weight: .medium))
-                        .frame(width: 38, height: 34)
+                        .frame(width: large ? nil : 38, height: large ? 44 : 34)
+                        .frame(maxWidth: large ? .infinity : nil)
                         .foregroundStyle(isOn ? ColorPalette.ink : Color.primary)
                         .background(isOn ? ColorPalette.selectedFill : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                         .glassSurface(in: RoundedRectangle(cornerRadius: 9, style: .continuous), interactive: true)
@@ -929,28 +931,21 @@ struct MacroBar: View {
     @State private var showingMacroEditor = false
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+        LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
                 ForEach(model.allMacros) { macro in
                     Button {
                         model.run(macro)
                     } label: {
                         Text(macro.title)
-                            .font(.system(size: 14, weight: .medium))
-                            .padding(.horizontal, 12)
+                            .font(.system(size: 15, weight: .medium))
+                            .padding(.horizontal, 8)
                             .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                 }
 
-                // Macro editor
-                Rectangle()
-                    .frame(width: 1, height: 22)
-                    .foregroundStyle(.white.opacity(0.2))
-                    .padding(.horizontal, 2)
-
                 // **The line between what is paid here and what is not is making one, not using
-                // one.** The chips to the left are the keyboard: ⌘C, esc, ⏎ and the control keys a
+                // one.** The chips before it are the keyboard: ⌘C, esc, ⏎ and the control keys a
                 // phone keyboard cannot send, and they are free on every plan along with the rest
                 // of the pointer and the keyboard. What Pro adds is the editor behind this button:
                 // a macro you save, a snippet you keep, a command you fire instead of typing it.
@@ -966,15 +961,12 @@ struct MacroBar: View {
                         showingMacroEditor = true
                     } label: {
                         Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 13, weight: .medium))
-                            .frame(width: 34)
+                            .font(.system(size: 15, weight: .medium))
                             .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86))
                     .accessibilityLabel("Edit macros")
                 }
-            }
-            .padding(.horizontal, 2)
         }
         .sheet(isPresented: $showingMacroEditor) {
             MacroEditorView(model: model)

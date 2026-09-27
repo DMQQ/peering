@@ -54,6 +54,8 @@ struct ShortcutSets: View {
 
     @State private var chosen: Set?
 
+    static let columns = [GridItem(.adaptive(minimum: 76), spacing: 8)]
+
     private var sets: [(Set, String)] {
         var sets: [(Set, String)] = []
         if let application { sets.append((.application, application.name)) }
@@ -62,8 +64,6 @@ struct ShortcutSets: View {
         return sets
     }
 
-    /// The application's keys when there are some, since they are the ones picked for what is on
-    /// screen. A choice that no longer exists falls back the same way.
     private var shown: Set {
         if let chosen, sets.contains(where: { $0.0 == chosen }) { return chosen }
         return application == nil ? .macros : .application
@@ -71,40 +71,38 @@ struct ShortcutSets: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 16) {
+            Picker("Shortcut set", selection: Binding(get: { shown }, set: { chosen = $0 })) {
                 ForEach(sets, id: \.0) { set, title in
-                    Button {
-                        withAnimation(Motion.tap) { chosen = set }
-                    } label: {
-                        Text(title)
-                            .font(.subheadline.weight(set == shown ? .semibold : .medium))
-                            .foregroundStyle(set == shown ? ColorPalette.ink : ColorPalette.ink.opacity(0.5))
-                            .lineLimit(1)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(set == shown ? [.isSelected] : [])
+                    Text(title).tag(set)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 4)
+            .pickerStyle(.segmented)
 
-            Group {
-                switch shown {
-                case .application: application?.row
-                case .macros: MacroBar()
-                case .functionKeys: functionKeys
-                }
+            ViewThatFits(in: .vertical) {
+                keys
+                ScrollView(.vertical, showsIndicators: false) { keys }
+                    .frame(maxHeight: 208)
             }
-            .frame(height: 34)
+        }
+    }
+}
+
+extension ShortcutSets {
+    @ViewBuilder
+    private var keys: some View {
+        switch shown {
+        case .application: application?.row
+        case .macros: MacroBar()
+        case .functionKeys: functionKeys
         }
     }
 }
 
 extension View {
-    /// A key in the shortcuts panel: a flat tint, since the panel under it is already glass.
     func keyChip() -> some View {
-        frame(height: 34)
+        lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(maxWidth: .infinity, minHeight: 44)
             .background(ColorPalette.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
@@ -153,12 +151,9 @@ extension RemoteScreen {
                 functionKeys: AnyView(functionKeyRow)
             )
 
-            HStack(spacing: 10) {
-                ModifierBar()
-                Spacer(minLength: 0)
-            }
+            ModifierBar(large: true)
 
-            arrowStrip()
+            arrowCluster
         }
         .padding(10)
     }
@@ -186,15 +181,14 @@ extension RemoteScreen {
     /// Absent entirely for an application nobody has written a profile for, rather than shown
     /// empty. A heading with nothing under it is worse than no heading.
     func applicationActions(_ profile: ApplicationProfile) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+        LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
                 ForEach(profile.actions) { action in
                     Button {
                         sendKey(keyCode: action.keyCode, modifiers: action.modifiers)
                     } label: {
                         Text(action.title)
-                            .font(.system(size: 14, weight: .medium))
-                            .padding(.horizontal, 12)
+                            .font(.system(size: 15, weight: .medium))
+                            .padding(.horizontal, 8)
                             .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
@@ -202,8 +196,6 @@ extension RemoteScreen {
                     // reason is what gets spoken.
                     .accessibilityLabel(action.detail)
                 }
-            }
-            .padding(.horizontal, 2)
         }
     }
 
@@ -221,24 +213,53 @@ extension RemoteScreen {
     /// F1 to F12, which a phone keyboard cannot send. Through ``sendKey(keyCode:modifiers:)``, so a
     /// latched modifier applies: ⌘ then F5 is VoiceOver, ⌃ then F2 the menu bar.
     var functionKeyRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
+        LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
                 ForEach(Array(Self.functionKeyCodes.enumerated()), id: \.offset) { index, keyCode in
                     Button {
                         sendKey(keyCode: keyCode)
                     } label: {
                         Text("F\(index + 1)")
-                            .font(.system(size: 14, weight: .medium).monospacedDigit())
-                            .frame(minWidth: 34)
-                            .padding(.horizontal, 6)
+                            .font(.system(size: 15, weight: .medium).monospacedDigit())
                             .keyChip()
                     }
                     .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
                     .accessibilityLabel("F\(index + 1)")
                 }
-            }
-            .padding(.horizontal, 2)
         }
+    }
+
+    /// Delete and Return, beside the arrows in a laptop's inverted T.
+    var arrowCluster: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            panelKey("delete.backward", label: "Delete", width: 64) { model.handleBackspace() }
+            panelKey("return", label: "Enter", width: 64) { model.pressReturn() }
+            Spacer(minLength: 0)
+            VStack(spacing: 6) {
+                panelKey("chevron.up", label: "Up arrow") { sendKey(keyCode: 126) }
+                HStack(spacing: 6) {
+                    panelKey("chevron.left", label: "Left arrow") { sendKey(keyCode: 123) }
+                    panelKey("chevron.down", label: "Down arrow") { sendKey(keyCode: 125) }
+                    panelKey("chevron.right", label: "Right arrow") { sendKey(keyCode: 124) }
+                }
+            }
+        }
+    }
+
+    private func panelKey(
+        _ icon: String,
+        label: String,
+        width: CGFloat = 52,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: width, height: 40)
+                .background(ColorPalette.ink.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+        .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
+        .accessibilityLabel(label)
     }
 
     /// The Mac's virtual key codes for F1 to F12, in order. They are not sequential.

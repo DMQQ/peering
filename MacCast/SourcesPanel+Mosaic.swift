@@ -238,7 +238,13 @@ extension SourcesPanel {
                         // twice the width of what it sits beside is a number by itself.
                         .overlay(alignment: .topTrailing) { placeBadge(placed.place) }
                         .overlay {
-                            if showsControls { tileControlBar(controls) }
+                            if showsControls {
+                                tileControlBar(
+                                    controls,
+                                    stacked: (pictureWidth ?? captionWidth(shape: shape))
+                                        < Self.controlBarWidth(count: controls.count)
+                                )
+                            }
                         }
                 }
 
@@ -316,13 +322,29 @@ extension SourcesPanel {
     ///
     /// The one place the panel uses colours other than the state blue: these are quoting the
     /// Mac's own title-bar buttons, and they are recognised by their colours before anything else.
-    func tileControlBar(_ controls: [TileControl]) -> some View {
-        HStack(spacing: 10) {
-            ForEach(controls) { tileControlButton($0) }
+    ///
+    /// Stacked on a tile too narrow to hold them side by side, which a tall window's tile is: a row
+    /// of three would hang off both edges, and the scroll row would clip the dots at the ends.
+    @ViewBuilder
+    func tileControlBar(_ controls: [TileControl], stacked: Bool = false) -> some View {
+        let layout = stacked
+            ? AnyLayout(VStackLayout(spacing: 6))
+            : AnyLayout(HStackLayout(spacing: Self.controlSpacing))
+        layout {
+            ForEach(controls) { tileControlButton($0, size: stacked ? 22 : Self.controlSize) }
         }
-        .padding(8)
+        .padding(stacked ? 5 : Self.controlPadding)
         .glassSurface(in: Capsule())
         .transition(Self.badge)
+    }
+
+    static let controlSize: CGFloat = 26
+    static let controlSpacing: CGFloat = 10
+    static let controlPadding: CGFloat = 8
+
+    /// How wide the dots are side by side, to tell whether a tile can hold them that way.
+    static func controlBarWidth(count: Int) -> CGFloat {
+        CGFloat(count) * controlSize + CGFloat(max(count - 1, 0)) * controlSpacing + 2 * controlPadding
     }
 
     /// One button's face: glass tinted the button's colour on iOS 26, a plain dot before it.
@@ -335,14 +357,14 @@ extension SourcesPanel {
         }
     }
 
-    private func tileControlButton(_ control: TileControl) -> some View {
+    private func tileControlButton(_ control: TileControl, size: CGFloat) -> some View {
         Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             control.action()
             withAnimation(Motion.tap) { windowControlsFor = nil }
         } label: {
             trafficLight(control.colour)
-                .frame(width: 26, height: 26)
+                .frame(width: size, height: size)
                 .overlay {
                     Image(systemName: control.symbol)
                         .font(.system(size: 10, weight: .heavy))

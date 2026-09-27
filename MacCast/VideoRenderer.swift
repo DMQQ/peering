@@ -549,6 +549,11 @@ struct VideoLayerView: UIViewRepresentable {
     /// ``VideoRenderer/stillPicture``.
     var stillPicture: CGImage?
 
+    /// Drawn under the frozen layer while a window shrinks back into the mosaic, so the other tiles
+    /// are there from the first frame instead of appearing when the movement ends.
+    var backdropPicture: CGImage?
+    var backdropZoom: CGFloat = 1
+
     /// The live layer's own bookkeeping about which of the two pictures it is showing. See
     /// ``VideoHostView/stillContentView``.
     final class Coordinator {
@@ -556,6 +561,7 @@ struct VideoLayerView: UIViewRepresentable {
         /// The image the frozen layer is holding, so a pass that changes nothing else does not
         /// re-rasterise it.
         var stillPicture: CGImage?
+        var backdropPicture: CGImage?
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -609,6 +615,12 @@ struct VideoLayerView: UIViewRepresentable {
         }
         view.contentView.transform = target
         view.stillContentView.transform = stillTarget
+        if backdropPicture !== context.coordinator.backdropPicture {
+            context.coordinator.backdropPicture = backdropPicture
+            view.backdropView.layer.contents = backdropPicture
+        }
+        view.backdropContentView.transform = CGAffineTransform(scaleX: backdropZoom, y: backdropZoom)
+        view.backdropContentView.isHidden = backdropPicture == nil || !showsStill
         if showsStill {
             view.stillContentView.alpha = 1
             view.contentView.alpha = 0
@@ -679,7 +691,14 @@ final class VideoHostView: UIView {
         // The same fit the display layer uses, so a rect computed from a pixel size lands on the
         // picture exactly as it does on the live one.
         view.layer.contentsGravity = .resizeAspect
-        view.layer.backgroundColor = UIColor.black.cgColor
+        // Clear rather than black: shrunk into a tile, black bars would cover the tiles beside it.
+        // The host view's own black shows through when nothing is behind.
+        return view
+    }()
+    let backdropContentView = UIView()
+    let backdropView: UIView = {
+        let view = UIView()
+        view.layer.contentsGravity = .resizeAspect
         return view
     }()
 
@@ -693,7 +712,7 @@ final class VideoHostView: UIView {
 
         // Under the live one, and both sized the same way. The still is what is left on screen
         // when the live layer is faded out, so it has to cover the same ground.
-        for (container, display) in [(stillContentView, stillView), (contentView, displayView)] {
+        for (container, display) in [(backdropContentView, backdropView), (stillContentView, stillView), (contentView, displayView)] {
             container.frame = bounds
             addSubview(container)
             display.frame = container.bounds
@@ -701,6 +720,7 @@ final class VideoHostView: UIView {
             container.addSubview(display)
         }
         stillContentView.alpha = 0
+        backdropContentView.isHidden = true
     }
 
     /// Sized through `bounds` and `center`, never through `frame`, which is why this is here
@@ -713,7 +733,7 @@ final class VideoHostView: UIView {
     /// picture's scale behind the user's back.
     override func layoutSubviews() {
         super.layoutSubviews()
-        for container in [stillContentView, contentView] {
+        for container in [backdropContentView, stillContentView, contentView] {
             container.bounds = CGRect(origin: .zero, size: bounds.size)
             container.center = CGPoint(x: bounds.midX, y: bounds.midY)
         }

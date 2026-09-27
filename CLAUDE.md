@@ -23,3 +23,14 @@ Two rules from it that are easy to break by accident:
 
 [AGENTS.md](AGENTS.md) carries everything about this repo that is not derivable from reading the
 source, including traps that have cost hours. Read it before touching capture, crypto, or input.
+
+## Comments
+
+Write a comment only when the code cannot say it:
+
+- **Logic that is not obvious** from reading the code, in a line or two.
+- **A trap already hit**: an approach that failed or a cause that took real time to find, so
+  nobody tries it again. Say what broke and why, briefly.
+
+Nothing else: no comment restating what the code does, no history of how it came to be, no
+design essay. A long justification goes stale and misleads.

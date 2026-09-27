@@ -8,11 +8,9 @@ enum SettingsSearch {
     enum Section: CaseIterable {
         case device, controls, quality, remoteAccess, security, pip, widget, liveActivity
         case notifications, trustedMacs, identity, developer, more, legal
-        // The in-session panel's own cards.
         case sessionInfo, activity, stream, sessionPicture, sessionPanels, privacy
         case sessionKeyboard, macros, pairedMacs, thisDevice
 
-        /// The words a section answers to: its title, its rows, and what someone might type instead.
         var keywords: String {
             switch self {
             case .device: "this device name phone"
@@ -43,7 +41,6 @@ enum SettingsSearch {
         }
     }
 
-    /// Every word typed has to appear somewhere in the section's words.
     static func matches(_ section: Section, _ query: String) -> Bool {
         let words = query.lowercased().split(whereSeparator: \.isWhitespace)
         guard !words.isEmpty else { return true }
@@ -60,7 +57,6 @@ enum SettingsSearch {
         .sessionKeyboard, .macros, .pairedMacs, .thisDevice,
     ]
 
-    /// Whether a screen with these sections has nothing to show for this query.
     static func hasNoMatch(_ query: String, in sections: [Section] = tabSections) -> Bool {
         !sections.contains { matches($0, query) }
     }
@@ -74,7 +70,6 @@ enum SettingsSearch {
     }
 }
 
-/// The search box at the top of a settings screen.
 struct SettingsSearchField: View {
     @Binding var query: String
 

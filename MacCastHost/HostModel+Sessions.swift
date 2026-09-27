@@ -112,11 +112,11 @@ extension HostModel {
     /// or not a panel is lit, so a picture of one is real with every screen dark.
     func screenNotice() -> NoticePayload? {
         if Self.isScreenLocked {
-            // A window or an application does not include the lock screen, so its picture goes
-            // stale and every tap lands nowhere. Showing a display already shows the lock screen,
-            // so that phone only needs the flag.
+            // Said on a display too: locking there often sleeps it (the power button always does),
+            // and a black picture with no caption reads as a broken stream. The phone hides the
+            // caption once Unlock has put the keyboard up on that display.
             if case .display(let id)? = capturingSource {
-                return NoticePayload(message: nil, lockedDisplayID: id)
+                return NoticePayload(message: "This Mac is locked.", symbol: "lock.fill", lockedDisplayID: id)
             }
             return NoticePayload(
                 message: "This Mac is locked.",

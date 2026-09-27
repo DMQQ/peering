@@ -126,8 +126,6 @@ extension RemoteScreen {
 
     /// The actions reached for while looking at the Mac rather than at Peering itself.
     ///
-    /// Copy and paste first. Quit is last and behind a confirmation, so an edge tap cannot close an
-    /// app with unsaved work.
     @ViewBuilder
     var landscapeQuickActions: some View {
         ForEach(quickActions) { quickAction in
@@ -142,8 +140,6 @@ extension RemoteScreen {
 
     /// The same set as data, because two layouts draw it now.
     ///
-    /// The rail and the portrait dock both draw it. Five, so the dock holds them on one page; the
-    /// rest (⌃C, ⌘S, ⌘W and more) are in the Shortcuts panel.
     var quickActions: [QuickAction] {
         [
             QuickAction(chord: "⌘C", label: "Copy", accessibilityLabel: "Copy") {
@@ -266,8 +262,6 @@ extension RemoteScreen {
         // centres its contents inside it. Bottom-aligned, the frame is still the ceiling but the
         // panel sits at the bottom of it, which is where a panel belongs.
         if let panel = openPanel {
-            // One surface for every panel, so switching between them reshapes it and swaps what is
-            // inside rather than dropping one panel and sliding in the next.
             ZStack(alignment: .bottom) {
                 // Full width, so a switch only changes the height, and one geometry group, so the
                 // rows that scroll sideways do not animate their own layout in from the side.

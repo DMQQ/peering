@@ -12,6 +12,11 @@ extension RemoteScreen {
 
     // MARK: - Picture
 
+    private var returningMosaic: CGImage? {
+        guard transition?.carry?.carriesOutOfArrangement == false else { return nil }
+        return model.renderer.mosaicSnapshot
+    }
+
     var video: some View {
         // No `scaleEffect` or `offset` here: the picture's placement is applied inside the view, as
         // a layer transform, so a pan cannot trail the finger. See `VideoLayerView.updateUIView`.
@@ -30,7 +35,11 @@ extension RemoteScreen {
             showsStill: transition != nil,
             // Frozen by ``RemoteScreen/beginHeroTransition(to:target:carry:)`` at the tap, and one
             // frame old at worst beyond that: see ``VideoRenderer/snapshot()``.
-            stillPicture: model.renderer.stillPicture
+            stillPicture: model.renderer.stillPicture,
+            backdropPicture: returningMosaic,
+            backdropZoom: returningMosaic.map {
+                pictureScale.base(pixelSize: CGSize(width: $0.width, height: $0.height), in: canvasSize)
+            } ?? 1
         )
             .ignoresSafeArea()
             // Not at once: every reconnect is ready a moment before its first picture, and the
@@ -69,7 +78,8 @@ extension RemoteScreen {
                 // The Mac's own caption for a picture that is technically fine. The panel above
                 // never fires for this: a sleeping screen *is* streaming, on time and entirely
                 // black, so "stream paused" would be the wrong explanation.
-                if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready {
+                if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready,
+                   !isUnlocking(notice) {
                     ZStack {
                         Color.black.opacity(0.72).ignoresSafeArea()
                             .allowsHitTesting(false)
@@ -82,8 +92,10 @@ extension RemoteScreen {
                                     .font(.headline)
                                     .foregroundStyle(.white)
                                     .multilineTextAlignment(.center)
-                                if notice.lockedDisplayID != nil {
-                                    Text("Its lock screen is on the display, not in what you are viewing.")
+                                if let displayID = notice.lockedDisplayID {
+                                    Text(isViewing(displayID)
+                                         ? "Tap Unlock to type the password."
+                                         : "Its lock screen is on the display, not in what you are viewing.")
                                         .font(.subheadline)
                                         .foregroundStyle(.white.opacity(0.7))
                                         .multilineTextAlignment(.center)
@@ -113,6 +125,15 @@ extension RemoteScreen {
                     }
                 }
             }
+    }
+
+    private func isViewing(_ displayID: UInt32) -> Bool {
+        model.activeSourceID == CaptureSource.display(displayID).stableID
+    }
+
+    private func isUnlocking(_ notice: NoticePayload) -> Bool {
+        guard let displayID = notice.lockedDisplayID else { return false }
+        return model.showKeyboard && isViewing(displayID)
     }
 
     /// The Mac's pointer, drawn where this phone last put it.

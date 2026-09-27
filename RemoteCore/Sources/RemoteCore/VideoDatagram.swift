@@ -973,7 +973,6 @@ public final class VideoDatagramSocket: @unchecked Sendable {
         }
     }
 
-    /// How long an IPv4 answer waits for IPv6 to arrive, as in Happy Eyeballs (RFC 8305).
     private static let ipv6Preference: DispatchTimeInterval = .milliseconds(50)
 
     /// Resolves `host` and `port` into a socket address, restricted to `family`.
