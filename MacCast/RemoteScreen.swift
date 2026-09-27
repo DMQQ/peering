@@ -399,8 +399,10 @@ struct RemoteScreen: View {
         // Keyed on the panel, so closing it is what stops the loop.
         // One floating thing at a time: a panel and the keyboard each close the other.
         .onChange(of: openPanel) { _, panel in
+            model.isPanelOpen = panel != nil
             if panel != nil { model.showKeyboard = false }
         }
+        .onDisappear { model.isPanelOpen = false }
         .onChange(of: model.showKeyboard) { _, shown in
             if shown { withAnimation(Motion.settle) { openPanel = nil } }
         }

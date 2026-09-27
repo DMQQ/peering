@@ -252,16 +252,18 @@ extension RemoteScreen {
                         .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
 
                     // Landscape's bottom-left corner, brought over so portrait shows that it can
-                    // scroll too.
-                    ScrollWheelView(
-                        onNotch: wheelNotch(_:),
-                        label: wheelLabel,
-                        position: interactionMode == .observe ? zoomPosition : nil
-                    )
-                        .reportChromeFrame(.wheel, into: $chromeFrames)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .padding(.leading, ChromeMetrics.edgeInset)
-                        .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+                    // scroll too. Not over a whole arrangement, which takes no input.
+                    if !model.isShowingMosaic {
+                        ScrollWheelView(
+                            onNotch: wheelNotch(_:),
+                            label: wheelLabel,
+                            position: interactionMode == .observe ? zoomPosition : nil
+                        )
+                            .reportChromeFrame(.wheel, into: $chromeFrames)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                            .padding(.leading, ChromeMetrics.edgeInset)
+                            .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+                    }
                 }
 
                 VStack(spacing: 0) {
@@ -296,7 +298,7 @@ extension RemoteScreen {
                 }
             }
             // The wheel goes with the keyboard, and a removed view leaves its region behind.
-            .chromeFramePresence(.wheel, into: $chromeFrames, when: !model.showKeyboard)
+            .chromeFramePresence(.wheel, into: $chromeFrames, when: !model.showKeyboard && !model.isShowingMosaic)
             // The same hazard from the strip's side, and answered the same way: this branch is
             // the one that is here while the strip is not, so this is where its region is let go
             // of when the last Mac but one is closed. See ``chromeFramePresence(_:into:when:)``.

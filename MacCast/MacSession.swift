@@ -231,6 +231,10 @@ final class MacSession: Identifiable {
     /// treated as one that is. Cleared the moment a session is up again.
     var hasGivenUpResuming = false
 
+    /// When this session last gave up waiting for its Mac. See
+    /// ``SessionModel/redialMacsThatCameBack(_:)``.
+    var gaveUpAt: Date?
+
     /// Whether this dial is a Mac being put back rather than opened.
     ///
     /// **The one resume a session cannot recognise on its own.** Everything else about a Mac
@@ -444,6 +448,7 @@ final class MacSession: Identifiable {
         // flag turns the remote screen over to the picker. The banner is not re-posted, because
         // `SessionAwareness` refuses a repeat of the phase it is already in.
         hasGivenUpResuming = true
+        gaveUpAt = Date()
         // A dial still in flight is ended here rather than left to answer a session that has
         // stopped listening. It reports its own end as a `.disconnected`, which the guard at the
         // top of ``scheduleReconnect()`` is what stops from arming another rung.

@@ -111,9 +111,14 @@ final class DialRace {
             if queued != nil {
                 startQueued()
             } else if entries.allSatisfy(\.failed) {
-                // Nothing left to wait for. The last failure is handed over as the session's own,
-                // so the ladder carries on exactly as it would have after a single dial.
-                win(index, in: session)
+                // Nothing left to wait for. A failure is handed over as the session's own, so the
+                // ladder carries on exactly as it would have after a single dial. A relay that
+                // refused on quota is the one that says why: the LAN's timeout, which often comes
+                // last, only says the Mac is not on this network.
+                let refused = entries.firstIndex { entry in
+                    entry.buffer.contains { if case .relayQuotaExceeded = $0 { true } else { false } }
+                }
+                win(refused ?? index, in: session)
             }
         default:
             break

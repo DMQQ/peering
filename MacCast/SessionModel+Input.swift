@@ -433,6 +433,8 @@ extension SessionModel {
     /// Goes back to the whole arrangement.
     func returnToMosaic() {
         guard let layout = mosaicLayout else { return }
+        // Nothing in an arrangement takes typing: the host refuses input while a mosaic is up.
+        showKeyboard = false
         selectSource(.mosaic(layout))
     }
 

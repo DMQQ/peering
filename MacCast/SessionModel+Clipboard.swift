@@ -3,6 +3,12 @@ import MacCastKit
 import RemoteCore
 import UIKit
 
+enum ClipboardPushResult: Equatable {
+    case sent
+    case imageTooLarge(bytes: Int)
+    case failed
+}
+
 extension SessionModel {
 
     // MARK: - Clipboard
@@ -29,38 +35,40 @@ extension SessionModel {
     /// copy that quietly does nothing — so the picture would cost the session. See
     /// ``ClipboardImages``.
     ///
-    /// **Silent when the picture is too large to carry**, rather than sending a truncated one: the
-    /// Mac would refuse to buffer it and nothing would arrive either way. See
-    /// ``ClipboardLimits/maxImageBytes``. There is no message for the user here yet, which is the
-    /// one rough edge this leaves: a screenshot over the limit pushes nothing and says nothing.
+    /// **A picture over ``ClipboardLimits/maxImageBytes`` is refused, not truncated**, and the
+    /// caller is told its size so it can say so. The pasteboard's text is not sent in its place:
+    /// the user asked for the picture.
     ///
-    /// Returns whether anything was sent. What was sent becomes ``hostClipboard``, since that is
-    /// now what the Mac holds.
+    /// What was sent becomes ``hostClipboard``, since that is now what the Mac holds.
     @discardableResult
-    func pushClipboard() -> Bool {
-        guard phase == .ready else { return false }
+    func pushClipboard() -> ClipboardPushResult {
+        guard phase == .ready else { return .failed }
         let board = UIPasteboard.general
 
         if activeSession?.hostSupportsClipboardImages == true, let png = clipboardImage(from: board) {
-            guard session?.pushClipboardImage(png) == true else { return false }
+            guard png.count <= ClipboardLimits.maxImageBytes else { return .imageTooLarge(bytes: png.count) }
+            guard session?.pushClipboardImage(png) == true else { return .failed }
             hostClipboard = .image(png)
-            return true
+            return .sent
         }
-        guard let text = board.string else { return false }
+        guard let text = board.string else { return .failed }
         knownPhoneClipboard = (board.changeCount, text)
         session?.send(.pushClipboard(text: text))
         hostClipboard = .text(text)
-        return true
+        return .sent
     }
 
     /// Pushes the iPhone's clipboard and presses ⌘V on the Mac, so what was copied here lands there.
     ///
     /// The Mac writes its pasteboard before it handles the next command, so the keystroke cannot
     /// paste what was there before.
-    func pushClipboardAndPaste() {
-        guard pushClipboard() else { return }
+    @discardableResult
+    func pushClipboardAndPaste() -> ClipboardPushResult {
+        let result = pushClipboard()
+        guard result == .sent else { return result }
         send(.keyDown(keyCode: 9, modifiers: [.command]))
         send(.keyUp(keyCode: 9, modifiers: [.command]))
+        return result
     }
 
     /// The iPhone's pasteboard as PNG, or `nil` when it is not holding a picture.

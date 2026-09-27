@@ -51,8 +51,9 @@ struct CanvasGestureView: UIViewRepresentable {
     var onMosaicDrag: (CGPoint) -> Void = { _ in }
     /// The finger came up, or the lift was cancelled.
     var onMosaicDrop: () -> Void = {}
-    /// A tap that landed on the picture rather than on our chrome. It still reaches the Mac.
-    var onPictureTap: () -> Void = {}
+    /// A tap that landed on the picture rather than on our chrome. Returns whether it was spent
+    /// closing something, in which case it does not reach the Mac.
+    var onPictureTap: () -> Bool = { false }
     func makeUIView(context: Context) -> GestureSurfaceView {
         let view = GestureSurfaceView()
         view.interactionMode = interactionMode
@@ -122,7 +123,7 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
         var onMosaicLift: (CGPoint) -> Void
         var onMosaicDrag: (CGPoint) -> Void
         var onMosaicDrop: () -> Void
-        var onPictureTap: () -> Void
+        var onPictureTap: () -> Bool
     }
 
     var handlers: Handlers?
@@ -461,22 +462,18 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: self)
-        // **The picture takes the tap, whatever is floating over it.** A tap that is not on one of
-        // our own controls goes to the Mac, including while a panel, the keyboard or the expanded
-        // status bar is up. Those three used to close on a tap on the picture, and the cost was the
-        // bottom centre of the screen: the dock and the joystick float there, and so does a
-        // terminal's own prompt line, so the one place a person taps to start typing was a place
-        // where the first tap only put our own keyboard away and the second hit the dock.
-        //
-        // The panel and the keyboard close from the buttons that opened them. The pill also closes
-        // on a tap here, but the tap still goes through to the Mac, so nothing is swallowed.
+        // **A tap on the picture closes an open panel, and goes no further.** The panel covers part
+        // of the picture, so a tap beside it is a tap on something only half visible; it is read
+        // as "put this away". The keyboard is the exception and stays open: tapping a text field
+        // on the Mac is how typing starts, and a first tap that only put the keyboard away was the
+        // reason this used to be off for everything. The expanded pill closes too, but that tap
+        // still reaches the Mac.
         //
         // Blocked points are still excluded before anything else: a tap inside a control belongs to
         // that control, and this is what keeps a tap on our chrome from also reaching the Mac.
         guard !CanvasGeometry.isBlocked(point, regions: blockedRegions) else { return }
 
-        // Closes the expanded pill without swallowing the tap: it still goes on to the Mac below.
-        handlers?.onPictureTap()
+        if handlers?.onPictureTap() == true { return }
 
         // **A mosaic comes before the mode guard, and that is not an oversight.** Selecting a
         // tile sends no input: it asks the Mac for that one source, which is the same kind of

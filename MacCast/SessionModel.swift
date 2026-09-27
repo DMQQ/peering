@@ -563,11 +563,17 @@ final class SessionModel {
     /// again when focus leaves. A keyboard the user opened is theirs to close.
     var keyboardOpenedByFocus = false
 
+    /// Whether a panel is open over the picture. Set by ``RemoteScreen``.
+    ///
+    /// A keyboard the Mac asked for must not close a panel the user opened: switching desktops
+    /// from the sources panel moves focus into whatever text field the new desktop has.
+    var isPanelOpen = false
+
     /// Opens the keyboard when the Mac's focus lands in a text field, and closes it on the way out
     /// if it was opened that way. See ``TextFocus``.
     func textFocusChanged(_ focus: TextFocus) {
         let enabled = UserDefaults.standard.object(forKey: PreferenceKeys.opensKeyboardForTextFields) as? Bool ?? true
-        guard enabled, !isObserving, !isShowingMosaic else { return }
+        guard enabled, !isObserving, !isShowingMosaic, !isPanelOpen else { return }
         if focus.isEditable {
             guard !showKeyboard else { return }
             showKeyboard = true

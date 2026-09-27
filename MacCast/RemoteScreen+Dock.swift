@@ -48,9 +48,9 @@ private extension Array {
 /// first, then moving, then the rest. The dock used to reorder itself by use, and a button that
 /// moves is one nobody can find by memory.
 enum DockControl: String, CaseIterable, Identifiable {
-    case sources, keys, clipboard, escape, tab
+    case sources, keys, clipboard, shortcuts, tab
     case left, up, down, right, delete
-    case shortcuts, mode, settings
+    case escape, mode, settings
 
     var id: String { rawValue }
 

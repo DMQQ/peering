@@ -10,6 +10,24 @@ import SwiftUI
 /// session is applied to the session that delivered it, and lives on ``MacSession`` — see
 /// ``MacSession/apply(_:)``, and the note there for why that separation is the point.
 extension SessionModel {
+    /// Dials a Mac again when it comes back on the network shortly after the app gave up on it.
+    ///
+    /// Giving up takes ten seconds, and restarting the Mac app (an update, a reinstall) takes
+    /// longer, so the phone was left on the picker with the Mac sitting in it.
+    private func redialMacsThatCameBack(_ reappeared: [DiscoveredHost]) {
+        for host in reappeared {
+            guard let session = sessions.first(where: { $0.hostID == host.id && $0.hasGivenUpResuming }),
+                  let gaveUpAt = session.gaveUpAt,
+                  Date().timeIntervalSince(gaveUpAt) < Self.comebackWindow
+            else { continue }
+            isResuming = true
+            reconnect(session, to: .discovered(host))
+        }
+    }
+
+    /// How long after giving up a Mac that reappears is still dialled without being asked.
+    static let comebackWindow: TimeInterval = 120
+
     func apply(_ event: HostBrowser.Event) {
         switch event {
         case .started:
@@ -17,7 +35,9 @@ extension SessionModel {
             browseStatus = "Looking for Macs on this network…"
         case .updated(let hosts):
             browseFailed = false
+            let reappeared = hosts.filter { host in !self.hosts.contains { $0.id == host.id } }
             self.hosts = hosts
+            redialMacsThatCameBack(reappeared)
             if let pending = pendingHostID, let host = hosts.first(where: { $0.id == pending }) {
                 pendingHostID = nil
                 connect(to: .discovered(host))

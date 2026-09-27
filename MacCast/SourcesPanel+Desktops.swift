@@ -334,6 +334,7 @@ extension SourcesPanel {
     /// One door for the two taps that move a screen, because assembling an arrangement moves it
     /// exactly as watching one does. See ``pendingDesktop``.
     func askForDesktop(_ display: SpaceDisplay, index: Int) {
+        guard !desktopIsCurrent(display, index: index) else { return }
         let pending = PendingDesktop(display: display.displayID, index: index)
         pendingDesktop = pending
         model.send(.switchToSpace(display: display.displayID, index: index))
@@ -417,9 +418,8 @@ extension SourcesPanel {
             // to a display already named there looked like no move at all and sent nothing.
             model.selectSource(source)
         }
-        // Even when no source change was needed: the tap was still a choice, and the panel gets
-        // out of the way for all of them or none.
-        onSelect()
+        // The panel stays open: desktops are flicked through to find the right one, and a tap on
+        // the picture closes it once they have.
     }
 
     /// Whether the desktops are worth drawing at all.

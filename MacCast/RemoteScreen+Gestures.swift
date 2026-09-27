@@ -201,6 +201,9 @@ extension RemoteScreen {
             onMosaicDrop: { dropHeldTile() },
             onPictureTap: {
                 if statusBarExpanded { collapseStatusBar() }
+                guard openPanel != nil else { return false }
+                withAnimation(Motion.settle) { openPanel = nil }
+                return true
             },
         )
         .ignoresSafeArea()
@@ -316,13 +319,13 @@ extension RemoteScreen {
     /// place it, whether it has already opened nothing once. A window the Mac cannot capture is
     /// not knowable, so the only way to find out is to ask and wait.
     ///
-    /// A second and a fifth, which is several times the Mac's own build of a stream measured from
-    /// a parked arrangement. Wrong in the other direction costs a transition back to an
-    /// arrangement the user is about to be pulled out of anyway.
+    /// Three seconds. A second and a fifth covered the Mac building a stream, but a window on
+    /// another desktop waits for the Mac to switch there first, and a tile that misses this is
+    /// dead until the arrangement is rebuilt.
     private func watchTileOpening(_ sourceID: String) {
         model.tileOpeningWatch?.cancel()
         model.tileOpeningWatch = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(1200))
+            try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
             // **A picture with this source's name on it is the Mac answering.** Anything else is
             // no answer: the identity is still the arrangement's, so nothing was opened.

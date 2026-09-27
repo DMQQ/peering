@@ -332,13 +332,15 @@ extension MacSession {
                     //
                     // Through the door rather than assigned here, and not for the sake of the
                     // write it makes: a remembered source is one the Mac has to be *told* about.
-                    // The default below only has to be recorded, because a Mac nobody has asked
-                    // for anything falls back to a display of its own; a remembered window is not
-                    // what it is showing, and a session that knew the source without asking for it
-                    // would go on describing a picture the Mac is not sending.
+                    // A remembered window is not what it is showing, and a session that knew the
+                    // source without asking for it would go on describing a picture the Mac is not
+                    // sending.
                     model.selectSource(source)
                 } else if let first = catalog.displays.first ?? catalog.all.first {
-                    activeSourceID = first.id
+                    // Asked for too, though it is the display the Mac would fall back to: the Mac
+                    // waits a second for an ask before falling back, and a new pairing, with
+                    // nothing remembered, would otherwise always spend it.
+                    model.selectSource(first)
                 }
             } else if reasserting {
                 // **A reconnect, and this end already knows what it wants.** Told again rather than
