@@ -225,8 +225,10 @@ struct OnboardingView: View {
 
             // Same corner as the landing's, so the two screens do not jump under a thumb that
             // has just learnt where it is.
-            SkipButton(action: onFinish)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            if !showsPlans {
+                SkipButton(action: skip)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
         }
     }
 
@@ -256,8 +258,10 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: 1180)
 
-            SkipButton(action: onFinish)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            if !showsPlans {
+                SkipButton(action: skip)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
         }
     }
 
@@ -448,6 +452,11 @@ struct OnboardingView: View {
     /// costs a row of caption text.
     var legalLinks: some View {
         HStack(spacing: 18) {
+            // App Review looks for restore on any screen that shows subscription prices.
+            Button("Restore purchases") {
+                Task { await store.restore() }
+            }
+            .disabled(store.isPurchasing)
             Link("Privacy Policy", destination: Legal.privacy)
             Link("Terms of Use", destination: Legal.terms)
         }
@@ -622,6 +631,13 @@ struct OnboardingView: View {
     }
 
     var isLast: Bool { index == Self.pages.count - 1 }
+
+    /// Skips the tour, not the plans: someone without a plan lands on the plans page, which has
+    /// its own way on for free.
+    func skip() {
+        guard !store.isPro else { return onFinish() }
+        withAnimation(Motion.settle) { index = Self.pages.count - 1 }
+    }
 
     /// Whether the page on screen is offering a plan, which is the last one and only while there
     /// is something left to buy.
