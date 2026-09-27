@@ -71,7 +71,10 @@ struct ShortcutSets: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Shortcut set", selection: Binding(get: { shown }, set: { chosen = $0 })) {
+            Picker("Shortcut set", selection: Binding(
+                get: { shown },
+                set: { set in withAnimation(Motion.settle) { chosen = set } }
+            )) {
                 ForEach(sets, id: \.0) { set, title in
                     Text(title).tag(set)
                 }
@@ -83,6 +86,8 @@ struct ShortcutSets: View {
                 ScrollView(.vertical, showsIndicators: false) { keys }
                     .frame(maxHeight: 208)
             }
+            .id(shown)
+            .transition(.blurReplace(.downUp))
         }
     }
 }

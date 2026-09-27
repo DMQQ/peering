@@ -65,6 +65,11 @@ struct RemoteScreen: View {
     @State var rotationRefused = false
 
     @State var openPanel: Panel?
+    /// Follows `model.showKeyboard`, but changed in the same animated update that closes a panel,
+    /// so the panel's glass can turn into the keyboard bar's instead of one vanishing and the
+    /// other appearing.
+    @State var showsKeyboardBar = false
+    @Namespace var floatingSurface
     @State var statusBarExpanded = true
     /// The width of the bar while it is closed, which is the pill plus the four circles beside it.
     ///
@@ -309,8 +314,9 @@ struct RemoteScreen: View {
         // is aiming at.
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if model.showKeyboard {
+            if showsKeyboardBar {
                 keyboardInputBar
+                    .transition(.blurReplace(.downUp))
             }
         }
         .sheet(isPresented: $showsTerminals) {
@@ -400,11 +406,17 @@ struct RemoteScreen: View {
         // One floating thing at a time: a panel and the keyboard each close the other.
         .onChange(of: openPanel) { _, panel in
             model.isPanelOpen = panel != nil
-            if panel != nil { model.showKeyboard = false }
+            if panel != nil {
+                model.showKeyboard = false
+                withAnimation(Motion.settle) { showsKeyboardBar = false }
+            }
         }
         .onDisappear { model.isPanelOpen = false }
-        .onChange(of: model.showKeyboard) { _, shown in
-            if shown { withAnimation(Motion.settle) { openPanel = nil } }
+        .onChange(of: model.showKeyboard, initial: true) { _, shown in
+            withAnimation(Motion.settle) {
+                showsKeyboardBar = shown
+                if shown { openPanel = nil }
+            }
         }
         .task(id: openPanel) {
             guard openPanel == .sources, !isImmersive else { return }
@@ -489,6 +501,7 @@ struct RemoteScreen: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .matchedGeometryEffect(id: "surface", in: floatingSurface)
         .glassSurface(in: RoundedRectangle(cornerRadius: ChromeMetrics.cornerRadius, style: .continuous))
         .padding(.horizontal, ChromeMetrics.edgeInset)
         .padding(.top, ChromeMetrics.edgeInset)

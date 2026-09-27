@@ -253,17 +253,22 @@ extension RemoteScreen {
 
                     // Landscape's bottom-left corner, brought over so portrait shows that it can
                     // scroll too. Not over a whole arrangement, which takes no input.
-                    if !model.isShowingMosaic {
-                        ScrollWheelView(
-                            onNotch: wheelNotch(_:),
-                            label: wheelLabel,
-                            position: interactionMode == .observe ? zoomPosition : nil
-                        )
-                            .reportChromeFrame(.wheel, into: $chromeFrames)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                            .padding(.leading, ChromeMetrics.edgeInset)
-                            .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
+                    // A ZStack rather than a Group: Group has no container of its own to animate.
+                    ZStack(alignment: .bottomLeading) {
+                        if !model.isShowingMosaic {
+                            ScrollWheelView(
+                                onNotch: wheelNotch(_:),
+                                label: wheelLabel,
+                                position: interactionMode == .observe ? zoomPosition : nil
+                            )
+                                .reportChromeFrame(.wheel, into: $chromeFrames)
+                                .transition(.scale(scale: 0.6, anchor: .bottom).combined(with: .opacity))
+                        }
                     }
+                    .animation(Motion.settle, value: model.isShowingMosaic)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                    .padding(.leading, ChromeMetrics.edgeInset)
+                    .padding(.bottom, dockHeight + ChromeMetrics.edgeInset + ChromeMetrics.panelGap)
                 }
 
                 VStack(spacing: 0) {

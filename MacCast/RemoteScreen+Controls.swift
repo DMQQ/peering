@@ -271,6 +271,7 @@ extension RemoteScreen {
                     .id(panel)
                     .transition(.blurReplace(.downUp))
             }
+            .matchedGeometryEffect(id: "surface", in: floatingSurface)
             .glassSurface(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .padding(.horizontal, 10)
             .reportChromeFrame(.panel, into: $chromeFrames)
