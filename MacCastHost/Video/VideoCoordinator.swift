@@ -94,6 +94,11 @@ final class VideoCoordinator: @unchecked Sendable {
     /// When the last one went out, so a burst cannot become a storm. See ``refreshCatalog()``.
     private var lastCatalogPushAt: Date?
 
+    /// Which push is pending, and whether it is still sleeping out the interval. An immediate ask
+    /// replaces a sleeping push rather than waiting behind it.
+    private var pendingCatalogPushID = 0
+    private var pendingCatalogPushIsWaiting = false
+
 /// How long capture may go without producing a single frame before it is called dead. Generous: the
 /// first frame has to survive encoder creation and a stream start, and a false accusation here sends
 /// the user to System Settings for no reason.
@@ -512,16 +517,26 @@ final class VideoCoordinator: @unchecked Sendable {
 
     func refreshCatalog(immediate: Bool = false) {
         lock.withLock {
-            guard pendingCatalogPush == nil else { return }
+            if let pending = pendingCatalogPush {
+                guard immediate, pendingCatalogPushIsWaiting else { return }
+                pending.cancel()
+            }
             let since = lastCatalogPushAt.map { Date().timeIntervalSince($0) } ?? .infinity
             let wait = immediate ? 0 : max(0, Self.catalogPushInterval - since)
+            pendingCatalogPushID &+= 1
+            let id = pendingCatalogPushID
+            pendingCatalogPushIsWaiting = wait > 0
             pendingCatalogPush = Task { [weak self] in
                 if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
                 guard let self else { return }
-                self.lock.withLock {
+                let current = self.lock.withLock { () -> Bool in
+                    guard self.pendingCatalogPushID == id else { return false }
                     self.lastCatalogPushAt = Date()
                     self.pendingCatalogPush = nil
+                    self.pendingCatalogPushIsWaiting = false
+                    return true
                 }
+                guard current else { return }
                 await self.pushCatalog()
             }
         }

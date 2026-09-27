@@ -177,6 +177,12 @@ extension HostModel {
         // SwiftUI happens to be doing.
         let input = self.input
         let textFocusWatcher = self.textFocusWatcher
+        let offDesktopGate = OffDesktopInputGate { command in
+            input.perform(command)
+            if case .mouseUp(.left) = command {
+                textFocusWatcher.clicked(at: input.clickLocation)
+            }
+        }
         server.onCommand = { [weak self] command in
             if case .setCaptureSource(let source) = command {
                 Task { @MainActor [weak self] in
@@ -284,10 +290,7 @@ extension HostModel {
             if command.isUserInput, coordinator.isShowingMosaic {
                 return
             }
-            input.perform(command)
-            if case .mouseUp(.left) = command {
-                textFocusWatcher.clicked(at: input.clickLocation)
-            }
+            offDesktopGate.pass(command, source: coordinator.source)
         }
 
         // The reading is asked of the pasteboard rather than of one type on it, because only this

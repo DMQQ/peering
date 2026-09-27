@@ -333,6 +333,7 @@ final class CapturePipeline: @unchecked Sendable {
                 return
             }
 
+            await resolver.bringOnScreen(source)
             let catalog = try await resolver.catalog()
             guard let descriptor = catalog.all.first(where: { $0.source == source }) else {
                 throw CaptureError.sourceUnavailable("That capture source is no longer available.")

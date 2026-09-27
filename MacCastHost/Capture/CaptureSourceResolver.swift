@@ -39,6 +39,11 @@ protocol CaptureSourceResolver: Sendable {
     /// Where the source's content sits on screen, for mapping client input.
     func inputTransform(for source: CaptureSource) -> InputTransform
 
+    /// Moves the Mac to the desktop an application is on, when it is on one that is not showing.
+    /// Called before a capture starts, since an application's capture is built from its windows
+    /// that are on screen. A window needs no move to be streamed.
+    func bringOnScreen(_ source: CaptureSource) async
+
     /// Re-photographs the desktop showing on each display, ahead of the age check in
     /// ``ScreenCaptureSourceResolver/captureActiveSpacePreview(force:)``, for a client that is
     /// about to show the pictures.
@@ -98,6 +103,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     private var snapshot: SCShareableContent?
     private var installedApplicationsCache: [InstalledApplicationDescriptor]?
     private var isStale = true
+
+    /// The window server's window numbers when ``snapshot`` was taken. See
+    /// ``invalidateIfWindowsOpenedOrClosed()``. Under ``lock``.
+    private var windowIDsAtSnapshot: Set<CGWindowID>?
+
+    /// The windows the last catalogue found open on a desktop, showing or not. Under ``lock``.
+    private var openOnSomeDesktop: Set<CGWindowID> = []
 
     /// When an enumeration with no window in it was first seen. See ``serve(_:)``.
     ///
@@ -182,6 +194,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.spacePollInterval)
                 guard !Task.isCancelled, let self else { return }
+                self.invalidateIfWindowsOpenedOrClosed()
                 await self.captureActiveSpacePreview()
             }
         }
@@ -207,7 +220,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         // invalidates the list.
         let offTheList = lock.withLock { uncapturable }
         let now = Date()
-        let descriptors = Self.descriptors(from: content).filter { descriptor in
+        // Windows on other desktops are listed too. Asked live rather than read from the
+        // snapshot, whose on-screen flags describe whichever desktop was showing when it was taken.
+        let candidates = content.windows.filter { $0.windowLayer == 0 }.map(\.windowID)
+        let elsewhere = await MainActor.run { windowsOrderedInOnSpaces(candidates) }
+        lock.withLock { openOnSomeDesktop = elsewhere }
+        let descriptors = Self.descriptors(from: content, elsewhere: elsewhere).filter { descriptor in
             guard let marked = offTheList[descriptor.source] else { return true }
             return now.timeIntervalSince(marked) >= Self.uncapturableGrace
         }
@@ -317,6 +335,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         guard Self.foundNoWindow(fresh) else {
             firstWindowlessReadAt = nil
             snapshot = fresh
+            windowIDsAtSnapshot = Self.liveWindowIDs()
             isStale = false
             return (fresh, nil)
         }
@@ -328,6 +347,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
         guard doubtedFor < Self.windowlessReadGrace else {
             snapshot = fresh
+            windowIDsAtSnapshot = Self.liveWindowIDs()
             isStale = false
             return (fresh, """
                 no window on any display for \(Int(doubtedFor.rounded()))s; \
@@ -350,7 +370,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// Asked of the windows rather than of `applications`: an application with no window on a
     /// display has no row either, so the windows alone answer the question.
     private static func foundNoWindow(_ content: SCShareableContent) -> Bool {
-        !content.windows.contains(where: isUserFacingWindow)
+        !content.windows.contains { isUserFacingWindow($0) }
     }
 
     /// Marks the enumeration out of date without announcing it.
@@ -384,6 +404,54 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 || abs(now.width - then.width) > 1 || abs(now.height - then.height) > 1
         }
         if moved { invalidate() }
+    }
+
+    /// Invalidates when a window has opened or closed since the snapshot. Nothing announces
+    /// either, so without this the phone's list kept a closed window and missed a new one until
+    /// the panel was reopened. Compared against the window server's own list at snapshot time
+    /// rather than against ScreenCaptureKit's, which leaves out windows the window server lists.
+    private func invalidateIfWindowsOpenedOrClosed() {
+        guard let then = lock.withLock({ isStale ? nil : windowIDsAtSnapshot }) else { return }
+        guard Self.liveWindowIDs() != then else { return }
+        markStale()
+        onInvalidate?(false)
+    }
+
+    private static func isOnScreen(windowID: CGWindowID) -> Bool {
+        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]]
+        else { return false }
+        return info.first?[kCGWindowIsOnscreen as String] as? Bool ?? false
+    }
+
+    private static func liveWindowIDs() -> Set<CGWindowID> {
+        guard let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]]
+        else { return [] }
+        return Set(windows.compactMap { info in
+            (info[kCGWindowLayer as String] as? Int) == 0 ? info[kCGWindowNumber as String] as? CGWindowID : nil
+        })
+    }
+
+    /// Polls for a launched application's first on-screen window for up to ten seconds, and
+    /// pushes a fresh list without the usual interval the moment it has one.
+    private func relistWhenFirstWindowOpens(processID: pid_t) async {
+        for _ in 0..<40 {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard Self.hasOnScreenWindow(processID: processID) else { continue }
+            lock.withLock { isStale = true }
+            onInvalidate?(true)
+            return
+        }
+    }
+
+    private static func hasOnScreenWindow(processID: pid_t) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+            as? [[String: Any]]
+        else { return false }
+        return windows.contains { info in
+            (info[kCGWindowOwnerPID as String] as? pid_t) == processID
+                && (info[kCGWindowLayer as String] as? Int) == 0
+        }
     }
 
     func invalidate() {
@@ -429,6 +497,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     private static let uncapturableGrace: TimeInterval = 60
 
     func markUncapturable(_ source: CaptureSource) {
+        // Many applications stop drawing a window on a desktop that is not showing, so it can give
+        // no frame. That is where it is, not what it is, and it is not taken off the list for it.
+        if case .window(let id) = source,
+           lock.withLock({ openOnSomeDesktop.contains(id) }),
+           !Self.isOnScreen(windowID: id) {
+            return
+        }
         let announced = lock.withLock { () -> Bool in
             isStale = true
             let wasMarked = uncapturable[source]
@@ -467,6 +542,21 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
             observers.append(observer)
         }
+
+        // An application is listed only once it has a window, and at launch it has none yet. No
+        // notification says when its first window opens, so the window server is asked.
+        let launchObserver = workspace.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] note in
+            guard let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                  app.activationPolicy == .regular
+            else { return }
+            let pid = app.processIdentifier
+            Task { await self?.relistWhenFirstWindowOpens(processID: pid) }
+        }
+        observers.append(launchObserver)
 
         // A Space change is deliberately not one of the names above: nothing about what can be
         // captured changed, so invalidating would cost a full re-enumeration of the shareable
@@ -539,7 +629,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             resolverLog.notice("could not re-read the capture catalogue, so the picker is showing the last one")
             return
         }
-        let sources = Self.descriptors(from: content)
+        let candidates = content.windows.filter { $0.windowLayer == 0 }.map(\.windowID)
+        let elsewhere = await MainActor.run { windowsOrderedInOnSpaces(candidates) }
+        let sources = Self.descriptors(from: content, elsewhere: elsewhere)
             .filter { $0.kind == .display || $0.kind == .window }
             .map(\.source)
         guard !sources.isEmpty else { return }
@@ -630,6 +722,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 configuration: configuration
             )
         } catch {
+            // A screenshot of a window on a desktop that is not showing is refused, while a
+            // stream of the same window delivers it. So one frame is taken from a stream instead.
+            if case .window = source,
+               let still = await FirstFrameGrabber.still(filter: plan.filter, configuration: configuration) {
+                return still
+            }
             resolverLog.notice("""
                 snapshot of \(source.stableID, privacy: .public) was refused: \
                 \(error.localizedDescription, privacy: .public)
@@ -785,15 +883,20 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     // MARK: - Descriptors
 
-    private static func descriptors(from content: SCShareableContent) -> [CaptureSourceDescriptor] {
+    /// - Parameter elsewhere: windows on a desktop that is not showing, listed as well as the
+    ///   ones on screen. See ``windowsOrderedInOnSpaces(_:)``.
+    private static func descriptors(
+        from content: SCShareableContent,
+        elsewhere: Set<CGWindowID> = []
+    ) -> [CaptureSourceDescriptor] {
         // One icon encode per process for the whole catalogue, shared between an application's
         // own row and the rows of every window it owns: without the sharing, an app with six
         // windows open pays for the same PNG seven times on every rebuild, and the catalogue is
         // rebuilt on every launch and quit.
         var icons = ApplicationIcons()
         let displayRows = displays(from: content)
-        let applicationRows = applications(from: content, icons: &icons)
-        let windowRows = windows(from: content, icons: &icons)
+        let applicationRows = applications(from: content, elsewhere: elsewhere, icons: &icons)
+        let windowRows = windows(from: content, elsewhere: elsewhere, icons: &icons)
         return displayRows + applicationRows + windowRows
     }
 
@@ -860,6 +963,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     private static func applications(
         from content: SCShareableContent,
+        elsewhere: Set<CGWindowID>,
         icons: inout ApplicationIcons
     ) -> [CaptureSourceDescriptor] {
         var seenBundleIDs = Set<String>()
@@ -883,7 +987,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             }
 
             let owned = content.windows.filter {
-                $0.owningApplication?.processID == application.processID && isUserFacingWindow($0)
+                $0.owningApplication?.processID == application.processID
+                    && isUserFacingWindow($0, elsewhere: elsewhere)
             }
             guard let bounds = unionFrame(of: owned) else { continue }
 
@@ -937,12 +1042,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
     private static func windows(
         from content: SCShareableContent,
+        elsewhere: Set<CGWindowID>,
         icons: inout ApplicationIcons
     ) -> [CaptureSourceDescriptor] {
         var result: [CaptureSourceDescriptor] = []
 
         for window in content.windows {
-            guard isUserFacingWindow(window) else { continue }
+            guard isUserFacingWindow(window, elsewhere: elsewhere) else { continue }
             guard let application = window.owningApplication, let bounds = unionFrame(of: [window]) else {
                 continue
             }
@@ -980,13 +1086,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// A user-selectable top-level window rather than a menu, shadow, desktop surface, or
     /// hidden bookkeeping surface an application keeps around for later.
     ///
-    /// On screen, because a window that is not on screen is one nothing can be done with. Three
-    /// ordinary cases are behind that: a window the application has closed but not released, a
-    /// minimised one, and one on a Space this Mac is not showing. ScreenCaptureKit lists all
-    /// three and renders none of them.
-    private static func isUserFacingWindow(_ window: SCWindow) -> Bool {
+    /// On screen, or in `elsewhere`: open on a desktop that is not showing, which still streams.
+    /// A window
+    /// the application has closed but not released, or a minimised one, is neither, and
+    /// ScreenCaptureKit lists both and renders neither.
+    private static func isUserFacingWindow(_ window: SCWindow, elsewhere: Set<CGWindowID> = []) -> Bool {
         guard window.windowLayer == 0,
-              window.isOnScreen,
+              window.isOnScreen || elsewhere.contains(window.windowID),
               window.frame.width >= 1,
               window.frame.height >= 1
         else { return false }
@@ -1148,6 +1254,42 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         let frames = windows.map(\.frame).filter { $0.width >= 1 && $0.height >= 1 }
         guard let first = frames.first else { return nil }
         return frames.dropFirst().reduce(first) { $0.union($1) }
+    }
+
+    // MARK: - Windows on other desktops
+
+    func bringOnScreen(_ source: CaptureSource) async {
+        let windowID: CGWindowID
+        switch source {
+        case .window:
+            // Streamed from wherever it is: a window on a hidden desktop still delivers its
+            // picture. The Mac goes there on the first touch instead. See ``OffDesktopInputGate``.
+            return
+        case .application(let pid):
+            // Read again whatever happens: an application's filter is built from which of its
+            // windows are on screen, and the snapshot's answer is from whichever desktop was
+            // showing when it was taken.
+            guard !Self.hasOnScreenWindow(processID: pid),
+                  let content = lock.withLock({ snapshot })
+            else { markStale(); return }
+            let owned = content.windows.filter { $0.owningApplication?.processID == pid && $0.windowLayer == 0 }
+            let ownedIDs = owned.map(\.windowID)
+            let elsewhere = await MainActor.run { windowsOrderedInOnSpaces(ownedIDs) }
+            guard let first = ownedIDs.first(where: elsewhere.contains) else {
+                markStale()
+                return
+            }
+            windowID = first
+        default:
+            return
+        }
+        guard await MainActor.run(body: { switchToSpace(holding: windowID) }) else {
+            markStale()
+            return
+        }
+        // An application's filter is built from which of its windows are on screen.
+        try? await Task.sleep(for: Self.spaceSwitchSettle)
+        markStale()
     }
 
     // MARK: - Filters
