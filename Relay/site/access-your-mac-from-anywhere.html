@@ -71,17 +71,16 @@
 
     <h2>What the relay can and cannot see</h2>
     <p>
-      The control channel is a TLS session belonging to your two devices, which the relay copies
-      without terminating. Video, audio, keystrokes, pointer input and clipboard text are sealed
-      with a key the two devices exchange between themselves, one the relay is never given. It
-      is built to be too simple to break that property: a change that let it inspect, alter or
-      authorise traffic would be the wrong change.
+      Your devices encrypt the connection end to end and never give the relay the keys. That
+      protects video, audio, keystrokes, pointer input and clipboard text whether the devices
+      connect directly or through the relay.
     </p>
     <p>
-      What it does handle: your devices' IDs, your Mac's name, the protocol version, which plan
-      the app says you are on, and how much relay time has been used. It sees the address each
-      device connects from, as any server does, and hands each of them the other's so they can
-      try that direct path. The full detail is in the <a href="/privacy">Privacy Policy</a>.
+      What it does handle: device identifiers, your Mac's name, technical compatibility
+      information, the plan in use, and relay usage needed to provide the connection. It sees the
+      address each device connects from, as any server does, and hands each of them the other's so
+      they can try that direct path. The full detail is in the <a href="/privacy">Privacy
+      Policy</a>.
     </p>
 
     <h2>Keeping a Mac reachable while you're out</h2>

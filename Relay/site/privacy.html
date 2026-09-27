@@ -47,8 +47,8 @@
     <p class="updated">Last updated 25 September 2026</p>
 
     <div class="card callout">
-      <strong>The short version.</strong> Peering has no accounts and collects nothing. There is
-      no analytics, no advertising, and no third-party SDK in the app. Your screen, audio,
+      <strong>The short version.</strong> Peering has no accounts, analytics, advertising or
+      third-party tracking SDKs. Your screen, audio,
       keystrokes, pointer input and clipboard travel between your own two devices inside one
       encrypted connection, and the relay that carries it when you are away from home is built so
       that it cannot read any of it.
@@ -71,11 +71,12 @@
     <ul>
       <li>
         <strong>Your device identity.</strong> Each device generates its own key when you first
-        open the app and keeps it in that device's Keychain. It never leaves the device.
+        open the app and keeps the private key in that device's Keychain. The private key never
+        leaves the device.
       </li>
       <li>
-        <strong>Paired Macs.</strong> The name, public key and last-connected time of Macs you
-        have paired with, so they can be listed and reconnected to.
+        <strong>Paired Macs.</strong> The name, pairing information and last-connected time of Macs
+        you have paired with, so they can be listed and reconnected to.
       </li>
       <li>
         <strong>Push tokens for terminal alerts.</strong> On a plan that includes being told when a
@@ -111,9 +112,8 @@
       remove them in the app, or when you erase the device.
     </p>
     <p>
-      Nothing above is sent to us, because there is nowhere for it to be sent: there is no account
-      and no server of ours that holds your data. The relay is the one thing of ours your devices
-      talk to, and what it handles is the next section.
+      The app does not upload the content listed above to us. There is no Peering account. The
+      limited technical information handled by the relay is described next.
     </p>
 
     <h2>3. What the relay handles</h2>
@@ -128,18 +128,13 @@
       <li>your Mac's device ID and its name;</li>
       <li>your iPhone's device ID;</li>
       <li>the protocol version your apps are speaking;</li>
-      <li>when you have a paid plan, the receipt Apple signed for that purchase. It names the
-        product, the transaction and the date it was bought. It is checked against Apple's own
-        root certificate on the way in and then kept only for the length of that connection: never
-        written to a log, a file or a database, and never sent anywhere;</li>
-      <li>the public half of your device's key, when the app signs its request. That signature is
-        what your relay allowance is counted against, so that reinstalling the app does not hand
-        out a fresh one. It is a public key: it proves an identity and reveals nothing about the
-        session that identity carries;</li>
-      <li>which plan your app says it is on. It is sent on every connection, and it grants
-        nothing: a connection with no verified receipt gets the free allowance whatever it claims;</li>
+      <li>proof of an active App Store purchase when you use a paid plan. It is used to validate
+        the plan for that connection and is not retained afterwards;</li>
+      <li>pseudonymous authentication information used to recognise a device and apply its relay
+        allowance;</li>
+      <li>the plan being used for the connection;</li>
       <li>how many seconds of relay time each device has used in the current 24-hour period;</li>
-      <li>the relay access key, for connections made with a paid plan;</li>
+      <li>a random identifier used to recognise paid relay access;</li>
       <li>the IP address of each device, which any server necessarily sees, and which it hands to
         the other device so they can try to reach each other without it;</li>
       <li>your iPhone's Apple push token, only when a Mac asks the relay to wake a phone it cannot
@@ -147,38 +142,28 @@
         stored.</li>
     </ul>
     <p>
-      <strong>The relay cannot read what it carries.</strong> The control channel is a TLS session
-      belonging to your two devices. The relay copies the encrypted bytes without terminating it
-      and has no key for them. Video, audio, keystrokes, pointer input and clipboard text are
-      sealed separately with keys your devices exchanged with each other and never disclosed to
-      the relay. This is a property of how it is built, not a promise about how it is operated.
+      <strong>The relay cannot read what it carries.</strong> Your devices encrypt the connection
+      end to end and do not give the relay the keys. This covers video, audio, keystrokes, pointer
+      input and clipboard text.
     </p>
     <p>
-      <strong>What the relay writes down, and where.</strong> There is no database and no account,
-      and nothing in this section is connected to who you are. Two files are written, both on the
-      relay's own machine, and both hold device identifiers rather than names or addresses:
+      <strong>What the relay retains.</strong> There is no user account or profile. The relay keeps
+      only the technical records needed to provide and protect the service:
     </p>
     <ul>
       <li>
-        <strong>Relay time.</strong> One line per charge, and a charge is taken every fifteen
-        seconds of an active session: the identifier your relay time is counted against, which
-        24-hour window it belongs to, and how many seconds. That identifier is your device's public
-        key when your app signed its request, and the device ID your app announced when it did not.
-        This is what stops a restart from handing everybody a fresh allowance. Lines for a window
-        that has passed are dropped the next time the relay starts.
+        relay usage associated with a device identifier, so it can apply the current allowance;
       </li>
       <li>
-        <strong>A Mac's public key.</strong> When a Mac registers with the relay it signs its
-        registration with the key this app generated for it, and the relay keeps the public half
-        beside the device ID. It is what stops one device claiming to be another. It is a public
-        key: it proves an identity and reveals nothing about the session that identity carries.
+        device authentication records needed to recognise Macs on later connections; and
+      </li>
+      <li>
+        limited connection logs used for security and troubleshooting, including device IDs, the
+        Mac name and the plan applied.
       </li>
     </ul>
     <p>
-      Beside those, the server keeps ordinary operational logs, which record that a session was
-      allocated, the device IDs and Mac name above, which plan was applied and whether Apple
-      signed for it, and never any content. Those logs stay on the server and follow whatever
-      retention the machine's logging is configured with.
+      These records do not contain your screen, audio, input, clipboard or other session content.
     </p>
 
     <h2>4. What we never do</h2>
@@ -200,18 +185,13 @@
       covered by <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>.
     </p>
     <p>
-      When a paid plan is active, the app tells the relay what it bought, and the relay applies
-      that plan's allowance instead of the free one. What travels is the receipt Apple signed for
-      the purchase. It is verified against Apple's own root certificate and then forgotten: held
-      for the length of that one connection, never logged, never stored, never sent on. If it
-      cannot be verified, the connection is metered at the free allowance and nothing else
-      happens: no purchase information is retained either way.
+      When a paid plan is active, the app sends proof of the App Store purchase so the relay can
+      apply that plan. The proof is used for that connection and is not retained afterwards. If
+      it cannot be validated, the free allowance applies instead.
     </p>
     <p>
-      The app also sends a relay access key: a random identifier generated on your device, not
-      tied to your Apple Account or your identity, and stored in your device's Keychain. It is
-      what the relay would use to recognise a device that has been given unlimited access
-      directly.
+      The app also sends a random relay access identifier for paid access. It is not tied to your
+      Apple Account or personal identity.
     </p>
 
     <h2>6. This website</h2>
@@ -227,11 +207,10 @@
       Privacy law in the European Union and the United Kingdom gives you the right to see, correct,
       export or delete the personal data held about you, to object to its processing, and to
       complain to your national data protection authority. Because Peering has no account and no
-      database of users, in practice there is almost nothing for us to act on: the data described
+      database of users, in practice there is little for us to act on: the data described
       in section 2 is on your devices, under your control, and deleting the app removes it apart
-      from the Keychain items named there. What a server does hold is described in section 3: relay
-      time against a device identifier, a Mac's public key, and the operational logs. None of it
-      names you, and a deletion request is a request to drop those lines. Write to
+      from the Keychain items named there. What the relay retains is described in section 3. None
+      of it names you directly. Write to
       <a href="mailto:support@getpeering.app">support@getpeering.app</a> and we will answer within 30 days.
     </p>
 

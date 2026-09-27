@@ -481,8 +481,8 @@
           <div>
             <h3>What the relay handles</h3>
             <p>
-              Your devices' IDs, your Mac's name, the protocol version, which plan the app says you
-              are on, and how much relay time has been used.
+              Device identifiers, your Mac's name, technical compatibility information, the plan
+              in use and relay usage needed to provide the connection.
             </p>
             <p>
               When a Mac cannot reach your phone directly, it also asks the relay to wake it, using
@@ -496,12 +496,8 @@
           <div>
             <h3>What it cannot read</h3>
             <p>
-              The control channel is a TLS session belonging to your two devices, copied through
-              without being terminated.
-            </p>
-            <p>
-              Video, audio, keystrokes, pointer input and clipboard text are sealed with keys the
-              relay was never given.
+              Video, audio, keystrokes, pointer input and clipboard text are encrypted end to end
+              with keys the relay never receives.
             </p>
           </div>
           <div>
@@ -525,11 +521,7 @@
         somewhere else, monthly or yearly.
       </p>
 
-      <!-- One table rather than four cards, because a card per plan can only say what its own plan
-           has, which is what "everything free has" was doing instead of saying anything. Every row here
-           is a question a reader has, asked once and answered for all four plans at once. The rows are
-           the app's own capability map: MacCastKit/Sources/MacCastKit/PlanAccess.swift is the authority
-           on which plan a feature needs, and RelayPlan.swift on the two allowances. -->
+      <!-- Keep this comparison in sync with the plans offered in the app. -->
       <p class="plans-scroll-hint" aria-hidden="true">Scroll sideways to see every plan &rarr;</p>
       <div class="plans-wrap">
         <table class="plans">
@@ -772,9 +764,9 @@
         <details>
           <summary>What does the relay know about me?</summary>
           <p>
-            Your Mac's device ID and name, your iPhone's device ID, the protocol version, which
-            plan the app says you are on, and connection usage. A paid connection also sends its
-            relay access key. Nothing else, and no account is involved.
+            Device identifiers, your Mac's name, technical compatibility information, the plan in
+            use and relay usage needed to provide the connection. A paid connection also sends
+            proof of the App Store purchase. No account is involved.
           </p>
           <p>
             It also sees, as any server does, the address each device connects from, and it hands
