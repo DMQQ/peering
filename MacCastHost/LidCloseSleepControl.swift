@@ -408,7 +408,7 @@ struct KeepAwakeScheduleRow: View {
     }
 
     private func hourPicker(
-        _ label: String, hour: Int, set: @escaping (Int) -> Void
+        _ label: String, hour: Int, set: @escaping @MainActor @Sendable (Int) -> Void
     ) -> some View {
         HStack(spacing: 6) {
             Text(label)

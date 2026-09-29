@@ -19,7 +19,7 @@ func localIPv4Address() -> String? {
         memcpy(&address, cursor.pointee.ifa_addr, MemoryLayout<sockaddr_in>.size)
         var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
         guard inet_ntop(AF_INET, &address.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil else { continue }
-        let ip = String(cString: buffer)
+        let ip = String(decoding: buffer.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
 
         if name == "en0" { return ip }
         if fallback == nil { fallback = ip }

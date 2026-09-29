@@ -641,12 +641,19 @@ private struct PanelWindowEntrance: NSViewRepresentable {
             ghost.hasShadow = true
             ghost.level = window.level
             ghost.ignoresMouseEvents = true
-            let image = NSImageView(image: snapshot)
-            image.frame = content.bounds
+            // The snapshot cannot capture the panel's blurred material, so the ghost draws its own.
+            let image = NSVisualEffectView(frame: content.bounds)
+            image.material = .menu
+            image.state = .active
+            image.blendingMode = .behindWindow
             image.wantsLayer = true
             image.layer?.cornerRadius = 16
             image.layer?.cornerCurve = .continuous
             image.layer?.masksToBounds = true
+            let picture = NSImageView(image: snapshot)
+            picture.frame = content.bounds
+            picture.autoresizingMask = [.width, .height]
+            image.addSubview(picture)
             ghost.contentView = image
             ghost.orderFront(nil)
 
@@ -669,7 +676,7 @@ private struct PanelWindowEntrance: NSViewRepresentable {
                 context.timingFunction = CAMediaTimingFunction(name: .easeIn)
                 ghost.animator().alphaValue = 0
             } completionHandler: {
-                ghost.orderOut(nil)
+                MainActor.assumeIsolated { ghost.orderOut(nil) }
             }
         }
 
@@ -697,7 +704,7 @@ private struct PanelWindowEntrance: NSViewRepresentable {
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1
             } completionHandler: { [weak self] in
-                self?.animating = false
+                MainActor.assumeIsolated { self?.animating = false }
             }
         }
     }

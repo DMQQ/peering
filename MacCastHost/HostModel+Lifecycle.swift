@@ -71,7 +71,7 @@ extension HostModel {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.coordinator?.refreshCatalog()
+            MainActor.assumeIsolated { self?.coordinator?.refreshCatalog() }
         }
         self.spaceObserver = spaceObserver
 

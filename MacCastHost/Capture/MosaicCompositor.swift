@@ -105,7 +105,7 @@ extension MosaicPlan {
                 continue
             }
 
-            guard var configuration = try? CaptureEngine.configuration(
+            guard let configuration = try? CaptureEngine.configuration(
                 for: descriptor,
                 pixelSize: pixelSize,
                 frameRate: layout.frameRate,

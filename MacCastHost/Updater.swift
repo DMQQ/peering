@@ -44,12 +44,14 @@ final class Updater {
         )
 
         observation = controller.updater.observe(\.canCheckForUpdates, options: [.initial, .new]) {
-            [weak self] updater, _ in
-            let canCheck = updater.canCheckForUpdates
+            [weak self] _, _ in
             // Hopped rather than assumed. KVO is not required to call this back on the thread that
             // changed the value, and `@Observable` state written off the main actor is a data race
             // the compiler cannot see through the Objective-C boundary.
-            Task { @MainActor in self?.canCheck = canCheck }
+            Task { @MainActor in
+                guard let self else { return }
+                self.canCheck = self.controller.updater.canCheckForUpdates
+            }
         }
 
         delegate.onFound = { [weak self] version in self?.availableVersion = version }
