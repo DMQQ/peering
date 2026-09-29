@@ -162,10 +162,10 @@ final class SessionNotifier {
     /// terminal; this adds a banner only when the plan includes being told, while Peering is not
     /// frontmost, and once notification permission has been granted.
     ///
-    /// **The same message is sent by the Mac when no session is up**, over the relay and APNs,
-    /// to the token the phone registered on the way in. The two are one feature and are gated as
-    /// one: see ``PlanCapability/terminalAlerts``, which is also where the registration is
-    /// refused, so a plan without it leaves the Mac with no token to send this to at all.
+    /// **The same message is sent by the Mac over the relay and APNs**, whether or not a session is
+    /// up, to the token the phone registered on the way in. That system-owned route is what makes
+    /// alerts reliable while Picture in Picture keeps the control channel connected but iOS
+    /// suspends this process. This local route is the fallback when no APNs token exists.
     ///
     /// `macName` is the second line rather than the first, because the message is what the user
     /// needs and the Mac is what tells them which of several to look at: two Macs can both have a
@@ -210,10 +210,9 @@ final class SessionNotifier {
     /// on backgrounding: the Mac's detector fires once, when the prompt reappears, and by the time
     /// somebody backgrounds the app that moment has already passed or already been told.
     ///
-    /// Gated on the same ``isOnPlan`` as attention, and the same "the Mac when no session is up"
-    /// dual path: this app sends it locally when connected, and the Mac sends the identical
-    /// sentence itself over the relay and APNs when it is not. The two are one feature for the same
-    /// reason attention's two paths are.
+    /// Gated on the same ``isOnPlan`` as attention. The Mac also sends the identical sentence over
+    /// the relay and APNs whenever this phone has registered a token; this local route is retained
+    /// for a phone that has notification permission but has not obtained an APNs token.
     func terminalFinishedWork(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()

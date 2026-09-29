@@ -113,7 +113,6 @@ extension HostModel {
         coordinator.onInputTransform = { [weak self] transform in
             // Straight through, not hopped to the main actor: `input` is not UI state and its
             // `transform` is lock-guarded for exactly this.
-            guard let transform else { return }
             self?.input.transform = transform
         }
         // The same value from the only observer that sees it change. For an application or a window

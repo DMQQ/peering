@@ -128,6 +128,9 @@ public final class ClientSession: @unchecked Sendable {
         case terminal(TerminalEvent)
         /// The relay's free allowance for this client ID is exhausted for the current period.
         case relayQuotaExceeded
+        /// The user stopped hosting on the Mac. Sent just before the session fails, so the app
+        /// can treat that failure as final rather than a drop to reconnect from.
+        case hostStopped
         /// Which way the picture is now arriving, once it has changed from the way it started.
         ///
         /// Sent when the direct path takes over and when it is given up, and only then: every
@@ -1070,6 +1073,7 @@ public final class ClientSession: @unchecked Sendable {
 
         case .error:
             let payload = try? MessageCodec.decode(ErrorPayload.self, from: frame.payload)
+            if payload?.code == ErrorPayload.hostStoppedCode { emit(.hostStopped) }
             fail(payload?.message ?? "The Mac reported an error.")
 
         case .clipboardContent:

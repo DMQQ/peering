@@ -96,11 +96,19 @@ final class SpacePreviewCache: @unchecked Sendable {
         shots = PreviewStore.load()
     }
 
-    func store(_ shot: SpaceShot, for spaceID: Int32) {
-        lock.withLock { shots[spaceID] = shot }
+    /// Returns whether the picture differs from the one already held.
+    @discardableResult
+    func store(_ shot: SpaceShot, for spaceID: Int32) -> Bool {
+        let changed = lock.withLock { () -> Bool in
+            guard shots[spaceID] != shot else { return false }
+            shots[spaceID] = shot
+            return true
+        }
+        guard changed else { return false }
 // Written outside the lock: this is the only call here that touches the disk, and holding the
 // lock across file I/O would block the catalogue read waiting on it.
         PreviewStore.write(shot, for: spaceID)
+        return true
     }
 
 /// Photographs a display and hands the picture back rather than filing it.

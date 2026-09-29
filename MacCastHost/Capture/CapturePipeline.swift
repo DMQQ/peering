@@ -248,6 +248,7 @@ final class CapturePipeline: @unchecked Sendable {
                     guard !Task.isCancelled else { return }
                     pass += 1
                     await resolver.refreshChangedSourceThumbnails(reenumerate: pass % 5 == 0)
+                    await resolver.refreshChangedSpacePreviews()
                 }
             }
         }

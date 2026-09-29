@@ -491,6 +491,10 @@ final class MacSession: Identifiable {
     /// mid-session failure rather than a copy that quietly does nothing.
     var hostSupportsClipboardImages = false
 
+    /// Whether the host owns delivery of terminal banners even while this session stays connected
+    /// in Picture in Picture. False for an older host, where the local banner remains required.
+    var hostPushesTerminalAlertsWhileConnected = false
+
     /// What the user put together: these windows, in this order, with these sizes.
     ///
     /// The intent rather than the rectangles, which are stale the moment the phone rotates (see

@@ -915,14 +915,21 @@ extension MacSession {
             }
             selectedTerminalID = id
             append(note: message)
-            model.notifier.terminalNeedsAttention(message, sessionID: id, macName: hostName)
+            // A Mac with this phone's APNs token pushes the alert even while the control channel
+            // remains connected in Picture in Picture. Only make a local banner when there is no
+            // token to push to, or the same event would normally appear twice.
+            if !hostPushesTerminalAlertsWhileConnected || model.notifier.remoteToken == nil {
+                model.notifier.terminalNeedsAttention(message, sessionID: id, macName: hostName)
+            }
         case .commandFinished(let id, let command, let duration, _):
             let named = command.map { "\u{201C}\($0)\u{201D}" }
                 ?? terminals.first(where: { $0.id == id }).map { "Terminal \u{201C}\($0.name)\u{201D}" }
                 ?? "Terminal"
             let message = "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration))."
             append(note: message)
-            model.notifier.terminalFinishedWork(message, sessionID: id, macName: hostName)
+            if !hostPushesTerminalAlertsWhileConnected || model.notifier.remoteToken == nil {
+                model.notifier.terminalFinishedWork(message, sessionID: id, macName: hostName)
+            }
         case .exited(let id, let status):
             if let index = terminals.firstIndex(where: { $0.id == id }) {
                 terminals[index].isRunning = false

@@ -218,19 +218,13 @@ extension RemoteScreen {
     /// F1 to F12, which a phone keyboard cannot send. Through ``sendKey(keyCode:modifiers:)``, so a
     /// latched modifier applies: ⌘ then F5 is VoiceOver, ⌃ then F2 the menu bar.
     var functionKeyRow: some View {
-        LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
-                ForEach(Array(Self.functionKeyCodes.enumerated()), id: \.offset) { index, keyCode in
-                    Button {
-                        sendKey(keyCode: keyCode)
-                    } label: {
-                        Text("F\(index + 1)")
-                            .font(.system(size: 15, weight: .medium).monospacedDigit())
-                            .keyChip()
-                    }
-                    .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
-                    .accessibilityLabel("F\(index + 1)")
-                }
-        }
+        FunctionKeyGrid(
+            sendKey: { sendKey(keyCode: $0) },
+            sendAction: { code in
+                model.send(.keyDown(keyCode: code, modifiers: .topRowAction))
+                model.send(.keyUp(keyCode: code, modifiers: .topRowAction))
+            }
+        )
     }
 
     /// Delete and Return, beside the arrows in a laptop's inverted T.
@@ -267,8 +261,6 @@ extension RemoteScreen {
         .accessibilityLabel(label)
     }
 
-    /// The Mac's virtual key codes for F1 to F12, in order. They are not sequential.
-    static let functionKeyCodes: [UInt16] = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
 
     func arrowStrip(withReturn: Bool = true) -> some View {
         HStack(spacing: 4) {
@@ -596,6 +588,61 @@ extension RemoteScreen {
             joystick()
             returnKey
                 .frame(width: ChromeMetrics.quickKeySize, height: ChromeMetrics.quickKeySize)
+        }
+    }
+}
+
+/// F1 to F12 as a Mac keyboard's top row: the printed action by default, the plain key with fn
+/// latched, which is what shortcuts bound to F-keys need.
+struct FunctionKeyGrid: View {
+    let sendKey: (UInt16) -> Void
+    let sendAction: (UInt16) -> Void
+
+    @State private var fnLatched = false
+
+    /// F5 and F6 have no action here: dictation and Do Not Disturb cannot be posted from outside.
+    private static let icons: [String?] = [
+        "sun.min", "sun.max", "rectangle.3.group", "magnifyingglass", nil, nil,
+        "backward", "playpause", "forward", "speaker.slash", "speaker.wave.1", "speaker.wave.3",
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: ShortcutSets.columns, spacing: 8) {
+            Button {
+                fnLatched.toggle()
+            } label: {
+                Text("fn")
+                    .font(.system(size: 15, weight: .medium))
+                    .keyChip()
+                    .background(
+                        fnLatched ? ColorPalette.selectedFill : .clear,
+                        in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    )
+            }
+            .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
+            .accessibilityLabel("Function keys")
+            .accessibilityAddTraits(fnLatched ? .isSelected : [])
+
+            ForEach(0..<12, id: \.self) { index in
+                let code = MediaKey.functionKeyCodes[index]
+                let icon = Self.icons[index]
+                Button {
+                    if !fnLatched, icon != nil { sendAction(code) } else { sendKey(code) }
+                } label: {
+                    VStack(spacing: 2) {
+                        if !fnLatched, let icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 15, weight: .medium))
+                        }
+                        Text("F\(index + 1)")
+                            .font(.system(size: fnLatched || icon == nil ? 15 : 10, weight: .medium).monospacedDigit())
+                            .foregroundStyle(fnLatched || icon == nil ? ColorPalette.ink : ColorPalette.ink.opacity(0.55))
+                    }
+                    .keyChip()
+                }
+                .buttonStyle(RailButtonStyle(scale: 0.86, haptic: true))
+                .accessibilityLabel("F\(index + 1)")
+            }
         }
     }
 }

@@ -258,6 +258,7 @@ struct RemoteScreen: View {
                 // stays where it is. See ``carryingScrim``.
                 carryingScrim
                 gestures
+                remoteNoticeLayer
                 // Above the gesture surface, which is why it is a layer of its own: a tap on a tile
                 // belongs to that surface, so a control drawn under it would never see a finger. See
                 // ``mosaicDismissButtons``.

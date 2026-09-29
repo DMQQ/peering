@@ -304,6 +304,9 @@ final class StoreManager {
     /// people to restore.
     @discardableResult
     func restore() async -> Bool {
+        isPurchasing = true
+        purchaseError = nil
+        defer { isPurchasing = false }
         do {
             try await AppStore.sync()
             await refreshEntitlement()

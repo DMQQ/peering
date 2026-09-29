@@ -215,6 +215,19 @@ final class HostSession: @unchecked Sendable {
         connection.cancel()
     }
 
+    /// Tells the client hosting stopped, then closes, so it does not mistake this for a drop.
+    func endBecauseHostStopped() {
+        closedByHost = true
+        let notice = ErrorPayload(code: ErrorPayload.hostStoppedCode, message: "Hosting stopped on this Mac.")
+        guard let payload = try? MessageCodec.encode(notice) else {
+            connection.cancel()
+            return
+        }
+        connection.send(FrameEncoder.encode(Frame(kind: .error, payload: payload))) { [connection] _ in
+            connection.cancel()
+        }
+    }
+
     /// Called once, on the server queue, when this session's connection is gone.
     ///
     /// The server drops the session from its list here. Without it a finished session stays in the
@@ -396,7 +409,10 @@ final class HostSession: @unchecked Sendable {
             // system software has the private API at all, not just whether this build understands
             // the command, so a Mac that could never make a display does not advertise a row that
             // can only fail.
-            supportsVirtualDisplayManagement: VirtualDisplay.isAvailable
+            supportsVirtualDisplayManagement: VirtualDisplay.isAvailable,
+            // This host sends terminal alerts through APNs even while this control channel is
+            // connected, so an updated phone need not raise the same banner locally as well.
+            pushesTerminalAlertsWhileConnected: true
         ))
         // A trusted client coming back names what it was watching, so capture can start now.
         if alreadyPaired, let source = hello.resumeSource {

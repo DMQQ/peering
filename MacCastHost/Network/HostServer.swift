@@ -65,8 +65,10 @@ final class HostServer: @unchecked Sendable {
     private var _onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
     private var _onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
 
-    /// Called when a terminal needs attention, or has finished a command worth mentioning, and the
-    /// phone is not connected. Arguments: APNs device token (hex), notification title, body.
+    /// Called when a terminal needs attention, or has finished a command worth mentioning.
+    /// Arguments: APNs device token (hex), notification title, body. This also fires while the
+    /// phone is connected because that connection can be alive under Picture in Picture after iOS
+    /// has suspended the app.
     var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }
         set { callbackLock.withLock { _onPushNeeded = newValue } }
@@ -242,13 +244,19 @@ final class HostServer: @unchecked Sendable {
             reaper = nil
             listener?.cancel()
             listener = nil
-            for session in controlSessions { session.cancel() }
+            for session in controlSessions { session.endBecauseHostStopped() }
             for entry in videoConnections { entry.peer.cancel() }
-            for tunnel in pendingRelayBridges + activeRelayBridges { tunnel.bridge.cancel() }
-            controlSessions.removeAll()
-            videoConnections.removeAll()
+            for tunnel in pendingRelayBridges { tunnel.bridge.cancel() }
             pendingRelayBridges.removeAll()
-            activeRelayBridges.removeAll()
+            videoConnections.removeAll()
+            // A relayed session's notice travels through its bridge, so the bridge outlives it
+            // briefly; cancelling now would drop the frame and the phone would read a network drop.
+            queue.asyncAfter(deadline: .now() + 1) { [self] in
+                for session in controlSessions { session.cancel() }
+                for tunnel in activeRelayBridges { tunnel.bridge.cancel() }
+                controlSessions.removeAll()
+                activeRelayBridges.removeAll()
+            }
         }
     }
 

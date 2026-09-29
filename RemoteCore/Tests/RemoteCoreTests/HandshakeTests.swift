@@ -101,6 +101,32 @@ struct HandshakeTests {
         #expect(decoded == hello)
     }
 
+    @Test("connected terminal push delivery is additive and survives the wire")
+    func connectedTerminalPushCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: older)
+                .pushesTerminalAlertsWhileConnected == nil
+        )
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            pushesTerminalAlertsWhileConnected: true
+        )
+        let decoded = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(hello)
+        )
+
+        #expect(decoded.pushesTerminalAlertsWhileConnected == true)
+        #expect(decoded == hello)
+    }
+
     /// The other direction, and the one that decides whether the flag is additive at all: a
     /// client that has never heard of the field ignores it, which is what makes an updated Mac
     /// reachable from an older phone. A Mac that cannot be reached is the cost this design

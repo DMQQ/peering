@@ -491,7 +491,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             // paints its question instead of printing it.
             let message = question.map { "\(name): \($0)" } ?? "\(name) is waiting for \(noun)."
             send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
-            pushIfDisconnected(session: session, title: "Terminal needs you", message: message)
+            push(session: session, title: "Terminal needs you", message: message)
         }
 
         if let finish {
@@ -506,18 +506,20 @@ final class TerminalSessionManager: @unchecked Sendable {
             )
             let named = finish.command.map { "\u{201C}\($0)\u{201D}" } ?? "Terminal \u{201C}\(session.name)\u{201D}"
             let message = "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(finish.duration))."
-            pushIfDisconnected(session: session, title: "Terminal finished", message: message)
+            push(session: session, title: "Terminal finished", message: message)
         }
     }
 
-    /// The other half of ``onPushNeeded``: the same "no session channel to answer over" check both
-    /// kinds of event share, factored out once there were two of them.
-    private func pushIfDisconnected(session: Session, title: String, message: String) {
-        let token = PushTokenStore.shared.token(for: session.ownerClientID)
-        let isConnected = lock.withLock { sinks[session.ownerClientID] != nil }
-        if !isConnected, let token {
-            onPushNeeded?(token, title, message)
-        }
+    /// Sends terminal alerts through APNs whenever this device has registered a token.
+    ///
+    /// A connected control channel is not proof that the phone can raise a local notification:
+    /// Picture in Picture deliberately keeps that channel alive while the app is backgrounded, and
+    /// iOS may suspend the app before it handles the terminal event. APNs is system-owned and keeps
+    /// working in exactly that state. The control event is still sent above so the terminal UI stays
+    /// current; the phone suppresses its local banner when it has an APNs token, avoiding duplicates.
+    private func push(session: Session, title: String, message: String) {
+        guard let token = PushTokenStore.shared.token(for: session.ownerClientID) else { return }
+        onPushNeeded?(token, title, message)
     }
 
     private func didExit(_ session: Session, status: Int32) {

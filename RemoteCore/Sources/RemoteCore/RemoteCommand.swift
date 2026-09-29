@@ -17,6 +17,11 @@ public struct Modifiers: OptionSet, Sendable, Hashable {
     public static let option  = Modifiers(rawValue: 1 << 19)
     public static let command = Modifiers(rawValue: 1 << 20)
 
+    /// Asks for an F-key's printed action (``MediaKey``) instead of the key. The host passes
+    /// these bits straight to `CGEventFlags`, and this one is `maskNonCoalesced`, which does
+    /// nothing on a key event, so a host that predates it posts the plain F-key.
+    public static let topRowAction = Modifiers(rawValue: 1 << 8)
+
     public static let none: Modifiers = []
 }
 
@@ -41,6 +46,26 @@ public enum MouseButton: UInt8, Codable, Sendable {
 /// What a window's title-bar button does: red, yellow, green.
 public enum WindowAction: String, Codable, Sendable {
     case close, minimize, zoom
+}
+
+/// What a Mac keyboard's top row does without fn. F5 and F6 have none.
+public enum MediaKey: Sendable, CaseIterable {
+    case brightnessDown, brightnessUp, missionControl, spotlight
+    case rewind, playPause, fastForward, mute, volumeDown, volumeUp
+
+    /// The Mac's virtual key codes for F1 to F12, in order. They are not sequential.
+    public static let functionKeyCodes: [UInt16] = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
+
+    public init?(functionKeyCode code: UInt16) {
+        let row: [MediaKey?] = [
+            .brightnessDown, .brightnessUp, .missionControl, .spotlight, nil, nil,
+            .rewind, .playPause, .fastForward, .mute, .volumeDown, .volumeUp,
+        ]
+        guard let index = Self.functionKeyCodes.firstIndex(of: code), let key = row[index] else {
+            return nil
+        }
+        self = key
+    }
 }
 
 public enum SpaceDirection: String, Codable, Sendable {

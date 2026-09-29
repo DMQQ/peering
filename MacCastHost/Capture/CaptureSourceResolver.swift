@@ -61,6 +61,9 @@ protocol CaptureSourceResolver: Sendable {
     /// more than the screenshots.
     func refreshChangedSourceThumbnails(reenumerate: Bool) async
 
+    /// One pass of the same loop for the desktop showing on each display, pushing only on change.
+    func refreshChangedSpacePreviews() async
+
     /// The list may be out of date, and the next ``catalog()`` should enumerate again.
     ///
     /// No notification covers a window closing, so the capture noticing is the only way to find
@@ -622,6 +625,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// A failure leaves the last picture alone rather than clearing it, since a nil here is also
     /// a capture that was refused or timed out, and the closed-window case is covered anyway by
     /// the prune in ``catalog()``.
+    func refreshChangedSpacePreviews() async {
+        await captureActiveSpacePreview(force: true, settle: false)
+    }
+
     func refreshSourceThumbnails() async {
         await photographSources(reenumerate: true, pushOnlyOnChange: false)
     }
@@ -754,7 +761,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     ///
     /// - Parameter force: ignore the age check and shoot anyway. For a client that has just
     ///   asked, because it is about to put the pictures in front of someone.
-    func captureActiveSpacePreview(force: Bool = false) async {
+    /// - Parameter settle: wait out a Space switch animation first. Only a caller that knows no
+    ///   switch is under way may skip it; the check after the shutter still guards the filing.
+    func captureActiveSpacePreview(force: Bool = false, settle: Bool = true) async {
         // Which displays want a new picture is decided before the settle, so a second
         // notification arriving during it does not get this call acting on a display it was never
         // about. Recorded here rather than after the captures, so one arriving mid-flight does
@@ -785,7 +794,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         }
         guard !changed.isEmpty else { return }
 
-        try? await Task.sleep(for: Self.spaceSwitchSettle)
+        if settle { try? await Task.sleep(for: Self.spaceSwitchSettle) }
 
         // Read again after the settle, because a picture taken now is of whatever is on screen
         // now, and the read above can name a desktop the user has already left. Filing under that
@@ -844,8 +853,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 continue
             }
 
-            spacePreviews.store(shot, for: display.activeID)
-            landed = true
+            if spacePreviews.store(shot, for: display.activeID) { landed = true }
         }
         guard landed else { return }
 

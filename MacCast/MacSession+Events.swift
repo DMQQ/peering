@@ -271,6 +271,7 @@ extension MacSession {
             hostSupportsVirtualDisplayManagement = VirtualDisplayManagementSupport.maySend(
                 hostDeclared: hello.supportsVirtualDisplayManagement
             )
+            hostPushesTerminalAlertsWhileConnected = hello.pushesTerminalAlertsWhileConnected == true
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.
@@ -449,6 +450,11 @@ extension MacSession {
             }
         case .terminal(let event):
             apply(terminal: event)
+        case .hostStopped:
+            // Arrives just before the failure it explains, so that failure ends the session
+            // instead of arming the reconnect ladder against a Mac that is no longer listening.
+            userEndedDeliberately = true
+            stopReconnecting()
         case .relayQuotaExceeded:
             // **Through ``StoreManager/access``, which is the answer every other screen states.**
             // `relayPlan` is what this device tells the relay, and it is free for anybody with no
@@ -665,4 +671,3 @@ extension MacSession {
             : videoFramesPerSecond * 0.6 + rate * 0.4
     }
 }
-

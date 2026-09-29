@@ -117,6 +117,9 @@ struct EncodedFrame: Sendable {
     let codec: VideoCodec
     /// Real encoded dimensions, which can differ from the request by a pixel or two.
     let pixelSize: CGSize
+    /// The screen rectangle of this exact picture, kept through the asynchronous encoder so input
+    /// is not remapped for a newer source or window position while the phone still shows this one.
+    let geometry: FrameGeometry
 }
 
 /// Encodes captured frames to H.264 with `VTCompressionSession`.
@@ -313,6 +316,9 @@ final class VideoEncoder: @unchecked Sendable {
         }
 
         let duration = frame.duration.isValid ? frame.duration : CMTime(value: 1, timescale: CMTimeScale(frameRate))
+        // Capture the small value, not `frame`: retaining the whole frame in VideoToolbox's
+        // asynchronous callback would also retain the pixel buffer after it has been submitted.
+        let geometry = frame.geometry
         var infoFlags = VTEncodeInfoFlags()
 
 // Imported into Swift as `VTCompressionSessionEncodeFrame`, not by its C name
@@ -325,7 +331,12 @@ final class VideoEncoder: @unchecked Sendable {
             frameProperties: properties,
             infoFlagsOut: &infoFlags
         ) { [weak self] status, flags, sampleBuffer in
-            self?.finish(status: status, flags: flags, sampleBuffer: sampleBuffer)
+            self?.finish(
+                status: status,
+                flags: flags,
+                sampleBuffer: sampleBuffer,
+                geometry: geometry
+            )
         }
 
         guard status == noErr else {
@@ -389,7 +400,12 @@ final class VideoEncoder: @unchecked Sendable {
 
     // MARK: - Output
 
-    private func finish(status: OSStatus, flags: VTEncodeInfoFlags, sampleBuffer: CMSampleBuffer?) {
+    private func finish(
+        status: OSStatus,
+        flags: VTEncodeInfoFlags,
+        sampleBuffer: CMSampleBuffer?,
+        geometry: FrameGeometry
+    ) {
 // A drop is not an error, and it is not silent either: VideoToolbox reports it here and the sample
 // buffer is NULL. It means the encoder was handed frames faster than it could encode them, which on
 // this path means the client's picture will stutter.
@@ -409,7 +425,11 @@ final class VideoEncoder: @unchecked Sendable {
             return
         }
 
-        guard let encoded = Self.makeEncodedFrame(sampleBuffer, codec: codec) else { return }
+        guard let encoded = Self.makeEncodedFrame(
+            sampleBuffer,
+            codec: codec,
+            geometry: geometry
+        ) else { return }
         let consumer = lock.withLock { () -> (@Sendable (EncodedFrame) -> Void)? in
             encodedCount += 1
             return _onFrame
@@ -419,7 +439,11 @@ final class VideoEncoder: @unchecked Sendable {
         consumer?(encoded)
     }
 
-    private static func makeEncodedFrame(_ sampleBuffer: CMSampleBuffer, codec: VideoCodec) -> EncodedFrame? {
+    private static func makeEncodedFrame(
+        _ sampleBuffer: CMSampleBuffer,
+        codec: VideoCodec,
+        geometry: FrameGeometry
+    ) -> EncodedFrame? {
         guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
               let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer)
         else {
@@ -458,7 +482,8 @@ final class VideoEncoder: @unchecked Sendable {
             parameterSets: parameterSets,
             nalUnitHeaderLength: nalUnitHeaderLength,
             codec: codec,
-            pixelSize: CGSize(width: Int(dimensions.width), height: Int(dimensions.height))
+            pixelSize: CGSize(width: Int(dimensions.width), height: Int(dimensions.height)),
+            geometry: geometry
         )
     }
 

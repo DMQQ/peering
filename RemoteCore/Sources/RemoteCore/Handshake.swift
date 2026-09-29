@@ -119,6 +119,11 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// Optional and additive on the same terms as the rest: `nil` reads as "no."
     public var supportsVirtualDisplayManagement: Bool?
 
+    /// Whether this Mac sends terminal alerts through APNs even while the phone's control channel
+    /// is connected. A phone uses this to suppress its duplicate local banner. Optional so an
+    /// older Mac reads as `false` and the phone keeps the local path that older Mac depends on.
+    public var pushesTerminalAlertsWhileConnected: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -130,7 +135,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsMosaic: Bool? = nil,
         supportsSourceThumbnails: Bool? = nil,
         supportsDeviceOrientation: Bool? = nil,
-        supportsVirtualDisplayManagement: Bool? = nil
+        supportsVirtualDisplayManagement: Bool? = nil,
+        pushesTerminalAlertsWhileConnected: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -143,6 +149,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsSourceThumbnails = supportsSourceThumbnails
         self.supportsDeviceOrientation = supportsDeviceOrientation
         self.supportsVirtualDisplayManagement = supportsVirtualDisplayManagement
+        self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }
 
@@ -292,6 +299,9 @@ public struct PingPayload: Codable, Sendable, Equatable {
 public struct ErrorPayload: Codable, Sendable, Equatable {
     public var code: String
     public var message: String
+
+    /// The user pressed Stop on the Mac. A client must not reconnect: nothing is listening.
+    public static let hostStoppedCode = "hostStopped"
 
     public init(code: String, message: String) {
         self.code = code

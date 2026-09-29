@@ -138,11 +138,6 @@ final class VideoCoordinator: @unchecked Sendable {
         pipeline.onFrame = { [weak self] encoded, source in
             self?.deliver(encoded, source: source)
         }
-        pipeline.onGeometry = { [weak self] geometry in
-            guard let self else { return }
-            guard self.source?.contentMovesOnItsOwn == true else { return }
-            self.onGeometry?(geometry)
-        }
         pipeline.onFailure = { [weak self] error in
             self?.onFailure?(error)
         }
@@ -224,8 +219,10 @@ final class VideoCoordinator: @unchecked Sendable {
         return (config, frame)
     }
 
-    /// Where the captured content currently sits, for mapping client input. Nil until a
-    /// frame has reported it.
+/// Where the captured content in the frame being handed to the network sits, for mapping client
+/// input. It deliberately follows encoding rather than raw capture: VideoToolbox is asynchronous,
+/// and publishing raw-frame geometry can move clicks to a new source while the phone still shows
+/// the old one.
     var onGeometry: (@Sendable (FrameGeometry) -> Void)?
 
 /// What is being streamed now, or `nil` when nothing is.
@@ -679,7 +676,6 @@ final class VideoCoordinator: @unchecked Sendable {
         )
         lock.withLock { currentSource = source }
         onSourceChanged?(source)
-        onInputTransform?(pipeline.inputTransform())
         armWatchdog(source: source)
         onStatus?("Capturing \(source.description)")
         coordinatorLog.notice("""
@@ -979,6 +975,18 @@ final class VideoCoordinator: @unchecked Sendable {
 // buffer or drop, and a frame the host chose not to send is not a frame this layer should be
 // second-guessing.
         streamer.submit(prepared.frame)
+
+// Publish the mapping for the exact frame just handed to the network, not for the raw frame that
+// entered an asynchronous encoder earlier. During a source switch the phone keeps drawing the
+// previous frame until this one arrives; changing the transform at stream-start time made every tap
+// in that gap land in the new source's rectangle. A display normally has complete frame geometry
+// too, with the catalogue-time transform as a defensive fallback for an OS sample that omitted it.
+        if let transform = encoded.geometry.inputTransform ?? pipeline.inputTransform() {
+            onInputTransform?(transform)
+        }
+        if source.contentMovesOnItsOwn {
+            onGeometry?(encoded.geometry)
+        }
     }
 }
 

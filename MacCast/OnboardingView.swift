@@ -63,6 +63,11 @@ struct OnboardingView: View {
     /// clipboard into a tick for a moment. See ``copyAddress``.
     @State var addressCopied = false
 
+    /// What Restore Purchases came to when the App Store found no entitlement or returned an
+    /// error. Kept on this screen because a restore with no result must not look like an ignored
+    /// tap; cleared before the next attempt and after one succeeds.
+    @State var restoreNote: String?
+
     /// What the free row says, built from the number the relay actually meters.
     ///
     /// Read off ``RelayPlan`` for the reason every other allowance claim in the app is: "half an
@@ -451,14 +456,30 @@ struct OnboardingView: View {
     /// "strictly not required" is a bad bet when being wrong costs a rejection and being right
     /// costs a row of caption text.
     var legalLinks: some View {
-        HStack(spacing: 18) {
-            // App Review looks for restore on any screen that shows subscription prices.
-            Button("Restore purchases") {
-                Task { await store.restore() }
+        VStack(spacing: 6) {
+            HStack(spacing: 18) {
+                // App Review looks for restore on any screen that shows subscription prices.
+                Button(store.isPurchasing ? "Restoring…" : "Restore purchases") {
+                    restoreNote = nil
+                    Task {
+                        let restored = await store.restore()
+                        restoreNote = PurchaseRestoreFeedback.message(
+                            didRestore: restored,
+                            error: store.purchaseError
+                        )
+                    }
+                }
+                .disabled(store.isPurchasing)
+                Link("Privacy Policy", destination: Legal.privacy)
+                Link("Terms of Use", destination: Legal.terms)
             }
-            .disabled(store.isPurchasing)
-            Link("Privacy Policy", destination: Legal.privacy)
-            Link("Terms of Use", destination: Legal.terms)
+
+            if let note = restoreNote {
+                Text(note)
+                    .foregroundStyle(store.purchaseError == nil ? .secondary : ColorPalette.danger)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .font(.caption2)
         .foregroundStyle(.secondary)

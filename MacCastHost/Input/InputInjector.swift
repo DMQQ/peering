@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
@@ -283,10 +284,15 @@ final class InputInjector: @unchecked Sendable {
             event.post(tap: .cghidEventTap)
 
         case .keyDown(let keyCode, let modifiers):
-            postKey(code: keyCode, down: true, modifiers: modifiers)
+            if modifiers.contains(.topRowAction), let key = MediaKey(functionKeyCode: keyCode) {
+                postMediaKey(key)
+            } else {
+                postKey(code: keyCode, down: true, modifiers: modifiers.subtracting(.topRowAction))
+            }
 
         case .keyUp(let keyCode, let modifiers):
-            postKey(code: keyCode, down: false, modifiers: modifiers)
+            if modifiers.contains(.topRowAction), MediaKey(functionKeyCode: keyCode) != nil { break }
+            postKey(code: keyCode, down: false, modifiers: modifiers.subtracting(.topRowAction))
 
         case .textInput(let text):
             postText(text)
@@ -851,6 +857,47 @@ final class InputInjector: @unchecked Sendable {
         }
     }
 
+    private func postMediaKey(_ key: MediaKey) {
+        switch key {
+        case .missionControl:
+            // Launched rather than keyed: the window server swallows an injected Mission Control
+            // key the way it swallows the Spaces chord.
+            let app = URL(fileURLWithPath: "/System/Applications/Mission Control.app")
+            NSWorkspace.shared.openApplication(at: app, configuration: .init())
+        case .spotlight:
+            postKey(code: 49, down: true, modifiers: [.command])
+            postKey(code: 49, down: false, modifiers: [.command])
+        case .brightnessDown: postAuxiliaryKey(3)
+        case .brightnessUp: postAuxiliaryKey(2)
+        case .rewind: postAuxiliaryKey(20)
+        case .playPause: postAuxiliaryKey(16)
+        case .fastForward: postAuxiliaryKey(19)
+        case .mute: postAuxiliaryKey(7)
+        case .volumeDown: postAuxiliaryKey(1)
+        case .volumeUp: postAuxiliaryKey(0)
+        }
+    }
+
+    /// Presses and releases an `NX_KEYTYPE_*` key, which a keyboard sends as a system-defined
+    /// event (subtype 8) rather than a key code.
+    private func postAuxiliaryKey(_ type: Int) {
+        for down in [true, false] {
+            let state = down ? 0xA : 0xB
+            guard let event = NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(state << 8)),
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (type << 16) | (state << 8),
+                data2: -1
+            ) else { continue }
+            event.cgEvent?.post(tap: .cghidEventTap)
+        }
+    }
+
     private func postKeyEvent(code: UInt16, down: Bool) {
         guard let event = CGEvent(
             keyboardEventSource: nil,
@@ -871,8 +918,7 @@ final class InputInjector: @unchecked Sendable {
         event.post(tap: .cghidEventTap)
     }
 
-    /// F1 to F12.
-    private static let functionKeyCodes: Set<UInt16> = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
+    private static let functionKeyCodes = Set(MediaKey.functionKeyCodes)
 
     /// Applies a modifier transition and posts the flags change describing it.
     ///

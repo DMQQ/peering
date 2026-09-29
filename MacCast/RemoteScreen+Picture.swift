@@ -74,57 +74,61 @@ extension RemoteScreen {
                     }
                     .allowsHitTesting(false)
                 }
+            }
+    }
 
-                // The Mac's own caption for a picture that is technically fine. The panel above
-                // never fires for this: a sleeping screen *is* streaming, on time and entirely
-                // black, so "stream paused" would be the wrong explanation.
-                if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready,
-                   !isUnlocking(notice) {
-                    ZStack {
-                        Color.black.opacity(0.72).ignoresSafeArea()
-                            .allowsHitTesting(false)
-                        VStack(spacing: 12) {
-                            Group {
-                                Image(systemName: notice.symbol ?? "display.slash")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                Text(message)
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                    .multilineTextAlignment(.center)
-                                if let displayID = notice.lockedDisplayID {
-                                    Text(isViewing(displayID)
-                                         ? "Tap Unlock to type the password."
-                                         : "Its lock screen is on the display, not in what you are viewing.")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .multilineTextAlignment(.center)
-                                }
-                            }
-                            // Hits pass through to the Mac deliberately: an injected event is the
-                            // activity a sleeping display is waiting for, and the way out of this
-                            // screen is a tap on it.
-                            .allowsHitTesting(false)
-
-                            if let displayID = notice.lockedDisplayID {
-                                Button {
-                                    withAnimation(Motion.settle) { model.showLockScreen(on: displayID) }
-                                } label: {
-                                    Label("Unlock", systemImage: "lock.open.fill")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(ColorPalette.onInk)
-                                        .padding(.horizontal, 18)
-                                        .padding(.vertical, 10)
-                                        .background(ColorPalette.ink, in: Capsule())
-                                }
-                                .buttonStyle(RailButtonStyle(scale: 0.94, haptic: true))
-                                .padding(.top, 6)
-                            }
+    /// Above the gesture surface, or the surface takes the tap meant for Unlock. The scrim and text
+    /// pass hits through to the Mac on purpose.
+    @ViewBuilder var remoteNoticeLayer: some View {
+        // The Mac's own caption for a picture that is technically fine. The paused card
+        // never fires for this: a sleeping screen *is* streaming, on time and entirely
+        // black, so "stream paused" would be the wrong explanation.
+        if let notice = model.remoteNotice, let message = notice.message, model.phase == .ready,
+           !isUnlocking(notice) {
+            ZStack {
+                Color.black.opacity(0.72).ignoresSafeArea()
+                    .allowsHitTesting(false)
+                VStack(spacing: 12) {
+                    Group {
+                        Image(systemName: notice.symbol ?? "display.slash")
+                            .font(.system(size: 44))
+                            .foregroundStyle(.white.opacity(0.9))
+                        Text(message)
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                        if let displayID = notice.lockedDisplayID {
+                            Text(isViewing(displayID)
+                                 ? "Tap Unlock to type the password."
+                                 : "Its lock screen is on the display, not in what you are viewing.")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(32)
+                    }
+                    // Hits pass through to the Mac deliberately: an injected event is the
+                    // activity a sleeping display is waiting for, and the way out of this
+                    // screen is a tap on it.
+                    .allowsHitTesting(false)
+
+                    if let displayID = notice.lockedDisplayID {
+                        Button {
+                            withAnimation(Motion.settle) { model.showLockScreen(on: displayID) }
+                        } label: {
+                            Label("Unlock", systemImage: "lock.open.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(ColorPalette.onInk)
+                                .padding(.horizontal, 18)
+                                .padding(.vertical, 10)
+                                .background(ColorPalette.ink, in: Capsule())
+                        }
+                        .buttonStyle(RailButtonStyle(scale: 0.94, haptic: true))
+                        .padding(.top, 6)
                     }
                 }
+                .padding(32)
             }
+        }
     }
 
     private func isViewing(_ displayID: UInt32) -> Bool {

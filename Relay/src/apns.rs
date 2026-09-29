@@ -1,7 +1,8 @@
 //! APNs (Apple Push Notification service) client.
 //!
 //! Sends alert notifications to iOS devices via Apple's HTTP/2 API. Used when a terminal on the
-//! Mac needs the user's attention and the phone is no longer connected over the control channel.
+//! Mac needs the user's attention, including while Picture in Picture keeps a phone's control
+//! channel connected after iOS has suspended the app itself.
 //!
 //! # Auth
 //!
