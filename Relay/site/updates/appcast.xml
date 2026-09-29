@@ -3,6 +3,14 @@
     <channel>
         <title>Peering</title>
         <item>
+            <title>202609292</title>
+            <pubDate>Tue, 29 Sep 2026 10:41:54 +0200</pubDate>
+            <sparkle:version>202609292</sparkle:version>
+            <sparkle:shortVersionString>202609292</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://getpeering.app/updates/Peering-202609292.dmg" length="10027172" type="application/octet-stream" sparkle:edSignature="MXMtahInYEHmvrYHWfdZxDAu01MxpI2V5oZOIPnITMywIQnboM0fBqM8NsPViFpagkHJE8cy8e20TT7AVY3IBA=="/>
+        </item>
+        <item>
             <title>202609291</title>
             <pubDate>Tue, 29 Sep 2026 09:36:23 +0200</pubDate>
             <sparkle:version>202609291</sparkle:version>
@@ -17,14 +25,6 @@
             <sparkle:shortVersionString>202609274</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure url="https://getpeering.app/updates/Peering-202609274.dmg" length="10016143" type="application/octet-stream" sparkle:edSignature="t57PeXJ1XbxjP4BewqWzejRKmZ2ZpMnjXmvDab6wgpMN6CNJJWnRaBl++Ge5Zv+w74UsKkF4aIBHsrVLbSmNCw=="/>
-        </item>
-        <item>
-            <title>202609273</title>
-            <pubDate>Sun, 27 Sep 2026 16:50:29 +0200</pubDate>
-            <sparkle:version>202609273</sparkle:version>
-            <sparkle:shortVersionString>202609273</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://getpeering.app/updates/Peering-202609273.dmg" length="9840742" type="application/octet-stream" sparkle:edSignature="zcmCPQayct0bV6/vGTGlTa55kDRV6qTjPs6X2qwq1fJ0s5m6QI614VZUNMsElg2fXgFsewLhB6P1Hy9tw2R5Ag=="/>
         </item>
     </channel>
 </rss>

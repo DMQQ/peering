@@ -867,7 +867,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609291;
+				CURRENT_PROJECT_VERSION = 202609292;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -877,7 +877,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 202609291;
+				MARKETING_VERSION = 202609292;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host;
 				PRODUCT_NAME = Peering;
 				SDKROOT = macosx;
@@ -896,7 +897,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHost.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609291;
+				CURRENT_PROJECT_VERSION = 202609292;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -907,7 +908,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 202609291;
+				MARKETING_VERSION = 202609292;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host;
 				PRODUCT_NAME = Peering;
 				SDKROOT = macosx;
@@ -986,7 +988,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609291;
+				CURRENT_PROJECT_VERSION = 202609292;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacCastHostWidget/Info.plist;
@@ -997,7 +999,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 202609291;
+				MARKETING_VERSION = 202609292;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1014,7 +1016,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Config/MacCastHostWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 202609291;
+				CURRENT_PROJECT_VERSION = 202609292;
 				DEVELOPMENT_TEAM = 55RA6Q9VSR;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1026,7 +1028,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 202609291;
+				MARKETING_VERSION = 202609292;
 				PRODUCT_BUNDLE_IDENTIFIER = pl.dmq.peering.host.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
