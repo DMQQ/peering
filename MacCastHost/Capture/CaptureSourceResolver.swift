@@ -157,6 +157,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// a desktop nobody has left. Under ``lock``.
     private var lastPreviewAt: [UInt32: DispatchTime] = [:]
 
+    /// When each display was first seen on its current Space. Under ``lock``.
+    ///
+    /// The window server reports the new Space ID as soon as a switch starts, so an ID check
+    /// cannot tell a finished desktop from one still sliding in. Only the time since arrival can.
+    private var spaceArrivedAt: [UInt32: DispatchTime] = [:]
+
     /// Looks for a Space change that no notification announced. See ``spacePollInterval``.
     private var spacePoll: Task<Void, Never>?
 
@@ -769,12 +775,14 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
         // about. Recorded here rather than after the captures, so one arriving mid-flight does
         // not queue the same display up twice.
         let before: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
-        let changed = lock.withLock { () -> [UInt32] in
+        let (changed, settledAt) = lock.withLock { () -> ([UInt32], DispatchTime) in
             let now = DispatchTime.now()
             var due: [UInt32] = []
+            var latestArrival = DispatchTime(uptimeNanoseconds: 0)
             for display in before {
                 let arrived = lastActiveSpace[display.displayID] != display.activeID
                 lastActiveSpace[display.displayID] = display.activeID
+                if arrived { spaceArrivedAt[display.displayID] = now }
 
                 // Aged out as well as arrived at: the desktop the user has been sitting on is the
                 // one a client is most likely to be shown a picture of, and it is also the one
@@ -788,20 +796,37 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                     // fails does not re-arm this to due on the next two-second tick.
                     lastPreviewAt[display.displayID] = now
                     due.append(display.displayID)
+                    if let at = spaceArrivedAt[display.displayID], at > latestArrival {
+                        latestArrival = at
+                    }
                 }
             }
-            return due
+            return (due, latestArrival)
         }
         guard !changed.isEmpty else { return }
 
-        if settle { try? await Task.sleep(for: Self.spaceSwitchSettle) }
+        // Waited out from the arrival, not from this call, and whatever `settle` says: the
+        // one-second picker watch was the first to see a switch often enough that skipping the
+        // wait there photographed desktops mid-slide.
+        let settleNanoseconds = UInt64(Self.spaceSwitchSettle.components.seconds) * 1_000_000_000
+            + UInt64(Self.spaceSwitchSettle.components.attoseconds / 1_000_000_000)
+        let elapsed = DispatchTime.now().uptimeNanoseconds - settledAt.uptimeNanoseconds
+        if settle || elapsed < settleNanoseconds {
+            let remaining = settleNanoseconds - min(elapsed, settleNanoseconds)
+            try? await Task.sleep(for: settle ? Self.spaceSwitchSettle : .nanoseconds(remaining))
+        }
 
         // Read again after the settle, because a picture taken now is of whatever is on screen
         // now, and the read above can name a desktop the user has already left. Filing under that
         // one would put one desktop's picture under another desktop's name, which is the mistake
         // the ID-keyed cache exists to prevent.
         let settled: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
-        let targets = settled.filter { changed.contains($0.displayID) }
+        // A display that moved on during the wait is left to the call that saw it arrive, which
+        // waits for that desktop to settle. Shooting it here caught it mid-slide.
+        let targets = settled.filter { display in
+            changed.contains(display.displayID)
+                && before.first { $0.displayID == display.displayID }?.activeID == display.activeID
+        }
         guard !targets.isEmpty else { return }
 
         // Built from the cached enumeration rather than a fresh one: a Space switch does not
