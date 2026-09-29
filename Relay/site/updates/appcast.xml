@@ -3,6 +3,14 @@
     <channel>
         <title>Peering</title>
         <item>
+            <title>202609291</title>
+            <pubDate>Tue, 29 Sep 2026 09:36:23 +0200</pubDate>
+            <sparkle:version>202609291</sparkle:version>
+            <sparkle:shortVersionString>202609291</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://getpeering.app/updates/Peering-202609291.dmg" length="10022937" type="application/octet-stream" sparkle:edSignature="BQ1MmiTlufUwnYGUHY1run4dh464Zp/8VDzqXt+8uxEY8+tlJz6bD3Q/cIp5uP/9wJ/95z5n51ljWB8TL069Bg=="/>
+        </item>
+        <item>
             <title>202609274</title>
             <pubDate>Sun, 27 Sep 2026 23:15:54 +0200</pubDate>
             <sparkle:version>202609274</sparkle:version>
