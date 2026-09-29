@@ -163,6 +163,13 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// cannot tell a finished desktop from one still sliding in. Only the time since arrival can.
     private var spaceArrivedAt: [UInt32: DispatchTime] = [:]
 
+    /// Bumped whenever a Space switch is seen starting. Under ``lock``.
+    ///
+    /// The Space ID moves late in a switch, so a shot taken as one begins still reads as the desktop
+    /// being left, and was filed over that desktop's good picture. A shot is filed only if this
+    /// has not moved between the shutter and ``postShutterHold`` later.
+    private var spaceChangeGeneration = 0
+
     /// Looks for a Space change that no notification announced. See ``spacePollInterval``.
     private var spacePoll: Task<Void, Never>?
 
@@ -581,6 +588,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             object: nil,
             queue: nil
         ) { [weak self] _ in
+            self?.lock.withLock { self?.spaceChangeGeneration += 1 }
             Task { await self?.captureActiveSpacePreview() }
         }
         observers.append(spaceObserver)
@@ -594,6 +602,12 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// display. A shot taken during the slide is half of one desktop and half of the other, which
     /// the client would draw as a tile for the arriving Space.
     private static let spaceSwitchSettle: Duration = .milliseconds(900)
+
+    /// How long a shot is held before filing, to see whether a switch was starting under it.
+    private static let postShutterHold: Duration = .milliseconds(700)
+
+    /// How old the current desktop's picture may get while a client has the picker open.
+    private static let watchedPreviewMaxAgeNanoseconds: UInt64 = 3 * 1_000_000_000
 
     /// Photographs the desktops that have just come to the front, so the client's picker has a
     /// tile for each.
@@ -632,7 +646,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     /// a capture that was refused or timed out, and the closed-window case is covered anyway by
     /// the prune in ``catalog()``.
     func refreshChangedSpacePreviews() async {
-        await captureActiveSpacePreview(force: true, settle: false)
+        await captureActiveSpacePreview(maxAge: Self.watchedPreviewMaxAgeNanoseconds, settle: false)
     }
 
     func refreshSourceThumbnails() async {
@@ -769,7 +783,9 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
     ///   asked, because it is about to put the pictures in front of someone.
     /// - Parameter settle: wait out a Space switch animation first. Only a caller that knows no
     ///   switch is under way may skip it; the check after the shutter still guards the filing.
-    func captureActiveSpacePreview(force: Bool = false, settle: Bool = true) async {
+    func captureActiveSpacePreview(
+        force: Bool = false, maxAge: UInt64 = spacePreviewMaxAgeNanoseconds, settle: Bool = true
+    ) async {
         // Which displays want a new picture is decided before the settle, so a second
         // notification arriving during it does not get this call acting on a display it was never
         // about. Recorded here rather than after the captures, so one arriving mid-flight does
@@ -782,7 +798,10 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             for display in before {
                 let arrived = lastActiveSpace[display.displayID] != display.activeID
                 lastActiveSpace[display.displayID] = display.activeID
-                if arrived { spaceArrivedAt[display.displayID] = now }
+                if arrived {
+                    spaceArrivedAt[display.displayID] = now
+                    spaceChangeGeneration += 1
+                }
 
                 // Aged out as well as arrived at: the desktop the user has been sitting on is the
                 // one a client is most likely to be shown a picture of, and it is also the one
@@ -791,7 +810,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                     now.uptimeNanoseconds - $0.uptimeNanoseconds
                 } ?? .max
 
-                if force || arrived || age >= Self.spacePreviewMaxAgeNanoseconds {
+                if force || arrived || age >= maxAge {
                     // Recorded at the decision rather than after the capture, so a capture that
                     // fails does not re-arm this to due on the next two-second tick.
                     lastPreviewAt[display.displayID] = now
@@ -846,6 +865,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
 
         var landed = false
         for display in targets {
+            let generation = lock.withLock { spaceChangeGeneration }
             guard let screen = content.displays.first(where: { $0.displayID == display.displayID }) else {
                 resolverLog.notice("""
                     display \(display.displayID, privacy: .public) is not shareable, \
@@ -858,6 +878,7 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
                 filter: SCContentFilter(display: screen, excludingWindows: []),
                 configuration: Self.previewConfiguration(for: screen)
             ) else { continue }
+            try? await Task.sleep(for: Self.postShutterHold)
 
             // Read after the shutter, which the read above is not the last word on: everything
             // in between, the enumeration and the capture itself, is time the person has to
@@ -869,7 +890,8 @@ final class ScreenCaptureSourceResolver: CaptureSourceResolver, @unchecked Senda
             // its older picture is a much smaller wrong than a tile showing a desktop it is not.
             let afterShutter: [ManagedDisplay] = await MainActor.run { readDisplaySpaces() }
             guard afterShutter.first(where: { $0.displayID == display.displayID })?.activeID
-                    == display.activeID
+                    == display.activeID,
+                  lock.withLock({ spaceChangeGeneration }) == generation
             else {
                 resolverLog.notice("""
                     space \(display.activeID, privacy: .public) moved under the shutter; \
