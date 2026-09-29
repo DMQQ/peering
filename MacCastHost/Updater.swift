@@ -28,12 +28,18 @@ final class Updater {
     /// The version the last check found, or nil when this build is current.
     private(set) var availableVersion: String?
 
+    /// Whether the found update has been downloaded in the background, so ``install()`` can
+    /// restart into it without Sparkle's window.
+    var readyToInstall: Bool { installNow != nil }
+
+    private var installNow: (() -> Void)?
+
     @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private let delegate = Delegate()
     @ObservationIgnored private var observation: NSKeyValueObservation?
 
     init() {
-        // `startingUpdater: true` is what schedules the daily check; the standard user driver is
+        // `startingUpdater: true` is what schedules the hourly check; the standard user driver is
         // Sparkle's own window, which is the right one — an updater with a bespoke interface is an
         // updater somebody has to maintain, and this app has one screen's worth of design to spend
         // and it is spent on the picture.
@@ -55,12 +61,14 @@ final class Updater {
         }
 
         delegate.onFound = { [weak self] version in self?.availableVersion = version }
-        // Silent: fills the banner without putting up Sparkle's window.
-        controller.updater.checkForUpdateInformation()
+        delegate.onReady = { [weak self] install in self?.installNow = install }
+        // Silent: downloads in the background and fills the banner without Sparkle's window.
+        controller.updater.checkForUpdatesInBackground()
     }
 
     private final class Delegate: NSObject, SPUUpdaterDelegate {
         var onFound: (@MainActor (String?) -> Void)?
+        var onReady: (@MainActor (@escaping () -> Void) -> Void)?
 
         func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
             let version = item.displayVersionString
@@ -70,9 +78,30 @@ final class Updater {
         func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
             Task { @MainActor in self.onFound?(nil) }
         }
+
+        /// Taking the block keeps Sparkle from prompting; the banner offers it instead, and an
+        /// update nobody clicks still installs when the app quits.
+        func updater(
+            _ updater: SPUUpdater,
+            willInstallUpdateOnQuit item: SUAppcastItem,
+            immediateInstallationBlock immediateInstallHandler: @escaping () -> Void
+        ) -> Bool {
+            let version = item.displayVersionString
+            nonisolated(unsafe) let install = immediateInstallHandler
+            Task { @MainActor in
+                self.onFound?(version)
+                self.onReady?(install)
+            }
+            return true
+        }
     }
 
     func check() {
         controller.checkForUpdates(nil)
+    }
+
+    /// Restarts into the downloaded update, or falls back to Sparkle's window while it is not.
+    func install() {
+        if let installNow { installNow() } else { check() }
     }
 }

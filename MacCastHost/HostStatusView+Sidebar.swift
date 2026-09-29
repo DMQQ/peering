@@ -78,9 +78,8 @@ extension HostStatusView {
         }
     }
 
-    /// Opens Sparkle's own window, which carries the notes and the install.
     func updateBanner(_ version: String) -> some View {
-        Button { updater.check() } label: {
+        Button { updater.install() } label: {
             HStack(spacing: 9) {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 17, weight: .semibold))
@@ -89,7 +88,7 @@ extension HostStatusView {
                     Text("Update available")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(HostPalette.ink)
-                    Text("Version \(version). Click to install.")
+                    Text(updater.readyToInstall ? "Version \(version). Click to restart and update." : "Version \(version). Click to install.")
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
                         .lineLimit(1)

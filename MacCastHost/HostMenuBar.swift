@@ -216,7 +216,7 @@ struct HostMenuBarContent: View {
     // MARK: Cards
 
     private func updateRow(_ version: String) -> some View {
-        Button { updater.check() } label: {
+        Button { updater.install() } label: {
             HStack(spacing: 9) {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
@@ -230,7 +230,7 @@ struct HostMenuBarContent: View {
                         .foregroundStyle(Color.secondary)
                 }
                 Spacer(minLength: 0)
-                Text("Install")
+                Text(updater.readyToInstall ? "Restart" : "Install")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 10)
@@ -656,6 +656,8 @@ private struct PanelWindowEntrance: NSViewRepresentable {
             image.addSubview(picture)
             ghost.contentView = image
             ghost.orderFront(nil)
+            // The system fades the real panel out as well, which drew the card twice.
+            window.alphaValue = 0
 
             if let layer = image.layer {
                 let bounds = layer.bounds

@@ -31,8 +31,10 @@
 	<string>https://getpeering.app/updates/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>upn2nq1RFvoZVaug6TqhKto+H7XwH5vJ9fCfT/DBtzM=</string>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
 	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
+	<integer>3600</integer>
 	<!--
 	  The same declaration the iOS app makes, and here it is about exporting rather than about
 	  App Store Connect: this Mac ships by download, and putting software on a web server is an
