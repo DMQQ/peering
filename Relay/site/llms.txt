@@ -11,6 +11,7 @@
 - The picture and the input are end to end encrypted between the two devices. The relay that
   introduces them off-network copies bytes it cannot decrypt; it never sees the key.
 - Requires macOS 15 (Sequoia) or later on the Mac, and iOS 18 or later on the iPhone.
+- The iPhone app is on the App Store: https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408
 - The Mac app is signed and notarised, under 20 MB, and updates itself.
 
 ## Pages
