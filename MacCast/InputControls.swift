@@ -545,7 +545,7 @@ struct ScrollWheelView: View {
     /// spoken, and only because the same control means two different things depending on the mode
     /// the user chose: a control whose name is fixed while its job is not is a control that lies
     /// to whoever is listening rather than looking.
-    var label: String = "Scroll the Mac"
+    var label: String = String(localized: "Scroll the Mac")
 
     /// Where this control's value sits, 0 at the bottom of the track and 1 at the top.
     ///

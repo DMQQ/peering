@@ -52,15 +52,15 @@ struct TerminalDeck: View {
             // Sending a bare newline to a running program, confirming a prompt, or running the
             // command the user just typed in with the key strip rather than the field.
             flexKey("enter", label: "Enter", bytes: "\r")
-            flexKey("⌃C", label: "Interrupt", bytes: "\u{03}")
+            flexKey("⌃C", label: String(localized: "Interrupt"), bytes: "\u{03}")
             flexKey("tab", label: "Tab", bytes: "\t")
             flexKey("esc", label: "Escape", bytes: "\u{1B}")
             // History (↑↓) and cursor (←→). Reaching for history is the first thing a phone
             // keyboard cannot do that a physical one can, so those two sit before the cursor pair.
             flexKey("↑", label: "Up", bytes: "\u{1B}[A")
-            flexKey("↓", label: "Down", bytes: "\u{1B}[B")
-            flexKey("←", label: "Left", bytes: "\u{1B}[D")
-            flexKey("→", label: "Right", bytes: "\u{1B}[C")
+            flexKey("↓", label: String(localized: "Down"), bytes: "\u{1B}[B")
+            flexKey("←", label: String(localized: "Left"), bytes: "\u{1B}[D")
+            flexKey("→", label: String(localized: "Right"), bytes: "\u{1B}[C")
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
@@ -77,7 +77,7 @@ struct TerminalDeck: View {
                 ForEach(commands) { command in
                     TerminalKeyChip(
                         title: command.displayTitle,
-                        label: "Run \(command.command)"
+                        label: String(localized: "Run \(command.command)")
                     ) {
                         run(command)
                     }
@@ -141,33 +141,33 @@ struct TerminalDeck: View {
                 // Word jumps first: the closest things to the fixed row's arrow keys.
                 // Option rather than Control because that is what macOS Terminal binds, and the
                 // escape sequences it produces are what bash and zsh read as "a word".
-                key("⌥←", label: "Word left", bytes: "\u{1B}b")
-                key("⌥→", label: "Word right", bytes: "\u{1B}f")
+                key("⌥←", label: String(localized: "Word left"), bytes: "\u{1B}b")
+                key("⌥→", label: String(localized: "Word right"), bytes: "\u{1B}f")
 
                 divider
 
                 // Line-editing control sequences.
-                key("⌃A", label: "Start of line", bytes: "\u{01}")
-                key("⌃E", label: "End of line", bytes: "\u{05}")
-                key("⌃K", label: "Delete to end of line", bytes: "\u{0B}")
-                key("⌃U", label: "Delete to start of line", bytes: "\u{15}")
-                key("⌃W", label: "Delete word before", bytes: "\u{17}")
-                key("⌫", label: "Backspace", bytes: "\u{7F}")
-                key("⌃D", label: "End of input", bytes: "\u{04}")
-                key("⌃Z", label: "Suspend", bytes: "\u{1A}")
-                key("⌃L", label: "Clear screen", bytes: "\u{0C}")
-                key("⌃R", label: "Search history", bytes: "\u{12}")
-                key("⇧tab", label: "Back tab", bytes: "\u{1B}[Z")
+                key("⌃A", label: String(localized: "Start of line"), bytes: "\u{01}")
+                key("⌃E", label: String(localized: "End of line"), bytes: "\u{05}")
+                key("⌃K", label: String(localized: "Delete to end of line"), bytes: "\u{0B}")
+                key("⌃U", label: String(localized: "Delete to start of line"), bytes: "\u{15}")
+                key("⌃W", label: String(localized: "Delete word before"), bytes: "\u{17}")
+                key("⌫", label: String(localized: "Backspace"), bytes: "\u{7F}")
+                key("⌃D", label: String(localized: "End of input"), bytes: "\u{04}")
+                key("⌃Z", label: String(localized: "Suspend"), bytes: "\u{1A}")
+                key("⌃L", label: String(localized: "Clear screen"), bytes: "\u{0C}")
+                key("⌃R", label: String(localized: "Search history"), bytes: "\u{12}")
+                key("⇧tab", label: String(localized: "Back tab"), bytes: "\u{1B}[Z")
 
                 divider
 
                 // Navigation and editing keys that a phone keyboard cannot produce.
-                key("home", label: "Home", bytes: "\u{1B}[H")
+                key("home", label: String(localized: "Home"), bytes: "\u{1B}[H")
                 key("end", label: "End", bytes: "\u{1B}[F")
-                key("pg↑", label: "Page up", bytes: "\u{1B}[5~")
-                key("pg↓", label: "Page down", bytes: "\u{1B}[6~")
-                key("ins", label: "Insert", bytes: "\u{1B}[2~")
-                key("del", label: "Delete forward", bytes: "\u{1B}[3~")
+                key("pg↑", label: String(localized: "Page up"), bytes: "\u{1B}[5~")
+                key("pg↓", label: String(localized: "Page down"), bytes: "\u{1B}[6~")
+                key("ins", label: String(localized: "Insert"), bytes: "\u{1B}[2~")
+                key("del", label: String(localized: "Delete forward"), bytes: "\u{1B}[3~")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

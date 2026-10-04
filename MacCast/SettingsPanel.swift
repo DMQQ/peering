@@ -70,16 +70,16 @@ struct SettingsPanel: View {
     private var session: some View {
         VStack(alignment: .leading, spacing: 6) {
             SectionLabel("Session")
-            info("Mac", model.hostName ?? "None")
-            info("State", stateDescription)
+            info("Mac", model.hostName ?? String(localized: "None"))
+            info(String(localized: "State"), stateDescription)
             info("Path", model.connectionPath?.rawValue ?? "None")
             // Only when it is worth reading. A session whose picture is going straight to the Mac
             // has nothing to explain, and a row saying "Straight to 83.1.2.3:52507" beside the
             // path is a sentence about plumbing on a screen somebody opened to change the bitrate.
             if !model.usedDirectPath {
-                info("Direct path", model.directPathStatus.summary)
+                info(String(localized: "Direct path"), model.directPathStatus.summary)
             }
-            info("Video", model.videoStatus)
+            info(String(localized: "Video"), model.videoStatus)
             // Two rows, because these are two different paths and only one of them is the
             // picture's. The control connection goes through the relay in every session, punched
             // or not, so its round trip is the relay's even when the video went straight between
@@ -87,14 +87,14 @@ struct SettingsPanel: View {
             // session look slower than it is.
             if let path = model.pathLatencyMilliseconds {
                 info(
-                    model.pathLatencyIsDirect ? "Latency · direct" : "Latency · relay",
+                    model.pathLatencyIsDirect ? String(localized: "Latency · direct") : String(localized: "Latency · relay"),
                     "\(Int(path.rounded())) ms"
                 )
             }
             if let latency = model.latencyMilliseconds {
-                info("Latency · control", "\(Int(latency.rounded())) ms")
+                info(String(localized: "Latency · control"), "\(Int(latency.rounded())) ms")
             }
-            info("This device", model.thisDeviceDescription)
+            info(String(localized: "This device"), model.thisDeviceDescription)
             Button(role: .destructive) { confirmLock = true } label: {
                 Label("Lock Mac · unlock locally", systemImage: "lock.fill")
                     .font(.subheadline.weight(.semibold))
@@ -518,13 +518,13 @@ struct SettingsPanel: View {
 
     private var stateDescription: String {
         switch model.phase {
-        case .idle: return "Idle"
-        case .connecting: return "Connecting"
-        case .handshaking: return "Handshaking"
-        case .confirming: return "Waiting for the code comparison"
+        case .idle: return String(localized: "Idle")
+        case .connecting: return String(localized: "Connecting")
+        case .handshaking: return String(localized: "Handshaking")
+        case .confirming: return String(localized: "Waiting for the code comparison")
         case .ready: return "Connected"
-        case .failed(let message): return "Failed: \(message)"
-        case .disconnected: return model.isReconnecting ? "Offline · reconnecting…" : "Disconnected"
+        case .failed(let message): return String(localized: "Failed: \(message)")
+        case .disconnected: return model.isReconnecting ? String(localized: "Offline · reconnecting…") : String(localized: "Disconnected")
         }
     }
 }

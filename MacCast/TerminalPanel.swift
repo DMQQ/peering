@@ -98,7 +98,7 @@ struct TerminalPanel: View {
                 tabStrip
                     .terminalEndPrompt(
                         name: pendingClose?.name ?? "",
-                        detail: "The shell running in it stops. Your Mac and the rest of the terminals are left alone.",
+                        detail: String(localized: "The shell running in it stops. Your Mac and the rest of the terminals are left alone."),
                         isPresented: Binding(
                             get: { pendingClose != nil },
                             set: { if !$0 { pendingClose = nil } }
@@ -356,7 +356,7 @@ struct TerminalPanel: View {
             // you are pointing at and the terminal you are closing are two different things, and a
             // close that has to be found reads as no close at all. The long press still closes any
             // tab by name.
-            closeLabel: "Close \(terminal.name)"
+            closeLabel: String(localized: "Close \(terminal.name)")
         ) {
             mark(for: state)
         } name: {
@@ -579,7 +579,7 @@ struct TerminalPanel: View {
             // empty case is ``TerminalStarting``, which is drawn rather than written. "Starting
             // login shell…" was here for both, and it sat on screen for a shell that had already
             // exited, saying something that was no longer true.
-            return AttributedString(terminal.isRunning ? "Starting login shell…" : "Nothing was printed.")
+            return AttributedString(terminal.isRunning ? String(localized: "Starting login shell…") : String(localized: "Nothing was printed."))
         }
 
         return TerminalPalette.attributed(terminal.screen.styled, fontSize: fontSize)
@@ -663,7 +663,7 @@ struct TerminalPanel: View {
                     get: { inputFocused },
                     set: { inputFocused = $0 }
                 ),
-                placeholder: terminal.isRunning ? "Type a command" : "Process exited",
+                placeholder: terminal.isRunning ? String(localized: "Type a command") : String(localized: "Process exited"),
                 isEnabled: terminal.isRunning,
                 onSubmit: { submit(to: terminal.id) }
             )

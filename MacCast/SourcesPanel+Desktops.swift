@@ -140,7 +140,7 @@ extension SourcesPanel {
     }
 
     func name(of display: SpaceDisplay) -> String {
-        model.catalog?.descriptor(for: .display(display.displayID))?.title ?? "Display"
+        model.catalog?.descriptor(for: .display(display.displayID))?.title ?? String(localized: "Display")
     }
 
     /// Whether the picture on the phone is of this screen.
@@ -257,7 +257,7 @@ extension SourcesPanel {
                         .overlay(alignment: .topTrailing) { placeBadge(marked ? placed.place : nil) }
                 }
 
-                Text(isLive ? "Desktop \(index) · here" : "Desktop \(index)")
+                Text(isLive ? String(localized: "Desktop \(index) · here") : String(localized: "Desktop \(index)"))
                     .font(.system(size: 10, weight: marked ? .semibold : .regular))
                     .foregroundStyle(
                         marked
@@ -381,19 +381,19 @@ extension SourcesPanel {
     ) -> String {
         let state: String
         if picks {
-            state = ", in the mosaic"
+            state = String(localized: ", in the mosaic")
         } else if buildingMosaic, isCurrent {
             // The way out, said as such: this is the one tap that takes the screen back out, and
             // a screen reader reaching the tile has no badge and no accent to tell it.
-            state = ", current, tap to remove this screen"
+            state = String(localized: ", current, tap to remove this screen")
         } else if buildingMosaic {
-            state = ", tap to switch this screen here"
+            state = String(localized: ", tap to switch this screen here")
         } else {
-            state = isLive ? ", showing" : (isCurrent ? ", current" : "")
+            state = isLive ? String(localized: ", showing") : (isCurrent ? String(localized: ", current") : "")
         }
         return showsScreenName
-            ? "\(name(of: display)) Desktop \(index)\(state)"
-            : "Desktop \(index)\(state)"
+            ? String(localized: "\(name(of: display)) Desktop \(index)\(state)")
+            : String(localized: "Desktop \(index)\(state)")
     }
 
     /// Reveals a desktop, and takes the picture with it. Always both.

@@ -55,14 +55,14 @@ extension TerminalPanel {
                     failure: terminal.isRunning
                         ? (model.uploadFailure(sessionID: terminal.id)
                             ?? model.browseFailure(browsingPath, sessionID: terminal.id))
-                        : "This shell has ended. Open a new terminal to browse your Mac's files.",
+                        : String(localized: "This shell has ended. Open a new terminal to browse your Mac's files."),
                     showsHidden: showsHiddenFiles,
                     // The Mac blocks inside the listing call while macOS puts a Files-and-Folders
                     // question on its screen, and nothing about that reaches this phone: the
                     // request is simply outstanding. So the wait says what it is probably waiting
                     // for, and where the answer is. It is a guess with a delay on it — see the
                     // panel — and it is the only thing the user can act on from here.
-                    waitingHint: "If your Mac is asking whether Peering may read this folder, answer it there.",
+                    waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
                     // What a folder being sent is doing, or what the last one came to. One line,
                     // and the only thing on this screen that says a run of hundreds of operations
                     // is happening at all. See ``FileBrowserPanel/progress``.
@@ -97,7 +97,7 @@ extension TerminalPanel {
                     // hand this in rather than sharing one: Peering moves things to the Trash on
                     // the Mac, where they can be put back, and there is no such thing on an SFTP
                     // server. Two machines, two weights on one word.
-                    deleteHint: "It can be put back from the Trash on your Mac.",
+                    deleteHint: String(localized: "It can be put back from the Trash on your Mac."),
                     // The three changes, absent together and for a reason of their own on top of
                     // the shell being live: a change names a path, and until the Mac has said where
                     // this browser opens there is no path to name. `canMake` is the pair.

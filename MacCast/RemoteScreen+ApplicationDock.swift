@@ -294,7 +294,7 @@ extension RemoteScreen {
         .buttonStyle(RailButtonStyle(scale: 0.9, haptic: true))
         .animation(Motion.tap, value: isLive)
         .accessibilityLabel(
-            isLive ? "Desktop \(index), showing" : (isCurrent ? "Desktop \(index), current" : "Desktop \(index)")
+            isLive ? String(localized: "Desktop \(index), showing") : (isCurrent ? String(localized: "Desktop \(index), current") : String(localized: "Desktop \(index)"))
         )
         .accessibilityHint("Shows this desktop on the Mac")
     }

@@ -102,7 +102,7 @@ struct SSHLockSheet: View {
                 Task { await askDevice() }
             } label: {
                 Label(
-                    "Unlock with \(DeviceAuthentication.biometryName)",
+                    String(localized: "Unlock with \(DeviceAuthentication.biometryName)"),
                     systemImage: DeviceAuthentication.biometrySymbol
                 )
                 .frame(maxWidth: .infinity)

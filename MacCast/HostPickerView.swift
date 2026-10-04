@@ -22,9 +22,9 @@ private enum Screen: CaseIterable, Identifiable {
         switch self {
         case .connect: "Connect"
         case .servers: "Servers"
-        case .sessions: "Sessions"
+        case .sessions: String(localized: "Sessions")
         case .faq: "FAQ"
-        case .settings: "Settings"
+        case .settings: String(localized: "Settings")
         }
     }
 
@@ -179,7 +179,7 @@ struct HostPickerView: View {
     private func macName(_ session: MacSession) -> String {
         session.hostID.flatMap { model.displayName(forHostID: $0) }
             ?? session.hostName
-            ?? "A Mac"
+            ?? String(localized: "A Mac")
     }
 
     private func macDotFill(_ session: MacSession) -> Color {

@@ -51,9 +51,9 @@ extension OnboardingView {
                         // Free first, because it is the floor the other three are measured from
                         // rather than a fourth thing on offer.
                         PlanChoice(
-                            name: "Free",
+                            name: String(localized: "Free"),
                             line: Self.freeLine,
-                            price: "No charge",
+                            price: String(localized: "No charge"),
                             recommended: false,
                             selected: chosen == nil,
                             select: { chosen = nil }

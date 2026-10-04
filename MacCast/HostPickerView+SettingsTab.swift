@@ -34,8 +34,8 @@ struct SettingsTab: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         TabScreenHeader(
-                            "Settings",
-                            detail: "Defaults for this device and every session."
+                            String(localized: "Settings"),
+                            detail: String(localized: "Defaults for this device and every session.")
                         )
                         SettingsSearchField(query: $query)
                         if shows(.device) { deviceSection }
@@ -85,8 +85,8 @@ struct SettingsTab: View {
 
     private var deviceSection: some View {
         Controls.card(
-            "This device",
-            footer: "The name shown to Macs when you connect. Tap the name to edit it."
+            String(localized: "This device"),
+            footer: String(localized: "The name shown to Macs when you connect. Tap the name to edit it.")
         ) {
             Controls.row("Device name", systemImage: AdaptiveLayout.deviceSymbol) {
                 TextField("Name shown to Macs", text: $deviceNameDraft)
@@ -104,7 +104,7 @@ struct SettingsTab: View {
     }
 
     private var controlsSection: some View {
-        Controls.card("Session controls", footer: model.keyboardMode.explanation) {
+        Controls.card(String(localized: "Session controls"), footer: model.keyboardMode.explanation) {
             Controls.picker("Interaction", systemImage: "hand.point.up.left", selection: $interactionMode) {
                 ForEach(InteractionMode.allCases) { mode in
                     Text(mode == .control ? "Control" : "Observe").tag(mode)
@@ -120,7 +120,7 @@ struct SettingsTab: View {
             // one line. The row's label carries the subject ("Picture"); the answers only have to
             // carry the difference between them.
             Controls.picker(
-                "Picture",
+                String(localized: "Picture"),
                 systemImage: "arrow.up.left.and.arrow.down.right",
                 selection: $scalesToFill
             ) {
@@ -142,7 +142,7 @@ struct SettingsTab: View {
             Controls.divider
 
             Controls.toggle(
-                "Open keyboard for text fields",
+                String(localized: "Open keyboard for text fields"),
                 systemImage: "keyboard.badge.ellipsis",
                 isOn: $opensKeyboardForTextFields
             )
@@ -150,7 +150,7 @@ struct SettingsTab: View {
             Controls.divider
 
             Controls.toggle(
-                "Close panels after selecting",
+                String(localized: "Close panels after selecting"),
                 systemImage: "rectangle.on.rectangle",
                 isOn: $hidesPanelAfterSelect
             )
@@ -180,7 +180,7 @@ struct SettingsTab: View {
     private var qualitySection: some View {
         Controls.card(
             "Stream quality",
-            footer: "The level a session starts at. Changing it during a session changes this too, so the next one starts where you left off."
+            footer: String(localized: "The level a session starts at. Changing it during a session changes this too, so the next one starts where you left off.")
         ) {
             Controls.row("Quality", systemImage: "speedometer") {
                 Menu {
@@ -214,10 +214,10 @@ struct SettingsTab: View {
 
     private var remoteAccessSection: some View {
         Controls.card(
-            "Remote access",
+            String(localized: "Remote access"),
             footer: model.phase == .ready
-                ? "Relay connects across networks. Privacy mode dims the Mac's displays without stopping the stream."
-                : "Relay connects across networks."
+                ? String(localized: "Relay connects across networks. Privacy mode dims the Mac's displays without stopping the stream.")
+                : String(localized: "Relay connects across networks.")
         ) {
             Controls.toggle("Allow relay connections", systemImage: "network", isOn: $allowsRelay)
             // Per session: the Mac is only told while one is live, and it is undone on disconnect.
@@ -254,7 +254,7 @@ struct SettingsTab: View {
     }
 
     private var securitySection: some View {
-        Controls.card("Security") {
+        Controls.card(String(localized: "Security")) {
             Controls.toggle("Require \(DeviceAuthentication.biometryName) on open", systemImage: DeviceAuthentication.biometrySymbol, isOn: Binding(
                 get: { requiresBiometricUnlock },
                 set: { requested in
@@ -264,7 +264,7 @@ struct SettingsTab: View {
                     }
                     Task {
                         if await DeviceAuthentication.authenticate(
-                            reason: "Protect access to your paired Macs."
+                            reason: String(localized: "Protect access to your paired Macs.")
                         ) {
                             requiresBiometricUnlock = true
                         }
@@ -284,10 +284,10 @@ struct SettingsTab: View {
     /// sentence about which plan adds it.
     private var pipSection: some View {
         Controls.card(
-            "Picture in Picture",
+            String(localized: "Picture in Picture"),
             footer: model.storeManager.access.includes(.pictureInPicture)
-                ? "Peering can keep a live view of your Mac floating over other apps."
-                : "It is part of \(PlanCapability.pictureInPicture.minimumPlan.name), with sound from the Mac and files that move both ways."
+                ? String(localized: "Peering can keep a live view of your Mac floating over other apps.")
+                : String(localized: "It is part of \(PlanCapability.pictureInPicture.minimumPlan.name), with sound from the Mac and files that move both ways.")
         ) {
             PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
                 Controls.toggle("Float automatically", systemImage: "pip", isOn: $pipAutoStart)
@@ -298,12 +298,12 @@ struct SettingsTab: View {
 
     private var homeScreenWidgetSection: some View {
         Controls.card(
-            "Home Screen widget",
-            footer: "Add Peering from the widget gallery for one-tap access to your last Mac."
+            String(localized: "Home Screen widget"),
+            footer: String(localized: "Add Peering from the widget gallery for one-tap access to your last Mac.")
         ) {
             HomeScreenWidgetPreview(
                 hostNames: model.pairedHostIDs.prefix(3).map {
-                    model.displayName(forHostID: $0) ?? "A Mac"
+                    model.displayName(forHostID: $0) ?? String(localized: "A Mac")
                 }
             )
             .padding(.vertical, 5)
@@ -312,8 +312,8 @@ struct SettingsTab: View {
 
     private var liveActivitySection: some View {
         Controls.card(
-            "Live Activity",
-            footer: "Shows session status and duration on the Lock Screen and in Dynamic Island."
+            String(localized: "Live Activity"),
+            footer: String(localized: "Shows session status and duration on the Lock Screen and in Dynamic Island.")
         ) {
             Controls.toggle("Show live activity", systemImage: "lock.fill", isOn: $liveActivitiesEnabled)
                 .onChange(of: liveActivitiesEnabled) { _, enabled in
@@ -349,12 +349,12 @@ struct SettingsTab: View {
         let included = model.storeManager.access.includes(.terminalAlerts)
 
         return Controls.card(
-            "Notifications",
+            String(localized: "Notifications"),
             footer: included
-                ? "A shell that stops for an answer puts a banner up while Peering is not in front of you, on this device and through the Mac when no session is open. iOS carries the permission under Settings, Notifications, Peering."
-                : "Being told when a terminal needs you is part of \(PlanCapability.terminalAlerts.minimumPlan.name), with sound from the Mac, Picture in Picture and files that move both ways."
+                ? String(localized: "A shell that stops for an answer puts a banner up while Peering is not in front of you, on this device and through the Mac when no session is open. iOS carries the permission under Settings, Notifications, Peering.")
+                : String(localized: "Being told when a terminal needs you is part of \(PlanCapability.terminalAlerts.minimumPlan.name), with sound from the Mac, Picture in Picture and files that move both ways.")
         ) {
-            PlanLocked(capability: .terminalAlerts, title: "Told when a shell needs you") {
+            PlanLocked(capability: .terminalAlerts, title: String(localized: "Told when a shell needs you")) {
                 Controls.row("Terminal needs you", systemImage: "bell.badge") {
                     Text(model.notificationsAuthorized ? "On" : "Off")
                         .font(.subheadline)
@@ -379,7 +379,7 @@ struct SettingsTab: View {
     }
 
     private var trustedMacsSection: some View {
-        Controls.card("Trusted Macs") {
+        Controls.card(String(localized: "Trusted Macs")) {
             ForEach(Array(model.pairedHostIDs.enumerated()), id: \.element) { index, hostID in
                 Controls.row(model.displayName(forHostID: hostID) ?? hostID, systemImage: "macbook") {
                     Button("Forget", role: .destructive) { model.forget(hostID: hostID) }
@@ -414,7 +414,7 @@ struct SettingsTab: View {
     /// spend relay allowance, and is not the half being tested.
     private var developerSection: some View {
         Controls.card(
-            "Developer",
+            String(localized: "Developer"),
             footer: """
                 Changes what this app shows, not what the relay is told: sessions stay metered at \
                 whatever this Apple Account pays for.
@@ -436,7 +436,7 @@ struct SettingsTab: View {
                     }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(model.storeManager.planOverride?.name ?? "Real")
+                        Text(model.storeManager.planOverride?.name ?? String(localized: "Real"))
                             .foregroundStyle(model.storeManager.planOverride == nil ? .secondary : .primary)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 11, weight: .semibold))
@@ -446,7 +446,7 @@ struct SettingsTab: View {
                 .tint(.white.opacity(0.72))
                 .font(.subheadline)
                 .accessibilityLabel("Plan override")
-                .accessibilityValue(model.storeManager.planOverride?.name ?? "Real")
+                .accessibilityValue(model.storeManager.planOverride?.name ?? String(localized: "Real"))
             }
         }
     }
@@ -454,8 +454,8 @@ struct SettingsTab: View {
 
     private var identitySection: some View {
         Controls.card(
-            "Device identity",
-            footer: "How Macs recognise this device. Created once, on first launch."
+            String(localized: "Device identity"),
+            footer: String(localized: "How Macs recognise this device. Created once, on first launch.")
         ) {
             Controls.row("Device ID", systemImage: "number") {
                 Text(model.device.id)
@@ -484,7 +484,7 @@ struct SettingsTab: View {
     }
 
     private var moreSection: some View {
-        Controls.card("More") {
+        Controls.card(String(localized: "More")) {
             // First, because it is the only row in this card that is about something other than
             // the app you are holding, and the one a second Mac needs: the Mac app is a download
             // rather than an App Store install, so somebody setting up another machine has to come
@@ -566,7 +566,7 @@ struct SettingsTab: View {
             .sheet(isPresented: $showingMailComposer) {
                 MailComposer(
                     recipient: "support@getpeering.app",
-                    subject: "Peering issue",
+                    subject: String(localized: "Peering issue"),
                     body: Self.reportBody,
                     attachment: (Data(Diagnostics.text(model: model).utf8), "text/plain", "diagnostics.txt"),
                     onFinish: { showingMailComposer = false }
@@ -588,7 +588,7 @@ struct SettingsTab: View {
                 }
             } label: {
                 Controls.row(
-                    "Copy diagnostics",
+                    String(localized: "Copy diagnostics"),
                     systemImage: copiedDiagnostics ? "checkmark" : "doc.on.doc"
                 ) {
                     Text(copiedDiagnostics ? "Copied" : "")
@@ -613,7 +613,7 @@ struct SettingsTab: View {
     /// second copy of a document that has to say the same thing as the one the App Store listing
     /// points at, and two copies of a privacy policy is one copy too many.
     private var legalSection: some View {
-        Controls.card("Legal") {
+        Controls.card(String(localized: "Legal")) {
             externalLink("Privacy policy", systemImage: "hand.raised", to: PeeringSite.privacy)
 
             Controls.divider
@@ -675,7 +675,7 @@ struct SettingsTab: View {
         components.scheme = "mailto"
         components.path = "support@getpeering.app"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Peering issue"),
+            URLQueryItem(name: "subject", value: String(localized: "Peering issue")),
             URLQueryItem(name: "body", value: reportBody),
         ]
         return components.url ?? URL(string: "mailto:support@getpeering.app")!
@@ -721,7 +721,7 @@ private struct HomeScreenWidgetPreview: View {
     @State private var smallSide: CGFloat = 94
     private static let design: CGFloat = 132
 
-    private var primaryName: String { hostNames.first ?? "Your Mac" }
+    private var primaryName: String { hostNames.first ?? String(localized: "Your Mac") }
 
     /// Everything inside a preview, as a multiple of the size it is being drawn at. One unit at
     /// the design size is one point, so the numbers stay the ones a designer would have picked.
@@ -729,8 +729,8 @@ private struct HomeScreenWidgetPreview: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Self.gap) {
-            column("Small") { small }
-            column("Medium") { medium }
+            column(String(localized: "Small")) { small }
+            column(String(localized: "Medium")) { medium }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         // Measured rather than assumed: the card is 18 points in from the screen's edge and 16
@@ -810,7 +810,7 @@ private struct HomeScreenWidgetPreview: View {
     }
 
     private var displayedNames: [String] {
-        hostNames.isEmpty ? ["Pair a Mac to connect"] : hostNames
+        hostNames.isEmpty ? [String(localized: "Pair a Mac to connect")] : hostNames
     }
 }
 

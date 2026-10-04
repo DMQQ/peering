@@ -50,7 +50,7 @@ extension HomeTab {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(model.displayName(forHostID: hostID) ?? "A Mac")
+                        Text(model.displayName(forHostID: hostID) ?? String(localized: "A Mac"))
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
                         Text(pairedRowDetail(hostID: hostID, reach: reach, isActive: isActive))
@@ -171,9 +171,9 @@ extension HomeTab {
         reach: SessionModel.Reachability,
         isActive: Bool
     ) -> String {
-        let name = model.displayName(forHostID: hostID) ?? "A Mac"
+        let name = model.displayName(forHostID: hostID) ?? String(localized: "A Mac")
         let sharesItsName = model.pairedHostIDs.contains {
-            $0 != hostID && (model.displayName(forHostID: $0) ?? "A Mac") == name
+            $0 != hostID && (model.displayName(forHostID: $0) ?? String(localized: "A Mac")) == name
         }
         if sharesItsName { return String(hostID.prefix(8)) }
 
@@ -181,25 +181,25 @@ extension HomeTab {
             // "Tap to go back" included, because this row is readable exactly when the picture is
             // not on screen: a session that is on screen has taken the whole screen, so the picker
             // and the picture cannot be up at once. See ``SessionModel/isSessionOnScreen``.
-            let path = reach == .nearby ? "Connected via LAN" : "Connected via Relay"
-            return model.isSessionOnScreen ? path : "\(path) · tap to go back"
+            let path = reach == .nearby ? String(localized: "Connected via LAN") : String(localized: "Connected via Relay")
+            return model.isSessionOnScreen ? path : String(localized: "\(path) · tap to go back")
         }
         switch reach {
-        case .nearby: return "Nearby · tap to connect"
-        case .viaRelay: return "Online · tap to connect"
+        case .nearby: return String(localized: "Nearby · tap to connect")
+        case .viaRelay: return String(localized: "Online · tap to connect")
         case .notRegistered:
-            guard let last = model.lastConnectedAt[hostID] else { return "Not reachable" }
-            return "Not reachable · last used "
+            guard let last = model.lastConnectedAt[hostID] else { return String(localized: "Not reachable") }
+            return String(localized: "Not reachable · last used ")
                 + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
         case .unknown:
             if model.relayReachable == false {
-                return "Relay unavailable · connect over LAN"
+                return String(localized: "Relay unavailable · connect over LAN")
             }
             if let last = model.lastConnectedAt[hostID] {
-                return "Last used "
+                return String(localized: "Last used ")
                     + RelativeDateTimeFormatter().localizedString(for: last, relativeTo: Date())
             }
-            return model.allowsRelay ? "Not nearby · will try relay" : "Not nearby · LAN only"
+            return model.allowsRelay ? String(localized: "Not nearby · will try relay") : String(localized: "Not nearby · LAN only")
         }
     }
 
@@ -216,8 +216,8 @@ extension HomeTab {
     /// stored would otherwise show the item enabled the moment it fell asleep, with nothing to
     /// send, which is the tap that did nothing and taught nobody anything.
     func wakeRefusalReason(hostID: String, reach: SessionModel.Reachability) -> String? {
-        if model.hostMACAddresses[hostID]?.isEmpty ?? true { return "No MAC address on file yet." }
-        if reach.isReachable { return "That Mac is already awake." }
+        if model.hostMACAddresses[hostID]?.isEmpty ?? true { return String(localized: "No MAC address on file yet.") }
+        if reach.isReachable { return String(localized: "That Mac is already awake.") }
         return nil
     }
 
@@ -305,7 +305,7 @@ extension HomeTab {
                 // The screen's name in the display face rather than as a navigation title, which is
                 // the trade ``RemotePairingSheet`` makes next door and for the same reason: an inline
                 // title is set by iOS, in the system face, at a size iOS chooses.
-                TabScreenHeader("Connect by Address")
+                TabScreenHeader(String(localized: "Connect by Address"))
 
                 HStack(spacing: 10) {
                     TextField("Mac address", text: address)

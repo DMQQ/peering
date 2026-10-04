@@ -57,7 +57,7 @@ extension RemoteScreen {
         // sheet, which is a completely different button in everybody's head.
         RailButton(
             icon: "rectangle.on.rectangle",
-            label: "Apps",
+            label: String(localized: "Apps"),
             selected: openPanel == .sources
         ) {
             withAnimation(Motion.settle) { openPanel = openPanel == .sources ? nil : .sources }
@@ -90,13 +90,13 @@ extension RemoteScreen {
             // that says what an icon does, and "Keys" reads as a row of individual keys — the
             // arrows, the escape, the delete — which are all elsewhere on this very bar. What
             // this opens is the software keyboard.
-            label: "Keyboard",
+            label: String(localized: "Keyboard"),
             selected: model.showKeyboard
         ) { model.showKeyboard.toggle() }
     }
 
     var shortcutsButton: some View {
-        RailButton(icon: "command", label: "Shortcuts", selected: openPanel == .shortcuts) {
+        RailButton(icon: "command", label: String(localized: "Shortcuts"), selected: openPanel == .shortcuts) {
             withAnimation(Motion.settle) {
                 openPanel = openPanel == .shortcuts ? nil : .shortcuts
             }
@@ -104,7 +104,7 @@ extension RemoteScreen {
     }
 
     var clipboardButton: some View {
-        RailButton(icon: "doc.on.clipboard", label: "Clipboard", selected: openPanel == .clipboard) {
+        RailButton(icon: "doc.on.clipboard", label: String(localized: "Clipboard"), selected: openPanel == .clipboard) {
             withAnimation(Motion.settle) {
                 openPanel = openPanel == .clipboard ? nil : .clipboard
             }
@@ -148,13 +148,13 @@ extension RemoteScreen {
             QuickAction(chord: "⌘V", label: "Paste", accessibilityLabel: "Paste") {
                 sendKey(keyCode: 9, modifiers: [.command])
             },
-            QuickAction(chord: "⌘Z", label: "Undo", accessibilityLabel: "Undo") {
+            QuickAction(chord: "⌘Z", label: String(localized: "Undo"), accessibilityLabel: String(localized: "Undo")) {
                 sendKey(keyCode: 6, modifiers: [.command])
             },
             QuickAction(chord: "⌘X", label: "Cut", accessibilityLabel: "Cut") {
                 sendKey(keyCode: 7, modifiers: [.command])
             },
-            QuickAction(chord: "⌘Q", label: "Quit", accessibilityLabel: "Quit active application") {
+            QuickAction(chord: "⌘Q", label: String(localized: "Quit"), accessibilityLabel: String(localized: "Quit active application")) {
                 confirmsQuitApplication = true
             },
         ]
@@ -245,7 +245,7 @@ extension RemoteScreen {
     static let statusBarHeight: CGFloat = 44
 
     var settingsButton: some View {
-        RailButton(icon: "gearshape", label: "Settings", selected: openPanel == .settings) {
+        RailButton(icon: "gearshape", label: String(localized: "Settings"), selected: openPanel == .settings) {
             withAnimation(Motion.settle) { openPanel = openPanel == .settings ? nil : .settings }
         }
     }
@@ -396,7 +396,7 @@ extension RemoteScreen {
     /// Smaller than Return and off its axis, because it is not the key that commits: it is the
     /// one reached for in passing, so it sits beside the stick rather than above it.
     var backKey: some View {
-        QuickKeyButton(icon: "chevron.backward", label: "Back", size: 46, caption: "Back") {
+        QuickKeyButton(icon: "chevron.backward", label: String(localized: "Back"), size: 46, caption: String(localized: "Back")) {
             sendKey(keyCode: 123, modifiers: [.command])
         }
     }

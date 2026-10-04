@@ -612,7 +612,7 @@ private struct ConnectingView: View {
                 .frame(height: 92)
 
                 VStack(spacing: 7) {
-                    Text(hostName ?? "Your Mac")
+                    Text(hostName ?? String(localized: "Your Mac"))
                         .font(.system(.title2, design: .rounded).weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
@@ -669,7 +669,7 @@ private struct ConnectingView: View {
     private var detail: String {
         if let failure { return failure }
         if isConnected { return "Connected" }
-        return isSlow ? "Still trying. The Mac has not answered yet." : "Connecting…"
+        return isSlow ? String(localized: "Still trying. The Mac has not answered yet.") : "Connecting…"
     }
 }
 

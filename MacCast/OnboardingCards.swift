@@ -17,18 +17,18 @@ import UIKit
 struct NotificationBanner: View {
     static let examples = [
         Example(
-            title: "Build finished",
-            body: "Damian's MacBook Pro: `xcodebuild` completed successfully.",
+            title: String(localized: "Build finished"),
+            body: String(localized: "Damian's MacBook Pro: `xcodebuild` completed successfully."),
             age: "now"
         ),
         Example(
-            title: "Terminal needs you",
-            body: "Damian's MacBook Pro: Terminal “prod” is waiting for a password.",
+            title: String(localized: "Terminal needs you"),
+            body: String(localized: "Damian's MacBook Pro: Terminal “prod” is waiting for a password."),
             age: "2m"
         ),
         Example(
-            title: "Command needs an answer",
-            body: "Damian's MacBook Pro: Terminal is waiting for your input.",
+            title: String(localized: "Command needs an answer"),
+            body: String(localized: "Damian's MacBook Pro: Terminal is waiting for your input."),
             age: "8m"
         )
     ]
@@ -138,7 +138,7 @@ struct NotificationBanner: View {
     /// appearance is a near-black plate with white pears, and ``Pears`` is that mark with the plate
     /// keyed out, so the plate and the scale are the icon's own.
     func icon(_ size: CGFloat) -> some View {
-        Image("Pears")
+        Image(String(localized: "Pears"))
             .resizable()
             .scaledToFit()
             .frame(width: size * 0.85)

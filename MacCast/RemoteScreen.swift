@@ -266,7 +266,7 @@ struct RemoteScreen: View {
                 sessionChrome(isLandscape: isLandscape, available: proxy.size)
 
                 if case .confirming(let code) = model.phase {
-                    PairingPrompt(code: code, hostName: model.hostName ?? "this Mac")
+                    PairingPrompt(code: code, hostName: model.hostName ?? String(localized: "this Mac"))
                 }
 
                 // The same decision the connecting card makes, and it has to be made in both
@@ -286,7 +286,7 @@ struct RemoteScreen: View {
                 if (model.phase == .connecting || model.phase == .handshaking),
                    !model.isBeingPutBack {
                     ProgressOverlay(
-                        title: model.phase == .connecting ? "Connecting…" : "Securing the connection…",
+                        title: model.phase == .connecting ? "Connecting…" : String(localized: "Securing the connection…"),
                         detail: model.hostName
                     )
                 }

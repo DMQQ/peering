@@ -27,8 +27,8 @@ struct DockSheet: Identifiable {
 
     /// What this sheet holds, for the one announcement a barred dot cannot make on its own.
     var spokenName: String {
-        if let applicationName { return "\(applicationName) shortcuts" }
-        return controls.isEmpty ? "Editing shortcuts" : "Dock controls"
+        if let applicationName { return String(localized: "\(applicationName) shortcuts") }
+        return controls.isEmpty ? String(localized: "Editing shortcuts") : String(localized: "Dock controls")
     }
 }
 
@@ -59,7 +59,7 @@ struct ShortcutSets: View {
     private var sets: [(Set, String)] {
         var sets: [(Set, String)] = []
         if let application { sets.append((.application, application.name)) }
-        sets.append((.macros, "Shortcuts"))
+        sets.append((.macros, String(localized: "Shortcuts")))
         sets.append((.functionKeys, "F1–F12"))
         return sets
     }
@@ -482,9 +482,9 @@ extension RemoteScreen {
         case .tab: tabButton
         case .settings: settingsButton
         case .up: RailButton(icon: "chevron.up", label: "Up") { sendKey(keyCode: 126) }
-        case .down: RailButton(icon: "chevron.down", label: "Down") { sendKey(keyCode: 125) }
-        case .left: RailButton(icon: "chevron.left", label: "Left") { sendKey(keyCode: 123) }
-        case .right: RailButton(icon: "chevron.right", label: "Right") { sendKey(keyCode: 124) }
+        case .down: RailButton(icon: "chevron.down", label: String(localized: "Down")) { sendKey(keyCode: 125) }
+        case .left: RailButton(icon: "chevron.left", label: String(localized: "Left")) { sendKey(keyCode: 123) }
+        case .right: RailButton(icon: "chevron.right", label: String(localized: "Right")) { sendKey(keyCode: 124) }
         case .delete: RailButton(icon: "delete.backward", label: "Delete") { model.handleBackspace() }
         }
     }

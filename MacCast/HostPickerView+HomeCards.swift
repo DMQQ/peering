@@ -12,9 +12,9 @@ extension HomeTab {
     }
 
     var failurePresentation: FailurePresentation {
-        let detail = model.failureMessage ?? "The connection could not be completed."
+        let detail = model.failureMessage ?? String(localized: "The connection could not be completed.")
         guard model.connectionPath == .relay else {
-            return FailurePresentation(title: "Could not connect", message: detail, isRelayFailure: false)
+            return FailurePresentation(title: String(localized: "Could not connect"), message: detail, isRelayFailure: false)
         }
 
         let normalized = detail.lowercased()
@@ -24,18 +24,18 @@ extension HomeTab {
         // the user can check, so it is named here rather than in the sentence beside it —
         // which was written for a Mac this device has paired with and knows.
         if let pairingID = model.remotePairingHostID,
-           normalized.contains("not currently registered with the relay") {
+           normalized.contains(String(localized: "not currently registered with the relay")) {
             return FailurePresentation(
-                title: "No Mac answered",
-                message: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running.",
+                title: String(localized: "No Mac answered"),
+                message: String(localized: "Nothing is registered with the relay under \(pairingID). Check that the whole ID was copied or scanned from the Mac, and that the Mac is awake with Peering running."),
                 isRelayFailure: false
             )
         }
 
-        if normalized.contains("not currently registered with the relay") {
+        if normalized.contains(String(localized: "not currently registered with the relay")) {
             return FailurePresentation(
-                title: "Mac is not available",
-                message: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there.",
+                title: String(localized: "Mac is not available"),
+                message: String(localized: "The relay is working, but this Mac is not connected to it. Make sure the Mac is awake and Peering is running there."),
                 isRelayFailure: false
             )
         }
@@ -46,40 +46,40 @@ extension HomeTab {
         // produces it. The connect path used to raise the same alarm for any failure on a paired
         // Mac, which is why this check has a second, now dead spelling removed from it.
         if normalized.contains("pinned") {
-            return FailurePresentation(title: "Mac identity changed", message: detail, isRelayFailure: false)
+            return FailurePresentation(title: String(localized: "Mac identity changed"), message: detail, isRelayFailure: false)
         }
 
         // The relay found a Mac, and it is not the one whose ID was dialled: the wrong screen
         // was scanned, or the ID was typed wrong in a way that still spelled a real Mac. The
         // sentence from the session already names both IDs, so it stands on its own.
-        if normalized.contains("a different mac answered") {
-            return FailurePresentation(title: "Wrong Mac", message: detail, isRelayFailure: false)
+        if normalized.contains(String(localized: "a different mac answered")) {
+            return FailurePresentation(title: String(localized: "Wrong Mac"), message: detail, isRelayFailure: false)
         }
 
         // The relay refuses a pair whose versions differ before either end spends a handshake on
         // it, and it says so with both numbers — so the side that needs updating is worked out
         // here rather than assumed. It used to say "update the Mac" whatever had happened, which
         // is wrong half the time and sends the user to the one device that cannot help them.
-        if normalized.contains("host speaks v") {
-            let host = Self.version(in: normalized, after: "host speaks v")
-            let client = Self.version(in: normalized, after: "client speaks v")
+        if normalized.contains(String(localized: "host speaks v")) {
+            let host = Self.version(in: normalized, after: String(localized: "host speaks v"))
+            let client = Self.version(in: normalized, after: String(localized: "client speaks v"))
             if let host, let client, client < host {
                 return FailurePresentation(
-                    title: "Update this device's app",
-                    message: "The Mac is running a newer version of Peering than this app. Update Peering from the App Store, then connect again.",
+                    title: String(localized: "Update this device's app"),
+                    message: String(localized: "The Mac is running a newer version of Peering than this app. Update Peering from the App Store, then connect again."),
                     isRelayFailure: false
                 )
             }
             return FailurePresentation(
-                title: "Update Peering on the Mac",
-                message: "The Mac is running an older version of Peering than this app. Update it there, then pair again.",
+                title: String(localized: "Update Peering on the Mac"),
+                message: String(localized: "The Mac is running an older version of Peering than this app. Update it there, then pair again."),
                 isRelayFailure: false
             )
         }
 
         return FailurePresentation(
-            title: "Remote connection unavailable",
-            message: "Peering could not complete the connection through the relay. Your Mac may be working normally. If both devices are nearby, put them on the same network and connect from Nearby.\n\nDetail: \(detail)",
+            title: String(localized: "Remote connection unavailable"),
+            message: String(localized: "Peering could not complete the connection through the relay. Your Mac may be working normally. If both devices are nearby, put them on the same network and connect from Nearby.\n\nDetail: \(detail)"),
             isRelayFailure: true
         )
     }
@@ -298,8 +298,8 @@ extension HomeTab {
                                 .foregroundStyle(ColorPalette.ink)
                                 .multilineTextAlignment(.leading)
                             Text(canPairAnotherMac
-                                 ? "Type or scan the device ID shown on it."
-                                 : "One Mac is free. \(PlanCapability.extraMacs.minimumPlan.name) pairs with every Mac you own.")
+                                 ? String(localized: "Type or scan the device ID shown on it.")
+                                 : String(localized: "One Mac is free. \(PlanCapability.extraMacs.minimumPlan.name) pairs with every Mac you own."))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -424,7 +424,7 @@ extension HomeTab {
                     }
                     Task {
                         if await DeviceAuthentication.authenticate(
-                            reason: "Protect access to your paired Macs."
+                            reason: String(localized: "Protect access to your paired Macs.")
                         ) {
                             requiresBiometricUnlock = true
                         }

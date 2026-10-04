@@ -32,7 +32,7 @@ extension SessionModel {
         switch event {
         case .started:
             browseFailed = false
-            browseStatus = "Looking for Macs on this network…"
+            browseStatus = String(localized: "Looking for Macs on this network…")
         case .updated(let hosts):
             browseFailed = false
             let reappeared = hosts.filter { host in !self.hosts.contains { $0.id == host.id } }
@@ -81,7 +81,7 @@ extension SessionModel {
             // The second sentence matters more than it did: an empty list here is now the
             // moment to look at the other way in, which is the row directly below this text.
             browseStatus = hosts.isEmpty
-                ? "No Macs found yet. Make sure Peering is running on your Mac and on the same network, or pair with a Mac that is not on your network."
+                ? String(localized: "No Macs found yet. Make sure Peering is running on your Mac and on the same network, or pair with a Mac that is not on your network.")
                 : "\(hosts.count) Mac\(hosts.count == 1 ? "" : "s") found"
         case .failed(let message):
             // Bonjour failing is silent on iOS without the local-network permission and the
@@ -92,7 +92,7 @@ extension SessionModel {
             // a minute, and a status line that said nothing would leave the user looking at a
             // list that has quietly stopped updating.
             browseFailed = true
-            browseStatus = "Browsing failed: \(message)"
+            browseStatus = String(localized: "Browsing failed: \(message)")
         }
     }
 }

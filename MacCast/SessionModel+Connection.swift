@@ -58,13 +58,13 @@ extension SessionModel {
             // A setting the user turned off rather than a failure of the pairing. Said here as well
             // because this path cannot work without it: the Mac is not on this network, so there is no
             // second route to try.
-            append(note: "Remote access is turned off in Settings, so a Mac on another network cannot be reached.")
+            append(note: String(localized: "Remote access is turned off in Settings, so a Mac on another network cannot be reached."))
             return nil
         }
 
         // Named "A Mac" until the handshake says otherwise: a first pairing has not been told what the
         // Mac calls itself, and the ID is not a name.
-        connect(to: relayPairingTarget(hostID: hostID, name: "A Mac"))
+        connect(to: relayPairingTarget(hostID: hostID, name: String(localized: "A Mac")))
         return nil
     }
 
@@ -148,7 +148,7 @@ extension SessionModel {
             SessionActivity.shared.sessionEnded()
         } else {
             SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
+                hostName: hostName ?? String(localized: "the Mac"),
                 startedAt: wasStartedAt,
                 path: wasPath
             )
@@ -235,7 +235,7 @@ extension SessionModel {
             return
         }
         pendingHostID = nil
-        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac")))
     }
 
     /// Explicit route choices from the trusted-Mac row. Unlike a regular row tap these do not fall back
@@ -249,7 +249,7 @@ extension SessionModel {
     func connectToTrustedOverRelay(hostID: String) {
         guard allowsRelay, pins.hostIDs.contains(hostID) else { return }
         pendingHostID = nil
-        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+        connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac")))
     }
 
     // MARK: - Quick connect
@@ -260,7 +260,7 @@ extension SessionModel {
     /// feature whose whole job is to save one tap.
     func connectToManualAddress() {
         guard let port = UInt16(manualPort.trimmingCharacters(in: .whitespaces)) else {
-            append(note: "“\(manualPort)” is not a port number.")
+            append(note: String(localized: "“\(manualPort)” is not a port number."))
             return
         }
         let host = manualAddress.trimmingCharacters(in: .whitespaces)
@@ -278,7 +278,7 @@ extension SessionModel {
         if let host = hosts.first(where: { hostID != nil ? $0.id == hostID : $0.name == name }) {
             connect(to: .discovered(host))
         } else if let hostID, allowsRelay, pins.hostIDs.contains(hostID) {
-            connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+            connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? String(localized: "A Mac")))
         }
     }
 
@@ -359,7 +359,7 @@ extension SessionModel {
         if let remembered = rememberedLANHost(hostID), pins.hostIDs.contains(hostID) {
             isResuming = true
             let relay = allowsRelay
-                ? relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac")
+                ? relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? String(localized: "A Mac"))
                 : nil
             connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout, racingRelay: relay)
             return
@@ -387,7 +387,7 @@ extension SessionModel {
         }
 
         isResuming = true
-        connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? "A Mac"))
+        connect(to: relayTarget(hostID: hostID, name: name ?? displayName(forHostID: hostID) ?? String(localized: "A Mac")))
     }
 
     /// Opens a Mac that is already paired, beside the ones already open.
@@ -409,7 +409,7 @@ extension SessionModel {
         } else if let remembered = rememberedLANHost(hostID) {
             connect(to: .discovered(remembered), replacing: nil, timeout: Self.rememberedPathTimeout)
         } else {
-            connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? "A Mac"))
+            connect(to: relayTarget(hostID: hostID, name: displayName(forHostID: hostID) ?? String(localized: "A Mac")))
         }
     }
 
@@ -420,7 +420,7 @@ extension SessionModel {
         return pairedHostIDs
             .filter { !open.contains($0) }
             .sorted { (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast) }
-            .map { (id: $0, name: displayName(forHostID: $0) ?? "A Mac") }
+            .map { (id: $0, name: displayName(forHostID: $0) ?? String(localized: "A Mac")) }
     }
 
     /// Replaces one Mac's session with a fresh attempt at the same Mac, and leaves the rest alone.
@@ -533,7 +533,7 @@ extension SessionModel {
         // `.failed` before `enteringBackground()`, so without this the app suspends, `Task.sleep`
         // freezes, and the "dropped" Live Activity card is never shown.
         guard hasOpenSession, backgroundTask == .invalid else { return }
-        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Peering session") { [weak self] in
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: String(localized: "Peering session")) { [weak self] in
             Task { @MainActor in self?.backgroundTimeExpired() }
         }
     }
@@ -550,7 +550,7 @@ extension SessionModel {
            let hostID = session.hostID,
            reachability(ofHost: hostID).isReachable {
             SessionActivity.shared.showReconnecting(
-                hostName: session.hostName ?? "the Mac",
+                hostName: session.hostName ?? String(localized: "the Mac"),
                 startedAt: session.sessionStartedAt,
                 path: MacSession.activityPath(session.connectionPath)
             )
@@ -652,7 +652,7 @@ extension SessionModel {
         pins.remove(hostID: hostID)
         pairedHostIDs = pins.hostIDs
         publishKnownMacs()
-        append(note: "Forgot \(hostID). Unpair this device on the Mac as well.")
+        append(note: String(localized: "Forgot \(hostID). Unpair this device on the Mac as well."))
     }
 
     // A `resetDeviceIdentity()` belongs here again only alongside a quota the relay counts against

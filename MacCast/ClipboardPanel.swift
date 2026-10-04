@@ -54,7 +54,7 @@ struct ClipboardPanel: View {
         row(side: .phone, symbol: "iphone", title: "iPhone", detail: refusal ?? phoneDetail, isEmpty: phone.kind == .empty) {
             if phone.kind == .text, !phoneTextIsKnown {
                 // Reading asks the user, so only on a tap. "Allow" in the app's settings stops it.
-                action("Show", enabled: true) {
+                action(String(localized: "Show"), enabled: true) {
                     let board = UIPasteboard.general
                     if let text = board.string {
                         model.knownPhoneClipboard = (board.changeCount, text)
@@ -64,7 +64,7 @@ struct ClipboardPanel: View {
             action("Send", enabled: phone.kind != .empty && isReady) {
                 handle(model.pushClipboard())
             }
-            action("Paste on Mac", prominent: true, enabled: phone.kind != .empty && isReady) {
+            action(String(localized: "Paste on Mac"), prominent: true, enabled: phone.kind != .empty && isReady) {
                 handle(model.pushClipboardAndPaste())
             }
         }
@@ -72,7 +72,7 @@ struct ClipboardPanel: View {
 
     private var macRow: some View {
         row(side: .mac, symbol: "laptopcomputer", title: "Mac", detail: macDetail, isEmpty: !macHasContent) {
-            action("Copy to iPhone", enabled: macHasContent) {
+            action(String(localized: "Copy to iPhone"), enabled: macHasContent) {
                 model.copyHostClipboard()
                 confirm(.mac)
             }
@@ -80,7 +80,7 @@ struct ClipboardPanel: View {
     }
 
     private var historyRow: some View {
-        PlanLocked(capability: .clipboardHistory, title: "Clipboard history", placement: .trailing) {
+        PlanLocked(capability: .clipboardHistory, title: String(localized: "Clipboard history"), placement: .trailing) {
             Button {
                 withAnimation(Motion.settle) { showingHistory = true }
             } label: {
@@ -184,9 +184,9 @@ struct ClipboardPanel: View {
             if let known = model.knownPhoneClipboard, known.changeCount == phone.changeCount {
                 return known.text
             }
-            return "Text copied in another app"
-        case .image: return "Image copied"
-        case .empty: return "Nothing copied"
+            return String(localized: "Text copied in another app")
+        case .image: return String(localized: "Image copied")
+        case .empty: return String(localized: "Nothing copied")
         }
     }
 
@@ -200,14 +200,14 @@ struct ClipboardPanel: View {
 
     private var macDetail: String {
         guard let payload = model.hostClipboard else {
-            return model.clipboardPulling ? "Checking…" : "Not checked yet"
+            return model.clipboardPulling ? "Checking…" : String(localized: "Not checked yet")
         }
         switch payload.kind {
         case .text:
             let text = payload.text ?? ""
-            return text.isEmpty ? "Nothing to copy" : text
+            return text.isEmpty ? String(localized: "Nothing to copy") : text
         case .image:
-            return payload.carriedImage == nil ? "Nothing to copy" : "Image"
+            return payload.carriedImage == nil ? String(localized: "Nothing to copy") : String(localized: "Image")
         }
     }
 
@@ -225,7 +225,7 @@ struct ClipboardPanel: View {
         case .imageTooLarge(let bytes):
             let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
             let limit = ByteCountFormatter.string(fromByteCount: Int64(ClipboardLimits.maxImageBytes), countStyle: .file)
-            withAnimation(Motion.tap) { refusal = "Image too large to send (\(size), limit \(limit))" }
+            withAnimation(Motion.tap) { refusal = String(localized: "Image too large to send (\(size), limit \(limit))") }
         case .failed:
             break
         }

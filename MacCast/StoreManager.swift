@@ -278,7 +278,7 @@ final class StoreManager {
                     // account, the app has unlocked nothing, and this used to return without a
                     // word: the buy button simply came back. The sentence says what to do about
                     // it, and the button below it is Restore.
-                    purchaseError = "The App Store could not confirm that purchase. If you were charged, use Restore purchases, and get in touch if that does not bring it back."
+                    purchaseError = String(localized: "The App Store could not confirm that purchase. If you were charged, use Restore purchases, and get in touch if that does not bring it back.")
                     return .failed
                 }
                 return .purchased
@@ -412,8 +412,8 @@ final class StoreManager {
 
         var name: String {
             switch self {
-            case .relay: return "Relay"
-            case .relayPlus: return "Relay Plus"
+            case .relay: return String(localized: "Relay")
+            case .relayPlus: return String(localized: "Relay Plus")
             case .pro: return "Pro"
             }
         }
@@ -422,9 +422,9 @@ final class StoreManager {
         ///
         var tagline: String {
             switch self {
-            case .relay: return "Unlimited relay, on every Mac you own."
-            case .relayPlus: return "No limit on relay, and the tools that come with it."
-            case .pro: return "No limit on relay, and the whole toolbox."
+            case .relay: return String(localized: "Unlimited relay, on every Mac you own.")
+            case .relayPlus: return String(localized: "No limit on relay, and the tools that come with it.")
+            case .pro: return String(localized: "No limit on relay, and the whole toolbox.")
             }
         }
 
@@ -441,7 +441,7 @@ final class StoreManager {
         /// Mac; the second is drawn with a lock and opens the paywall, which is the honest shape
         /// for a limit on a list rather than on a control. What that costs is a limit the client
         /// keeps rather than the server, which is the trust level the whole map is kept at.
-        static let macCount = "Every Mac"
+        static let macCount = String(localized: "Every Mac")
 
         /// Everything the plan includes, one line per row of the site's pricing table.
         ///
@@ -449,16 +449,16 @@ final class StoreManager {
         /// on its own looked like it offered less than the one beside it.
         var features: [String] {
             let relay = [
-                "Unlimited relay every day",
-                "Every Mac you own, instead of one",
-                "Sound from the Mac, and Picture in Picture",
-                "Files that move both ways",
-                "The clipboard history",
-                "Told when a terminal needs you",
+                String(localized: "Unlimited relay every day"),
+                String(localized: "Every Mac you own, instead of one"),
+                String(localized: "Sound from the Mac, and Picture in Picture"),
+                String(localized: "Files that move both ways"),
+                String(localized: "The clipboard history"),
+                String(localized: "Told when a terminal needs you"),
             ]
             let plus = [
-                "Several shells at once, as tabs",
-                "Virtual displays, the Mac's own and any you add",
+                String(localized: "Several shells at once, as tabs"),
+                String(localized: "Virtual displays, the Mac's own and any you add"),
             ]
             switch self {
             case .relay:
@@ -467,10 +467,10 @@ final class StoreManager {
                 return relay + plus
             case .pro:
                 return relay + plus + [
-                    "Several Macs open at the same time",
-                    "Macros, snippets and quick commands",
-                    "Several of the Mac's windows in one picture",
-                    "The sharpest picture over the relay",
+                    String(localized: "Several Macs open at the same time"),
+                    String(localized: "Macros, snippets and quick commands"),
+                    String(localized: "Several of the Mac's windows in one picture"),
+                    String(localized: "The sharpest picture over the relay"),
                 ]
             }
         }

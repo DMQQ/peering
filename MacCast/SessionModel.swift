@@ -24,17 +24,17 @@ enum KeyboardMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .unicode: return "Unicode"
-        case .keycode: return "Keycode"
+        case .unicode: return String(localized: "Unicode")
+        case .keycode: return String(localized: "Keycode")
         }
     }
 
     var explanation: String {
         switch self {
         case .unicode:
-            return "Sends text. Emoji and non-Latin scripts work; Mac shortcuts like ⌘S do not."
+            return String(localized: "Sends text. Emoji and non-Latin scripts work; Mac shortcuts like ⌘S do not.")
         case .keycode:
-            return "Sends real key presses with modifiers. Shortcuts work; characters outside the Mac's layout cannot be typed."
+            return String(localized: "Sends real key presses with modifiers. Shortcuts work; characters outside the Mac's layout cannot be typed.")
         }
     }
 }
@@ -173,7 +173,7 @@ final class SessionModel {
         // change: the Mac being arrived at has its own clock. See
         // ``SessionActivity/followActiveSession``.
         SessionActivity.shared.followActiveSession(
-            hostName: session.hostName ?? "the Mac",
+            hostName: session.hostName ?? String(localized: "the Mac"),
             startedAt: session.sessionStartedAt,
             phase: session.phase,
             reconnecting: session.isReconnecting,
@@ -316,7 +316,7 @@ final class SessionModel {
         case nil: return .unknown
         }
     }
-    var browseStatus = "Looking for Macs on this network…"
+    var browseStatus = String(localized: "Looking for Macs on this network…")
     var tlsDescription: String?
 
     var sessionHistory: [ClientSessionRecord] = SessionHistoryStore.load()
@@ -858,7 +858,7 @@ final class SessionModel {
     }
 
     func restartBrowsing() {
-        browseStatus = "Looking for Macs on this network…"
+        browseStatus = String(localized: "Looking for Macs on this network…")
         browser.stop()
         browser.start()
     }
@@ -929,7 +929,7 @@ final class SessionModel {
         // Said rather than silently refused: the ceiling is a fact about this phone rather than the
         // user's plan, and a tap that did nothing would read as the app being broken.
         if old == nil, openSessions.count >= Self.sessionCeiling {
-            append(note: "This device holds \(Self.sessionCeiling) Macs open at once. Close one to open another.")
+            append(note: String(localized: "This device holds \(Self.sessionCeiling) Macs open at once. Close one to open another."))
             return
         }
 
@@ -1179,8 +1179,8 @@ final class SessionModel {
         let sent = addresses.filter { WakeOnLAN.send(to: $0) }.count
         guard sent > 0 else {
             append(note: addresses.isEmpty
-                ? "No hardware address is on file for that Mac, so there is nothing to send a wake packet to."
-                : "That Mac's stored hardware address could not be read, so no wake packet was sent.")
+                ? String(localized: "No hardware address is on file for that Mac, so there is nothing to send a wake packet to.")
+                : String(localized: "That Mac's stored hardware address could not be read, so no wake packet was sent."))
             return
         }
         append(note: "Wake packet sent to \(sent) hardware address\(sent == 1 ? "" : "es"). It can only reach a Mac on this network.")
@@ -1512,7 +1512,7 @@ extension Modifiers {
         if contains(.shift) { names.append("⇧") }
         if contains(.option) { names.append("⌥") }
         if contains(.control) { names.append("⌃") }
-        return names.isEmpty ? "a modifier" : names.joined()
+        return names.isEmpty ? String(localized: "a modifier") : names.joined()
     }
 }
 

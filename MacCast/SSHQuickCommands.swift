@@ -23,7 +23,7 @@ struct SSHQuickCommandsEditor: View {
                         if commands.all.isEmpty {
                             emptyCard
                         } else {
-                            Controls.card("Saved") {
+                            Controls.card(String(localized: "Saved")) {
                                 VStack(spacing: 0) {
                                     ForEach(Array(commands.all.enumerated()), id: \.element.id) { index, quick in
                                         row(quick)
@@ -141,8 +141,8 @@ struct SSHQuickCommandSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 18) {
                 Controls.card(
-                    "Command",
-                    footer: "Name is what the chip says. Leave it empty and the first word of the command is used instead."
+                    String(localized: "Command"),
+                    footer: String(localized: "Name is what the chip says. Leave it empty and the first word of the command is used instead.")
                 ) {
                     VStack(spacing: 10) {
                         Controls.row("Name", systemImage: "tag") {

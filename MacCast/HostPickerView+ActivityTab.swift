@@ -64,8 +64,8 @@ struct ActivityTab: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         TabScreenHeader(
-                            "Sessions",
-                            detail: "Recent sessions and relay use."
+                            String(localized: "Sessions"),
+                            detail: String(localized: "Recent sessions and relay use.")
                         )
                         if model.storeManager.access.showsRelayAllowance {
                             relayCard
@@ -255,15 +255,15 @@ struct ActivityTab: View {
     private var recentSessionSummary: some View {
         let summary = model.recentSessionSummary
         return HStack(spacing: 0) {
-            recentSummaryValue("Sessions", "\(summary.sessionCount)")
+            recentSummaryValue(String(localized: "Sessions"), "\(summary.sessionCount)")
             recentSummaryValue("Connected", RelayTime.label(summary.connectedSeconds))
-            recentSummaryValue("Video", bytesLabel(summary.videoBytes))
+            recentSummaryValue(String(localized: "Video"), bytesLabel(summary.videoBytes))
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "Latest \(summary.sessionCount) Mac sessions, "
-            + "\(RelayTime.label(summary.connectedSeconds)) connected, "
-            + "\(bytesLabel(summary.videoBytes)) video received"
+            String(localized: "Latest \(summary.sessionCount) Mac sessions, ")
+            + String(localized: "\(RelayTime.label(summary.connectedSeconds)) connected, ")
+            + String(localized: "\(bytesLabel(summary.videoBytes)) video received")
         )
     }
 
@@ -346,9 +346,9 @@ struct ActivityTab: View {
     /// the server produced is the only thing on the row worth reading.
     private func shellDetail(_ record: SSHConnectionRecord) -> String {
         if let reason = record.outcome.reason {
-            return "Failed · \(reason)"
+            return String(localized: "Failed · \(reason)")
         }
-        return "\(durationLabel(record.duration)) · Connected"
+        return String(localized: "\(durationLabel(record.duration)) · Connected")
     }
 
     /// One line of a session. Not always a row that leads anywhere, which is the whole of why it
@@ -409,7 +409,7 @@ struct ActivityTab: View {
     /// unlimited branch is above. The word is here so the label is total rather than a crash waiting
     /// for a plan change to arrive while the card is on screen.
     private var relayRemainingLabel: String {
-        guard let remaining = model.relaySecondsRemainingEstimate else { return "Unlimited" }
+        guard let remaining = model.relaySecondsRemainingEstimate else { return String(localized: "Unlimited") }
         return RelayTime.label(remaining) + " left"
     }
 
@@ -458,9 +458,9 @@ private struct SessionHistoryDetail: View {
                         Controls.divider
                         detailRow("Path", session.path.rawValue)
                         Controls.divider
-                        detailRow("Started", session.startedAt.formatted(date: .abbreviated, time: .shortened))
+                        detailRow(String(localized: "Started"), session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         Controls.divider
-                        detailRow("Duration", durationLabel)
+                        detailRow(String(localized: "Duration"), durationLabel)
                         // **The second figure, for the sessions where there are two.** A session the
                         // app put back after a drop covers the minutes it was not connected for, and
                         // this is the one screen that can say so: the relay meter counts the other
@@ -474,12 +474,12 @@ private struct SessionHistoryDetail: View {
                         }
                         Controls.divider
                         detailRow(
-                            "Video received",
+                            String(localized: "Video received"),
                             ByteCountFormatter.string(fromByteCount: session.videoBytesReceived, countStyle: .file)
                         )
                     }
 
-                    Controls.card("Session log") {
+                    Controls.card(String(localized: "Session log")) {
                         if session.logs.isEmpty {
                             Text("No diagnostic events were recorded for this session.")
                                 .font(.subheadline)
@@ -538,11 +538,11 @@ private struct SessionHistoryDetail: View {
     /// thing anybody asks about a failure, and it costs one line to answer it in advance.
     private var logText: String {
         var lines = [
-            "Peering session · \(session.hostName)",
-            "App version: \(ProtocolInfo.version)",
+            String(localized: "Peering session · \(session.hostName)"),
+            String(localized: "App version: \(ProtocolInfo.version)"),
             "Path: \(session.path.rawValue)",
-            "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))",
-            "Duration: \(durationLabel)",
+            String(localized: "Started: \(session.startedAt.formatted(date: .abbreviated, time: .shortened))"),
+            String(localized: "Duration: \(durationLabel)"),
         ]
         // The same second row the card draws, and for the same reason: this is what somebody pastes
         // into a message about a session, and a paste that says three hours about a session the
@@ -568,6 +568,6 @@ private struct SessionHistoryDetail: View {
     /// taken twice.
     private func secondsLabel(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded())
-        return total < 60 ? "\(total) seconds" : "\(total / 60)m \(total % 60)s"
+        return total < 60 ? String(localized: "\(total) seconds") : "\(total / 60)m \(total % 60)s"
     }
 }

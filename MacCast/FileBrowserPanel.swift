@@ -105,7 +105,7 @@ struct FileBrowserPanel: View {
     /// SFTP server deletes them outright. Two machines, two very different weights on one word, and
     /// the weight is the point of asking. Declared here with the capabilities rather than with the
     /// state below, because it is part of what the caller is offering.
-    var deleteHint: String = "This cannot be undone."
+    var deleteHint: String = String(localized: "This cannot be undone.")
 
     /// Make something in the folder on screen.
     ///

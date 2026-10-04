@@ -29,7 +29,7 @@ extension SourcesPanel {
             if model.canReturnToMosaic {
                 mosaicAction(
                     icon: "rectangle.split.2x2",
-                    title: "Back to the mosaic",
+                    title: String(localized: "Back to the mosaic"),
                     detail: arrangementSize
                 ) {
                     onReturnToMosaic()
@@ -40,7 +40,7 @@ extension SourcesPanel {
 
             mosaicAction(
                 icon: "rectangle.on.rectangle",
-                title: "Add or remove windows",
+                title: String(localized: "Add or remove windows"),
                 detail: nil
             ) {
                 withAnimation(Motion.settle) {
@@ -100,7 +100,7 @@ extension SourcesPanel {
     /// plural, because a tile can be taken out of the arrangement from the picture and leave one.
     var arrangementSize: String {
         let count = model.mosaicChoicesList.count
-        return count == 1 ? "1 window" : "\(count) windows"
+        return count == 1 ? String(localized: "1 window") : String(localized: "\(count) windows")
     }
 
     /// Building one: what has been picked, how many may be, and the way to see it.
@@ -108,7 +108,7 @@ extension SourcesPanel {
     var mosaicPicker: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text(picked.isEmpty ? "Pick two or more" : "\(picked.count) picked")
+                Text(picked.isEmpty ? String(localized: "Pick two or more") : String(localized: "\(picked.count) picked"))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
@@ -299,16 +299,16 @@ extension SourcesPanel {
                 model.send(.performWindowAction(windowID: id, action: action))
             }
             return [
-                TileControl(colour: TileControl.red, symbol: "xmark", label: "Close window") { send(.close) },
-                TileControl(colour: TileControl.yellow, symbol: "minus", label: "Minimise window") { send(.minimize) },
-                TileControl(colour: TileControl.green, symbol: "arrow.up.left.and.arrow.down.right", label: "Zoom window") { send(.zoom) },
+                TileControl(colour: TileControl.red, symbol: "xmark", label: String(localized: "Close window")) { send(.close) },
+                TileControl(colour: TileControl.yellow, symbol: "minus", label: String(localized: "Minimise window")) { send(.minimize) },
+                TileControl(colour: TileControl.green, symbol: "arrow.up.left.and.arrow.down.right", label: String(localized: "Zoom window")) { send(.zoom) },
             ]
         case .display(let id) where descriptor.isManagedVirtualDisplay && includesVirtualDisplays:
             return [
-                TileControl(colour: TileControl.red, symbol: "xmark", label: "Remove \(descriptor.title)") {
+                TileControl(colour: TileControl.red, symbol: "xmark", label: String(localized: "Remove \(descriptor.title)")) {
                     removeVirtualDisplay(descriptor, id: id)
                 },
-                TileControl(colour: TileControl.yellow, symbol: "pencil", label: "Rename \(descriptor.title)") {
+                TileControl(colour: TileControl.yellow, symbol: "pencil", label: String(localized: "Rename \(descriptor.title)")) {
                     renameVirtualDisplayDraft = descriptor.title
                     renameVirtualDisplayTarget = descriptor
                 },

@@ -46,10 +46,10 @@ enum DeviceAuthentication {
     /// What it is called, so a picker can say "Face ID" rather than "biometrics".
     static var biometryName: String {
         switch biometryType {
-        case .faceID: return "Face ID"
-        case .touchID: return "Touch ID"
-        case .opticID: return "Optic ID"
-        default: return "Biometrics"
+        case .faceID: return String(localized: "Face ID")
+        case .touchID: return String(localized: "Touch ID")
+        case .opticID: return String(localized: "Optic ID")
+        default: return String(localized: "Biometrics")
         }
     }
 
@@ -188,7 +188,7 @@ struct SecuredRootView<Content: View>: View {
         isAuthenticating = true
         Task {
             let accepted = await DeviceAuthentication.authenticate(
-                reason: "Unlock Peering and access your paired Macs."
+                reason: String(localized: "Unlock Peering and access your paired Macs.")
             )
             isUnlocked = accepted
             isAuthenticating = false

@@ -119,7 +119,7 @@ extension MacSession {
             // ``ClientSessionRecord/usedDirectPath``.
             path: ConnectionPath.recordPath(of: connectionPath),
             hostID: hostID,
-            hostName: hostName ?? "A Mac",
+            hostName: hostName ?? String(localized: "A Mac"),
             segmentBytes: activeSessionBytes,
             // The two logs joined, and cut to the same ceiling a session keeps while it is up:
             // a record continued across several drops would otherwise grow by a segment's worth

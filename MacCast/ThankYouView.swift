@@ -44,7 +44,7 @@ struct ThankYouView: View {
                     .offset(y: contentVisible ? 0 : 8)
                     .animation(Motion.arrive.delay(0.2), value: contentVisible)
 
-                WelcomePrimaryButton(title: "Start using Peering") { onDismiss() }
+                WelcomePrimaryButton(title: String(localized: "Start using Peering")) { onDismiss() }
                     .padding(.top, 8)
                     .opacity(contentVisible ? 1 : 0)
                     .offset(y: contentVisible ? 0 : 8)

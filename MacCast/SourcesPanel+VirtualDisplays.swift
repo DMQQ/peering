@@ -88,7 +88,7 @@ extension SourcesPanel {
     /// See ``VirtualDisplaySizePreset``.
     func addVirtualDisplayTile(height: CGFloat = packedTileHeight) -> some View {
         let atLimit = managedVirtualDisplays.count >= VirtualDisplayManagementSupport.maximumManagedDisplayCount
-        return addTile(label: "Add a display", busy: isAddingVirtualDisplay, disabled: atLimit, height: height) {
+        return addTile(label: String(localized: "Add a display"), busy: isAddingVirtualDisplay, disabled: atLimit, height: height) {
             isAddingVirtualDisplay = true
             model.send(.addVirtualDisplay(
                 name: "",

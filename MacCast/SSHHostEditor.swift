@@ -154,7 +154,7 @@ struct SSHHostEditor: View {
                     // is a connection that fails with nothing on screen to explain it.
                     Controls.card(
                         "Server",
-                        footer: "Name is what the tab is called; leave it empty and the host is used. The port is 22 unless your server says otherwise."
+                        footer: String(localized: "Name is what the tab is called; leave it empty and the host is used. The port is 22 unless your server says otherwise.")
                     ) {
                         VStack(spacing: 10) {
                             field("Name", systemImage: "tag", text: $name, hint: "Optional")
@@ -168,7 +168,7 @@ struct SSHHostEditor: View {
                         }
                     }
 
-                    Controls.card("Lock", footer: lockFooter) {
+                    Controls.card(String(localized: "Lock"), footer: lockFooter) {
                         VStack(spacing: 10) {
                             Controls.picker("Ask for", systemImage: "lock", selection: $lock) {
                                 Text("Nothing").tag(SSHHostLock.off)
@@ -193,7 +193,7 @@ struct SSHHostEditor: View {
                         }
                     }
 
-                    Controls.card("Sign in with", footer: signInFooter) {
+                    Controls.card(String(localized: "Sign in with"), footer: signInFooter) {
                         VStack(spacing: 10) {
                             Controls.picker("Using", systemImage: "person.badge.key", selection: $method) {
                                 Text("Password").tag(Method.password)
@@ -331,13 +331,13 @@ struct SSHHostEditor: View {
     private var signInFooter: String {
         switch method {
         case .password:
-            return "A remembered password is kept in this iPhone's keychain, readable only after the first unlock and never copied to another device."
+            return String(localized: "A remembered password is kept in this iPhone's keychain, readable only after the first unlock and never copied to another device.")
         case .key where key == nil && keyIsNew:
             // The one state where the key has been taken away, and the screen has to say what that
             // means for the next connection rather than leaving a blank space where a key was.
-            return "The key is forgotten when you save. Nothing on the server changes, and the next connection will ask for a password."
+            return String(localized: "The key is forgotten when you save. Nothing on the server changes, and the next connection will ask for a password.")
         case .key:
-            return "A key replaces the password for this server, it does not sit beside one. The private half is kept in this iPhone's keychain; the public half is the line you put in `~/.ssh/authorized_keys` on the server."
+            return String(localized: "A key replaces the password for this server, it does not sit beside one. The private half is kept in this iPhone's keychain; the public half is the line you put in `~/.ssh/authorized_keys` on the server.")
         }
     }
 
@@ -346,11 +346,11 @@ struct SSHHostEditor: View {
     private var lockFooter: String {
         switch lock {
         case .off:
-            return "A tap on this server opens a shell straight away."
+            return String(localized: "A tap on this server opens a shell straight away.")
         case .passcode:
-            return "Six digits, kept in this iPhone's keychain. Setting the lock back to Nothing forgets it."
+            return String(localized: "Six digits, kept in this iPhone's keychain. Setting the lock back to Nothing forgets it.")
         case .biometrics:
-            return "\(DeviceAuthentication.biometryName) asks for you before the shell opens. The device passcode is accepted as a fallback, so re-enrolling your face cannot shut you out of your own server."
+            return String(localized: "\(DeviceAuthentication.biometryName) asks for you before the shell opens. The device passcode is accepted as a fallback, so re-enrolling your face cannot shut you out of your own server.")
         }
     }
 
@@ -483,10 +483,10 @@ private struct SSHPasscodePicker: View {
     }
 
     private var message: String {
-        if isMismatch { return "Those two did not match. Start again." }
+        if isMismatch { return String(localized: "Those two did not match. Start again.") }
         return chosen == nil
-            ? "You will be asked for this before this server opens."
-            : "Once more, to be sure of it."
+            ? String(localized: "You will be asked for this before this server opens.")
+            : String(localized: "Once more, to be sure of it.")
     }
 
     private func advance() {

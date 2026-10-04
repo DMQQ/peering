@@ -129,7 +129,7 @@ struct SSHTab: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    TabScreenHeader("Servers", detail: "Shells on machines you added by hand.")
+                    TabScreenHeader("Servers", detail: String(localized: "Shells on machines you added by hand."))
 
                     // A shell keeps running while the list is up — leaving the screen is not
                     // hanging up — so the list has to offer a way back to it. Without this the
@@ -294,7 +294,7 @@ struct SSHTab: View {
     /// kind of thing. It also survives truncation in a way a bare padlock does not: the padlock by
     /// the chevron had no room to say *which* lock, and this has room to say that there is one.
     private func serverDetail(_ host: SSHHost) -> String {
-        host.lock.isLocked ? "\(host.detail) · Locked" : host.detail
+        host.lock.isLocked ? String(localized: "\(host.detail) · Locked") : host.detail
     }
 
     /// The things that are not the tap.
@@ -426,7 +426,7 @@ struct SSHTab: View {
         // Asked at the row, not at the bottom of the screen — see ``TerminalEndPrompt``.
         .terminalEndPrompt(
             name: open.title,
-            detail: "The shell on the server stops, along with anything running in it. Your other shells are left alone.",
+            detail: String(localized: "The shell on the server stops, along with anything running in it. Your other shells are left alone."),
             isPresented: Binding(
                 get: { model.pendingClose?.id == open.id },
                 set: { if !$0 { model.pendingClose = nil } }
@@ -449,9 +449,9 @@ struct SSHTab: View {
     /// What the dot means, in words, on the line under the name.
     private func openStatus(_ open: SSHTerminal) -> String {
         switch open.phase {
-        case .connecting: return "\(open.host.detail) · Connecting"
-        case .live: return "\(open.host.detail) · Live"
-        case .ended(let reason): return reason ?? "\(open.host.detail) · Ended"
+        case .connecting: return String(localized: "\(open.host.detail) · Connecting")
+        case .live: return String(localized: "\(open.host.detail) · Live")
+        case .ended(let reason): return reason ?? String(localized: "\(open.host.detail) · Ended")
         }
     }
 

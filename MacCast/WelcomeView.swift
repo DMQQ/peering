@@ -162,21 +162,21 @@ private struct LandingView: View {
         // deciding, and only after deciding that nothing had been found.
         ClaimLine(
             icon: "macbook.and.iphone",
-            title: "Set it up once",
-            detail: "Install Peering on your Mac, compare a six-digit code, and you are connected."
+            title: String(localized: "Set it up once"),
+            detail: String(localized: "Install Peering on your Mac, compare a six-digit code, and you are connected.")
         ),
         ClaimLine(
             icon: "macwindow",
-            title: "Your whole Mac, not a compromise",
-            detail: "Open any display, app, window, or Space and switch between them without reconnecting."
+            title: String(localized: "Your whole Mac, not a compromise"),
+            detail: String(localized: "Open any display, app, window, or Space and switch between them without reconnecting.")
         ),
         // Kept here rather than moved with the others, because it is not a feature to be
         // demonstrated later: it is a fact about the whole design, and the one a person handing
         // their Mac to a stranger's phone is asking about before anything else on the page.
         ClaimLine(
             icon: "lock.shield",
-            title: "Private by design",
-            detail: "End-to-end encrypted, with no account and nothing for the relay to read."
+            title: String(localized: "Private by design"),
+            detail: String(localized: "End-to-end encrypted, with no account and nothing for the relay to read.")
         )
     ]
 
@@ -395,7 +395,7 @@ private struct LandingView: View {
     /// place that is *listing* apps, and this screen is not one of those.
     private var hero: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image("Pears")
+            Image(String(localized: "Pears"))
                 .resizable()
                 .scaledToFit()
                 .frame(width: markSize, height: markSize)
@@ -480,7 +480,7 @@ private struct LandingView: View {
     /// So it comes in with the last claim. The space it occupies is reserved either way: it lives
     /// in the bottom inset, so nothing above it moves as it fades up.
     private var actions: some View {
-        WelcomePrimaryButton(title: "See how it works", action: onStart)
+        WelcomePrimaryButton(title: String(localized: "See how it works"), action: onStart)
             .opacity(arrived ? 1 : 0)
             .offset(y: arrived ? 0 : 12)
             .animation(entrance(delay: 0.3), value: arrived)

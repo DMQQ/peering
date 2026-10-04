@@ -45,14 +45,14 @@ struct RemotePairingSheet: View {
                 //
                 // ``TabScreenHeader`` rather than a `Text` set to the same face, so that a change
                 // to how the app titles a screen reaches this one too.
-                TabScreenHeader("Pair from Another Network")
+                TabScreenHeader(String(localized: "Pair from Another Network"))
 
                 // The screen opens on the thing it is for, in the card the rest of the app puts
                 // its settings in — the SSHLockSheet's shape above the same backdrop. It used to
                 // open on a paragraph of instructions with the field below it, which put the
                 // directions before the subject and left the ID looking like the third item on a
                 // list of three equal ones.
-                Controls.card("Device ID", footer: footer) {
+                Controls.card(String(localized: "Device ID"), footer: footer) {
                     VStack(alignment: .leading, spacing: 12) {
                         TextField("Paste or type it here", text: $identifier, axis: .vertical)
                             .textInputAutocapitalization(.never)
@@ -94,7 +94,7 @@ struct RemotePairingSheet: View {
                 }
 
                 if let refusal, refusal.text == identifier {
-                    Text(refusal.error.errorDescription ?? "That is not a Mac's device ID.")
+                    Text(refusal.error.errorDescription ?? String(localized: "That is not a Mac's device ID."))
                         .font(.caption)
                         .foregroundStyle(ColorPalette.ink)
                         .fixedSize(horizontal: false, vertical: true)

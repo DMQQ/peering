@@ -39,7 +39,7 @@ extension SessionModel {
             (lastConnectedAt[$0] ?? .distantPast) > (lastConnectedAt[$1] ?? .distantPast)
         }
         SharedStore.knownMacs = ordered.map {
-            SharedStore.KnownMac(id: $0, name: displayName(forHostID: $0) ?? "A Mac")
+            SharedStore.KnownMac(id: $0, name: displayName(forHostID: $0) ?? String(localized: "A Mac"))
         }
         WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
     }

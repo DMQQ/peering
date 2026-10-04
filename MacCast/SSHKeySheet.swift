@@ -34,7 +34,7 @@ struct SSHKeyCard: View {
             }
 
             Controls.row("Name", systemImage: "textformat") {
-                Text(key.comment.isEmpty ? "None" : key.comment)
+                Text(key.comment.isEmpty ? String(localized: "None") : key.comment)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -137,7 +137,7 @@ struct SSHPublicKeySheet: View {
 
                     Controls.card(
                         "Public key",
-                        footer: "Append this line to `~/.ssh/authorized_keys` on the server. The private half stays in this iPhone's keychain and is never sent anywhere except as a signature."
+                        footer: String(localized: "Append this line to `~/.ssh/authorized_keys` on the server. The private half stays in this iPhone's keychain and is never sent anywhere except as a signature.")
                     ) {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(key.labelled(label).publicKey)
@@ -227,7 +227,7 @@ struct SSHKeyImportSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if let pending {
-                        Controls.card("Key", footer: "This is what will be saved. The name is only a label, and it is what the server's `authorized_keys` will show beside the key.") {
+                        Controls.card("Key", footer: String(localized: "This is what will be saved. The name is only a label, and it is what the server's `authorized_keys` will show beside the key.")) {
                             VStack(spacing: 10) {
                                 SSHKeyCard(key: pending, hasCopied: .constant(false))
                                 Controls.divider
@@ -286,7 +286,7 @@ struct SSHKeyImportSheet: View {
                         }
 
                         if source != .generate {
-                            Controls.card("Passphrase", footer: "Only if the key has one. It is kept in this iPhone's keychain beside the key, because a phone has no ssh-agent and a key that has to be unlocked by hand at every connection cannot be used at all.") {
+                            Controls.card(String(localized: "Passphrase"), footer: String(localized: "Only if the key has one. It is kept in this iPhone's keychain beside the key, because a phone has no ssh-agent and a key that has to be unlocked by hand at every connection cannot be used at all.")) {
                                 VStack(spacing: 10) {
                                     Controls.toggle("It has a passphrase", systemImage: "lock", isOn: $usesPassphrase)
                                     if usesPassphrase {
@@ -297,7 +297,7 @@ struct SSHKeyImportSheet: View {
                             }
                         }
 
-                        Controls.card("Name", footer: "Only a label. It is what the server shows beside the key, and it is what tells your key apart from the one your laptop installed.") {
+                        Controls.card("Name", footer: String(localized: "Only a label. It is what the server shows beside the key, and it is what tells your key apart from the one your laptop installed.")) {
                             field("Name", systemImage: "textformat", text: $label)
                         }
 
@@ -347,11 +347,11 @@ struct SSHKeyImportSheet: View {
     private var sourceFooter: String {
         switch source {
         case .paste:
-            return "The private half, not the public one. If what you have starts with `ssh-ed25519`, that is the half the server wants."
+            return String(localized: "The private half, not the public one. If what you have starts with `ssh-ed25519`, that is the half the server wants.")
         case .file:
-            return "`.ssh/id_ed25519` on the machine you made the key on. AirDrop it across, or move it with the file browser."
+            return String(localized: "`.ssh/id_ed25519` on the machine you made the key on. AirDrop it across, or move it with the file browser.")
         case .generate:
-            return "For a server you have not set up a key for yet."
+            return String(localized: "For a server you have not set up a key for yet.")
         }
     }
 
@@ -412,7 +412,7 @@ struct SSHKeyImportSheet: View {
         } catch let error as SSHKeyError {
             failure = error.message
         } catch {
-            failure = "That file could not be read: \(error.localizedDescription)"
+            failure = String(localized: "That file could not be read: \(error.localizedDescription)")
         }
     }
 

@@ -89,7 +89,7 @@ struct FileBrowseBar: View {
             // screen is showing folders — and `esc` and `tab` beside it, which are the two keys a
             // shell is driven with before any of the others: one to back out of what is running,
             // one to finish a name instead of typing it.
-            TerminalKeyChip(title: "⌃C", label: "Interrupt", height: 30, action: onInterrupt)
+            TerminalKeyChip(title: "⌃C", label: String(localized: "Interrupt"), height: 30, action: onInterrupt)
             TerminalKeyChip(title: "esc", label: "Escape", height: 30, action: onEscape)
             TerminalKeyChip(title: "tab", label: "Tab", height: 30, action: onTab)
 
@@ -97,11 +97,11 @@ struct FileBrowseBar: View {
 
             // Reload, which until now lived only inside the failure state — so the one way to ask
             // a folder for a second look was to have it fail to answer the first time.
-            icon("arrow.clockwise", label: "Reload this folder", action: onReload)
+            icon("arrow.clockwise", label: String(localized: "Reload this folder"), action: onReload)
 
             icon(
                 showsHidden ? "eye" : "eye.slash",
-                label: showsHidden ? "Hide hidden files" : "Show hidden files",
+                label: showsHidden ? String(localized: "Hide hidden files") : String(localized: "Show hidden files"),
                 isOn: showsHidden,
                 action: onToggleHidden
             )

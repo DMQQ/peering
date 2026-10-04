@@ -74,7 +74,7 @@ struct OnboardingView: View {
     /// hour" typed onto a screen beside a server configured for one hour is the drift that
     /// turns a promise into a support email.
     static var freeLine: String {
-        "\(RelayPlan.free.allowanceSpelling.capitalized) of relay a day, on one Mac"
+        String(localized: "\(RelayPlan.free.allowanceSpelling.capitalized) of relay a day, on one Mac")
     }
 
     /// Six lines of subheadline on a 402-point-wide screen: the *floor* under a page's body, and
@@ -90,7 +90,7 @@ struct OnboardingView: View {
     static let pages: [Page] = [
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppMac"),
-            title: "Install it once",
+            title: String(localized: "Install it once"),
             // **First, because everything after it is impossible without it.** The page that
             // follows says to pick your Mac out of Nearby, which presumes a Mac that is running
             // this. The tour used to open by assuming that, and a first launch with only one of
@@ -112,7 +112,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .feature(icon: "wifi", screenshot: "AppConnect"),
-            title: "Pair once. Stay connected.",
+            title: String(localized: "Pair once. Stay connected."),
             body: """
                 Choose your Mac, compare the six-digit code, and Peering remembers it. Next time, \
                 reconnect nearby or from another network without pairing again.
@@ -120,7 +120,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .feature(icon: "macwindow", screenshot: "AppSources"),
-            title: "See exactly what you need",
+            title: String(localized: "See exactly what you need"),
             body: """
                 Bring over a whole display, one app, a single window, or any of your Spaces. Jump \
                 between them whenever you like without ending the session.
@@ -128,7 +128,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .feature(icon: "hand.point.up.left", screenshot: "AppControls"),
-            title: "Your Mac, under your fingers",
+            title: String(localized: "Your Mac, under your fingers"),
             body: """
                 Tap, type, scroll, zoom, use shortcuts, or steer the pointer with the joystick. \
                 Switch to Observe whenever you only want to look.
@@ -136,7 +136,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .feature(icon: "arrow.triangle.2.circlepath", screenshot: "AppPictureInPicture"),
-            title: "Your session follows you",
+            title: String(localized: "Your session follows you"),
             body: """
                 Leave the app or lock your phone without losing the connection. Picture in Picture \
                 keeps your Mac in view, while Live Activities keep the session close at hand.
@@ -144,7 +144,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .feature(icon: "square.grid.2x2", screenshot: "AppMosaic"),
-            title: "See everything at once",
+            title: String(localized: "See everything at once"),
             body: """
                 Lay out windows, apps and displays side by side and watch them all live. Tap any \
                 tile to take control, and come back to the arrangement when you are done.
@@ -162,7 +162,7 @@ struct OnboardingView: View {
         // whole of what the reader has to see.
         Page(
             content: .notification,
-            title: "Told when a shell is waiting",
+            title: String(localized: "Told when a shell is waiting"),
             body: """
                 A build that finishes, a prompt for a password, a command that wants an answer: \
                 the Mac tells you, on the Lock Screen and with the app closed.
@@ -170,7 +170,7 @@ struct OnboardingView: View {
         ),
         Page(
             content: .plans,
-            title: "Start free. Go farther when you need.",
+            title: String(localized: "Start free. Go farther when you need."),
             // One sentence, and the rows do the rest.
             //
             // **It used to be two paragraphs explaining the ladder**, over three rows that also
@@ -670,7 +670,7 @@ struct OnboardingView: View {
     /// tier is, and this is the moment the money is decided, so it is the last place the number
     /// can be read before it is spent.
     var primaryTitle: String {
-        guard showsPlans else { return isLast ? "Get started" : "Next" }
+        guard showsPlans else { return isLast ? String(localized: "Get started") : "Next" }
 
         // Free chosen, or a rung the store has not priced yet. The button says what it does rather
         // than naming an amount, because in both cases it is the way into the app and not a
@@ -678,10 +678,10 @@ struct OnboardingView: View {
         // label itself with a price and then not charge it.
         guard let chosen,
               let price = store.compactPriceLabel(for: chosen, period: period)
-        else { return "Start using Peering" }
+        else { return String(localized: "Start using Peering") }
 
-        if store.isPurchasing { return "Contacting the App Store…" }
-        return "Continue with \(chosen.name) · \(price)"
+        if store.isPurchasing { return String(localized: "Contacting the App Store…") }
+        return String(localized: "Continue with \(chosen.name) · \(price)")
     }
 
     func primaryAction() {

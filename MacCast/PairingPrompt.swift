@@ -147,7 +147,7 @@ struct PairingPrompt: View {
                     // never report anything from again. Refusing here leaves it armed, and the
                     // sentence is what stops a refusal from looking like a broken camera.
                     guard let scannedCode = PairingPayload.code(from: payload) else {
-                        scanNote = "That is not a pairing code. Point the camera at the code shown on your Mac."
+                        scanNote = String(localized: "That is not a pairing code. Point the camera at the code shown on your Mac.")
                         return false
                     }
                     scanNote = nil

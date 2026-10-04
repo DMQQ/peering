@@ -68,7 +68,7 @@ struct SSHForwardEditor: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Controls.card(
-                        "This iPhone",
+                        String(localized: "This iPhone"),
                         footer: "The port another app on this phone will connect to. `localhost:\(localPort.isEmpty ? "8080" : localPort)` is what you point it at."
                     ) {
                         VStack(spacing: 10) {
@@ -80,8 +80,8 @@ struct SSHForwardEditor: View {
                     }
 
                     Controls.card(
-                        "The server's side",
-                        footer: "Where the server connects to, seen from the server. This can be `127.0.0.1` for a service that only listens on the server itself, or a name that resolves only from there."
+                        String(localized: "The server's side"),
+                        footer: String(localized: "Where the server connects to, seen from the server. This can be `127.0.0.1` for a service that only listens on the server itself, or a name that resolves only from there.")
                     ) {
                         VStack(spacing: 10) {
                             field("Host", systemImage: "network", text: $remoteHost, hint: "db.internal")
@@ -91,7 +91,7 @@ struct SSHForwardEditor: View {
                         }
                     }
 
-                    Controls.card("When a shell opens", footer: "A forward runs for as long as the shell on this server does. There is no way to keep one running in the background on an iPhone, so this is a setting about a shell rather than a service.") {
+                    Controls.card(String(localized: "When a shell opens"), footer: String(localized: "A forward runs for as long as the shell on this server does. There is no way to keep one running in the background on an iPhone, so this is a setting about a shell rather than a service.")) {
                         Controls.toggle("Start it with the shell", systemImage: "play", isOn: $isEnabled)
                     }
 
@@ -174,7 +174,7 @@ struct SSHForwardsCard: View {
     @State private var editing: SSHPortForward?
 
     var body: some View {
-        Controls.card("Port forwards", footer: footer) {
+        Controls.card(String(localized: "Port forwards"), footer: footer) {
             VStack(spacing: 10) {
                 if forwards.isEmpty {
                     Text("None. This server opens no ports on this iPhone.")
@@ -219,8 +219,8 @@ struct SSHForwardsCard: View {
 
     private var footer: String {
         forwards.contains { $0.isEnabled }
-            ? "These open when a shell on this server does, and close when it ends. Each one listens on this iPhone only, so another app on the phone can reach a service the server can see."
-            : "A list of tunnels to set up. Each one listens on this iPhone only, so another app on the phone can reach a service the server can see."
+            ? String(localized: "These open when a shell on this server does, and close when it ends. Each one listens on this iPhone only, so another app on the phone can reach a service the server can see.")
+            : String(localized: "A list of tunnels to set up. Each one listens on this iPhone only, so another app on the phone can reach a service the server can see.")
     }
 
     private func row(_ forward: SSHPortForward) -> some View {
@@ -292,7 +292,7 @@ struct SSHForwardsSheet: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
-                        Controls.card("Forwards", footer: "A forward runs while this shell does. Closing the shell, or leaving the app for long enough, ends it, and nothing here can run in the background.") {
+                        Controls.card(String(localized: "Forwards"), footer: String(localized: "A forward runs while this shell does. Closing the shell, or leaving the app for long enough, ends it, and nothing here can run in the background.")) {
                             VStack(spacing: 10) {
                                 ForEach(host.forwards) { forward in
                                     row(forward)

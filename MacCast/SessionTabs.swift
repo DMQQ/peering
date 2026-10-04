@@ -56,7 +56,7 @@ struct SessionTabs: View {
         // be up at once.
         .terminalEndPrompt(
             name: pendingEnd.map(displayName) ?? "",
-            detail: "The connection to it closes. The Mac itself is left alone, and the shells running on it keep running.",
+            detail: String(localized: "The connection to it closes. The Mac itself is left alone, and the shells running on it keep running."),
             isPresented: Binding(
                 get: { pendingEnd != nil },
                 set: { if !$0 { pendingEnd = nil } }
@@ -77,7 +77,7 @@ struct SessionTabs: View {
             isSelected: isSelected,
             onSelect: { model.activateSession(session.id) },
             onClose: { pendingEnd = session },
-            closeLabel: "End \(name)"
+            closeLabel: String(localized: "End \(name)")
         ) {
             // The dot says what a name cannot: whether this Mac is up right now. Drawn the way
             // the picker draws it — filled for a Mac that is there, hollow for one that is not
@@ -143,7 +143,7 @@ struct SessionTabs: View {
     private func displayName(_ session: MacSession) -> String {
         session.hostID.flatMap { model.displayName(forHostID: $0) }
             ?? session.hostName
-            ?? "A Mac"
+            ?? String(localized: "A Mac")
     }
 
     /// What colour a Mac's dot is, which is three answers rather than two.

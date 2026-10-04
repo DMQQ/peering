@@ -340,7 +340,7 @@ struct FilePreviewPanel: View {
     var detail: String {
         let read = preview.data.count.formatted(.byteCount(style: .file))
         guard preview.isTruncated else { return read }
-        return "Showing the first \(read) of \(preview.totalBytes.formatted(.byteCount(style: .file)))"
+        return String(localized: "Showing the first \(read) of \(preview.totalBytes.formatted(.byteCount(style: .file)))")
     }
 
     var hairline: some View {

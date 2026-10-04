@@ -173,7 +173,7 @@ final class SessionNotifier {
     func terminalNeedsAttention(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Terminal needs you"
+        content.title = String(localized: "Terminal needs you")
         content.body = macName.map { "\($0): \(message)" } ?? message
         content.sound = .default
         deliver(content, identifier: "peering-terminal-\(sessionID.uuidString)")
@@ -196,9 +196,9 @@ final class SessionNotifier {
         sessionID: UUID,
         macName: String?
     ) {
-        let noun = kind == .password ? "a password" : "confirmation"
+        let noun = kind == .password ? String(localized: "a password") : "confirmation"
         terminalNeedsAttention(
-            "Terminal \u{201C}\(name)\u{201D} is waiting for \(noun).",
+            String(localized: "Terminal \u{201C}\(name)\u{201D} is waiting for \(noun)."),
             sessionID: sessionID,
             macName: macName
         )
@@ -216,7 +216,7 @@ final class SessionNotifier {
     func terminalFinishedWork(_ message: String, sessionID: UUID, macName: String? = nil) {
         guard isOnPlan, UIApplication.shared.applicationState != .active else { return }
         let content = UNMutableNotificationContent()
-        content.title = "Terminal finished"
+        content.title = String(localized: "Terminal finished")
         content.body = macName.map { "\($0): \(message)" } ?? message
         content.sound = .default
         deliver(content, identifier: "peering-terminal-finished-\(sessionID.uuidString)")

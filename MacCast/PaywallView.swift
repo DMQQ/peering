@@ -86,15 +86,15 @@ struct PaywallView: View {
 
         var title: String {
             switch self {
-            case .quotaExhausted: return "Keep going from anywhere"
-            case .upgrade: return "Connect from anywhere"
-            case .firstSession: return "Take it with you"
-            case .runningLow: return "Running low on relay time"
+            case .quotaExhausted: return String(localized: "Keep going from anywhere")
+            case .upgrade: return String(localized: "Connect from anywhere")
+            case .firstSession: return String(localized: "Take it with you")
+            case .runningLow: return String(localized: "Running low on relay time")
             // Names the thing that was pressed, because that is the whole difference between this
             // door and the others: the user did not tap a button marked Subscribe, they tapped the
             // feature. "Unlock" rather than "X is part of Relay", which reads as a plural subject
             // with a singular verb on the one capability that is three features in a row.
-            case .feature(let capability): return "Unlock \(capability.name)"
+            case .feature(let capability): return String(localized: "Unlock \(capability.name)")
             }
         }
 
@@ -113,53 +113,53 @@ struct PaywallView: View {
                     // Unreachable as the app is wired: a gate asks ``PlanAccess``, and a plan that
                     // includes a capability never draws the lock that opens this door. True rather
                     // than blank, like the two other unreachable branches below.
-                    return "\(Self.whatItIs(capability)) Your plan already includes it."
+                    return String(localized: "\(Self.whatItIs(capability)) Your plan already includes it.")
                 }
-                let current = plan == .free ? "the free plan" : plan.name
-                return "\(Self.whatItIs(capability)) It is not in \(current). \(unlocking.name) adds it."
+                let current = plan == .free ? String(localized: "the free plan") : plan.name
+                return String(localized: "\(Self.whatItIs(capability)) It is not in \(current). \(unlocking.name) adds it.")
             case .quotaExhausted:
                 switch plan {
                 case .free:
-                    return "Your free relay time for today is used up. Upgrade to connect from anywhere without limits."
+                    return String(localized: "Your free relay time for today is used up. Upgrade to connect from anywhere without limits.")
                 case .relay, .plus, .pro:
                     // Unreachable as the app is wired: paid plans are unlimited and never metered,
                     // so the relay cannot refuse one for quota. True rather than blank.
-                    return "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening."
+                    return String(localized: "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening.")
                 }
             case .upgrade:
                 // The ladder in one sentence, with the two numbers read off the same place the
                 // meter reads them from. The cards below say the rest.
                 // The two rungs are named rather than pointed at. "The plans above it" reads as a
                 // direction, and the cards it means are *below* this sentence on the screen.
-                return "Reaching a Mac on another network runs on the relay, which is metered. Free includes \(RelayPlan.free.allowanceSpelling) a day. Any paid plan removes the limit."
+                return String(localized: "Reaching a Mac on another network runs on the relay, which is metered. Free includes \(RelayPlan.free.allowanceSpelling) a day. Any paid plan removes the limit.")
             case .firstSession:
                 // Opened by the app, so it opens by naming the moment. Without that first clause
                 // this is a purchase screen that has appeared out of nowhere a second after the
                 // session ended, which reads as the app having pounced rather than followed up.
-                let moment = "That was your first session. Relay is the part of Peering that reaches your Mac when this device is not on the same network."
+                let moment = String(localized: "That was your first session. Relay is the part of Peering that reaches your Mac when this device is not on the same network.")
                 switch plan {
                 case .free:
-                    return "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Any paid plan removes the limit."
+                    return String(localized: "\(moment) Free includes \(RelayPlan.free.allowanceSpelling) of relay a day. Any paid plan removes the limit.")
                 case .relay:
                     // Somebody who subscribed on the last page of the introduction, before they had
                     // ever connected. Selling them the relay again would be the app having forgotten
                     // they paid, so this says what they already have.
-                    return "\(moment) You are already subscribed, so there was no meter on this one."
+                    return String(localized: "\(moment) You are already subscribed, so there was no meter on this one.")
                 case .plus, .pro:
                     // Unreachable for the same reason as the case below it, and said truly rather
                     // than left blank.
-                    return "\(moment) Your plan already includes unlimited relay, so there is nothing here to buy."
+                    return String(localized: "\(moment) Your plan already includes unlimited relay, so there is nothing here to buy.")
                 }
             case .runningLow(let remaining):
                 let left = RelayTime.label(remaining)
                 switch plan {
                 case .free:
-                    return "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Any paid plan removes the limit."
+                    return String(localized: "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Any paid plan removes the limit.")
                 case .relay, .plus, .pro:
                     // Unreachable as the app is wired: paid plans are unlimited, so
                     // ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for them and nothing
                     // can construct this reason. True rather than blank.
-                    return "\(left) left of today's relay time."
+                    return String(localized: "\(left) left of today's relay time.")
                 }
             }
         }
@@ -179,36 +179,36 @@ struct PaywallView: View {
         private static func whatItIs(_ capability: PlanCapability) -> String {
             switch capability {
             case .extraMacs:
-                return "Free pairs with one Mac. This is every Mac after it."
+                return String(localized: "Free pairs with one Mac. This is every Mac after it.")
             case .concurrentSessions:
-                return "One Mac at a time is free. This keeps them all open, so switching is a tap rather than a reconnection."
+                return String(localized: "One Mac at a time is free. This keeps them all open, so switching is a tap rather than a reconnection.")
             case .macSound:
-                return "Whatever the Mac is playing comes out of this device, from the music you left running to the alert it makes in answer to a key you sent it."
+                return String(localized: "Whatever the Mac is playing comes out of this device, from the music you left running to the alert it makes in answer to a key you sent it.")
             case .pictureInPicture:
-                return "The Mac's screen floats over your other apps, and iOS floats it by itself when you leave."
+                return String(localized: "The Mac's screen floats over your other apps, and iOS floats it by itself when you leave.")
             case .clipboardHistory:
-                return "The last twelve things that crossed between the two, still there when you think of them. Copying and pasting are on every plan."
+                return String(localized: "The last twelve things that crossed between the two, still there when you think of them. Copying and pasting are on every plan.")
             case .mosaic:
                 // The Mac's own cost is named, because it is the honest reason this is on the
                 // top rung and it is a thing the reader can feel: six windows in one picture is
                 // six captures happening at once on the machine they are asking.
-                return "Pick several of the Mac's windows and see them together, arranged the way you want on this screen. Every tile is captured separately on the Mac, so the picture stays live rather than being a screenshot, and tapping one takes you into it."
+                return String(localized: "Pick several of the Mac's windows and see them together, arranged the way you want on this screen. Every tile is captured separately on the Mac, so the picture stays live rather than being a screenshot, and tapping one takes you into it.")
             case .virtualDisplays:
-                return "A screen the Mac does not physically have, made from this phone and looked at from it: somewhere else for its windows to go, named and taken away from the same list."
+                return String(localized: "A screen the Mac does not physically have, made from this phone and looked at from it: somewhere else for its windows to go, named and taken away from the same list.")
             case .terminalAlerts:
-                return "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan."
+                return String(localized: "A banner when a shell on the Mac or on one of your servers stops and waits for you, on this device while it is open and through the Mac when it is not. The terminal and its own attention mark are on every plan.")
             case .fileTransfer:
-                return "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB."
+                return String(localized: "Takes what you are looking at off a machine and hands it to Files or the share sheet, and puts a file from the phone into the folder you are looking at, up to 2 GB.")
             case .shellTabs:
-                return "One shell at a time is free, on your Mac and on any server. This is naming tabs and keeping several open."
+                return String(localized: "One shell at a time is free, on your Mac and on any server. This is naming tabs and keeping several open.")
             case .macros:
-                return "Save a sequence and fire it with a tap. The commands you type most wait as chips above the terminal keyboard, in every shell."
+                return String(localized: "Save a sequence and fire it with a tap. The commands you type most wait as chips above the terminal keyboard, in every shell.")
             case .highBitrate:
                 // The direct path is named, because it is the half of the answer nobody expects
                 // and the half that keeps this from reading as a cap on the app. It also happens
                 // to be true: a session going straight between the two devices is not capped on
                 // any plan, so what is being sold is the picture on the way round.
-                return "A sharper picture when the session is relayed. On your own network it is already uncapped on every plan."
+                return String(localized: "A sharper picture when the session is relayed. On your own network it is already uncapped on every plan.")
             }
         }
     }
@@ -429,7 +429,7 @@ struct PaywallView: View {
                         // explains. Beside the monthly price it would be the yearly arguing for
                         // itself, which is the switch's job rather than the card's.
                         note: period == .yearly
-                            ? store.effectiveMonthlyPrice(for: tier).map { "\($0) a month" }
+                            ? store.effectiveMonthlyPrice(for: tier).map { String(localized: "\($0) a month") }
                             : nil,
                         selected: chosen == tier,
                         select: { chosen = tier }
@@ -472,8 +472,8 @@ struct PaywallView: View {
             VStack(alignment: .leading, spacing: 10) {
                 WelcomePrimaryButton(
                     title: store.isPurchasing
-                        ? "Contacting the App Store…"
-                        : "Continue with \(chosen.name) · \(price)"
+                        ? String(localized: "Contacting the App Store…")
+                        : String(localized: "Continue with \(chosen.name) · \(price)")
                 ) {
                     Task {
                         // Captured before the await, because `chosen` is a live selection: somebody
@@ -604,7 +604,7 @@ struct PaywallView: View {
                             // Nothing found and nothing thrown, which used to be silence: the
                             // button was tapped, something may or may not have happened, and the
                             // screen said nothing either way.
-                            restoreNote = "No purchases to restore on this Apple Account."
+                            restoreNote = String(localized: "No purchases to restore on this Apple Account.")
                         }
                     }
                 } label: {
@@ -753,7 +753,7 @@ struct AllowanceSpentView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                WelcomePrimaryButton(title: "See the plans") { showsPlans = true }
+                WelcomePrimaryButton(title: String(localized: "See the plans")) { showsPlans = true }
                     .padding(.top, 4)
 
                 Button("Not now") { onDismiss() }
@@ -780,11 +780,11 @@ struct AllowanceSpentView: View {
     /// was is the difference between a limit and a bug.
     private var title: String {
         switch plan {
-        case .free: return "Your free relay time is used up"
+        case .free: return String(localized: "Your free relay time is used up")
         case .relay, .plus, .pro:
             // Unreachable as the app is wired: paid plans are unlimited and never cut for quota.
             // True rather than blank, like the paywall's own unreachable branches.
-            return "The relay stopped the session"
+            return String(localized: "The relay stopped the session")
         }
     }
 
@@ -795,12 +795,12 @@ struct AllowanceSpentView: View {
     /// connection over their own network is unlimited and untouched by any of this, which it is on
     /// every plan including the free one.
     private var detail: String {
-        let stillFree = "Your own network is unlimited on every plan, and still works."
+        let stillFree = String(localized: "Your own network is unlimited on every plan, and still works.")
         switch plan {
         case .free:
-            return "That session went over the relay, and free's \(plan.allowanceSpelling) a day are spent. Another relayed session is refused until the allowance comes back. \(stillFree)"
+            return String(localized: "That session went over the relay, and free's \(plan.allowanceSpelling) a day are spent. Another relayed session is refused until the allowance comes back. \(stillFree)")
         case .relay, .plus, .pro:
-            return "Your plan has no daily limit, so the relay counting this one means it read the device as free. Try again, and tell us if it keeps happening. \(stillFree)"
+            return String(localized: "Your plan has no daily limit, so the relay counting this one means it read the device as free. Try again, and tell us if it keeps happening. \(stillFree)")
         }
     }
 }
@@ -983,7 +983,7 @@ struct BillingPeriodPicker: View {
 
     private func accessibilityValue(for option: BillingPeriod) -> String {
         guard option == .yearly, let saving else { return "" }
-        return "Save \(saving) percent"
+        return String(localized: "Save \(saving) percent")
     }
 }
 

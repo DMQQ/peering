@@ -845,9 +845,9 @@ final class SessionPiP: NSObject {
     private static var appState: String {
         switch UIApplication.shared.applicationState {
         case .active: return "foreground"
-        case .inactive: return "on its way out"
+        case .inactive: return String(localized: "on its way out")
         case .background: return "background"
-        @unknown default: return "in an unknown state"
+        @unknown default: return String(localized: "in an unknown state")
         }
     }
 
@@ -913,7 +913,7 @@ final class SessionPiP: NSObject {
     /// are the two halves this has to be told apart from, and both are silence on screen.
     func backgrounding(sessionIsUp: Bool) {
         guard sessionIsUp else {
-            lastAttempt = "app left screen with no session up"
+            lastAttempt = String(localized: "app left screen with no session up")
             return
         }
         start()
@@ -927,14 +927,14 @@ final class SessionPiP: NSObject {
     /// anyone which one was not.
     func start() {
         guard PictureInPictureAccess.canStart(isOnPlan: isOnPlan) else {
-            lastRefusal = "Picture in Picture is part of \(PlanCapability.pictureInPicture.minimumPlan.name)."
-            lastAttempt = "not included in plan"
+            lastRefusal = String(localized: "Picture in Picture is part of \(PlanCapability.pictureInPicture.minimumPlan.name).")
+            lastAttempt = String(localized: "not included in plan")
             videoLog.notice("Picture in Picture refused because the current plan does not include it")
             return
         }
         guard let controller else {
-            lastRefusal = "No picture yet. PiP mirrors the video layer, so a session has to be running."
-            lastAttempt = "no layer"
+            lastRefusal = String(localized: "No picture yet. PiP mirrors the video layer, so a session has to be running.")
+            lastAttempt = String(localized: "no layer")
             videoLog.error("Picture in Picture has no layer to mirror yet")
             return
         }
@@ -944,7 +944,7 @@ final class SessionPiP: NSObject {
         // window that is up and working as one that is not there.
         if controller.isPictureInPictureActive {
             lastRefusal = nil
-            lastAttempt = "already active"
+            lastAttempt = String(localized: "already active")
             return
         }
         // Checked before `isPictureInPicturePossible`, not instead of it, because this is the
@@ -957,7 +957,7 @@ final class SessionPiP: NSObject {
                 The video is not on screen any more. PiP lifts the layer out of the view it is \
                 drawn in, so it has to be in one when it is asked. Asked while \(Self.appState).
                 """
-            lastAttempt = "no screen to lift the layer out of"
+            lastAttempt = String(localized: "no screen to lift the layer out of")
             videoLog.error("Picture in Picture has no window: \(self.lastRefusal ?? "", privacy: .public)")
             return
         }
@@ -972,7 +972,7 @@ final class SessionPiP: NSObject {
                 audio category \(audio.category.rawValue), running \(!audio.isOtherAudioPlaying), \
                 asked while \(Self.appState)
                 """
-            lastAttempt = "not possible"
+            lastAttempt = String(localized: "not possible")
             videoLog.error("Picture in Picture is not possible: \(self.lastRefusal ?? "", privacy: .public)")
             return
         }
@@ -980,7 +980,7 @@ final class SessionPiP: NSObject {
         // Where it was asked is part of the record, not decoration. A start that comes back
         // refused names nothing, and the only difference between a start that should have
         // worked and one that never could is where the app was when it was made.
-        lastAttempt = "asked while \(Self.appState)"
+        lastAttempt = String(localized: "asked while \(Self.appState)")
         videoLog.notice("Asking for Picture in Picture while \(Self.appState, privacy: .public)")
         controller.startPictureInPicture()
     }

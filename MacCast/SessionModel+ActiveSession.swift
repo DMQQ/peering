@@ -139,7 +139,7 @@ extension SessionModel {
     }
 
     var videoStatus: String {
-        get { activeSession?.videoStatus ?? "No video stream" }
+        get { activeSession?.videoStatus ?? String(localized: "No video stream") }
         set { activeSession?.videoStatus = newValue }
     }
     /// The frames per second arriving, as measured by the last two polls.

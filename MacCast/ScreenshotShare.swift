@@ -69,7 +69,7 @@ enum ScreenshotShare {
         guard let url = write(image, hostName: hostName) else { return }
 
         let controller = UIActivityViewController(
-            activityItems: [Item(url: url, subject: "Screenshot from \(name(hostName))")],
+            activityItems: [Item(url: url, subject: String(localized: "Screenshot from \(name(hostName))"))],
             applicationActivities: nil
         )
         var presenter = window.rootViewController
@@ -101,14 +101,14 @@ enum ScreenshotShare {
     private static func write(_ image: UIImage, hostName: String?) -> URL? {
         guard let data = image.pngData() else { return nil }
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Screenshots", isDirectory: true)
+            .appendingPathComponent(String(localized: "Screenshots"), isDirectory: true)
         try? FileManager.default.removeItem(at: directory)
         guard (try? FileManager.default.createDirectory(
             at: directory,
             withIntermediateDirectories: true
         )) != nil else { return nil }
 
-        let url = directory.appendingPathComponent("\(name(hostName)) \(stamp()).png")
+        let url = directory.appendingPathComponent(String(localized: "\(name(hostName)) \(stamp()).png"))
         guard (try? data.write(to: url)) != nil else { return nil }
         return url
     }

@@ -13,30 +13,30 @@ enum SettingsSearch {
 
         var keywords: String {
             switch self {
-            case .device: "this device name phone"
-            case .controls: "session controls interaction observe control picture fit fill keyboard unicode keycode open keyboard text fields close panels after selecting"
-            case .quality: "stream quality bitrate resolution video auto"
-            case .remoteAccess: "remote access relay privacy mode internet away upgrade pro"
-            case .security: "security face id touch id biometric unlock lock passcode"
-            case .pip: "picture in picture pip float automatically floating window"
-            case .widget: "home screen widget"
-            case .liveActivity: "live activity lock screen dynamic island"
-            case .notifications: "notifications terminal needs you alerts push reached"
-            case .trustedMacs: "trusted macs paired forget remove"
-            case .identity: "device identity id private key paired macs"
-            case .developer: "developer plan override debug"
-            case .more: "more peering for mac download introduction tips report issue copy diagnostics support help"
-            case .legal: "legal privacy policy terms"
-            case .sessionInfo: "session mac state path direct video connection latency"
-            case .activity: "recent activity log history"
-            case .stream: "stream display app window source sound audio mute quality bitrate automatic manual"
-            case .sessionPicture: "picture in picture pip float automatically"
-            case .sessionPanels: "panels close after selecting"
-            case .privacy: "privacy relay allow darken displays brightness privacy mode"
-            case .sessionKeyboard: "keyboard unicode keycode open for text fields auto"
-            case .macros: "macros shortcuts edit"
-            case .pairedMacs: "paired macs trusted forget"
-            case .thisDevice: "this device name phone"
+            case .device: String(localized: "this device name phone")
+            case .controls: String(localized: "session controls interaction observe control picture fit fill keyboard unicode keycode open keyboard text fields close panels after selecting")
+            case .quality: String(localized: "stream quality bitrate resolution video auto")
+            case .remoteAccess: String(localized: "remote access relay privacy mode internet away upgrade pro")
+            case .security: String(localized: "security face id touch id biometric unlock lock passcode")
+            case .pip: String(localized: "picture in picture pip float automatically floating window")
+            case .widget: String(localized: "home screen widget")
+            case .liveActivity: String(localized: "live activity lock screen dynamic island")
+            case .notifications: String(localized: "notifications terminal needs you alerts push reached")
+            case .trustedMacs: String(localized: "trusted macs paired forget remove")
+            case .identity: String(localized: "device identity id private key paired macs")
+            case .developer: String(localized: "developer plan override debug")
+            case .more: String(localized: "more peering for mac download introduction tips report issue copy diagnostics support help")
+            case .legal: String(localized: "legal privacy policy terms")
+            case .sessionInfo: String(localized: "session mac state path direct video connection latency")
+            case .activity: String(localized: "recent activity log history")
+            case .stream: String(localized: "stream display app window source sound audio mute quality bitrate automatic manual")
+            case .sessionPicture: String(localized: "picture in picture pip float automatically")
+            case .sessionPanels: String(localized: "panels close after selecting")
+            case .privacy: String(localized: "privacy relay allow darken displays brightness privacy mode")
+            case .sessionKeyboard: String(localized: "keyboard unicode keycode open for text fields auto")
+            case .macros: String(localized: "macros shortcuts edit")
+            case .pairedMacs: String(localized: "paired macs trusted forget")
+            case .thisDevice: String(localized: "this device name phone")
             }
         }
     }

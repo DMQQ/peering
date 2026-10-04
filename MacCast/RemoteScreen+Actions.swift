@@ -30,7 +30,7 @@ extension RemoteScreen {
 
     /// What the wheel is for at the moment, for anyone listening rather than looking.
     var wheelLabel: String {
-        interactionMode == .control ? "Scroll the Mac" : "Zoom the picture"
+        interactionMode == .control ? String(localized: "Scroll the Mac") : String(localized: "Zoom the picture")
     }
 
     /// How far up its track the wheel's gauge should be filled, 0 to 1.

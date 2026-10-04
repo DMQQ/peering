@@ -85,8 +85,8 @@ extension FileBrowserPanel {
         let hidden = directory.entries.filter { $0.name.hasPrefix(".") && matches($0) }
         guard !hidden.isEmpty else { return nil }
         return hidden.count == 1
-            ? "One hidden file matches. Show hidden files to see it."
-            : "\(hidden.count) hidden files match. Show hidden files to see them."
+            ? String(localized: "One hidden file matches. Show hidden files to see it.")
+            : String(localized: "\(hidden.count) hidden files match. Show hidden files to see them.")
     }
 
     /// The hint, but only after the wait has gone on long enough to be worth explaining.
@@ -289,19 +289,19 @@ extension FileBrowserPanel {
     /// a `0 bytes` and a zero date invented on this side would be this panel making them up.
     func detail(for entry: RemoteDirectoryEntry) -> Text {
         guard !entry.permissions.isEmpty else {
-            let word = entry.isSymlink ? "Symbolic link" : (entry.isDirectory ? "Folder" : "File")
+            let word = entry.isSymlink ? String(localized: "Symbolic link") : (entry.isDirectory ? String(localized: "Folder") : "File")
             return Text(word).font(.caption)
         }
 
         var parts: [String] = []
         if entry.isSymlink {
-            parts.append("Symbolic link")
+            parts.append(String(localized: "Symbolic link"))
         } else {
             // The empty file is named rather than counted, because Foundation will not: every
             // combination of `byteCount`'s options answers zero bytes with "Zero kB", which is a
             // unit for a thing that has none. This is the one row in a folder where the number is
             // the whole of what there is to say, and wrong is worse here than verbose.
-            parts.append(entry.size == 0 ? "Zero bytes" : entry.size.formatted(.byteCount(style: .file)))
+            parts.append(entry.size == 0 ? String(localized: "Zero bytes") : entry.size.formatted(.byteCount(style: .file)))
         }
         if let modified = entry.modified {
             parts.append(modified.formatted(date: .abbreviated, time: .omitted))
@@ -354,9 +354,9 @@ extension FileBrowserPanel {
     }
 
     func emptyMessage(_ directory: RemoteDirectory) -> String {
-        if directory.entries.isEmpty { return "This folder is empty." }
-        if isFiltering { return "Nothing in this folder matches “\(needle)”." }
-        return "Everything in this folder is hidden."
+        if directory.entries.isEmpty { return String(localized: "This folder is empty.") }
+        if isFiltering { return String(localized: "Nothing in this folder matches “\(needle)”.") }
+        return String(localized: "Everything in this folder is hidden.")
     }
 
     // MARK: - Loading, empty and failed

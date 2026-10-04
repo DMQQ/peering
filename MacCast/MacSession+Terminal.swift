@@ -321,7 +321,7 @@ extension MacSession {
             }
             guard size <= Self.maximumUploadBytes else {
                 writes.removeValue(forKey: id)
-                uploadFailures[id] = "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))))."
+                uploadFailures[id] = String(localized: "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file)))).")
                 return
             }
             await send(contentsOf: url, totalBytes: size, to: destination, sessionID: id)
@@ -405,7 +405,7 @@ extension MacSession {
             // Only the folder's own entry means it held nothing: the walk lists what is inside, so
             // anything else would have added to the count.
             guard entries.count > 1 else {
-                uploadFailures[id] = "That folder is empty."
+                uploadFailures[id] = String(localized: "That folder is empty.")
                 return
             }
 
@@ -466,7 +466,7 @@ extension MacSession {
             }
 
             if entries.isEmpty {
-                uploadFailures[id] = failure ?? "Nothing could be read from what you chose."
+                uploadFailures[id] = failure ?? String(localized: "Nothing could be read from what you chose.")
                 return
             }
 
@@ -532,8 +532,8 @@ extension MacSession {
             if needsSending { break }
 
             upload.entries[upload.next].outcome = entry.source == nil
-                ? .skipped("A link to somewhere else, which is not copied.")
-                : .failed("Too large to send. The limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file))).")
+                ? .skipped(String(localized: "A link to somewhere else, which is not copied."))
+                : .failed(String(localized: "Too large to send. The limit is \(Self.maximumUploadBytes.formatted(.byteCount(style: .file)))."))
             upload.next += 1
         }
 
@@ -878,7 +878,7 @@ extension MacSession {
             terminals.removeAll { $0.id == info.id }
             terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
             selectedTerminalID = info.id
-            append(note: "\(info.name) opened")
+            append(note: String(localized: "\(info.name) opened"))
             // The shell a Run button was waiting for. Taken here rather than left set, because the
             // id it needs did not exist until this line — see ``pendingRun``. Through
             // ``sendTerminalInput(_:to:)`` rather than the raw send, so the tab is named after the
@@ -923,9 +923,9 @@ extension MacSession {
             }
         case .commandFinished(let id, let command, let duration, _):
             let named = command.map { "\u{201C}\($0)\u{201D}" }
-                ?? terminals.first(where: { $0.id == id }).map { "Terminal \u{201C}\($0.name)\u{201D}" }
-                ?? "Terminal"
-            let message = "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration))."
+                ?? terminals.first(where: { $0.id == id }).map { String(localized: "Terminal \u{201C}\($0.name)\u{201D}") }
+                ?? String(localized: "Terminal")
+            let message = String(localized: "\(named) finished\(TerminalCommandFinishDetector.durationSuffix(duration)).")
             append(note: message)
             if !hostPushesTerminalAlertsWhileConnected || model.notifier.remoteToken == nil {
                 model.notifier.terminalFinishedWork(message, sessionID: id, macName: hostName)
@@ -935,9 +935,9 @@ extension MacSession {
                 terminals[index].isRunning = false
                 // A shell that ended by itself is a shell that ended. One that ended carrying a
                 // status ended badly, and the tab is where that gets noticed.
-                terminals[index].failure = status == 0 ? nil : "Exited with status \(status)"
+                terminals[index].failure = status == 0 ? nil : String(localized: "Exited with status \(status)")
             }
-            append(note: "Terminal exited with status \(status)")
+            append(note: String(localized: "Terminal exited with status \(status)"))
         case .directory(let id, let path, let entries, let truncated):
             let key = RemoteDirectoryKey(terminalID: id, path: path)
             directories[key] = RemoteDirectory(entries: entries, isTruncated: truncated)
@@ -1013,7 +1013,7 @@ extension MacSession {
             }
             finishFolderEntry(path: path, outcome: .done, sessionID: id)
             let written = path.split(separator: "/").last.map(String.init) ?? path
-            append(note: "Wrote \(written) (\(totalBytes.formatted(.byteCount(style: .file))))")
+            append(note: String(localized: "Wrote \(written) (\(totalBytes.formatted(.byteCount(style: .file))))"))
 
         case .writeFailure(let id, let path, let message):
             // The panel is left where it was: for a save that is the editor holding the text the
@@ -1031,7 +1031,7 @@ extension MacSession {
                 if folderUploads[id]?.isRunning != true { uploadFailures[id] = message }
             }
             finishFolderEntry(path: path, outcome: .failed(message), sessionID: id)
-            append(note: "Terminal: \(message)")
+            append(note: String(localized: "Terminal: \(message)"))
 
         case .fileOperationDone(let id, let path, let note):
             // Matched on the path as well as the terminal, exactly as ``wroteFile`` is and for the
@@ -1042,7 +1042,7 @@ extension MacSession {
             changeFailures.removeValue(forKey: id)
             finish(change, sessionID: id)
             finishFolderEntry(path: path, outcome: .done, sessionID: id)
-            append(note: "Terminal: \(note)")
+            append(note: String(localized: "Terminal: \(note)"))
 
         case .fileOperationFailure(let id, let path, let message):
             guard let change = changes[id], change.path == path else { break }
@@ -1061,11 +1061,11 @@ extension MacSession {
             }
 
         case .closed(let id):
-            let name = terminals.first(where: { $0.id == id })?.name ?? "Terminal"
+            let name = terminals.first(where: { $0.id == id })?.name ?? String(localized: "Terminal")
             terminals.removeAll { $0.id == id }
             if selectedTerminalID == id { selectedTerminalID = terminals.first?.id }
             forgetBrowsing(for: id)
-            append(note: "\(name) closed")
+            append(note: String(localized: "\(name) closed"))
         case .failed(let id, let message):
             // A refusal that names a terminal is about that terminal, and it stays on its tab
             // until the terminal works again.
@@ -1081,7 +1081,7 @@ extension MacSession {
             // once, running at some later moment they did not choose, in a tab they opened for
             // something else.
             pendingRun = nil
-            append(note: "Terminal: \(message)")
+            append(note: String(localized: "Terminal: \(message)"))
         }
     }
 

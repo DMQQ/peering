@@ -95,10 +95,10 @@ extension MacSession {
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
-                videoStatus = "Stopped: \(message)"
+                videoStatus = String(localized: "Stopped: \(message)")
             }
             if phase == .disconnected {
-                videoStatus = "Disconnected"
+                videoStatus = String(localized: "Disconnected")
             }
             if phase == .ready {
                 // **Read here because the line below is about to overwrite it, and used further
@@ -198,7 +198,7 @@ extension MacSession {
             model.notifier.sessionMoved(
                 from: previous,
                 to: phase,
-                hostName: hostName ?? "the Mac",
+                hostName: hostName ?? String(localized: "the Mac"),
                 hostID: hostID,
                 deliberate: userEnded,
                 resuming: isResumingAfterDrop
@@ -222,7 +222,7 @@ extension MacSession {
                 SessionActivity.shared.sessionMoved(
                     from: previous,
                     to: phase,
-                    hostName: hostName ?? "the Mac",
+                    hostName: hostName ?? String(localized: "the Mac"),
                     startedAt: sessionStartedAt,
                     reconnecting: isReconnecting,
                     deliberate: userEnded,
@@ -237,7 +237,7 @@ extension MacSession {
                 // real key-up arrives, so the Mac may still be holding it — which is why this
                 // says so rather than quietly showing the buttons as released.
                 if !model.latchedModifiers.isEmpty {
-                    append(note: "The connection ended while \(model.latchedModifiers.label) was held on the Mac. It may still be held there.")
+                    append(note: String(localized: "The connection ended while \(model.latchedModifiers.label) was held on the Mac. It may still be held there."))
                 }
                 model.latchedModifiers = []
                 privacyModeEnabled = false
@@ -410,7 +410,7 @@ extension MacSession {
             // diagnosing a slow session actually needs. Shown rather than logged, because unlike
             // the success case there is no note in the session's own log to find it in.
             directPathStatus = outcome
-            append(note: "Direct path: \(outcome.summary)")
+            append(note: String(localized: "Direct path: \(outcome.summary)"))
         case .remoteNotice(let message):
             remoteNotice = message
             // A locked Mac draws no frames for an application or a window, so a session resumed on one
@@ -477,7 +477,7 @@ extension MacSession {
                 // does not recognise. Nothing this side can do about it, and the connection may
                 // well succeed on a retry against a relay that has been updated, so it stays a
                 // note rather than a paywall in front of somebody who has already paid.
-                append(note: "Relay quota reached. Your subscription is active; please try again later.")
+                append(note: String(localized: "Relay quota reached. Your subscription is active; please try again later."))
             } else if model.relaySessionDropped {
                 // **The mid-session cut, which the user has had no explanation for until now.**
                 // The relay ends a session the moment its allowance is spent, and it ends it by
@@ -533,7 +533,7 @@ extension MacSession {
     func apply(video event: ClientSession.VideoEvent) {
         switch event {
         case .connecting:
-            videoStatus = "Opening the video channel…"
+            videoStatus = String(localized: "Opening the video channel…")
             isVideoStreaming = false
         case .config(let config):
             // The decoder half of this is done on the network queue, in the same place the
@@ -607,12 +607,12 @@ extension MacSession {
             // left to guess why the Mac suddenly looks soft.
             videoTransport = transport
             if transport == .control {
-                append(note: "The picture is coming over the control channel, at reduced quality.")
+                append(note: String(localized: "The picture is coming over the control channel, at reduced quality."))
             } else {
-                append(note: "The picture is back on the direct video channel.")
+                append(note: String(localized: "The picture is back on the direct video channel."))
             }
         case .ended(let reason):
-            videoStatus = "Video ended: \(reason)"
+            videoStatus = String(localized: "Video ended: \(reason)")
             isVideoStreaming = false
         }
     }
@@ -635,18 +635,18 @@ extension MacSession {
                     self.updateAutoQuality(from: snapshot)
                     self.measureResumeIfNeeded(snapshot)
 
-                    let suffix = snapshot.framesDropped > 0 ? " · \(snapshot.framesDropped) dropped" : ""
-                    let waiting = snapshot.awaitingKeyframe ? " · waiting for a keyframe" : ""
+                    let suffix = snapshot.framesDropped > 0 ? String(localized: " · \(snapshot.framesDropped) dropped") : ""
+                    let waiting = snapshot.awaitingKeyframe ? String(localized: " · waiting for a keyframe") : ""
                     // Said here rather than only in the notes, because this is the line the
                     // user reads when the picture looks wrong. A reduced rate that nothing on
                     // screen explains reads as a fault in the app.
-                    let lane = self.videoTransport == .control ? " · sharing the control channel" : ""
+                    let lane = self.videoTransport == .control ? String(localized: " · sharing the control channel") : ""
                     // The *rate* leads, and the running total follows it. "1234 frames" answers
                     // how long the session has been up; the question a picture that looks choppy
                     // actually raises is how many are arriving each second, and only a
                     // difference between two samples can answer it.
                     let rate = self.videoFramesPerSecond > 0
-                        ? " · \(Int(self.videoFramesPerSecond.rounded())) fps"
+                        ? String(localized: " · \(Int(self.videoFramesPerSecond.rounded())) fps")
                         : ""
                     self.videoStatus = "\(snapshot.codec.rawValue.uppercased()) \(snapshot.pixelWidth)×\(snapshot.pixelHeight)\(rate) · \(snapshot.framesEnqueued) frames\(suffix)\(waiting)\(lane)"
                 }

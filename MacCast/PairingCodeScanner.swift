@@ -123,8 +123,8 @@ final class ScannerViewController: UIViewController {
         let refused = AVCaptureDevice.authorizationStatus(for: .video) == .denied
         let label = UILabel()
         label.text = refused
-            ? "Peering is not allowed to use the camera.\nAllow Camera in Settings, or enter the six-digit code instead."
-            : "Camera unavailable\nEnter the six-digit code instead."
+            ? String(localized: "Peering is not allowed to use the camera.\nAllow Camera in Settings, or enter the six-digit code instead.")
+            : String(localized: "Camera unavailable\nEnter the six-digit code instead.")
         label.numberOfLines = 0
         label.textAlignment = .center
         label.textColor = .secondaryLabel
@@ -138,7 +138,7 @@ final class ScannerViewController: UIViewController {
 
         guard refused, let url = URL(string: UIApplication.openSettingsURLString) else { return }
         var configuration = UIButton.Configuration.bordered()
-        configuration.title = "Open Settings"
+        configuration.title = String(localized: "Open Settings")
         let button = UIButton(configuration: configuration, primaryAction: UIAction { _ in
             UIApplication.shared.open(url)
         })

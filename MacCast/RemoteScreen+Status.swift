@@ -242,7 +242,7 @@ extension RemoteScreen {
                         // The controls themselves, put away: the same subject again, one step
                         // further than the fit, since this takes the app's own chrome out too.
                         actionChip(
-                            "Immersive",
+                            String(localized: "Immersive"),
                             systemImage: "arrow.up.left.and.arrow.down.right"
                         ) {
                             enterImmersive()
@@ -265,7 +265,7 @@ extension RemoteScreen {
                     actionRow("Mac", systemImage: "macbook") {
                         actionChip("Lock", systemImage: "lock.fill") { model.lockMac() }
                         actionChip(
-                            model.privacyModeEnabled ? "Restore" : "Darken",
+                            model.privacyModeEnabled ? String(localized: "Restore") : String(localized: "Darken"),
                             systemImage: model.privacyModeEnabled ? "sun.max" : "sun.min"
                         ) {
                             model.setPrivacyMode(!model.privacyModeEnabled)
@@ -282,7 +282,7 @@ extension RemoteScreen {
                             model.stepAwayFromSession()
                         }
                         actionChip(
-                            "Terminal",
+                            String(localized: "Terminal"),
                             // The same two facts the dot beside the pill reads: a shell running
                             // at all fills the glyph, and one waiting for an answer goes orange.
                             systemImage: terminalRunning > 0 ? "terminal.fill" : "terminal",
@@ -305,7 +305,7 @@ extension RemoteScreen {
                     // something. Filled red rather than merely written in it: this is the one control
                     // in the panel that cannot be taken back by pressing it again.
                     actionRow("End", systemImage: "power") {
-                        actionChip("Quit", isDestructive: true) { model.disconnect() }
+                        actionChip(String(localized: "Quit"), isDestructive: true) { model.disconnect() }
                     }
                 }
                 // Wider on the right than the left. What ends on that side is a control — the
@@ -482,8 +482,8 @@ extension RemoteScreen {
     }
 
     var connectionDotLabel: String {
-        if isReconnectingToMac { return "Reconnecting to the Mac" }
-        return model.isVideoStreaming ? "Connected" : "Not streaming"
+        if isReconnectingToMac { return String(localized: "Reconnecting to the Mac") }
+        return model.isVideoStreaming ? "Connected" : String(localized: "Not streaming")
     }
 
     var connectionPathChip: some View {
@@ -615,7 +615,7 @@ extension RemoteScreen {
         if canReturnToMosaic {
             sessionDot(
                 symbol: "rectangle.split.2x2",
-                label: "Back to the mosaic",
+                label: String(localized: "Back to the mosaic"),
                 tint: ColorPalette.accent
             ) {
                 // **The window shrinks into the tile it is about to hold.** The picture is asked
@@ -639,8 +639,8 @@ extension RemoteScreen {
         sessionDot(
             symbol: terminalRunning > 0 ? "terminal.fill" : "terminal",
             label: terminalRunning > 0
-                ? "Mac terminals, \(terminalRunning) running"
-                : "Open Mac terminals",
+                ? String(localized: "Mac terminals, \(terminalRunning) running")
+                : String(localized: "Open Mac terminals"),
             tint: terminalWantsAttention ? .orange : nil,
             badge: terminalRunning > 0 ? terminalRunning : nil,
             badgeTint: terminalWantsAttention ? .orange : ColorPalette.accent

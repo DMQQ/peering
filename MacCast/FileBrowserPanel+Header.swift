@@ -25,19 +25,19 @@ extension FileBrowserPanel {
     var deleteTitle: String {
         guard let entry = pendingDelete else { return "Delete" }
         return deleteIsRecursive
-            ? "Delete “\(entry.name)” and everything in it?"
-            : "Delete “\(entry.name)”?"
+            ? String(localized: "Delete “\(entry.name)” and everything in it?")
+            : String(localized: "Delete “\(entry.name)”?")
     }
 
-    var deleteButtonTitle: String { deleteIsRecursive ? "Delete All" : "Delete" }
+    var deleteButtonTitle: String { deleteIsRecursive ? String(localized: "Delete All") : "Delete" }
 
     /// What will go, and what becomes of it. Two sentences because they answer two questions: the
     /// first is the panel's, since only the panel can see whether the row is a folder; the second
     /// is the caller's, since only the caller knows which machine is behind it.
     var deleteMessage: String {
         let scope = pendingDelete?.isDirectory == true
-            ? "The folder and everything inside it will go."
-            : "The file will go."
+            ? String(localized: "The folder and everything inside it will go.")
+            : String(localized: "The file will go.")
         return scope + " " + deleteHint
     }
 

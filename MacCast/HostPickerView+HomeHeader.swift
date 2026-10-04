@@ -104,7 +104,7 @@ extension HomeTab {
             // to the connecting card — which is where the thing they draw is actually happening.
             // A header is a name and a promise; the moment a phone and a Mac are reaching for
             // each other is a moment, and it belongs on the screen that is about that moment.
-            Image("Pears")
+            Image(String(localized: "Pears"))
                 .resizable()
                 .scaledToFit()
                 .frame(width: markSize, height: markSize)

@@ -311,8 +311,8 @@ final class SSHModel {
     /// What kind of credential this host is set up with, in the words the list uses.
     func credentialKind(for host: SSHHost) -> String? {
         switch storedCredential(for: host) {
-        case .password: return "Password saved"
-        case .key: return "Key saved"
+        case .password: return String(localized: "Password saved")
+        case .key: return String(localized: "Key saved")
         case nil: return nil
         }
     }
@@ -441,7 +441,7 @@ final class SSHModel {
     /// attempt at anything — it is the user changing their mind — and a sheet that reported it as
     /// an error would put "that was wrong" under a box nobody had filled in yet.
     func unlockWithDevice(_ host: SSHHost) async {
-        guard await DeviceAuthentication.unlock(reason: "Open a shell on \(host.displayName).") else { return }
+        guard await DeviceAuthentication.unlock(reason: String(localized: "Open a shell on \(host.displayName).")) else { return }
         acceptUnlock(of: host)
     }
 
@@ -529,9 +529,9 @@ final class SSHModel {
                     }
                 case .output(let data):
                     if let attention = terminal.append(data) {
-                        let reason = attention == .password ? "a password" : "your response"
+                        let reason = attention == .password ? String(localized: "a password") : String(localized: "your response")
                         SessionNotifier.shared.terminalNeedsAttention(
-                            "SSH “\(terminal.title)” is waiting for \(reason).",
+                            String(localized: "SSH “\(terminal.title)” is waiting for \(reason)."),
                             sessionID: terminal.id
                         )
                     }
@@ -981,7 +981,7 @@ final class SSHModel {
                 }.value
                 guard size <= Self.maximumUploadBytes else {
                     throw SSHSessionError.browse(
-                        "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes / 1_048_576) MB)."
+                        String(localized: "That file is too large to send from this device (the limit is \(Self.maximumUploadBytes / 1_048_576) MB).")
                     )
                 }
                 // Off the main actor: this is a file the user chose from anywhere on the device,
@@ -1120,7 +1120,7 @@ final class SSHModel {
         guard let error = error as? SSHSessionError else { return error.localizedDescription }
         switch error {
         case .browse(let reason): return reason
-        case .notConnected: return "The connection ended before the server answered."
+        case .notConnected: return String(localized: "The connection ended before the server answered.")
         default: return describe(error)
         }
     }
@@ -1230,13 +1230,13 @@ final class SSHModel {
     private static func describe(_ error: SSHSessionError) -> String {
         switch error {
         case .hostKeyRejected:
-            return "You did not accept this server's key."
+            return String(localized: "You did not accept this server's key.")
         case .hostKeyChanged:
-            return "The server's key has changed since you last connected. If this was not you, do not continue."
+            return String(localized: "The server's key has changed since you last connected. If this was not you, do not continue.")
         case .transport(let reason):
             return reason
         case .notConnected:
-            return "The connection ended."
+            return String(localized: "The connection ended.")
         // A browse that failed is not a connection that failed, and it is reported where it
         // happened rather than on the shell's own line: see ``browseMessage(_:)``.
         case .browse(let reason):

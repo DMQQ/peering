@@ -125,7 +125,7 @@ final class MacSession: Identifiable {
     var unlockDetour: (lockScreen: CaptureSource, returnTo: CaptureSource)?
     /// A source a tapped notification asked for, shown when this session's catalogue arrives.
     var sourceRequestedOnOpen: String?
-    var videoStatus = "No video stream"
+    var videoStatus = String(localized: "No video stream")
 
     /// The frames per second arriving, as measured by the last two polls. Zero until there have been
     /// two samples to compare. See ``updateFrameRate(from:)``.
@@ -322,7 +322,7 @@ final class MacSession: Identifiable {
             stopReconnecting()
             model.isResuming = true
             let relay = model.allowsRelay && model.pins.hostIDs.contains(hostID)
-                ? model.relayTarget(hostID: hostID, name: hostName ?? "A Mac")
+                ? model.relayTarget(hostID: hostID, name: hostName ?? String(localized: "A Mac"))
                 : nil
             model.reconnect(
                 self,
@@ -333,7 +333,7 @@ final class MacSession: Identifiable {
         } else if model.allowsRelay, model.pins.hostIDs.contains(hostID) {
             stopReconnecting()
             model.isResuming = true
-            model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? "A Mac"))
+            model.reconnect(self, to: model.relayTarget(hostID: hostID, name: hostName ?? String(localized: "A Mac")))
         } else {
             // The LAN-only case: the Mac is paired and simply not here yet. The ladder keeps asking
             // until it appears; stopping at the first attempt that found nothing would end a resume
@@ -469,7 +469,7 @@ final class MacSession: Identifiable {
         // the Mac on screen: a background Mac giving up is a banner, not a card.
         if isActive {
             SessionActivity.shared.sessionDropped(
-                hostName: hostName ?? "the Mac",
+                hostName: hostName ?? String(localized: "the Mac"),
                 startedAt: nil,
                 path: Self.activityPath(connectionPath)
             )
@@ -877,7 +877,7 @@ final class MacSession: Identifiable {
         pictureResumeBaselineFrames = nil
         let milliseconds = Date().timeIntervalSince(resumedAt) * 1000
         lastResumeMilliseconds = milliseconds
-        append(note: "Picture back \(Int(milliseconds.rounded())) ms after asking for it")
+        append(note: String(localized: "Picture back \(Int(milliseconds.rounded())) ms after asking for it"))
     }
 
     // MARK: - Sending
@@ -991,7 +991,7 @@ final class MacSession: Identifiable {
             newDroppedFrames: newDrops
         ) else { return }
         send(.setStreamQuality(fps: 0, bitrateKbps: tier.bitrateKbps))
-        append(note: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps")
+        append(note: String(localized: "Auto quality changed to \(tier.bitrateKbps / 1_000) Mbps"))
     }
 
     // MARK: - The captured picture
@@ -1002,7 +1002,7 @@ final class MacSession: Identifiable {
         // it is named from the ask as well as the answer, so the pill names the arrangement as soon
         // as it is asked for rather than only once the Mac has built it.
         if isAskingForMosaic, let layout = mosaicLayout {
-            return "\(layout.tiles.count) windows"
+            return String(localized: "\(layout.tiles.count) windows")
         }
         guard let activeSourceID,
               let descriptor = catalog?.all.first(where: { $0.id == activeSourceID })

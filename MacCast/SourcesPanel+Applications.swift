@@ -49,7 +49,7 @@ extension SourcesPanel {
 
     /// A tile after an application's windows that asks the Mac for one more.
     func newWindowTile(_ bundleIdentifier: String) -> some View {
-        addTile(label: "New window") {
+        addTile(label: String(localized: "New window")) {
             model.send(.openNewWindow(bundleIdentifier: bundleIdentifier))
             onSelect()
         }
@@ -82,7 +82,7 @@ extension SourcesPanel {
         }
         .buttonStyle(RailButtonStyle(scale: 0.94))
         .disabled(disabled || busy)
-        .accessibilityLabel(busy ? "\(label), in progress" : label)
+        .accessibilityLabel(busy ? String(localized: "\(label), in progress") : label)
     }
 
     /// An application's name, its icon, and how many windows it is showing.
@@ -117,7 +117,7 @@ extension SourcesPanel {
                     .transition(Self.badge)
             }
             Spacer(minLength: 8)
-            Text(group.windows.count == 1 ? "1 window" : "\(group.windows.count) windows")
+            Text(group.windows.count == 1 ? String(localized: "1 window") : String(localized: "\(group.windows.count) windows"))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }

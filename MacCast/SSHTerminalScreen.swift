@@ -87,7 +87,7 @@ struct SSHTerminalScreen: View {
                 .tourAnchor(.shellTabs)
                 .terminalEndPrompt(
                     name: model.pendingClose?.title ?? "",
-                    detail: "The shell on the server stops, along with anything running in it. Your other shells are left alone.",
+                    detail: String(localized: "The shell on the server stops, along with anything running in it. Your other shells are left alone."),
                     isPresented: Binding(
                         get: { model.pendingClose != nil },
                         set: { if !$0 { model.pendingClose = nil } }
@@ -333,7 +333,7 @@ struct SSHTerminalScreen: View {
 
     private var coloured: AttributedString {
         guard !terminal.output.isEmpty else {
-            return AttributedString("Nothing was printed.")
+            return AttributedString(String(localized: "Nothing was printed."))
         }
 
         // One renderer, shared with the Mac's own terminal — see ``TerminalPalette/attributed(_:fontSize:)``.
@@ -398,7 +398,7 @@ struct SSHTerminalScreen: View {
             // The close is on the tab. Without it the only way out of a shell was the toolbar —
             // and with several shells to the *same* host open, ending one just showed another
             // identical one, so the button read as broken.
-            closeLabel: "End \(open.title)"
+            closeLabel: String(localized: "End \(open.title)")
         ) {
             Circle()
                 .fill(statusTint(open))
@@ -490,7 +490,7 @@ struct SSHTerminalScreen: View {
                     failure: canType
                         ? (model.uploadFailure
                             ?? model.browseFailure(browsingPath, sessionID: terminal.id))
-                        : "This shell has ended. Open a new shell to browse the server's files.",
+                        : String(localized: "This shell has ended. Open a new shell to browse the server's files."),
                     showsHidden: showsHiddenFiles,
                     onOpen: { open($0) },
                     onNavigate: { navigate(to: $0) },
@@ -516,7 +516,7 @@ struct SSHTerminalScreen: View {
                     // in what the same word means. Said plainly, because a user who has learned
                     // that Delete on their Mac is recoverable would otherwise bring that
                     // expectation to a server where it is not.
-                    deleteHint: "This cannot be undone on the server.",
+                    deleteHint: String(localized: "This cannot be undone on the server."),
                     // The three changes, absent together and for two reasons rather than one. A
                     // session that has ended answers none of them, and a folder that has not
                     // resolved yet is not a place to make anything in — `.` would be wherever the
@@ -648,7 +648,7 @@ struct SSHTerminalScreen: View {
             TerminalCommandField(
                 text: $command,
                 isFocused: $inputFocused,
-                placeholder: "Send a command",
+                placeholder: String(localized: "Send a command"),
                 isEnabled: canType,
                 onSubmit: submit
             )
