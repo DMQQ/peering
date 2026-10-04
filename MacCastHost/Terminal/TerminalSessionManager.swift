@@ -382,6 +382,7 @@ final class TerminalSessionManager: @unchecked Sendable {
         // classic draws on the main screen and flows into the scrollback. Set for the shells this
         // app opens only, so a Terminal window on the same Mac keeps what its owner chose.
         environment["CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN"] = "1"
+        if shell.hasSuffix("zsh") { Self.installZshFinishHook(into: &environment) }
         process.environment = environment
         process.standardInput = slave
         process.standardOutput = slave
@@ -405,7 +406,7 @@ final class TerminalSessionManager: @unchecked Sendable {
             // The spawned process owns duplicated slave descriptors: keeping the parent's copy
             // open would prevent EOF on the master after the shell exits.
             try? slave.close()
-            Self.installFinishHook(shell: shell, into: master)
+            if shell.hasSuffix("bash") { Self.installFinishHook(shell: shell, into: master) }
             sink(.created(session.info))
             terminalLog.notice("started terminal \(name, privacy: .public) \(id.uuidString, privacy: .public)")
         } catch {
@@ -439,25 +440,53 @@ final class TerminalSessionManager: @unchecked Sendable {
     private static let bashFinishHookLine =
         #"export HISTTIMEFORMAT="%s "; set -o history; __mc_last=""; __mc_precmd(){ local __mc_s=$?; local __mc_line; __mc_line=$(history 1); local __mc_ts=$(printf '%s\n' "$__mc_line" | awk '{print $2}'); local __mc_cmd=$(printf '%s\n' "$__mc_line" | awk '{$1="";$2="";print}' | sed 's/^  *//'); local __mc_now=$(date +%s); local __mc_d=$(( (__mc_now - __mc_ts) * 1000 )); if [ "$__mc_line" != "$__mc_last" ] && [ "$__mc_d" -ge 5000 ]; then printf '\033]9999;%s;%s;%s\007' "$__mc_d" "$__mc_s" "$(printf %s "$__mc_cmd" | base64 | tr -d '\n')"; fi; __mc_last="$__mc_line"; }; PROMPT_COMMAND="__mc_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}""#
 
-    /// Written through the master exactly as ``handle(clientID:request:sink:)`` writes real
-    /// keystrokes (`case .input`), so it lands as ordinary typed-ahead input — which means it runs
-    /// *after* whatever `.zshrc`/`.bash_profile` the login shell has already sourced, at the cost
-    /// of echoing once, visibly, at the top of a freshly opened tab. Suppressing that echo means
-    /// toggling `ECHO` via `tcsetattr` around the write, racing the shell's own termios setup
-    /// during startup — a correctness risk on the one thing a terminal absolutely cannot get wrong,
-    /// not worth taking blind.
+    /// Points zsh at a directory of wrapper dotfiles that source the real ones and then add the
+    /// finish hook, so the hook arrives as configuration and not as typed input.
     ///
-    /// Skipped for anything that is not recognisably zsh or bash: no hook, no feature, no risk to a
-    /// shell this does not know how to talk to.
-    private static func installFinishHook(shell: String, into master: FileHandle) {
-        let line: String
-        if shell.hasSuffix("zsh") {
-            line = zshFinishHookLine
-        } else if shell.hasSuffix("bash") {
-            line = bashFinishHookLine
-        } else {
+    /// Trap: macOS's `/etc/zshrc` runs before the user's `.zshrc` and sets `HISTFILE` from
+    /// `$ZDOTDIR`, so the wrapper has to put it back or history is written into the temp directory.
+    private static func installZshFinishHook(into environment: inout [String: String]) {
+        let wrapper = FileManager.default.temporaryDirectory.appendingPathComponent("peering-zdotdir", isDirectory: true)
+        let home = environment["ZDOTDIR"] ?? NSHomeDirectory()
+        func forward(_ name: String, extra: String = "") -> String {
+            """
+            ZDOTDIR=$PEERING_USER_ZDOTDIR
+            [[ -f $ZDOTDIR/\(name) ]] && source $ZDOTDIR/\(name)
+            \(extra)ZDOTDIR=$PEERING_WRAPPER_ZDOTDIR
+
+            """
+        }
+        let zshrc = forward(".zshrc", extra: zshFinishHookLine + "\n")
+        let zlogin = forward(".zlogin", extra: "")
+            + "if [[ -n $PEERING_HAD_ZDOTDIR ]]; then ZDOTDIR=$PEERING_USER_ZDOTDIR; else unset ZDOTDIR; fi\n"
+        let files = [
+            ".zshenv": forward(".zshenv"),
+            ".zprofile": forward(".zprofile"),
+            ".zshrc": "[[ $HISTFILE == $PEERING_WRAPPER_ZDOTDIR/* ]] && HISTFILE=$PEERING_USER_ZDOTDIR/${HISTFILE:t}\n" + zshrc,
+            ".zlogin": zlogin,
+        ]
+        do {
+            try FileManager.default.createDirectory(at: wrapper, withIntermediateDirectories: true)
+            for (name, text) in files {
+                try text.write(to: wrapper.appendingPathComponent(name), atomically: true, encoding: .utf8)
+            }
+        } catch {
+            terminalLog.error("could not write the zsh wrapper: \(error.localizedDescription, privacy: .public)")
             return
         }
+        environment["PEERING_USER_ZDOTDIR"] = home
+        environment["PEERING_WRAPPER_ZDOTDIR"] = wrapper.path
+        if environment["ZDOTDIR"] != nil { environment["PEERING_HAD_ZDOTDIR"] = "1" }
+        environment["ZDOTDIR"] = wrapper.path
+    }
+
+    /// Typed into the master like keystrokes, which echoes it once at the top of a new tab. Only bash
+    /// still comes this way: it has no equivalent of the `ZDOTDIR` wrapper below for a login shell.
+    ///
+    /// Skipped for anything that is not recognisably bash: no hook, no feature, no risk to a shell
+    /// this does not know how to talk to.
+    private static func installFinishHook(shell: String, into master: FileHandle) {
+        let line = bashFinishHookLine
         guard let data = (line + "\n").data(using: .utf8) else { return }
         try? master.write(contentsOf: data)
     }
@@ -485,11 +514,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         if let attention {
             let noun = attention == .password ? "a password" : "confirmation"
             let name = "Terminal \u{201C}\(session.name)\u{201D}"
-            // **The prompt is quoted when there is one, and it is what names whoever is asking:**
-            // "[sudo] password for damian:" says both which password and whose. The sentence stays
-            // as the fallback for a prompt that cannot be read, which is the case for anything that
-            // paints its question instead of printing it.
-            let message = question.map { "\(name): \($0)" } ?? "\(name) is waiting for \(noun)."
+            // The prompt alone when there is one: "[sudo] password for damian:" says which password
+            // and whose. The sentence stays as the fallback for a prompt that cannot be read.
+            let message = question ?? "\(name) is waiting for \(noun)."
             send(.attention(sessionID: session.id, kind: attention, message: message), to: session.ownerClientID)
             push(session: session, title: "Terminal needs you", message: message)
         }

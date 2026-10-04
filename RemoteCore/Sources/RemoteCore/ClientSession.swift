@@ -122,6 +122,8 @@ public final class ClientSession: @unchecked Sendable {
         case clipboard(ClipboardPayload)
         /// The Mac's keyboard focus moved, and whether it landed somewhere that takes typing.
         case textFocus(TextFocus)
+        /// The focused field's text and caret changed on the Mac.
+        case fieldState(FieldState)
         /// An audio stream event from the video channel.
         case audio(AudioEvent)
         /// A reconnectable shell session event from the authenticated control channel.
@@ -692,6 +694,7 @@ public final class ClientSession: @unchecked Sendable {
             // read it, and the pieces land in that client's picture lane.
             supportsClipboardImages: true,
             supportsTextFocus: true,
+            supportsFieldState: true,
             resumeSource: knowsHost ? resumeSource : nil
         ))
 
@@ -1084,6 +1087,11 @@ public final class ClientSession: @unchecked Sendable {
             // the connection.
             if let focus = try? MessageCodec.decode(TextFocus.self, from: frame.payload) {
                 emit(.textFocus(focus))
+            }
+
+        case .fieldState:
+            if let state = try? MessageCodec.decode(FieldState.self, from: frame.payload) {
+                emit(.fieldState(state))
             }
 
         case .terminalEvent:

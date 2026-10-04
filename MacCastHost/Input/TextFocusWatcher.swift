@@ -12,6 +12,12 @@ private let focusLog = Logger(subsystem: "pl.dmq.peering.host", category: "focus
 /// Runs only while a phone is connected.
 nonisolated final class TextFocusWatcher: @unchecked Sendable {
     private var onChange: (@Sendable (TextFocus) -> Void)?
+    private var onField: (@Sendable (FieldState) -> Void)?
+    private var transform: (@Sendable () -> InputTransform?)?
+    /// The last state sent, so a tick that finds nothing new sends nothing.
+    private var lastField: FieldState?
+    /// Past this a field is a document, and sending it whole every time it changes is the wrong trade.
+    private static let longestReadableText = 8000
     private let queue = DispatchQueue(label: "pl.dmq.peering.host.text-focus", qos: .utility)
     private let systemWide = AXUIElementCreateSystemWide()
     private var timer: DispatchSourceTimer?
@@ -27,9 +33,16 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         AXUIElementSetMessagingTimeout(systemWide, 0.25)
     }
 
-    func start(onChange: @escaping @Sendable (TextFocus) -> Void) {
+    func start(
+        transform: @escaping @Sendable () -> InputTransform?,
+        onChange: @escaping @Sendable (TextFocus) -> Void,
+        onField: @escaping @Sendable (FieldState) -> Void
+    ) {
         queue.async { [self] in
             self.onChange = onChange
+            self.onField = onField
+            self.transform = transform
+            lastField = nil
             guard timer == nil else { return }
             needsBaseline = true
             let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -66,6 +79,7 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
             timer?.cancel()
             timer = nil
             lastElement = nil
+            lastField = nil
         }
     }
 
@@ -86,10 +100,13 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         }
         switch (element, lastElement) {
         case (nil, nil): return
-        case let (element?, last?) where CFEqual(element, last): return
+        case let (element?, last?) where CFEqual(element, last):
+            pollField(element)
+            return
         default: break
         }
         lastElement = element
+        lastField = nil
 
         guard let element else {
             onChange?(TextFocus(isEditable: false))
@@ -102,6 +119,83 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         let editable = Self.isEditable(element)
         focusLog.debug("focus moved · \(role as? String ?? "no role", privacy: .public) · editable \(editable)")
         onChange?(TextFocus(isEditable: editable))
+        if editable { pollField(element) }
+    }
+
+    /// Reads the focused field's text, selection and caret, and sends them if any of the three moved.
+    private func pollField(_ element: AXUIElement) {
+        guard onField != nil, Self.isEditable(element) else { return }
+        AXUIElementSetMessagingTimeout(element, 0.25)
+
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
+        let isSecure = (subrole as? String) == "AXSecureTextField"
+
+        var text: String?
+        if !isSecure {
+            var value: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success,
+               let string = value as? String,
+               string.utf16.count <= Self.longestReadableText {
+                text = string
+            }
+        }
+
+        var selection = CFRange(location: 0, length: 0)
+        var rangeValue: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
+           let rangeValue, CFGetTypeID(rangeValue) == AXValueGetTypeID() {
+            AXValueGetValue(rangeValue as! AXValue, .cfRange, &selection)
+        } else if let text {
+            selection = CFRange(location: text.utf16.count, length: 0)
+        }
+
+        let state = FieldState(
+            text: text,
+            selectionLocation: selection.location,
+            selectionLength: selection.length,
+            caret: isSecure ? nil : caretPoint(of: element, selection: selection)
+        )
+        guard state != lastField else { return }
+        lastField = state
+        onField?(state)
+    }
+
+    /// The middle of the insertion point's line, in the picture's normalized space.
+    ///
+    /// Asked of the caret's own range first, then of the character before it, because an empty range at
+    /// the end of a line has no bounds in many applications. The whole element is the last resort, and a
+    /// coarse one: for a tall text area it is the middle of the area rather than the line being typed.
+    private func caretPoint(of element: AXUIElement, selection: CFRange) -> NormalizedPoint? {
+        guard let transform = transform?() else { return nil }
+        var candidates = [selection]
+        if selection.length == 0, selection.location > 0 {
+            candidates.append(CFRange(location: selection.location - 1, length: 1))
+        }
+        var rect: CGRect?
+        for var range in candidates {
+            guard let ranged = AXValueCreate(.cfRange, &range) else { continue }
+            var bounds: CFTypeRef?
+            if AXUIElementCopyParameterizedAttributeValue(
+                element, kAXBoundsForRangeParameterizedAttribute as CFString, ranged, &bounds
+            ) == .success, let bounds, CFGetTypeID(bounds) == AXValueGetTypeID() {
+                var found = CGRect.zero
+                AXValueGetValue(bounds as! AXValue, .cgRect, &found)
+                if found.height > 0 { rect = found; break }
+            }
+        }
+        if rect == nil {
+            var frame: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, "AXFrame" as CFString, &frame) == .success,
+               let frame, CFGetTypeID(frame) == AXValueGetTypeID() {
+                var found = CGRect.zero
+                AXValueGetValue(frame as! AXValue, .cgRect, &found)
+                if found.height > 0 { rect = found }
+            }
+        }
+        guard let rect else { return nil }
+        let point = transform.normalizedPoint(fromGlobal: CGPoint(x: rect.midX, y: rect.midY))
+        return (0...1).contains(point.x) && (0...1).contains(point.y) ? point : nil
     }
 
     /// Chromium and Electron apps build their accessibility tree only for assistive software, so

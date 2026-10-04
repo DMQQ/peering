@@ -254,6 +254,22 @@ extension HostModel {
         }
     }
 
+    /// Lights a display that went dark while nobody was connected.
+    ///
+    /// The assertion above only keeps a lit display lit. A Mac that slept its display overnight and
+    /// is awake enough to answer the network stays dark when a phone connects, and the picture is
+    /// black or absent until somebody touches it, which is the one thing a phone cannot do.
+    func wakeDisplayIfAsleep() {
+        guard CGDisplayIsAsleep(CGMainDisplayID()) != 0 else { return }
+        var assertionID: IOPMAssertionID = 0
+        IOPMAssertionDeclareUserActivity(
+            "Peering connection" as CFString,
+            kIOPMUserActiveLocal,
+            &assertionID
+        )
+        hostLog.notice("display was asleep; declared user activity to wake it")
+    }
+
     func releaseSleepAssertion() {
         guard sleepAssertionID != 0 else { return }
         IOPMAssertionRelease(sleepAssertionID)

@@ -27,6 +27,10 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// ``supportsClipboardImages``: an older client cannot decode the frame kind.
     public var supportsTextFocus: Bool?
 
+    /// Whether this client reads ``MessageKind/fieldState``. Declared for the same reason as
+    /// ``supportsTextFocus``.
+    public var supportsFieldState: Bool?
+
     /// What a reconnecting client was looking at, so the Mac can start capturing it on arrival
     /// rather than a round trip later when the client asks from the catalogue. Honoured only for a
     /// client the Mac already trusts. Optional, so either end of an older pair ignores it.
@@ -39,6 +43,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         wantsPairing: Bool,
         supportsClipboardImages: Bool? = nil,
         supportsTextFocus: Bool? = nil,
+        supportsFieldState: Bool? = nil,
         resumeSource: CaptureSource? = nil
     ) {
         self.clientID = clientID
@@ -47,6 +52,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.wantsPairing = wantsPairing
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsTextFocus = supportsTextFocus
+        self.supportsFieldState = supportsFieldState
         self.resumeSource = resumeSource
     }
 }

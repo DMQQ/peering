@@ -138,6 +138,7 @@ final class HostSession: @unchecked Sendable {
     private var clientSupportsClipboardImages: Bool?
     /// Whether the client can decode ``MessageKind/textFocus``. `nil` is a client built before it.
     private var clientSupportsTextFocus: Bool?
+    private var clientSupportsFieldState: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     ///
@@ -361,6 +362,7 @@ final class HostSession: @unchecked Sendable {
         // only thing that tells a client too old to read a picture apart from one that can.
         clientSupportsClipboardImages = hello.supportsClipboardImages
         clientSupportsTextFocus = hello.supportsTextFocus
+        clientSupportsFieldState = hello.supportsFieldState
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -672,6 +674,11 @@ final class HostSession: @unchecked Sendable {
     func sendTextFocus(_ focus: TextFocus) {
         guard isAuthorized, clientSupportsTextFocus == true else { return }
         send(MessageKind.textFocus, focus)
+    }
+
+    func sendFieldState(_ state: FieldState) {
+        guard isAuthorized, clientSupportsFieldState == true else { return }
+        send(MessageKind.fieldState, state)
     }
 
     private func send<T: Encodable>(_ kind: MessageKind, _ value: T) {

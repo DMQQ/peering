@@ -573,6 +573,9 @@ final class SessionModel {
     /// if it was opened that way. See ``TextFocus``.
     func textFocusChanged(_ focus: TextFocus) {
         let enabled = UserDefaults.standard.object(forKey: PreferenceKeys.opensKeyboardForTextFields) as? Bool ?? true
+        typedDraft = ""
+        pendingField = nil
+        fieldCaret = nil
         guard enabled, !isObserving, !isShowingMosaic, !isPanelOpen else { return }
         if focus.isEditable {
             guard !showKeyboard else { return }
@@ -591,6 +594,48 @@ final class SessionModel {
     /// has to go through ``handleTypedText(_:)`` and ``handleBackspace()`` — a keycode sent
     /// directly leaves this showing a character the Mac has already lost.
     var typedPreview = ""
+
+    /// What the keyboard's field holds, kept here because the field is rebuilt every time the keyboard
+    /// opens. The Mac's field still has this text when the keyboard is put away and brought back, so the
+    /// phone's must too; it ends with a Return or when the Mac's focus moves to a different element.
+    var typedDraft = ""
+
+    /// Bumped each time the Mac's field is applied to the phone's, which is what tells the field to
+    /// take ``typedDraft`` and ``draftSelection`` as they now stand rather than as it last left them.
+    var fieldSerial = 0
+    var draftSelection = NSRange(location: 0, length: 0)
+    /// Where the Mac's insertion point is in the picture, when it said.
+    var fieldCaret: NormalizedPoint?
+    /// When the phone's field last changed by typing. The Mac's report of a line still being typed is
+    /// older than the line, and applying it would delete the last few characters.
+    var lastLocalEdit = Date.distantPast
+    private var pendingField: FieldState?
+
+    /// The Mac's field, taken in once the phone has been quiet for a moment.
+    func fieldStateChanged(_ state: FieldState) {
+        fieldCaret = state.caret
+        guard state.text != nil else { return }
+        pendingField = state
+        applyPendingFieldWhenQuiet()
+    }
+
+    private func applyPendingFieldWhenQuiet() {
+        guard let state = pendingField, let text = state.text else { return }
+        let wait = Self.fieldSettleTime - Date().timeIntervalSince(lastLocalEdit)
+        if wait > 0 {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(wait))
+                self?.applyPendingFieldWhenQuiet()
+            }
+            return
+        }
+        pendingField = nil
+        typedDraft = text
+        draftSelection = NSRange(location: state.selectionLocation, length: state.selectionLength)
+        fieldSerial += 1
+    }
+
+    private static let fieldSettleTime: TimeInterval = 0.8
 
     // MARK: - Purchase
 

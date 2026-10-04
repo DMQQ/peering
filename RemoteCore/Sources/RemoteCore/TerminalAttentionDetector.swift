@@ -45,7 +45,7 @@ public struct TerminalAttentionDetector: Sendable {
     /// that was just recognised. Empty when that tail does not end in something readable: a
     /// full-screen program repaints with cursor moves rather than lines.
     public var question: String? {
-        Self.lastLine(of: plainText)
+        Self.question(inPlainText: plainText)
     }
 
     /// The tail with its terminal control sequences taken out, which is the text a person sees.
@@ -60,7 +60,23 @@ public struct TerminalAttentionDetector: Sendable {
     /// One rule rather than two, because "this line is a prompt" is the same judgement in both
     /// places, down to the bound that refuses a screenful of repainted nothing.
     public static func question(inPlainText text: String) -> String? {
-        lastLine(of: text)
+        chooserQuestion(of: text) ?? lastLine(of: text)
+    }
+
+    /// The question above a Claude Code chooser. Its last line is the footer ("Esc to cancel",
+    /// "tab to amend"), which says nothing about what is being asked.
+    private static func chooserQuestion(of text: String) -> String? {
+        let lines = text.split(whereSeparator: \.isNewline).map { String($0) }
+        guard let selected = lines.lastIndex(where: {
+            $0.range(of: #"^\s*❯\s*\d+\.\s*.+"#, options: .regularExpression) != nil
+        }) else { return nil }
+        for line in lines[..<selected].reversed() {
+            let cleaned = line.trimmingCharacters(in: .whitespaces)
+            if cleaned.range(of: #"^\d+\.\s"#, options: .regularExpression) != nil { continue }
+            guard cleaned.contains("?") else { continue }
+            return cleaned.count <= 160 ? cleaned : nil
+        }
+        return nil
     }
 
     private static func lastLine(of text: String) -> String? {

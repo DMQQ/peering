@@ -90,6 +90,9 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// The Mac's keyboard focus moved. JSON-encoded ``TextFocus``. Sent only to a client that
     /// declared ``ClientHello/supportsTextFocus``.
     case textFocus = 0x1C
+    /// What the focused text field holds and where its caret is. JSON-encoded ``FieldState``. Sent only
+    /// to a client that declared ``ClientHello/supportsFieldState``.
+    case fieldState = 0x1D
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

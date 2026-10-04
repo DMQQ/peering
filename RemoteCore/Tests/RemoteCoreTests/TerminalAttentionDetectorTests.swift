@@ -77,6 +77,20 @@ struct TerminalAttentionDetectorTests {
         #expect(coloured.question == "deploy@example.com's password:")
     }
 
+    @Test("a Claude chooser is quoted by its question, not its footer")
+    func quotesTheChooserQuestion() {
+        var detector = TerminalAttentionDetector()
+        let prompt = """
+        Do you want to make this edit to Theme.swift?
+        ❯ 1. Yes
+          2. Yes, allow all edits
+          3. No
+        Esc to cancel · Tab to amend
+        """
+        #expect(detector.receive(Data(prompt.utf8)) == .confirmation)
+        #expect(detector.question == "Do you want to make this edit to Theme.swift?")
+    }
+
     @Test("a question that cannot be read is not guessed at")
     func refusesAnUnreadableQuestion() {
         // A program that repaints rather than prints leaves a screenful of single line behind it,

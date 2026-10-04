@@ -413,6 +413,13 @@ extension MacSession {
             append(note: "Direct path: \(outcome.summary)")
         case .remoteNotice(let message):
             remoteNotice = message
+            // A locked Mac draws no frames for an application or a window, so a session resumed on one
+            // would sit on a paused picture with the password nowhere in reach. Go to the lock screen
+            // as the Unlock button would; the detour puts the source back once the Mac is unlocked.
+            if let displayID = message?.lockedDisplayID, isActive, unlockDetour == nil,
+               model.activeSourceID != CaptureSource.display(displayID).stableID {
+                model.showLockScreen(on: displayID)
+            }
             // Unlocked: go back to what Unlock left, unless the user has moved on since.
             if message?.lockedDisplayID == nil, let detour = unlockDetour {
                 unlockDetour = nil
@@ -423,6 +430,8 @@ extension MacSession {
             }
         case .textFocus(let focus):
             if isActive { model.textFocusChanged(focus) }
+        case .fieldState(let state):
+            if isActive { model.fieldStateChanged(state) }
         case .clipboard(let payload):
             hostClipboard = payload
             clipboardPulling = false

@@ -236,7 +236,7 @@ extension HomeTab {
             IconTile(symbol: "macbook")
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(host.name)
+                Text(model.displayName(forHostID: host.id) ?? host.name)
                     .font(.subheadline.weight(.semibold))
                 HStack(spacing: 6) {
                     Text(host.id.prefix(8))

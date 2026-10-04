@@ -323,14 +323,12 @@ private final class TerminalAppWatch: @unchecked Sendable {
         guard lock.withLock({ awaiting.insert(key).inserted }) else { return }
 
         let noun = kind == .password ? "a password" : "confirmation"
-        // **Who is asking, and for what.** The window says where, the terminal's own last line says
-        // who — "[sudo] password for damian:" is the answer to both questions, and a banner that
-        // read "Terminal is waiting for a password" answered neither: two shells on one Mac asking
-        // for two different passwords produced one identical line. The sentence is the fallback for
-        // a question that cannot be read.
+        // The banner quotes the question alone: "[sudo] password for damian:" or Claude's "Do you
+        // want to proceed?" says what is being asked, and a window name in front of it only pushed
+        // that out of the line. The sentence, with the window, is the fallback for a question that
+        // cannot be read.
         let who = title.map { "\(appName) \u{201C}\($0)\u{201D}" } ?? appName
         let message = TerminalAttentionDetector.question(inPlainText: text)
-            .map { "\(who): \($0)" }
             ?? "\(who) is waiting for \(noun)."
         nativeTermLog.notice("\(message as String, privacy: .public)")
         onAttention(message, windowID)

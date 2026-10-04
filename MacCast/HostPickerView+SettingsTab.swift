@@ -215,14 +215,19 @@ struct SettingsTab: View {
     private var remoteAccessSection: some View {
         Controls.card(
             "Remote access",
-            footer: "Relay connects across networks. Privacy mode dims the Mac's displays without stopping the stream."
+            footer: model.phase == .ready
+                ? "Relay connects across networks. Privacy mode dims the Mac's displays without stopping the stream."
+                : "Relay connects across networks."
         ) {
             Controls.toggle("Allow relay connections", systemImage: "network", isOn: $allowsRelay)
-            Controls.divider
-            Controls.toggle("Privacy mode", systemImage: "moon.fill", isOn: Binding(
-                get: { model.privacyModeEnabled },
-                set: { model.setPrivacyMode($0) }
-            ))
+            // Per session: the Mac is only told while one is live, and it is undone on disconnect.
+            if model.phase == .ready {
+                Controls.divider
+                Controls.toggle("Privacy mode", systemImage: "moon.fill", isOn: Binding(
+                    get: { model.privacyModeEnabled },
+                    set: { model.setPrivacyMode($0) }
+                ))
+            }
 
             // The subscription had no door until now — the paywall could only be reached by the
             // relay refusing a connection for quota, which means the only people who could buy it

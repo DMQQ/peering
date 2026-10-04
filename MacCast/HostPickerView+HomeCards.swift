@@ -213,7 +213,7 @@ extension HomeTab {
                         // would be a Mac that had disappeared from a list of Macs.
                         PlanLocked(
                             capability: .extraMacs,
-                            title: host.name,
+                            title: model.displayName(forHostID: host.id) ?? host.name,
                             placement: .trailing,
                             diameter: 26,
                             isIncluded: !locked

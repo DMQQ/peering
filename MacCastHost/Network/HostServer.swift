@@ -608,6 +608,16 @@ final class HostServer: @unchecked Sendable {
         }
     }
 
+    /// Tells every attached client what the focused field holds.
+    func broadcastFieldState(_ state: FieldState) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            for session in self.controlSessions {
+                session.sendFieldState(state)
+            }
+        }
+    }
+
     private func closeVideoConnections(for clientKey: Data?) {
         guard let clientKey else { return }
         let closing = videoConnections.filter { $0.clientKey == clientKey }

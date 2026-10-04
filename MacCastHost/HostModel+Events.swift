@@ -39,7 +39,12 @@ extension HostModel {
             coordinator?.forgetWindowListIfStale()
             beginSession(id: clientID, name: clientName)
             startScreenWatch()
-            textFocusWatcher.start { [weak server] focus in server?.broadcastTextFocus(focus) }
+            let input = self.input
+            textFocusWatcher.start(
+                transform: { input.transform },
+                onChange: { [weak server] focus in server?.broadcastTextFocus(focus) },
+                onField: { [weak server] state in server?.broadcastFieldState(state) }
+            )
             record("\(clientName) connected · \(detail)")
             // A client that has just arrived has no source list, so it is sent one now rather than
             // waiting for an application to launch. It is also the first read of the catalogue,
@@ -51,6 +56,7 @@ extension HostModel {
             // long as three seconds while this Mac captures a display nobody asked for.
             coordinator?.refreshCatalog(immediate: true)
             acquireSleepAssertion()
+            wakeDisplayIfAsleep()
             // Somebody is using this Mac: the schedule's window is open whatever the clock says,
             // and a release the user asked for on the last disconnect is spent. See
             // ``keepAwakeIsInForce``.

@@ -257,6 +257,7 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
     var onDelete: ((Int) -> Void)?
     var onKey: ((UIKeyboardHIDUsage, Bool, UIKeyModifierFlags) -> Void)?
     var onReturn: (() -> Void)?
+    var onDraftChange: ((String) -> Void)?
 
     /// "Typing…", because a text view has no placeholder of its own.
     private let hint = UILabel()
@@ -331,13 +332,34 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
 
     func textViewDidChange(_ textView: UITextView) {
         hint.isHidden = !textView.text.isEmpty
+        onDraftChange?(textView.text)
     }
+
+    /// Puts back what an earlier appearance of this field was holding, without telling the Mac.
+    func restore(_ draft: String) {
+        text = draft
+        hint.isHidden = !draft.isEmpty
+    }
+
+    /// The Mac's field as it now stands, caret included. Left alone mid-composition, which the system
+    /// would otherwise lose.
+    func apply(_ draft: String, selection: NSRange) {
+        guard markedTextRange == nil else { return }
+        if text != draft { restore(draft) }
+        let length = (text as NSString).length
+        let location = min(selection.location, length)
+        let clamped = NSRange(location: location, length: min(selection.length, length - location))
+        if selectedRange != clamped { selectedRange = clamped }
+    }
+
+    var appliedFieldSerial = 0
 
     /// Empties the buffer without telling the Mac anything, which is right in both cases it is
     /// called: what the buffer held has already been sent, and a Return has just committed it.
     func reset() {
         text = ""
         hint.isHidden = false
+        onDraftChange?("")
     }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
@@ -382,6 +404,12 @@ struct KeyboardTypingCapture: UIViewRepresentable {
             for _ in 0..<count { model?.handleBackspace() }
         }
         view.onReturn = { [weak model] in model?.pressReturn() }
+        view.onDraftChange = { [weak model] draft in
+            model?.typedDraft = draft
+            model?.lastLocalEdit = Date()
+        }
+        view.restore(model.typedDraft)
+        view.appliedFieldSerial = model.fieldSerial
         view.onKey = { [weak model] usage, down, flags in
             model?.handleHardwareKey(usage, down: down, flags: flags)
         }
@@ -416,6 +444,13 @@ struct KeyboardTypingCapture: UIViewRepresentable {
         // nobody typed.
         let autocorrects = model.keyboardMode == .unicode
         view.autocorrectionType = autocorrects ? .yes : .no
+        if view.appliedFieldSerial != model.fieldSerial {
+            view.appliedFieldSerial = model.fieldSerial
+            view.apply(model.typedDraft, selection: model.draftSelection)
+        } else if view.text != model.typedDraft, view.markedTextRange == nil {
+            // The Mac's focus moved to another element while the keyboard was up, which empties the draft.
+            view.restore(model.typedDraft)
+        }
         if isFocused, !view.isFirstResponder {
             // A beat, because the binding is set from a button press in the same runloop turn that the
             // view is being installed in, and a `becomeFirstResponder` on a view with no window yet is
@@ -423,8 +458,6 @@ struct KeyboardTypingCapture: UIViewRepresentable {
             DispatchQueue.main.async { view.becomeFirstResponder() }
         } else if !isFocused, view.isFirstResponder {
             view.resignFirstResponder()
-            // Leaving the keyboard ends the sentence the suggestions were being made for.
-            view.reset()
         }
     }
 }
