@@ -105,7 +105,7 @@ struct SettingsTab: View {
 
     private var controlsSection: some View {
         Controls.card(String(localized: "Session controls"), footer: model.keyboardMode.explanation) {
-            Controls.picker("Interaction", systemImage: "hand.point.up.left", selection: $interactionMode) {
+            Controls.picker(String(localized: "Interaction"), systemImage: "hand.point.up.left", selection: $interactionMode) {
                 ForEach(InteractionMode.allCases) { mode in
                     Text(mode == .control ? "Control" : "Observe").tag(mode)
                 }
@@ -219,7 +219,7 @@ struct SettingsTab: View {
                 ? String(localized: "Relay connects across networks. Privacy mode dims the Mac's displays without stopping the stream.")
                 : String(localized: "Relay connects across networks.")
         ) {
-            Controls.toggle("Allow relay connections", systemImage: "network", isOn: $allowsRelay)
+            Controls.toggle(String(localized: "Allow relay connections"), systemImage: "network", isOn: $allowsRelay)
             // Per session: the Mac is only told while one is live, and it is undone on disconnect.
             if model.phase == .ready {
                 Controls.divider
@@ -241,7 +241,7 @@ struct SettingsTab: View {
             if !model.storeManager.relayPlan.isUnlimited {
                 Controls.divider
                 Button { model.paywallReason = .upgrade } label: {
-                    Controls.row("Upgrade to Pro", systemImage: "sparkles") {
+                    Controls.row(String(localized: "Upgrade to Pro"), systemImage: "sparkles") {
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
@@ -255,7 +255,7 @@ struct SettingsTab: View {
 
     private var securitySection: some View {
         Controls.card(String(localized: "Security")) {
-            Controls.toggle("Require \(DeviceAuthentication.biometryName) on open", systemImage: DeviceAuthentication.biometrySymbol, isOn: Binding(
+            Controls.toggle(String(localized: "Require \(DeviceAuthentication.biometryName) on open"), systemImage: DeviceAuthentication.biometrySymbol, isOn: Binding(
                 get: { requiresBiometricUnlock },
                 set: { requested in
                     guard requested else {
@@ -315,7 +315,7 @@ struct SettingsTab: View {
             String(localized: "Live Activity"),
             footer: String(localized: "Shows session status and duration on the Lock Screen and in Dynamic Island.")
         ) {
-            Controls.toggle("Show live activity", systemImage: "lock.fill", isOn: $liveActivitiesEnabled)
+            Controls.toggle(String(localized: "Show live activity"), systemImage: "lock.fill", isOn: $liveActivitiesEnabled)
                 .onChange(of: liveActivitiesEnabled) { _, enabled in
                     SessionActivity.shared.preferenceChanged(enabled: enabled)
                 }
@@ -370,7 +370,7 @@ struct SettingsTab: View {
             // and from the Mac's end that absence is indistinguishable from a send that failed. A
             // reason is shown when there is one, because it is the only place any part of this
             // failure is ever visible.
-            Controls.row("This phone can be reached", systemImage: "antenna.radiowaves.left.and.right") {
+            Controls.row(String(localized: "This phone can be reached"), systemImage: "antenna.radiowaves.left.and.right") {
                 Text(model.pushRegistration ?? "No")
                     .font(.subheadline)
                     .foregroundStyle(model.pushRegistration == nil ? .secondary : ColorPalette.caution)
@@ -467,7 +467,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            Controls.row("Private key", systemImage: "key.fill") {
+            Controls.row(String(localized: "Private key"), systemImage: "key.fill") {
                 Text("P-256 · in Keychain")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -475,7 +475,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            Controls.row("Paired Macs", systemImage: "macbook") {
+            Controls.row(String(localized: "Paired Macs"), systemImage: "macbook") {
                 Text("\(model.pairedHostIDs.count)")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -490,7 +490,7 @@ struct SettingsTab: View {
             // rather than an App Store install, so somebody setting up another machine has to come
             // back here for it.
             Link(destination: PeeringSite.download) {
-                Controls.row("Peering for Mac", systemImage: "arrow.down.circle") {
+                Controls.row(String(localized: "Peering for Mac"), systemImage: "arrow.down.circle") {
                     Image(systemName: "arrow.up.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)
@@ -505,7 +505,7 @@ struct SettingsTab: View {
             Button {
                 hasSeenWelcome = false
             } label: {
-                Controls.row("Show introduction again", systemImage: "rectangle.stack") {
+                Controls.row(String(localized: "Show introduction again"), systemImage: "rectangle.stack") {
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
@@ -526,7 +526,7 @@ struct SettingsTab: View {
             Button {
                 Tour.resetAll()
             } label: {
-                Controls.row("Show tips again", systemImage: "lightbulb") {
+                Controls.row(String(localized: "Show tips again"), systemImage: "lightbulb") {
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
@@ -554,7 +554,7 @@ struct SettingsTab: View {
                     openURL(Self.reportURL)
                 }
             } label: {
-                Controls.row("Report an issue", systemImage: "envelope") {
+                Controls.row(String(localized: "Report an issue"), systemImage: "envelope") {
                     Image(systemName: "arrow.up.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.tertiary)

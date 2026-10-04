@@ -154,7 +154,7 @@ extension HomeTab {
     var nearbyCardContent: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                sectionLabel("Nearby", systemImage: "dot.radiowaves.left.and.right")
+                sectionLabel(String(localized: "Nearby"), systemImage: "dot.radiowaves.left.and.right")
                 if model.hosts.isEmpty {
                     ProgressView()
                         .scaleEffect(0.65)
@@ -263,7 +263,7 @@ extension HomeTab {
     /// answer once both of those have not produced one.
     var remotePairingEntry: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("Another network", systemImage: "globe")
+            sectionLabel(String(localized: "Another network"), systemImage: "globe")
 
             // **The second way to pair a Mac, and it counts the same.** The pin store is the
             // one list of paired Macs, so a Mac paired by an ID typed from another network is

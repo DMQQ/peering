@@ -1,0 +1,412 @@
+{
+ "en": {
+  "h": [
+   "Your Mac,\nin your\n*pocket*.",
+   "Work from\n*anywhere*.",
+   "Start agents\nin *one tap*.",
+   "*Shortcuts*\nin a tap.",
+   "A real\n*keyboard*.",
+   "Pair in\n*seconds*.",
+   "Never miss\nan *approval*."
+  ],
+  "connected": "Connected",
+  "e2e": "End-to-end encrypted",
+  "e2e_sub": "Only your devices see it",
+  "paired": "Paired",
+  "anynet": "Any network",
+  "anynet_sub": "Home Wi-Fi or across the world",
+  "n1": "Claude Code asks: run npm test?",
+  "n2": "Codex finished: 24 tests passed",
+  "now": "now",
+  "date": "Sunday, 4 October",
+  "b": [
+   "Works with the lid closed",
+   "Your Mac stays awake",
+   "Files both ways",
+   "Clipboard history",
+   "Runs on your Mac",
+   "Survives disconnects",
+   "App-aware keys",
+   "F1 to F12",
+   "Emoji and any language",
+   "Real modifier keys",
+   "No account needed",
+   "Face ID lock",
+   "Live Activity",
+   "Lock Screen alerts"
+  ],
+  "x": [
+   "Sound from your Mac",
+   "Picture in Picture"
+  ]
+ },
+ "de": {
+  "h": [
+   "Dein *Mac*,\nin deiner Tasche.",
+   "Arbeite von\n*überall*.",
+   "Starte deine *Agenten*\nvom Handy aus.",
+   "Jedes *Kürzel*,\nein Fingertipp.",
+   "Eine echte\n*Tastatur*.",
+   "In *Sekunden*\ngekoppelt.",
+   "Keine Freigabe\n*verpassen*."
+  ],
+  "connected": "Verbunden",
+  "e2e": "Ende-zu-Ende verschlüsselt",
+  "e2e_sub": "Nur deine Geräte sehen es",
+  "paired": "Gekoppelt",
+  "anynet": "Jedes Netzwerk",
+  "anynet_sub": "Zuhause oder weltweit",
+  "n1": "Claude Code fragt: npm test ausführen?",
+  "n2": "Codex fertig: 24 Tests bestanden",
+  "now": "jetzt",
+  "date": "Sonntag, 4. Oktober",
+  "b": [
+   "Auch bei geschlossenem Deckel",
+   "Dein Mac bleibt wach",
+   "Dateien in beide Richtungen",
+   "Zwischenablage-Verlauf",
+   "Läuft auf deinem Mac",
+   "Übersteht Trennungen",
+   "App-spezifische Tasten",
+   "F1 bis F12",
+   "Emoji und jede Sprache",
+   "Echte Sondertasten",
+   "Kein Konto nötig",
+   "Face-ID-Sperre",
+   "Live-Aktivität",
+   "Mitteilungen im Sperrbildschirm"
+  ],
+  "x": [
+   "Ton von deinem Mac",
+   "Bild-in-Bild"
+  ]
+ },
+ "es": {
+  "h": [
+   "Tu *Mac*,\nen tu bolsillo.",
+   "Trabaja desde\n*cualquier lugar*.",
+   "Ejecuta tus *agentes*\ndesde el móvil.",
+   "Cada *atajo*,\na un toque.",
+   "Un *teclado*\nde verdad.",
+   "Vincula en\n*segundos*.",
+   "No te pierdas\nuna *aprobación*."
+  ],
+  "connected": "Conectado",
+  "e2e": "Cifrado de extremo a extremo",
+  "e2e_sub": "Solo tus dispositivos lo ven",
+  "paired": "Vinculado",
+  "anynet": "Cualquier red",
+  "anynet_sub": "En casa o en cualquier lugar",
+  "n1": "Claude Code pregunta: ¿ejecutar npm test?",
+  "n2": "Codex terminó: 24 pruebas superadas",
+  "now": "ahora",
+  "date": "domingo, 4 de octubre",
+  "b": [
+   "Funciona con la tapa cerrada",
+   "Tu Mac sigue despierto",
+   "Archivos en ambos sentidos",
+   "Historial del portapapeles",
+   "Se ejecuta en tu Mac",
+   "Sigue si te desconectas",
+   "Teclas según la app",
+   "F1 a F12",
+   "Emoji y cualquier idioma",
+   "Teclas modificadoras reales",
+   "Sin cuenta",
+   "Bloqueo con Face ID",
+   "Actividad en directo",
+   "Avisos en la pantalla de bloqueo"
+  ],
+  "x": [
+   "Sonido desde tu Mac",
+   "Imagen en imagen"
+  ]
+ },
+ "fr": {
+  "h": [
+   "Ton *Mac*,\ndans ta poche.",
+   "Travaille\n*de partout*.",
+   "Lance tes *agents*\ndepuis ton téléphone.",
+   "Chaque *raccourci*,\nen un toucher.",
+   "Un vrai\n*clavier*.",
+   "Associe en\n*secondes*.",
+   "Ne rate plus\nune *validation*."
+  ],
+  "connected": "Connecté",
+  "e2e": "Chiffré de bout en bout",
+  "e2e_sub": "Seuls tes appareils le voient",
+  "paired": "Associé",
+  "anynet": "Tout réseau",
+  "anynet_sub": "À la maison ou partout",
+  "n1": "Claude Code demande : lancer npm test ?",
+  "n2": "Codex a terminé : 24 tests réussis",
+  "now": "maintenant",
+  "date": "dimanche 4 octobre",
+  "b": [
+   "Fonctionne capot fermé",
+   "Ton Mac reste éveillé",
+   "Fichiers dans les deux sens",
+   "Historique du presse-papiers",
+   "S'exécute sur ton Mac",
+   "Résiste aux déconnexions",
+   "Touches selon l'app",
+   "F1 à F12",
+   "Emoji et toutes les langues",
+   "Vraies touches de modification",
+   "Sans compte",
+   "Verrou Face ID",
+   "Live Activity",
+   "Alertes sur l'écran verrouillé"
+  ],
+  "x": [
+   "Le son de ton Mac",
+   "Image dans l'image"
+  ]
+ },
+ "it": {
+  "h": [
+   "Il tuo *Mac*,\nin tasca.",
+   "Lavora da\n*ovunque*.",
+   "Avvia i tuoi *agenti*\ndal telefono.",
+   "Ogni *scorciatoia*,\na un tocco.",
+   "Una vera\n*tastiera*.",
+   "Associa in\n*secondi*.",
+   "Nessuna\n*approvazione* persa."
+  ],
+  "connected": "Connesso",
+  "e2e": "Crittografia end-to-end",
+  "e2e_sub": "Solo i tuoi dispositivi lo vedono",
+  "paired": "Associato",
+  "anynet": "Qualsiasi rete",
+  "anynet_sub": "A casa o ovunque",
+  "n1": "Claude Code chiede: eseguire npm test?",
+  "n2": "Codex ha finito: 24 test superati",
+  "now": "ora",
+  "date": "domenica 4 ottobre",
+  "b": [
+   "Funziona a schermo chiuso",
+   "Il tuo Mac resta sveglio",
+   "File in entrambe le direzioni",
+   "Cronologia degli appunti",
+   "Gira sul tuo Mac",
+   "Resiste alle disconnessioni",
+   "Tasti per ogni app",
+   "Da F1 a F12",
+   "Emoji e ogni lingua",
+   "Veri tasti modificatori",
+   "Nessun account",
+   "Blocco con Face ID",
+   "Live Activity",
+   "Avvisi nella schermata di blocco"
+  ],
+  "x": [
+   "L'audio del tuo Mac",
+   "Picture in Picture"
+  ]
+ },
+ "pt-BR": {
+  "h": [
+   "Seu *Mac*,\nno seu bolso.",
+   "Trabalhe de\n*qualquer lugar*.",
+   "Rode seus *agentes*\ndo celular.",
+   "Cada *atalho*,\na um toque.",
+   "Um *teclado*\nde verdade.",
+   "Pareie em\n*segundos*.",
+   "Nunca perca\numa *aprovação*."
+  ],
+  "connected": "Conectado",
+  "e2e": "Criptografia de ponta a ponta",
+  "e2e_sub": "Só seus dispositivos veem",
+  "paired": "Pareado",
+  "anynet": "Qualquer rede",
+  "anynet_sub": "Em casa ou em qualquer lugar",
+  "n1": "Claude Code pergunta: executar npm test?",
+  "n2": "Codex terminou: 24 testes aprovados",
+  "now": "agora",
+  "date": "domingo, 4 de outubro",
+  "b": [
+   "Funciona com a tampa fechada",
+   "Seu Mac continua ativo",
+   "Arquivos nos dois sentidos",
+   "Histórico da área de transferência",
+   "Roda no seu Mac",
+   "Continua se você desconectar",
+   "Teclas por app",
+   "F1 a F12",
+   "Emoji e qualquer idioma",
+   "Teclas modificadoras reais",
+   "Sem conta",
+   "Bloqueio com Face ID",
+   "Atividade ao vivo",
+   "Alertas na tela de bloqueio"
+  ],
+  "x": [
+   "Som do seu Mac",
+   "Picture in Picture"
+  ]
+ },
+ "ru": {
+  "h": [
+   "Твой *Mac*\nв кармане.",
+   "Работай\n*откуда угодно*.",
+   "Запускай *агентов*\nс телефона.",
+   "Любое *сочетание*\nв одно касание.",
+   "Настоящая\n*клавиатура*.",
+   "Связь за\n*секунды*.",
+   "Не пропусти\n*подтверждение*."
+  ],
+  "connected": "Подключено",
+  "e2e": "Сквозное шифрование",
+  "e2e_sub": "Видят только ваши устройства",
+  "paired": "Связано",
+  "anynet": "Любая сеть",
+  "anynet_sub": "Дома или где угодно",
+  "n1": "Claude Code спрашивает: запустить npm test?",
+  "n2": "Codex закончил: пройдено 24 теста",
+  "now": "сейчас",
+  "date": "воскресенье, 4 октября",
+  "b": [
+   "Работает с закрытой крышкой",
+   "Mac не засыпает",
+   "Файлы в обе стороны",
+   "История буфера обмена",
+   "Работает на вашем Mac",
+   "Не прерывается при отключении",
+   "Клавиши под приложение",
+   "F1–F12",
+   "Эмодзи и любой язык",
+   "Настоящие клавиши-модификаторы",
+   "Без аккаунта",
+   "Защита Face ID",
+   "Live Activity",
+   "Уведомления на экране блокировки"
+  ],
+  "x": [
+   "Звук с вашего Mac",
+   "Картинка в картинке"
+  ]
+ },
+ "ja": {
+  "h": [
+   "あなたの*Mac*を、\nポケットに。",
+   "*どこからでも*\n作業できる。",
+   "*エージェント*を\nスマホから実行。",
+   "あらゆる*ショートカット*を\nワンタップで。",
+   "本物の\n*キーボード*。",
+   "*数秒*で\nペアリング。",
+   "*承認*を\n見逃さない。"
+  ],
+  "connected": "接続済み",
+  "e2e": "エンドツーエンド暗号化",
+  "e2e_sub": "あなたのデバイスだけが見られます",
+  "paired": "ペアリング済み",
+  "anynet": "どのネットワークでも",
+  "anynet_sub": "自宅でも世界中でも",
+  "n1": "Claude Code: npm testを実行しますか？",
+  "n2": "Codex完了: 24件のテストに合格",
+  "now": "今",
+  "date": "10月4日 日曜日",
+  "b": [
+   "蓋を閉じても動作",
+   "Macはスリープしません",
+   "ファイルを双方向に",
+   "クリップボード履歴",
+   "Mac上で実行",
+   "切断されても動き続ける",
+   "アプリごとのキー",
+   "F1〜F12",
+   "絵文字もあらゆる言語も",
+   "本物の修飾キー",
+   "アカウント不要",
+   "Face IDロック",
+   "ライブアクティビティ",
+   "ロック画面の通知"
+  ],
+  "x": [
+   "Macの音をそのまま",
+   "ピクチャ・イン・ピクチャ"
+  ]
+ },
+ "ko": {
+  "h": [
+   "내 *Mac*을\n주머니 속에.",
+   "*어디서든*\n작업하세요.",
+   "*에이전트*를\n폰에서 실행하세요.",
+   "모든 *단축키*를\n한 번에.",
+   "진짜\n*키보드*.",
+   "*몇 초* 만에\n페어링.",
+   "*승인*을\n놓치지 마세요."
+  ],
+  "connected": "연결됨",
+  "e2e": "종단 간 암호화",
+  "e2e_sub": "내 기기만 볼 수 있어요",
+  "paired": "페어링됨",
+  "anynet": "어떤 네트워크든",
+  "anynet_sub": "집에서도 세계 어디서나",
+  "n1": "Claude Code: npm test를 실행할까요?",
+  "n2": "Codex 완료: 테스트 24개 통과",
+  "now": "지금",
+  "date": "10월 4일 일요일",
+  "b": [
+   "덮개를 닫아도 작동",
+   "Mac이 계속 깨어 있어요",
+   "양방향 파일 전송",
+   "클립보드 기록",
+   "Mac에서 실행",
+   "연결이 끊겨도 계속",
+   "앱별 키",
+   "F1~F12",
+   "이모지와 모든 언어",
+   "진짜 보조 키",
+   "계정 필요 없음",
+   "Face ID 잠금",
+   "실시간 현황",
+   "잠금 화면 알림"
+  ],
+  "x": [
+   "Mac의 소리 그대로",
+   "화면 속 화면"
+  ]
+ },
+ "zh-Hans": {
+  "h": [
+   "你的 *Mac*，\n装进口袋。",
+   "*随时随地*\n工作。",
+   "在手机上\n运行*智能体*。",
+   "每个*快捷键*，\n一点即达。",
+   "真正的\n*键盘*。",
+   "*几秒*\n完成配对。",
+   "不错过任何\n*批准*。"
+  ],
+  "connected": "已连接",
+  "e2e": "端到端加密",
+  "e2e_sub": "只有你的设备能看到",
+  "paired": "已配对",
+  "anynet": "任意网络",
+  "anynet_sub": "在家或在世界各地",
+  "n1": "Claude Code 询问：要运行 npm test 吗？",
+  "n2": "Codex 已完成：24 项测试通过",
+  "now": "现在",
+  "date": "10月4日 星期日",
+  "b": [
+   "合盖也能使用",
+   "Mac 保持唤醒",
+   "文件双向传输",
+   "剪贴板历史",
+   "在你的 Mac 上运行",
+   "断开后继续运行",
+   "按应用切换按键",
+   "F1 至 F12",
+   "表情符号与任何语言",
+   "真正的修饰键",
+   "无需账户",
+   "Face ID 锁定",
+   "实时活动",
+   "锁屏通知"
+  ],
+  "x": [
+   "来自 Mac 的声音",
+   "画中画"
+  ]
+ }
+}

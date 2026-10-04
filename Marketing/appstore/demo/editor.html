@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Peering Demo</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#1b1d23;color:#c9d1d9;font:13px/1.65 "SF Mono",Menlo,monospace;overflow:hidden}
+.app{display:grid;grid-template-columns:200px 1fr;grid-template-rows:38px 1fr 26px;height:100%}
+.top{grid-column:1/3;background:#14161b;border-bottom:1px solid #262a33;display:flex;align-items:center;padding:0 16px;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%}
+.side{background:#171920;border-right:1px solid #262a33;padding:14px 0;font:15px/2 -apple-system,sans-serif;color:#9aa4b2}
+.side b{display:block;padding:0 16px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b7482;margin-bottom:6px}
+.side div{padding:0 16px}.side .on{background:#22262f;color:#fff}.side .i{padding-left:34px}
+.main{display:flex;flex-direction:column;min-width:0}
+.tabs{display:flex;background:#14161b;border-bottom:1px solid #262a33;font:14px -apple-system,sans-serif}
+.tabs div{padding:9px 18px;color:#7d8794;border-right:1px solid #262a33}.tabs .on{background:#1b1d23;color:#fff}
+pre{white-space:normal;margin:0;padding:22px 0;flex:1;overflow:hidden;font-size:21px;line-height:1.75}
+.l{display:block;padding-left:72px;position:relative;white-space:pre}.l:before{content:attr(n);position:absolute;left:0;width:50px;text-align:right;color:#4a5361}
+.k{color:#c678dd}.s{color:#98c379}.f{color:#61afef}.t{color:#e5c07b}.c{color:#5c6370}.n{color:#d19a66}.hl{background:#232833}
+.bar{grid-column:1/3;background:#2f6feb;color:#fff;font:14px -apple-system,sans-serif;display:flex;align-items:center;padding:0 14px;gap:18px}
+</style></head><body><div class="app">
+<div class="top"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span style="margin-left:14px;font:13px -apple-system,sans-serif;color:#9aa4b2">orders-service</span></div>
+<div class="side"><b>Explorer</b><div>▾ src</div><div class="i">▾ routes</div><div class="i on">&nbsp;&nbsp;orders.ts</div><div class="i">&nbsp;&nbsp;users.ts</div><div class="i">&nbsp;&nbsp;health.ts</div><div class="i">▸ models</div><div class="i">▸ jobs</div><div>&nbsp;&nbsp;server.ts</div><div>&nbsp;&nbsp;config.ts</div><div>▸ tests</div><div>&nbsp;&nbsp;package.json</div></div>
+<div class="main"><div class="tabs"><div class="on">orders.ts</div><div>server.ts</div><div>config.ts</div></div><pre>
+<span class="l" n="1"><span class="k">import</span> { Router } <span class="k">from</span> <span class="s">"express"</span>;</span>
+<span class="l" n="2"><span class="k">import</span> { db } <span class="k">from</span> <span class="s">"../models/db"</span>;</span>
+<span class="l" n="3"><span class="k">import</span> { notify } <span class="k">from</span> <span class="s">"../jobs/notify"</span>;</span>
+<span class="l" n="4">&nbsp;</span>
+<span class="l" n="5"><span class="k">export const</span> orders = <span class="f">Router</span>();</span>
+<span class="l" n="6">&nbsp;</span>
+<span class="l" n="7"><span class="c">// Create an order and tell the customer</span></span>
+<span class="l hl" n="8">orders.<span class="f">post</span>(<span class="s">"/"</span>, <span class="k">async</span> (req, res) =&gt; {</span>
+<span class="l" n="9">  <span class="k">const</span> { items, userId } = req.body;</span>
+<span class="l" n="10">  <span class="k">const</span> total = <span class="f">sumOf</span>(items);</span>
+<span class="l" n="11">&nbsp;</span>
+<span class="l" n="12">  <span class="k">const</span> order = <span class="k">await</span> db.orders.<span class="f">insert</span>({ userId, total });</span>
+<span class="l" n="13">  <span class="k">await</span> <span class="f">notify</span>(userId, <span class="s">`Order #${order.id} confirmed`</span>);</span>
+<span class="l" n="14">  res.<span class="f">status</span>(<span class="n">201</span>).<span class="f">json</span>(order);</span>
+<span class="l" n="15">});</span>
+<span class="l" n="16">&nbsp;</span>
+<span class="l" n="17">orders.<span class="f">get</span>(<span class="s">"/:id"</span>, <span class="k">async</span> (req, res) =&gt; {</span>
+<span class="l" n="18">  <span class="k">const</span> order = <span class="k">await</span> db.orders.<span class="f">find</span>(req.params.id);</span>
+<span class="l" n="19">  <span class="k">if</span> (!order) <span class="k">return</span> res.<span class="f">sendStatus</span>(<span class="n">404</span>);</span>
+<span class="l" n="20">  res.<span class="f">json</span>(order);</span>
+<span class="l" n="21">});</span>
+<span class="l" n="22">&nbsp;</span>
+<span class="l" n="23">orders.<span class="f">delete</span>(<span class="s">"/:id"</span>, <span class="k">async</span> (req, res) =&gt; {</span>
+<span class="l" n="24">  <span class="k">await</span> db.orders.<span class="f">remove</span>(req.params.id);</span>
+<span class="l" n="25">  res.<span class="f">sendStatus</span>(<span class="n">204</span>);</span>
+<span class="l" n="26">});</span>
+</pre></div>
+<div class="bar"><span>main</span><span>TypeScript</span><span>Ln 8, Col 14</span></div></div></body></html>

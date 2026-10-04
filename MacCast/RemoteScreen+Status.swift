@@ -290,6 +290,9 @@ extension RemoteScreen {
                         ) {
                             showsTerminals = true
                         }
+                        actionChip("Agents", systemImage: "sparkles") {
+                            showsAgents = true
+                        }
                         if canReturnToMosaic {
                             actionChip(
                                 "Mosaic",

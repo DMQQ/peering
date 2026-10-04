@@ -27,7 +27,7 @@ struct SSHKeyCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Controls.row("Type", systemImage: "key.horizontal") {
+            Controls.row(String(localized: "Type"), systemImage: "key.horizontal") {
                 Text(Self.describe(key.algorithm))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -288,7 +288,7 @@ struct SSHKeyImportSheet: View {
                         if source != .generate {
                             Controls.card(String(localized: "Passphrase"), footer: String(localized: "Only if the key has one. It is kept in this iPhone's keychain beside the key, because a phone has no ssh-agent and a key that has to be unlocked by hand at every connection cannot be used at all.")) {
                                 VStack(spacing: 10) {
-                                    Controls.toggle("It has a passphrase", systemImage: "lock", isOn: $usesPassphrase)
+                                    Controls.toggle(String(localized: "It has a passphrase"), systemImage: "lock", isOn: $usesPassphrase)
                                     if usesPassphrase {
                                         Controls.divider
                                         field("Passphrase", systemImage: "key", text: $passphrase, isSecret: true)

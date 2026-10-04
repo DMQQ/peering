@@ -74,7 +74,7 @@ struct SSHForwardEditor: View {
                         VStack(spacing: 10) {
                             field("Name", systemImage: "tag", text: $label, hint: "Optional")
                             Controls.divider
-                            field("Local port", systemImage: "number", text: $localPort, hint: "8080")
+                            field(String(localized: "Local port"), systemImage: "number", text: $localPort, hint: "8080")
                                 .keyboardType(.numberPad)
                         }
                     }
@@ -84,7 +84,7 @@ struct SSHForwardEditor: View {
                         footer: String(localized: "Where the server connects to, seen from the server. This can be `127.0.0.1` for a service that only listens on the server itself, or a name that resolves only from there.")
                     ) {
                         VStack(spacing: 10) {
-                            field("Host", systemImage: "network", text: $remoteHost, hint: "db.internal")
+                            field(String(localized: "Host"), systemImage: "network", text: $remoteHost, hint: "db.internal")
                             Controls.divider
                             field("Port", systemImage: "number", text: $remotePort, hint: "5432")
                                 .keyboardType(.numberPad)
@@ -92,7 +92,7 @@ struct SSHForwardEditor: View {
                     }
 
                     Controls.card(String(localized: "When a shell opens"), footer: String(localized: "A forward runs for as long as the shell on this server does. There is no way to keep one running in the background on an iPhone, so this is a setting about a shell rather than a service.")) {
-                        Controls.toggle("Start it with the shell", systemImage: "play", isOn: $isEnabled)
+                        Controls.toggle(String(localized: "Start it with the shell"), systemImage: "play", isOn: $isEnabled)
                     }
 
                     if isTouched, case .failure(let problem) = reading {

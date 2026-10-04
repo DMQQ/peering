@@ -113,6 +113,7 @@ struct TerminalPanel: View {
                 // the tabs, and a system divider a point under that line was a second hairline
                 // running across the seam the selected tab is supposed to be joined to.
                 if let terminal = selected {
+                    AgentStrip { model.launchAgent($0) }
                     if isBrowsing {
                         browsing(terminal)
                     } else {
@@ -147,16 +148,35 @@ struct TerminalPanel: View {
                             .tourAnchor(.terminalInput)
                     }
                 } else {
-                    ContentUnavailableView(
-                        "No terminals",
-                        systemImage: "terminal",
-                        // Two short sentences, because the question this answers is one line
-                        // long. "Create a login shell" is the honest name for what the host
-                        // starts and it explains nothing to anyone who has not already used
-                        // one; the earlier attempt at explaining it took three lines to say
-                        // what fits in one.
-                        description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
-                    )
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ContentUnavailableView(
+                                "No terminals",
+                                systemImage: "terminal",
+                                // Two short sentences, because the question this answers is one line
+                                // long. "Create a login shell" is the honest name for what the host
+                                // starts and it explains nothing to anyone who has not already used
+                                // one; the earlier attempt at explaining it took three lines to say
+                                // what fits in one.
+                                description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
+                            )
+                            .frame(minHeight: 200)
+                            VStack(spacing: 6) {
+                                Text("Start an agent")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                Text("Opens a terminal on your Mac and runs it there.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.white.opacity(0.6))
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.bottom, 14)
+                            AgentGrid { model.launchAgent($0) }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 24)
+                        }
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
             }
             .background(Color.black)

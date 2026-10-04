@@ -136,7 +136,7 @@ struct SSHTab: View {
                     // session would still be open with nothing on screen that says so, which is
                     // the worst of both: a connection the user is paying for and cannot reach.
                     if !model.openShells.isEmpty {
-                        card("Open", systemImage: "terminal") {
+                        card(String(localized: "Open"), systemImage: "terminal") {
                             // `openShells`, not every terminal: a connection that failed has no
                             // session behind it, and a row offering to go back to it is a row
                             // that leads to the same error a second time.

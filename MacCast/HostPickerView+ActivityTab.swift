@@ -226,7 +226,7 @@ struct ActivityTab: View {
 
     private var recentConnectionsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Controls.sectionLabel("Recent connections", systemImage: "clock.arrow.circlepath")
+            Controls.sectionLabel(String(localized: "Recent connections"), systemImage: "clock.arrow.circlepath")
 
             if recent.isEmpty {
                 Text("Nothing yet. Pair with a Mac, or add a server in the Servers tab, and what you connect to appears here.")

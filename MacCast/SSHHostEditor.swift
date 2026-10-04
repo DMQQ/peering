@@ -159,18 +159,18 @@ struct SSHHostEditor: View {
                         VStack(spacing: 10) {
                             field("Name", systemImage: "tag", text: $name, hint: "Optional")
                             Controls.divider
-                            field("Host", systemImage: "network", text: $hostname, hint: "box.example.com")
+                            field(String(localized: "Host"), systemImage: "network", text: $hostname, hint: "box.example.com")
                             Controls.divider
                             field("Port", systemImage: "number", text: $port, hint: "22")
                                 .keyboardType(.numberPad)
                             Controls.divider
-                            field("User", systemImage: "person", text: $username, hint: "root")
+                            field(String(localized: "User"), systemImage: "person", text: $username, hint: "root")
                         }
                     }
 
                     Controls.card(String(localized: "Lock"), footer: lockFooter) {
                         VStack(spacing: 10) {
-                            Controls.picker("Ask for", systemImage: "lock", selection: $lock) {
+                            Controls.picker(String(localized: "Ask for"), systemImage: "lock", selection: $lock) {
                                 Text("Nothing").tag(SSHHostLock.off)
                                 Text("Passcode").tag(SSHHostLock.passcode)
                                 // Offered only where it can be answered. On a device with no
@@ -195,7 +195,7 @@ struct SSHHostEditor: View {
 
                     Controls.card(String(localized: "Sign in with"), footer: signInFooter) {
                         VStack(spacing: 10) {
-                            Controls.picker("Using", systemImage: "person.badge.key", selection: $method) {
+                            Controls.picker(String(localized: "Using"), systemImage: "person.badge.key", selection: $method) {
                                 Text("Password").tag(Method.password)
                                 Text("Key").tag(Method.key)
                             }
