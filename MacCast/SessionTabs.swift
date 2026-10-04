@@ -96,7 +96,7 @@ struct SessionTabs: View {
         } name: {
             TabName(text: name, isSelected: isSelected, colour: ColorPalette.ink)
         }
-        .accessibilityLabel("\(name)\(isSelected ? ", showing" : "")")
+        .accessibilityLabel(isSelected ? String(localized: "\(name), showing") : name)
     }
 
     /// The `+`, which is where the plan is asked for.

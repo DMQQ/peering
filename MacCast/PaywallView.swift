@@ -638,7 +638,7 @@ struct PaywallView: View {
                 // has to be true whichever card and whichever switch position the user is looking
                 // at. "The plan you chose" rather than a list, because the list is the switch's job
                 // and a sentence that enumerated it would go stale the day a period is added.
-                Text("\(period == .monthly ? "This subscription renews every month" : "This subscription renews every year") until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
+                Text("\(period == .monthly ? String(localized: "This subscription renews every month") : String(localized: "This subscription renews every year")) until cancelled, whichever plan you choose. You can cancel any time in your App Store settings. Payment is taken from your Apple Account when you confirm.")
                     .fixedSize(horizontal: false, vertical: true)
             }
             .font(.caption2)

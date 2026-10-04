@@ -1183,7 +1183,9 @@ final class SessionModel {
                 : String(localized: "That Mac's stored hardware address could not be read, so no wake packet was sent."))
             return
         }
-        append(note: "Wake packet sent to \(sent) hardware address\(sent == 1 ? "" : "es"). It can only reach a Mac on this network.")
+        append(note: sent == 1
+            ? String(localized: "Wake packet sent to 1 hardware address. It can only reach a Mac on this network.")
+            : String(localized: "Wake packet sent to \(sent) hardware addresses. It can only reach a Mac on this network."))
     }
 
     var pendingHostID: String?

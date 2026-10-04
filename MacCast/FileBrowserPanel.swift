@@ -209,7 +209,7 @@ struct FileBrowserPanel: View {
                         pendingCreate = nil
                     }
                 } message: {
-                    Text("It will be made in \(path ?? "this folder").")
+                    Text("It will be made in \(path ?? String(localized: "this folder")).")
                 }
                 .alert("Rename", isPresented: Binding(
                     get: { pendingRename != nil },

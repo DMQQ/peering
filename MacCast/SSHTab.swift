@@ -601,7 +601,7 @@ extension View {
             Button("Keep it", role: .cancel) { }
             Button("Forget", role: .destructive, action: onForget)
         } message: {
-            Text("\(host?.displayName ?? "This server") will ask for a password the next time you open a shell. Nothing on the server itself is touched, and any key already in `authorized_keys` stays there.")
+            Text("\(host?.displayName ?? String(localized: "This server")) will ask for a password the next time you open a shell. Nothing on the server itself is touched, and any key already in `authorized_keys` stays there.")
         }
     }
 }

@@ -69,7 +69,7 @@ struct SSHForwardEditor: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Controls.card(
                         String(localized: "This iPhone"),
-                        footer: "The port another app on this phone will connect to. `localhost:\(localPort.isEmpty ? "8080" : localPort)` is what you point it at."
+                        footer: String(localized: "The port another app on this phone will connect to. `localhost:\(localPort.isEmpty ? "8080" : localPort)` is what you point it at.")
                     ) {
                         VStack(spacing: 10) {
                             field("Name", systemImage: "tag", text: $label, hint: "Optional")

@@ -82,7 +82,7 @@ extension SessionModel {
             // moment to look at the other way in, which is the row directly below this text.
             browseStatus = hosts.isEmpty
                 ? String(localized: "No Macs found yet. Make sure Peering is running on your Mac and on the same network, or pair with a Mac that is not on your network.")
-                : "\(hosts.count) Mac\(hosts.count == 1 ? "" : "s") found"
+                : (hosts.count == 1 ? String(localized: "1 Mac found") : String(localized: "\(hosts.count) Macs found"))
         case .failed(let message):
             // Bonjour failing is silent on iOS without the local-network permission and the
             // NSBonjourServices entry, so the message is surfaced verbatim rather than
