@@ -14,6 +14,7 @@ struct TerminalWireTests {
         let id = UUID(uuidString: "8B88D893-55BD-4F68-AF3F-E81D885A50A7")!
         let requests: [TerminalRequest] = [
             .list,
+            .agents,
             .create,
             .input(sessionID: id, data: Data([0x1B, 0x5B, 0x41, 0x00])),
             .resize(sessionID: id, columns: 120, rows: 36),
@@ -81,6 +82,7 @@ struct TerminalWireTests {
         let info = TerminalSessionInfo(id: id, name: "Deploy", isRunning: true)
         let events: [TerminalEvent] = [
             .snapshot([info]),
+            .agents(installed: ["claude", "codex"]),
             .created(info),
             .renamed(info),
             .output(sessionID: id, data: Data("ready\r\n".utf8)),

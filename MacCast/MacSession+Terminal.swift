@@ -9,6 +9,11 @@ import SwiftUI
 extension MacSession {
     func refreshTerminals() { wire?.sendTerminal(.list) }
 
+    func refreshAgents() {
+        guard hostSupportsAgentList else { return }
+        wire?.sendTerminal(.agents)
+    }
+
     /// Whether one more shell is allowed right now.
     ///
     /// **A fact about the plan and about how many are already running**, which is why it is not
@@ -867,6 +872,9 @@ extension MacSession {
 
     func apply(terminal event: TerminalEvent) {
         switch event {
+        case .agents(let installed):
+            installedAgents = Set(installed)
+
         case .snapshot(let infos):
             terminals = infos.map {
                 RemoteTerminal(id: $0.id, name: $0.name, isRunning: $0.isRunning)

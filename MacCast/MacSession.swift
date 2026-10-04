@@ -484,6 +484,11 @@ final class MacSession: Identifiable {
     /// session rather than a picture that stops.
     var hostSupportsVideoPause = false
 
+    /// Whether this Mac can say which agent commands it has, and what it said. `nil` is not yet
+    /// answered, or a Mac that cannot, and either way every agent is shown.
+    var hostSupportsAgentList = false
+    var installedAgents: Set<String>?
+
     /// What this Mac said about carrying a picture on the clipboard. See
     /// ``ClipboardImages/maySend(toHostDeclared:)``.
     ///

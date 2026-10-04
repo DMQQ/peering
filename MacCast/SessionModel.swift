@@ -1369,6 +1369,17 @@ final class SessionModel {
 
     func refreshTerminals() { activeSession?.refreshTerminals() }
 
+    func refreshAgents() { activeSession?.refreshAgents() }
+
+    /// The agents to offer: only those the Mac has, once it has said, and all of them until then.
+    var availableAgents: [TerminalAgent] {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "Peering.showAllAgents") { return TerminalAgent.all }
+        #endif
+        guard let installed = activeSession?.installedAgents else { return TerminalAgent.all }
+        return TerminalAgent.all.filter { installed.contains($0.command) }
+    }
+
     /// Whether one more shell is allowed right now. See ``MacSession/canOpenAnotherShell``.
     var canOpenAnotherShell: Bool { activeSession?.canOpenAnotherShell ?? true }
 

@@ -60,6 +60,11 @@ struct MacCastApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "Peering.clearDelivered") {
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        }
+        #endif
         // **First, before any view exists and before anything that could crash.** Two things
         // depend on being here rather than in a screen's `onAppear`: the file a crash is written to
         // has to exist before the crash, and the last run's report has to be filed before this

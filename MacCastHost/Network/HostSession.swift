@@ -414,7 +414,8 @@ final class HostSession: @unchecked Sendable {
             supportsVirtualDisplayManagement: VirtualDisplay.isAvailable,
             // This host sends terminal alerts through APNs even while this control channel is
             // connected, so an updated phone need not raise the same banner locally as well.
-            pushesTerminalAlertsWhileConnected: true
+            pushesTerminalAlertsWhileConnected: true,
+            supportsAgentList: true
         ))
         // A trusted client coming back names what it was watching, so capture can start now.
         if alreadyPaired, let source = hello.resumeSource {
@@ -668,6 +669,7 @@ final class HostSession: @unchecked Sendable {
     ///
     /// Advisory, so it never fails the session: a caption for the frames, not a complaint.
     func sendNotice(_ payload: NoticePayload) {
+        guard isAuthorized else { return }
         send(MessageKind.notice, payload)
     }
 

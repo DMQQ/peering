@@ -285,8 +285,8 @@ def background(centers):
     grid = np.zeros((H, PW), dtype="float")
     grid[:, ::step] = 1
     grid[::step, :] = 1
-    grid *= np.linspace(1.0, 0.35, H)[:, None]
-    img += grid[..., None] * 15
+    grid *= np.linspace(1.0, 0.55, H)[:, None]
+    img += grid[..., None] * 30
     # a soft halo behind each phone, wider and brighter than the old glow
     for cx in centers:
         img += np.exp(-(((xx - cx) / 520.0) ** 2 + ((yy - 1750) / 900.0) ** 2))[..., None] * np.array([52, 54, 64])
@@ -364,18 +364,65 @@ BOTTOM = {2, 4, 6}
 BOTTOM_CY = {2: 905, 4: 760, 6: 1480}
 
 
+def lift_pictures(raw_dir):
+    """Fills the empty black under the session pill with the Mac's picture, scaled to cover.
+
+    The picture is cropped from 02-session and scaled up like resizeMode cover (sides cut, no
+    stretching). 02-session gets it just under the pill. 03-keyboard gets it from the same crop,
+    ending where the key panel starts, because the keyboard hides most of the original."""
+    import numpy as np
+    ses = Image.open(f"{raw_dir}/02-session.png").convert("RGB")
+    rows = np.asarray(ses.convert("L")).astype(float).mean(axis=1)
+    ys = [y for y in range(800, 2100) if rows[y] > 6]
+    top, bottom = ys[0], ys[-1] + 1
+    pic = ses.crop((0, top, ses.width, bottom))
+
+    def cover(height):
+        k = height / pic.height
+        big = pic.resize((round(pic.width * k), height), Image.LANCZOS)
+        x = (big.width - ses.width) // 2
+        return big.crop((x, 0, x + ses.width, height))
+
+    pill_bottom, panel_top = 400, 1396
+    a = ses.copy()
+    a.paste(Image.new("RGB", pic.size, (0, 0, 0)), (0, top))
+    a.paste(cover(1260), (0, pill_bottom))
+    a.save(f"{raw_dir}/_lift-02-session.png")
+
+    # Keyboard: the picture keeps its size and the panel and keys move up under it. The height that
+    # frees at the bottom is made up by stretching the empty band between the last key row and the
+    # globe row, which is plain keyboard background.
+    kb = Image.open(f"{raw_dir}/03-keyboard.png").convert("RGB")
+    drop = panel_top - (pill_bottom + pic.height)
+    band0, band1 = 2630, 2680
+    b = Image.new("RGB", kb.size, (0, 0, 0))
+    b.paste(kb.crop((0, 0, kb.width, 380)), (0, 0))
+    b.paste(pic, (0, pill_bottom))
+    y = pill_bottom + pic.height
+    b.paste(kb.crop((0, panel_top, kb.width, band0)), (0, y))
+    y += band0 - panel_top
+    stretched = kb.crop((0, band0, kb.width, band1)).resize((kb.width, band1 - band0 + drop), Image.BICUBIC)
+    b.paste(stretched, (0, y))
+    y += stretched.height
+    b.paste(kb.crop((0, band1, kb.width, kb.height)), (0, y))
+    b.save(f"{raw_dir}/_lift-03-keyboard.png")
+
+
 def build(lang):
-    global LANG
+    global LANG, CARD_TOP, CARD_H
     LANG = lang
+    # English shows two separate cards; the other languages' real lock screens collapse the older one behind the newer.
+    CARD_TOP, CARD_H = (1946, 488) if lang == "en" else (2085, 352)
     copy = json.load(open(f"{HERE}/copy.json"))[lang]
     r = lambda n: f"{HERE}/raw/{lang}/{n}.png"
     out = f"{HERE}/out/{lang}"
     os.makedirs(out, exist_ok=True)
     n = 7
+    lift_pictures(f"{HERE}/raw/{lang}")
     if not os.path.exists(r("07-lock")):
         lockscreen(lang, copy, r("07-lock"))
     else:
-        Image.open(r("07-lock")).crop((58, 1946, 1262, 2434)).save(r("07-card"))
+        Image.open(r("07-lock")).crop((58, CARD_TOP, 1262, CARD_TOP + CARD_H)).save(r("07-card"))
     pw = W * n
     global PW
     PW = pw
@@ -383,21 +430,26 @@ def build(lang):
     h0 = copy["h"]
     heads = h0[:2] + [h0[6], h0[2]] + h0[3:6]
     big = fit(heads[:2], 340)
-    sizes = [big, fit([heads[1]], 520, 1250)] + [fit([t], 400, 1190) for t in heads[2:]]
+    sizes = [big, fit([heads[1]], 520, 1090)] + [fit([t], 400, 1190) for t in heads[2:]]
     small = sizes[2]
+    sizes[1] = min(fit([heads[1]], 400, 1090), sorted(sizes[2:])[len(sizes[2:]) // 2])
+    # The emoji chip sits at y=740 under this headline, so a short two-line headline (CJK) must not outgrow it.
+    while sizes[5] * 1.3 * (heads[5].count("\n") + 1) > 590:
+        sizes[5] -= 4
+    print(lang, "sizes", sizes)
     for i, t in enumerate(heads):
         hy = 120
         if i in BOTTOM:
             lines = t.count("\n") + 1
             hy = H - 160 - int(sizes[i] * 1.26 * lines)
         if i == 1:
-            headline(P, t, (i * W, hy + 200), sizes[i], right=i * W + W - 40)
+            continue
         else:
             headline(P, t, (i * W + 80, hy), sizes[i])
-    place(P, r("02-session"), 1440, (W, 2800), -6)
+    place(P, r("_lift-02-session"), 1440, (W, 2800), -6)
     # name, angle, phone width, centre x within the canvas, centre y
     layout = [("07-lock", 0, 1200, 660, 905), ("06-agents", 0, 1180, 640, 2204), ("04-shortcuts", 0, 1180, 680, 2220),
-              ("03-keyboard", -3, 1120, 650, 2300), ("01-connect", 5, 1110, 680, 2380)]
+              ("_lift-03-keyboard", -3, 1120, 650, 2300), ("01-connect", 5, 1110, 680, 2380)]
     for i, (name, ang, pw_, cx, cy) in enumerate(layout, start=2):
         if i in BOTTOM:
             cy = BOTTOM_CY[i]
@@ -410,6 +462,16 @@ def build(lang):
             a_ = min(250, int(250 * (yy - f0) / 450))
             fd.line((0, yy, W, yy), fill=(11, 11, 13, a_))
         P.alpha_composite(fade, (i * W, 0))
+    import numpy as np
+    fx0, fy0 = W - 250, 1900
+    ys = np.clip((np.arange(H) - fy0) / 600, 0, 1)[:, None]
+    xs = np.clip(np.arange(W + 250) / 500, 0, 1)[None, :]
+    fade = Image.new("RGBA", (W + 250, H), (11, 11, 13, 0))
+    fade.putalpha(Image.fromarray((95 * ys * xs).astype("uint8")))
+    P.alpha_composite(fade, (fx0, 0))
+    t = heads[1]
+    lines = t.count("\n") + 1
+    headline(P, t, (W, H - 160 - int(sizes[1] * 1.26 * lines)), sizes[1], right=2 * W - 40)
     for i in BOTTOM:
         t = heads[i]
         lines = t.count("\n") + 1
@@ -417,25 +479,25 @@ def build(lang):
     b = copy["b"]
     x = copy["x"]
 
-    def put(idx, y, text, scale, icon, side="left", ang=3, sub=None):
+    def put(idx, y, text, scale, icon, side="left", ang=3, sub=None, tint="blue"):
         sc = scale
         while chip_width(text, sc, icon=icon) > W - 140 and sc > 0.9:
             sc -= 0.05
         w_ = chip_width(text, sc, icon=icon)
         cx = idx * W + (70 if side == "left" else W - 70 - w_)
-        chip(P, (cx, y), text, angle=ang if side == "right" else -ang, scale=sc, icon=icon, sub=sub)
+        chip(P, (cx, y), text, angle=ang if side == "right" else -ang, scale=sc, icon=icon, sub=sub, tint=tint)
 
     # size follows importance: the first chip on a canvas is the headline feature
     sc_l = 2.05
     cx_l = W - chip_width(b[0], sc_l, icon="laptopcomputer") // 2
-    chip(P, (cx_l, 800), b[0], angle=-3, scale=sc_l, icon="laptopcomputer")
-    put(0, 1500, b[1], 1.7, "bolt.fill", "left")
-    chip(P, (W + 80, 2100), copy["e2e"], sub=copy["e2e_sub"], angle=-3, scale=1.75, icon="lock.fill")
+    chip(P, (cx_l, 800), b[0], angle=-3, scale=sc_l, icon="laptopcomputer", tint="green")
+    put(0, 1500, b[1], 1.7, "bolt.fill", "left", tint="green")
+    chip(P, (W + 80, 260), copy["e2e"], sub=copy["e2e_sub"], angle=-3, scale=1.75, icon="lock.fill", tint="purple")
     put(3, 640, b[4], 2.0, "desktopcomputer")
     put(2, 760, b[13], 2.0, "bell.badge")
     put(4, 140, b[6], 2.0, "square.grid.2x2")
     put(5, 740, b[8], 1.9, "face.smiling")
-    put(6, 40, b[10], 1.9, "person.crop.circle.badge.xmark")
+    put(6, 40, b[10], 1.9, "person.crop.circle.badge.xmark", tint="purple")
     # popover: the two real notifications, redrawn slightly larger and centred exactly over the ones in the phone
     lock_i, lock_pw, lock_cx, lock_cy = 2, 1200, 660, 905
     k = lock_pw / W
@@ -444,11 +506,11 @@ def build(lang):
     dev_w = lock_pw + 2 * bez_ + 2 * pad_
     dev_h = int(H * k) + 2 * bez_
     nx = lock_i * W + lock_cx - dev_w // 2 + pad_ + bez_ + int(58 * k)
-    ny = lock_cy - dev_h // 2 + bez_ + int(1946 * k)
+    ny = lock_cy - dev_h // 2 + bez_ + int(CARD_TOP * k)
     zoom = 1.2
-    cw, ch = int(1204 * k * zoom), int(488 * k * zoom)
-    ccx, ccy = nx + int(1204 * k) // 2, ny + int(488 * k) // 2
-    callout(P, r("07-card"), (0, 0, 1204, 488), k * zoom, (ccx - cw // 2, ccy - ch // 2), angle=0, radius=int(60 * k * zoom))
+    cw, ch = int(1204 * k * zoom), int(CARD_H * k * zoom)
+    ccx, ccy = nx + int(1204 * k) // 2, ny + int(CARD_H * k) // 2
+    callout(P, r("07-card"), (0, 0, 1204, CARD_H), k * zoom, (ccx - cw // 2, ccy - ch // 2), angle=0, radius=int(60 * k * zoom))
     order = [0, 1, 2, 3, 4, 5, 6]
     for new_i, old_i in enumerate(order, start=1):
         P.crop((old_i * W, 0, (old_i + 1) * W, H)).convert("RGB").save(f"{out}/0{new_i}.png")

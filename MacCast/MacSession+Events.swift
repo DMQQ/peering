@@ -250,6 +250,7 @@ extension MacSession {
             // What this Mac can be asked for, recorded once at the door rather than guessed at
             // each time a picture needs stopping. See ``PicturePause/mayAsk(hostDeclared:)``.
             hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
+            hostSupportsAgentList = hello.supportsAgentList == true
             // The same shape for the clipboard, and the same three states on the flag. See
             // ``ClipboardImages``, which both ends read.
             hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)

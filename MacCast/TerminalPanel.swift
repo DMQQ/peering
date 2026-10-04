@@ -70,6 +70,8 @@ struct TerminalPanel: View {
     /// still receiving output, and the panel is only showing something else. What the browser does
     /// to the shell is change its directory, and only when a folder is opened.
     @State var isBrowsing = false
+    /// Whether the panel is showing the agents to start, in place of the terminal.
+    @State var showsAgents = false
     /// Whether dotfiles are listed. The panel filters them itself, so the Mac sends everything and
     /// both browsers this protocol serves can be shown the same.
     @State var showsHiddenFiles = false
@@ -113,8 +115,10 @@ struct TerminalPanel: View {
                 // the tabs, and a system divider a point under that line was a second hairline
                 // running across the seam the selected tab is supposed to be joined to.
                 if let terminal = selected {
-                    AgentStrip { model.launchAgent($0) }
-                    if isBrowsing {
+                    if showsAgents {
+                        ScrollView { AgentsList { showsAgents = false } }
+                            .scrollBounceBehavior(.basedOnSize)
+                    } else if isBrowsing {
                         browsing(terminal)
                     } else {
                         // No anchor on the output here: the log belongs to the shell tour, which is
@@ -161,19 +165,7 @@ struct TerminalPanel: View {
                                 description: Text("Runs on your Mac, not here. It keeps going when you disconnect.")
                             )
                             .frame(minHeight: 200)
-                            VStack(spacing: 6) {
-                                Text("Start an agent")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                Text("Opens a terminal on your Mac and runs it there.")
-                                    .font(.footnote)
-                                    .foregroundStyle(.white.opacity(0.6))
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding(.bottom, 14)
-                            AgentGrid { model.launchAgent($0) }
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 24)
+                            AgentsList()
                         }
                     }
                     .scrollBounceBehavior(.basedOnSize)
@@ -199,6 +191,14 @@ struct TerminalPanel: View {
                 // The switch between a terminal and the Mac's folders is not here. It is pinned to
                 // the end of the tab strip — see ``TerminalModeButton`` for why the leading end of
                 // a navigation bar turned out to be the wrong place for it.
+                ToolbarItem(placement: .primaryAction) {
+                    if selected != nil {
+                        Button { showsAgents.toggle() } label: {
+                            Image(systemName: "sparkles")
+                        }
+                        .accessibilityLabel("Agents")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     // One button and no menu. A new terminal is always a shell with no name:
                     // it is named by the first command run in it, or by hand on the tab, and

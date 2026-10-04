@@ -290,9 +290,6 @@ extension RemoteScreen {
                         ) {
                             showsTerminals = true
                         }
-                        actionChip("Agents", systemImage: "sparkles") {
-                            showsAgents = true
-                        }
                         if canReturnToMosaic {
                             actionChip(
                                 "Mosaic",
@@ -538,7 +535,7 @@ extension RemoteScreen {
                 if let systemImage {
                     Image(systemName: systemImage)
                 }
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .lineLimit(1)
             }
             .foregroundStyle(tint ?? (isDestructive ? ColorPalette.onInk : ColorPalette.ink))

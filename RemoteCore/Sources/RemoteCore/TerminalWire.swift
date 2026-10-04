@@ -110,6 +110,9 @@ public enum RemoteFileOperation: Codable, Equatable, Sendable {
 /// Requests sent by an authenticated client over the control connection.
 public enum TerminalRequest: Codable, Equatable, Sendable {
     case list
+    /// Which coding-agent commands this Mac has installed. Sent only to a Mac that declared
+    /// ``ServerHello/supportsAgentList``. Answered with ``TerminalEvent/agents(installed:)``.
+    case agents
     /// A new login shell. It arrives unnamed: the host numbers it, and the terminal takes its
     /// name from the first command run in it.
     case create
@@ -161,6 +164,8 @@ public enum TerminalAttentionKind: String, Codable, Equatable, Sendable {
 /// split UTF-8 scalars between reads and emits ANSI control sequences by design.
 public enum TerminalEvent: Codable, Equatable, Sendable {
     case snapshot([TerminalSessionInfo])
+    /// The coding-agent commands found on this Mac, by command name.
+    case agents(installed: [String])
     case created(TerminalSessionInfo)
     /// The terminal's name changed, by a command run in it or by the user typing one.
     case renamed(TerminalSessionInfo)

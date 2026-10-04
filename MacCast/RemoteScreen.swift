@@ -110,8 +110,6 @@ struct RemoteScreen: View {
     /// before sending the chord.
     @State var confirmsQuitApplication = false
     @State var showsTerminals = false
-    @State var showsAgents = false
-    @State var opensTerminalsAfterAgents = false
 
     /// What the joystick is showing about its own speed, for the second or so after it changes.
     @State var speedBadge: String?
@@ -321,16 +319,6 @@ struct RemoteScreen: View {
                 keyboardInputBar
                     .transition(.blurReplace(.downUp))
             }
-        }
-        .sheet(isPresented: $showsAgents, onDismiss: {
-            if opensTerminalsAfterAgents {
-                opensTerminalsAfterAgents = false
-                showsTerminals = true
-            }
-        }) {
-            AgentsPanel { opensTerminalsAfterAgents = true }
-                .presentationDetents([.large])
-                .presentsPaywall(model)
         }
         .sheet(isPresented: $showsTerminals) {
             TerminalPanel()

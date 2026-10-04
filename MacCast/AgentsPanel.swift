@@ -1,3 +1,4 @@
+import MacCastKit
 import SwiftUI
 
 struct AgentLaunch: Codable, Identifiable, Equatable {
@@ -59,41 +60,37 @@ enum AgentHistory {
 extension SessionModel {
     func launchAgent(_ agent: TerminalAgent) {
         AgentHistory.record(agent, macName: hostName ?? String(localized: "the Mac"))
+        // The same step typing the command does: these programs lay themselves out for eighty
+        // columns, and only the smallest text size holds that many on a phone held upright.
+        if TerminalProgram.prefersSmallText(agent.command) {
+            UserDefaults.standard.set(TerminalMetrics.TextSize.tiny.rawValue, forKey: PreferenceKeys.terminalTextSize)
+        }
         runInNewTerminal(agent.command)
     }
 }
 
-struct AgentsPanel: View {
+/// The agents and their history, drawn inside the Mac terminals panel.
+struct AgentsList: View {
     @Environment(SessionModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     var onLaunched: () -> Void = {}
 
     @State private var history = AgentHistory.load()
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(TerminalAgent.all) { agent in
-                        row(agent)
-                    }
-                    historySection
-                }
-                .padding(16)
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(model.availableAgents) { agent in
+                row(agent)
             }
-            .scrollBounceBehavior(.basedOnSize)
-            .background(Color.black)
-            .navigationTitle("Agents")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color.black, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+            if model.availableAgents.isEmpty {
+                Text("No supported agents were found on this Mac. Install one and it will show up here.")
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .padding(.vertical, 8)
             }
+            historySection
         }
-        .preferredColorScheme(.dark)
+        .padding(16)
+        .onAppear { model.refreshAgents() }
     }
 
     private func row(_ agent: TerminalAgent) -> some View {
@@ -214,7 +211,6 @@ struct AgentsPanel: View {
     private func start(_ agent: TerminalAgent) {
         model.launchAgent(agent)
         history = AgentHistory.load()
-        dismiss()
         onLaunched()
     }
 }

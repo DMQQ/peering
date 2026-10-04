@@ -202,6 +202,31 @@ final class TerminalSessionManager: @unchecked Sendable {
     /// How much of a file is looked at to decide whether it is text at all.
     private static let binaryProbeBytes = RemoteFileKind.probeBytes
 
+    /// Looks for the agent commands the way a new terminal would find them: through a login shell,
+    /// which is where a user's PATH (Homebrew, nvm, ~/.local/bin) is set up. A probe that times out
+    /// answers with what it had, which is nothing, and the phone then shows every agent.
+    static func probeAgents(_ reply: @escaping @Sendable ([String]) -> Void) {
+        let names = ["claude", "codex", "opencode", "hermes", "gemini", "aider"]
+        DispatchQueue.global(qos: .utility).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
+            process.arguments = ["-l", "-i", "-c", "for c in \(names.joined(separator: " ")); do command -v $c >/dev/null 2>&1 && echo $c; done"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            process.standardInput = FileHandle.nullDevice
+            do { try process.run() } catch { reply(names); return }
+            let deadline = DispatchTime.now() + .seconds(6)
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global().async { process.waitUntilExit(); group.leave() }
+            if group.wait(timeout: deadline) == .timedOut { process.terminate(); reply(names); return }
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let found = output.split(separator: "\n").map { String($0) }.filter { names.contains($0) }
+            reply(found)
+        }
+    }
+
     deinit {
         let active = lock.withLock { Array(sessions.values) }
         for session in active where session.isRunning { session.process.terminate() }
@@ -215,6 +240,9 @@ final class TerminalSessionManager: @unchecked Sendable {
         lock.withLock { sinks[clientID] = sink }
 
         switch request {
+        case .agents:
+            Self.probeAgents { sink(.agents(installed: $0)) }
+
         case .list:
             let snapshot = lock.withLock {
                 sessions.values.filter { $0.ownerClientID == clientID }.map(\.info).sorted { $0.name < $1.name }

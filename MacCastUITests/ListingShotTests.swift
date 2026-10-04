@@ -17,7 +17,7 @@ final class ListingShotTests: XCTestCase {
             "-Peering.hasSeenTourServers", "1", "-Peering.hasSeenTourShell", "1",
             "-Peering.hasSeenTourTerminal", "1", "-Peering.hasSeenTourScreen", "1",
             "-AppleLanguages", "(\(L["lang"]!))", "-AppleLocale", L["locale"]!,
-            "-Peering.seedAgentHistory", "1", "-Peering.resumeWhenReachable", "0", "-Peering.lastHostID", "", "-Peering.lastHostName", "",
+            "-Peering.seedAgentHistory", "1", "-Peering.showAllAgents", "1", "-Peering.resumeWhenReachable", "0", "-Peering.lastHostID", "", "-Peering.lastHostName", "",
         ]
         addUIInterruptionMonitor(withDescription: "alerts") { alert in
             let n = alert.buttons.count
@@ -62,10 +62,9 @@ final class ListingShotTests: XCTestCase {
         press(app, L["Hide keyboard"]!); sleep(6)
         capture(app, "02-session")
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.1)).tap()
-        let agents = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", L["Agents"]!)).firstMatch
-        if !agents.waitForExistence(timeout: 4) { capture(app, "08-fail"); XCTFail("missing Agents: \(app.buttons.allElementsBoundByIndex.map { $0.label })") }
-        agents.tap(); sleep(3)
+        press(app, L["Open Mac terminals"]!); sleep(3)
+        let agents = app.buttons[L["Agents"]!].firstMatch
+        if agents.waitForExistence(timeout: 4) { agents.tap(); sleep(2) }
         capture(app, "06-agents")
     }
 

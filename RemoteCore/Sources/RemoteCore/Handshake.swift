@@ -130,6 +130,11 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// older Mac reads as `false` and the phone keeps the local path that older Mac depends on.
     public var pushesTerminalAlertsWhileConnected: Bool?
 
+    /// Whether this Mac can say which coding-agent commands are installed on it, in answer to
+    /// ``TerminalRequest/agents``. A capability because an older Mac cannot decode that request,
+    /// so the phone asks only on an explicit `true` and shows every agent otherwise.
+    public var supportsAgentList: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -142,7 +147,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsSourceThumbnails: Bool? = nil,
         supportsDeviceOrientation: Bool? = nil,
         supportsVirtualDisplayManagement: Bool? = nil,
-        pushesTerminalAlertsWhileConnected: Bool? = nil
+        pushesTerminalAlertsWhileConnected: Bool? = nil,
+        supportsAgentList: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -155,6 +161,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsSourceThumbnails = supportsSourceThumbnails
         self.supportsDeviceOrientation = supportsDeviceOrientation
         self.supportsVirtualDisplayManagement = supportsVirtualDisplayManagement
+        self.supportsAgentList = supportsAgentList
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }
