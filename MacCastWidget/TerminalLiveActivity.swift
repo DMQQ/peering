@@ -86,12 +86,12 @@ private func terminalElapsed(_ context: ActivityViewContext<TerminalActivityAttr
 /// also what the action beside it ends. Last in the sentence for the reason ``ActivityCard`` gives:
 /// the state is what must survive a narrow card, and this is what may not.
 private func statusText(for state: TerminalActivityAttributes.ContentState) -> String {
-    let phase = state.phase == .live ? "Connected" : "Connecting…"
-    return state.shellCount > 1 ? "\(phase) · \(state.shellCount) shells" : phase
+    let phase = state.phase == .live ? String(localized: "Connected") : String(localized: "Connecting…")
+    return state.shellCount > 1 ? String(localized: "\(phase) · \(state.shellCount) shells") : phase
 }
 
 /// Ending one shell is ending this card; ending three is ending the session it stands for, and the
 /// button says which one it is about to do.
 private func actionTitle(for state: TerminalActivityAttributes.ContentState) -> String {
-    state.shellCount > 1 ? "End all" : "End"
+    state.shellCount > 1 ? String(localized: "End all") : String(localized: "End")
 }

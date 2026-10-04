@@ -90,8 +90,8 @@ struct FileBrowseBar: View {
             // shell is driven with before any of the others: one to back out of what is running,
             // one to finish a name instead of typing it.
             TerminalKeyChip(title: "⌃C", label: String(localized: "Interrupt"), height: 30, action: onInterrupt)
-            TerminalKeyChip(title: "esc", label: "Escape", height: 30, action: onEscape)
-            TerminalKeyChip(title: "tab", label: "Tab", height: 30, action: onTab)
+            TerminalKeyChip(title: "esc", label: String(localized: "Escape"), height: 30, action: onEscape)
+            TerminalKeyChip(title: "tab", label: String(localized: "Tab"), height: 30, action: onTab)
 
             Spacer(minLength: 0)
 

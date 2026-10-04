@@ -14,7 +14,7 @@ private nonisolated enum HostWidgetStore {
     private nonisolated(unsafe) static let defaults = UserDefaults(suiteName: suiteName)
 
     static var isListening: Bool { defaults?.bool(forKey: "hostWidget.isListening") ?? false }
-    static var deviceName: String { defaults?.string(forKey: "hostWidget.deviceName") ?? "This Mac" }
+    static var deviceName: String { defaults?.string(forKey: "hostWidget.deviceName") ?? String(localized: "This Mac") }
     static var connectedNames: [String] {
         defaults?.stringArray(forKey: "hostWidget.connectedNames") ?? []
     }
@@ -124,7 +124,7 @@ private struct HostWidgetView: View {
 
                 if entry.connectedNames.isEmpty {
                     Spacer(minLength: 0)
-                    Text(entry.isListening ? "Waiting for a paired device" : "Host is stopped")
+                    Text(entry.isListening ? String(localized: "Waiting for a paired device") : String(localized: "Host is stopped"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: 0)
@@ -166,7 +166,7 @@ private struct HostWidgetView: View {
 
     private var action: some View {
         Link(destination: commandURL) {
-            Label(entry.isListening ? "Stop host" : "Start host", systemImage: entry.isListening ? "stop.fill" : "play.fill")
+            Label(entry.isListening ? String(localized: "Stop host") : String(localized: "Start host"), systemImage: entry.isListening ? "stop.fill" : "play.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(entry.isListening ? Color.primary : Color.black)
                 .padding(.horizontal, 10)
@@ -176,9 +176,11 @@ private struct HostWidgetView: View {
     }
 
     private var statusTitle: String {
-        if !entry.isListening { return "Host stopped" }
-        if entry.connectedNames.isEmpty { return "Ready to connect" }
-        return entry.connectedNames.count == 1 ? "1 device connected" : "\(entry.connectedNames.count) devices connected"
+        if !entry.isListening { return String(localized: "Host stopped") }
+        if entry.connectedNames.isEmpty { return String(localized: "Ready to connect") }
+        return entry.connectedNames.count == 1
+            ? String(localized: "1 device connected")
+            : String(localized: "\(entry.connectedNames.count) devices connected")
     }
 
     private var deviceSummary: String {

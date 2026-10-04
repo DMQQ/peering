@@ -32,8 +32,8 @@ private struct QuickConnectProvider: TimelineProvider {
     func placeholder(in context: Context) -> QuickConnectEntry {
         QuickConnectEntry(
             date: Date(),
-            hostName: "Your Mac",
-            macs: [.init(id: "placeholder", name: "Your Mac")],
+            hostName: String(localized: "Your Mac"),
+            macs: [.init(id: "placeholder", name: String(localized: "Your Mac"))],
             connectedMacIDs: [],
             activeMacID: nil
         )

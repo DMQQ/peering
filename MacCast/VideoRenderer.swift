@@ -844,9 +844,9 @@ final class SessionPiP: NSObject {
     /// asking, and it is the one that keeps answering once the app is on its way out.
     private static var appState: String {
         switch UIApplication.shared.applicationState {
-        case .active: return "foreground"
+        case .active: return String(localized: "foreground")
         case .inactive: return String(localized: "on its way out")
-        case .background: return "background"
+        case .background: return String(localized: "background")
         @unknown default: return String(localized: "in an unknown state")
         }
     }

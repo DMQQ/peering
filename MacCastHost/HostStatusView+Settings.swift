@@ -6,7 +6,7 @@ import SwiftUI
 extension HostStatusView {
     var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeading("Settings", detail: String(localized: "Options for this Mac host."))
+            sectionHeading(String(localized: "Settings"), detail: String(localized: "Options for this Mac host."))
 
             VStack(spacing: 0) {
                 LaunchAtLoginRow()

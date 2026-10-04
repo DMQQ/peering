@@ -18,7 +18,7 @@ struct SessionLiveActivity: Widget {
             ActivityCard(
                 symbol: "macbook",
                 tone: tone(for: context.state.phase),
-                name: context.state.hostName ?? "Mac",
+                name: context.state.hostName ?? String(localized: "Mac"),
                 status: statusText(for: context.state),
                 startedAt: context.state.startedAt,
                 action: action(for: context.state.phase)
@@ -32,7 +32,7 @@ struct SessionLiveActivity: Widget {
                 // — mid-card — instead of against the trailing edge, where every other Live
                 // Activity and the Lock Screen card below both put it.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.hostName ?? "Mac", systemImage: symbol(for: context.state.phase))
+                    Label(context.state.hostName ?? String(localized: "Mac"), systemImage: symbol(for: context.state.phase))
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -115,13 +115,25 @@ private func elapsed(_ context: ActivityViewContext<SessionActivityAttributes>) 
 private func statusText(for state: SessionActivityAttributes.ContentState) -> String {
     let phase: String
     switch state.phase {
-    case .pending: phase = "Waiting for the Mac"
-    case .active: phase = state.path.map { "Connected \($0.phrase)" } ?? "Connected"
-    case .reconnecting: phase = state.path.map { "Reconnecting \($0.phrase)…" } ?? "Reconnecting…"
-    case .dropped: phase = "Connection dropped"
+    case .pending: phase = String(localized: "Waiting for the Mac")
+    case .active:
+        switch state.path {
+        case .lan: phase = String(localized: "Connected via LAN")
+        case .relay: phase = String(localized: "Connected via Relay")
+        case .direct: phase = String(localized: "Connected directly")
+        case nil: phase = String(localized: "Connected")
+        }
+    case .reconnecting:
+        switch state.path {
+        case .lan: phase = String(localized: "Reconnecting via LAN…")
+        case .relay: phase = String(localized: "Reconnecting via Relay…")
+        case .direct: phase = String(localized: "Reconnecting directly…")
+        case nil: phase = String(localized: "Reconnecting…")
+        }
+    case .dropped: phase = String(localized: "Connection dropped")
     }
     guard let count = state.sessionCount, count > 1 else { return phase }
-    return "\(phase) · \(count) Macs"
+    return String(localized: "\(phase) · \(count) Macs")
 }
 
 private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
@@ -139,8 +151,8 @@ private func tone(for phase: SessionActivityAttributes.Phase) -> ActivityTone {
 /// the session back.
 private func action(for phase: SessionActivityAttributes.Phase) -> ActivityCardAction {
     phase == .dropped
-        ? ActivityCardAction(title: "Restore", url: SessionLiveActivity.restoreURL)
-        : ActivityCardAction(title: "End", url: SessionLiveActivity.endURL)
+        ? ActivityCardAction(title: String(localized: "Restore"), url: SessionLiveActivity.restoreURL)
+        : ActivityCardAction(title: String(localized: "End"), url: SessionLiveActivity.endURL)
 }
 
 /// The phase, as a glyph. The island's mark rather than the card's, which has a tile and a dot to

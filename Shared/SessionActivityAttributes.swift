@@ -178,19 +178,6 @@ nonisolated struct SessionActivityAttributes: ActivityAttributes {
         case lan = "LAN"
         case relay = "Relay"
         case direct = "Direct"
-
-        /// The same fact inside a sentence: "Connected via LAN", "Connected directly".
-        ///
-        /// The raw value is the wire format and cannot follow the sentence it lands in, since a
-        /// stored activity decodes through it. "Connected via Direct" is what using it as one
-        /// gives.
-        var phrase: String {
-            switch self {
-            case .lan: return "via LAN"
-            case .relay: return "via Relay"
-            case .direct: return "directly"
-            }
-        }
     }
 
     /// A session, reduced to what a Lock Screen has room to say.
