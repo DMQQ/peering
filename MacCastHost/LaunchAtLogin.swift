@@ -41,11 +41,11 @@ enum LaunchAtLogin {
         var errorDescription: String? {
             switch self {
             case .setting(let enabled, let underlying):
-                let what = enabled ? "add Peering to your login items" : "remove it"
+                let what = enabled ? String(localized: "add Peering to your login items") : String(localized: "remove it")
                 // The common cause is the app not living somewhere the system will register it
                 // from, which in practice means it is being run from a build directory rather
                 // than from /Applications.
-                return "Could not \(what) (\(underlying.localizedDescription)). If you are running the app from outside your Applications folder, move it there and try again."
+                return String(localized: "Could not \(what) (\(underlying.localizedDescription)). If you are running the app from outside your Applications folder, move it there and try again.")
             }
         }
     }

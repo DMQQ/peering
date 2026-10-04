@@ -74,7 +74,7 @@ extension HostStatusView {
             .padding(.horizontal, 10)
             .padding(.bottom, 10)
             .opacity(model.status.isListening ? 1 : 0.4)
-            .help(model.status.isListening ? model.deviceID : "Press Start first: a Mac that is not hosting cannot be reached by this code.")
+            .help(model.status.isListening ? model.deviceID : String(localized: "Press Start first: a Mac that is not hosting cannot be reached by this code."))
         }
     }
 
@@ -88,7 +88,7 @@ extension HostStatusView {
                     Text("Update available")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(HostPalette.ink)
-                    Text(updater.readyToInstall ? "Version \(version). Click to restart and update." : "Version \(version). Click to install.")
+                    Text(updater.readyToInstall ? String(localized: "Version \(version). Click to restart and update.") : String(localized: "Version \(version). Click to install."))
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
                         .lineLimit(1)
@@ -226,7 +226,7 @@ extension HostStatusView {
             .buttonStyle(HostHostingButtonStyle(isHosting: model.status.isListening))
             .animation(HostMotion.state, value: model.status.isListening)
 
-            Text(verbatim: "Port \(model.boundPort) · protocol v\(ProtocolInfo.version)")
+            Text(verbatim: String(localized: "Port \(model.boundPort) · protocol v\(ProtocolInfo.version)"))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(HostPalette.faint)
         }

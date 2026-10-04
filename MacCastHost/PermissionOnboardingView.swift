@@ -22,9 +22,9 @@ struct PermissionOnboardingView: View {
                     VStack(spacing: 12) {
                         permissionStep(
                             number: 1,
-                            title: "Accessibility",
-                            detail: "Peering uses this to turn gestures and keys from your iPhone into input on this Mac.",
-                            consequence: "Without it, you can see the Mac but cannot control it.",
+                            title: String(localized: "Accessibility"),
+                            detail: String(localized: "Peering uses this to turn gestures and keys from your iPhone into input on this Mac."),
+                            consequence: String(localized: "Without it, you can see the Mac but cannot control it."),
                             symbol: "cursorarrow.click.2",
                             granted: permissions.accessibilityGranted,
                             allow: {
@@ -35,9 +35,9 @@ struct PermissionOnboardingView: View {
 
                         permissionStep(
                             number: 2,
-                            title: "Screen Recording",
-                            detail: "Peering uses this to send a live picture of this Mac to your iPhone.",
-                            consequence: "Without it, your iPhone connects to a black screen.",
+                            title: String(localized: "Screen Recording"),
+                            detail: String(localized: "Peering uses this to send a live picture of this Mac to your iPhone."),
+                            consequence: String(localized: "Without it, your iPhone connects to a black screen."),
                             symbol: "rectangle.dashed.badge.record",
                             granted: permissions.screenRecordingGranted,
                             allow: {

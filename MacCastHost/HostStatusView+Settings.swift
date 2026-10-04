@@ -6,7 +6,7 @@ import SwiftUI
 extension HostStatusView {
     var settingsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionHeading("Settings", detail: "Options for this Mac host.")
+            sectionHeading("Settings", detail: String(localized: "Options for this Mac host."))
 
             VStack(spacing: 0) {
                 LaunchAtLoginRow()
@@ -75,7 +75,7 @@ extension HostStatusView {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Send a test notification")
                     .font(.subheadline.weight(.medium))
-                Text(model.pushTestResult ?? "Pushes a banner to the devices this Mac has a token for, over the relay. What this can see is the token and the send; the relay holds the APNs key and answers nothing.")
+                Text(model.pushTestResult ?? String(localized: "Pushes a banner to the devices this Mac has a token for, over the relay. What this can see is the token and the send; the relay holds the APNs key and answers nothing."))
                     .font(.caption)
                     .foregroundStyle(HostPalette.muted)
                     .fixedSize(horizontal: false, vertical: true)

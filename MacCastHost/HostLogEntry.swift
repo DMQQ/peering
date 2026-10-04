@@ -41,9 +41,9 @@ struct HostLogEntry: Identifiable, Sendable, Equatable {
     /// fixed-width words below because those are easier to scan in plain text.
     var levelName: String {
         switch level {
-        case .info: return "Event"
-        case .warning: return "Notice"
-        case .failure: return "Failed"
+        case .info: return String(localized: "Event")
+        case .warning: return String(localized: "Notice")
+        case .failure: return String(localized: "Failed")
         }
     }
 

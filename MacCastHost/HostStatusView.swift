@@ -24,13 +24,13 @@ enum HostSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .overview: return "Overview"
-        case .devices: return "Devices"
-        case .sessions: return "Sessions"
-        case .activity: return "Activity"
-        case .privacy: return "Privacy"
+        case .overview: return String(localized: "Overview")
+        case .devices: return String(localized: "Devices")
+        case .sessions: return String(localized: "Sessions")
+        case .activity: return String(localized: "Activity")
+        case .privacy: return String(localized: "Privacy")
         case .settings: return "Settings"
-        case .about: return "About"
+        case .about: return String(localized: "About")
         }
     }
 
@@ -330,13 +330,13 @@ struct HostStatusView: View {
     var statusText: String {
         if let client = model.connectedClients.first {
             let others = model.connectedClients.count - 1
-            return others > 0 ? "Connected: \(client.name) +\(others)" : "Connected: \(client.name)"
+            return others > 0 ? String(localized: "Connected: \(client.name) +\(others)") : String(localized: "Connected: \(client.name)")
         }
         switch model.status {
-        case .idle: return "Not hosting"
+        case .idle: return String(localized: "Not hosting")
         case .starting: return "Starting…"
         case .listening: return "Waiting for a device"
-        case .failed(let message): return "Error: \(message)"
+        case .failed(let message): return String(localized: "Error: \(message)")
         }
     }
 
@@ -365,9 +365,9 @@ struct HostStatusView: View {
 extension CaptureResolution {
     var title: String {
         switch self {
-        case .full: return "Full"
+        case .full: return String(localized: "Full")
         case .threeQuarters: return "3/4"
-        case .half: return "Half"
+        case .half: return String(localized: "Half")
         }
     }
 }
@@ -375,9 +375,9 @@ extension CaptureResolution {
 extension CaptureFrameRate {
     var title: String {
         switch self {
-        case .thirty: return "30 fps"
-        case .sixty: return "60 fps"
-        case .oneTwenty: return "120 fps"
+        case .thirty: return String(localized: "30 fps")
+        case .sixty: return String(localized: "60 fps")
+        case .oneTwenty: return String(localized: "120 fps")
         }
     }
 }

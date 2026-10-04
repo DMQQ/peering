@@ -108,7 +108,7 @@ enum LidCloseSleepControl {
         }
         return await runAsAdministrator(
             shellScript: script,
-            prompt: "Peering needs to install a rule that lets it stop this Mac sleeping with the lid closed. The rule allows two commands: pmset -a disablesleep 1, and pmset -a disablesleep 0."
+            prompt: String(localized: "Peering needs to install a rule that lets it stop this Mac sleeping with the lid closed. The rule allows two commands: pmset -a disablesleep 1, and pmset -a disablesleep 0.")
         )
     }
 
@@ -116,7 +116,7 @@ enum LidCloseSleepControl {
     static func removeRule() async -> Outcome {
         await runAsAdministrator(
             shellScript: LidCloseSleep.removeScript(),
-            prompt: "Peering will remove its administrator rule and let this Mac sleep normally again."
+            prompt: String(localized: "Peering will remove its administrator rule and let this Mac sleep normally again.")
         )
     }
 
@@ -142,7 +142,7 @@ enum LidCloseSleepControl {
     static func setWakeSchedule(hour: Int) async -> Outcome {
         await runAsAdministrator(
             shellScript: LidCloseSleep.wakeCommand(hour: hour),
-            prompt: "Peering will wake this Mac at \(LidCloseSleep.hourString(hour).prefix(5)) every day."
+            prompt: String(localized: "Peering will wake this Mac at \(LidCloseSleep.hourString(hour).prefix(5)) every day.")
         )
     }
 
@@ -150,7 +150,7 @@ enum LidCloseSleepControl {
     static func clearWakeSchedule() async -> Outcome {
         await runAsAdministrator(
             shellScript: LidCloseSleep.cancelScheduleCommand,
-            prompt: "Peering will take away the daily wake it set for this Mac."
+            prompt: String(localized: "Peering will take away the daily wake it set for this Mac.")
         )
     }
 
@@ -177,7 +177,7 @@ enum LidCloseSleepControl {
         )
         guard result.status != 0 else { return .done }
         let message = result.err.trimmingCharacters(in: .whitespacesAndNewlines)
-        return .failed(message.isEmpty ? "Could not change the sleep setting (sudo exited \(result.status))." : message)
+        return .failed(message.isEmpty ? String(localized: "Could not change the sleep setting (sudo exited \(result.status)).") : message)
     }
 
     /// Runs one shell script as root, through the system's own authentication dialog.
@@ -199,7 +199,7 @@ enum LidCloseSleepControl {
             }
             return .failed(
                 message.isEmpty
-                    ? "The administrator prompt did not finish (osascript exited \(result.status))."
+                    ? String(localized: "The administrator prompt did not finish (osascript exited \(result.status)).")
                     : message
             )
         }
@@ -229,7 +229,7 @@ enum LidCloseSleepControl {
         do {
             try process.run()
         } catch {
-            return Output(status: -1, out: "", err: "Could not run \(executable): \(error.localizedDescription)")
+            return Output(status: -1, out: "", err: String(localized: "Could not run \(executable): \(error.localizedDescription)"))
         }
         // **Both pipes are drained at the same time, not one after the other.** Reading `out` to
         // the end first looks like draining and is not: a child that fills the stderr pipe blocks
@@ -434,13 +434,13 @@ struct KeepAwakeScheduleRow: View {
     /// wake it at seven would be promising the one thing macOS will not do for a sleeping machine.
     private var caption: String {
         guard model.keepAwakeScheduleEnabled else {
-            return "Off. The switches above keep this Mac awake all day and all night."
+            return String(localized: "Off. The switches above keep this Mac awake all day and all night.")
         }
         let start = String(format: "%02d:00", model.keepAwakeStartHour)
         let end = String(format: "%02d:00", model.keepAwakeEndHour)
-        let sentence = "This Mac stays awake from \(start) to \(end), and sleeps the rest of the time unless you are connected to it."
+        let sentence = String(localized: "This Mac stays awake from \(start) to \(end), and sleeps the rest of the time unless you are connected to it.")
         if model.keepRunningWithLidClosed, model.lidCloseRuleInstalled != true {
-            return sentence + " The lid-close switch below needs its administrator rule before this can release it."
+            return sentence + String(localized: " The lid-close switch below needs its administrator rule before this can release it.")
         }
         return sentence
     }
@@ -586,7 +586,7 @@ struct WakeScheduleRow: View {
 
     private var caption: String {
         guard let hour = model.wakeScheduleHour else {
-            return "Off. Once this Mac has slept, nothing can reach it until something wakes it, and nothing here will."
+            return String(localized: "Off. Once this Mac has slept, nothing can reach it until something wakes it, and nothing here will.")
         }
         return "macOS wakes this Mac at \(String(format: "%02d:00", hour)) every day. It works with nothing running and nothing on the network. On battery it may not fire."
     }

@@ -12,32 +12,32 @@ extension HostStatusView {
     /// easier to reason about than a phrase like "full access".
     var privacyNote: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeading("What a trusted phone can do", detail: "The whole of it.")
+            sectionHeading(String(localized: "What a trusted phone can do"), detail: String(localized: "The whole of it."))
 
             VStack(alignment: .leading, spacing: 10) {
                 privacyRow(
-                    "See the screen you share",
-                    "The captured display, window or application, and the list of things this Mac could capture, which includes window titles, application names and their icons."
+                    String(localized: "See the screen you share"),
+                    String(localized: "The captured display, window or application, and the list of things this Mac could capture, which includes window titles, application names and their icons.")
                 )
                 Divider()
                 privacyRow(
-                    "Send clicks and keystrokes",
-                    "Injected through the same mechanism an assistive keyboard uses, which is why the Accessibility permission is required."
+                    String(localized: "Send clicks and keystrokes"),
+                    String(localized: "Injected through the same mechanism an assistive keyboard uses, which is why the Accessibility permission is required.")
                 )
                 Divider()
                 privacyRow(
-                    "Hear this Mac, and run things on it",
-                    "The sound this Mac plays is sent with the picture, and is on by default. A trusted phone can also open a Terminal here as you, list and read files, replace them, launch applications, switch desktops and lock the screen. That is the same reach your own Terminal window has, and it is why the list above is worth reading before you pair."
+                    String(localized: "Hear this Mac, and run things on it"),
+                    String(localized: "The sound this Mac plays is sent with the picture, and is on by default. A trusted phone can also open a Terminal here as you, list and read files, replace them, launch applications, switch desktops and lock the screen. That is the same reach your own Terminal window has, and it is why the list above is worth reading before you pair.")
                 )
                 Divider()
                 privacyRow(
-                    "Clipboard, when you ask",
+                    String(localized: "Clipboard, when you ask"),
                     // **Files used to be named here as something that is never sent, and they are
                     // sent**, in both directions, up to 64 MB at a time. A privacy screen that
                     // understates what a trusted device can do is worse than no privacy screen,
                     // because it is the one page a reader takes at its word. The microphone and the
                     // camera really are not used, on either device, and saying so is worth keeping.
-                    "Clipboard text moves only when you use Pull or Push on the iPhone. Files do move between the two, when you ask them to. No microphone and no camera is used, on either device."
+                    String(localized: "Clipboard text moves only when you use Pull or Push on the iPhone. Files do move between the two, when you ask them to. No microphone and no camera is used, on either device.")
                 )
             }
             .padding(14)
@@ -143,7 +143,7 @@ extension HostStatusView {
         components.scheme = "mailto"
         components.path = "support@getpeering.app"
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "Peering issue (Mac)"),
+            URLQueryItem(name: "subject", value: String(localized: "Peering issue (Mac)")),
             URLQueryItem(name: "body", value: body),
         ]
         return components.url ?? URL(string: "mailto:support@getpeering.app")!

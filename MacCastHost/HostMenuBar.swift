@@ -44,11 +44,11 @@ enum HostMenuBarState {
 
     var description: String {
         switch self {
-        case .streaming: return "A device is connected"
-        case .ready: return "Hosting, with a paired device"
-        case .waiting: return "Hosting, with no device paired"
-        case .setupRequired: return "Setup required"
-        case .stopped: return "Not hosting"
+        case .streaming: return String(localized: "A device is connected")
+        case .ready: return String(localized: "Hosting, with a paired device")
+        case .waiting: return String(localized: "Hosting, with no device paired")
+        case .setupRequired: return String(localized: "Setup required")
+        case .stopped: return String(localized: "Not hosting")
         }
     }
 }
@@ -200,13 +200,13 @@ struct HostMenuBarContent: View {
     }
 
     private var statusText: String {
-        if !model.permissions.allRequiredGranted { return "Setup required" }
+        if !model.permissions.allRequiredGranted { return String(localized: "Setup required") }
         if !model.connectedClients.isEmpty {
             let count = model.connectedClients.count
-            return count == 1 ? "Streaming to 1 device" : "Streaming to \(count) devices"
+            return count == 1 ? String(localized: "Streaming to 1 device") : String(localized: "Streaming to \(count) devices")
         }
         switch model.status {
-        case .idle: return "Not hosting"
+        case .idle: return String(localized: "Not hosting")
         case .starting: return "Starting…"
         case .listening: return "Waiting for a device"
         case .failed(let message): return message
@@ -268,7 +268,7 @@ struct HostMenuBarContent: View {
     }
 
     private var devicesCard: some View {
-        card(title: "Connected") {
+        card(title: String(localized: "Connected")) {
             // A timeline rather than a formatted string, so the timers run while the panel is open.
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 VStack(spacing: 8) {
@@ -325,20 +325,20 @@ struct HostMenuBarContent: View {
         guard let rates = model.resources.rates else { return "Measuring…" }
         let share = Double(max(1, model.connectedClients.count))
         let cpu = HostResourceSampler.percent(rates.cpuOfMachine / share)
-        return "≈ \(cpu) CPU · \(HostResourceSampler.networkText(rates.bytesPerSecond / share))"
+        return String(localized: "≈ \(cpu) CPU · \(HostResourceSampler.networkText(rates.bytesPerSecond / share))")
     }
 
     private var awakeCard: some View {
-        card(title: "Staying awake") {
+        card(title: String(localized: "Staying awake")) {
             VStack(spacing: 10) {
                 switchRow(
-                    "Keep Mac reachable",
+                    String(localized: "Keep Mac reachable"),
                     symbol: "wifi",
                     isOn: Binding(
                         get: { model.preventLidCloseSleep },
                         set: { model.setPreventLidCloseSleep($0) }
                     ),
-                    note: model.keepAwakeWithheld ? "Not being held: this Mac sleeps on its own" : nil
+                    note: model.keepAwakeWithheld ? String(localized: "Not being held: this Mac sleeps on its own") : nil
                 )
 
                 lidCloseRow
@@ -376,7 +376,7 @@ struct HostMenuBarContent: View {
                     get: { model.keepRunningWithLidClosed },
                     set: { wanted in Task { await model.setKeepRunningWithLidClosed(wanted) } }
                 ),
-                note: notInForce ? "Not in force: this Mac still sleeps on a closed lid" : nil
+                note: notInForce ? String(localized: "Not in force: this Mac still sleeps on a closed lid") : nil
             )
             .disabled(model.lidCloseBusy)
         } else {
@@ -403,7 +403,7 @@ struct HostMenuBarContent: View {
     private var awakeHoursRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             switchRow(
-                "Only during set hours",
+                String(localized: "Only during set hours"),
                 symbol: "clock",
                 isOn: Binding(
                     get: { model.keepAwakeScheduleEnabled },
@@ -463,8 +463,8 @@ struct HostMenuBarContent: View {
         let memory = model.resources.memoryBytes
         return HStack(spacing: 8) {
             reading("CPU", rates.map(HostResourceSampler.cpuPercent) ?? "…")
-            reading("Memory", memory > 0 ? HostResourceSampler.memoryText(memory) : "…")
-            reading("Sent", rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…")
+            reading(String(localized: "Memory"), memory > 0 ? HostResourceSampler.memoryText(memory) : "…")
+            reading(String(localized: "Sent"), rates.map { HostResourceSampler.networkText($0.bytesPerSecond) } ?? "…")
         }
     }
 
@@ -511,7 +511,7 @@ struct HostMenuBarContent: View {
             iconButton("exclamationmark.bubble", help: "Report an issue") {
                 NSWorkspace.shared.open(HostStatusView.reportURL)
             }
-            iconButton("power.circle", help: "Quit Peering") {
+            iconButton("power.circle", help: String(localized: "Quit Peering")) {
                 model.stop()
                 NSApp.terminate(nil)
             }

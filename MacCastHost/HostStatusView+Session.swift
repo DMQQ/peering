@@ -72,7 +72,7 @@ extension HostStatusView {
     // MARK: Tiles
 
     private var deviceTile: some View {
-        overviewTile(symbol: "iphone", title: "Device") {
+        overviewTile(symbol: "iphone", title: String(localized: "Device")) {
             if let client = connectedClient {
                 HStack(spacing: 6) {
                     Text(client.name)
@@ -105,13 +105,13 @@ extension HostStatusView {
     private var streamTile: some View {
         let rates = model.resources.rates
         let memory = model.resources.memoryBytes
-        return overviewTile(symbol: "gauge.with.dots.needle.50percent", title: "Cost to this Mac") {
-            Text(rates.map { "\(HostResourceSampler.cpuPercent($0)) CPU" } ?? "Measuring…")
+        return overviewTile(symbol: "gauge.with.dots.needle.50percent", title: String(localized: "Cost to this Mac")) {
+            Text(rates.map { String(localized: "\(HostResourceSampler.cpuPercent($0)) CPU") } ?? "Measuring…")
                 .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .contentTransition(.numericText())
             Text([
                 memory > 0 ? HostResourceSampler.memoryText(memory) : nil,
-                rates.map { "\(HostResourceSampler.networkText($0.bytesPerSecond)) sent" },
+                rates.map { String(localized: "\(HostResourceSampler.networkText($0.bytesPerSecond)) sent") },
             ].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(HostPalette.muted)
@@ -121,7 +121,7 @@ extension HostStatusView {
 
     private var reachTile: some View {
         let held = model.preventLidCloseSleep && !model.keepAwakeWithheld
-        return overviewTile(symbol: held ? "bolt.fill" : "moon.zzz", title: "This Mac") {
+        return overviewTile(symbol: held ? "bolt.fill" : "moon.zzz", title: String(localized: "This Mac")) {
             Text(held ? "Kept reachable" : "Sleeps on its own")
                 .font(.system(size: 14, weight: .semibold))
             Text(model.keepRunningWithLidClosed ? "Runs with the lid closed" : "Sleeps when the lid closes")
@@ -268,23 +268,23 @@ extension HostStatusView {
     /// where there is not — a bare display ID would be a worse answer than an honest sentence.
     var capturingTitle: String {
         if let title = model.capturingSourceTitle { return title }
-        return model.connectedClients.isEmpty ? "Nothing yet" : "Choosing a screen…"
+        return model.connectedClients.isEmpty ? String(localized: "Nothing yet") : String(localized: "Choosing a screen…")
     }
 
     var capturingDetail: String {
         guard let capturingSource else {
             return model.connectedClients.isEmpty
-                ? "No device is connected."
-                : "A device is connected but has not chosen what to show."
+                ? String(localized: "No device is connected.")
+                : String(localized: "A device is connected but has not chosen what to show.")
         }
         switch capturingSource {
-        case .display: return "The whole screen, streaming live."
-        case .application: return "One application, streaming live."
-        case .window: return "One window, streaming live."
+        case .display: return String(localized: "The whole screen, streaming live.")
+        case .application: return String(localized: "One application, streaming live.")
+        case .window: return String(localized: "One window, streaming live.")
         case .mosaic(let layout):
             // The count, because it is the one number that says how much work this window is
             // asking of the Mac: every tile is a ScreenCaptureKit stream of its own.
-            return "\(layout.tiles.count) windows, composited live."
+            return String(localized: "\(layout.tiles.count) windows, composited live.")
         }
     }
 

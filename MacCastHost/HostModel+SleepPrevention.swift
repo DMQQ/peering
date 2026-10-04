@@ -239,7 +239,7 @@ extension HostModel {
         // straight back. See ``keepAwakeReleasedByHand``.
         keepAwakeReleasedByHand = true
         await applyKeepAwakeSchedule()
-        record("Let this Mac sleep on its own again; the switches are still set as you left them.")
+        record(String(localized: "Let this Mac sleep on its own again; the switches are still set as you left them."))
     }
 
     /// How long the Mac is left alone before it asks whether it should still be awake.
@@ -279,10 +279,10 @@ extension HostModel {
     var keepAwakeWithheldExplanation: String? {
         guard keepAwakeWithheld, preventLidCloseSleep || keepRunningWithLidClosed else { return nil }
         if keepAwakeReleasedByHand {
-            return "Let go when you said so. This Mac sleeps on its own from now on, and holds again when a device connects or you touch one of these switches."
+            return String(localized: "Let go when you said so. This Mac sleeps on its own from now on, and holds again when a device connects or you touch one of these switches.")
         }
         let start = String(format: "%02d:00", keepAwakeStartHour)
-        return "Outside the hours you set, so this Mac sleeps on its own. It holds again at \(start), or as soon as a device connects."
+        return String(localized: "Outside the hours you set, so this Mac sleeps on its own. It holds again at \(start), or as soon as a device connects.")
     }
 
     /// Takes back a release the user asked for, when something says the situation has changed.
@@ -339,9 +339,9 @@ extension HostModel {
             if let hour {
                 // `record` takes a plain string, so this is interpolation rather than an os_log
                 // one: `privacy:` belongs to the logger and not here.
-                record("This Mac will wake itself at \(LidCloseSleep.hourString(hour).prefix(5)) every day")
+                record(String(localized: "This Mac will wake itself at \(LidCloseSleep.hourString(hour).prefix(5)) every day"))
             } else {
-                record("The daily wake is off; this Mac sleeps until something wakes it")
+                record(String(localized: "The daily wake is off; this Mac sleeps until something wakes it"))
             }
         case .cancelled:
             return

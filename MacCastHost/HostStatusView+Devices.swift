@@ -20,7 +20,7 @@ extension HostStatusView {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
-                    sectionHeading("Devices", detail: "Phones trusted to reach this Mac.")
+                    sectionHeading(String(localized: "Devices"), detail: String(localized: "Phones trusted to reach this Mac."))
                     Spacer()
                     if !model.pairedClientIDs.isEmpty {
                         Button("Forget all", role: .destructive) { model.unpairAll() }
@@ -48,7 +48,7 @@ extension HostStatusView {
                             deviceRow(
                                 name: client.name,
                                 id: client.id,
-                                detail: "Connected · \(client.elapsedDescription())",
+                                detail: String(localized: "Connected · \(client.elapsedDescription())"),
                                 connected: true
                             )
                         }
@@ -57,7 +57,7 @@ extension HostStatusView {
                             deviceRow(
                                 name: model.displayName(for: id),
                                 id: id,
-                                detail: "Trusted · not connected",
+                                detail: String(localized: "Trusted · not connected"),
                                 connected: false
                             )
                         }
@@ -95,8 +95,8 @@ extension HostStatusView {
             // display one, which read as an afterthought bolted onto the panel rather than as a
             // section with the same standing as the list above it.
             sectionHeading(
-                "Pair from another network",
-                detail: "An iPhone that is not on this network reaches this Mac by its ID. Type or scan it there, then read out the six digits when this window shows them."
+                String(localized: "Pair from another network"),
+                detail: String(localized: "An iPhone that is not on this network reaches this Mac by its ID. Type or scan it there, then read out the six digits when this window shows them.")
             )
 
             // The ID is also the Mac's registration name at the relay, and it stops being one
@@ -187,7 +187,7 @@ extension HostStatusView {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(hoveredDeviceID == id ? HostPalette.ink : HostPalette.muted)
-                .help("Disconnect \(name). It stays trusted and can reconnect")
+                .help(String(localized: "Disconnect \(name). It stays trusted and can reconnect"))
             }
             Button(role: .destructive) {
                 forgetDevice = (id, name)
@@ -198,7 +198,7 @@ extension HostStatusView {
             }
             .buttonStyle(.plain)
             .foregroundStyle(hoveredDeviceID == id ? HostPalette.danger : HostPalette.faint)
-            .help("Forget \(name). It will have to pair again")
+            .help(String(localized: "Forget \(name). It will have to pair again"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -214,7 +214,7 @@ extension HostStatusView {
         // The ID is what a pairing question turns on, so it stays reachable — as a tooltip
         // rather than as the thing printed on the row, where it was never what anyone
         // recognised.
-        .help("Device ID \(id)")
+        .help(String(localized: "Device ID \(id)"))
     }
 
     /// A tail of what the host has done.
@@ -228,7 +228,7 @@ extension HostStatusView {
     var activitySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                sectionHeading("Activity", detail: "Recent host events, newest last.")
+                sectionHeading(String(localized: "Activity"), detail: String(localized: "Recent host events, newest last."))
                 Spacer()
                 if !model.log.isEmpty {
                     Button("Copy all") {
@@ -333,7 +333,7 @@ extension HostStatusView {
     /// someone wants to look at them — so each finished session is written down as it ends.
     var sessionsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeading("Sessions", detail: "Finished connections, newest first.")
+            sectionHeading(String(localized: "Sessions"), detail: String(localized: "Finished connections, newest first."))
 
             if model.sessions.isEmpty {
                 Text("No sessions yet.")
@@ -360,11 +360,11 @@ extension HostStatusView {
 
     private var sessionSummary: some View {
         HStack(spacing: 0) {
-            sessionSummaryValue("Sessions", "\(model.sessions.count)")
+            sessionSummaryValue(String(localized: "Sessions"), "\(model.sessions.count)")
             Divider().frame(height: 34)
-            sessionSummaryValue("Connected", hostDuration(model.sessions.reduce(0) { $0 + $1.duration }))
+            sessionSummaryValue(String(localized: "Connected"), hostDuration(model.sessions.reduce(0) { $0 + $1.duration }))
             Divider().frame(height: 34)
-            sessionSummaryValue("Video", hostBytes(model.sessions.reduce(0) { $0 + Int64($1.bytes) }))
+            sessionSummaryValue(String(localized: "Video"), hostBytes(model.sessions.reduce(0) { $0 + Int64($1.bytes) }))
         }
         .padding(.vertical, 11)
         .hostPanel()

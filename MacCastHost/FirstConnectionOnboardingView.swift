@@ -27,15 +27,15 @@ struct FirstConnectionOnboardingView: View {
                     VStack(spacing: 0) {
                         row(
                             symbol: "wifi",
-                            title: "On the same network",
-                            detail: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time."
+                            title: String(localized: "On the same network"),
+                            detail: String(localized: "Open Peering on your iPhone. It finds this Mac by itself, and shows a code to confirm the first time.")
                         )
                         Divider().padding(.leading, 52)
                         row(
                             symbol: "number",
-                            title: "By address",
-                            detail: localAddress.map { "If discovery is blocked where you are, enter \($0):\(model.boundPort) on your iPhone by hand." }
-                                ?? "If discovery is blocked where you are, enter this Mac's address and port \(model.boundPort) by hand."
+                            title: String(localized: "By address"),
+                            detail: localAddress.map { String(localized: "If discovery is blocked where you are, enter \($0):\(model.boundPort) on your iPhone by hand.") }
+                                ?? String(localized: "If discovery is blocked where you are, enter this Mac's address and port \(model.boundPort) by hand.")
                         )
                     }
                     .hostPanel()
@@ -90,8 +90,8 @@ struct FirstConnectionOnboardingView: View {
         if let pairing = model.pairing {
             VStack(spacing: 14) {
                 Text(pairing.isRemote
-                     ? "\(pairing.clientName) reached this Mac over the relay. Read the six digits out to whoever is holding it."
-                     : "Scan this code with Peering, or enter the six digits on \(pairing.clientName).")
+                     ? String(localized: "\(pairing.clientName) reached this Mac over the relay. Read the six digits out to whoever is holding it.")
+                     : String(localized: "Scan this code with Peering, or enter the six digits on \(pairing.clientName)."))
                     .font(.callout)
                     .foregroundStyle(HostPalette.muted)
                     .multilineTextAlignment(.center)
@@ -124,8 +124,8 @@ struct FirstConnectionOnboardingView: View {
                     Text(outcome.accepted ? "Device paired" : "Pairing cancelled")
                         .font(.headline)
                     Text(outcome.accepted
-                         ? "\(outcome.clientName) can now reconnect automatically."
-                         : "\(outcome.clientName) was not added to trusted devices.")
+                         ? String(localized: "\(outcome.clientName) can now reconnect automatically.")
+                         : String(localized: "\(outcome.clientName) was not added to trusted devices."))
                         .font(.caption)
                         .foregroundStyle(HostPalette.muted)
                 }
