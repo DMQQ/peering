@@ -9,7 +9,7 @@ import SwiftUI
 /// to subscribe — rather than one who had just been turned away — had nowhere to go. A purchase
 /// screen that only exists behind an error is a purchase screen most people never see.
 ///
-/// Three tiers rather than a list of products, and the difference is the comparison. A list of
+/// Two tiers rather than a list of products, and the difference is the comparison. A list of
 /// products is a price each and nothing to choose between; a ladder of tiers is what the money
 /// buys, one above the other, so the question the screen asks is "which of these is worth it"
 /// rather than "how much is this one". The order is the argument, which is why the cards are in
@@ -121,7 +121,7 @@ struct PaywallView: View {
                 switch plan {
                 case .free:
                     return String(localized: "Your free relay time for today is used up. Upgrade to connect from anywhere without limits.")
-                case .relay, .plus, .pro:
+                case .relay, .pro:
                     // Unreachable as the app is wired: paid plans are unlimited and never metered,
                     // so the relay cannot refuse one for quota. True rather than blank.
                     return String(localized: "The relay counted this connection against a quota your plan does not have. Try again, and tell us if it keeps happening.")
@@ -145,7 +145,7 @@ struct PaywallView: View {
                     // ever connected. Selling them the relay again would be the app having forgotten
                     // they paid, so this says what they already have.
                     return String(localized: "\(moment) You are already subscribed, so there was no meter on this one.")
-                case .plus, .pro:
+                case .pro:
                     // Unreachable for the same reason as the case below it, and said truly rather
                     // than left blank.
                     return String(localized: "\(moment) Your plan already includes unlimited relay, so there is nothing here to buy.")
@@ -155,7 +155,7 @@ struct PaywallView: View {
                 switch plan {
                 case .free:
                     return String(localized: "\(left) left today. When it runs out, reaching a Mac on another network stops until the allowance comes back. Any paid plan removes the limit.")
-                case .relay, .plus, .pro:
+                case .relay, .pro:
                     // Unreachable as the app is wired: paid plans are unlimited, so
                     // ``SessionModel/relaySecondsRemainingEstimate`` is `nil` for them and nothing
                     // can construct this reason. True rather than blank.
@@ -437,13 +437,13 @@ struct PaywallView: View {
                 }
             }
             // The whole ladder moves by one animation rather than each card appearing on its own:
-            // the three are one object — a comparison — and a comparison that assembles itself a
-            // third at a time reads as three separate offers that happen to be stacked.
+            // the two are one object, a comparison, and a comparison that assembles itself a
+            // card at a time reads as separate offers that happen to be stacked.
             .animation(Motion.tap, value: chosen)
         }
     }
 
-    /// The monthly/yearly switch, and the reason the three cards above it can be compared at all.
+    /// The monthly/yearly switch, and the reason the cards above it can be compared at all.
     ///
     /// Above the cards rather than under them, because it changes what every price below it means.
     /// A switch that moves the numbers it sits beneath is a switch whose effect is discovered
@@ -451,9 +451,9 @@ struct PaywallView: View {
     /// round.
     ///
     /// The yearly carries the saving and the monthly carries nothing, because being the smaller
-    /// commitment is the monthly's own argument. The number is the smallest saving across the three
+    /// commitment is the monthly's own argument. The number is the smallest saving across the
     /// plans rather than any one plan's, since it is printed once and applies to all of them: the
-    /// three land within a couple of points of each other, and the smallest is the one that is true
+    /// two land within a couple of points of each other, and the smallest is the one that is true
     /// whichever card is selected.
     private var periodPicker: some View {
         BillingPeriodPicker(period: $period, saving: store.smallestYearlySaving)
@@ -781,7 +781,7 @@ struct AllowanceSpentView: View {
     private var title: String {
         switch plan {
         case .free: return String(localized: "Your free relay time is used up")
-        case .relay, .plus, .pro:
+        case .relay, .pro:
             // Unreachable as the app is wired: paid plans are unlimited and never cut for quota.
             // True rather than blank, like the paywall's own unreachable branches.
             return String(localized: "The relay stopped the session")
@@ -799,7 +799,7 @@ struct AllowanceSpentView: View {
         switch plan {
         case .free:
             return String(localized: "That session went over the relay, and free's \(plan.allowanceSpelling) a day are spent. Another relayed session is refused until the allowance comes back. \(stillFree)")
-        case .relay, .plus, .pro:
+        case .relay, .pro:
             return String(localized: "Your plan has no daily limit, so the relay counting this one means it read the device as free. Try again, and tell us if it keeps happening. \(stillFree)")
         }
     }
@@ -842,7 +842,7 @@ private struct PlanCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 // **Above the name, which is where the site puts it and what it is worth.** Beside
                 // the name the badge was a sibling of it competing for the same line, and on the
-                // longest name on the ladder — Relay Plus — it took the width the name needed.
+                // longest name on the ladder it took the width the name needed.
                 // Above it, the recommendation is read before the thing it recommends, and the
                 // three names line up down the page whatever each of them is called.
                 if tier.isRecommended {

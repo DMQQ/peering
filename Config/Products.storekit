@@ -76,64 +76,14 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "3.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 2,
-          "internalID" : "6741000003",
-          "introductoryOffer" : null,
-          "localizations" : [
-            {
-              "description" : "Everything in Relay, plus several shells at once.",
-              "displayName" : "Relay Plus",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "pl.dmq.peering.iap.plus.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Relay Plus Monthly",
-          "subscriptionGroupID" : "21840001",
-          "type" : "RecurringSubscription"
-        },
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "29.99",
-          "familyShareable" : false,
-          "groupNumber" : 2,
-          "internalID" : "6741000004",
-          "introductoryOffer" : null,
-          "localizations" : [
-            {
-              "description" : "Everything in Relay, plus several shells at once, billed yearly.",
-              "displayName" : "Relay Plus (Yearly)",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "pl.dmq.peering.iap.plus.year",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Relay Plus Yearly",
-          "subscriptionGroupID" : "21840001",
-          "type" : "RecurringSubscription"
-        },
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "6.99",
-          "familyShareable" : false,
-          "groupNumber" : 3,
           "internalID" : "6741000005",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Everything in Relay Plus, several Macs at once, macros, and the sharpest relayed picture.",
+              "description" : "Everything in Relay, several shells at once, virtual displays, several Macs at once, macros, and the sharpest relayed picture.",
               "displayName" : "Peering Pro",
               "locale" : "en_US"
             }
@@ -151,14 +101,14 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "49.99",
+          "displayPrice" : "34.99",
           "familyShareable" : false,
-          "groupNumber" : 3,
+          "groupNumber" : 2,
           "internalID" : "6741000006",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Everything in Relay Plus, several Macs at once, macros, and the sharpest relayed picture, billed yearly.",
+              "description" : "Everything in Relay, several shells at once, virtual displays, several Macs at once, macros, and the sharpest relayed picture, billed yearly.",
               "displayName" : "Peering Pro (Yearly)",
               "locale" : "en_US"
             }

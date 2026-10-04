@@ -10,7 +10,7 @@ public enum TerminalProgram {
     /// The ones that draw a screen of their own rather than printing lines: they all address a grid
     /// they expect to be a terminal's whole width.
     private static let fullScreen: Set<String> = [
-        "claude", "vim", "vi", "nvim", "view", "top", "htop", "btop", "less", "more", "man", "tmux",
+        "claude", "codex", "opencode", "hermes", "gemini", "vim", "vi", "nvim", "view", "top", "htop", "btop", "less", "more", "man", "tmux",
         "screen", "emacs", "nano", "pico", "w3m", "lynx", "irssi", "weechat",
     ]
 

@@ -27635,60 +27635,60 @@
         }
       }
     },
-    "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it, which is part of Relay Plus.": {
+    "A list rather than a promise. There is no dictation button. A port forward listens on this phone only: there is no way to open one on the server's side, which is what ssh -R is for. A Mac asleep and off your network cannot be woken. A Mac with its lid shut and no screen attached has nothing to show unless this phone has made a virtual display for it, which is part of Pro.": {
       "localizations": {
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Una lista y no una promesa. No hay botón de dictado. Un reenvío de puerto escucha solo en este teléfono: no hay forma de abrir uno en el lado del servidor, que es para lo que sirve ssh -R. Un Mac dormido y fuera de tu red no se puede despertar. Un Mac con la tapa cerrada y sin pantalla conectada no tiene nada que mostrar, salvo que este teléfono le haya creado una pantalla virtual, algo que forma parte de Relay Plus."
+            "value": "Una lista y no una promesa. No hay botón de dictado. Un reenvío de puerto escucha solo en este teléfono: no hay forma de abrir uno en el lado del servidor, que es para lo que sirve ssh -R. Un Mac dormido y fuera de tu red no se puede despertar. Un Mac con la tapa cerrada y sin pantalla conectada no tiene nada que mostrar, salvo que este teléfono le haya creado una pantalla virtual, algo que forma parte de Pro."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Une liste plutôt qu'une promesse. Il n'y a pas de bouton de dictée. Une redirection de port écoute sur ce téléphone seulement : il n'y a aucun moyen d'en ouvrir une côté serveur, à quoi sert ssh -R. Un Mac en veille et hors de votre réseau ne peut pas être réveillé. Un Mac au capot fermé et sans écran branché n'a rien à montrer, sauf si ce téléphone lui a créé un écran virtuel, ce qui fait partie de Relay Plus."
+            "value": "Une liste plutôt qu'une promesse. Il n'y a pas de bouton de dictée. Une redirection de port écoute sur ce téléphone seulement : il n'y a aucun moyen d'en ouvrir une côté serveur, à quoi sert ssh -R. Un Mac en veille et hors de votre réseau ne peut pas être réveillé. Un Mac au capot fermé et sans écran branché n'a rien à montrer, sauf si ce téléphone lui a créé un écran virtuel, ce qui fait partie de Pro."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Liste statt eines Versprechens. Es gibt keine Diktiertaste. Eine Portweiterleitung lauscht nur auf diesem Telefon: Es gibt keine Möglichkeit, eine auf der Seite des Servers zu öffnen, wofür ssh -R da ist. Ein schlafender Mac außerhalb deines Netzwerks kann nicht aufgeweckt werden. Ein Mac mit geschlossenem Deckel und ohne angeschlossenen Bildschirm hat nichts zu zeigen, es sei denn, dieses Telefon hat ihm ein virtuelles Display angelegt, was Teil von Relay Plus ist."
+            "value": "Eine Liste statt eines Versprechens. Es gibt keine Diktiertaste. Eine Portweiterleitung lauscht nur auf diesem Telefon: Es gibt keine Möglichkeit, eine auf der Seite des Servers zu öffnen, wofür ssh -R da ist. Ein schlafender Mac außerhalb deines Netzwerks kann nicht aufgeweckt werden. Ein Mac mit geschlossenem Deckel und ohne angeschlossenen Bildschirm hat nichts zu zeigen, es sei denn, dieses Telefon hat ihm ein virtuelles Display angelegt, was Teil von Pro ist."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uma lista em vez de uma promessa. Não há botão de ditado. Um redirecionamento de porta escuta apenas neste telefone: não há como abrir um do lado do servidor, que é para o que serve o ssh -R. Um Mac em repouso e fora da sua rede não pode ser despertado. Um Mac com a tampa fechada e sem tela conectada não tem nada a mostrar, a menos que este telefone tenha criado uma tela virtual para ele, o que faz parte do Relay Plus."
+            "value": "Uma lista em vez de uma promessa. Não há botão de ditado. Um redirecionamento de porta escuta apenas neste telefone: não há como abrir um do lado do servidor, que é para o que serve o ssh -R. Um Mac em repouso e fora da sua rede não pode ser despertado. Um Mac com a tampa fechada e sem tela conectada não tem nada a mostrar, a menos que este telefone tenha criado uma tela virtual para ele, o que faz parte do Pro."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "約束ではなくリストです。音声入力ボタンはありません。ポートフォワードはこのiPhoneでのみ待ち受け、サーバ側で開く方法（ssh -Rの役目）はありません。ネットワークの外でスリープしているMacは起動できません。蓋を閉じて画面も接続されていないMacには、このiPhoneが仮想ディスプレイを作らない限り映すものがありません（これはRelay Plusの一部です）。"
+            "value": "約束ではなくリストです。音声入力ボタンはありません。ポートフォワードはこのiPhoneでのみ待ち受け、サーバ側で開く方法（ssh -Rの役目）はありません。ネットワークの外でスリープしているMacは起動できません。蓋を閉じて画面も接続されていないMacには、このiPhoneが仮想ディスプレイを作らない限り映すものがありません（これはProの一部です）。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "약속이 아니라 목록입니다. 받아쓰기 버튼이 없습니다. 포트 포워드는 이 iPhone에서만 수신 대기하며, 서버 쪽에서 여는 방법(ssh -R의 역할)이 없습니다. 네트워크 밖에서 잠자기 중인 Mac은 깨울 수 없습니다. 덮개가 닫히고 연결된 화면이 없는 Mac은, 이 iPhone이 가상 디스플레이를 만들어 주지 않는 한 보여 줄 것이 없습니다(이는 Relay Plus의 일부입니다)."
+            "value": "약속이 아니라 목록입니다. 받아쓰기 버튼이 없습니다. 포트 포워드는 이 iPhone에서만 수신 대기하며, 서버 쪽에서 여는 방법(ssh -R의 역할)이 없습니다. 네트워크 밖에서 잠자기 중인 Mac은 깨울 수 없습니다. 덮개가 닫히고 연결된 화면이 없는 Mac은, 이 iPhone이 가상 디스플레이를 만들어 주지 않는 한 보여 줄 것이 없습니다(이는 Pro의 일부입니다)."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "这是一份清单，而不是承诺。没有听写按钮。端口转发只在这部手机上监听：没有办法在服务器一侧打开一个，那是 ssh -R 的用途。休眠且不在你网络中的 Mac 无法被唤醒。合盖且没有连接屏幕的 Mac 没有可显示的内容，除非这部手机为它创建了虚拟显示器，这属于 Relay Plus。"
+            "value": "这是一份清单，而不是承诺。没有听写按钮。端口转发只在这部手机上监听：没有办法在服务器一侧打开一个，那是 ssh -R 的用途。休眠且不在你网络中的 Mac 无法被唤醒。合盖且没有连接屏幕的 Mac 没有可显示的内容，除非这部手机为它创建了虚拟显示器，这属于 Pro。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Список, а не обещание. Нет кнопки диктовки. Переадресация порта слушает только на этом телефоне: нет способа открыть её на стороне сервера, для чего нужен ssh -R. Спящий Mac вне вашей сети разбудить нельзя. Mac с закрытой крышкой и без подключённого экрана ему нечего показывать, если этот телефон не создал для него виртуальный дисплей, что является частью Relay Plus."
+            "value": "Список, а не обещание. Нет кнопки диктовки. Переадресация порта слушает только на этом телефоне: нет способа открыть её на стороне сервера, для чего нужен ssh -R. Спящий Mac вне вашей сети разбудить нельзя. Mac с закрытой крышкой и без подключённого экрана ему нечего показывать, если этот телефон не создал для него виртуальный дисплей, что является частью Pro."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un elenco e non una promessa. Non c'è un pulsante di dettatura. Un inoltro di porta ascolta solo su questo telefono: non c'è modo di aprirne uno lato server, che è a cosa serve ssh -R. Un Mac in stop e fuori dalla tua rete non può essere risvegliato. Un Mac con il coperchio chiuso e nessuno schermo collegato non ha nulla da mostrare, a meno che questo telefono non gli abbia creato un display virtuale, il che fa parte di Relay Plus."
+            "value": "Un elenco e non una promessa. Non c'è un pulsante di dettatura. Un inoltro di porta ascolta solo su questo telefono: non c'è modo di aprirne uno lato server, che è a cosa serve ssh -R. Un Mac in stop e fuori dalla tua rete non può essere risvegliato. Un Mac con il coperchio chiuso e nessuno schermo collegato non ha nulla da mostrare, a meno che questo telefono non gli abbia creato un display virtuale, il che fa parte di Pro."
           }
         }
       }
@@ -53737,64 +53737,6 @@
         }
       }
     },
-    "Relay Plus": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relay Plus"
-          }
-        }
-      }
-    },
     "Unlimited relay, on every Mac you own.": {
       "localizations": {
         "es": {
@@ -53849,64 +53791,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Relay illimitato, su ogni Mac che possiedi."
-          }
-        }
-      }
-    },
-    "No limit on relay, and the tools that come with it.": {
-      "localizations": {
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sin límite de relay, y las herramientas que lo acompañan."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Relais sans limite, et les outils qui vont avec."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kein Relay-Limit und die Werkzeuge, die dazugehören."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sem limite de relay, e as ferramentas que vêm com ele."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "リレーの上限なし、それに付属するツール付き。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "릴레이 제한 없음, 그리고 함께 오는 도구들."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无中继限制，以及随之而来的工具。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Релей без лимита и инструменты, которые к нему прилагаются."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nessun limite al relay, e gli strumenti che lo accompagnano."
           }
         }
       }
@@ -56177,6 +56061,12 @@
       "localizations": {}
     },
     "in an unknown state": {
+      "localizations": {}
+    },
+    "foreground": {
+      "localizations": {}
+    },
+    "background": {
       "localizations": {}
     },
     "app left screen with no session up": {

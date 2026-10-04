@@ -37,11 +37,11 @@ final class PlanAccessTests: XCTestCase {
         .fileTransfer: .relay,
         .clipboardHistory: .relay,
         .terminalAlerts: .relay,
-        .shellTabs: .plus,
+        .shellTabs: .pro,
         .macros: .pro,
         .highBitrate: .pro,
         .mosaic: .pro,
-        .virtualDisplays: .plus,
+        .virtualDisplays: .pro,
     ]
 
     /// The row above, as a table, because that is how three of the four copies of this map are
@@ -90,31 +90,11 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertFalse(RelayPlan.relay.includes(.macros))
     }
 
-    /// Relay Plus buys the clock going away rather than the toolbox, which is the distinction the
-    /// two rungs above free exist to make.
-    ///
-    /// The second shell is the whole of what it buys in a terminal, since SSH servers left the map:
-    /// the saving is that this row is now the only thing standing between Plus and Relay there, so
-    /// a change that moved it would leave the rung selling nothing the one below it does not.
-    func testRelayPlusAddsTheSecondShellButNotTheToolbox() {
-        XCTAssertTrue(RelayPlan.plus.includes(.shellTabs))
-        // And everything below it, which is what the card's "Everything in Relay" line promises.
-        XCTAssertTrue(RelayPlan.plus.includes(.extraMacs))
-        XCTAssertTrue(RelayPlan.plus.includes(.macSound))
-        XCTAssertTrue(RelayPlan.plus.includes(.pictureInPicture))
-        XCTAssertTrue(RelayPlan.plus.includes(.fileTransfer))
-        XCTAssertTrue(RelayPlan.plus.includes(.terminalAlerts))
-
-        XCTAssertFalse(RelayPlan.plus.includes(.macros))
-        // And the mosaic is not something a middle rung gives away either: what it buys is the
-        // Mac doing several things at once, which is the top rung's whole argument.
-        XCTAssertFalse(RelayPlan.plus.includes(.mosaic))
-
-        // **Virtual displays are the rung's other row, and Relay does not have them.** The
-        // capability covers the display the Mac's own switch makes as well as the ones this phone
-        // adds, which is what "on the phone" in its name is doing there: the switch is the Mac's,
-        // and what the plan decides is whether this phone shows a virtual display at all.
-        XCTAssertTrue(RelayPlan.plus.includes(.virtualDisplays))
+    /// Pro carries the shell tabs and the virtual displays, and Relay does not.
+    func testProAddsTheSecondShellAndVirtualDisplays() {
+        XCTAssertTrue(RelayPlan.pro.includes(.shellTabs))
+        XCTAssertTrue(RelayPlan.pro.includes(.virtualDisplays))
+        XCTAssertFalse(RelayPlan.relay.includes(.shellTabs))
         XCTAssertFalse(RelayPlan.relay.includes(.virtualDisplays))
     }
 
@@ -162,7 +142,6 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertFalse(PlanAccess.unknown.showsRelayAllowance)
         XCTAssertTrue(PlanAccess.known(.free).showsRelayAllowance)
         XCTAssertFalse(PlanAccess.known(.relay).showsRelayAllowance)
-        XCTAssertFalse(PlanAccess.known(.plus).showsRelayAllowance)
         XCTAssertFalse(PlanAccess.known(.pro).showsRelayAllowance)
     }
 
@@ -170,8 +149,7 @@ final class PlanAccessTests: XCTestCase {
     /// app reads to pick the best of several live subscriptions.
     func testTheLadderIsTheOrderOfAllCases() {
         XCTAssertLessThan(RelayPlan.free, RelayPlan.relay)
-        XCTAssertLessThan(RelayPlan.relay, RelayPlan.plus)
-        XCTAssertLessThan(RelayPlan.plus, RelayPlan.pro)
+        XCTAssertLessThan(RelayPlan.relay, RelayPlan.pro)
         XCTAssertFalse(RelayPlan.pro < RelayPlan.pro, "a plan is not below itself")
     }
 
@@ -186,12 +164,11 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertEqual(Set(names).count, names.count, "two capabilities share a name")
     }
 
-    /// The plan names are the words on the cards, because a lock promising Relay Plus has to use
+    /// The plan names are the words on the cards, because a lock promising Pro has to use
     /// the spelling the card selling it does.
     func testThePlanNamesAreTheWordsOnTheCards() {
         XCTAssertEqual(RelayPlan.free.name, "Free")
         XCTAssertEqual(RelayPlan.relay.name, "Relay")
-        XCTAssertEqual(RelayPlan.plus.name, "Relay Plus")
         XCTAssertEqual(RelayPlan.pro.name, "Pro")
     }
 
@@ -202,7 +179,7 @@ final class PlanAccessTests: XCTestCase {
         XCTAssertEqual(RelayPlan.free.allowanceSeconds, 60 * 60)
         XCTAssertEqual(RelayPlan.free.allowanceSpelling, "one hour")
 
-        for plan in [RelayPlan.relay, .plus, .pro] {
+        for plan in [RelayPlan.relay, .pro] {
             XCTAssertNil(plan.allowanceSeconds, "\(plan.name) should be unlimited")
             XCTAssertEqual(plan.allowanceSpelling, "unlimited relay")
         }

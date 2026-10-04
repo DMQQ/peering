@@ -117,15 +117,15 @@ pub const APP_BUNDLE_ID: &str = "pl.dmq.peering";
 
 /// The products this app sells, and the plan each one buys.
 ///
-/// **The product identifiers are the app's, repeated here.** `StoreManager.monthlyID`, `plusID` and
-/// `yearID` in `MacCast/StoreManager.swift` hold the authority, and `Tier.plan` maps the same three
-/// products to the same three names. Edit one without the others and a paying subscriber is metered
-/// as free — which is the direction this table is allowed to fail in, and the reason an unknown
+/// **The product identifiers are the app's, repeated here.** `StoreManager.Tier.productID(for:)` in
+/// `MacCast/StoreManager.swift` holds the authority, and `Tier.plan` maps the same products to the
+/// same names. Edit one without the others and a paying subscriber is metered as free, which is the direction this table is allowed to fail in, and the reason an unknown
 /// product is the free allowance rather than a refusal.
 const PRODUCTS: &[(&str, Plan)] = &[
-    ("pl.dmq.peering.relay.monthly", Plan::Relay),
-    ("pl.dmq.peering.relayplus.monthly", Plan::Plus),
-    ("pl.dmq.peering.relay.year", Plan::Pro),
+    ("pl.dmq.peering.iap.relay.monthly", Plan::Relay),
+    ("pl.dmq.peering.iap.relay.year", Plan::Relay),
+    ("pl.dmq.peering.iap.pro.monthly", Plan::Pro),
+    ("pl.dmq.peering.iap.pro.year", Plan::Pro),
 ];
 
 /// Apple's marker extension on a signing certificate, from the Apple WWDR Certificate Practice

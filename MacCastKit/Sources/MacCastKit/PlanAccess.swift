@@ -81,9 +81,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// **One capability over making and looking, because there is only one kind of display here.**
     /// There used to be a second kind, made by a switch in the Mac's own settings and free on every
     /// plan; creation is the phone's alone now, so what a plan buys is the screen itself rather than
-    /// the right to look at one somebody else made. The same rung as ``shellTabs``, not
-    /// ``mosaic``/``macros``/``highBitrate``: this is a tool somebody reaches for the moment they
-    /// have two Macs' worth of work and one Mac, not a luxury saved for the top plan.
+    /// the right to look at one somebody else made.
     case virtualDisplays
 
     /// The cheapest plan that includes this, which is the whole of the map.
@@ -98,17 +96,14 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // sound, its picture floating over another app, files that move both ways, and the Mac
             // able to reach you when a shell stops for an answer.
             return .relay
-        case .shellTabs, .virtualDisplays:
-            // The clock going away, and the room to work beside it: one shell is free and only the
-            // second one costs, and a display the Mac does not physically have is the same shape of
-            // ask.
-            return .plus
         case .concurrentSessions:
             // The second Mac costs and the first must not, which is why the gate is asked against
             // an empty list as well as a paid plan.
             return .pro
-        case .macros, .highBitrate, .mosaic:
+        case .shellTabs, .virtualDisplays, .macros, .highBitrate, .mosaic:
             // The toolbox: the rung somebody buys to have the tool rather than to run out of it.
+            // One shell is free and only the second costs; a display the Mac does not physically
+            // have is the same shape of ask.
             return .pro
         }
     }

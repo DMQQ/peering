@@ -321,10 +321,10 @@ final class StoreManager {
 
     /// What there is to buy, in the order it is shown.
     ///
-    /// **Three rungs, and each one is a different bargain rather than more of the last.** Relay is
+    /// **Two rungs, and each one is a different bargain rather than more of the last.** Relay is
     /// the remote working set: unlimited relay, every Mac you own, sound, Picture in Picture, wake
-    /// on LAN, and files moving both ways. Relay Plus adds the shell tools. Pro is the toolbox and
-    /// the funder, which is the rung somebody buys to have the tool rather than to run out of it.
+    /// on LAN, and files moving both ways. Pro is the toolbox and the funder, which is the rung
+    /// somebody buys to have the tool rather than to run out of it.
     ///
     /// **They used to be a decoy ladder and that was the problem.** The middle rung cost more over
     /// a year than the top one, because the middle was priced monthly and the top yearly, so the
@@ -345,21 +345,17 @@ final class StoreManager {
     /// which is what stopped ``paidProductIDs`` from being written by walking the two enums.
     nonisolated enum Tier: String, CaseIterable, Identifiable {
         case relay
-        case relayPlus
         case pro
 
         var id: String { rawValue }
 
         /// The tier's own name inside a product identifier, which is not `rawValue`.
         ///
-        /// `relayPlus` is `plus` here because identifiers are typed into App Store Connect by hand
-        /// and a camel case word in the middle of a dotted identifier is a typo waiting to happen.
         /// The relay's plan names happen to agree with these, and that is a coincidence rather than
         /// a dependency: ``plan`` is the thing that decides what the relay meters by.
         var identifier: String {
             switch self {
             case .relay: return "relay"
-            case .relayPlus: return "plus"
             case .pro: return "pro"
             }
         }
@@ -399,13 +395,9 @@ final class StoreManager {
 
         /// The plan this tier is sold as, which is the name the relay meters by.
         ///
-        /// The two names differ where the product and the plan do — Relay Plus is `plus` on the
-        /// wire — and the relay treats `plus` and `pro` the same, since what separates them is how
-        /// many Macs they pair with rather than how much relay they buy.
         var plan: RelayPlan {
             switch self {
             case .relay: return .relay
-            case .relayPlus: return .plus
             case .pro: return .pro
             }
         }
@@ -413,7 +405,6 @@ final class StoreManager {
         var name: String {
             switch self {
             case .relay: return String(localized: "Relay")
-            case .relayPlus: return String(localized: "Relay Plus")
             case .pro: return "Pro"
             }
         }
@@ -423,7 +414,6 @@ final class StoreManager {
         var tagline: String {
             switch self {
             case .relay: return String(localized: "Unlimited relay, on every Mac you own.")
-            case .relayPlus: return String(localized: "No limit on relay, and the tools that come with it.")
             case .pro: return String(localized: "No limit on relay, and the whole toolbox.")
             }
         }
@@ -456,17 +446,13 @@ final class StoreManager {
                 String(localized: "The clipboard history"),
                 String(localized: "Told when a terminal needs you"),
             ]
-            let plus = [
-                String(localized: "Several shells at once, as tabs"),
-                String(localized: "Virtual displays, the Mac's own and any you add"),
-            ]
             switch self {
             case .relay:
                 return relay
-            case .relayPlus:
-                return relay + plus
             case .pro:
-                return relay + plus + [
+                return relay + [
+                    String(localized: "Several shells at once, as tabs"),
+                    String(localized: "Virtual displays, the Mac's own and any you add"),
                     String(localized: "Several Macs open at the same time"),
                     String(localized: "Macros, snippets and quick commands"),
                     String(localized: "Several of the Mac's windows in one picture"),
@@ -496,7 +482,7 @@ final class StoreManager {
 
     /// The same price, short enough to sit inside the buy button: "£3.99/mo".
     ///
-    /// Shorter, and only shorter. "Continue with Relay Plus, £7.99 / month" is a button that wraps
+    /// Shorter, and only shorter. "Continue with Pro, £7.99 / month" is a button that wraps
     /// on a small phone, and a price that has wrapped is a price that was not read. The money is
     /// the same string either way; only the spelling of the period changes.
     func compactPriceLabel(for tier: Tier, period: BillingPeriod) -> String? {
@@ -520,10 +506,10 @@ final class StoreManager {
         return (yearly.price / 12).formatted(yearly.priceFormatStyle)
     }
 
-    /// The smallest yearly saving on offer, for the one place a single number stands for all three.
+    /// The smallest yearly saving on offer, for the one place a single number stands for both.
     ///
     /// The paywall prints it once on the period switch, and that switch applies to every plan, so
-    /// the number has to be true of all of them. The three land within a couple of points of each
+    /// the number has to be true of all of them. The two land within a couple of points of each
     /// other; the smallest is the one that is still honest when the user picks the card it is least
     /// true of. `nil` until the store has answered with both periods for at least one tier, because
     /// a saving printed beside a price that never arrived is a claim the screen cannot back.

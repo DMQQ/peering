@@ -12,7 +12,6 @@ final class TerminalAlertsAccessTests: XCTestCase {
 
     func testEveryPaidPlanCanBeToldAboutATerminal() {
         XCTAssertTrue(TerminalAlertsAccess.canNotify(access: .known(.relay)))
-        XCTAssertTrue(TerminalAlertsAccess.canNotify(access: .known(.plus)))
         XCTAssertTrue(TerminalAlertsAccess.canNotify(access: .known(.pro)))
     }
 }

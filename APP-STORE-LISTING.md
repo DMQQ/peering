@@ -115,7 +115,7 @@ A TERMINAL AND A FILE BROWSER TOO
 FREE, AND WHAT A PLAN ADDS
 
 Peering is free on your own network for as long as you like: one Mac, one shell at a time, and
-every display, app and window it can show. Relay, Relay Plus and Pro are for reaching your Mac
+every display, app and window it can show. Relay and Pro are for reaching your Mac
 when you are away from it.
 
 Why a subscription rather than a one-off price: away from home, your session is carried by a

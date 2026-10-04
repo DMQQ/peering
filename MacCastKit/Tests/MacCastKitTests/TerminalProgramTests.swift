@@ -9,6 +9,9 @@ import XCTest
 final class TerminalProgramTests: XCTestCase {
     func testAFullScreenProgramAsksForSmallText() {
         XCTAssertTrue(TerminalProgram.prefersSmallText("claude"))
+        for agent in ["codex", "opencode", "hermes", "gemini"] {
+            XCTAssertTrue(TerminalProgram.prefersSmallText(agent), agent)
+        }
         XCTAssertTrue(TerminalProgram.prefersSmallText("vim notes.txt"))
         XCTAssertTrue(TerminalProgram.prefersSmallText("  htop  "))
     }

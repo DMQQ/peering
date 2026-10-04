@@ -1038,14 +1038,14 @@ a { color: inherit; }
   border-collapse: separate;
   border-spacing: 0;
   text-align: left;
-  /* Fixed rather than automatic, so the four price columns are the same width as each other at
+  /* Fixed rather than automatic, so the price columns are the same width as each other at
      every viewport. Left to itself the browser gives the column holding "every Mac you own" more
-     room than the one holding a tick, and four unequal columns stop reading as a comparison. */
+     room than the one holding a tick, and unequal columns stop reading as a comparison. */
   table-layout: fixed;
 }
 
-.plans .corner { width: 30%; }
-.plans thead th.plan-col { width: 17.5%; }
+.plans .corner { width: 40%; }
+.plans thead th.plan-col { width: 20%; }
 
 .plans th,
 .plans td {

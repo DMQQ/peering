@@ -44,11 +44,12 @@ fn base64_url(bytes: &[u8]) -> String {
     URL_SAFE.encode(bytes)
 }
 
-/// The three products, and the plan each one buys, as the app spells them.
-const PRODUCTS: [(&str, &str); 3] = [
-    ("pl.dmq.peering.relay.monthly", "relay"),
-    ("pl.dmq.peering.relayplus.monthly", "plus"),
-    ("pl.dmq.peering.relay.year", "pro"),
+/// The products, and the plan each one buys, as the app spells them.
+const PRODUCTS: [(&str, &str); 4] = [
+    ("pl.dmq.peering.iap.relay.monthly", "relay"),
+    ("pl.dmq.peering.iap.relay.year", "relay"),
+    ("pl.dmq.peering.iap.pro.monthly", "pro"),
+    ("pl.dmq.peering.iap.pro.year", "pro"),
 ];
 
 // MARK: - The pinned root
@@ -118,7 +119,7 @@ fn the_pinned_root_is_the_file_this_repository_pins_and_is_apples_root() {
 #[test]
 fn a_chain_is_worth_nothing_against_someone_elses_root() {
     let attacker = TestChain::genesis();
-    let receipt = attacker.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = attacker.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     // The attacker's own verifier, anchored to their root, is happy. That is the point: the
     // signature is real, the chain is real, and neither of them is Apple.
@@ -160,7 +161,7 @@ fn a_receipt_that_chains_to_the_pinned_root_buys_the_product_it_names() {
 #[test]
 fn the_root_may_be_in_the_chain_or_left_out_of_it() {
     let chain = TestChain::genesis();
-    let payload = transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30);
+    let payload = transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30);
 
     for (label, x5c) in [
         (
@@ -188,7 +189,7 @@ fn the_leafs_extended_key_usage_does_not_decide_anything() {
             leaf_eku: eku.clone(),
             ..ChainOptions::default()
         });
-        let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.monthly", 30));
+        let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.relay.monthly", 30));
         assert_eq!(
             chain.verifier(true).verify(&receipt),
             Ok(Plan::Relay),
@@ -206,7 +207,7 @@ fn a_certificate_apple_issued_to_someone_else_is_not_a_purchase() {
         leaf_marker: false,
         ..ChainOptions::default()
     });
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -222,7 +223,7 @@ fn a_chain_without_apples_intermediate_is_not_a_purchase() {
         intermediate_marker: false,
         ..ChainOptions::default()
     });
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -248,7 +249,7 @@ fn a_pasted_in_marker_certificate_does_not_stand_in_for_the_issuer() {
     x5c.insert(1, base64(decoy.intermediate.as_ref()));
 
     let header = serde_json::json!({ "alg": "ES256", "x5c": x5c });
-    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -271,7 +272,7 @@ fn the_pinned_root_cannot_be_its_own_signing_certificate() {
         "alg": "ES256",
         "x5c": [base64(chain.root.as_ref())],
     });
-    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -288,7 +289,7 @@ fn a_truncated_chain_cannot_reach_the_root() {
         "alg": "ES256",
         "x5c": [base64(chain.leaf.as_ref()), base64(chain.root.as_ref())],
     });
-    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -297,7 +298,7 @@ fn a_truncated_chain_cannot_reach_the_root() {
 
     // And nothing at all where the chain should be is refused before anything is parsed.
     let header = serde_json::json!({ "alg": "ES256" });
-    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
     assert_eq!(
         chain.verifier(true).verify(&receipt),
         Err(Rejection::BadCertificateChain)
@@ -311,14 +312,14 @@ fn a_subscription_that_has_run_out_buys_nothing() {
     let chain = TestChain::genesis();
     let relay = chain.verifier(true);
 
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", -1));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", -1));
     assert_eq!(relay.verify(&receipt), Err(Rejection::Expired));
 
     // The edge: a receipt that expires this second is out, because the check is `>` and a
     // subscription is over when it is over.
     let header = chain.header();
     let payload = format!(
-        r#"{{"bundleId":"{APP_BUNDLE_ID}","productId":"pl.dmq.peering.relay.year","expiresDate":{}}}"#,
+        r#"{{"bundleId":"{APP_BUNDLE_ID}","productId":"pl.dmq.peering.iap.pro.year","expiresDate":{}}}"#,
         support::now_millis()
     );
     assert_eq!(
@@ -335,7 +336,7 @@ fn a_lapsed_chain_buys_nothing() {
         lapsed: true,
         ..ChainOptions::default()
     });
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert_eq!(chain.verifier(true).verify(&receipt), Err(Rejection::UntrustedChain));
 }
@@ -344,7 +345,7 @@ fn a_lapsed_chain_buys_nothing() {
 #[test]
 fn a_revoked_transaction_buys_nothing() {
     let chain = TestChain::genesis();
-    let receipt = chain.jws(&revoked_transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year"));
+    let receipt = chain.jws(&revoked_transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year"));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -359,7 +360,7 @@ fn a_revoked_transaction_buys_nothing() {
 #[test]
 fn a_sandbox_purchase_is_not_a_purchase() {
     let chain = TestChain::genesis();
-    let receipt = chain.jws(&sandbox_transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year"));
+    let receipt = chain.jws(&sandbox_transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year"));
 
     assert_eq!(
         chain.verifier(true).verify(&receipt),
@@ -374,7 +375,7 @@ fn a_sandbox_purchase_is_not_a_purchase() {
 fn a_purchase_with_no_environment_field_is_still_a_purchase() {
     let chain = TestChain::genesis();
     let receipt = chain
-        .jws(&environmentless_transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year"));
+        .jws(&environmentless_transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year"));
 
     assert_eq!(chain.verifier(true).verify(&receipt), Ok(Plan::Pro));
 }
@@ -385,7 +386,7 @@ fn a_purchase_with_no_environment_field_is_still_a_purchase() {
 fn a_receipt_for_another_app_buys_nothing() {
     let chain = TestChain::genesis();
     for bundle in ["pl.dmq.peering.other", "com.example.peering", ""] {
-        let receipt = chain.jws(&transaction(bundle, "pl.dmq.peering.relay.year", 30));
+        let receipt = chain.jws(&transaction(bundle, "pl.dmq.peering.iap.pro.year", 30));
         assert_eq!(
             chain.verifier(true).verify(&receipt),
             Err(Rejection::WrongBundle),
@@ -397,7 +398,7 @@ fn a_receipt_for_another_app_buys_nothing() {
 #[test]
 fn a_product_this_app_does_not_sell_buys_nothing() {
     let chain = TestChain::genesis();
-    for product in ["pl.dmq.peering.relay.weekly", "pl.dmq.peering.relayplus.year", "pro", ""] {
+    for product in ["pl.dmq.peering.iap.relay.weekly", "pl.dmq.peering.iap.plus.year", "pro", ""] {
         let receipt = chain.jws(&transaction(APP_BUNDLE_ID, product, 30));
         assert_eq!(
             chain.verifier(true).verify(&receipt),
@@ -413,7 +414,7 @@ fn a_product_this_app_does_not_sell_buys_nothing() {
 fn a_transaction_with_no_expiry_buys_nothing() {
     let chain = TestChain::genesis();
     let payload = format!(
-        r#"{{"bundleId":"{APP_BUNDLE_ID}","productId":"pl.dmq.peering.relay.year"}}"#
+        r#"{{"bundleId":"{APP_BUNDLE_ID}","productId":"pl.dmq.peering.iap.pro.year"}}"#
     );
     assert_eq!(
         chain.verifier(true).verify(&chain.jws(&payload)),
@@ -438,10 +439,10 @@ fn a_transaction_with_no_expiry_buys_nothing() {
 #[test]
 fn a_tampered_payload_does_not_verify() {
     let chain = TestChain::genesis();
-    let honest = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.monthly", 30));
+    let honest = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.relay.monthly", 30));
 
     let segments: Vec<&str> = honest.split('.').collect();
-    let forged_payload = base64(transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30).as_bytes());
+    let forged_payload = base64(transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30).as_bytes());
     let forged = format!("{}.{}.{}", segments[0], forged_payload, segments[2]);
 
     assert_eq!(
@@ -458,7 +459,7 @@ fn a_tampered_payload_does_not_verify() {
 fn a_header_spelled_differently_does_not_verify() {
     let chain = TestChain::genesis();
     let header = chain.header();
-    let honest = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let honest = chain.jws_with(&header, &transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
     let segments: Vec<&str> = honest.split('.').collect();
 
     // The same header object, serialised with the whitespace pretty-printing adds.
@@ -476,7 +477,7 @@ fn a_header_spelled_differently_does_not_verify() {
 #[test]
 fn a_signature_over_other_bytes_does_not_verify() {
     let chain = TestChain::genesis();
-    let honest = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let honest = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
     let segments: Vec<&str> = honest.split('.').collect();
 
     // Valid ES256 over text of the same shape, made by the same key, about a different document.
@@ -496,7 +497,7 @@ fn a_signature_over_other_bytes_does_not_verify() {
 #[test]
 fn only_es256_is_read() {
     let chain = TestChain::genesis();
-    let payload = transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30);
+    let payload = transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30);
 
     for alg in ["none", "None", "HS256", "ES384", "RS256", ""] {
         let header = serde_json::json!({ "alg": alg, "x5c": chain.x5c() });
@@ -528,7 +529,7 @@ fn only_es256_is_read() {
 #[test]
 fn a_receipt_is_small_enough_to_travel_in_the_handshake() {
     let chain = TestChain::genesis();
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     assert!(
         receipt.len() < MAX_JWS_BYTES,
@@ -557,8 +558,8 @@ fn a_receipt_is_small_enough_to_travel_in_the_handshake() {
 #[test]
 fn an_unproven_client_is_metered_by_what_it_claims_until_it_is_not() {
     let chain = TestChain::genesis();
-    let forged = TestChain::genesis().jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
-    let genuine = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let forged = TestChain::genesis().jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
+    let genuine = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     let trusting = chain.verifier(true);
     let strict = chain.verifier(false);
@@ -712,7 +713,7 @@ async fn ask(port: u16, plan: &str, jws: Option<String>) -> ServerMessage {
 async fn a_verified_receipt_is_what_buys_the_allowance() {
     let chain = TestChain::genesis();
     let port = relay(chain.verifier(true)).await;
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     let without = ask(port, "free", None).await;
     assert!(
@@ -732,7 +733,7 @@ async fn a_verified_receipt_is_what_buys_the_allowance() {
 /// the fallback and also the reason it has to go.
 #[tokio::test]
 async fn a_receipt_that_does_not_verify_leaves_the_claim_standing() {
-    let forged = TestChain::genesis().jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let forged = TestChain::genesis().jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     let trusting = relay(TestChain::genesis().verifier(true)).await;
     let answer = ask(trusting, "pro", Some(forged.clone())).await;
@@ -758,7 +759,7 @@ async fn a_receipt_that_does_not_verify_leaves_the_claim_standing() {
 async fn a_receipt_does_not_make_a_mac_appear() {
     let chain = TestChain::genesis();
     let port = relay(chain.verifier(true)).await;
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.year", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.pro.year", 30));
 
     let mut phone = connect(port).await;
     send(
@@ -793,7 +794,7 @@ async fn a_receipt_does_not_make_a_mac_appear() {
 async fn a_receipt_repeated_on_one_socket_is_answered_the_same_way() {
     let chain = TestChain::genesis();
     let port = relay(chain.verifier(true)).await;
-    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.relay.monthly", 30));
+    let receipt = chain.jws(&transaction(APP_BUNDLE_ID, "pl.dmq.peering.iap.relay.monthly", 30));
 
     let _mac = register_mac(port).await;
     let mut phone = connect(port).await;

@@ -12,7 +12,6 @@ import Foundation
 public enum RelayPlan: String, CaseIterable, Sendable {
     case free
     case relay
-    case plus
     case pro
 
     /// Seconds of relay this plan allows in one window, or `nil` for no limit.
@@ -23,7 +22,7 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     public var allowanceSeconds: TimeInterval? {
         switch self {
         case .free: return 60 * 60
-        case .relay, .plus, .pro: return nil
+        case .relay, .pro: return nil
         }
     }
 
@@ -36,19 +35,15 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     public var allowanceSpelling: String {
         switch self {
         case .free: return "one hour"
-        case .relay, .plus, .pro: return "unlimited relay"
+        case .relay, .pro: return "unlimited relay"
         }
     }
 
     /// The plan's own name, in the words the paywall's cards use.
-    ///
-    /// `plus` is the wire name: the relay, the product identifiers and the handshake all say it,
-    /// while the card says "Relay Plus".
     public var name: String {
         switch self {
         case .free: return "Free"
         case .relay: return "Relay"
-        case .plus: return "Relay Plus"
         case .pro: return "Pro"
         }
     }
@@ -60,7 +55,6 @@ public enum RelayPlan: String, CaseIterable, Sendable {
         switch self {
         case .free: return "FREE"
         case .relay: return "RELAY"
-        case .plus: return "PLUS"
         case .pro: return "PRO"
         }
     }

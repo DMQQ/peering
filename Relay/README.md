@@ -132,9 +132,8 @@ actually signed it; the signature verifies over the literal text; and only then 
 
 | Product ID | Plan |
 |---|---|
-| `pl.dmq.peering.relay.monthly` | `relay` |
-| `pl.dmq.peering.relayplus.monthly` | `plus` |
-| `pl.dmq.peering.relay.year` | `pro` |
+| `pl.dmq.peering.iap.relay.monthly`, `pl.dmq.peering.iap.relay.year` | `relay` |
+| `pl.dmq.peering.iap.pro.monthly`, `pl.dmq.peering.iap.pro.year` | `pro` |
 
 **A verified receipt always wins, even downward**: a Relay subscriber who sends a Relay receipt is
 metered as Relay whatever their `plan` field says. Anything refused or unreadable is logged with its

@@ -33,8 +33,8 @@
   your network. No sound, Picture in Picture, two-way file transfer, or clipboard history.
 - Relay ($1.99/month or $14.99/year): unlimited relay time, every Mac you own, sound, Picture in
   Picture, two-way files, clipboard history.
-- Relay Plus ($3.99/month or $29.99/year) and Pro ($6.99/month or $49.99/year): the same relay
-  allowance and features as Relay, at higher tiers with more of the app's other capabilities. See
+- Pro ($4.99/month or $34.99/year): the same relay allowance and features as Relay, with more of
+  the app's other capabilities (several shells, virtual displays, macros, several Macs at once). See
   the pricing table on the home page for the full, current comparison; it is the source of truth,
   not this file.
 

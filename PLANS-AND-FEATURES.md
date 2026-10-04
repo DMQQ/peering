@@ -10,21 +10,26 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 
 **Updated on 21 September.** The live ladder is:
 
-| | Free | Relay | Relay Plus | Pro |
-|---|---|---|---|---|
-| Monthly | $0 | **$2.99** | **$5.99** | **$9.99** |
-| Yearly | $0 | **$19.99** | **$44.99** | **$79.99** |
-| Relay per 24h | 1 hour | unlimited | unlimited | unlimited |
-| Paired Macs | 1 | every | every | every |
-| Sound, Picture in Picture | | yes | yes | yes |
-| Moving files both ways | | yes | yes | yes |
-| Told when a terminal needs you | | yes | yes | yes |
-| Several shells at once | | | yes | yes |
-| Virtual displays | | | yes | yes |
-| Several Macs at once | | | | yes |
-| Macros, snippets, quick commands | | | | yes |
-| Several of the Mac's windows in one picture | | | | yes |
-| The sharpest picture over the relay | | | | yes |
+| | Free | Relay | Pro |
+|---|---|---|---|
+| Monthly | $0 | **$1.99** | **$4.99** |
+| Yearly | $0 | **$14.99** | **$34.99** |
+| Relay per 24h | 1 hour | unlimited | unlimited |
+| Paired Macs | 1 | every | every |
+| Sound, Picture in Picture | | yes | yes |
+| Moving files both ways | | yes | yes |
+| Told when a terminal needs you | | yes | yes |
+| Several shells at once | | | yes |
+| Virtual displays | | | yes |
+| Several Macs at once | | | yes |
+| Macros, snippets, quick commands | | | yes |
+| Several of the Mac's windows in one picture | | | yes |
+| The sharpest picture over the relay | | | yes |
+
+**Relay Plus was dropped on 4 October 2026.** Its two rows, several shells and virtual displays,
+moved to Pro, and Pro was first set to the price Relay Plus had, then raised to $4.99 a month and $34.99 a year. The figures
+further down this document were written against the old three-paid-rung ladder and describe how it
+was reasoned, not what is sold.
 
 Several Macs at once is the row that is about how many may be *live* rather than how many may be
 paired, and the two are deliberately separate. "Paired Macs" above is a limit on a list and is true
@@ -39,11 +44,10 @@ on every plan, so a free user on their own network sees the same picture they al
 
 **Every tier is sold monthly and yearly**, at about eight months of the monthly to the year. That
 is the change that mattered most: the ladder used to sell the middle rung monthly and the top one
-yearly, so Relay Plus cost $179.88 a year and Pro cost $39.99, and the paywall was comparing two
+yearly, so the middle rung cost $179.88 a year and Pro cost $39.99, and the paywall was comparing two
 periods rather than two plans.
 
-**The shape in one sentence:** *Relay is the remote working set, Plus is the clock going away, Pro
-is the toolbox and the funder.*
+**The shape in one sentence:** *Relay is the remote working set, Pro is the toolbox and the funder.*
 
 **The gates are built.** Twelve `PlanCapability` cases in
 `MacCastKit/Sources/MacCastKit/PlanAccess.swift`, each with a `minimumPlan`, and around twenty call
@@ -79,7 +83,7 @@ the working features around it rather than a slightly larger clock.
 - **Wake on LAN stayed free**, against the field, because it is the one gate that would contradict
   the free tier's own headline: the packet only goes out on the local network, and on your own
   network this app is meant to be complete.
-- **Terminal tabs and SSH servers stayed on Relay Plus.** This is the one row that goes against the
+- **Terminal tabs and SSH servers stayed on a paid rung.** This is the one row that goes against the
   direction of travel in the terminal category, where tabs are table stakes free at Termius, Moshi
   and Prompt. The compromise is that one shell is free and only the concurrency is paid, which
   reads as fair where hiding the terminal would read as stingy.
@@ -89,7 +93,7 @@ the working features around it rather than a slightly larger clock.
   that nothing about it costs the service anything, because the connection is between the user's own
   phone and their own machine. What looked like a feature was a *list* (hosts the user typed in and
   named and put in their own Keychain) sold back to them, which is the one shape of gate that reads
-  as a hostage rather than as a price. **Tabs stayed on Relay Plus**, because a second shell at the
+  as a hostage rather than as a price. **Tabs stayed paid (Pro now)**, because a second shell at the
   same time costs a login on the far end and is the concurrency limit the free tier is supposed to
   have. The row above is now "Several shells at once" and carries that on its own.
 
@@ -111,11 +115,11 @@ there is one list and no second place to drift from.
 | Moving files between the phone and the Mac | `fileTransfer` | Relay |
 | The clipboard history | `clipboardHistory` | Relay |
 | Being told when a terminal needs you | `terminalAlerts` | Relay |
-| Several shells at once, as tabs | `shellTabs` | Relay Plus |
+| Several shells at once, as tabs | `shellTabs` | Pro |
 | Several Macs open at once | `concurrentSessions` | Pro |
 | Macros, snippets and quick commands (making them) | `macros` | Pro |
 | Several of the Mac's windows in one picture | `mosaic` | Pro |
-| Virtual displays on the phone | `virtualDisplays` | Relay Plus |
+| Virtual displays on the phone | `virtualDisplays` | Pro |
 | The sharpest picture over the relay | `highBitrate` | Pro |
 
 **Everything else is free on every plan**, and the tables below say so row by row. Two of those
@@ -131,17 +135,17 @@ their own network gets the full picture and unlimited time.
 
 ### Connection
 
-| Feature | Free | Relay | Plus | Pro |
-|---|---|---|---|---|
-| Pair once with a six-digit code (device certificates, no account) | ✅ | ✅ | ✅ | ✅ |
-| Nearby discovery (Bonjour), connect by address | ✅ | ✅ | ✅ | ✅ |
-| Trusted Macs list: rename, forget, choose LAN or relay | ✅ | ✅ | ✅ | ✅ |
-| Local network sessions, unlimited and unmetered | ✅ | ✅ | ✅ | ✅ |
-| Relay sessions | 1 h/day | unlimited | unlimited | unlimited |
-| Paired Macs | one | every Mac you own | every Mac you own | every Mac you own |
-| Wake on LAN | ✅ | ✅ | ✅ | ✅ |
-| Face ID lock on launch | ✅ | ✅ | ✅ | ✅ |
-| Siri / Shortcuts: connect, end shells | ✅ | ✅ | ✅ | ✅ |
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Pair once with a six-digit code (device certificates, no account) | ✅ | ✅ | ✅ |
+| Nearby discovery (Bonjour), connect by address | ✅ | ✅ | ✅ |
+| Trusted Macs list: rename, forget, choose LAN or relay | ✅ | ✅ | ✅ |
+| Local network sessions, unlimited and unmetered | ✅ | ✅ | ✅ |
+| Relay sessions | 1 h/day | unlimited | unlimited |
+| Paired Macs | one | every Mac you own | every Mac you own |
+| Wake on LAN | ✅ | ✅ | ✅ |
+| Face ID lock on launch | ✅ | ✅ | ✅ |
+| Siri / Shortcuts: connect, end shells | ✅ | ✅ | ✅ |
 
 The paired-Mac row is `extraMacs`, and it is the one gate on the cheapest rung. It is a limit on a
 list rather than on anything the service runs: pairing a second Mac costs the relay nothing, which
@@ -149,19 +153,19 @@ is why it sits here and not higher.
 
 ### Picture
 
-| Feature | Free | Relay | Plus | Pro |
-|---|---|---|---|---|
-| Share a whole display | ✅ | ✅ | ✅ | ✅ |
-| Share one running app, or a single window | ✅ | ✅ | ✅ | ✅ |
-| Every Space / desktop as a picture (in the Apps panel) | ✅ | ✅ | ✅ | ✅ |
-| Adaptive quality, fit vs fill | ✅ | ✅ | ✅ | ✅ |
-| Session audio (hear the Mac) | · | ✅ | ✅ | ✅ |
-| Picture in Picture | · | ✅ | ✅ | ✅ |
-| Several windows in one picture (the mosaic) | · | · | · | ✅ |
-| Virtual displays on the phone | · | · | ✅ | ✅ |
-| The sharpest picture over the relay (the bitrate ceiling) | · | · | · | ✅ |
-| Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ | ✅ |
-| Screenshot with the system share sheet | ✅ | ✅ | ✅ | ✅ |
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Share a whole display | ✅ | ✅ | ✅ |
+| Share one running app, or a single window | ✅ | ✅ | ✅ |
+| Every Space / desktop as a picture (in the Apps panel) | ✅ | ✅ | ✅ |
+| Adaptive quality, fit vs fill | ✅ | ✅ | ✅ |
+| Session audio (hear the Mac) | · | ✅ | ✅ |
+| Picture in Picture | · | ✅ | ✅ |
+| Several windows in one picture (the mosaic) | · | · | ✅ |
+| Virtual displays on the phone | · | · | ✅ |
+| The sharpest picture over the relay (the bitrate ceiling) | · | · | ✅ |
+| Privacy mode (dims the Mac's displays) | ✅ | ✅ | ✅ |
+| Screenshot with the system share sheet | ✅ | ✅ | ✅ |
 
 The note that used to be here proposed keeping this whole column free and gating privacy mode
 instead. Both halves were answered on 20 September: **sound and Picture in Picture moved up to
@@ -176,17 +180,17 @@ money every time it is used.
 
 ### Control
 
-| Feature | Free | Relay | Plus | Pro |
-|---|---|---|---|---|
-| Pointer (tap where you look) and relative pointer (joystick/trackpad) | ✅ | ✅ | ✅ | ✅ |
-| Scroll wheel | ✅ | ✅ | ✅ | ✅ |
-| On-screen keyboard, hardware keyboard, modifier lock keys | ✅ | ✅ | ✅ | ✅ |
-| Control mode vs Observe mode | ✅ | ✅ | ✅ | ✅ |
-| Clipboard: pull from the Mac, push to it, copy | ✅ | ✅ | ✅ | ✅ |
-| Clipboard history: the last twelve | · | ✅ | ✅ | ✅ |
-| Quick commands and snippets: running one you already have | ✅ | ✅ | ✅ | ✅ |
-| Quick commands and snippets: adding or editing one | · | · | · | ✅ |
-| Macros: record, edit, fire | · | · | · | ✅ |
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Pointer (tap where you look) and relative pointer (joystick/trackpad) | ✅ | ✅ | ✅ |
+| Scroll wheel | ✅ | ✅ | ✅ |
+| On-screen keyboard, hardware keyboard, modifier lock keys | ✅ | ✅ | ✅ |
+| Control mode vs Observe mode | ✅ | ✅ | ✅ |
+| Clipboard: pull from the Mac, push to it, copy | ✅ | ✅ | ✅ |
+| Clipboard history: the last twelve | · | ✅ | ✅ |
+| Quick commands and snippets: running one you already have | ✅ | ✅ | ✅ |
+| Quick commands and snippets: adding or editing one | · | · | ✅ |
+| Macros: record, edit, fire | · | · | ✅ |
 
 The note that used to be here proposed moving macros and quick commands to Pro, and that is what
 happened. It is worth being precise about where the gate sits, because it is not on the feature:
@@ -196,16 +200,16 @@ commands into the single `macros` case on purpose, because they are one idea at 
 
 ### Terminals and files
 
-| Feature | Free | Relay | Plus | Pro |
-|---|---|---|---|---|
-| Mac terminal (a shell on your Mac, in the session) | ✅ | ✅ | ✅ | ✅ |
-| SSH servers: saved hosts, passwords in Keychain, host-key prompt | ✅ | ✅ | ✅ | ✅ |
-| SSH port forwarding and tunnels | ✅ | ✅ | ✅ | ✅ |
-| Multiple shells open as tabs | one at a time | one at a time | tabs | tabs |
-| File browser on the Mac terminal (navigate, cd, preview) | ✅ | ✅ | ✅ | ✅ |
-| File browser over SSH (SFTP, with an exec fallback) | ✅ | ✅ | ✅ | ✅ |
-| Moving a file between the phone and the machine | · | ✅ | ✅ | ✅ |
-| Told when a terminal stops and waits for an answer | · | ✅ | ✅ | ✅ |
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Mac terminal (a shell on your Mac, in the session) | ✅ | ✅ | ✅ |
+| SSH servers: saved hosts, passwords in Keychain, host-key prompt | ✅ | ✅ | ✅ |
+| SSH port forwarding and tunnels | ✅ | ✅ | ✅ |
+| Multiple shells open as tabs | one at a time | one at a time | tabs |
+| File browser on the Mac terminal (navigate, cd, preview) | ✅ | ✅ | ✅ |
+| File browser over SSH (SFTP, with an exec fallback) | ✅ | ✅ | ✅ |
+| Moving a file between the phone and the machine | · | ✅ | ✅ |
+| Told when a terminal stops and waits for an answer | · | ✅ | ✅ |
 
 Two rows here were wrong and are now right. **SSH servers are free**, and the capability has left
 `PlanAccess.swift` altogether: the owner's question was "why block SSH for free", and on inspection
@@ -213,19 +217,19 @@ nothing about it costs the service anything, so what looked like a feature was a
 download exist** and are `fileTransfer` on Relay; the table here used to say they were never built,
 which was true when it was written and has not been since.
 
-Tabs stayed on Relay Plus, and that is the row doing the arguing on its own: it is a *concurrency*
+Tabs stayed paid, and that is the row doing the arguing on its own: it is a *concurrency*
 gate rather than a capability gate, one shell is free on every plan, and the second one at the same
 moment is what costs a login on the far end.
 
 ### Around the app
 
-| Feature | Free | Relay | Plus | Pro |
-|---|---|---|---|---|
-| Live Activity (Lock Screen, Dynamic Island) | ✅ | ✅ | ✅ | ✅ |
-| Home Screen widget, Lock Screen widget | ✅ | ✅ | ✅ | ✅ |
-| macOS host widget (start/stop the host) | ✅ | ✅ | ✅ | ✅ |
-| Session history (last 30 sessions, duration, path, bytes) | ✅ | ✅ | ✅ | ✅ |
-| "Your Mac is waiting" / unlock notifications | ✅ | ✅ | ✅ | ✅ |
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Live Activity (Lock Screen, Dynamic Island) | ✅ | ✅ | ✅ |
+| Home Screen widget, Lock Screen widget | ✅ | ✅ | ✅ |
+| macOS host widget (start/stop the host) | ✅ | ✅ | ✅ |
+| Session history (last 30 sessions, duration, path, bytes) | ✅ | ✅ | ✅ |
+| "Your Mac is waiting" / unlock notifications | ✅ | ✅ | ✅ |
 
 The note that used to be here called widgets and the Live Activity the most natural paid rows in
 the document. They moved the other way: the widget extension cannot read StoreKit, so gating them
@@ -477,8 +481,7 @@ the front, which is what stops a subscription that lapsed under a running app fr
 gates; **the mosaic** (`mosaic`, Pro) composites several of the Mac's windows into one picture on
 the Mac side and arranges them on the phone; and 202609220 was pulled, with the DMG's missing
 Applications alias and the edge cache that was serving the previous image both fixed in
-`Tools/deploy-site.sh` and the release notes. **And virtual displays** (`virtualDisplays`, Relay
-Plus) became a row the phone owns end to end: it makes them, names them, looks at them and takes
+`Tools/deploy-site.sh` and the release notes. **And virtual displays** (`virtualDisplays`, Pro) became a row the phone owns end to end: it makes them, names them, looks at them and takes
 them away, every one of them goes with the session it was made in, and the switch the Mac used to
 have in its own settings is gone. A display made by the Mac on request and left behind was a screen
 its user did not make and could not take away from the app that did.
