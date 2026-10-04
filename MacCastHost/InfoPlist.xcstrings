@@ -1,0 +1,65 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "NSLocalNetworkUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering acepta conexiones para compartir pantalla de los dispositivos que has emparejado con él."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering accepte les connexions de partage d'écran des appareils que vous avez associés."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering akzeptiert Bildschirmfreigabe-Verbindungen von Geräten, die du damit gekoppelt hast."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Peering aceita conexões de compartilhamento de tela de dispositivos que você pareou com ele."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering accetta connessioni di condivisione dello schermo dai dispositivi che hai associato."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering принимает подключения для демонстрации экрана от устройств, которые вы с ним связали."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peeringは、ペアリング済みのデバイスからの画面共有の接続を受け付けます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering은 페어링한 기기의 화면 공유 연결을 수락합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peering 接受来自已与其配对的设备的屏幕共享连接。"
+          }
+        }
+      }
+    }
+  }
+}
