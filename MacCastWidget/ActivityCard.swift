@@ -33,6 +33,17 @@ struct ActivityCard: View {
     var startedAt: Date?
     var action: ActivityCardAction?
 
+    /// What is running on the Mac, listed under the session's own line.
+    ///
+    /// The one part of the card that is not about the connection: shells and chats come and go
+    /// while the session stays exactly as it is, and a Lock Screen that knew nothing about them
+    /// would be a card that looked identical whether the Mac was idle or waiting on an answer.
+    var work: [SessionActivityAttributes.ContentState.Work] = []
+
+    /// How many of them are drawn. Three lines is what the card can add without becoming a list to
+    /// read rather than a card to glance at; the rest are counted.
+    static let workRows = 3
+
     /// The tile, at the app's `IconTile` default size and with its own proportions.
     static let tile: CGFloat = 42
     static let tileCorner = tile * 0.286
@@ -55,6 +66,83 @@ struct ActivityCard: View {
     static let backgroundTint = Color.black.opacity(0.7)
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sessionRow
+            if !work.isEmpty {
+                // Clear enough to read as a division on a Lock Screen at arm's length, where 12
+                // per cent over the card's own black tint was a line nobody could see.
+                Rectangle()
+                    .fill(.white.opacity(0.18))
+                    .frame(height: 1)
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(Array(work.prefix(Self.workRows)), id: \.self) { item in
+                        workRow(item)
+                    }
+                    if work.count > Self.workRows {
+                        Text("+\(work.count - Self.workRows) more")
+                            .font(.caption2)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                }
+            }
+        }
+        // **The card claims the width, and nothing else does it for it.** An activity's content is
+        // laid out at its own ideal size and centred, so without this the whole card sat in the
+        // middle of the Lock Screen with the name and the timer bunched together: a `Spacer` only
+        // takes the room it is *offered*, and a view that does not ask for the width is not offered
+        // any. Both cards this replaced carried the same frame, and it was dropped in the rewrite.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    /// One thing running: its kind, its name, and the one state worth a word.
+    private func workRow(_ item: SessionActivityAttributes.ContentState.Work) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: item.symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.75))
+                .frame(width: 15, alignment: .leading)
+
+            Text(item.name)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+
+            if let detail = item.detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            // The word only where it is the point. "Live" is what everything else on this card
+            // already means, and a Lock Screen is not a status board: one of these being *waiting
+            // on the user* is the fact the list exists for.
+            if item.state != .live {
+                Text(item.state == .waiting ? "Waiting" : "Failed")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(tone(for: item.state))
+            }
+
+            Circle()
+                .fill(tone(for: item.state))
+                .frame(width: 7, height: 7)
+        }
+    }
+
+    private func tone(for state: SessionActivityAttributes.ContentState.Work.State) -> Color {
+        switch state {
+        case .live: return ActivityTone.live.tint
+        case .waiting: return ActivityTone.pending.tint
+        case .failed: return ActivityTone.lost.tint
+        }
+    }
+
+    /// The session's own line, which is what this card has always been.
+    private var sessionRow: some View {
         HStack(spacing: 12) {
             ActivityTile(symbol: symbol, tone: tone)
 
@@ -108,14 +196,6 @@ struct ActivityCard: View {
                 }
             }
         }
-        // **The card claims the width, and nothing else does it for it.** An activity's content is
-        // laid out at its own ideal size and centred, so without this the whole card sat in the
-        // middle of the Lock Screen with the name and the timer bunched together: a `Spacer` only
-        // takes the room it is *offered*, and a view that does not ask for the width is not offered
-        // any. Both cards this replaced carried the same frame, and it was dropped in the rewrite.
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
     }
 }
 

@@ -37,8 +37,8 @@ public enum InteractionMode: CaseIterable, Identifiable, RawRepresentable {
 
     public var label: String {
         switch self {
-        case .control: return "Control & zoom"
-        case .observe: return "Observe"
+        case .control: return String(localized: "Control & zoom")
+        case .observe: return String(localized: "Observe")
         }
     }
 

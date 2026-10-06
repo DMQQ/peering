@@ -76,9 +76,7 @@ extension HostStatusView {
                 Text("Send a test notification")
                     .font(.subheadline.weight(.medium))
                 Text(model.pushTestResult ?? String(localized: "Pushes a banner to the devices this Mac has a token for, over the relay. What this can see is the token and the send; the relay holds the APNs key and answers nothing."))
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)
@@ -106,9 +104,7 @@ extension HostStatusView {
                 Text("Live preview")
                     .font(.subheadline.weight(.medium))
                 Text("Refreshes this window every couple of seconds with what the Mac is showing. Turning it off stops the snapshots altogether. An iPhone that is streaming still sees the screen.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)
@@ -141,9 +137,7 @@ extension HostStatusView {
                 Text("Instant pointer")
                     .font(.subheadline.weight(.medium))
                 Text("The Mac cursor is hidden from the video. Peering draws it on your iPhone immediately, so it follows your touch without waiting for a frame.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)
@@ -180,9 +174,7 @@ extension HostStatusView {
                 // when a stream is built, so a change made with a phone attached looks like
                 // one that did nothing until the next capture is started.
                 Text("3/4 captures at 75% width and height (~56% of pixels). Half is a quarter of the pixels. Applies when the next stream starts, which is a change of source or the next connection.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)
@@ -224,9 +216,7 @@ extension HostStatusView {
                 Text("Frame rate")
                     .font(.subheadline.weight(.medium))
                 Text("30 fps saves bandwidth and battery. 60 fps is the standard. 120 fps only gains anything on a ProMotion display and doubles what must be sent. Applies when the next stream starts.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)
@@ -291,9 +281,7 @@ extension HostStatusView {
                 Text("Port")
                     .font(.subheadline.weight(.medium))
                 Text("Phones on this network follow it automatically. Changing it restarts the listener and disconnects anyone connected.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 12)

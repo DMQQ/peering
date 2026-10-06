@@ -72,7 +72,7 @@ struct SSHForwardEditor: View {
                         footer: String(localized: "The port another app on this phone will connect to. `localhost:\(localPort.isEmpty ? "8080" : localPort)` is what you point it at.")
                     ) {
                         VStack(spacing: 10) {
-                            field("Name", systemImage: "tag", text: $label, hint: "Optional")
+                            field(String(localized: "Name"), systemImage: "tag", text: $label, hint: String(localized: "Optional"))
                             Controls.divider
                             field(String(localized: "Local port"), systemImage: "number", text: $localPort, hint: "8080")
                                 .keyboardType(.numberPad)
@@ -86,7 +86,7 @@ struct SSHForwardEditor: View {
                         VStack(spacing: 10) {
                             field(String(localized: "Host"), systemImage: "network", text: $remoteHost, hint: "db.internal")
                             Controls.divider
-                            field("Port", systemImage: "number", text: $remotePort, hint: "5432")
+                            field(String(localized: "Port"), systemImage: "number", text: $remotePort, hint: "5432")
                                 .keyboardType(.numberPad)
                         }
                     }
@@ -120,19 +120,10 @@ struct SSHForwardEditor: View {
             .background(ColorPalette.backdrop)
             .navigationTitle(editing == nil ? "New forward" : "Edit forward")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if case .success(let forward) = reading {
-                            onSave(forward)
-                            dismiss()
-                        }
-                    }
-                    .disabled(!canSave)
-                    .fontWeight(.semibold)
+            .sheetToolbar(onCancel: { dismiss() }, confirm: "Save", canConfirm: canSave) {
+                if case .success(let forward) = reading {
+                    onSave(forward)
+                    dismiss()
                 }
             }
         }

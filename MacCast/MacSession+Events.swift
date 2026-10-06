@@ -85,6 +85,11 @@ extension MacSession {
                 model.publishOpenMacs()
                 applyInitialQuality()
                 wire?.sendTerminal(.list)
+                refreshAgentSessions()
+                // Every arrival at `.ready`, not only when the browser is opened: the Mac keeps a
+                // scope only for as long as the connection that made it, so a reconnect has to
+                // announce this phone's id again before anything can be browsed through it.
+                openFileScope()
                 // Through the model rather than the token directly: this is the moment the Mac
                 // learns where to reach this device, and whether it may is the plan's answer,
                 // which the model owns. See ``SessionModel/sendPushToken()``.
@@ -251,6 +256,10 @@ extension MacSession {
             // each time a picture needs stopping. See ``PicturePause/mayAsk(hostDeclared:)``.
             hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
             hostSupportsAgentList = hello.supportsAgentList == true
+            // The second capability the agent launcher needs, and the stronger one: a chat is a
+            // request an older Mac cannot decode, so it is sent only to a Mac that has said it
+            // can take one. See ``AgentChatSupport``.
+            hostSupportsAgentChat = AgentChatSupport.maySend(toHostDeclared: hello.supportsAgentChat)
             // The same shape for the clipboard, and the same three states on the flag. See
             // ``ClipboardImages``, which both ends read.
             hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)
@@ -273,6 +282,9 @@ extension MacSession {
                 hostDeclared: hello.supportsVirtualDisplayManagement
             )
             hostPushesTerminalAlertsWhileConnected = hello.pushesTerminalAlertsWhileConnected == true
+            hostSupportsFileBrowser = hello.supportsFileBrowser == true
+            hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
+            hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for
             // the same reason: it is the only one of the two that came from the Mac itself.
@@ -460,6 +472,8 @@ extension MacSession {
             }
         case .terminal(let event):
             apply(terminal: event)
+        case .agent(let event):
+            apply(agent: event)
         case .hostStopped:
             // Arrives just before the failure it explains, so that failure ends the session
             // instead of arming the reconnect ladder against a Mac that is no longer listening.

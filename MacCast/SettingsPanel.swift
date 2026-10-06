@@ -69,7 +69,7 @@ struct SettingsPanel: View {
 
     private var session: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Session")
+            SectionLabel(String(localized: "Session"))
             info("Mac", model.hostName ?? String(localized: "None"))
             info(String(localized: "State"), stateDescription)
             info("Path", model.connectionPath?.rawValue ?? "None")
@@ -113,7 +113,7 @@ struct SettingsPanel: View {
 
     private var activity: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Recent activity")
+            SectionLabel(String(localized: "Recent activity"))
             if model.notes.isEmpty {
                 HStack(spacing: 9) {
                     Image(systemName: "waveform.path")
@@ -154,7 +154,7 @@ struct SettingsPanel: View {
 
     private var stream: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Stream")
+            SectionLabel(String(localized: "Stream"))
             Button(action: onShowSources) {
                 HStack(spacing: 10) {
                     Image(systemName: "rectangle.on.rectangle")
@@ -192,7 +192,7 @@ struct SettingsPanel: View {
             // from the Mac" and a control that could have been anything. A hidden row was never
             // the answer either, and is still not: that is the app deciding for the user that they
             // are not interested.
-            PlanLocked(capability: .macSound, title: "Sound from the Mac") {
+            PlanLocked(capability: .macSound, title: String(localized: "Sound from the Mac")) {
                 Toggle(isOn: Binding(
                     get: { !model.hostAudioMuted },
                     set: { model.hostAudioMuted = $0 }
@@ -307,7 +307,7 @@ struct SettingsPanel: View {
 
     private var panels: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Panels")
+            SectionLabel(String(localized: "Panels"))
             Toggle(isOn: $hidesPanelAfterSelect) {
                 Text("Close after selecting")
                     .font(.subheadline.weight(.medium))
@@ -331,9 +331,9 @@ struct SettingsPanel: View {
     /// the plan's name on its corner.
     private var picture: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Picture")
+            SectionLabel(String(localized: "Picture"))
 
-            PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
+            PlanLocked(capability: .pictureInPicture, title: String(localized: "Float automatically")) {
                 Toggle(isOn: $pipAutoStart) {
                     Text("Float automatically")
                         .font(.subheadline.weight(.medium))
@@ -366,7 +366,7 @@ struct SettingsPanel: View {
     /// the relay cannot read what it carries, and it does see who is connecting and when.
     private var privacy: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Privacy")
+            SectionLabel(String(localized: "Privacy"))
             Toggle(isOn: $allowsRelay) {
                 Text("Allow the relay")
                     .font(.subheadline.weight(.medium))
@@ -401,7 +401,7 @@ struct SettingsPanel: View {
 
     private var keyboard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Keyboard")
+            SectionLabel(String(localized: "Keyboard"))
             Picker("Mode", selection: Binding(
                 get: { model.keyboardMode },
                 set: { model.setKeyboardMode($0) }
@@ -430,7 +430,7 @@ struct SettingsPanel: View {
 
     private var macros: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("Macros")
+            SectionLabel(String(localized: "Macros"))
             // Scrolls sideways rather than wrapping: the macros are a fixed, short list, and a
             // wrapped grid would change the panel's height every time a title did.
             ScrollView(.horizontal, showsIndicators: false) {
@@ -456,7 +456,7 @@ struct SettingsPanel: View {
     private var pairedMacs: some View {
         if !model.pairedHostIDs.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
-                SectionLabel("Paired Macs")
+                SectionLabel(String(localized: "Paired Macs"))
                 ForEach(model.pairedHostIDs, id: \.self) { hostID in
                     HStack(spacing: 8) {
                         Text(hostID)
@@ -477,7 +477,7 @@ struct SettingsPanel: View {
 
     private var thisDevice: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionLabel("This device")
+            SectionLabel(String(localized: "This device"))
             HStack(spacing: 10) {
                 Image(systemName: "iphone")
                     .font(.system(size: 15, weight: .medium))

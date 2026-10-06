@@ -78,7 +78,7 @@ struct RemotePairingSheet: View {
                         // The two ways in, as rows rather than as buttons: neither is what this
                         // screen is *for*, they are how the ID reaches the field, and Pair is the
                         // only thing here that should look like the way out.
-                        fillRow("Paste from the clipboard", systemImage: "doc.on.clipboard") {
+                        fillRow(String(localized: "Paste from the clipboard"), systemImage: "doc.on.clipboard") {
                             // The whole reason this row exists is that the ID came from another
                             // machine and is 36 characters of hexadecimal nobody types from memory.
                             if let text = UIPasteboard.general.string { identifier = text }
@@ -86,7 +86,7 @@ struct RemotePairingSheet: View {
 
                         Controls.divider
 
-                        fillRow("Scan the code on the Mac", systemImage: "qrcode.viewfinder") {
+                        fillRow(String(localized: "Scan the code on the Mac"), systemImage: "qrcode.viewfinder") {
                             fieldFocused = false
                             showsScanner = true
                         }
@@ -167,11 +167,7 @@ struct RemotePairingSheet: View {
                 .ignoresSafeArea()
                 .navigationTitle("Scan the Mac's code")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showsScanner = false }
-                    }
-                }
+                .sheetToolbar(onCancel: { showsScanner = false })
             }
             .presentationDetents([.medium, .large])
         }

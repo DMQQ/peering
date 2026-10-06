@@ -24,6 +24,10 @@ final class SessionActivity {
 
     private var activity: Activity<SessionActivityAttributes>?
 
+    /// The state the card holds, so a change to one part of it — the list of what is running —
+    /// does not have to rebuild the rest from callers that do not know it.
+    private var current: SessionActivityAttributes.ContentState?
+
     private var isEnabled: Bool {
         UserDefaults.standard.object(forKey: PreferenceKeys.liveActivities) as? Bool ?? true
     }
@@ -56,20 +60,15 @@ final class SessionActivity {
 
         switch phase {
         case .connecting, .handshaking, .confirming, .ready:
-            let state = SessionActivityAttributes.ContentState(
+            // Only ever started from the foreground: every route into these phases starts with a
+            // tap, and `Activity.request` is dropped silently from the background.
+            apply(carryingWork(SessionActivityAttributes.ContentState(
                 phase: phase == .ready ? .active : .pending,
                 startedAt: startedAt,
                 path: path,
                 hostName: hostName,
                 sessionCount: sessionCount
-            )
-            if let activity {
-                Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
-            } else {
-                // Only ever reached from the foreground: every route into these phases starts
-                // with a tap, and `Activity.request` is dropped silently from the background.
-                start(state)
-            }
+            )))
 
         case .idle, .failed, .disconnected:
             // Only a deliberate end takes the card down. The user closed the session; a card
@@ -157,13 +156,26 @@ final class SessionActivity {
     ) {
         guard isEnabled else { return }
         guard let activity else { return }
-        let state = SessionActivityAttributes.ContentState(
+        let state = carryingWork(SessionActivityAttributes.ContentState(
             phase: Self.cardPhase(of: phase, reconnecting: reconnecting),
             startedAt: startedAt,
             path: path,
             hostName: hostName,
             sessionCount: sessionCount
-        )
+        ))
+        current = state
+        Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
+    }
+
+    /// **What is running, as the Lock Screen lists it.** The one part of the card that is not
+    /// about the connection: shells and chats come and go without the session moving at all, and
+    /// this is how those arrive. Ignored when nothing changed, so a chatty terminal does not
+    /// re-render a Lock Screen card per keystroke.
+    func workChanged(_ work: [SessionActivityAttributes.ContentState.Work]) {
+        guard isEnabled, var state = current, state.work != work else { return }
+        state.work = work
+        current = state
+        guard let activity, activity.activityState == .active else { return }
         Task { await activity.update(ActivityContent(state: state, staleDate: staleDate(for: state))) }
     }
 
@@ -198,14 +210,26 @@ final class SessionActivity {
         path: SessionActivityAttributes.Path?,
         sessionCount: Int? = nil
     ) {
-        let state = SessionActivityAttributes.ContentState(
+        apply(carryingWork(SessionActivityAttributes.ContentState(
             phase: phase,
             startedAt: startedAt,
             path: path,
             hostName: hostName,
             sessionCount: sessionCount
-        )
-        apply(state)
+        )))
+    }
+
+    /// The same state with the work list kept.
+    ///
+    /// Every other part of the card is about the connection and is rebuilt whenever that changes;
+    /// the list is about the Mac, lives in its own field, and would be quietly emptied by every
+    /// phase change if each construction site had to remember it.
+    private func carryingWork(
+        _ state: SessionActivityAttributes.ContentState
+    ) -> SessionActivityAttributes.ContentState {
+        var state = state
+        state.work = current?.work
+        return state
     }
 
     /// Called when the app enters the background with an active session.
@@ -253,6 +277,7 @@ final class SessionActivity {
     /// because the interesting case is the missing one, and four copies of "start it if it is
     /// not there" is four chances to forget the stale date.
     private func apply(_ state: SessionActivityAttributes.ContentState) {
+        current = state
         guard let activity else {
             start(state)
             return
@@ -262,6 +287,7 @@ final class SessionActivity {
 
     private func start(_ state: SessionActivityAttributes.ContentState) {
         guard isEnabled, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        current = state
         do {
             activity = try Activity.request(
                 // No attributes: everything that varies is in the state, so that a card can be
@@ -279,6 +305,7 @@ final class SessionActivity {
 
     private func end() {
         guard let activity else { return }
+        current = nil
         self.activity = nil
         Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }

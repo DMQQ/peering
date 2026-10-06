@@ -55,6 +55,10 @@ final class HostModel {
     // display stays lit so ScreenCaptureKit does not turn a healthy stream into black frames.
     var sleepAssertionID: IOPMAssertionID = 0
 
+    /// Held while a chat session is working, so the Mac does not idle-sleep under it. See
+    /// ``setAgentActivity(_:)``.
+    var agentSleepAssertionID: IOPMAssertionID = 0
+
     // The assertion that keeps the Mac up on its own, with no permission prompt. It is not the
     // lid-close switch, whatever the name says: `PreventSystemSleep` is what `caffeinate -s` takes,
     // and macOS reads a closed lid on a different path. See ``setKeepRunningWithLidClosed(_:)``.

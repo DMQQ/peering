@@ -30,7 +30,9 @@ struct FilePreviewPanel: View {
     var isSaving: Bool = false
     var saveFailure: String?
 
-    var onRevealPath: (String) -> Void
+    /// Optional, like the browser's: a file opened with no shell behind it has no command line
+    /// to put the path in, so the control is not drawn at all.
+    var onRevealPath: ((String) -> Void)?
     var onClose: () -> Void
     /// Writes the text given back to whichever machine the file is on.
     ///
@@ -159,7 +161,7 @@ struct FilePreviewPanel: View {
                     // nothing, and tapping it opens the plans.
                     PlanLocked(
                         capability: .fileTransfer,
-                        title: "Download to this device",
+                        title: String(localized: "Download to this device"),
                         diameter: 26
                     ) {
                         ShareLink(item: shareURL) {
@@ -186,15 +188,17 @@ struct FilePreviewPanel: View {
                     .accessibilityLabel("Edit this file")
                 }
 
-                Button { onRevealPath(preview.path) } label: {
-                    Image(systemName: "arrow.up.forward.square")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30)
-                        .contentShape(Rectangle())
+                if let onRevealPath {
+                    Button { onRevealPath(preview.path) } label: {
+                        Image(systemName: "arrow.up.forward.square")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Put path in command line")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Put path in command line")
             }
         }
         .padding(.horizontal, 12)

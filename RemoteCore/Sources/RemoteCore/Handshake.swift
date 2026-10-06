@@ -31,6 +31,14 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// ``supportsTextFocus``.
     public var supportsFieldState: Bool?
 
+    /// Whether this client can host an agent chat session: it reads ``MessageKind/agentEvent`` and
+    /// sends ``MessageKind/agentRequest``.
+    ///
+    /// Declared in both directions, because both ends send: the Mac answers a chat request with a
+    /// stream of events, so it is the Mac that has to restrain itself when the phone is older.
+    /// Optional and additive, so an older hello decodes with it `nil`, which reads as no.
+    public var supportsAgentChat: Bool?
+
     /// What a reconnecting client was looking at, so the Mac can start capturing it on arrival
     /// rather than a round trip later when the client asks from the catalogue. Honoured only for a
     /// client the Mac already trusts. Optional, so either end of an older pair ignores it.
@@ -44,6 +52,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsClipboardImages: Bool? = nil,
         supportsTextFocus: Bool? = nil,
         supportsFieldState: Bool? = nil,
+        supportsAgentChat: Bool? = nil,
         resumeSource: CaptureSource? = nil
     ) {
         self.clientID = clientID
@@ -53,6 +62,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsClipboardImages = supportsClipboardImages
         self.supportsTextFocus = supportsTextFocus
         self.supportsFieldState = supportsFieldState
+        self.supportsAgentChat = supportsAgentChat
         self.resumeSource = resumeSource
     }
 }
@@ -135,6 +145,29 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// so the phone asks only on an explicit `true` and shows every agent otherwise.
     public var supportsAgentList: Bool?
 
+    /// Whether this Mac can run a chat session with an installed coding agent, in answer to
+    /// ``AgentRequest``. A capability because an older Mac cannot decode that request, and the
+    /// pair of new message kinds behind it. Optional and additive: `nil` reads as no, and a chat
+    /// is started only on an explicit `true`.
+    public var supportsAgentChat: Bool?
+
+    /// Whether this Mac will open a file-browsing scope that is not a shell, in answer to
+    /// ``TerminalRequest/startBrowser(id:)``. The browsing requests themselves are the ones a
+    /// terminal sends — they name a scope rather than a terminal — so what an older Mac cannot do
+    /// is *create* one, and it refuses the request it cannot decode. Optional and additive: `nil`
+    /// reads as no, and the hub's own file browser is offered only on an explicit `true`.
+    public var supportsFileBrowser: Bool?
+
+    /// Whether this Mac can change which model a chat runs, in answer to
+    /// ``AgentRequest/setModel(sessionID:model:)``. Optional and additive: `nil` reads as no, and
+    /// the picker is drawn only on an explicit `true`.
+    public var supportsAgentModelPicker: Bool?
+
+    /// Which agents this Mac can hold a chat with, by catalogue id. Optional and additive: `nil`
+    /// is a Mac from before this list, which chats with Claude Code and Codex and nothing else, so
+    /// an agent added later is offered only on an explicit entry.
+    public var agentChatAgents: [String]?
+
     public init(
         serverID: String,
         hostName: String,
@@ -148,7 +181,11 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsDeviceOrientation: Bool? = nil,
         supportsVirtualDisplayManagement: Bool? = nil,
         pushesTerminalAlertsWhileConnected: Bool? = nil,
-        supportsAgentList: Bool? = nil
+        supportsAgentList: Bool? = nil,
+        supportsAgentChat: Bool? = nil,
+        supportsFileBrowser: Bool? = nil,
+        supportsAgentModelPicker: Bool? = nil,
+        agentChatAgents: [String]? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -162,6 +199,10 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsDeviceOrientation = supportsDeviceOrientation
         self.supportsVirtualDisplayManagement = supportsVirtualDisplayManagement
         self.supportsAgentList = supportsAgentList
+        self.supportsAgentChat = supportsAgentChat
+        self.supportsFileBrowser = supportsFileBrowser
+        self.supportsAgentModelPicker = supportsAgentModelPicker
+        self.agentChatAgents = agentChatAgents
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }

@@ -193,7 +193,7 @@ extension RemoteScreen {
                     // launch, on a phone that was reconnecting. Erasing the type here is the cure
                     // that does not need the whole pill rebuilt: the row becomes `AnyView`, and the
                     // chips' own type is resolved once, at a shallow stack, when the view is made.
-                    actionRow("Stream", systemImage: "play.rectangle") {
+                    actionRow(String(localized: "Stream"), systemImage: "play.rectangle") {
                         AnyView(Group {
                         soundButton
                         // **The camera has a word too, and it is the longest one in the panel.**
@@ -224,7 +224,7 @@ extension RemoteScreen {
                     // the picture is shown rather than what the Mac is sending, which is why they
                     // are here and not on the row above. Erased like that one is, for the same
                     // reason at one chip less.
-                    actionRow("View", systemImage: "eye") {
+                    actionRow(String(localized: "View"), systemImage: "eye") {
                         AnyView(Group {
                         fillChip
                         if zoom > 1.01 {
@@ -262,7 +262,7 @@ extension RemoteScreen {
                     //
                     // Chips rather than rows: they keep the compactness of the dots that were here
                     // before and the words of the rows that replaced them.
-                    actionRow("Mac", systemImage: "macbook") {
+                    actionRow(String(localized: "Mac"), systemImage: "macbook") {
                         actionChip("Lock", systemImage: "lock.fill") { model.lockMac() }
                         actionChip(
                             model.privacyModeEnabled ? String(localized: "Restore") : String(localized: "Darken"),
@@ -272,7 +272,7 @@ extension RemoteScreen {
                         }
                     }
 
-                    actionRow("Session", systemImage: "antenna.radiowaves.left.and.right") {
+                    actionRow(String(localized: "Session"), systemImage: "antenna.radiowaves.left.and.right") {
                         // **The way back to the picker, with the Mac left connected.** This screen
                         // used to have one way out and it was Quit, so looking at the list of Macs
                         // meant ending the session, and the session somebody was paying for went
@@ -304,7 +304,7 @@ extension RemoteScreen {
                     // A row like the four above it, and the only one whose subject is the end of
                     // something. Filled red rather than merely written in it: this is the one control
                     // in the panel that cannot be taken back by pressing it again.
-                    actionRow("End", systemImage: "power") {
+                    actionRow(String(localized: "End"), systemImage: "power") {
                         actionChip(String(localized: "Quit"), isDestructive: true) { model.disconnect() }
                     }
                 }

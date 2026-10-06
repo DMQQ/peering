@@ -118,43 +118,43 @@ public enum Tour: String, CaseIterable, Identifiable, Sendable {
                 // reading this tour is in.
                 TourStep(
                     target: .connectFirstPairing,
-                    title: "First connection",
-                    detail: "Both ends run Peering. This card has the Mac download and what pairing asks for."
+                    title: String(localized: "First connection"),
+                    detail: String(localized: "Both ends run Peering. This card has the Mac download and what pairing asks for.")
                 ),
                 TourStep(
                     target: .connectNearby,
-                    title: "Nearby",
-                    detail: "A Mac on this network appears here while Peering is running on it. Tap one to connect and pair."
+                    title: String(localized: "Nearby"),
+                    detail: String(localized: "A Mac on this network appears here while Peering is running on it. Tap one to connect and pair.")
                 ),
                 TourStep(
                     target: .connectRemote,
-                    title: "Another network",
-                    detail: "For a Mac that discovery cannot reach: type or scan the device ID it shows."
+                    title: String(localized: "Another network"),
+                    detail: String(localized: "For a Mac that discovery cannot reach: type or scan the device ID it shows.")
                 ),
                 // The list of Macs already paired: the answer for somebody who has been here
                 // before.
                 TourStep(
                     target: .connectTrusted,
-                    title: "Trusted Macs",
-                    detail: "Macs you have paired with live here, and connect without a code."
+                    title: String(localized: "Trusted Macs"),
+                    detail: String(localized: "Macs you have paired with live here, and connect without a code.")
                 ),
             ]
         case .servers:
             [
                 TourStep(
                     target: .serversOpen,
-                    title: "Still open",
-                    detail: "A shell keeps running when you leave it. Come back to it from here."
+                    title: String(localized: "Still open"),
+                    detail: String(localized: "A shell keeps running when you leave it. Come back to it from here.")
                 ),
                 TourStep(
                     target: .serversList,
-                    title: "Your servers",
-                    detail: "Machines you added by hand. Tap one to open a shell on it."
+                    title: String(localized: "Your servers"),
+                    detail: String(localized: "Machines you added by hand. Tap one to open a shell on it.")
                 ),
                 TourStep(
                     target: .serversAdd,
-                    title: "Add a server",
-                    detail: "A hostname and a key or a password, and it is on this list from then on."
+                    title: String(localized: "Add a server"),
+                    detail: String(localized: "A hostname and a key or a password, and it is on this list from then on.")
                 ),
             ]
         case .shell:
@@ -164,54 +164,54 @@ public enum Tour: String, CaseIterable, Identifiable, Sendable {
                 // inside the closure that builds it never reaches the tour at all. See ``TabStrip``.
                 TourStep(
                     target: .shellTabs,
-                    title: "Your shells",
-                    detail: "Each shell you open gets a tab, and the switch at the end of this row shows the server's own folders. The dot is the shell's state, and the cross on the tab ends it."
+                    title: String(localized: "Your shells"),
+                    detail: String(localized: "Each shell you open gets a tab, and the switch at the end of this row shows the server's own folders. The dot is the shell's state, and the cross on the tab ends it.")
                 ),
                 // The output is the connection's half of this screen rather than the terminal's: it
                 // is what arrived, and the keys and the input line are what to do about it.
                 TourStep(
                     target: .shellOutput,
-                    title: "The shell",
-                    detail: "Everything the server prints. Tap it to bring the keyboard back, and scroll up to read what has gone by."
+                    title: String(localized: "The shell"),
+                    detail: String(localized: "Everything the server prints. Tap it to bring the keyboard back, and scroll up to read what has gone by.")
                 ),
             ]
         case .terminal:
             [
                 TourStep(
                     target: .terminalDeck,
-                    title: "Keys and commands",
-                    detail: "Control keys and the commands you save, so a shell can be driven without typing."
+                    title: String(localized: "Keys and commands"),
+                    detail: String(localized: "Control keys and the commands you save, so a shell can be driven without typing.")
                 ),
                 TourStep(
                     target: .terminalInput,
-                    title: "Typing",
-                    detail: "Type here and press Return. The keyboard stays up between commands."
+                    title: String(localized: "Typing"),
+                    detail: String(localized: "Type here and press Return. The keyboard stays up between commands.")
                 ),
             ]
         case .screen:
             [
                 TourStep(
                     target: .screenStatus,
-                    title: "The connection",
-                    detail: "How the picture is getting here: which path, how far behind, and how fast. Tap it for the rest."
+                    title: String(localized: "The connection"),
+                    detail: String(localized: "How the picture is getting here: which path, how far behind, and how fast. Tap it for the rest.")
                 ),
                 // Two steps for one thing, and only ever one of them: the dock holds the controls
                 // upright and the rails hold them sideways, and neither exists in the other
                 // orientation. The absent one is dropped like any other absent target.
                 TourStep(
                     target: .screenDock,
-                    title: "The controls",
-                    detail: "Keys, shortcuts and everything this Mac can show, along the bottom. The chevron opens the rest."
+                    title: String(localized: "The controls"),
+                    detail: String(localized: "Keys, shortcuts and everything this Mac can show, along the bottom. The chevron opens the rest.")
                 ),
                 TourStep(
                     target: .screenRail,
-                    title: "The controls",
-                    detail: "Keys, shortcuts and everything this Mac can show, in the two rails at the edges of the picture."
+                    title: String(localized: "The controls"),
+                    detail: String(localized: "Keys, shortcuts and everything this Mac can show, in the two rails at the edges of the picture.")
                 ),
                 TourStep(
                     target: .screenPointer,
-                    title: "The pointer",
-                    detail: "Drag anywhere in the circle to move the Mac's pointer. The keys beside it send Return and Back."
+                    title: String(localized: "The pointer"),
+                    detail: String(localized: "Drag anywhere in the circle to move the Mac's pointer. The keys beside it send Return and Back.")
                 ),
             ]
         }

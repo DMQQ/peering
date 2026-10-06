@@ -114,7 +114,7 @@ struct SessionTabs: View {
     private var addButton: some View {
         PlanLocked(
             capability: .concurrentSessions,
-            title: "Another Mac",
+            title: String(localized: "Another Mac"),
             diameter: 20,
             isIncluded: model.canAddAnotherSession
         ) {

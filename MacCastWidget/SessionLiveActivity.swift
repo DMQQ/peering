@@ -21,7 +21,10 @@ struct SessionLiveActivity: Widget {
                 name: context.state.hostName ?? String(localized: "Mac"),
                 status: statusText(for: context.state),
                 startedAt: context.state.startedAt,
-                action: action(for: context.state.phase)
+                action: action(for: context.state.phase),
+                // What is running on that Mac, which the phone publishes as shells and chats
+                // change. Empty until something is, which is a card exactly as it was before.
+                work: context.state.work ?? []
             )
             .activityBackgroundTint(ActivityCard.backgroundTint)
             .activitySystemActionForegroundColor(.white)

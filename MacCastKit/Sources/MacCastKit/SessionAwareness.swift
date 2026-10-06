@@ -72,8 +72,8 @@ public enum SessionAwareness {
             guard !resuming else { return nil }
             return Notification(
                 kind: .connected,
-                title: "Connected to \(hostName)",
-                body: "The Mac's screen is on this device now.",
+                title: String(localized: "Connected to \(hostName)"),
+                body: String(localized: "The Mac's screen is on this device now."),
                 hostID: hostID
             )
 
@@ -83,8 +83,8 @@ public enum SessionAwareness {
             // thing standing between this device and a Mac nobody sat down at.
             return Notification(
                 kind: .awaitingPairingCode,
-                title: "Pairing with \(hostName)",
-                body: "The Mac is showing a six-digit code. Open Peering to check the two match.",
+                title: String(localized: "Pairing with \(hostName)"),
+                body: String(localized: "The Mac is showing a six-digit code. Open Peering to check the two match."),
                 hostID: hostID
             )
 
@@ -99,7 +99,7 @@ public enum SessionAwareness {
             // banner is often the only place the user will ever read one.
             return Notification(
                 kind: .connectionEnded,
-                title: "Connection to \(hostName) failed",
+                title: String(localized: "Connection to \(hostName) failed"),
                 body: message,
                 hostID: hostID
             )
@@ -110,8 +110,8 @@ public enum SessionAwareness {
             guard previous.holdsSession, !deliberate else { return nil }
             return Notification(
                 kind: .connectionEnded,
-                title: "Connection to \(hostName) ended",
-                body: "The Mac is no longer reachable from this device.",
+                title: String(localized: "Connection to \(hostName) ended"),
+                body: String(localized: "The Mac is no longer reachable from this device."),
                 hostID: hostID
             )
 

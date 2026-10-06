@@ -16,6 +16,9 @@ struct TerminalWireTests {
             .list,
             .agents,
             .create,
+            // The scope the hub's own file browser hangs on: no shell behind it, and the same
+            // browsing requests carry its id from here on.
+            .startBrowser(id: id),
             .input(sessionID: id, data: Data([0x1B, 0x5B, 0x41, 0x00])),
             .resize(sessionID: id, columns: 120, rows: 36),
             .rename(sessionID: id, name: "Build"),
@@ -79,7 +82,9 @@ struct TerminalWireTests {
     @Test("host events round-trip with reconnectable snapshot and attention")
     func eventsRoundTrip() throws {
         let id = UUID(uuidString: "8B88D893-55BD-4F68-AF3F-E81D885A50A7")!
-        let info = TerminalSessionInfo(id: id, name: "Deploy", isRunning: true)
+        // With the shape, because that is what a client lays a replayed history out on. The two
+        // fields are optional so that either end can be older, and this is what says they travel.
+        let info = TerminalSessionInfo(id: id, name: "Deploy", isRunning: true, columns: 102, rows: 66)
         let events: [TerminalEvent] = [
             .snapshot([info]),
             .agents(installed: ["claude", "codex"]),

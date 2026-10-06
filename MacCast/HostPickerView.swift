@@ -18,12 +18,15 @@ private enum Screen: CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// Localized here rather than left as a literal, because a bar title is drawn from a `String`
+    /// and a `String` is never looked up: `Label(item.title, …)` takes the text as it is, so two of
+    /// these five said "Connect" and "Servers" in every language the app ships in.
     var title: String {
         switch self {
-        case .connect: "Connect"
-        case .servers: "Servers"
+        case .connect: String(localized: "Connect")
+        case .servers: String(localized: "Servers")
         case .sessions: String(localized: "Sessions")
-        case .faq: "FAQ"
+        case .faq: String(localized: "FAQ")
         case .settings: String(localized: "Settings")
         }
     }

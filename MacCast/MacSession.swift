@@ -489,6 +489,30 @@ final class MacSession: Identifiable {
     var hostSupportsAgentList = false
     var installedAgents: Set<String>?
 
+    /// Whether this Mac can run an agent chat, off its hello. See
+    /// ``AgentChatSupport/maySend(toHostDeclared:)``: never assumed, because the request is one
+    /// an older Mac cannot decode and would end the session over.
+    var hostSupportsAgentChat = false
+
+    /// Whether this Mac will open a file-browsing scope that is not a shell, so the Mac terminals
+    /// screen can offer Files on its own. See ``ServerHello/supportsFileBrowser``.
+    var hostSupportsFileBrowser = false
+
+    /// Whether this Mac can change which model a chat runs. See
+    /// ``ServerHello/supportsAgentModelPicker``.
+    var hostSupportsAgentModelPicker = false
+
+    /// The agents this Mac can chat with. A Mac from before the list chats with the first two.
+    /// See ``ServerHello/agentChatAgents``.
+    var hostChatAgents: Set<String> = ["claude", "codex"]
+
+    /// The scope this phone browses the Mac's files through when no shell is involved.
+    ///
+    /// Made once per Mac connection and reused: every path, preview and upload is keyed by it the
+    /// way a terminal's browsing is keyed by the terminal's id, so the whole browser works
+    /// unchanged — and a reconnect re-announces the same id rather than starting over.
+    let browserID = UUID()
+
     /// What this Mac said about carrying a picture on the clipboard. See
     /// ``ClipboardImages/maySend(toHostDeclared:)``.
     ///
@@ -744,6 +768,79 @@ final class MacSession: Identifiable {
 
     var terminals: [RemoteTerminal] = []
     var selectedTerminalID: UUID?
+
+    /// The folder a shell being made was asked to open in, sent as its first line when the Mac
+    /// says the shell exists. See ``createTerminal(inDirectory:)``.
+    var pendingTerminalDirectory: String?
+
+    /// The last list published to the Lock Screen, so an unchanged one is not re-sent on every
+    /// keystroke a shell prints.
+    var publishedWork: [SessionActivityAttributes.ContentState.Work]?
+
+    /// What is running here, for the Lock Screen card: something waiting on the user first, then
+    /// whatever else is going, newest last. Capped, because a Lock Screen has room for a few lines
+    /// and the card's own line already says how many Macs are open.
+    func workItems() -> [SessionActivityAttributes.ContentState.Work] {
+        var work: [SessionActivityAttributes.ContentState.Work] = []
+        for session in agentSessions {
+            let folder = session.directory.split(separator: "/").last.map(String.init)
+            switch session.state {
+            case .awaitingApproval:
+                work.append(.init(name: session.title, symbol: "questionmark.bubble", state: .waiting, detail: folder))
+            case .working:
+                work.append(.init(
+                    name: session.title,
+                    symbol: TerminalAgent.all.first { $0.id == session.agentID }?.symbol ?? "sparkles",
+                    state: .live,
+                    detail: folder
+                ))
+            case .failed:
+                work.append(.init(name: session.title, symbol: "exclamationmark.triangle", state: .failed, detail: folder))
+            case .idle, .exited:
+                break
+            }
+        }
+        for terminal in terminals where terminal.isRunning {
+            if terminal.attention != nil {
+                work.append(.init(name: terminal.name, symbol: "lock", state: .waiting))
+            } else if terminal.failure != nil {
+                work.append(.init(name: terminal.name, symbol: "exclamationmark.triangle", state: .failed))
+            } else {
+                work.append(.init(name: terminal.name, symbol: "terminal", state: .live))
+            }
+        }
+        // Waiting on the user is the fact worth the Lock Screen's space, so those lines come first.
+        return Array(work.sorted { $0.state.isWaiting && !$1.state.isWaiting }.prefix(4))
+    }
+
+    /// Sends the list to the Live Activity, when it has changed and when this is the Mac on screen.
+    ///
+    /// Called from every terminal and agent event rather than from the screens: the card's whole
+    /// point is the moment nobody is looking at the app.
+    func publishWork() {
+        guard model.activeSessionID == id else { return }
+        let work = workItems()
+        guard work != publishedWork else { return }
+        publishedWork = work
+        SessionActivity.shared.workChanged(work)
+    }
+
+    /// The shell the Mac has just made, for the screen that asked for it to open.
+    ///
+    /// A terminal has no id until the Mac answers that it made one, so nothing can move to it at
+    /// the tap. The answer leaves it here, the panel takes it, and it stays nil the rest of the
+    /// time: a terminal arriving for some other reason is not one to be dragged in front of.
+    var newTerminalID: UUID?
+
+    // MARK: - Agent chats
+
+    var agentSessions: [RemoteAgentSession] = []
+    var selectedAgentSessionID: UUID?
+
+    /// The same for a chat the Mac has just opened, and the same shape on purpose.
+    var newAgentSessionID: UUID?
+    /// The folder picker a chat is started from.
+    var agentPicker = AgentPickerState()
 
     /// The command last sent, and when, so the shell's answer can be read against it.
     ///

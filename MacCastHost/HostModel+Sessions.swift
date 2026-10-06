@@ -275,4 +275,30 @@ extension HostModel {
         IOPMAssertionRelease(sleepAssertionID)
         sleepAssertionID = 0
     }
+
+    /// Held while a chat session is working, released when the last one stops.
+    ///
+    /// A different assertion from the session one above, and a different type: that one is about
+    /// keeping a *display* lit so capture has something to encode, and this one is about the
+    /// machine not going to sleep under a CLI the user left running. Idle sleep is what is being
+    /// refused here, which is what `caffeinate -i` takes; the lid-close switch is the user's own
+    /// preference and stays out of it.
+    func setAgentActivity(_ active: Bool) {
+        if active {
+            guard agentSleepAssertionID == 0 else { return }
+            let result = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+                IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                "Peering is running an agent" as CFString,
+                &agentSleepAssertionID
+            )
+            if result != kIOReturnSuccess {
+                hostLog.notice("could not acquire the agent sleep assertion (IOReturn \(result, privacy: .public))")
+            }
+        } else {
+            guard agentSleepAssertionID != 0 else { return }
+            IOPMAssertionRelease(agentSleepAssertionID)
+            agentSleepAssertionID = 0
+        }
+    }
 }

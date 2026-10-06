@@ -580,13 +580,7 @@ private struct ConnectingView: View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
 
-            RadialGradient(
-                colors: [.white.opacity(0.07), .clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 460
-            )
-            .ignoresSafeArea()
+            TopGlow()
 
             VStack(spacing: 26) {
                 // The two devices, mid-handshake, where a lone Mac used to be. A single glyph said
@@ -668,8 +662,10 @@ private struct ConnectingView: View {
 
     private var detail: String {
         if let failure { return failure }
-        if isConnected { return "Connected" }
-        return isSlow ? String(localized: "Still trying. The Mac has not answered yet.") : "Connecting…"
+        if isConnected { return String(localized: "Connected") }
+        return isSlow
+            ? String(localized: "Still trying. The Mac has not answered yet.")
+            : String(localized: "Connecting…")
     }
 }
 

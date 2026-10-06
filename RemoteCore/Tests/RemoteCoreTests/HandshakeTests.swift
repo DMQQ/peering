@@ -127,6 +127,86 @@ struct HandshakeTests {
         #expect(decoded == hello)
     }
 
+    @Test("the agents a Mac can chat with are additive and survive the wire")
+    func agentChatAgentsCapability() throws {
+        let older = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(try MessageCodec.decode(ServerHello.self, from: older).agentChatAgents == nil)
+
+        let hello = ServerHello(
+            serverID: "server-1",
+            hostName: "Mac",
+            protocolVersion: 20,
+            alreadyPaired: true,
+            agentChatAgents: ["claude", "codex", "opencode"]
+        )
+        let decoded = try MessageCodec.decode(ServerHello.self, from: try MessageCodec.encode(hello))
+        #expect(decoded.agentChatAgents == ["claude", "codex", "opencode"])
+    }
+
+    @Test("agent chat is additive on both sides and survives the wire")
+    func agentChatCapability() throws {
+        let olderServer = Data(
+            #"{"serverID":"server-1","hostName":"Mac","protocolVersion":20,"alreadyPaired":true}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsAgentChat == nil
+        )
+        // The two capabilities this round added are absent from the same older hello, which is
+        // what keeps their requests from being sent to a Mac that cannot decode them.
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsFileBrowser == nil
+        )
+        #expect(
+            try MessageCodec.decode(ServerHello.self, from: olderServer)
+                .supportsAgentModelPicker == nil
+        )
+
+        let server = ServerHello(
+            serverID: "server-1",
+            hostName: "Damian's MacBook Pro",
+            protocolVersion: ProtocolInfo.version,
+            alreadyPaired: true,
+            supportsAgentList: true,
+            supportsAgentChat: true,
+            supportsFileBrowser: true,
+            supportsAgentModelPicker: true
+        )
+        let decodedServer = try MessageCodec.decode(
+            ServerHello.self,
+            from: try MessageCodec.encode(server)
+        )
+        #expect(decodedServer.supportsAgentChat == true)
+        #expect(decodedServer == server)
+
+        // The client's own declaration, which is what restrains the Mac's stream: a phone too old
+        // to read an agent event must be answered with nothing rather than a frame it cannot decode.
+        let olderClient = Data(
+            #"{"clientID":"c-1","clientName":"iPhone","protocolVersion":20,"wantsPairing":false}"#.utf8
+        )
+        #expect(
+            try MessageCodec.decode(ClientHello.self, from: olderClient)
+                .supportsAgentChat == nil
+        )
+
+        let client = ClientHello(
+            clientID: "c-1",
+            clientName: "iPhone",
+            protocolVersion: ProtocolInfo.version,
+            wantsPairing: false,
+            supportsAgentChat: true
+        )
+        let decodedClient = try MessageCodec.decode(
+            ClientHello.self,
+            from: try MessageCodec.encode(client)
+        )
+        #expect(decodedClient.supportsAgentChat == true)
+        #expect(decodedClient == client)
+    }
+
     /// The other direction, and the one that decides whether the flag is additive at all: a
     /// client that has never heard of the field ignores it, which is what makes an updated Mac
     /// reachable from an older phone. A Mac that cannot be reached is the cost this design

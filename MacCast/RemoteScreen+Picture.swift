@@ -42,6 +42,9 @@ extension RemoteScreen {
             } ?? 1
         )
             .ignoresSafeArea()
+            // The bar's insertion animates the safe area this view ignores, and the hosted layer
+            // glided with it, so the picture moved a little each time the keyboard came or went.
+            .transaction { $0.disablesAnimations = true }
             // Not at once: every reconnect is ready a moment before its first picture, and the
             // card would flash over each one. A stream that has really stopped stays stopped.
             .task(id: model.phase == .ready && !model.isVideoStreaming) {

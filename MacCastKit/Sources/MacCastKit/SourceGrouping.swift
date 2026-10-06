@@ -108,7 +108,7 @@ public enum SourceGrouping {
             let application = byKey[key]
             // The application's name where there is one, and the window's own record of it
             // otherwise, which is the same string the host put there for this purpose.
-            let title = application?.title ?? first.subtitle ?? "Windows"
+            let title = application?.title ?? first.subtitle ?? String(localized: "Windows")
             return ApplicationGroup(
                 id: application?.id ?? "group:\(key)",
                 application: application,

@@ -129,9 +129,7 @@ struct PermissionOnboardingView: View {
                 }
 
                 Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
 
                 Text(consequence)
                     .font(.caption.weight(.medium))

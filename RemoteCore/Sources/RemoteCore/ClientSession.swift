@@ -128,6 +128,8 @@ public final class ClientSession: @unchecked Sendable {
         case audio(AudioEvent)
         /// A reconnectable shell session event from the authenticated control channel.
         case terminal(TerminalEvent)
+        /// An agent chat session event from the authenticated control channel.
+        case agent(AgentEvent)
         /// The relay's free allowance for this client ID is exhausted for the current period.
         case relayQuotaExceeded
         /// The user stopped hosting on the Mac. Sent just before the session fails, so the app
@@ -695,6 +697,10 @@ public final class ClientSession: @unchecked Sendable {
             supportsClipboardImages: true,
             supportsTextFocus: true,
             supportsFieldState: true,
+            // The same restraint argument as the two above, for agent events: the Mac streams a
+            // chat to the client that started it, and it is the Mac that must know whether the
+            // phone can read what it sends.
+            supportsAgentChat: true,
             resumeSource: knowsHost ? resumeSource : nil
         ))
 
@@ -1101,6 +1107,13 @@ public final class ClientSession: @unchecked Sendable {
                 sessionLog.error("could not decode a terminal event, so it is being dropped")
             }
 
+        case .agentEvent:
+            if let event = try? MessageCodec.decode(AgentEvent.self, from: frame.payload) {
+                emit(.agent(event))
+            } else {
+                sessionLog.error("could not decode an agent event, so it is being dropped")
+            }
+
         // The clipboard's chunks, before the picture's. Both arrive as the same frame kind on this
         // one connection, so which lane a chunk belongs to is the kind byte inside it, and the
         // order of these two cases is what makes it matter: without the guard the clipboard's
@@ -1156,6 +1169,14 @@ public final class ClientSession: @unchecked Sendable {
     public func sendTerminal(_ request: TerminalRequest) {
         guard isReady else { return }
         connection()?.send(.terminalRequest, request)
+    }
+
+    /// Sends an agent chat request directly on the authenticated control stream, for the same
+    /// reason terminal requests bypass the coalescer: prompts and approvals are a conversation,
+    /// and a coalesced one would drop turns.
+    public func sendAgent(_ request: AgentRequest) {
+        guard isReady else { return }
+        connection()?.send(.agentRequest, request)
     }
 
     /// Puts a picture on the Mac's pasteboard.

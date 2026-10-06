@@ -36,11 +36,7 @@ struct SSHLockSheet: View {
             .background(ColorPalette.backdrop)
             .navigationTitle("Locked")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { model.cancelUnlock() }
-                }
-            }
+            .sheetToolbar(onCancel: { model.cancelUnlock() })
         }
         .preferredColorScheme(.dark)
         .presentationDetents([.height(host.lock == .passcode ? 400 : 280)])

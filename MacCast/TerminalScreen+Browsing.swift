@@ -3,7 +3,7 @@ import RemoteCore
 import SSHCore
 import SwiftUI
 
-extension TerminalPanel {
+extension TerminalScreen {
     // MARK: - Browsing
 
     /// The browser, or the file it is showing, in the terminal's place.

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// A shell on a server.
 ///
-/// Built alongside ``TerminalPanel`` rather than inside it. That panel is the Mac's terminals, and
+/// Built alongside ``TerminalScreen`` rather than inside it. That panel is the Mac's terminals, and
 /// every part of it that could have been shared already is — the sanitizer, the command field, the
 /// waiting animation. What is left is genuinely different: these tabs are servers rather than
 /// shells on one Mac, a session ends when the tab is closed rather than by asking the Mac to, and
@@ -29,7 +29,7 @@ struct SSHTerminalScreen: View {
 
     @State private var command = ""
     /// A plain flag rather than `@FocusState`, for the reason spelled out at length in
-    /// ``TerminalPanel``: the field is a `UITextField` owning its own responder status, and
+    /// ``TerminalScreen``: the field is a `UITextField` owning its own responder status, and
     /// SwiftUI clears a `@FocusState` that no `.focused()` modifier ever claimed.
     @State private var inputFocused = false
     /// The last size sent, so a layout pass that did not actually change the number of cells does
@@ -81,7 +81,7 @@ struct SSHTerminalScreen: View {
             // not a choice — and that is still true, but the row is also the one place the end
             // question can be asked from without the card running off the edge of the screen. It
             // paid for itself further with one shell than it was costing: the status dot and the
-            // cross on it are about that shell, and the row is what ``TerminalPanel`` draws for
+            // cross on it are about that shell, and the row is what ``TerminalScreen`` draws for
             // the Mac's terminals whatever their number.
             tabStrip
                 .tourAnchor(.shellTabs)
@@ -165,15 +165,15 @@ struct SSHTerminalScreen: View {
             // A second shell on the same machine, from inside the first — which is where anyone
             // would look for it. It was reachable only by leaving this screen, long-pressing a
             // server in the list and picking "New shell", which is not a place anybody goes
-            // looking for a tab. `TerminalPanel` has put a `+` in this exact spot for the Mac's
-            // own terminals all along.
+            // looking for a tab. The Mac's own terminals keep their `+` in the same spot, one
+            // screen in, on the hub that lists them.
             ToolbarItem(placement: .topBarTrailing) {
                 // The same button in the same place on every plan. A second shell from inside the
                 // first is the one anyone would look for, so it is the last place to hide the fact
                 // that several are possible: on a plan that runs one shell at a time the plus is
                 // still a plus, dimmed, with the plan's name on its corner, and the tap opens the
                 // plans rather than a shell.
-                PlanLocked(capability: .shellTabs, title: "New shell", diameter: 20) {
+                PlanLocked(capability: .shellTabs, title: String(localized: "New shell"), diameter: 20) {
                     Button("New shell", systemImage: "plus") {
                         model.openAnotherShell(on: terminal)
                     }
@@ -235,7 +235,7 @@ struct SSHTerminalScreen: View {
         }
     }
 
-    /// `TerminalPanel`'s log, over this shell's bytes.
+    /// `TerminalScreen`'s log, over this shell's bytes.
     ///
     /// Wrapping is off and horizontal scrolling is the inner view, so columns from a `ls` or a
     /// `top` line up — the same trade that panel makes, for the same reason.
@@ -322,7 +322,7 @@ struct SSHTerminalScreen: View {
         guard size.width > 0, size.height > 0 else { return }
         let columns = TerminalMetrics.columns(forWidth: size.width, fontSize: fontSize)
         // Rows only ever grow: the keyboard and the key deck shorten the log, and neither is a
-        // change to the server's screen. See ``TerminalPanel/applySize(_:to:)``, which is the same
+        // change to the server's screen. See ``TerminalScreen/applySize(_:to:)``, which is the same
         // rule for the Mac's own shells.
         let rows = max(lastRows, TerminalMetrics.rows(forHeight: size.height, fontSize: fontSize))
         guard columns != lastColumns || rows != lastRows else { return }

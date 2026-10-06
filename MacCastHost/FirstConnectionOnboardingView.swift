@@ -157,9 +157,7 @@ struct FirstConnectionOnboardingView: View {
                     Text("From another network")
                         .font(.subheadline.weight(.medium))
                     Text("Not on this Wi-Fi? Scan this from Peering on your iPhone, or type the ID in by hand.")
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
 
                     Text(model.deviceID)
                         .font(.system(size: 11, design: .monospaced))
@@ -190,9 +188,7 @@ struct FirstConnectionOnboardingView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.subheadline.weight(.medium))
                 Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
             }
 
             Spacer(minLength: 0)

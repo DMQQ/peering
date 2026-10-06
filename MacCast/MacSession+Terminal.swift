@@ -9,9 +9,29 @@ import SwiftUI
 extension MacSession {
     func refreshTerminals() { wire?.sendTerminal(.list) }
 
+    static func installedAgentsKey(_ hostName: String) -> String { "Peering.installedAgents.\(hostName)" }
+
+    /// What this Mac said last time, so the list is right from the first frame instead of showing
+    /// every agent until the answer arrives.
+    var knownInstalledAgents: Set<String>? {
+        if let installedAgents { return installedAgents }
+        guard hostSupportsAgentList, let hostName,
+              let saved = UserDefaults.standard.stringArray(forKey: Self.installedAgentsKey(hostName))
+        else { return nil }
+        return Set(saved)
+    }
+
     func refreshAgents() {
         guard hostSupportsAgentList else { return }
         wire?.sendTerminal(.agents)
+    }
+
+    /// Makes this phone's browsing scope on the Mac, which is what the hub's own file browser
+    /// hangs on. Sent on every arrival at `.ready` and again when the browser opens, because the
+    /// Mac drops scopes with the connection and takes the same id again without complaint.
+    func openFileScope() {
+        guard hostSupportsFileBrowser else { return }
+        wire?.sendTerminal(.startBrowser(id: browserID))
     }
 
     /// Whether one more shell is allowed right now.
@@ -37,12 +57,24 @@ extension MacSession {
     /// Opens a shell. It has no name to start with — the Mac numbers it, and the first command
     /// typed into it is what it ends up being called.
     func createTerminal() {
+        createTerminal(inDirectory: nil)
+    }
+
+    /// Opens a shell, in a folder the user chose when there is one.
+    ///
+    /// **The folder is a `cd`, not a flag.** The wire's create request has no directory, and it
+    /// does not need one: a shell opens in the login folder and is sent one line, exactly as a
+    /// browser sends `cd` when a folder is opened. Sent as bytes rather than through
+    /// ``sendTerminalInput(_:to:)`` so it does not name the shell "cd" or land in the command
+    /// history — the same reasoning ``navigate(to:in:)`` records.
+    func createTerminal(inDirectory path: String?) {
         // **The concurrency gate, and the reason it is enforced here rather than only on the
         // button.** Three things ask for a shell: the terminal's own `+`, the SSH tab's menu, and a
         // Run from the file browser. A check drawn on one of them would be a check the other two
         // walk past, which is the shape of gate that ends up on a review as a promise the app does
         // not keep.
         guard canOpenAnotherShell else { return }
+        pendingTerminalDirectory = path
         wire?.sendTerminal(.create)
     }
 
@@ -60,18 +92,21 @@ extension MacSession {
     /// sentence the feature is described with: a line typed into a shell you already have.
     func runInNewTerminal(_ command: String) {
         guard canOpenAnotherShell else {
-            // `selectedTerminalID` is the shell on screen, which is the one the browser is open
-            // over: the browser follows the selected tab, so it cannot be pointing at another.
-            // A running shell as the fallback, for the case where the selection is one that has
-            // ended and the Mac has not said so yet: a command sent into a dead tab would be a
-            // Run that silently did nothing.
-            let target = terminals.first { $0.id == selectedTerminalID && $0.isRunning }?.id
-                ?? terminals.last(where: { $0.isRunning })?.id
-            if let target { sendTerminalInput(command, to: target) }
+            if let target = runningShellTargetID { sendTerminalInput(command, to: target) }
             return
         }
         pendingRun = command
         createTerminal()
+    }
+
+    /// The running shell a command lands in when another one cannot be opened.
+    ///
+    /// `selectedTerminalID` first, which is the shell on screen. A running one as the fallback,
+    /// for the case where the selection is one that has ended and the Mac has not said so yet: a
+    /// command sent into a dead tab would be a Run that silently did nothing.
+    var runningShellTargetID: UUID? {
+        terminals.first { $0.id == selectedTerminalID && $0.isRunning }?.id
+            ?? terminals.last(where: { $0.isRunning })?.id
     }
 
     /// Names a terminal by hand. This is the name it keeps, whatever runs in it next.
@@ -156,6 +191,9 @@ extension MacSession {
     func resizeTerminal(_ id: UUID, columns: Int, rows: Int) {
         guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
         let rows = max(terminals[index].rows, rows)
+        #if DEBUG
+        TerminalTrace.write(["k": "r", "id": id.uuidString, "c": columns, "r": rows, "was": [terminals[index].columns, terminals[index].rows], "n": terminals[index].output.count])
+        #endif
         terminals[index].columns = columns
         terminals[index].rows = rows
         // Sent even when it matches what this end believes, because the Mac's PTY is not this
@@ -289,6 +327,14 @@ extension MacSession {
     /// a silent rename, leaves two files where the user expects one.
     func uploadFile(_ url: URL, sessionID id: UUID) {
         guard let folder = browsingPaths[id] else { return }
+        uploadFile(url, toFolder: folder, sessionID: id)
+    }
+
+    /// The same upload, into a folder named outright.
+    ///
+    /// The chat screen's attachments go this way: what is picked belongs in the chat's own folder,
+    /// which no browser is open over, and the folder it lands in is the one the agent works in.
+    func uploadFile(_ url: URL, toFolder folder: String, sessionID id: UUID) {
 
         // **A folder the user picked is the case this catches, and it used to be a raw error.**
         // The picker offers everything, and a folder went down the file path: a directory has
@@ -874,26 +920,40 @@ extension MacSession {
         switch event {
         case .agents(let installed):
             installedAgents = Set(installed)
+            if let hostName { UserDefaults.standard.set(installed, forKey: Self.installedAgentsKey(hostName)) }
 
         case .snapshot(let infos):
-            terminals = infos.map {
-                RemoteTerminal(id: $0.id, name: $0.name, isRunning: $0.isRunning)
-            }
+            // The output each of these sessions had is gone with the old entries and arrives again
+            // in the listing's own replay; the *shape* of their screens must not go with it, since
+            // that replay is laid out on it. See ``RemoteTerminal/from(_:remembering:)``.
+            terminals = RemoteTerminal.from(infos, remembering: terminals)
             if selectedTerminalID == nil || !terminals.contains(where: { $0.id == selectedTerminalID }) {
                 selectedTerminalID = terminals.first?.id
             }
         case .created(let info):
             terminals.removeAll { $0.id == info.id }
-            terminals.append(RemoteTerminal(id: info.id, name: info.name, isRunning: info.isRunning))
+            terminals.append(RemoteTerminal(info))
             selectedTerminalID = info.id
+            newTerminalID = info.id
             append(note: String(localized: "\(info.name) opened"))
             // The shell a Run button was waiting for. Taken here rather than left set, because the
             // id it needs did not exist until this line — see ``pendingRun``. Through
             // ``sendTerminalInput(_:to:)`` rather than the raw send, so the tab is named after the
             // file it is running and the command lands in the history like any other.
+            // The folder a new shell was asked to open in, sent as its first line. Raw bytes, so
+            // it does not re-title the shell or fill the command history with a `cd`.
+            if let directory = pendingTerminalDirectory {
+                pendingTerminalDirectory = nil
+                sendTerminalBytes(Array("cd -- \(ShellPath.quoted(directory))\r".utf8), to: info.id)
+            }
             if let command = pendingRun {
                 pendingRun = nil
                 sendTerminalInput(command, to: info.id)
+                // The launch that asked for this shell, named by the command it ran: what makes a
+                // history row a way back into the shell rather than a line of text.
+                if let agent = TerminalAgent.all.first(where: { $0.command == command }) {
+                    AgentHistory.attach(terminalID: info.id, toNewest: agent.id)
+                }
             }
         case .renamed(let info):
             guard let index = terminals.firstIndex(where: { $0.id == info.id }) else { return }
@@ -901,6 +961,9 @@ extension MacSession {
         case .output(let id, let data):
             guard let index = terminals.firstIndex(where: { $0.id == id }) else { return }
             forgetUnknownCommand(data)
+            #if DEBUG
+            TerminalTrace.write(["k": "d", "id": id.uuidString, "h": data.map { String(format: "%02x", $0) }.joined()])
+            #endif
             terminals[index].output.append(data)
             // The shell said something, so whatever it was waiting on has been answered and
             // whatever went wrong before is no longer what the terminal is doing.
@@ -1091,7 +1154,11 @@ extension MacSession {
             pendingRun = nil
             append(note: String(localized: "Terminal: \(message)"))
         }
-    }
+    
+        // The Lock Screen's list of what is running, which changes with the shells rather than
+        // with the connection.
+        publishWork()
+}
 
 }
 

@@ -145,7 +145,7 @@ struct SSHQuickCommandSheet: View {
                     footer: String(localized: "Name is what the chip says. Leave it empty and the first word of the command is used instead.")
                 ) {
                     VStack(spacing: 10) {
-                        Controls.row("Name", systemImage: "tag") {
+                        Controls.row(String(localized: "Name"), systemImage: "tag") {
                             TextField("Optional", text: $title)
                                 .multilineTextAlignment(.trailing)
                                 .foregroundStyle(ColorPalette.ink)
@@ -185,11 +185,7 @@ struct SSHQuickCommandSheet: View {
             .background(ColorPalette.backdrop)
             .navigationTitle(existing == nil ? "New Command" : "Edit Command")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
+            .sheetToolbar(onCancel: { dismiss() })
         }
         .presentationDetents([.height(400)])
         .preferredColorScheme(.dark)

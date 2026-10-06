@@ -34,7 +34,7 @@ extension SourcesPanel {
         let matches = filtered(descriptors).filter { buildingMosaic || !$0.isVirtualDisplay }
         if !matches.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Screens")
+                SectionLabel(String(localized: "Screens"))
                 if buildingMosaic {
                     // **Said here because the tap moves the Mac**, which is not what a picker is
                     // expected to do and is the one thing about this panel worth warning a user
@@ -417,8 +417,7 @@ extension SourcesPanel {
             // to a display already named there looked like no move at all and sent nothing.
             model.selectSource(source)
         }
-        // The panel stays open: desktops are flicked through to find the right one, and a tap on
-        // the picture closes it once they have.
+        onSelect()
     }
 
     /// Whether the desktops are worth drawing at all.

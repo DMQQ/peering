@@ -176,11 +176,7 @@ struct PairingPrompt: View {
                 .ignoresSafeArea()
                 .navigationTitle("Scan your Mac")
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { showsScanner = false }
-                    }
-                }
+                .sheetToolbar(onCancel: { showsScanner = false })
             }
             .presentationDetents([.medium, .large])
         }

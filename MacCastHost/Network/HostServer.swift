@@ -36,6 +36,7 @@ final class HostServer: @unchecked Sendable {
     private var pendingRelayBridges: [RelayTunnel] = []
     private var activeRelayBridges: [RelayTunnel] = []
     private let terminalManager = TerminalSessionManager()
+    private let agentManager = AgentSessionManager()
 
     /// A relay session's local end, and the allocation the relay gave it.
     ///
@@ -72,6 +73,18 @@ final class HostServer: @unchecked Sendable {
     var onPushNeeded: (@Sendable (String, String, String) -> Void)? {
         get { callbackLock.withLock { _onPushNeeded } }
         set { callbackLock.withLock { _onPushNeeded = newValue } }
+    }
+
+    private var _onAgentActivity: (@Sendable (Bool) -> Void)?
+
+    /// Called when the set of chats that are doing something becomes empty, or stops being empty.
+    ///
+    /// Not the push path: this is about the Mac's own sleep assertion, which the phone neither
+    /// hears about nor controls. An agent left working with the phone away is the feature's
+    /// whole promise, and a Mac that sleeps under it breaks that promise quietly.
+    var onAgentActivity: (@Sendable (Bool) -> Void)? {
+        get { callbackLock.withLock { _onAgentActivity } }
+        set { callbackLock.withLock { _onAgentActivity = newValue } }
     }
 
     var onEvent: (@Sendable (HostEvent) -> Void)? {
@@ -184,6 +197,14 @@ final class HostServer: @unchecked Sendable {
         guard listener == nil else { return }
         terminalManager.onPushNeeded = { [weak self] token, title, message in
             self?.onPushNeeded?(token, title, message)
+        }
+        agentManager.onPushNeeded = { [weak self] token, title, message in
+            self?.onPushNeeded?(token, title, message)
+        }
+        // Kept as its own callback rather than folded into the push path: this one is about this
+        // Mac's own sleep assertion, which the phone has no say in and nothing to hear about.
+        agentManager.onActivityChanged = { [weak self] active in
+            self?.onAgentActivity?(active)
         }
 
         let tls = try TLSConfig.serverOptions(identity: identity, queue: queue)
@@ -439,6 +460,10 @@ final class HostServer: @unchecked Sendable {
             guard let self, let session else { return }
             self.terminalManager.handle(clientID: session.clientID, request: request, sink: sink)
         }
+        session.onAgentRequest = { [weak self, weak session] request, sink in
+            guard let self, let session else { return }
+            self.agentManager.handle(clientID: session.clientID, request: request, sink: sink)
+        }
         // Only a session that arrived through the relay has anywhere to send datagrams, and the
         // allocation that says where came in with it. A direct session gets the same silence as a
         // client that is not being served: it has its own video connection.
@@ -499,6 +524,7 @@ final class HostServer: @unchecked Sendable {
             controlSessions.removeAll { $0 === session }
             if !controlSessions.contains(where: { $0.isAuthorized && $0.clientID == session.clientID }) {
                 self.terminalManager.disconnect(clientID: session.clientID)
+                self.agentManager.disconnect(clientID: session.clientID)
             }
             // And the streams it authorized end with it: a video connection that outlived its
             // control session would keep delivering the screen to a client the host believes is

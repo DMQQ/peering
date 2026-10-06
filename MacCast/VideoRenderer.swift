@@ -665,6 +665,18 @@ final class VideoHostView: UIView {
     /// every attempt to catch it by reading.
     let contentView = UIView()
 
+    /// The window's rectangle, and what everything below is laid out in.
+    ///
+    /// **Not this view's own bounds.** Closing the keyboard animates this view's height from about
+    /// 40 points short back to the screen's, one layout pass per step, even though it ignores every
+    /// safe area: the picture re-fitted into each of those heights and swayed up and down. The
+    /// window does not move, so the picture is sized from it and clipped to it here.
+    let clipView: UIView = {
+        let view = UIView()
+        view.clipsToBounds = true
+        return view
+    }()
+
     let displayView = VideoDisplayView()
 
     /// The picture being replaced, still, under the live one.
@@ -707,14 +719,14 @@ final class VideoHostView: UIView {
         backgroundColor = .black
         // The picture is scaled inside this view, and the scaled content view paints outside the
         // bounds unless it is clipped: a sublayer is not clipped by its parent by default, and
-        // this one is a sibling of the chrome's layers.
-        clipsToBounds = true
+        // this one is a sibling of the chrome's layers. The clip is ``clipView``, not this view.
+        addSubview(clipView)
 
         // Under the live one, and both sized the same way. The still is what is left on screen
         // when the live layer is faded out, so it has to cover the same ground.
         for (container, display) in [(backdropContentView, backdropView), (stillContentView, stillView), (contentView, displayView)] {
             container.frame = bounds
-            addSubview(container)
+            clipView.addSubview(container)
             display.frame = container.bounds
             display.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             container.addSubview(display)
@@ -733,12 +745,13 @@ final class VideoHostView: UIView {
     /// picture's scale behind the user's back.
     override func layoutSubviews() {
         super.layoutSubviews()
+        clipView.frame = window.map { convert($0.bounds, from: $0) } ?? bounds
+        let size = clipView.bounds.size
         for container in [backdropContentView, stillContentView, contentView] {
-            container.bounds = CGRect(origin: .zero, size: bounds.size)
-            container.center = CGPoint(x: bounds.midX, y: bounds.midY)
+            container.bounds = CGRect(origin: .zero, size: size)
+            container.center = CGPoint(x: size.width / 2, y: size.height / 2)
         }
     }
-
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }

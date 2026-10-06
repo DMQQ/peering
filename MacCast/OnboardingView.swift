@@ -202,7 +202,7 @@ struct OnboardingView: View {
     var compactWidthBody: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
-            light
+            TopGlow()
 
             VStack(spacing: 0) {
                 TabView(selection: $index) {
@@ -245,7 +245,7 @@ struct OnboardingView: View {
     var regularWidthBody: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
-            light
+            TopGlow()
 
             VStack(spacing: 0) {
                 TabView(selection: $index) {
@@ -718,17 +718,6 @@ struct OnboardingView: View {
         }
         revealContent()
         withAnimation(Motion.arrive) { index += 1 }
-    }
-
-    var light: some View {
-        RadialGradient(
-            colors: [.white.opacity(0.07), .clear],
-            center: .top,
-            startRadius: 0,
-            endRadius: 460
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
     }
 
     /// One page of the tour: what it is about, and what it says.

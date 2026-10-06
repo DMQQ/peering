@@ -54,20 +54,20 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
     /// carry the roomier spellings.
     public var chipTitle: String {
         switch self {
-        case .auto: return "Auto"
-        case .low: return "Low"
-        case .medium: return "Med"
-        case .high: return "High"
+        case .auto: return String(localized: "Auto")
+        case .low: return String(localized: "Low")
+        case .medium: return String(localized: "Med")
+        case .high: return String(localized: "High")
         }
     }
 
     /// The name spelled out, for somewhere with more room than the status chip.
     public var title: String {
         switch self {
-        case .auto: return "Automatic"
-        case .low: return "Low"
-        case .medium: return "Medium"
-        case .high: return "High"
+        case .auto: return String(localized: "Automatic")
+        case .low: return String(localized: "Low")
+        case .medium: return String(localized: "Medium")
+        case .high: return String(localized: "High")
         }
     }
 
@@ -77,10 +77,10 @@ public enum StreamQuality: CaseIterable, Hashable, Sendable, RawRepresentable {
     /// describe the same four presets differently.
     public var menuTitle: String {
         switch self {
-        case .auto: return "Auto, follows the network"
-        case .low: return "Low, 2 Mbps"
-        case .medium: return "Medium, 8 Mbps"
-        case .high: return "High, 20 Mbps"
+        case .auto: return String(localized: "Auto, follows the network")
+        case .low: return String(localized: "Low, 2 Mbps")
+        case .medium: return String(localized: "Medium, 8 Mbps")
+        case .high: return String(localized: "High, 20 Mbps")
         }
     }
 

@@ -209,6 +209,8 @@ struct PaywallView: View {
                 // to be true: a session going straight between the two devices is not capped on
                 // any plan, so what is being sold is the picture on the way round.
                 return String(localized: "A sharper picture when the session is relayed. On your own network it is already uncapped on every plan.")
+            case .agentChat:
+                return String(localized: "Your coding agents as a conversation: their replies, the tools they run and the files they touch drawn natively, with an approve button where the agent asks. Running them in the terminal is on every plan.")
             }
         }
     }
@@ -266,7 +268,7 @@ struct PaywallView: View {
     var body: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
-            light
+            TopGlow()
 
             // Centred while it fits and scrolled from the top when it does not.
             //
@@ -673,17 +675,6 @@ struct PaywallView: View {
         // what made them invisible where they used to be.
         .foregroundStyle(.secondary)
     }
-
-    private var light: some View {
-        RadialGradient(
-            colors: [.white.opacity(0.07), .clear],
-            center: .top,
-            startRadius: 0,
-            endRadius: 460
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-    }
 }
 
 // MARK: - The session the relay ended
@@ -727,14 +718,7 @@ struct AllowanceSpentView: View {
     var body: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
-            RadialGradient(
-                colors: [.white.opacity(0.07), .clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 460
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+            TopGlow()
 
             VStack(alignment: .leading, spacing: 16) {
                 Image(systemName: "clock.badge.exclamationmark")

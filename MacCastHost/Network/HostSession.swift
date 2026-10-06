@@ -114,6 +114,9 @@ final class HostSession: @unchecked Sendable {
     var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
+    /// Where an agent chat request goes for the device that sent it. Named by the session rather
+    /// than the request: who owns a chat is the connection it arrived on.
+    var onAgentRequest: (@Sendable (AgentRequest, @escaping @Sendable (AgentEvent) -> Void) -> Void)?
 
     private var state: State = .awaitingRole
     private(set) var clientID = ""
@@ -139,6 +142,9 @@ final class HostSession: @unchecked Sendable {
     /// Whether the client can decode ``MessageKind/textFocus``. `nil` is a client built before it.
     private var clientSupportsTextFocus: Bool?
     private var clientSupportsFieldState: Bool?
+    /// Whether the client can host an agent chat: it reads ``MessageKind/agentEvent``, which is
+    /// what allows this side to send one. `nil` is a client built before the field existed.
+    private var clientSupportsAgentChat: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     ///
@@ -363,6 +369,7 @@ final class HostSession: @unchecked Sendable {
         clientSupportsClipboardImages = hello.supportsClipboardImages
         clientSupportsTextFocus = hello.supportsTextFocus
         clientSupportsFieldState = hello.supportsFieldState
+        clientSupportsAgentChat = hello.supportsAgentChat
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -415,7 +422,18 @@ final class HostSession: @unchecked Sendable {
             // This host sends terminal alerts through APNs even while this control channel is
             // connected, so an updated phone need not raise the same banner locally as well.
             pushesTerminalAlertsWhileConnected: true,
-            supportsAgentList: true
+            supportsAgentList: true,
+            // The other half of the pair: this Mac can run a chat with an installed coding agent,
+            // and the phone asks only after reading this.
+            supportsAgentChat: true,
+            // And this Mac will open a file-browsing scope with no shell behind it, which is what
+            // the Mac terminals screen's own Files screen browses through.
+            supportsFileBrowser: true,
+            // And this Mac can change which model a chat runs: Claude inside the running process,
+            // Codex one turn at a time.
+            supportsAgentModelPicker: true,
+            // Which agents, since the set grows and a phone cannot guess it from the version.
+            agentChatAgents: AgentSessionManager.chatAgents.keys.sorted()
         ))
         // A trusted client coming back names what it was watching, so capture can start now.
         if alreadyPaired, let source = hello.resumeSource {
@@ -593,6 +611,15 @@ final class HostSession: @unchecked Sendable {
                 self?.sendTerminalEvent(event)
             }
 
+        case .agentRequest:
+            guard frame.payload.count <= Self.maxControlPayload else {
+                throw SessionError.malformedPayload(.agentRequest, SessionError.protocolMismatch(client: 0, host: 0))
+            }
+            let request = try decode(AgentRequest.self, from: frame, as: .agentRequest)
+            onAgentRequest?(request) { [weak self] event in
+                self?.sendAgentEvent(event)
+            }
+
         case .videoTransport:
             guard frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.videoTransport, SessionError.protocolMismatch(client: 0, host: 0))
@@ -617,6 +644,14 @@ final class HostSession: @unchecked Sendable {
     func sendTerminalEvent(_ event: TerminalEvent) {
         guard isAuthorized else { return }
         send(.terminalEvent, event)
+    }
+
+    /// The restraint is on this side: a chat's events travel to the client that started it, and a
+    /// client that has not said it can read an `agentEvent` frame must never be sent one, because
+    /// an unknown frame kind ends its session rather than being dropped.
+    func sendAgentEvent(_ event: AgentEvent) {
+        guard isAuthorized, AgentChatSupport.mayReceive(clientDeclared: clientSupportsAgentChat) else { return }
+        send(.agentEvent, event)
     }
 
     /// Sends the clipboard, cut up if it is too large for one control message.

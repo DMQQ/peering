@@ -61,9 +61,7 @@ extension HostStatusView {
             Text(title)
                 .font(.subheadline.weight(.semibold))
             Text(detail)
-                .font(.caption)
-                .foregroundStyle(HostPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
+                .hostCaption()
             Spacer(minLength: 0)
         }
         .padding(14)

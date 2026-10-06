@@ -7,10 +7,34 @@ public struct TerminalSessionInfo: Codable, Equatable, Sendable, Identifiable {
     public let name: String
     public let isRunning: Bool
 
-    public init(id: UUID, name: String, isRunning: Bool) {
+    /// The shape the shell's screen has, in character cells, when the Mac knows it.
+    ///
+    /// Carried because a client that lists the sessions is sent each one's whole history and has to
+    /// lay it out on the grid it was drawn for. A client that has just opened the panel, or has just
+    /// launched, has no shape of its own to remember, and the default 80×24 turns every frame of a
+    /// full-screen program into wrapped fragments that no later resize can reflow.
+    ///
+    /// Optional, so a Mac too old to know reads as "shape unknown" rather than as a guess.
+    public let columns: Int?
+    public let rows: Int?
+    /// When the shell was opened, which is what the phone shows as "running for 12m". Optional for
+    /// the same reason as the shape: an older Mac says nothing rather than something wrong.
+    public let createdAt: Date?
+
+    public init(
+        id: UUID,
+        name: String,
+        isRunning: Bool,
+        columns: Int? = nil,
+        rows: Int? = nil,
+        createdAt: Date? = nil
+    ) {
         self.id = id
         self.name = name
         self.isRunning = isRunning
+        self.columns = columns
+        self.rows = rows
+        self.createdAt = createdAt
     }
 }
 
@@ -124,10 +148,20 @@ public enum TerminalRequest: Codable, Equatable, Sendable {
     /// this once the terminal has been named by hand.
     case retitle(sessionID: UUID, command: String)
     case close(sessionID: UUID)
+    /// Somewhere to browse files that is not a shell.
+    ///
+    /// The browsing requests below name a *scope*, and a terminal is one kind of scope; this makes
+    /// another, so that the Mac terminals screen can offer the file browser on its own, without a
+    /// shell being opened to hang it on. The id is the client's — the phone picks a UUID, and every
+    /// browse request for that scope carries it — which is what keeps the whole browser, its paths,
+    /// its previews and its uploads, keyed the way it always was.
+    ///
+    /// Sent only to a Mac that declared ``ServerHello/supportsFileBrowser``: an older host cannot
+    /// decode it, and a scope that was never made refuses everything named after it.
+    case startBrowser(id: UUID)
     /// One folder's contents, for the file browser. `nil` means the Mac's home folder, the one path
     /// the phone cannot work out for itself; the answer carries the path it resolved to.
-    case listDirectory(sessionID: UUID, path: String?)
-    /// A file's contents, for the browser's preview. Read-only, and bounded: see
+    case listDirectory(sessionID: UUID, path: String?)    /// A file's contents, for the browser's preview. Read-only, and bounded: see
     /// ``TerminalEvent/fileContents(sessionID:path:offset:totalBytes:data:isLast:)``.
     case readFile(sessionID: UUID, path: String)
     /// Opening a file for writing, which replaces whatever was there. It carries no contents, which

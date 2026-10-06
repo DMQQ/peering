@@ -956,7 +956,7 @@ struct MacroBar: View {
                 // taking the glyph away leaves a row that cannot say which of the buttons in it
                 // edits macros, and the seller of the feature is the last button that should stop
                 // saying what it does.
-                PlanLocked(capability: .macros, title: "Edit macros", diameter: 34) {
+                PlanLocked(capability: .macros, title: String(localized: "Edit macros"), diameter: 34) {
                     Button {
                         showingMacroEditor = true
                     } label: {

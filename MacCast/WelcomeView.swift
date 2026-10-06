@@ -183,7 +183,7 @@ private struct LandingView: View {
     var body: some View {
         ZStack {
             ColorPalette.backdrop.ignoresSafeArea()
-            light
+            TopGlow()
 
             ScrollView {
                 Group {
@@ -484,20 +484,6 @@ private struct LandingView: View {
             .opacity(arrived ? 1 : 0)
             .offset(y: arrived ? 0 : 12)
             .animation(entrance(delay: 0.3), value: arrived)
-    }
-
-    /// One soft light from the top, the same one the host picker uses. A single flat near-black
-    /// reads as a hole rather than as a surface; this gives it a direction without adding a
-    /// colour, which the palette does not have to spare.
-    private var light: some View {
-        RadialGradient(
-            colors: [.white.opacity(0.07), .clear],
-            center: .top,
-            startRadius: 0,
-            endRadius: 460
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
     }
 }
 

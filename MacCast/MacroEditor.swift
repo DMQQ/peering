@@ -68,17 +68,10 @@ struct MacroEditorSheet: View {
             }
             .navigationTitle("New Macro")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        let id = UUID().uuidString
-                        onAdd(Macro(id: id, title: previewTitle, keyCode: selectedKey.keyCode, modifiers: modifiers))
-                        dismiss()
-                    }
-                }
+            .sheetToolbar(onCancel: { dismiss() }, confirm: "Add") {
+                let id = UUID().uuidString
+                onAdd(Macro(id: id, title: previewTitle, keyCode: selectedKey.keyCode, modifiers: modifiers))
+                dismiss()
             }
         }
     }

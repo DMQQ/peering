@@ -33,7 +33,7 @@ struct SSHKeyCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            Controls.row("Name", systemImage: "textformat") {
+            Controls.row(String(localized: "Name"), systemImage: "textformat") {
                 Text(key.comment.isEmpty ? String(localized: "None") : key.comment)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -41,7 +41,7 @@ struct SSHKeyCard: View {
 
             if key.passphrase != nil {
                 Controls.divider
-                Controls.row("Passphrase", systemImage: "lock") {
+                Controls.row(String(localized: "Passphrase"), systemImage: "lock") {
                     Text("Saved with it")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -135,8 +135,7 @@ struct SSHPublicKeySheet: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Controls.card(
-                        "Public key",
+                    Controls.card(String(localized: "Public key"),
                         footer: String(localized: "Append this line to `~/.ssh/authorized_keys` on the server. The private half stays in this iPhone's keychain and is never sent anywhere except as a signature.")
                     ) {
                         VStack(alignment: .leading, spacing: 10) {
@@ -227,15 +226,15 @@ struct SSHKeyImportSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if let pending {
-                        Controls.card("Key", footer: String(localized: "This is what will be saved. The name is only a label, and it is what the server's `authorized_keys` will show beside the key.")) {
+                        Controls.card(String(localized: "Key"), footer: String(localized: "This is what will be saved. The name is only a label, and it is what the server's `authorized_keys` will show beside the key.")) {
                             VStack(spacing: 10) {
                                 SSHKeyCard(key: pending, hasCopied: .constant(false))
                                 Controls.divider
-                                field("Name", systemImage: "textformat", text: $label)
+                                field(String(localized: "Name"), systemImage: "textformat", text: $label)
                             }
                         }
                     } else {
-                        Controls.card("Where from", footer: sourceFooter) {
+                        Controls.card(String(localized: "Where from"), footer: sourceFooter) {
                             VStack(spacing: 10) {
                                 Picker("Where from", selection: $source) {
                                     Text("Paste").tag(Source.paste)
@@ -291,14 +290,14 @@ struct SSHKeyImportSheet: View {
                                     Controls.toggle(String(localized: "It has a passphrase"), systemImage: "lock", isOn: $usesPassphrase)
                                     if usesPassphrase {
                                         Controls.divider
-                                        field("Passphrase", systemImage: "key", text: $passphrase, isSecret: true)
+                                        field(String(localized: "Passphrase"), systemImage: "key", text: $passphrase, isSecret: true)
                                     }
                                 }
                             }
                         }
 
-                        Controls.card("Name", footer: String(localized: "Only a label. It is what the server shows beside the key, and it is what tells your key apart from the one your laptop installed.")) {
-                            field("Name", systemImage: "textformat", text: $label)
+                        Controls.card(String(localized: "Name"), footer: String(localized: "Only a label. It is what the server shows beside the key, and it is what tells your key apart from the one your laptop installed.")) {
+                            field(String(localized: "Name"), systemImage: "textformat", text: $label)
                         }
 
                         if let failure {

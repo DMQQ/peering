@@ -21,7 +21,7 @@ extension SourcesPanel {
     var virtualDisplaysSection: some View {
         if model.hostSupportsVirtualDisplayManagement {
             VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Virtual Displays")
+                SectionLabel(String(localized: "Virtual Displays"))
                 if managedVirtualDisplays.isEmpty {
                     // Nothing to show yet, so a small + and a line saying what one is, rather
                     // than a full-height row that is mostly empty.

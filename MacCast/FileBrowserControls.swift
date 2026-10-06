@@ -34,6 +34,11 @@ import SwiftUI
 struct TerminalModeButton: View {
     /// Whether the folders are on screen. What the button then says is where tapping goes next.
     let isBrowsing: Bool
+    /// Whether the button draws its own frosted surface, which every chip on a panel does.
+    ///
+    /// False in a navigation bar, which already draws one behind everything in it — two glasses
+    /// stacked on each other is a double edge around one small word.
+    var carriesOwnSurface = true
     let action: () -> Void
 
     var body: some View {
@@ -49,13 +54,26 @@ struct TerminalModeButton: View {
             }
             .foregroundStyle(isBrowsing ? ColorPalette.accent : ColorPalette.ink)
             .lineLimit(1)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, carriesOwnSurface ? 10 : 0)
             .frame(height: 26)
-            .glassSurface(in: RoundedRectangle(cornerRadius: 8, style: .continuous), interactive: true)
+            .modifier(ModeButtonSurface(carriesOwnSurface: carriesOwnSurface))
         }
         .buttonStyle(RailButtonStyle(scale: 0.88))
         .accessibilityLabel(isBrowsing ? "Shell" : "Files")
         .accessibilityHint(isBrowsing ? "Shows the shell" : "Browses the files on this machine")
+    }
+}
+
+/// The chip's own frost, or nothing where the surface behind it is already the bar's.
+private struct ModeButtonSurface: ViewModifier {
+    let carriesOwnSurface: Bool
+
+    func body(content: Content) -> some View {
+        if carriesOwnSurface {
+            content.glassSurface(in: RoundedRectangle(cornerRadius: 8, style: .continuous), interactive: true)
+        } else {
+            content
+        }
     }
 }
 
@@ -76,6 +94,11 @@ struct FileBrowseBar: View {
     let isEnabled: Bool
     let showsHidden: Bool
 
+    /// Whether the three shell keys are drawn. True for the two browsers that sit behind a shell;
+    /// false for the hub's, which has no shell to send an interrupt to and would be offering three
+    /// keys that write into nothing.
+    var showsKeys = true
+
     var onInterrupt: () -> Void
     var onEscape: () -> Void
     var onTab: () -> Void
@@ -89,11 +112,15 @@ struct FileBrowseBar: View {
             // screen is showing folders — and `esc` and `tab` beside it, which are the two keys a
             // shell is driven with before any of the others: one to back out of what is running,
             // one to finish a name instead of typing it.
-            TerminalKeyChip(title: "⌃C", label: String(localized: "Interrupt"), height: 30, action: onInterrupt)
-            TerminalKeyChip(title: "esc", label: String(localized: "Escape"), height: 30, action: onEscape)
-            TerminalKeyChip(title: "tab", label: String(localized: "Tab"), height: 30, action: onTab)
+            if showsKeys {
+                TerminalKeyChip(title: "⌃C", label: String(localized: "Interrupt"), height: 30, action: onInterrupt)
+                TerminalKeyChip(title: "esc", label: String(localized: "Escape"), height: 30, action: onEscape)
+                TerminalKeyChip(title: "tab", label: String(localized: "Tab"), height: 30, action: onTab)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+            } else {
+                Spacer(minLength: 0)
+            }
 
             // Reload, which until now lived only inside the failure state — so the one way to ask
             // a folder for a second look was to have it fail to answer the first time.
@@ -133,7 +160,7 @@ struct FileBrowseBar: View {
     }
 
     /// The line between this band of the browser and the list above it, at the one weight every
-    /// seam in either terminal is drawn at — see ``TerminalPanel/hairline``.
+    /// seam in either terminal is drawn at — see ``TerminalScreen/hairline``.
     private var hairline: some View {
         Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
     }

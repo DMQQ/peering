@@ -11,7 +11,7 @@ import os
 /// A folder on the Mac, as a list.
 ///
 /// Draws what it is given and asks for nothing: every tap is a callback, and the panel holds no
-/// session, no path of its own and no cache. ``TerminalPanel`` owns all of that, which is what
+/// session, no path of its own and no cache. ``TerminalScreen`` owns all of that, which is what
 /// lets this be the same view for the two browsers the app is going to have — the Mac this phone
 /// is casting to, and the server the SSH terminal is on — with the difference between them living
 /// in whoever answers the callbacks.
@@ -62,7 +62,10 @@ struct FileBrowserPanel: View {
     /// Go to an absolute path: a breadcrumb, or the row that steps up a level.
     var onNavigate: (String) -> Void
     /// Put a path in the terminal's command line rather than opening it.
-    var onRevealPath: (String) -> Void
+    ///
+    /// Optional: the hub's own file browser has no shell to put anything into, so it leaves this
+    /// out and the row offers no such line rather than one that does nothing.
+    var onRevealPath: ((String) -> Void)?
     /// Ask for the current folder again.
     var onReload: () -> Void
 

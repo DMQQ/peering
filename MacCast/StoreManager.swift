@@ -405,7 +405,7 @@ final class StoreManager {
         var name: String {
             switch self {
             case .relay: return String(localized: "Relay")
-            case .pro: return "Pro"
+            case .pro: return String(localized: "Pro")
             }
         }
 

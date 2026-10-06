@@ -246,17 +246,27 @@ enum ColorPalette {
     }
 }
 
+/// One soft light from the top. A single flat near-black reads as a hole rather than as a surface;
+/// this gives it a direction without adding a colour, which the palette does not have to spare.
+struct TopGlow: View {
+    var body: some View {
+        RadialGradient(
+            colors: [.white.opacity(0.07), .clear],
+            center: .top,
+            startRadius: 0,
+            endRadius: 460
+        )
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 /// The shared backdrop for every root tab: near-black with one soft light from above.
 struct AppBackdrop: View {
     var body: some View {
         ZStack {
             ColorPalette.backdrop
-            RadialGradient(
-                colors: [.white.opacity(0.07), .clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 460
-            )
+            TopGlow()
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)

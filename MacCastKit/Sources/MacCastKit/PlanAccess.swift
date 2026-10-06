@@ -84,6 +84,15 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// the right to look at one somebody else made.
     case virtualDisplays
 
+    /// A chat with a coding agent on the Mac: the native screen, rather than the agent's own
+    /// terminal UI.
+    ///
+    /// A capability rather than a limit: the terminal stays free on every plan and the agent's own
+    /// CLI runs in it as it always has, so what a plan buys here is the screen that renders the
+    /// conversation natively, with approvals as buttons and the transcript as something readable
+    /// on a phone.
+    case agentChat
+
     /// The cheapest plan that includes this, which is the whole of the map.
     ///
     /// A `RelayPlan` rather than a `StoreManager.Tier`: the tiers are what the App Store sells and
@@ -100,7 +109,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // The second Mac costs and the first must not, which is why the gate is asked against
             // an empty list as well as a paid plan.
             return .pro
-        case .shellTabs, .virtualDisplays, .macros, .highBitrate, .mosaic:
+        case .shellTabs, .virtualDisplays, .macros, .highBitrate, .mosaic, .agentChat:
             // The toolbox: the rung somebody buys to have the tool rather than to run out of it.
             // One shell is free and only the second costs; a display the Mac does not physically
             // have is the same shape of ask.
@@ -115,18 +124,19 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// with nothing connecting it to the control under their thumb.
     public var name: String {
         switch self {
-        case .extraMacs: return "Pairing another Mac"
-        case .concurrentSessions: return "Several Macs at once"
-        case .macSound: return "Sound from the Mac"
-        case .pictureInPicture: return "Picture in Picture"
-        case .fileTransfer: return "Moving files between the phone and the Mac"
-        case .clipboardHistory: return "The clipboard history"
-        case .terminalAlerts: return "Knowing when a terminal needs you"
-        case .mosaic: return "Several windows at once"
-        case .virtualDisplays: return "Virtual displays on the phone"
-        case .shellTabs: return "Several shells at once"
-        case .macros: return "Macros, snippets and quick commands"
-        case .highBitrate: return "The sharpest picture"
+        case .extraMacs: return String(localized: "Pairing another Mac")
+        case .concurrentSessions: return String(localized: "Several Macs at once")
+        case .macSound: return String(localized: "Sound from the Mac")
+        case .pictureInPicture: return String(localized: "Picture in Picture")
+        case .fileTransfer: return String(localized: "Moving files between the phone and the Mac")
+        case .clipboardHistory: return String(localized: "The clipboard history")
+        case .terminalAlerts: return String(localized: "Knowing when a terminal needs you")
+        case .mosaic: return String(localized: "Several windows at once")
+        case .virtualDisplays: return String(localized: "Virtual displays on the phone")
+        case .shellTabs: return String(localized: "Several shells at once")
+        case .macros: return String(localized: "Macros, snippets and quick commands")
+        case .highBitrate: return String(localized: "The sharpest picture")
+        case .agentChat: return String(localized: "Chat with your coding agents")
         }
     }
 }

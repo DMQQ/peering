@@ -335,6 +335,9 @@ extension HostModel {
             server.onPushNeeded = { [weak registration] token, title, message in
                 registration?.notifyDevice(token: token, title: title, body: message)
             }
+            server.onAgentActivity = { [weak self] active in
+                Task { @MainActor [weak self] in self?.setAgentActivity(active) }
+            }
             relayRegistration = registration
             registration.start()
 

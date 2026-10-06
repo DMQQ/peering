@@ -129,7 +129,11 @@ struct Probe {
             clientID: options.clientID,
             clientName: options.clientName,
             protocolVersion: ProtocolInfo.version,
-            wantsPairing: options.pinnedKey == nil
+            wantsPairing: options.pinnedKey == nil,
+            // Declared so the host will stream agent events here. Without it every event of a
+            // chat is dropped by the host's own restraint, and the probe waits on a session
+            // that is working perfectly.
+            supportsAgentChat: true
         )
         channel.send(Frame(kind: .clientHello, payload: try MessageCodec.encode(hello)))
 
@@ -1015,6 +1019,15 @@ struct Probe {
         for path in options.readFiles {
             try await readFile(path, on: channel)
         }
+        if options.filesBrowse {
+            try await filesBrowse(options, on: channel)
+        }
+        if options.agentClean {
+            try await agentCleanup(on: channel)
+        }
+        if !options.agentPrompts.isEmpty {
+            try await agentChat(options, on: channel)
+        }
         for action in options.actions {
             switch action {
             case .type(let text):
@@ -1383,6 +1396,287 @@ struct Probe {
         throw ProbeError(message: "\(path) never finished arriving after \(maxPieces) frames")
     }
 
+    /// An answer as the log spells it, since the verdict is an enum with a payload rather than a
+    /// raw value: a chosen option is an allow that says which one.
+    static func name(of decision: AgentApprovalDecision) -> String {
+        switch decision {
+        case .allow: return "allow"
+        case .deny: return "deny"
+        case .choose(let option): return "choose(\(option))"
+        }
+    }
+
+    /// Browses the Mac's files through a scope with no shell behind it.
+    ///
+    /// The lane the Mac terminals screen's own Files screen uses, and the one thing here that
+    /// proves it: every other file check in this probe opens a terminal first, because that used
+    /// to be the only thing a browse request could name. This one sends a scope id the client
+    /// made, nothing is created on the Mac, and a listing that comes back is the whole proof.
+    static func filesBrowse(_ options: Options, on channel: FrameChannel) async throws {
+        let scope = UUID()
+        channel.send(Frame(
+            kind: .terminalRequest,
+            payload: try MessageCodec.encode(TerminalRequest.startBrowser(id: scope))
+        ))
+        channel.send(Frame(
+            kind: .terminalRequest,
+            payload: try MessageCodec.encode(TerminalRequest.listDirectory(sessionID: scope, path: nil))
+        ))
+
+        var listedPath: String?
+        var entries: [RemoteDirectoryEntry] = []
+        for _ in 0..<Self.maxSkippedFrames {
+            let frame = try await channel.next()
+            guard frame.kind == .terminalEvent else { noteSkipped(frame); continue }
+            switch try MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
+            case .directory(let id, let path, let found, _) where id == scope:
+                listedPath = path
+                entries = found
+            case .browseFailure(let id, _, let message) where id == scope:
+                throw ProbeError(message: "the host would not list with no shell open: \(message)")
+            case .failed(_, let message):
+                throw ProbeError(message: "the host refused the browsing scope: \(message)")
+            default:
+                continue
+            }
+            break
+        }
+        guard let listedPath else {
+            throw ProbeError(message: "no listing arrived for the browsing scope")
+        }
+        let first = entries.prefix(5).map(\.name).joined(separator: ", ")
+        log("FILES LIST \(listedPath) · \(entries.count) entries · first: \(first)")
+
+        guard let file = options.filesFile else {
+            log("FILES OK")
+            return
+        }
+
+        channel.send(Frame(
+            kind: .terminalRequest,
+            payload: try MessageCodec.encode(TerminalRequest.readFile(sessionID: scope, path: file))
+        ))
+        var data = Data()
+        var kind: RemoteFileKind?
+        var totalBytes = 0
+        for _ in 0..<1024 {
+            let frame = try await channel.next()
+            guard frame.kind == .terminalEvent else { noteSkipped(frame); continue }
+            switch try MessageCodec.decode(TerminalEvent.self, from: frame.payload) {
+            case .fileContents(let id, let answered, let eventKind, _, let total, let piece, let isLast):
+                guard id == scope, answered == file else { continue }
+                kind = eventKind
+                totalBytes = total
+                data.append(piece)
+                if isLast {
+                    let shown = (kind ?? .text).rawValue
+                    log("FILES READ \(file) · \(shown) · \(data.count) of \(totalBytes) bytes")
+                    log("FILES OK")
+                    return
+                }
+            case .browseFailure(let id, _, let message) where id == scope:
+                throw ProbeError(message: "the host refused \(file): \(message)")
+            default:
+                continue
+            }
+        }
+        throw ProbeError(message: "\(file) never finished arriving")
+    }
+
+    /// Lists this client's chats and closes every one of them.
+    ///
+    /// A chat is kept across disconnects on purpose, so a check that failed mid-run leaves one
+    /// behind on purpose too; without this, a few failed runs meet the host's per-client limit
+    /// and every later run fails for a reason that has nothing to do with what it was testing.
+    static func agentCleanup(on channel: FrameChannel) async throws {
+        channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(AgentRequest.list)))
+
+        var infos: [AgentSessionInfo] = []
+        for _ in 0..<Self.maxSkippedFrames {
+            let frame = try await channel.next()
+            guard frame.kind == .agentEvent else { noteSkipped(frame); continue }
+            if case .snapshot(let listed) = try MessageCodec.decode(AgentEvent.self, from: frame.payload) {
+                infos = listed
+                break
+            }
+        }
+        for info in infos {
+            log("closing chat \(info.id.uuidString.prefix(8)) · \(info.title) · \(info.state.rawValue)")
+            channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(
+                AgentRequest.close(sessionID: info.id)
+            )))
+        }
+        log("agent cleanup · \(infos.count) chat(s) closed")
+        // The closes are fire-and-forget; a moment's wait lets them land before the next check.
+        try await Task.sleep(for: .milliseconds(300))
+    }
+
+    /// Drives a real chat session from the command line: starts it, sends each prompt, prints
+    /// every event the host streams, answers approvals, and closes it on the way out.
+    ///
+    /// The end-to-end proof without a phone. Everything between the CLI's stdout on the Mac and
+    /// this side's wire is exercised here, including the parts the UI cannot isolate: whether the
+    /// process starts with the login shell's environment, whether the lines parse, and whether an
+    /// approval's answer reaches the CLI.
+    static func agentChat(_ options: Options, on channel: FrameChannel) async throws {
+        let agentID = options.agentID ?? "claude"
+        channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(
+            AgentRequest.start(agentID: agentID, directory: options.agentDirectory)
+        )))
+
+        var sessionID: UUID?
+        for _ in 0..<Self.maxSkippedFrames {
+            let frame = try await channel.next()
+            guard frame.kind == .agentEvent else { noteSkipped(frame); continue }
+            switch try MessageCodec.decode(AgentEvent.self, from: frame.payload) {
+            case .created(let info):
+                sessionID = info.id
+            case .failed(_, let message):
+                throw ProbeError(message: "the host would not start a chat: \(message)")
+            default:
+                continue
+            }
+            break
+        }
+        guard let sessionID else {
+            throw ProbeError(message: "no chat was created, so there is nothing to drive")
+        }
+        log("chat \(sessionID.uuidString.prefix(8)) · \(agentID) · \(options.agentDirectory ?? "home folder")")
+
+        // Closed on the way out, including the way out of a failure: a host keeps a chat alive on
+        // purpose, and a probe that leaks one leaks a CLI process for good.
+        let close = try MessageCodec.encode(AgentRequest.close(sessionID: sessionID))
+        defer { channel.send(Frame(kind: .agentRequest, payload: close)) }
+        var nextPrompt = 0
+        var modelSent = false
+        var events = 0
+        var tools = 0
+        var turns = 0
+        var ready = false
+        var closedCleanly = false
+        let started = Date()
+        let deadline = started.addingTimeInterval(300)
+
+        // A real client pings once a second in the background, and the host ends a session that
+        // goes quiet on it. This check waits on minutes-long work — a login shell resolving a
+        // binary, a CLI starting, a model thinking — so the ping has to keep flowing while this
+        // side is not otherwise sending anything.
+        let pinger = Task { [channel] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                channel.send(Frame(kind: .ping))
+            }
+        }
+        defer { pinger.cancel() }
+
+        func sendNextPrompt() throws {
+            guard nextPrompt < options.agentPrompts.count else { return }
+            let text = options.agentPrompts[nextPrompt]
+            nextPrompt += 1
+            log("prompt \(nextPrompt): \(text.prefix(100))")
+            channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(
+                AgentRequest.prompt(sessionID: sessionID, text: text)
+            )))
+        }
+
+        // The first prompt goes now, not on `sessionReady`: a stream-json CLI does not initialise
+        // until it hears from the client, so waiting for its hello before saying anything waits
+        // for something that only arrives after the thing being waited for. The comment is here
+        // because the first version of this check made exactly that mistake.
+        try sendNextPrompt()
+
+        while Date() < deadline {
+            let frame = try await channel.next()
+            if frame.kind == .pong { continue }
+            guard frame.kind == .agentEvent else { noteSkipped(frame); continue }
+            let event = try MessageCodec.decode(AgentEvent.self, from: frame.payload)
+            switch event {
+            case .modelChanged(_, let model):
+                let name = model ?? "default"
+                log("model now " + name)
+            case .failed(_, let message):
+                throw ProbeError(message: "the chat failed: \(message)")
+            case .stream(let id, let stream) where id == sessionID:
+                events += 1
+                switch stream.payload {
+                case .sessionReady(_, let cliSession, let model, let directory):
+                    ready = true
+                    log("ready · cli session \(cliSession?.prefix(8) ?? "?") · model \(model ?? "?") · \(directory)")
+                case .turnStarted:
+                    log("turn started")
+                case .textDelta:
+                    break
+                case .textFinal(let text):
+                    let oneLine = text.split(separator: "\n").first.map(String.init) ?? ""
+                    log("reply: \(oneLine.prefix(120))")
+                case .toolStarted(let call):
+                    tools += 1
+                    let detail = (call.detail ?? "").split(separator: "\n").first.map(String.init) ?? ""
+                    log("tool \(call.title): \(detail.prefix(100))")
+                case .toolFinished(_, let ok, let output, let truncated):
+                    let first = (output ?? "").split(separator: "\n").first.map(String.init) ?? ""
+                    log("tool \(ok ? "ok" : "FAILED")\(truncated ? " (truncated)" : ""): \(first.prefix(80))")
+                case .approvalRequested(let approvalID, let call, let reason):
+                    let decision: AgentApprovalDecision = options.agentApprove ? .allow : .deny
+                    log("approval → \(Self.name(of: decision)): \(reason ?? call.detail ?? call.title)")
+                    channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(
+                        AgentRequest.approval(sessionID: sessionID, approvalID: approvalID, decision: decision)
+                    )))
+                case .approvalResolved(let approvalID, let decision):
+                    log("approval resolved \(Self.name(of: decision)) (\(approvalID.prefix(8)))")
+                case .turnFinished(let summary):
+                    turns += 1
+                    let cost = summary.costUSD.map { String(format: "$%.4f", $0) } ?? "-"
+                    log("""
+                        turn \(turns) finished · ok \(summary.ok)\(summary.stopped ? " (stopped)" : "") · \
+                        \(cost) · \(summary.inputTokens ?? 0) in / \(summary.outputTokens ?? 0) out · \
+                        \(summary.model ?? "model unknown")
+                        """)
+                    // The change on a session that is certainly live, between two turns, which is
+                    // the case the picker is for: a switch asked for before the CLI has started is
+                    // a write into a pipe that does not exist yet.
+                    if let wanted = options.agentModel, turns == 1, !modelSent {
+                        modelSent = true
+                        log("set_model → \(wanted) (after a turn, the way the picker does it)")
+                        channel.send(Frame(kind: .agentRequest, payload: try MessageCodec.encode(
+                            AgentRequest.setModel(sessionID: sessionID, model: wanted)
+                        )))
+                    }
+                    if nextPrompt < options.agentPrompts.count {
+                        try sendNextPrompt()
+                    } else {
+                        closedCleanly = true
+                    }
+                case .notice(let text):
+                    log("notice: \(text.prefix(120))")
+                case .failure(let message):
+                    log("failure: \(message.prefix(200))")
+                case .sessionExited(let status):
+                    log("session exited with status \(status)")
+                    closedCleanly = true
+                case .userPrompt:
+                    break
+                }
+            default:
+                continue
+            }
+            if closedCleanly { break }
+        }
+
+        let elapsed = Date().timeIntervalSince(started)
+        guard ready else {
+            throw ProbeError(message: "no sessionReady ever arrived: the CLI never came up")
+        }
+        guard closedCleanly else {
+            throw ProbeError(message: "the last turn did not finish within the probe's budget")
+        }
+        log("""
+            AGENT CHAT OK · \(turns) turn(s) · \(events) event(s) · \(tools) tool call(s) · \
+            \(formatSeconds(elapsed))s
+            """)
+    }
+
     /// Sends a ping and waits for the pong, which proves the host has processed everything
     /// sent before it — the two share one connection and one handler, so they are ordered.
     /// Without this the cursor would be read before the move had been handled, and the test
@@ -1593,6 +1887,25 @@ struct Probe {
         /// A file to read the way the browser reads one, and report on. Repeatable, so one run
         /// can ask about a text file and a picture without re-connecting between them.
         var readFiles: [String] = []
+        /// Browse the Mac's files through a scope with no shell behind it: the lane the Mac
+        /// terminals screen's own Files screen uses. Lists the home folder, and reads
+        /// ``filesFile`` when one is named.
+        var filesBrowse = false
+        var filesFile: String?
+        /// Start an agent chat and drive it: one prompt per turn, in order. `--agent` picks the
+        /// CLI (`claude` by default) and `--agent-dir` the folder it works in.
+        var agentID: String?
+        var agentDirectory: String?
+        var agentPrompts: [String] = []
+        /// Answer a permission prompt with allow rather than deny. Off by default: a probe that
+        /// approves its own asks is a probe that can run anything, which is not a thing a script
+        /// nobody is watching should be able to do.
+        var agentApprove = false
+        /// Close every chat this client owns before doing anything else, so repeated runs of a
+        /// check that failed cannot pile up sessions against the host's per-client limit.
+        var agentClean = false
+        /// A model to switch the chat to once it exists, to prove the picker's path end to end.
+        var agentModel: String?
         var find: String?
         var browseSeconds: TimeInterval = 3
         var drive = false
@@ -1710,6 +2023,29 @@ struct Probe {
                         throw ProbeError(message: "--read-file needs a path")
                     }
                     readFiles.append(value)
+                case "--agent-model":
+                    guard let value = iterator.next() else { throw ProbeError(message: "--agent-model needs a name") }
+                    agentModel = value
+                case "--files-browse":
+                    filesBrowse = true
+                case "--files-file":
+                    guard let value = iterator.next() else {
+                        throw ProbeError(message: "--files-file needs a path")
+                    }
+                    filesFile = value
+                case "--agent":
+                    guard let value = iterator.next() else { throw ProbeError(message: "--agent needs an id") }
+                    agentID = value
+                case "--agent-dir":
+                    guard let value = iterator.next() else { throw ProbeError(message: "--agent-dir needs a path") }
+                    agentDirectory = value
+                case "--agent-prompt":
+                    guard let value = iterator.next() else { throw ProbeError(message: "--agent-prompt needs text") }
+                    agentPrompts.append(value)
+                case "--agent-approve":
+                    agentApprove = true
+                case "--agent-clean":
+                    agentClean = true
                 case "--find":
                     guard let value = iterator.next() else { throw ProbeError(message: "--find needs a value") }
                     find = value
@@ -1765,6 +2101,10 @@ struct Probe {
           --find   browse, then connect to the host whose name or ID matches
           --browse-seconds  how long to browse for (default 3)
           --read-file  read a file through a terminal and report what the host said it is
+          --agent  claude|codex for a chat session (default claude)
+          --agent-dir  the folder the agent works in (default: the Mac's home folder)
+          --agent-prompt  a prompt to send; repeat for several turns in one conversation
+          --agent-approve  answer permission prompts with allow instead of deny
                        (repeatable, runs in argument order)
           --drive  move the real cursor and verify it lands where it was told
           --type   send a Unicode text injection (repeatable, runs in argument order)

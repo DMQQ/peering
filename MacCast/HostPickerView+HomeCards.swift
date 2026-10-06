@@ -343,7 +343,7 @@ extension HomeTab {
 
     var pairedCardContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("Trusted Macs", systemImage: "checkmark.shield")
+            sectionLabel(String(localized: "Trusted Macs"), systemImage: "checkmark.shield")
 
             if model.pairedHostIDs.isEmpty {
                 HStack(spacing: 12) {

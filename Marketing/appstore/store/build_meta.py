@@ -560,6 +560,14 @@ Peering 由两个 App 组成。这是 iPhone 端；Mac 端可在 getpeering.app 
 LIMITS = dict(name=30, subtitle=30, promo=170, keywords=100, desc=4000)
 FILES = dict(name="name.txt", subtitle="subtitle.txt", promo="promotional_text.txt", keywords="keywords.txt", desc="description.txt")
 
+# The two pages App Store Connect asks for, the same in every language: they are English pages,
+# and one that does not exist in the reader's language is still the one to send them to. Written
+# here rather than typed into the App Store, so a re-upload cannot quietly empty them again.
+LINKS = dict(
+    support_url="https://getpeering.app/support",
+    marketing_url="https://getpeering.app/",
+)
+
 bad = False
 for loc, d in L.items():
     for k, lim in LIMITS.items():
@@ -579,4 +587,6 @@ for loc, d in L.items():
     os.makedirs(f"{OUT}/{loc}", exist_ok=True)
     for k, fn in FILES.items():
         open(f"{OUT}/{loc}/{fn}", "w").write(d[k].strip() + "\n")
+    for fn, value in LINKS.items():
+        open(f"{OUT}/{loc}/{fn}.txt", "w").write(value + "\n")
 print("ok", len(L), "locales")

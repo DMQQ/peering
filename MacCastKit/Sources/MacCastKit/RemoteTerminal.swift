@@ -10,6 +10,8 @@ public struct RemoteTerminal: Identifiable, Equatable {
     public var attention: TerminalAttentionKind?
     /// The last thing this terminal was asked to do that did not work, until it speaks again.
     public var failure: String?
+    /// When the Mac opened this shell, when it says. The hub reads "running for 12m" off it.
+    public var createdAt: Date?
 
     /// The shape this shell's screen is, which is also the shape it has been told it is. Held here
     /// rather than in the panel that measures it, which is rebuilt on every open.
@@ -44,6 +46,39 @@ public struct RemoteTerminal: Identifiable, Equatable {
         self.id = id
         self.name = name
         self.isRunning = isRunning
+    }
+
+    /// A terminal as the Mac describes it, on the shape its screen has when the Mac says.
+    public init(_ info: TerminalSessionInfo) {
+        self.init(id: info.id, name: info.name, isRunning: info.isRunning)
+        createdAt = info.createdAt
+        if let columns = info.columns, let rows = info.rows {
+            self.columns = columns
+            self.rows = rows
+        }
+    }
+
+    /// The terminals a listing describes: fresh screens, and the shape each of them already is.
+    ///
+    /// **A listing is about the Mac's sessions and nothing about their screens**, and the history
+    /// that follows it is what rebuilds them. Those bytes were drawn for one grid, so a terminal
+    /// rebuilt here has to be told which: the shape this phone last gave the shell, or the one the
+    /// Mac repeats in the info when it can say. Left at the 80×24 default, every frame of a
+    /// full-screen program is laid out wrapped and clipped, and the resize that arrives afterwards
+    /// only truncates and pads, so the picture never comes back. See ``TerminalScreenFeed``.
+    public static func from(
+        _ infos: [TerminalSessionInfo],
+        remembering previous: [RemoteTerminal]
+    ) -> [RemoteTerminal] {
+        infos.map { info in
+            var terminal = RemoteTerminal(info)
+            if info.columns == nil || info.rows == nil,
+               let known = previous.first { $0.id == info.id } {
+                terminal.columns = known.columns
+                terminal.rows = known.rows
+            }
+            return terminal
+        }
     }
 
     /// What the tab is saying about it. One value rather than four flags, because the order they

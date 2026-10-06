@@ -88,7 +88,7 @@ struct SettingsTab: View {
             String(localized: "This device"),
             footer: String(localized: "The name shown to Macs when you connect. Tap the name to edit it.")
         ) {
-            Controls.row("Device name", systemImage: AdaptiveLayout.deviceSymbol) {
+            Controls.row(String(localized: "Device name"), systemImage: AdaptiveLayout.deviceSymbol) {
                 TextField("Name shown to Macs", text: $deviceNameDraft)
                     .multilineTextAlignment(.trailing)
                     .foregroundStyle(.secondary)
@@ -130,7 +130,7 @@ struct SettingsTab: View {
 
             Controls.divider
 
-            Controls.picker("Keyboard", systemImage: "keyboard", selection: Binding(
+            Controls.picker(String(localized: "Keyboard"), systemImage: "keyboard", selection: Binding(
                 get: { model.keyboardMode },
                 set: { model.setKeyboardMode($0) }
             )) {
@@ -178,11 +178,10 @@ struct SettingsTab: View {
     /// short name, the popup shows ``StreamQuality/menuTitle`` with its figure. It is the same
     /// arrangement, and the same words, as the speed chip on the remote screen.
     private var qualitySection: some View {
-        Controls.card(
-            "Stream quality",
+        Controls.card(String(localized: "Stream quality"),
             footer: String(localized: "The level a session starts at. Changing it during a session changes this too, so the next one starts where you left off.")
         ) {
-            Controls.row("Quality", systemImage: "speedometer") {
+            Controls.row(String(localized: "Quality"), systemImage: "speedometer") {
                 Menu {
                     ForEach(SessionModel.StreamQuality.allCases, id: \.self) { preset in
                         Button {
@@ -223,7 +222,7 @@ struct SettingsTab: View {
             // Per session: the Mac is only told while one is live, and it is undone on disconnect.
             if model.phase == .ready {
                 Controls.divider
-                Controls.toggle("Privacy mode", systemImage: "moon.fill", isOn: Binding(
+                Controls.toggle(String(localized: "Privacy mode"), systemImage: "moon.fill", isOn: Binding(
                     get: { model.privacyModeEnabled },
                     set: { model.setPrivacyMode($0) }
                 ))
@@ -290,7 +289,7 @@ struct SettingsTab: View {
                 : String(localized: "It is part of \(PlanCapability.pictureInPicture.minimumPlan.name), with sound from the Mac and files that move both ways.")
         ) {
             PlanLocked(capability: .pictureInPicture, title: "Float automatically") {
-                Controls.toggle("Float automatically", systemImage: "pip", isOn: $pipAutoStart)
+                Controls.toggle(String(localized: "Float automatically"), systemImage: "pip", isOn: $pipAutoStart)
                     .onChange(of: pipAutoStart) { _, on in model.setPiPAutoStart(on) }
             }
         }
@@ -355,7 +354,7 @@ struct SettingsTab: View {
                 : String(localized: "Being told when a terminal needs you is part of \(PlanCapability.terminalAlerts.minimumPlan.name), with sound from the Mac, Picture in Picture and files that move both ways.")
         ) {
             PlanLocked(capability: .terminalAlerts, title: String(localized: "Told when a shell needs you")) {
-                Controls.row("Terminal needs you", systemImage: "bell.badge") {
+                Controls.row(String(localized: "Terminal needs you"), systemImage: "bell.badge") {
                     Text(model.notificationsAuthorized ? "On" : "Off")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -415,12 +414,12 @@ struct SettingsTab: View {
     private var developerSection: some View {
         Controls.card(
             String(localized: "Developer"),
-            footer: """
+            footer: String(localized: """
                 Changes what this app shows, not what the relay is told: sessions stay metered at \
                 whatever this Apple Account pays for.
-                """
+                """)
         ) {
-            Controls.row("Plan override", systemImage: "hammer") {
+            Controls.row(String(localized: "Plan override"), systemImage: "hammer") {
                 Menu {
                     Button("Off") { model.storeManager.setPlanOverride(nil) }
                     ForEach(RelayPlan.allCases, id: \.self) { plan in
@@ -457,7 +456,7 @@ struct SettingsTab: View {
             String(localized: "Device identity"),
             footer: String(localized: "How Macs recognise this device. Created once, on first launch.")
         ) {
-            Controls.row("Device ID", systemImage: "number") {
+            Controls.row(String(localized: "Device ID"), systemImage: "number") {
                 Text(model.device.id)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
@@ -614,11 +613,11 @@ struct SettingsTab: View {
     /// points at, and two copies of a privacy policy is one copy too many.
     private var legalSection: some View {
         Controls.card(String(localized: "Legal")) {
-            externalLink("Privacy policy", systemImage: "hand.raised", to: PeeringSite.privacy)
+            externalLink(String(localized: "Privacy policy"), systemImage: "hand.raised", to: PeeringSite.privacy)
 
             Controls.divider
 
-            externalLink("Terms of use", systemImage: "doc.text", to: PeeringSite.terms)
+            externalLink(String(localized: "Terms of use"), systemImage: "doc.text", to: PeeringSite.terms)
         }
     }
 

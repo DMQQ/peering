@@ -6,6 +6,16 @@ public struct ClientSessionRecord: Codable, Identifiable, Equatable {
         case lan = "LAN"
         case relay = "Relay"
         case direct = "Direct"
+
+        /// What a row prints, which is not what is written to disk: the raw value is a stored code,
+        /// so localizing it would rename records that are already on the phone.
+        public var name: String {
+            switch self {
+            case .lan: return String(localized: "LAN")
+            case .relay: return String(localized: "Relay")
+            case .direct: return String(localized: "Direct")
+            }
+        }
     }
 
     public let id: UUID

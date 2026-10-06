@@ -5,6 +5,6 @@
 public enum PurchaseRestoreFeedback {
     public static func message(didRestore: Bool, error: String?) -> String? {
         guard !didRestore else { return nil }
-        return error ?? "No purchases to restore on this Apple Account."
+        return error ?? String(localized: "No purchases to restore on this Apple Account.")
     }
 }

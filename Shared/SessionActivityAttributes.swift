@@ -171,6 +171,37 @@ nonisolated struct SessionActivityAttributes: ActivityAttributes {
         /// fact there is not which other Macs are open but that the connection being described is
         /// one of several. Optional for the same decoding reason as the name.
         var sessionCount: Int?
+
+        /// What is running on the Mac, under the session's own line.
+        ///
+        /// **One card listing the work rather than one card per job.** Two shells and three chats
+        /// is five Live Activities, which is a Lock Screen with nothing else on it; and what a
+        /// glance is asking is not "tell me about this shell" but "is anything waiting on me".
+        /// Optional so a card from a build without this decodes, and ordered by what the user
+        /// would care about first: something waiting on them, then what is running.
+        var work: [Work]?
+
+        /// One thing running on the Mac, reduced to a line.
+        struct Work: Codable, Hashable {
+            var name: String
+            /// An SF Symbol, chosen on the phone: the widget does not know what a chat is.
+            var symbol: String
+            var state: State
+            /// Where it runs, shown after the name: an agent chat's folder. Optional so a card from
+            /// a build without it decodes.
+            var detail: String?
+
+            enum State: String, Codable, Hashable {
+                /// Running, nothing wanted.
+                case live
+                /// Waiting on the user, in this app or in the CLI.
+                case waiting
+                /// Ended badly.
+                case failed
+
+                var isWaiting: Bool { self == .waiting }
+            }
+        }
     }
 
     /// The transport behind a session, as a word short enough for a chip.

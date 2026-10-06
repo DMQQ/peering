@@ -370,7 +370,9 @@ final class GestureSurfaceView: UIView, UIGestureRecognizerDelegate, UIPointerIn
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let size = bounds.size
+        // The window's size, not this view's: the keyboard animates this view's height even though
+        // it ignores the safe area, and the picture is fitted to what is reported here.
+        let size = window?.bounds.size ?? bounds.size
         guard size != lastReportedSize else { return }
         lastReportedSize = size
         // Deferring avoids mutating SwiftUI state in the middle of UIKit's layout pass.

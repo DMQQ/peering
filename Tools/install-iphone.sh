@@ -93,4 +93,7 @@ if ! xcrun devicectl device install app --device "$TARGET" "$BUILT_APP"; then
 fi
 
 echo "==> installed. Relaunch the app on the phone so it picks up the new build."
-echo "    (A running app keeps the old binary until it is relaunched.)"
+echo "    An install does not restart a running app, and neither does a plain launch:"
+echo "    devicectl brings the old process forward, still running the old binary."
+echo "    So it is relaunched here, with the running copy terminated first."
+xcrun devicectl device process launch --terminate-existing --device "$TARGET" pl.dmq.peering

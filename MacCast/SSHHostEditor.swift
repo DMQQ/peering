@@ -152,16 +152,15 @@ struct SSHHostEditor: View {
                     // The port is spelled out in the footer because the field accepts one and the
                     // default is otherwise invisible — a box reached on 2222 that silently says 22
                     // is a connection that fails with nothing on screen to explain it.
-                    Controls.card(
-                        "Server",
+                    Controls.card(String(localized: "Server"),
                         footer: String(localized: "Name is what the tab is called; leave it empty and the host is used. The port is 22 unless your server says otherwise.")
                     ) {
                         VStack(spacing: 10) {
-                            field("Name", systemImage: "tag", text: $name, hint: "Optional")
+                            field(String(localized: "Name"), systemImage: "tag", text: $name, hint: String(localized: "Optional"))
                             Controls.divider
                             field(String(localized: "Host"), systemImage: "network", text: $hostname, hint: "box.example.com")
                             Controls.divider
-                            field("Port", systemImage: "number", text: $port, hint: "22")
+                            field(String(localized: "Port"), systemImage: "number", text: $port, hint: "22")
                                 .keyboardType(.numberPad)
                             Controls.divider
                             field(String(localized: "User"), systemImage: "person", text: $username, hint: "root")
@@ -184,7 +183,7 @@ struct SSHHostEditor: View {
 
                             if lock == .passcode {
                                 Controls.divider
-                                Controls.row("Passcode", systemImage: "circle.grid.3x3") {
+                                Controls.row(String(localized: "Passcode"), systemImage: "circle.grid.3x3") {
                                     Button(hasPasscode ? "Change" : "Set") { isChoosingPasscode = true }
                                         .font(.subheadline.weight(.medium))
                                         .foregroundStyle(ColorPalette.accent)
@@ -216,7 +215,7 @@ struct SSHHostEditor: View {
                                         .autocorrectionDisabled()
                                 }
                                 Controls.divider
-                                Controls.toggle("Remember it", systemImage: "lock", isOn: $rememberPassword)
+                                Controls.toggle(String(localized: "Remember it"), systemImage: "lock", isOn: $rememberPassword)
 
                             case .key:
                                 Controls.divider
@@ -250,16 +249,7 @@ struct SSHHostEditor: View {
             .background(ColorPalette.backdrop)
             .navigationTitle(existing == nil ? "New Server" : "Edit Server")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { commit() }
-                        .disabled(!canSave)
-                        .fontWeight(.semibold)
-                }
-            }
+            .sheetToolbar(onCancel: { dismiss() }, confirm: "Save", canConfirm: canSave) { commit() }
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $isChoosingPasscode) {
@@ -472,11 +462,7 @@ private struct SSHPasscodePicker: View {
             .background(ColorPalette.backdrop)
             .navigationTitle("Passcode")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
+            .sheetToolbar(onCancel: { dismiss() })
         }
         .preferredColorScheme(.dark)
         .presentationDetents([.height(460)])

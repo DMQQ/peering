@@ -311,9 +311,7 @@ struct KeepAwakeRow: View {
                 // Named rather than pointed at. The rows between this one and the lid row are about
                 // *when* this applies, so "the next row" stopped being true the moment they existed.
                 Text("Keeps this Mac awake on its own: no idle sleep, no display sleep, and no permission prompt. It does not survive the lid being shut, and the row about the lid is the one that does. Lifted automatically when Peering quits.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
 
                 // **The line that says the switch is on and nothing is happening.** Without it the
                 // only way to find out whether this Mac is being held was to guess, which is what a
@@ -333,10 +331,7 @@ struct KeepAwakeRow: View {
                 get: { model.preventLidCloseSleep },
                 set: { model.setPreventLidCloseSleep($0) }
             ))
-            .labelsHidden()
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .tint(HostPalette.accent)
+            .hostSwitch()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -366,9 +361,7 @@ struct KeepAwakeScheduleRow: View {
                     Text("Keep it awake only between these hours")
                         .font(.subheadline.weight(.medium))
                     Text(caption)
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
                 }
 
                 Spacer(minLength: 12)
@@ -377,10 +370,7 @@ struct KeepAwakeScheduleRow: View {
                     get: { model.keepAwakeScheduleEnabled },
                     set: { model.setKeepAwakeSchedule(enabled: $0) }
                 ))
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .tint(HostPalette.accent)
+                .hostSwitch()
             }
 
             if model.keepAwakeScheduleEnabled {
@@ -476,9 +466,7 @@ struct WakeScheduleRow: View {
                     Text("Wake it up every day")
                         .font(.subheadline.weight(.medium))
                     Text(caption)
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
                 }
 
                 Spacer(minLength: 12)
@@ -492,10 +480,7 @@ struct WakeScheduleRow: View {
                         get: { model.wakeScheduleHour != nil },
                         set: apply
                     ))
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .tint(HostPalette.accent)
+                    .hostSwitch()
                 }
             }
 
@@ -522,9 +507,7 @@ struct WakeScheduleRow: View {
 
             if let failure = model.wakeScheduleFailure {
                 Text(failure)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.danger)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption(HostPalette.danger)
                     .padding(.leading, 38)
             }
 
@@ -542,9 +525,7 @@ struct WakeScheduleRow: View {
 
             if !model.otherScheduledEvents.isEmpty {
                 Text("Already scheduled on this Mac: \(model.otherScheduledEvents.joined(separator: " · "))")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
                     .padding(.leading, 38)
             }
         }
@@ -620,9 +601,7 @@ struct LidCloseSleepRow: View {
                     Text("Keep running with the lid closed")
                         .font(.subheadline.weight(.medium))
                     Text("Survives the lid being shut, which the switch above does not. macOS only offers this through pmset, so it needs your administrator password once, and while it is on the Mac does not sleep at all: leave it open to the air rather than shut in a bag. Undone when Peering quits, and repaired at the next launch if it is force quit instead.")
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
                 }
 
                 Spacer(minLength: 12)
@@ -636,18 +615,13 @@ struct LidCloseSleepRow: View {
                         .frame(width: 26)
                 } else {
                     Toggle("", isOn: Binding(get: { model.keepRunningWithLidClosed }, set: apply))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .tint(HostPalette.accent)
+                        .hostSwitch()
                 }
             }
 
             if let failure = model.lidCloseFailure {
                 Text(failure)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.danger)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption(HostPalette.danger)
                     .padding(.leading, 38)
             }
 
@@ -663,9 +637,7 @@ struct LidCloseSleepRow: View {
             if model.keepRunningWithLidClosed, !model.keepAwakeWithheld,
                model.lidCloseSystemState == .off {
                 Text("Switched on, but this Mac is not doing it: pmset reports the setting as off. Switch this off and on again to put it back.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.danger)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption(HostPalette.danger)
                     .padding(.leading, 38)
             }
 
@@ -675,9 +647,7 @@ struct LidCloseSleepRow: View {
                 // this let the app run", and the answer fits on one line.
                 HStack(spacing: 6) {
                     Text("The administrator rule covers only \(LidCloseSleep.command(disabled: true)) and \(LidCloseSleep.command(disabled: false)).")
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
 
                     Button {
                         Task { await model.removeLidCloseRule() }

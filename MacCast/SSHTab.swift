@@ -150,7 +150,7 @@ struct SSHTab: View {
                         .tourAnchor(.serversOpen)
                     }
 
-                    card("Servers", systemImage: "server.rack") {
+                    card(String(localized: "Servers"), systemImage: "server.rack") {
                         if model.hosts.isEmpty {
                             emptyRow
                         } else {
@@ -509,16 +509,11 @@ struct SSHTab: View {
             }
             .navigationTitle("Sign in")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { model.pendingPasswordHost = nil }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Connect") { commitPassword(for: host) }
-                        .disabled(password.isEmpty)
-                        .fontWeight(.semibold)
-                }
-            }
+            .sheetToolbar(
+                onCancel: { model.pendingPasswordHost = nil },
+                confirm: "Connect",
+                canConfirm: !password.isEmpty
+            ) { commitPassword(for: host) }
         }
         .presentationDetents([.height(340)])
         .preferredColorScheme(.dark)
@@ -568,14 +563,8 @@ struct SSHTab: View {
             .background(ColorPalette.backdrop)
             .navigationTitle("New server")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { model.answerKeyPrompt(false) }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Trust") { model.answerKeyPrompt(true) }
-                        .fontWeight(.semibold)
-                }
+            .sheetToolbar(onCancel: { model.answerKeyPrompt(false) }, confirm: "Trust") {
+                model.answerKeyPrompt(true)
             }
         }
         .interactiveDismissDisabled()

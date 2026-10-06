@@ -23,7 +23,7 @@ extension HomeTab {
             // paywall. See ``SessionModel/isSessionOnScreen``.
             PlanLocked(
                 capability: .concurrentSessions,
-                title: "Another Mac",
+                title: String(localized: "Another Mac"),
                 placement: .trailing,
                 diameter: 44,
                 isIncluded: model.canAddAnotherSession || isActive
@@ -233,7 +233,16 @@ extension HomeTab {
 
     func hostRow(_ host: DiscoveredHost) -> some View {
         HStack(spacing: 12) {
-            IconTile(symbol: "macbook")
+            ZStack(alignment: .bottomTrailing) {
+                IconTile(symbol: "macbook")
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().strokeBorder(ColorPalette.backdrop, lineWidth: 1.5))
+                    .offset(x: 2, y: 2)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Online")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.displayName(forHostID: host.id) ?? host.name)

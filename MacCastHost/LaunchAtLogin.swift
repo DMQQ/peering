@@ -73,31 +73,22 @@ struct LaunchAtLoginRow: View {
                     Text("Open at login")
                         .font(.subheadline.weight(.medium))
                     Text("Starts Peering for Mac when you log in, so this Mac can be reached without being woken by hand.")
-                        .font(.caption)
-                        .foregroundStyle(HostPalette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .hostCaption()
                 }
 
                 Spacer(minLength: 12)
 
                 Toggle("", isOn: Binding(get: { isEnabled }, set: apply))
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-                    .tint(HostPalette.accent)
+                    .hostSwitch()
             }
 
             if needsApproval {
                 Text("Waiting for permission. Allow Peering in System Settings → General → Login Items.")
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption()
                     .padding(.leading, 38)
             } else if let failure {
                 Text(failure)
-                    .font(.caption)
-                    .foregroundStyle(HostPalette.danger)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .hostCaption(HostPalette.danger)
                     .padding(.leading, 38)
             }
         }

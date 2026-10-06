@@ -49,9 +49,7 @@ extension HostStatusView {
         VStack(alignment: .leading, spacing: 3) {
             Text(title).font(.subheadline.weight(.medium))
             Text(detail)
-                .font(.caption)
-                .foregroundStyle(HostPalette.muted)
-                .fixedSize(horizontal: false, vertical: true)
+                .hostCaption()
         }
     }
 

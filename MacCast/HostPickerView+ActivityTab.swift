@@ -88,7 +88,7 @@ struct ActivityTab: View {
     private var relayCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
-                Controls.sectionLabel("Relay", systemImage: "network")
+                Controls.sectionLabel(String(localized: "Relay"), systemImage: "network")
             }
             .foregroundStyle(.secondary)
 
@@ -303,7 +303,7 @@ struct ActivityTab: View {
                 recentRow(
                     symbol: "macbook",
                     name: session.hostName,
-                    detail: "\(session.path.rawValue) · \(durationLabel(session.duration)) · \(bytesLabel(session.videoBytesReceived))",
+                    detail: "\(session.path.name) · \(durationLabel(session.duration)) · \(bytesLabel(session.videoBytesReceived))",
                     startedAt: session.startedAt,
                     // The one of the three that leads somewhere: this is a NavigationLink, so the
                     // chevron is a promise the row keeps.
@@ -453,10 +453,10 @@ private struct SessionHistoryDetail: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Controls.card("Connection") {
-                        detailRow("Mac", session.hostName)
+                    Controls.card(String(localized: "Connection")) {
+                        detailRow(String(localized: "Mac"), session.hostName)
                         Controls.divider
-                        detailRow("Path", session.path.rawValue)
+                        detailRow(String(localized: "Path"), session.path.name)
                         Controls.divider
                         detailRow(String(localized: "Started"), session.startedAt.formatted(date: .abbreviated, time: .shortened))
                         Controls.divider
@@ -470,7 +470,7 @@ private struct SessionHistoryDetail: View {
                         // a session that was never interrupted they do not.
                         if session.wasInterrupted {
                             Controls.divider
-                            detailRow("Connected", connectedLabel)
+                            detailRow(String(localized: "Connected"), connectedLabel)
                         }
                         Controls.divider
                         detailRow(

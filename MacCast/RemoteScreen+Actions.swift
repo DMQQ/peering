@@ -138,9 +138,10 @@ extension RemoteScreen {
     func compactKeyButton(
         icon: String,
         keyCode: UInt16,
+        large: Bool = false,
         action: (() -> Void)? = nil
     ) -> some View {
-        compactCapButton(icon: icon) { (action ?? { sendKey(keyCode: keyCode) })() }
+        compactCapButton(icon: icon, large: large) { (action ?? { sendKey(keyCode: keyCode) })() }
     }
 
     /// The same cap, for a control that is not a key press.
@@ -151,19 +152,21 @@ extension RemoteScreen {
     /// mode. The shape is here rather than at each control so the two cannot drift apart.
     /// `filled` draws the cap in ink, for the one key in a row that has to be found at a glance.
     @ViewBuilder
-    func compactCapButton(icon: String, filled: Bool = false, action: @escaping () -> Void) -> some View {
+    func compactCapButton(icon: String, filled: Bool = false, large: Bool = false, action: @escaping () -> Void) -> some View {
+        let size = large ? CGSize(width: 54, height: 42) : CGSize(width: 40, height: 32)
+        let glyph: CGFloat = large ? 18 : 14
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         Button(action: action) {
             if filled {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: glyph, weight: .bold))
                     .foregroundStyle(ColorPalette.onInk)
-                    .frame(width: 40, height: 32)
+                    .frame(width: size.width, height: size.height)
                     .background(ColorPalette.ink, in: shape)
             } else {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 40, height: 32)
+                    .font(.system(size: glyph, weight: .semibold))
+                    .frame(width: size.width, height: size.height)
                     .glassSurface(in: shape, interactive: true)
             }
         }

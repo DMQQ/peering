@@ -219,10 +219,12 @@ extension FileBrowserPanel {
                     .menuDanger()
                 }
 
-                Button("Put path in command line", systemImage: "arrow.up.forward.square") {
-                    onRevealPath(childPath(entry.name, of: path))
+                if let onRevealPath {
+                    Button("Put path in command line", systemImage: "arrow.up.forward.square") {
+                        onRevealPath(childPath(entry.name, of: path))
+                    }
+                    .menuInk()
                 }
-                .menuInk()
             }
 
             if offersRun {
@@ -400,7 +402,7 @@ extension FileBrowserPanel {
     }
 
     /// The line between one band of the panel and the next, the terminal's own — see
-    /// ``TerminalPanel``. Shared here by being the same one point of the same white.
+    /// ``TerminalScreen``. Shared here by being the same one point of the same white.
     var hairline: some View {
         Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
     }

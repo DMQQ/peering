@@ -184,7 +184,7 @@ struct ClipboardPanel: View {
             if let known = model.knownPhoneClipboard, known.changeCount == phone.changeCount {
                 return known.text
             }
-            return String(localized: "Text copied in another app")
+            return String(localized: "Text from another app. Allow pasting in Settings > Peering to skip the prompt.")
         case .image: return String(localized: "Image copied")
         case .empty: return String(localized: "Nothing copied")
         }
@@ -200,7 +200,7 @@ struct ClipboardPanel: View {
 
     private var macDetail: String {
         guard let payload = model.hostClipboard else {
-            return model.clipboardPulling ? "Checking…" : String(localized: "Not checked yet")
+            return model.clipboardPulling ? String(localized: "Checking…") : String(localized: "Not checked yet")
         }
         switch payload.kind {
         case .text:

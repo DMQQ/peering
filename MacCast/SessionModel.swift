@@ -182,6 +182,8 @@ final class SessionModel {
         )
         // The widget's idea of which Mac is in hand. See ``publishOpenMacs()``.
         publishOpenMacs()
+        // And what that Mac is running, which the card lists under its own line.
+        session.publishWork()
     }
 
     /// Puts the picture away and shows the picker, leaving the Mac connected.
@@ -753,7 +755,7 @@ final class SessionModel {
     /// authorized. Read through the notifier rather than copied, because it is written from an
     /// app-delegate callback.
     var pushRegistration: String? {
-        if notifier.remoteToken != nil { return "Yes" }
+        if notifier.remoteToken != nil { return String(localized: "Yes") }
         return notifier.remoteTokenFailure
     }
 
@@ -1371,19 +1373,43 @@ final class SessionModel {
 
     func refreshAgents() { activeSession?.refreshAgents() }
 
-    /// The agents to offer: only those the Mac has, once it has said, and all of them until then.
+    /// The agents to offer: only those the Mac has. Before it has said, what it said last time, and
+    /// failing that nothing, for a Mac that will answer: a list of all of them that then shrank was
+    /// a blink. A Mac that cannot say gets every agent.
     var availableAgents: [TerminalAgent] {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.showAllAgents") { return TerminalAgent.all }
         #endif
-        guard let installed = activeSession?.installedAgents else { return TerminalAgent.all }
+        guard let session = activeSession else { return TerminalAgent.all }
+        guard let installed = session.knownInstalledAgents else {
+            return session.hostSupportsAgentList ? [] : TerminalAgent.all
+        }
         return TerminalAgent.all.filter { installed.contains($0.command) }
+    }
+
+    /// Whether the Mac has yet to say which agents it has, and will.
+    var isAwaitingAgentList: Bool {
+        guard let session = activeSession else { return false }
+        return session.hostSupportsAgentList && session.knownInstalledAgents == nil
     }
 
     /// Whether one more shell is allowed right now. See ``MacSession/canOpenAnotherShell``.
     var canOpenAnotherShell: Bool { activeSession?.canOpenAnotherShell ?? true }
 
+    /// The running shell a command lands in when another cannot be opened, if there is one.
+    var runningShellTargetID: UUID? { activeSession?.runningShellTargetID }
+
+    /// The shell the Mac has just made, which the terminals panel moves to. Written back to nil
+    /// when taken, so the same arrival is not opened twice.
+    var newTerminalID: UUID? {
+        get { activeSession?.newTerminalID }
+        set { activeSession?.newTerminalID = newValue }
+    }
+
     func createTerminal() { activeSession?.createTerminal() }
+
+    /// A shell that opens in a folder the user chose. See ``MacSession/createTerminal(inDirectory:)``.
+    func createTerminal(inDirectory path: String?) { activeSession?.createTerminal(inDirectory: path) }
 
     func runInNewTerminal(_ command: String) { activeSession?.runInNewTerminal(command) }
 
@@ -1407,6 +1433,28 @@ final class SessionModel {
 
     // MARK: - The active Mac's file browser
 
+    /// Whether this Mac opens browsing scopes of its own, which is what the Mac terminals
+    /// screen's Files screen needs before it is offered at all. See
+    /// ``ServerHello/supportsFileBrowser``.
+    var hostSupportsFileBrowser: Bool { activeSession?.hostSupportsFileBrowser ?? false }
+
+    /// The scope this phone browses the Mac's files through when no shell is involved.
+    var browserID: UUID? { activeSession?.browserID }
+
+    /// Announces that scope to the Mac. Sent when the browser opens and on every reconnect.
+    func openFileScope() { activeSession?.openFileScope() }
+
+    /// Where the hub's own browser is looking, and `nil` until it has looked at anything.
+    var browserPath: String? {
+        guard let session = activeSession else { return nil }
+        return session.browsingPath(for: session.browserID)
+    }
+
+    func setBrowserPath(_ path: String?) {
+        guard let session = activeSession else { return }
+        session.setBrowsingPath(path, for: session.browserID)
+    }
+
     func browsingPath(for id: UUID) -> String? { activeSession?.browsingPath(for: id) }
 
     func setBrowsingPath(_ path: String?, for id: UUID) {
@@ -1425,6 +1473,12 @@ final class SessionModel {
 
     func saveFile(_ text: String, sessionID id: UUID) {
         activeSession?.saveFile(text, sessionID: id)
+    }
+
+    /// Sends a file to a folder on the Mac, named outright: the chat screen's attachments, which
+    /// go into the folder the agent works in rather than into whatever a browser is looking at.
+    func uploadFile(_ url: URL, toFolder folder: String, sessionID id: UUID) {
+        activeSession?.uploadFile(url, toFolder: folder, sessionID: id)
     }
 
     func uploadFile(_ url: URL, sessionID id: UUID) {

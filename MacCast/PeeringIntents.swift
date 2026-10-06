@@ -231,7 +231,9 @@ struct PeeringShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: ConnectToMacIntent(),
             phrases: [
-                "Connect \(.applicationName) to my Mac",
+                // Not "to my Mac": the App Store refuses any Siri phrase containing "mac"
+                // (error 90626), in every language, and the phrase cannot ship without it.
+                "Connect \(.applicationName) to my computer",
                 "Connect \(.applicationName)",
             ],
             shortTitle: "Connect to a Mac",

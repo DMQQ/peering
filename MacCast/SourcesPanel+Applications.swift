@@ -160,7 +160,7 @@ extension SourcesPanel {
         let installed = filteredInstalled
         if !installed.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                SectionLabel("Installed on your Mac")
+                SectionLabel(String(localized: "Installed on your Mac"))
                 LazyVGrid(columns: Self.iconColumns, alignment: .leading, spacing: Self.iconGap) {
                     ForEach(installed) { application in
                         Button {

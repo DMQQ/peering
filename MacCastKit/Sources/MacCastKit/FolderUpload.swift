@@ -107,15 +107,15 @@ public struct FolderUpload: Equatable {
             // file after the one being sent.
             let sending = entries.prefix(next).last { $0.outcome == .waiting }
                 ?? entries.first { $0.outcome == .waiting }
-            return "Sending \(sent) of \(total)… \(sending?.name ?? "")"
+            return String(localized: "Sending \(sent) of \(total)… \(sending?.name ?? "")")
         }
 
         let problems = self.problems
-        guard !problems.isEmpty else { return "Sent \(sent) of \(total)." }
+        guard !problems.isEmpty else { return String(localized: "Sent \(sent) of \(total).") }
 
         let names = problems.prefix(limit).map(\.name).joined(separator: ", ")
-        let rest = problems.count > limit ? " and \(problems.count - limit) more" : ""
-        return "Sent \(sent) of \(total). Could not send \(names)\(rest)."
+        let rest = problems.count > limit ? String(localized: " and \(problems.count - limit) more") : ""
+        return String(localized: "Sent \(sent) of \(total). Could not send \(names)\(rest).")
     }
 }
 

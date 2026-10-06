@@ -27,17 +27,17 @@ public enum LatencyQuality: Sendable, Equatable, CaseIterable {
     public var pillLabel: String? {
         switch self {
         case .good: return nil
-        case .fair: return "Slow"
-        case .poor: return "Very slow"
+        case .fair: return String(localized: "Slow")
+        case .poor: return String(localized: "Very slow")
         }
     }
 
     /// The same fact as a sentence, for a reader who cannot see the pill.
     public var spokenLabel: String {
         switch self {
-        case .good: return "The connection is quick"
-        case .fair: return "The connection is a little slow"
-        case .poor: return "The connection is slow"
+        case .good: return String(localized: "The connection is quick")
+        case .fair: return String(localized: "The connection is a little slow")
+        case .poor: return String(localized: "The connection is slow")
         }
     }
 }

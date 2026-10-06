@@ -17,7 +17,7 @@ struct ThankYouView: View {
     var body: some View {
         ZStack(alignment: .leading) {
             ColorPalette.backdrop.ignoresSafeArea()
-            light
+            TopGlow()
 
             VStack(alignment: .leading, spacing: 24) {
                 icon
@@ -102,17 +102,6 @@ struct ThankYouView: View {
                 }
             }
         }
-    }
-
-    private var light: some View {
-        RadialGradient(
-            colors: [.white.opacity(0.07), .clear],
-            center: .top,
-            startRadius: 0,
-            endRadius: 460
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
     }
 }
 

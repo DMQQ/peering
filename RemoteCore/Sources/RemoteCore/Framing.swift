@@ -93,6 +93,14 @@ public enum MessageKind: UInt8, Sendable, CaseIterable {
     /// What the focused text field holds and where its caret is. JSON-encoded ``FieldState``. Sent only
     /// to a client that declared ``ClientHello/supportsFieldState``.
     case fieldState = 0x1D
+
+    /// An authenticated client's agent chat request. JSON-encoded ``AgentRequest``. Sent only to a
+    /// Mac that declared ``ServerHello/supportsAgentChat``.
+    case agentRequest = 0x1E
+
+    /// Agent session listings, stream events and replays from the host. JSON-encoded ``AgentEvent``.
+    /// Sent only to a client that declared ``ClientHello/supportsAgentChat``.
+    case agentEvent = 0x1F
 }
 
 public enum FramingError: Error, LocalizedError, Equatable, Sendable {

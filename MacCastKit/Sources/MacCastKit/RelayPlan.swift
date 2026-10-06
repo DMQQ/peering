@@ -34,17 +34,17 @@ public enum RelayPlan: String, CaseIterable, Sendable {
     /// beside it.
     public var allowanceSpelling: String {
         switch self {
-        case .free: return "one hour"
-        case .relay, .pro: return "unlimited relay"
+        case .free: return String(localized: "one hour")
+        case .relay, .pro: return String(localized: "unlimited relay")
         }
     }
 
     /// The plan's own name, in the words the paywall's cards use.
     public var name: String {
         switch self {
-        case .free: return "Free"
-        case .relay: return "Relay"
-        case .pro: return "Pro"
+        case .free: return String(localized: "Free")
+        case .relay: return String(localized: "Relay")
+        case .pro: return String(localized: "Pro")
         }
     }
 

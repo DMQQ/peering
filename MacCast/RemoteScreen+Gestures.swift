@@ -207,6 +207,7 @@ extension RemoteScreen {
             },
         )
         .ignoresSafeArea()
+        .transaction { $0.disablesAnimations = true }
     }
 
     /// Which tile of the arrangement a point on the screen is over, or `nil` for a gap.
@@ -677,7 +678,13 @@ extension RemoteScreen {
         let margin = panMargin
         func limit(_ extent: CGFloat, _ canvas: CGFloat, _ margin: CGFloat) -> CGFloat {
             let slack = (extent * effectiveZoom - canvas) / 2
-            if slack > 0 { return slack + margin }
+            // Past the chrome's own thickness, up to a third of the canvas once the picture is
+            // twice the fit, so a corner can be brought towards the middle at a modest zoom
+            // instead of needing a large one to reach it at all.
+            if slack > 0 {
+                let reach = canvas / 3 * min(1, max(0, effectiveZoom - 1))
+                return slack + max(margin, reach)
+            }
 
             // When zoomed below fit, the picture is intentionally smaller than the canvas. Keep
             // a modest, zoom-proportional amount of travel instead of forcing it to the exact

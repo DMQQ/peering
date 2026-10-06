@@ -287,7 +287,7 @@ final class KeyboardTypingView: UITextView, UITextViewDelegate {
         tintColor = .white
         backgroundColor = .clear
 
-        hint.text = "Typing…"
+        hint.text = String(localized: "Typing…")
         hint.font = Self.font
         hint.textColor = .placeholderText
         hint.translatesAutoresizingMaskIntoConstraints = false

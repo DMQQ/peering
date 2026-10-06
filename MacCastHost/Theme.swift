@@ -142,6 +142,21 @@ enum HostMotion {
 }
 
 extension View {
+    /// Small explanatory text under a control: muted, and allowed to take the lines it needs.
+    func hostCaption(_ color: Color = HostPalette.muted) -> some View {
+        font(.caption)
+            .foregroundStyle(color)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The window's switch: small, in the accent.
+    func hostSwitch() -> some View {
+        labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .tint(HostPalette.accent)
+    }
+
     /// A panel: a wash on the stage, lit along its top edge, with the shadow of something sitting
     /// a few points above it rather than pasted onto it.
     func hostPanel(cornerRadius: CGFloat = HostPalette.panelRadius) -> some View {

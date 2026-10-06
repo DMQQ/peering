@@ -29,10 +29,10 @@ public enum TerminalMetrics {
 
         public var name: String {
             switch self {
-            case .tiny: return "Tiny"
-            case .small: return "Small"
-            case .regular: return "Default"
-            case .large: return "Large"
+            case .tiny: return String(localized: "Tiny")
+            case .small: return String(localized: "Small")
+            case .regular: return String(localized: "Default")
+            case .large: return String(localized: "Large")
             }
         }
 

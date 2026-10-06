@@ -286,7 +286,9 @@ struct RemoteScreen: View {
                 if (model.phase == .connecting || model.phase == .handshaking),
                    !model.isBeingPutBack {
                     ProgressOverlay(
-                        title: model.phase == .connecting ? "Connecting…" : String(localized: "Securing the connection…"),
+                        title: model.phase == .connecting
+                            ? String(localized: "Connecting…")
+                            : String(localized: "Securing the connection…"),
                         detail: model.hostName
                     )
                 }
@@ -320,14 +322,14 @@ struct RemoteScreen: View {
                     .transition(.blurReplace(.downUp))
             }
         }
-        .sheet(isPresented: $showsTerminals) {
+        // **Full screen, not a sheet.** This is a place the user works in, not a panel over the
+        // picture: a sheet's rounded corners and the strip of parent above them cost the screen
+        // its whole first line and made a terminal look like something temporary. It is also the
+        // one cover with its own navigation — shells and chats are pushed inside it rather than
+        // swapped for other sheets, so a start or a close never moves the screen under a thumb.
+        .fullScreenCover(isPresented: $showsTerminals) {
             TerminalPanel()
-                .presentationDetents([.large])
-                // Swipe to dismiss is off: the terminal is a running process, and a swipe that
-                // closes the sheet does not close the shell but looks like it did. Done is the one
-                // deliberate way out.
-                .interactiveDismissDisabled()
-                // The locks inside this sheet need a presenter inside it: a paywall asked for from
+                // The locks inside this cover need a presenter inside it: a paywall asked for from
                 // here and presented from the root is a tap that does nothing.
                 .presentsPaywall(model)
         }
@@ -477,7 +479,7 @@ struct RemoteScreen: View {
     /// pressed the same way. See ``compactCapButton(icon:action:)``.
     private var keyboardKeyRow: some View {
         HStack(spacing: 8) {
-            compactCapButton(icon: "keyboard.chevron.compact.down", filled: true) { model.showKeyboard = false }
+            compactCapButton(icon: "keyboard.chevron.compact.down", filled: true, large: true) { model.showKeyboard = false }
                 .accessibilityLabel("Hide keyboard")
             ModifierBar()
             HStack(spacing: 6) {
@@ -487,7 +489,7 @@ struct RemoteScreen: View {
                     .accessibilityLabel("Tab")
             }
             Spacer(minLength: 8)
-            compactKeyButton(icon: "return", keyCode: 36) { model.pressReturn() }
+            compactKeyButton(icon: "return", keyCode: 36, large: true) { model.pressReturn() }
                 .accessibilityLabel("Enter")
         }
     }
