@@ -109,60 +109,7 @@ enum AgentSlash {
     }
 }
 
-/// The suggestions as one row, where the model and permission chips are.
-struct AgentSlashChips: View {
-    let items: [SlashSuggestion]
-    @Binding var expanded: Bool
-    let pick: (SlashSuggestion) -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if items.isEmpty {
-                        Text("Nothing matches")
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    ForEach(items.prefix(30)) { item in
-                        Button { pick(item) } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: item.symbol)
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text(verbatim: "/" + item.name)
-                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                    .lineLimit(1)
-                            }
-                            .foregroundStyle(.white.opacity(0.9))
-                            .padding(.horizontal, 11)
-                            .frame(height: 30)
-                            .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
-                            .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            Button {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { expanded.toggle() }
-            } label: {
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .rotationEffect(.degrees(expanded ? 180 : 0))
-                    .frame(width: 34, height: 30)
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
-                    .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(expanded ? "Hide the list" : "Show the list")
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-    }
-}
-
-/// The same suggestions with what each one does, opened out of the row.
+/// The suggestions with what each one does.
 struct AgentSlashList: View {
     let items: [SlashSuggestion]
     let pick: (SlashSuggestion) -> Void

@@ -22,7 +22,6 @@ struct AgentChatScreen: View {
     @State var answering: AgentApproval?
     /// A chat whose history never arrived (an older Mac), so it shows as empty instead of loading for ever.
     @State private var gaveUpLoading: UUID?
-    @State private var mentionExpanded = false
     @State var typingModelFor: UUID?
     @State var modelText = ""
     @State var showsAttachPicker = false
@@ -192,7 +191,6 @@ struct AgentChatScreen: View {
             return
         }
         drafts[session.id] = ""
-        mentionExpanded = false
         switch item.name {
         case "usage": showsUsage = true
         case "model":
@@ -391,9 +389,6 @@ struct AgentChatScreen: View {
         .animation(Motion.settle, value: session.transcript.isEmpty)
         .animation(Motion.settle, value: mentionQuery(session) != nil)
         .animation(Motion.settle, value: slashItems(session) != nil)
-        .onChange(of: mentionQuery(session) == nil && slashItems(session) == nil) { _, none in
-            if none { mentionExpanded = false }
-        }
         .onChange(of: AgentSlash.query(drafts[session.id] ?? "") != nil, initial: true) { _, active in
             guard active, let id = model.browserID else { return }
             for folder in AgentSlash.folders(project: session.directory, agentID: session.agentID) {
@@ -406,13 +401,14 @@ struct AgentChatScreen: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                if mentionExpanded, let items = slashItems(session) {
-                    AgentSlashList(items: items) { runSlash($0, in: session) }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 6)
-                        .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity).combined(with: .offset(y: 24)))
+                if attaching != nil || !(attached[session.id] ?? []).isEmpty {
+                    AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
+                        attached[session.id]?.removeAll { $0.id == id }
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                if mentionExpanded, let query = mentionQuery(session), let id = model.browserID {
+                // Hints take the place of the chips, which they cover rather than sit above.
+                if let query = mentionQuery(session), let id = model.browserID {
                     let folder = query.folder(in: session.directory)
                     AgentMentionHints(
                         query: query,
@@ -425,29 +421,14 @@ struct AgentChatScreen: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
-                    // Grows out of the row of chips under it.
-                    .transition(.scale(scale: 0.9, anchor: .bottom).combined(with: .opacity).combined(with: .offset(y: 24)))
-                }
-                if attaching != nil || !(attached[session.id] ?? []).isEmpty {
-                    AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
-                        attached[session.id]?.removeAll { $0.id == id }
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                if let query = mentionQuery(session), let id = model.browserID {
-                    let folder = query.folder(in: session.directory)
-                    AgentMentionChips(
-                        query: query,
-                        directory: model.directory(folder, sessionID: id),
-                        isLoading: model.isLoadingDirectory(folder, sessionID: id),
-                        expanded: $mentionExpanded
-                    ) { path, isFolder in
-                        drafts[session.id] = query.replacing(in: drafts[session.id] ?? "", with: path, isFolder: isFolder)
-                    }
-                    .transition(.blurReplace)
+                    .padding(.bottom, 2)
+                    .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
                 } else if let items = slashItems(session) {
-                    AgentSlashChips(items: items, expanded: $mentionExpanded) { runSlash($0, in: session) }
-                        .transition(.blurReplace)
+                    AgentSlashList(items: items) { runSlash($0, in: session) }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+                        .padding(.bottom, 2)
+                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
                 } else {
                     optionsBar(session)
                         .transition(.blurReplace)
