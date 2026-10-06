@@ -3093,6 +3093,9 @@
         }
       }
     },
+    "Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac." : {
+
+    },
     "Deletes /etc/sudoers.d/peering-sleep and lets this Mac sleep normally again, in one administrator prompt." : {
       "localizations" : {
         "de" : {
@@ -11289,6 +11292,9 @@
           }
         }
       }
+    },
+    "Share anonymous usage statistics" : {
+
     },
     "Show the live preview" : {
       "localizations" : {

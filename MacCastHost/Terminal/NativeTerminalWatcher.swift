@@ -6,7 +6,7 @@ import os
 
 private let nativeTermLog = Logger(subsystem: "pl.dmq.peering.host", category: "native-terminal")
 
-private let watchedBundleIDs: Set<String> = [
+let watchedBundleIDs: Set<String> = [
     "com.apple.Terminal",
     "com.googlecode.iterm2",
     "com.mitchellh.ghostty",

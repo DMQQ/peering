@@ -1,4 +1,5 @@
 import ApplicationServices
+import AppKit
 import Foundation
 import RemoteCore
 import os
@@ -122,8 +123,15 @@ nonisolated final class TextFocusWatcher: @unchecked Sendable {
         AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
         let isSecure = (subrole as? String) == "AXSecureTextField"
 
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        // A terminal's one text area is its whole screen, so mirroring it fills the phone's field with the program's output.
+        let isTerminal = NSRunningApplication(processIdentifier: pid)
+            .flatMap(\.bundleIdentifier)
+            .map(watchedBundleIDs.contains) ?? false
+
         var text: String?
-        if !isSecure {
+        if !isSecure, !isTerminal {
             var value: CFTypeRef?
             if AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success,
                let string = value as? String,
