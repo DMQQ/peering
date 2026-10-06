@@ -56,7 +56,7 @@ def attempt(lang):
 def run(lang, tries=1):
     for n in range(tries):
         shots = attempt(lang)
-        if len(shots) == 6:
+        if len(shots) == 7:
             dest = f"{HERE}/raw/{lang}"
             os.makedirs(dest, exist_ok=True)
             for k, im in shots.items():

@@ -12,7 +12,7 @@
 #
 #   ASC_KEY_PATH=~/Downloads/AuthKey_XXXXXXXXXX.p8 ASC_KEY_ID=XXXXXXXXXX \
 #   ASC_ISSUER_ID=00000000-0000-0000-0000-000000000000 \
-#     ruby store/upload_listing.rb [--dry-run]
+#     ruby store/upload_listing.rb [--dry-run] [--only whats_new]
 #
 # Only locales with a folder in upload/metadata are touched, which is what keeps the live English
 # listing out of it: its folder holds nothing but release notes.
@@ -22,6 +22,7 @@ ROOT = File.expand_path("../upload/metadata", __dir__)
 BUNDLE_ID = "pl.dmq.peering"
 VERSION = ARGV.include?("--version") ? ARGV[ARGV.index("--version") + 1] : "1.0.1"
 DRY_RUN = ARGV.include?("--dry-run")
+ONLY = ARGV.include?("--only") ? ARGV[ARGV.index("--only") + 1].split(",").map(&:to_sym) : nil
 
 # version-localized: what the version's own page shows per language. The key is the App Store
 # Connect attribute, not the file name: release notes are `whatsNew` over there.
@@ -63,6 +64,7 @@ puts "Uploading #{locales.join(", ")}#{DRY_RUN ? " (dry run)" : ""}"
 
 def attributes(locale, fields)
   fields.each_with_object({}) do |(key, file), into|
+    next if ONLY && !ONLY.include?(key)
     value = field(locale, file)
     into[key] = value if value
   end
