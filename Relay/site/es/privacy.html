@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Política de privacidad · Peering</title>
+<meta name="description" content="Qué conserva Peering, qué gestiona el relay y qué no pueden ver ninguno de los dos.">
+<link rel="canonical" href="https://getpeering.app/es/privacy">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/privacy">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/privacy">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/privacy">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/privacy">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/privacy">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/privacy">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/privacy">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/privacy">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/privacy">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/privacy">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="es_ES">
+<meta property="og:url" content="https://getpeering.app/es/privacy">
+<meta property="og:title" content="Política de privacidad · Peering">
+<meta property="og:description" content="Qué conserva Peering, qué gestiona el relay y qué no pueden ver ninguno de los dos.">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Política de privacidad · Peering">
+<meta name="twitter:description" content="Qué conserva Peering, qué gestiona el relay y qué no pueden ver ninguno de los dos.">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/es/" aria-label="Peering, inicio">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="Páginas">
+      <a href="/es/">Inicio</a>
+      <a href="/es/terms">Términos</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>Política de privacidad</h1>
+    <p class="updated">Última actualización: 6 de octubre de 2026</p>
+    <p>Esta es una traducción de cortesía. Si difiere del original en inglés en <a href="https://getpeering.app/privacy">https://getpeering.app/privacy</a>, prevalece la versión en inglés.</p>
+
+    <div class="card callout">
+      <strong>En resumen.</strong> Peering no tiene cuentas, publicidad ni SDK de seguimiento
+      de terceros. Envía recuentos de uso anónimos, que puedes desactivar en
+      Ajustes. Tu pantalla, el audio,
+      las pulsaciones de teclas, la entrada del puntero y el portapapeles viajan entre tus dos dispositivos dentro de una sola
+      conexión cifrada, y el relay que la transporta cuando estás fuera de casa está diseñado para que
+      no pueda leer nada de eso.
+    </div>
+
+    <h2>1. Quién la emite</h2>
+    <p>
+      Peering es una app para iPhone que se conecta a una app complementaria en tu propio Mac. Esta política
+      abarca ambas apps y el servidor relay que les permite alcanzarse a través de internet.
+      Para cualquier asunto de aquí, incluida cualquier solicitud sobre tus datos, escribe a
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>.
+    </p>
+
+    <h2>2. Qué permanece en tus dispositivos</h2>
+    <p>
+      La app funciona sin cuenta, así que no existe ningún perfil tuyo en ningún sitio salvo en el
+      dispositivo que tienes en la mano. Esta es la lista completa de lo que conservan las apps, y todo ello
+      reside en tu iPhone o en tu Mac:
+    </p>
+    <ul>
+      <li>
+        <strong>La identidad de tu dispositivo.</strong> Cada dispositivo genera su propia clave la primera vez que
+        abres la app y guarda la clave privada en el llavero de ese dispositivo. La clave privada nunca
+        sale del dispositivo.
+      </li>
+      <li>
+        <strong>Macs emparejados.</strong> El nombre, la información de emparejamiento y la hora de la última conexión de los Macs
+        con los que te has emparejado, para poder mostrarlos en una lista y volver a conectarte.
+      </li>
+      <li>
+        <strong>Tokens push para los avisos del terminal.</strong> En un plan que incluye que te avisen cuando un
+        shell se ha detenido y te está esperando, tu Mac conserva el token push de Apple de tu iPhone para
+        poder enviar ese aviso más tarde. Se elimina automáticamente si el plan deja de incluirlo, si
+        el Mac olvida ese iPhone o si quitas la app del Mac.
+      </li>
+      <li>
+        <strong>Historial de sesiones.</strong> Las últimas 30 sesiones: cuándo empezaron, cuánto
+        duraron, qué ruta de conexión usaron y su duración. Se usa para mostrar tu propio uso,
+        incluido cuánto tiempo de relay queda en el período actual de 24 horas.
+      </li>
+      <li>
+        <strong>Elementos del portapapeles.</strong> Los 12 fragmentos de texto más recientes que has traído de tu
+        Mac se conservan en el iPhone hasta que los borras.
+      </li>
+      <li>
+        <strong>Informes de fallos y de diagnóstico.</strong> Si cualquiera de las apps falla, o el sistema
+        notifica un bloqueo, una finalización por watchdog o una excepción de recursos a través de MetricKit de Apple, se conservan en ese dispositivo los últimos 10
+        de cada tipo hasta que los borras o eliminas la app. Nada de eso se envía
+        a ningún sitio por sí solo: ves el texto exacto antes de decidir si lo adjuntas a un
+        mensaje para nosotros.
+      </li>
+      <li>
+        <strong>Tus ajustes.</strong> Preferencias como si se permiten las conexiones por relay,
+        si se requiere Face ID para abrir la app y el nombre de tu Mac.
+      </li>
+    </ul>
+    <p>
+      Eliminar la app borra todo esto, con una excepción que conviene decir en lugar de dejar
+      que se descubra: iOS conserva los elementos del llavero de una app cuando se elimina la propia app. Los tuyos
+      guardaban la identidad de tu dispositivo y cualquier contraseña SSH que pidieras recordar. Desaparecen cuando
+      los quitas en la app o cuando borras el dispositivo.
+    </p>
+    <p>
+      La app no nos sube el contenido indicado arriba. No existe ninguna cuenta de Peering. La
+      información técnica limitada que gestiona el relay se describe a continuación.
+    </p>
+
+    <h2>3. Qué gestiona el relay</h2>
+    <p>
+      Cuando tus dos dispositivos están en redes distintas, ambos se conectan hacia fuera a un servidor relay,
+      que los presenta y copia bytes entre ellos. La imagen también suele tomar un camino que los
+      dos dispositivos abren por sí mismos, en el que el relay no participa, pero es él quien le dice a cada
+      uno dónde está el otro, y transporta el resto de la sesión en cualquier caso. Para hacer ese trabajo
+      gestiona:
+    </p>
+    <ul>
+      <li>el ID de dispositivo de tu Mac y su nombre;</li>
+      <li>el ID de dispositivo de tu iPhone;</li>
+      <li>la versión del protocolo que hablan tus apps;</li>
+      <li>la prueba de una compra activa en el App Store cuando usas un plan de pago. Se usa para validar
+        el plan de esa conexión y no se conserva después;</li>
+      <li>información de autenticación seudónima usada para reconocer un dispositivo y aplicar su
+        asignación de relay;</li>
+      <li>el plan que se usa en la conexión;</li>
+      <li>cuántos segundos de relay ha usado cada dispositivo en el período actual de 24 horas;</li>
+      <li>un identificador aleatorio usado para reconocer el acceso de pago al relay;</li>
+      <li>la dirección IP de cada dispositivo, que cualquier servidor ve necesariamente y que entrega al
+        otro dispositivo para que intenten alcanzarse sin él;</li>
+      <li>el token push de Apple de tu iPhone, solo cuando un Mac le pide al relay que despierte un teléfono al que no puede
+        llegar directamente. Se usa para esa única solicitud, se pasa directamente a Apple y no se
+        almacena.</li>
+    </ul>
+    <p>
+      <strong>El relay no puede leer lo que transporta.</strong> Tus dispositivos cifran la conexión
+      de extremo a extremo y no le dan las claves al relay. Esto abarca el vídeo, el audio, las pulsaciones de teclas, la entrada del puntero
+      y el texto del portapapeles.
+    </p>
+    <p>
+      <strong>Qué conserva el relay.</strong> No existe cuenta de usuario ni perfil. El relay conserva
+      solo los registros técnicos necesarios para prestar y proteger el servicio:
+    </p>
+    <ul>
+      <li>
+        el uso del relay asociado a un identificador de dispositivo, para poder aplicar la asignación vigente;
+      </li>
+      <li>
+        los registros de autenticación de dispositivos necesarios para reconocer Macs en conexiones posteriores; y
+      </li>
+      <li>
+        registros de conexión limitados usados para seguridad y resolución de problemas, incluidos los ID de dispositivo, el
+        nombre del Mac y el plan aplicado.
+      </li>
+    </ul>
+    <p>
+      Estos registros no contienen tu pantalla, audio, entrada, portapapeles ni otro contenido de la sesión.
+    </p>
+
+    <h2>Estadísticas de uso anónimas</h2>
+    <p>
+      La app del iPhone cuenta cómo se usa, para que sepamos si alguien la utiliza y qué
+      versiones y rutas de conexión importan. Está activada por defecto y puedes desactivarla en
+      Ajustes, en «Seguridad y privacidad», tras lo cual no se envía nada.
+    </p>
+    <ul>
+      <li>Qué se envía: el nombre del evento (app abierta, sesión iniciada), la ruta de conexión
+        (red local, directa o por relay), tu plan, la versión de la app, la versión principal de iOS y un
+        identificador aleatorio creado en el primer inicio.</li>
+      <li>El identificador no es tu Apple Account, ni un identificador publicitario o de proveedor, ni
+        el identificador usado para el relay. No se puede vincular con ninguno de ellos.</li>
+      <li>Qué no se envía nunca: tu pantalla, audio, pulsaciones de teclas, portapapeles, archivos, comandos, el
+        nombre o la dirección de ningún Mac, ni los datos de las compras.</li>
+      <li>Los eventos van a los servidores de PostHog en la UE, sin crear ningún perfil de persona y con la
+        dirección IP del remitente descartada.</li>
+    </ul>
+
+    <h2>4. Lo que nunca hacemos</h2>
+    <ul>
+      <li>No vendemos, alquilamos ni compartimos tus datos con nadie.</li>
+      <li>No ejecutamos SDK de publicidad ni de atribución en la app, y ningún registro de fallos
+        sale de tu dispositivo a menos que elijas adjuntarlo a un mensaje para nosotros.</li>
+      <li>No construimos un perfil tuyo, y no hay ninguna cuenta a la que asociarlo.</li>
+      <li>No leemos, almacenamos ni inspeccionamos lo que pasa por el relay.</li>
+      <li>No enviamos la pantalla, el sonido ni la entrada de tu Mac a ningún lugar que no sea tu propio iPhone.</li>
+    </ul>
+
+    <h2>5. Compras</h2>
+    <p>
+      Todos los planes de pago son suscripciones, y Apple los gestiona por completo a través del
+      App Store.
+      Apple procesa el pago e informa a la app de si un derecho está activo; nunca vemos
+      tu nombre, tu tarjeta ni tu dirección de facturación. El tratamiento que hace Apple de esa información está
+      cubierto por la <a href="https://www.apple.com/legal/privacy/">Política de privacidad de Apple</a>.
+    </p>
+    <p>
+      Cuando hay un plan de pago activo, la app envía la prueba de la compra en el App Store para que el relay pueda
+      aplicar ese plan. La prueba se usa para esa conexión y no se conserva después. Si
+      no se puede validar, se aplica la asignación gratuita.
+    </p>
+    <p>
+      La app también envía un identificador aleatorio de acceso al relay para el acceso de pago. No está vinculado a tu
+      Apple Account ni a tu identidad personal.
+    </p>
+
+    <h2>6. Este sitio web</h2>
+    <p>
+      Este sitio es un puñado de archivos estáticos. No establece cookies propias, no ejecuta analíticas
+      y no tiene registro, comentarios ni formulario de contacto. Se sirve a través de Cloudflare, que gestiona
+      datos de conexión como tu dirección IP para entregar la página y proteger el sitio
+      frente a abusos.
+    </p>
+
+    <h2>7. Tus derechos</h2>
+    <p>
+      La legislación de privacidad de la Unión Europea y del Reino Unido te da derecho a ver, corregir,
+      exportar o eliminar los datos personales que se conservan sobre ti, a oponerte a su tratamiento y a
+      reclamar ante la autoridad nacional de protección de datos. Como Peering no tiene cuentas ni
+      base de datos de usuarios, en la práctica hay poco sobre lo que podamos actuar: los datos descritos
+      en la sección 2 están en tus dispositivos, bajo tu control, y eliminar la app los borra, salvo
+      los elementos del llavero allí indicados. Lo que conserva el relay se describe en la sección 3. Nada
+      de eso te identifica directamente. Escribe a
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a> y responderemos en un plazo de 30 días.
+    </p>
+
+    <h2>8. Menores</h2>
+    <p>
+      Peering no está dirigido a menores y no está pensado para nadie menor de 13 años, ni menor de la
+      edad mínima a la que una persona puede consentir servicios en línea en su país.
+    </p>
+
+    <h2>9. Cambios</h2>
+    <p>
+      Si esta política cambia de forma relevante, cambia la fecha de arriba y la nueva versión
+      aparece aquí antes de que entre en vigor. Seguir usando la app después significa que la
+      aceptas.
+    </p>
+
+    <h2>10. Contacto</h2>
+    <p>
+      Preguntas, solicitudes y cualquier otro asunto de privacidad:
+      <a href="mailto:support@getpeering.app">support@getpeering.app</a>.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="Guías, información legal y soporte">
+      <a href="/es/how-to-pair-iphone-mac">Guía de emparejamiento</a>
+      <a href="/es/remote-desktop-for-mac">Escritorio remoto</a>
+      <a href="/es/access-your-mac-from-anywhere">Desde cualquier lugar</a>
+      <a href="/es/keep-mac-awake-for-remote-access">Mac en casa</a>
+      <a href="/es/coding-agent-notifications">Agentes de programación</a>
+      <a href="/es/remote-desktop-apps-compared">Comparar apps</a>
+      <a href="/es/screens-alternative">Alternativa a Screens</a>
+      <a href="/es/download">Descargar</a>
+      <a href="/es/privacy">Privacidad</a>
+      <a href="/es/terms">Términos</a>
+      <a href="mailto:support@getpeering.app">Soporte</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/privacy" hreflang="en" lang="en">English</a>
+      <a href="/de/privacy" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/privacy" hreflang="es" lang="es">Español</a>
+      <a href="/fr/privacy" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/privacy" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/privacy" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/privacy" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/privacy" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/privacy" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/privacy" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone y Mac son marcas comerciales de Apple Inc.</p>
+  </div>
+</footer>
+
+</body>
+</html>

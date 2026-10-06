@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Peering: iPhoneからMacを操作するリモートデスクトップ</title>
+<meta name="description" content="iPhoneからMacを、どこからでも操作。一度ペアリングするだけ。アカウント不要、エンドツーエンド暗号化、ローカルネットワークなら無料で使えます。">
+<link rel="canonical" href="https://getpeering.app/ja/">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/">
+<meta name="apple-itunes-app" content="app-id=6812658408">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<!-- What a link to this page looks like when it is pasted into a message, and what a crawler
+     reads. og.png is a 1200x630 card rather than the app icon: every scraper crops to that shape,
+     and a square icon in it is a logo with a lot of nothing around it. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/">
+<meta property="og:title" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
+<meta property="og:description" content="iPhoneで、Macの画面を。一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化されます。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MacとiPhoneで動くPeeringのリモートデスクトップ。メッセージは「あなたのMacを。あなたのiPhoneで。どこからでも。」">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Peering: iPhoneからMacを操作するリモートデスクトップ">
+<meta name="twitter:description" content="iPhoneで、Macの画面を。一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化されます。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="twitter:image:alt" content="MacとiPhoneで動くPeeringのリモートデスクトップ。メッセージは「あなたのMacを。あなたのiPhoneで。どこからでも。」">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Peering",
+  "url": "https://getpeering.app/ja/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "iOS, macOS",
+  "description": "iPhoneで、Macの画面を。自分のネットワークで一度ペアリングすれば、どこからでもMacにつながります。通信はエンドツーエンドで暗号化され、2台の間を直接結びます。",
+  "downloadUrl": "https://getpeering.app/ja/download",
+  "installUrl": "https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408",
+  "screenshot": "https://getpeering.app/assets/og.png",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "description": "自分のネットワークでは無料でご利用いただけます。別のネットワークからMacにつなぐためのRelayプランは、月額または年額です。"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "リレーは私の画面や操作を見られますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。リレーはペアリング済みのデバイス間の暗号化された接続を中継するだけで、その中にある映像、音声、クリップボードのテキスト、キー入力、ポインタ入力を読み取ることはできません。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "リレーは私について何を知っていますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "デバイス識別子、Macの名前、技術的な互換性情報、利用中のプラン、接続の提供に必要なリレーの利用状況です。有料の接続では、App Storeでの購入の証明も送られます。アカウントは関係しません。また、どのサーバでも同じように、各デバイスの接続元アドレスは見えており、2台が直接つながろうとできるよう、それぞれに相手のアドレスを渡します。そしてMacがiPhoneに直接届かないときは、プッシュ通知でiPhoneを起こすようリレーに依頼します。その1回の依頼のために、iPhoneがMacに渡したAppleのプッシュトークンを使います。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "アカウントは必要ですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "いいえ。Peeringは各デバイスにIDを作成し、そのデバイスのキーチェーンに保存します。登録するものも、パスワードもありません。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "2つの画面にコードが表示されるのはなぜですか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "各デバイスが自分の鍵を作ります。6桁の数字は、ペアリングしようとしているデバイスが目の前にあるものと同じだと確かめるためのものです。確認すると、両方のデバイスが相手の公開鍵を記憶します。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "ファイルを転送できますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。Macと、SSHで追加したすべてのサーバで使えます。フォルダをたどり、ファイルを開き、変更して保存し、iPhoneからアップロードし、コピーを「ファイル」に保存できます。ファイルやフォルダの作成、名前の変更、削除もできます。ご自分のMacでは削除するとゴミ箱に入りますが、サーバでは完全に消え、確認画面にもそう表示されます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "iPhoneのネットワークが切り替わるとどうなりますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "セッションは続けられません。Macが送信していた宛先のアドレスがなくなるためです。接続は失敗も切断もせず、ただ静かになり、エラーを待つアプリは最後のフレームのまま永遠に止まります。Peeringはその静けさを数え、10秒続いたらセッションを終了して、お知らせします。新しいネットワークに接続してMacをタップすれば、元に戻ります。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "画面はそちらのサーバを通りますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "必要なときだけです。2台のデバイスは、まず互いを直接結ぶ経路を試します。リレーは2台を引き合わせ、その経路を開けないときにセッションを運びます。どちらも同じように暗号化されており、リレーはどちらの内容も読み取れません。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "自分で管理していないネットワークでも使えますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい。一度ペアリングすれば、2台はインターネット越しに互いを見つけるので、ホテルでも、電車でも、他の人のWi-Fiでも使えます。まず互いを直接結ぶ経路を試し、ネットワークが許さない場合はリレーに切り替えます。ローカルネットワークを共有する必要があるのは、最初のペアリングのときだけです。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "どのMacとiPhoneで使えますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "macOS 15 (Sequoia)以降を搭載したMacなら、Apple siliconでもIntelでも使えます。iOS 18以降を搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "スリープしたMacにつなげますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "接続する直前に、ネットワーク経由で起こせます。そもそもスリープしてほしくないMacのために、ホストアプリにはそのためのスイッチもあります。自動で起きたままにする、スケジュールで起こす、蓋を閉じていても起きたままにする、の3つです。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "1台のMacに複数のiPhoneからつなげますか？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "はい、どのプランでも可能です。プランで制限されるのは、1台のiPhoneがペアリングできるMacの数であり、Macが信頼するiPhoneの数ではありません。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Macに届かないようにするには、またデバイスを削除するには？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Macで「停止」を押すと、自分のネットワークでもリレー経由でも、待ち受けを止めます。ほかの人のためにMacは動かしたまま1台のiPhoneだけを外すには、ホストアプリの「デバイス」リストからそのiPhoneを削除します。そこで削除することと、iPhone側でペアリングを解除することは別の操作です。どちらのデバイスからでもペアリングを終了できるためです。"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main">コンテンツへスキップ</a>
+
+<header class="bar" id="bar">
+  <div class="wrap bar-inner">
+    <a class="brand" href="#top" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="Peering" width="28" height="28">
+      <span aria-hidden="true">Peering</span>
+    </a>
+
+    <nav class="nav" id="nav" aria-label="セクション">
+      <a href="#how">仕組み</a>
+      <a href="#features">できること</a>
+      <a href="#privacy">プライバシー</a>
+      <a href="#pricing">料金</a>
+      <a href="#faq">よくある質問</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+
+    <a class="btn btn-small btn-primary bar-cta" href="/ja/download">Peeringを入手</a>
+
+    <button class="menu" id="menu" aria-label="メニュー" aria-expanded="false" aria-controls="nav">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- Hero -->
+  <section class="hero" id="top">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <img class="hero-mark" src="/assets/pears-512.webp" alt="Peeringのアプリアイコン" width="96" height="96">
+        <h1>Peering <span>どこからでも、あなたのMacを。</span></h1>
+        <p class="body">
+          自分のネットワークで一度ペアリングするだけ。そのあとは、どこにいても2台が見つけ合い、
+          2台だけが鍵を持つ接続でつながります。
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="/ja/download">Mac版をダウンロード</a>
+          <a class="btn btn-primary" href="https://apps.apple.com/us/app/peering-remote-desktop-ssh/id6812658408">iPhoneアプリを入手</a>
+          <a class="btn btn-quiet" href="#how">仕組みを見る</a>
+        </div>
+      </div>
+
+      <!-- Two real screenshots, in drawn frames rather than rendered ones: the two ends of one
+           product, the Mac it reaches and the phone it reaches from.
+
+           app-mac.webp is the whole of this Mac's display at 1512 by 982, which is the proportion
+           the frame draws. A screen-shaped picture of a screen is what a screenshot is; the frame
+           supplies the machine around it, including the notch, which no screenshot can contain
+           because it is not something the display draws but something it is missing. -->
+      <div class="hero-stage">
+      <div class="stage">
+        <div class="mac" aria-label="Mac上のPeeringホストアプリ">
+          <div class="mac-lid">
+            <div class="mac-screen">
+              <img src="/assets/app-mac.webp" alt="Mac上のPeering: iPhoneが接続されたホストアプリ。Macの画面がライブでストリーミングされている。" width="1512" height="982">
+              <div class="mac-notch" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="mac-base" aria-hidden="true"></div>
+        </div>
+
+        <div class="phone" aria-label="iPhone上のPeeringアプリ、接続画面">
+          <div class="phone-screen">
+            <img src="/assets/app-connect.webp" alt="iPhone上のPeering: 「近くのMac」と「信頼済みのMac」が並ぶ接続画面。" width="603" height="1311">
+          </div>
+          <div class="phone-island" aria-hidden="true"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section" id="how">
+    <div class="wrap">
+      <h2>一度ペアリングすれば、あとはいつでもそこに。</h2>
+      <p class="section-lede">
+        最初の1回は3ステップ、2回目からは1ステップです。
+      </p>
+
+      <ol class="steps">
+        <li class="card step">
+          <span class="step-n">1</span>
+          <h3>自分のネットワークでペアリング</h3>
+          <p>
+            MacでPeeringを開き、iPhoneの「近く」からそのMacを選びます。2つの画面に同じ6桁の
+            数字が表示されます。
+          </p>
+          <p>数字を確認すると、2台がお互いの鍵を記憶します。</p>
+          <p><a href="/ja/how-to-pair-iphone-mac">ペアリングガイドを読む</a></p>
+        </li>
+        <li class="card step">
+          <span class="step-n">2</span>
+          <h3>共有するものを選ぶ</h3>
+          <p>
+            ディスプレイ全体、実行中のアプリ1つ、またはウインドウ1つ。一覧はライブで、まだ開いて
+            いないアプリも含まれます。
+          </p>
+          <p>接続を切らずに、いつでも切り替えられます。</p>
+        </li>
+        <li class="card step">
+          <span class="step-n">3</span>
+          <h3>家を出る</h3>
+          <p>
+            ペアリングのあと、2台はどこからでも互いを見つけ、ネットワークが許せば、映像は
+            2台の間を直接流れます。
+          </p>
+          <p>iPhoneをロックしても、セッションは続きます。</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <h2>できること</h2>
+      <p class="section-lede">
+        要約ではなく、すべてを一覧にしました。どちらの端末にもアカウントは要りません。
+      </p>
+
+      <div class="grid">
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3.2v5.4c0 4.3-2.9 7.9-7 9.4-4.1-1.5-7-5.1-7-9.4V6.2z"/><path d="M12 10.4v3.2"/><circle cx="12" cy="8.9" r="1.1"/></svg>
+          <h3>暗号化は、デバイスからデバイスまで</h3>
+          <p>各デバイスが自分の鍵を作り、自分のキーチェーンに保管します。アカウントはなく、サーバには何も保存されません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 8.4V6.6a2.2 2.2 0 012.2-2.2h1.8"/><path d="M15.6 4.4h1.8a2.2 2.2 0 012.2 2.2v1.8"/><path d="M19.6 15.6v1.8a2.2 2.2 0 01-2.2 2.2h-1.8"/><path d="M8.4 19.6H6.6a2.2 2.2 0 01-2.2-2.2v-1.8"/><path d="M9.4 10.2v1.6M14.6 10.2v1.6"/><path d="M9.8 14.8a3.6 3.6 0 004.4 0"/></svg>
+          <h3>あなたの顔でロック</h3>
+          <p>アプリに戻るたびにFace IDを求めるようにすれば、ロックされたiPhoneだけがMacのロックを解除できる状態になります。</p>
+          <p>SSHサーバにも、自分で決めたパスコードで専用のロックをかけられます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M16.2 17.6l4.2-4.2a1.3 1.3 0 00-1.8-1.8l-4.2 4.2-.5 2.3z"/></svg>
+          <h3>Macに好きな名前を</h3>
+          <p>わかりやすい名前に変更したり、使わなくなったMacを削除したりできます。行そのものから操作できます。</p>
+          <p>この一覧がペアリングそのものです。一覧にあるMacはiPhoneから届き、削除したMacは届きません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="12.4" height="9.2" rx="1.8"/><path d="M6.4 17.4h6"/><path d="M9.4 14.6v2.8"/><path d="M19.2 7.6v5"/><path d="M16.7 10.1h5"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>お持ちのすべてのMacを</h3>
+          <p>無料では1台のMacとペアリングできます。Relayなら、お持ちのすべてのMacとペアリングでき、すべて同じ一覧に並びます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.8" y="6.8" width="8" height="6.2" rx="1.4"/><rect x="13.2" y="6.8" width="8" height="6.2" rx="1.4"/><path d="M10.8 9.9h2.4"/><path d="M5.6 17.6h12.8"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>複数を同時に</h3>
+          <p>一度に1台のMacは、どのプランでも無料です。2台目のセッションを始めると、1台目は終了します。</p>
+          <p>Proなら複数を同時に開いたままにできるので、2台のマシンの行き来は、つなぎ直しではなくタップだけで済みます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8c2.4 2.4 3.6 5.2 3.6 8.2s-1.2 5.8-3.6 8.2c-2.4-2.4-3.6-5.2-3.6-8.2s1.2-5.8 3.6-8.2z"/><path d="M4.2 9.4h15.6M4.2 14.6h15.6"/></svg>
+          <h3>どこからでも戻ってこられる</h3>
+          <p>ペアリングのあとは、どちらかが別のネットワークにいても、2台が互いを見つけます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="5.4" width="6" height="13.2" rx="1.8"/><rect x="14.8" y="5.4" width="6" height="13.2" rx="1.8"/><path d="M9.4 12h5.2"/><path d="M12.4 9.6L14.8 12l-2.4 2.4"/></svg>
+          <h3>2台の間を直接</h3>
+          <p>ネットワークが許せば、映像は2台が自分たちで見つけた経路を通ります。</p>
+          <p>リレーを通るのは、制御の接続だけです。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="7.4" width="5.4" height="9.2" rx="1.6"/><rect x="15.2" y="7.4" width="5.4" height="9.2" rx="1.6"/><path d="M8.8 12h6.4"/><path d="M11.2 9.8L8.8 12l2.4 2.2"/><path d="M12.8 14.2L15.2 12l-2.4-2.2"/></svg>
+          <h3>どちらの経路か、見てわかる</h3>
+          <p>どの経路になったか、推測する必要はありません。セッション画面にLAN、RELAY、DIRECT·P2Pのいずれかが表示されます。</p>
+          <p>情報パネルには、映像が流れるレーンの往復時間が、制御の接続とは別に計測されて表示されます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.8 8.8a12 12 0 0116.4 0"/><path d="M6.8 12.1a7.6 7.6 0 0110.4 0"/><path d="M9.9 15.4a3.2 3.2 0 014.2 0"/><path d="M4.4 4l15.2 16"/></svg>
+          <h3>ネットワークが切れたら、そう伝える</h3>
+          <p>セッションの途中でネットワークが変わっても、接続は失敗せず、ただ静かになります。何も動かないのに、画面は生きているように見えたままです。</p>
+          <p>Peeringはその静けさを数え、10秒続いたらセッションを終了します。迷わせず、きちんとお知らせします。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.6l12.2 8.1-5.2 1.1-2.3 5z"/><path d="M4.5 19.5h6"/></svg>
+          <h3>本当に操作できる</h3>
+          <p>ポインタ、キーボード、ジョイスティック、スクロールホイール、マクロ。「操作とズーム」で、指がそのままMacに届きます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="15.2" rx="2.6"/><path d="M8.2 9.6h7.6M8.2 13h4.4"/><path d="M15.4 16.6l1.8-1.8-1.8-1.8"/></svg>
+          <h3>見るだけにも、操作にも</h3>
+          <p>操作モードでは、タッチがMacに送られます。閲覧のみモードでは画面を表示するだけで、何も送りません。何かが動くのを見ていたいだけのときに便利です。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 9.4V6.6a2 2 0 012-2h11.4a2 2 0 012 2v2.8"/><path d="M4.6 14.6v2.8a2 2 0 002 2h11.4a2 2 0 002-2v-2.8"/><path d="M9.4 12h5.2M12 9.4L14.6 12 12 14.6"/></svg>
+          <h3>ズーム、フィット、フィル</h3>
+          <p>ピンチして小さなツールバーを拡大したり、Macの画面をiPhoneの画面いっぱいに広げて、大事な端を見えたままにしたりできます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><path d="M3.4 8.6h17.2"/><path d="M12 8.6v10.8"/></svg>
+          <h3>画面、アプリ、ウインドウ1つ</h3>
+          <p>Macにつながっているすべてのディスプレイ、実行中のアプリ1つ、ウインドウ1つ。どれでも共有でき、つなぎ直さずに切り替えられます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="14.2" height="10.6" rx="2"/><path d="M6.6 13.4l3-3 2.4 2.4 2.2-1.8 2.8 2.6"/><path d="M17.8 19.6h-6.4"/><path d="M14.8 17.4l2.4 2.2 3.4-3.6"/></svg>
+          <h3>起動し忘れたアプリも開ける</h3>
+          <p>一覧はライブで、インストール済みで実行中ではないアプリも含まれます。タップするとMacがそのアプリを開き、ほかと同じ共有元として使えます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 17.4a9.6 9.6 0 1115.6 0"/><path d="M12 13.4l4.2-3.8"/><circle cx="12" cy="15.4" r="1.6"/></svg>
+          <h3>止まらず、折れ曲がる映像</h3>
+          <p>ビットレートは、接続が実際に運べる量に合わせて、遅延が増えると下がり、落ち着くと戻ります。</p>
+          <p>自分で決めたいときは、低、中、高に固定することもできます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="17.2" height="11.4" rx="2.2"/><path d="M8.6 12.4l3.4-4 3.4 4"/><path d="M12 17v3"/><path d="M8.6 20.4h6.8"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>リレー経由で最も鮮明な映像</h3>
+          <p>自分のネットワークでは、映像の上限はどのプランでもなく、どのプランもネットワークに合わせて調整します。</p>
+          <p>Proで変わるのは、リレー経由のセッションの上限です。データが運ばれている間に、レートをどこまで上げられるかが変わります。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.4 9.6h3.4l4-3.2v11.2l-4-3.2H4.4z"/><path d="M15.4 9.4a3.6 3.6 0 010 5.2"/><path d="M17.8 7.2a7 7 0 010 9.6"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>Macの音声</h3>
+          <p>Macで再生されている音がiPhoneから聞こえるので、マシンの動作を黙って見るのではなく、音でも把握できます。</p>
+          <p>スイッチはセッションパネルに1つ。オフにしても、ストリームには影響しません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 8.6a2.2 2.2 0 012.2-2.2h1.6l1.4-2h6.4l1.4 2h1.6a2.2 2.2 0 012.2 2.2v8.2a2.2 2.2 0 01-2.2 2.2H5.8a2.2 2.2 0 01-2.2-2.2z"/><circle cx="12" cy="12.6" r="3.4"/></svg>
+          <h3>見ているものを保存</h3>
+          <p>セッションのスクリーンショットを撮って、そのまま共有シートに渡せます。先に写真アプリを経由する必要はありません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="6.4" width="14" height="11.2" rx="2.4"/><path d="M7.4 4.2h11.2a2.4 2.4 0 012.4 2.4v9"/></svg>
+          <h3>すべてのデスクトップを</h3>
+          <p>すべてのSpacesが、名前のリストではなく、それぞれ映像として表示されます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.6"/><rect x="12.4" y="12.4" width="6" height="4.6" rx="1.2"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>離れても続く</h3>
+          <p>ほかのアプリの上にピクチャインピクチャで表示されるので、アプリの外でもMacの画面がそばに残ります。ロック画面のライブアクティビティとホーム画面のウィジェットは、どのプランでも使えます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="17.2" height="6" rx="1.8"/><rect x="3.4" y="13.6" width="17.2" height="6" rx="1.8"/><path d="M7 7.4h.01M7 16.6h.01"/></svg>
+          <h3>サーバにも対応</h3>
+          <p>SSHでホストを追加すると、Macと並んで一覧に表示されます。鍵は最初に確認され、専用のロックをかけることもできます。</p>
+          <p>どのプランでも無料です。プランで上限があるのは同時に開くシェルの数で、マシンの数ではありません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="4.4" width="17.6" height="15.2" rx="2.4"/><path d="M7.4 9.8l2.6 2.6-2.6 2.6"/><path d="M12.6 15h4.2"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>本物のシェル</h3>
+          <p>iPhone向けに作られたキー行を備えた、全画面のターミナルセッション。escape、コントロールキー、矢印、単語単位の移動が使えます。</p>
+          <p>一度に1つのシェルは、どのプランでも無料です。複数を同時に開いておくための名前付きタブは、Proです。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 16.8v-5.4a5.2 5.2 0 0110.4 0v5.4"/><path d="M4.8 16.8h14.4"/><path d="M10.4 19.2a1.8 1.8 0 003.2 0"/><circle cx="17.6" cy="6.6" r="2"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>シェルが待っているときに通知</h3>
+          <p>パスワードの入力待ちから、ビルドの完了まで、答えを待って止まったシェルは、自分で確認しに行かなくても、iPhoneにバナーで知らせます。アプリを閉じていても届き、Macがリレー経由で送ります。</p>
+          <p>ターミナルとタブのマークは、どのプランでも使えます。呼び出してもらえるのは、Relayからです。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 6.8a2 2 0 012-2h3.2l2 2.4h7.6a2 2 0 012 2v8a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M8.4 13.2h7.2"/></svg>
+          <span class="feature-tag">Relay</span>
+          <h3>どちらのマシンのファイルも</h3>
+          <p>Macや、追加したサーバのフォルダをたどり、設定ファイルやスクリプトを開き、変更して保存し、新規作成や、一覧にあるものの名前変更と削除ができます。</p>
+          <p>これらはすべて無料です。iPhoneとマシンの間でファイルを移動するのは、Relayです。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="13.2" rx="2.2"/><path d="M6.6 15.4l3.4-3.4 2.6 2.6 2.2-1.8 2.8 2.6"/><circle cx="8.2" cy="9.4" r="1.2"/></svg>
+          <h3>画像は画像として開く</h3>
+          <p>ファイルの種類は名前ではなく中身のバイトから判断されます。画像は画像として描画され、SVGはスクリプトをオフにして描画されます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 7.4a2 2 0 012-2h3.4l2 2.4h7.4a2 2 0 012 2v7.4a2 2 0 01-2 2H5.6a2 2 0 01-2-2z"/><path d="M12 11.6v4.4M9.8 13.8h4.4"/></svg>
+          <h3>作成、名前変更、削除</h3>
+          <p>新しいファイルやフォルダ、どの行でもできる名前変更、そして何が一緒に消えるかを示してから行う削除。</p>
+          <p>ご自分のMacではゴミ箱に入りますが、サーバでは完全に消え、確認画面にもそう表示されます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M10.2 8.6l5.4 3.4-5.4 3.4z"/></svg>
+          <h3>見ているものを実行</h3>
+          <p>実行可能な行には「実行」ボタンがあり、名前とパスで確認してから実行します。</p>
+          <p>送られるのは、すでに開いているシェルに打ち込まれる1行です。そのため、何かを出力するスクリプトは、読める場所に出力します。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3 1.8"/></svg>
+          <h3>すべてのセッションを記録</h3>
+          <p>接続はそれぞれ、継続時間、どう接続したか、どれだけのデータが流れたか、途中でMacが何を伝えたかとともに記録されます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5.4" y="4.2" width="13.2" height="16" rx="2.4"/><path d="M9.4 4.2v1.6a1.6 1.6 0 001.6 1.6h2a1.6 1.6 0 001.6-1.6V4.2"/></svg>
+          <h3>ひとつのクリップボード</h3>
+          <p>iPhoneでコピーしてMacでペースト、またはその逆が、どのプランでもできます。Relayでは直近の12件が保存されるので、少し前にコピーしたものもまだ残っています。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="4.4" width="8" height="6.2" rx="1.6"/><rect x="3.4" y="13" width="8" height="6.2" rx="1.6"/><rect x="12.6" y="13" width="8" height="6.2" rx="1.6"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>複数のウインドウを同時に</h3>
+          <p>ウインドウ、アプリ、ディスプレイを選んで、iPhoneにまとめて表示し、好きなように並べられます。どのタイルもスクリーンショットではなくライブの映像で、タップするとそのタイルに入り、全体の配置は戻るボタンの後ろで待っています。</p>
+          <p>一度に1つの共有元は、どのプランでも使えます。これはMacの負荷が高くなります。タイルごとに別々にキャプチャされるため、映像がライブのままになります。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5" width="13.6" height="10" rx="2"/><path d="M7 19h6"/><path d="M10 15v4"/><circle cx="19.4" cy="8" r="3.4"/><path d="M19.4 6.4v3.2M17.8 8h3.2"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>仮想ディスプレイ</h3>
+          <p>仮想ディスプレイとは、Macが物理的には持っていない画面のことです。アプリがMacに作成を依頼すると、iPhoneはそれをほかの画面と同じように表示します。Macにすでにあるウインドウの置き場所として使え、同じ一覧から名前を付けたり、取り除いたりできます。</p>
+          <p>どれもアプリから作られるので、Proから始まります。勝手に作られることはありません。作成したセッションが終わると、一緒になくなります。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="7.6" height="4.4" rx="2.2"/><rect x="12.6" y="4.6" width="8" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 15.6h10"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>毎回打つコマンドを</h3>
+          <p>キーボードの上に並ぶチップの列に、よく使うコマンドとスニペットを入れておけます。どのターミナルでも使えます。タップするまで、何も実行されません。</p>
+          <p>すでにあるものの実行は、どのプランでも無料です。作成や編集は、Proです。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="4.6" width="17.2" height="4.4" rx="2.2"/><rect x="3.4" y="11.6" width="17.2" height="7.8" rx="2.2"/><path d="M7 18.4l2.4-2.4-2.4-2.4"/><path d="M12.2 18.4h4"/></svg>
+          <span class="feature-tag">Pro</span>
+          <h3>マクロ</h3>
+          <p>一連の操作を一度記録すれば、ワンタップで実行できます。そのMacの前に座るたびに打つものに向いています。</p>
+          <p>iPhoneに保存され、編集もでき、実行するまでどこにも送信されません。</p>
+        </div>
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.2a5.6 5.6 0 015.6 5.6c0 4 1.4 5.4 1.4 5.4H5s1.4-1.4 1.4-5.4A5.6 5.6 0 0112 4.2z"/><path d="M10.2 18.6a2 2 0 003.6 0"/></svg>
+          <h3>必要なときに通知</h3>
+          <p>Macがペアリングコードを待っているとき、SSHサーバがパスワードを求めているとき、まだ答えていない質問でシェルが止まっているときに、通知が届きます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9.2" y="3.6" width="5.6" height="10.4" rx="2.8"/><path d="M5.8 11.6a6.2 6.2 0 0012.4 0"/><path d="M12 17.8v2.6"/><path d="M9.4 20.4h5.2"/></svg>
+          <h3>SiriとShortcuts</h3>
+          <p>Siriに頼んで、Macに接続したり、サーバでシェルを開いたり、開いたままのものを終了したりできます。iPhoneのロックを解除してアプリを探す必要はありません。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="5.4" width="17.2" height="11.6" rx="2.2"/><path d="M8.6 20.2h6.8"/><path d="M12 17v3.2"/><path d="M7.2 9.6h4.4"/></svg>
+          <h3>Mac側もアプリです</h3>
+          <p>メニューバーに常駐し、ログイン時に開けるので、再起動してもリモートアクセスが気づかないうちに終わることはありません。</p>
+          <p>必要な2つの権限が表示され、それぞれにシステム設定の該当ペインへのボタンがあります。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.4" y="8.6" width="5.4" height="6.8" rx="1.6"/><rect x="15.2" y="8.6" width="5.4" height="6.8" rx="1.6"/><path d="M8.8 12h6.4"/><path d="M12.4 9.8l2.8 2.2-2.8 2.2"/></svg>
+          <h3>ポートをiPhoneにトンネル</h3>
+          <p>Macや、追加したサーバのポートを転送できます。:3000の開発サーバ、ローカルのダッシュボード、プライベートなAPIを、同じネットワークにいるかのように、iPhoneのSafariで開けます。</p>
+          <p>どのプランでも使えます。トンネルを運ぶSSH接続も同様です。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.4"/><path d="M15.4 15.4l4.8 4.8"/><path d="M8.4 10.8h4.8"/><path d="M10.8 8.4v4.8"/></svg>
+          <h3>ズームしても、操作できる</h3>
+          <p>Macの画面のどの部分でもピンチしてズームでき、タッチは画面上の正しい位置に届きます。全体表示では小さすぎてタップできないツールバーも、ズームすれば問題なく届きます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.4v7.2"/><path d="M8.1 6.6a6 6 0 108 0"/></svg>
+          <h3>起こす、または隠す</h3>
+          <p>接続する前に、スリープ中のMacをネットワーク経由で起こせます。また、通りかかった人に見られたくないときは、画面を隠せます。</p>
+        </div>
+
+        <div class="card feature">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.4 13.4a7.4 7.4 0 01-9.8-9.8 7.6 7.6 0 106.6 12.6 7 7 0 013.2-2.8z"/></svg>
+          <h3>外出中も届くように</h3>
+          <p>スイッチは4つで、最初はすべてオフです。このMacを自動で起きたままにする、決めた時間帯だけ起こしておく、1日1回起こす、蓋を閉じたまま動かし続ける、の4つです。</p>
+          <p>どのプランでも無料で、<a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>で手順を追って説明しています。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="section" id="privacy">
+    <div class="wrap">
+      <h2>エンドツーエンドで暗号化。リレーは当事者ではありません。</h2>
+      <p class="section-lede">
+        鍵を持つのは2台のデバイスだけ。リレーには渡されません。
+      </p>
+
+      <div class="card privacy-card">
+        <div class="diagram" aria-hidden="true">
+          <span class="node">iPhone</span>
+          <span class="link"><i></i></span>
+          <span class="node node-relay">Relay</span>
+          <span class="link"><i></i></span>
+          <span class="node">Mac</span>
+        </div>
+
+        <div class="privacy-notes">
+          <div>
+            <h3>リレーが扱うもの</h3>
+            <p>
+              デバイス識別子、Macの名前、技術的な互換性情報、利用中のプラン、接続の提供に
+              必要なリレーの利用状況です。
+            </p>
+            <p>
+              MacがiPhoneに直接届かないときは、Macがリレーに起こすよう依頼します。その1回の依頼のために、
+              iPhoneがMacに渡したAppleのプッシュトークンを使います。保存はされません。
+            </p>
+            <p>
+              どのサーバとも同じように、各デバイスの接続元アドレスは見えており、それぞれに相手の
+              アドレスを渡します。どちらの経路でも、<em>読み取れる</em>ものは何もありません。
+            </p>
+          </div>
+          <div>
+            <h3>リレーが読み取れないもの</h3>
+            <p>
+              映像、音声、キー入力、ポインタ入力、クリップボードのテキストは、リレーが決して受け取らない
+              鍵でエンドツーエンドに暗号化されます。
+            </p>
+          </div>
+          <div>
+            <h3>アプリが収集するもの</h3>
+            <p>
+              画面、ファイル、キー入力は一切収集しません。アプリは匿名の利用回数(アプリの起動数と
+              セッション数。アカウントとは結び付きません)を送信し、これは設定でオフにできます。
+              広告も、トラッキングSDKもなく、紐付けるアカウントもありません。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="section" id="pricing">
+    <div class="wrap">
+      <h2>料金</h2>
+      <p class="section-lede">
+        自分のネットワークでは、無料で無制限、ずっと変わりません。リレーは別の場所からMacに届くための
+        ものです。月額または年額です。
+      </p>
+
+      <!-- Keep this comparison in sync with the plans offered in the app. -->
+      <p class="plans-scroll-hint" aria-hidden="true">横にスクロールしてすべてのプランを見る &rarr;</p>
+      <div class="plans-wrap">
+        <table class="plans">
+          <caption class="vh">各プランに含まれるもの</caption>
+          <thead>
+            <tr>
+              <td class="corner"><span class="vh">機能</span></td>
+            <th scope="col" class="plan-col">
+              <span class="plan-name">無料</span>
+              <span class="plan-price">$0</span>
+              <span class="plan-note">自分のネットワークで、好きなだけ</span>
+            </th>
+            <th scope="col" class="plan-col">
+              <span class="plan-name">Relay</span>
+              <span class="plan-price">$1.99<span>/月</span></span>
+              <span class="plan-note">または年額$14.99(月あたり$1.25)</span>
+            </th>
+            <th scope="col" class="plan-col col-pro">
+              <span class="plan-badge">いちばんお得</span>
+              <span class="plan-name">Pro</span>
+              <span class="plan-price">$4.99<span>/月</span></span>
+              <span class="plan-note">または年額$34.99(月あたり$2.92)</span>
+            </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group-row">
+              <th scope="rowgroup" colspan="3">プランで得られるもの</th>
+              <td class="col-pro"></td>
+            </tr>
+            <tr>
+              <th scope="row">毎日のリレー時間</th>
+              <td class="val">1時間</td>
+              <td class="val">無制限</td>
+              <td class="val col-pro">無制限</td>
+            </tr>
+            <tr>
+              <th scope="row">ペアリングできるMac</th>
+              <td class="val">1台</td>
+              <td class="val">お持ちのすべてのMac</td>
+              <td class="val col-pro">お持ちのすべてのMac</td>
+            </tr>
+            <tr>
+              <th scope="row">Macの音声</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">ピクチャインピクチャ</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">双方向のファイル転送</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">クリップボード履歴</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">ターミナルが必要なときに通知</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">複数のシェルをタブで同時に</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">複数のMacを同時に</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">複数のウインドウを1つの映像に</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">iPhone上の仮想ディスプレイ</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">マクロ、スニペット、クイックコマンド</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr>
+              <th scope="row">リレー経由で最も鮮明な映像</th>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="no-cell"><span class="no" aria-hidden="true">&middot;</span><span class="vh">含まれません</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="group-row">
+              <th scope="rowgroup" colspan="3">すべてのプランに含まれるもの</th>
+              <td class="col-pro"></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">すべてのディスプレイ、アプリ、ウインドウ</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">一度に1つのシェル</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSHサーバ、鍵の保存付き</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">SSHポートフォワード</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">ファイルブラウザ、編集と実行付き</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">クリップボード、双方向</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">キーボード、ポインタ、トラックパッド、スクロールホイール</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">閲覧のみモード</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">プライバシーモード</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">スクリーンショット、ウィジェット、ライブアクティビティ、Siri</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Wake on LAN、Spaces、セッション履歴</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+            <tr class="quiet">
+              <th scope="row">Macがあなたを待っているときの通知</th>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes"><span class="vh">含まれます</span></td>
+              <td class="yes col-pro"><span class="vh">含まれます</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="fine">
+        料金は国ごとにApp Storeで設定され、購入前にアプリ内に表示されます。
+        サブスクリプションは、解約しない限り自動的に更新されます。解約はいつでも、App Storeの
+        設定から行えます。
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <h2>よくある質問</h2>
+
+      <div class="faq">
+        <details>
+          <summary>リレーは私の画面や操作を見られますか？</summary>
+          <p>
+            いいえ。リレーはペアリング済みのデバイス間の暗号化された接続を中継するだけで、その中に
+            ある映像、音声、クリップボードのテキスト、キー入力、ポインタ入力を読み取ることはできません。
+          </p>
+        </details>
+        <details>
+          <summary>リレーは私について何を知っていますか？</summary>
+          <p>
+            デバイス識別子、Macの名前、技術的な互換性情報、利用中のプラン、接続の提供に必要な
+            リレーの利用状況です。有料の接続では、App Storeでの購入の証明も送られます。
+            アカウントは関係しません。
+          </p>
+          <p>
+            また、どのサーバでも同じように、各デバイスの接続元アドレスは見えており、2台が直接つながろう
+            とできるよう、それぞれに相手のアドレスを渡します。そしてMacがiPhoneに直接届かないときは、
+            プッシュ通知でiPhoneを起こすようリレーに依頼します。その1回の依頼のために、iPhoneがMacに
+            渡したAppleのプッシュトークンを使います。
+          </p>
+        </details>
+        <details>
+          <summary>アカウントは必要ですか？</summary>
+          <p>
+            いいえ。Peeringは各デバイスにIDを作成し、そのデバイスのキーチェーンに保存します。
+            登録するものも、パスワードもありません。
+          </p>
+        </details>
+        <details>
+          <summary>2つの画面にコードが表示されるのはなぜですか？</summary>
+          <p>
+            各デバイスが自分の鍵を作ります。6桁の数字は、ペアリングしようとしているデバイスが目の前に
+            あるものと同じだと確かめるためのものです。確認すると、両方のデバイスが相手の公開鍵を
+            記憶します。
+          </p>
+        </details>
+        <details>
+          <summary>ファイルを転送できますか？</summary>
+          <p>
+            はい。Macと、SSHで追加したすべてのサーバで使えます。フォルダをたどり、ファイルを開き、
+            変更して保存し、iPhoneからアップロードし、コピーを「ファイル」に保存できます。
+          </p>
+          <p>
+            ファイルやフォルダの作成、名前の変更、削除もできます。ご自分のMacでは削除するとゴミ箱に入りますが、
+            サーバでは完全に消え、確認画面にもそう表示されます。
+          </p>
+        </details>
+        <details>
+          <summary>iPhoneのネットワークが切り替わるとどうなりますか？</summary>
+          <p>
+            セッションは続けられません。Macが送信していた宛先のアドレスがなくなるためです。接続は
+            失敗も切断もせず、ただ静かになり、エラーを待つアプリは最後のフレームのまま永遠に
+            止まります。
+          </p>
+          <p>
+            Peeringはその静けさを数え、10秒続いたらセッションを終了して、お知らせします。
+            新しいネットワークに接続してMacをタップすれば、元に戻ります。
+          </p>
+        </details>
+        <details>
+          <summary>画面はそちらのサーバを通りますか？</summary>
+          <p>
+            必要なときだけです。2台のデバイスは、まず互いを直接結ぶ経路を試します。リレーは2台を
+            引き合わせ、その経路を開けないときにセッションを運びます。どちらも同じように暗号化されて
+            おり、リレーはどちらの内容も読み取れません。
+          </p>
+        </details>
+        <details>
+          <summary>自分で管理していないネットワークでも使えますか？</summary>
+          <p>
+            はい。一度ペアリングすれば、2台はインターネット越しに互いを見つけるので、ホテルでも、
+            電車でも、他の人のWi-Fiでも使えます。
+          </p>
+          <p>
+            まず互いを直接結ぶ経路を試し、ネットワークが許さない場合はリレーに切り替えます。
+            ローカルネットワークを共有する必要があるのは、最初のペアリングのときだけです。
+          </p>
+        </details>
+        <details>
+          <summary>どのMacとiPhoneで使えますか？</summary>
+          <p>
+            macOS 15 (Sequoia)以降を搭載したMacなら、Apple siliconでもIntelでも使えます。iOS 18以降を
+            搭載したiPhoneまたはiPadで使え、iOS 26にアップデートできない古いデバイスも含まれます。
+          </p>
+        </details>
+        <details>
+          <summary>スリープしたMacにつなげますか？</summary>
+          <p>
+            接続する直前に、ネットワーク経由で起こせます。そもそもスリープしてほしくないMacのために、
+            ホストアプリにはそのためのスイッチもあります。自動で起きたままにする、スケジュールで
+            起こす、蓋を閉じていても起きたままにする、の3つです。
+          </p>
+        </details>
+        <details>
+          <summary>1台のMacに複数のiPhoneからつなげますか？</summary>
+          <p>
+            はい、どのプランでも可能です。プランで制限されるのは、1台のiPhoneがペアリングできるMacの数
+            であり、Macが信頼するiPhoneの数ではありません。
+          </p>
+        </details>
+        <details>
+          <summary>Macに届かないようにするには、またデバイスを削除するには？</summary>
+          <p>
+            Macで「停止」を押すと、自分のネットワークでもリレー経由でも、待ち受けを止めます。ほかの人のために
+            Macは動かしたまま1台のiPhoneだけを外すには、ホストアプリの「デバイス」リストからそのiPhoneを
+            削除します。そこで削除することと、iPhone側でペアリングを解除することは別の操作です。
+            どちらのデバイスからでもペアリングを終了できるためです。
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="Peering" width="24" height="24">
+      <span aria-hidden="true">Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法的情報、サポート">
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリを比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/" hreflang="en" lang="en">English</a>
+      <a href="/de/" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/" hreflang="es" lang="es">Español</a>
+      <a href="/fr/" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPhoneとMacをペアリングする方法 · Peering</title>
+<meta name="description" content="手順に沿って、Peeringに必要な2つの権限を許可し、外出中もMacに到達できるようにするかを決めて、最初のiPhoneをペアリングします。">
+<link rel="canonical" href="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/how-to-pair-iphone-mac">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<meta property="og:title" content="iPhoneとMacをペアリングする方法 · Peering">
+<meta property="og:description" content="手順ごとに説明します。権限、任意の外出用スイッチ、最初のiPhoneのペアリング。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="iPhoneとMacをペアリングする方法 · Peering">
+<meta name="twitter:description" content="手順ごとに説明します。権限、任意の外出用スイッチ、最初のiPhoneのペアリング。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "inLanguage": "ja",
+  "name": "Peeringでご自分のiPhoneとMacをペアリングする方法",
+  "description": "MacでPeeringに必要な2つの権限を許可し、外出中もMacに到達できるようにするかを決めてから、iPhoneをペアリングします。",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "PeeringにMacへのアクセスを許可する",
+      "text": "アクセシビリティ（iPhoneからのジェスチャーとキー操作をMacへの入力に変えます）と、画面収録（Macの画面をiPhoneに送ります）を許可します。どちらも必須です。"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "外出中もこのMacに到達できるようにするかを決める",
+      "text": "任意です。Macをスリープさせない、スケジュールで起動したままにする、毎日自動で起こす、蓋を閉じたまま動かす、のどれを使うかを選びます。4つとも初期設定ではオフで、あとから設定で変更できます。"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "最初のiPhoneをペアリングする",
+      "text": "iPhoneでPeeringを開きます。同じネットワークなら、Macを自動で見つけて、確認用の6桁のコードを表示します。そのネットワークの外にいるときは、Macのアドレスを手入力するか、デバイスIDをスキャンしてください。"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/ja/" aria-label="Peering、ホーム">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="ページ">
+      <a href="/ja/">ホーム</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/download">ダウンロード</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>iPhoneとMacをペアリングする方法</h1>
+    <p class="updated">最初の1回だけの設定で、3つのパートに分かれています。最初のペアリングが終われば、あとはiPhoneでPeeringを開くだけです。</p>
+
+    <div class="card callout">
+      まず<a href="/ja/download">Mac版Peering</a>をインストールしてください。画面を共有する側であり、
+      iPhoneが接続する相手です。iPhoneアプリは、両方が同じネットワークにいれば自動でMacを見つけます。
+    </div>
+
+    <h2>1. PeeringにMacへのアクセスを許可する</h2>
+    <p>
+      Macアプリは初回にこの画面を直接開き、2つの権限が両方許可されるまでここにとどまります。
+      動いているふりをするだけのホストより、何が足りないのかをはっきり伝えるホストのほうがましだからです。
+    </p>
+    <ul>
+      <li>
+        <strong>アクセシビリティ。</strong> iPhoneからのジェスチャーとキー操作を、このMacへの入力に変えます。
+        許可しないと、Macの画面は見えても操作はできません。
+      </li>
+      <li>
+        <strong>画面収録。</strong> このMacのライブ映像をiPhoneに送ります。
+        許可しないと、iPhoneは真っ黒な画面に接続することになります。
+      </li>
+    </ul>
+    <p>
+      アクセシビリティはすぐに有効になります。画面収録はアプリの起動時にしか読み込まれないため、
+      システム設定で許可したあと、Peeringが再起動を案内します。どちらのボタンも、
+      必要なシステム設定のパネルをそのまま開きます。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-permissions.webp" width="1600" height="813" loading="lazy"
+        alt="PeeringのMacへのアクセス許可画面。アクセシビリティと画面収録が必須として表示され、それぞれに許可ボタンがあります。">
+      <figcaption>Peeringを初めて開いたときにMacに表示される画面です。</figcaption>
+    </figure>
+
+    <h2>2. 外出中もこのMacに到達できるようにするかを決める</h2>
+    <p>
+      任意で、ここのスイッチはすべて初期設定でオフです。この手順があるのは、以前はメニューバーのアイコンの奥に隠れていて
+      誰も見つけられない設定だったからです。今は、アプリを実際に使う段階に入る前に、一度だけ分かりやすく尋ねます。
+    </p>
+    <ul>
+      <li>
+        <strong>Macをスリープさせない。</strong> アイドル時のスリープもディスプレイのスリープも防ぎ、
+        追加の権限確認もありません。蓋を閉じると効きません。Peeringを終了すると自動で解除されます。
+      </li>
+      <li>
+        <strong>この時間帯だけ起こしたままにする。</strong> 上のスイッチを、一日中ではなくスケジュールで使います。
+      </li>
+      <li>
+        <strong>毎日起こす。</strong> 毎日の起動時刻を設定します。Macは一度スリープすると、
+        何かが起こすまで、ここにあるほかのどの方法でも到達できなくなります。
+      </li>
+      <li>
+        <strong>蓋を閉じたまま動かす。</strong> 蓋を閉じても効く唯一のスイッチです。
+        macOSではこれを<code>pmset</code>経由でしかできないため、管理者パスワードを一度だけ求めます。
+        オンの間、Macはまったくスリープしません。
+      </li>
+    </ul>
+    <p>
+      この手順を飛ばしても、すべてのスイッチはオフのままです。どれも、あとから設定でオンにできます。
+      名前も説明も同じです。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-away-switches.webp" width="1600" height="967" loading="lazy"
+        alt="PeeringのこのMacを自宅に置いていく画面。Macをスリープさせない、スケジュール、毎日起こす、蓋を閉じたまま動かすの各スイッチが、すべてオフで表示されています。">
+      <figcaption>4つの外出用スイッチ。すべて任意で、最初はすべてオフです。</figcaption>
+    </figure>
+
+    <h2>3. 最初のiPhoneをペアリングする</h2>
+    <p>
+      両方の権限を許可すると、このMacは待ち受けを始め、つなぐ方法を3つ表示します。
+    </p>
+    <ul>
+      <li>
+        <strong>同じネットワークの場合。</strong> iPhoneでPeeringを開きます。このMacを自動で見つけ、
+        初回は両方の画面に同じ6桁の数字が表示されて、確認します。
+      </li>
+      <li>
+        <strong>アドレスを使う場合。</strong> お使いの場所で自動検出がブロックされているときは、
+        画面に表示されているMacのアドレスとポートを、iPhoneに手入力します。
+      </li>
+      <li>
+        <strong>別のネットワークの場合。</strong> まだ同じWi-Fiにいないときは、Macに表示されている
+        デバイスID QRコードをiPhoneのPeeringでスキャンするか、IDを手入力します。
+      </li>
+    </ul>
+    <p>
+      6桁の数字を確認することが、2台のデバイスをペアリングする操作です。それぞれがすでに自分の鍵を作成していて、
+      このコードは、反対側にいるデバイスが目の前にあるものだとPeeringに伝える手段です。
+      確認が済むと、両方が相手の鍵を記憶し、以降の接続はタップするだけになります。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+        alt="Peeringの最初のiPhoneをペアリングする画面。3つの接続方法と、別のネットワークからペアリングするためのQRコードが表示されています。">
+      <figcaption>最初の接続を待っている状態です。同じネットワーク、アドレス指定、またはどこからでも。</figcaption>
+    </figure>
+
+    <h2>iPhoneが別のネットワークにいる場合は？</h2>
+    <p>
+      最初のペアリングには、2台のデバイスが同じネットワークにいるか、上で紹介した「別のネットワークの場合」の
+      QRコードとデバイスIDが必要です。その1回の確認が済めば、iPhoneとMacはどこからでもお互いを見つけます。
+      詳しくは<a href="/ja/access-your-mac-from-anywhere">どこからでもMacにアクセス</a>をご覧ください。
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/ja/download">Mac版Peeringをダウンロード</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="ガイド、法務、サポート">
+      <a href="/ja/how-to-pair-iphone-mac">ペアリングガイド</a>
+      <a href="/ja/remote-desktop-for-mac">リモートデスクトップ</a>
+      <a href="/ja/access-your-mac-from-anywhere">どこからでも</a>
+      <a href="/ja/keep-mac-awake-for-remote-access">自宅のMac</a>
+      <a href="/ja/coding-agent-notifications">コーディングエージェント</a>
+      <a href="/ja/remote-desktop-apps-compared">アプリ比較</a>
+      <a href="/ja/screens-alternative">Screensの代替</a>
+      <a href="/ja/download">ダウンロード</a>
+      <a href="/ja/privacy">プライバシー</a>
+      <a href="/ja/terms">利用規約</a>
+      <a href="mailto:support@getpeering.app">サポート</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/how-to-pair-iphone-mac" hreflang="en" lang="en">English</a>
+      <a href="/de/how-to-pair-iphone-mac" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/how-to-pair-iphone-mac" hreflang="es" lang="es">Español</a>
+      <a href="/fr/how-to-pair-iphone-mac" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/how-to-pair-iphone-mac" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/how-to-pair-iphone-mac" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/how-to-pair-iphone-mac" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/how-to-pair-iphone-mac" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/how-to-pair-iphone-mac" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/how-to-pair-iphone-mac" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki. Apple、iPhone、MacはApple Inc.の商標です。</p>
+  </div>
+</footer>
+
+</body>
+</html>

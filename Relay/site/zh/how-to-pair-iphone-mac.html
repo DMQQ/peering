@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>如何将 iPhone 与 Mac 配对 · Peering</title>
+<meta name="description" content="分步说明：授予 Peering 需要的两项权限，决定你外出时 Mac 是否保持可连接，并配对你的第一台 iPhone。">
+<link rel="canonical" href="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/how-to-pair-iphone-mac">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/how-to-pair-iphone-mac">
+<meta property="og:title" content="如何将 iPhone 与 Mac 配对 · Peering">
+<meta property="og:description" content="分步说明：权限、可选的外出开关，以及配对你的第一台 iPhone。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="如何将 iPhone 与 Mac 配对 · Peering">
+<meta name="twitter:description" content="分步说明：权限、可选的外出开关，以及配对你的第一台 iPhone。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "如何使用 Peering 将 iPhone 与 Mac 配对",
+  "description": "在 Mac 上授予 Peering 需要的两项权限，决定你外出时它是否保持可连接，然后配对你的 iPhone。",
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "允许 Peering 访问你的 Mac",
+      "text": "授予“辅助功能”权限（它把来自 iPhone 的手势和按键转换为 Mac 上的输入）和“屏幕录制”权限（它把 Mac 的画面发送到你的 iPhone）。两项都是必需的。"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "决定你外出时这台 Mac 是否保持可连接",
+      "text": "可选。选择让 Mac 自行保持唤醒、按计划保持唤醒、每天自行唤醒，或合盖后继续运行。这四项默认都关闭，之后可以在“设置”中更改。"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "配对你的第一台 iPhone",
+      "text": "在 iPhone 上打开 Peering。在同一网络下，它会自动找到 Mac 并显示一个六位数字代码供你确认。不在同一网络时，手动输入 Mac 的地址，或扫描它的设备 ID。"
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>如何将 iPhone 与 Mac 配对</h1>
+    <p class="updated">一次性设置，分三个部分。首次配对之后，你只需要在 iPhone 上打开 Peering。</p>
+
+    <div class="card callout">
+      请先安装 <a href="/zh/download">Mac 版 Peering</a>。它负责共享屏幕，也是你的 iPhone 所连接的那一端。
+      两台设备处于同一网络时，iPhone 应用会自动找到它。
+    </div>
+
+    <h2>1. 允许 Peering 访问你的 Mac</h2>
+    <p>
+      Mac 应用第一次会直接打开这个界面，并停留在这里，直到两项权限都已授予：
+      只是假装能用的主机，不如明确告诉你缺少什么的主机。
+    </p>
+    <ul>
+      <li>
+        <strong>辅助功能。</strong>把来自 iPhone 的手势和按键转换为这台 Mac 上的输入。
+        没有它，你能看到 Mac，却无法控制它。
+      </li>
+      <li>
+        <strong>屏幕录制。</strong>把这台 Mac 的实时画面发送到你的 iPhone。
+        没有它，你的 iPhone 连接后只会看到黑屏。
+      </li>
+    </ul>
+    <p>
+      辅助功能会立即生效。屏幕录制只会在应用启动时读取，所以在“系统设置”中允许之后，
+      Peering 会请你重新打开它来使其生效。两个按钮都会直接打开你需要的“系统设置”面板。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-permissions.webp" width="1600" height="813" loading="lazy"
+        alt="Peering 的“允许 Peering 访问这台 Mac”界面，显示辅助功能和屏幕录制均为必需项，每项旁都有一个“允许”按钮。">
+      <figcaption>第一次打开 Peering 时，你会在 Mac 上看到的界面。</figcaption>
+    </figure>
+
+    <h2>2. 决定你外出时这台 Mac 是否保持可连接</h2>
+    <p>
+      可选，而且这里的每个开关默认都是关闭的。之所以有这一步，是因为它过去是一个没人找得到的设置，
+      藏在菜单栏图标背后；现在会在你真正开始使用应用之前，清楚地问你一次。
+    </p>
+    <ul>
+      <li>
+        <strong>保持 Mac 唤醒。</strong>不进入闲置睡眠，不让显示器休眠，也不会弹出额外的权限提示。
+        合上盖子后它就不再生效，并且会在 Peering 退出时自动解除。
+      </li>
+      <li>
+        <strong>仅在特定时间段内保持唤醒。</strong>为上面的开关设置一个时间表，而不是全天候保持唤醒。
+      </li>
+      <li>
+        <strong>每天唤醒。</strong>设置每天的唤醒时间。Mac 一旦进入睡眠，
+        在被唤醒之前，这里的其他任何设置都无法再连上它。
+      </li>
+      <li>
+        <strong>合盖后继续运行。</strong>唯一一个在合上盖子后仍然有效的开关。
+        macOS 只通过 <code>pmset</code> 提供这项功能，所以它会请你输入一次管理员密码，
+        开启期间这台 Mac 完全不会睡眠。
+      </li>
+    </ul>
+    <p>
+      跳过这一步，所有开关都会保持关闭。你之后可以随时在“设置”中开启其中任何一项，名称和说明都与这里相同。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-away-switches.webp" width="1600" height="967" loading="lazy"
+        alt="Peering 的“把这台 Mac 留在家里”界面，显示保持 Mac 唤醒、时间表、每天唤醒和合盖运行四个开关，均为关闭状态。">
+      <figcaption>四个外出开关。全部可选，初始全部关闭。</figcaption>
+    </figure>
+
+    <h2>3. 配对你的第一台 iPhone</h2>
+    <p>
+      两项权限都授予之后，这台 Mac 就会开始监听，并显示三种连接它的方式：
+    </p>
+    <ul>
+      <li>
+        <strong>在同一网络下。</strong>在 iPhone 上打开 Peering。它会自动找到这台 Mac，
+        第一次连接时，两个屏幕上会显示相同的六位数字供你确认。
+      </li>
+      <li>
+        <strong>通过地址。</strong>如果你所在的网络阻止了设备发现，
+        就在 iPhone 上手动输入屏幕上显示的 Mac 地址和端口。
+      </li>
+      <li>
+        <strong>从其他网络。</strong>还没有连上同一个 Wi-Fi？用 iPhone 上的 Peering 扫描 Mac 上显示的设备 ID 二维码，
+        或者手动输入该 ID。
+      </li>
+    </ul>
+    <p>
+      确认这六位数字就完成了两台设备的配对：每台设备都已生成自己的密钥，
+      这个代码就是你告诉 Peering 另一端的设备正是你面前这台的方式。确认之后，双方都会记住对方的密钥，
+      之后的每次连接只需轻点一下。
+    </p>
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-pair-iphone.webp" width="1600" height="813" loading="lazy"
+        alt="Peering 的“配对你的第一台 iPhone”界面，显示三种连接方式，以及用于从其他网络配对的二维码。">
+      <figcaption>等待首次连接：同一网络、通过地址，或从任何地方。</figcaption>
+    </figure>
+
+    <h2>如果我的 iPhone 在另一个网络上怎么办？</h2>
+    <p>
+      首次配对需要两台设备处于同一网络，或使用上面的“从其他网络”二维码和设备 ID。
+      完成这一次确认之后，你的 iPhone 和 Mac 就能在任何地方找到彼此，
+      详见<a href="/zh/access-your-mac-from-anywhere">随时随地访问你的 Mac</a>。
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/how-to-pair-iphone-mac" hreflang="en" lang="en">English</a>
+      <a href="/de/how-to-pair-iphone-mac" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/how-to-pair-iphone-mac" hreflang="es" lang="es">Español</a>
+      <a href="/fr/how-to-pair-iphone-mac" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/how-to-pair-iphone-mac" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/how-to-pair-iphone-mac" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/how-to-pair-iphone-mac" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/how-to-pair-iphone-mac" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/how-to-pair-iphone-mac" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/how-to-pair-iphone-mac" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+</body>
+</html>

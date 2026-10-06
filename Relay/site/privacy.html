@@ -6,6 +6,17 @@
 <title>Privacy Policy · Peering</title>
 <meta name="description" content="What Peering keeps, what the relay handles, and what neither of them can see.">
 <link rel="canonical" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/privacy">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/privacy">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/privacy">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/privacy">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/privacy">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/privacy">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/privacy">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/privacy">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/privacy">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/privacy">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/privacy">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Peering">
 <meta property="og:locale" content="en_GB">
@@ -44,11 +55,12 @@
   <div class="wrap doc-inner">
 
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated 25 September 2026</p>
+    <p class="updated">Last updated 6 October 2026</p>
 
     <div class="card callout">
-      <strong>The short version.</strong> Peering has no accounts, analytics, advertising or
-      third-party tracking SDKs. Your screen, audio,
+      <strong>The short version.</strong> Peering has no accounts, advertising or
+      third-party tracking SDKs. It sends anonymous usage counts, which you can switch off in
+      Settings. Your screen, audio,
       keystrokes, pointer input and clipboard travel between your own two devices inside one
       encrypted connection, and the relay that carries it when you are away from home is built so
       that it cannot read any of it.
@@ -166,10 +178,28 @@
       These records do not contain your screen, audio, input, clipboard or other session content.
     </p>
 
+    <h2>Anonymous usage statistics</h2>
+    <p>
+      The iPhone app counts how it is used, so we can tell whether anyone is using it and which
+      versions and connection paths matter. It is on by default and you can turn it off in
+      Settings under "Security and privacy", after which nothing is sent.
+    </p>
+    <ul>
+      <li>What is sent: the event name (app opened, session started), the connection path
+        (local network, direct or relay), your plan, the app version, the major iOS version, and a
+        random identifier made on first launch.</li>
+      <li>The identifier is not your Apple Account, not an advertising or vendor identifier, and
+        not the identifier used for the relay. It cannot be joined to any of them.</li>
+      <li>What is never sent: your screen, audio, keystrokes, clipboard, files, commands, the
+        name or address of any Mac, or purchase details.</li>
+      <li>Events go to PostHog's servers in the EU, with no person profile built and the
+        sender's IP address discarded.</li>
+    </ul>
+
     <h2>4. What we never do</h2>
     <ul>
       <li>We do not sell, rent or share your data with anyone.</li>
-      <li>We do not run analytics, advertising or attribution SDKs in the app, and no crash log
+      <li>We do not run advertising or attribution SDKs in the app, and no crash log
         leaves your device unless you choose to attach it to a message to us.</li>
       <li>We do not build a profile of you, and there is no account to attach one to.</li>
       <li>We do not read, store or inspect what passes through the relay.</li>
@@ -254,6 +284,18 @@
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
       <a href="mailto:support@getpeering.app">Support</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/privacy" hreflang="en" lang="en">English</a>
+      <a href="/de/privacy" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/privacy" hreflang="es" lang="es">Español</a>
+      <a href="/fr/privacy" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/privacy" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/privacy" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/privacy" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/privacy" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/privacy" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/privacy" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
     </nav>
     <p class="foot-fine">© 2026 Damian Derlecki. Apple, iPhone and Mac are trademarks of Apple Inc.</p>
   </div>

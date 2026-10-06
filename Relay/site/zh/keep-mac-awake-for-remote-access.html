@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>让 Mac 保持唤醒以便远程访问，合盖也行 · Peering</title>
+<meta name="description" content="如何把 Mac 留在家里，仍然能从 iPhone 连上它：保持唤醒、仅在特定时间段保持唤醒、每天唤醒，或合盖后继续运行。">
+<link rel="canonical" href="https://getpeering.app/zh/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/keep-mac-awake-for-remote-access">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/keep-mac-awake-for-remote-access">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/keep-mac-awake-for-remote-access">
+<meta property="og:title" content="让 Mac 保持唤醒以便远程访问，合盖也行 · Peering">
+<meta property="og:description" content="把 Mac 合上盖子留在家里，仍然能从 iPhone 连上它。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="让 Mac 保持唤醒以便远程访问，合盖也行 · Peering">
+<meta name="twitter:description" content="把 Mac 合上盖子留在家里，仍然能从 iPhone 连上它。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "让 Mac 保持唤醒以便远程访问，合盖也行",
+  "description": "如何把 Mac 留在家里，仍然能从 iPhone 连上它：保持唤醒、仅在特定时间段保持唤醒、每天唤醒，或合盖后继续运行。",
+  "url": "https://getpeering.app/zh/keep-mac-awake-for-remote-access",
+  "mainEntityOfPage": "https://getpeering.app/zh/keep-mac-awake-for-remote-access",
+  "datePublished": "2026-09-27",
+  "dateModified": "2026-09-27",
+  "image": "https://getpeering.app/assets/og.png",
+  "author": {
+    "@type": "Person",
+    "name": "Damian Derlecki"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/pears.png"
+    }
+  },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "iOS, macOS"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "我能连上已经进入睡眠的 Mac 吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "从其他网络不行。睡眠中的 Mac 不在互联网上，所以 Peering 提供了开关，从一开始就阻止它睡眠。在这台 Mac 所在的网络中，你可以在连接前通过 iPhone 应用用 Wake on LAN 唤醒它。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "MacBook 可以合上盖子使用吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "可以。在 Mac 上的 Peering 设置中开启“合盖后继续运行”。它需要你输入一次管理员密码，并会在 Peering 退出时解除。"
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "让 Mac 保持唤醒需要付费吗？",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "不需要。这些开关在所有套餐中都免费。"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>让 Mac 保持唤醒以便远程访问，合盖也行</h1>
+    <p class="updated">远程访问唯一解决不了的，就是已经进入睡眠的 Mac。下面是阻止它睡眠的办法。</p>
+
+    <div class="card callout">
+      <strong>简而言之。</strong>睡眠中的 Mac 不在互联网上，其他网络上的任何设备都无法唤醒它。
+      Mac 版 Peering 提供四个开关，在你打开之前都是关闭的，用来让它保持可连接：始终保持唤醒、
+      仅在特定时间段保持唤醒、每天唤醒一次，或合盖后继续运行。
+    </div>
+
+    <figure class="card doc-figure">
+      <img src="/assets/onboarding-away-switches.webp" alt="Mac 版 Peering 的“把这台 Mac 留在家里”界面，有四个开关：保持 Mac 唤醒、仅在这些时间段内保持唤醒、每天唤醒，以及合盖后继续运行。" width="1200" height="870" loading="lazy">
+      <figcaption>这四个开关，是 Mac 版 Peering 在你设置时显示的样子。之后它们位于“设置”中。</figcaption>
+    </figure>
+
+    <h2>保持 Mac 唤醒</h2>
+    <p>
+      在 Peering 运行期间阻止闲置睡眠和显示器休眠，无需授予任何系统权限。它会在 Peering 退出时自动解除，
+      所以你不会忘记把它留在开启状态。合上盖子后它就不再生效；第四个开关才是在合盖时仍然有效的那一个。
+    </p>
+
+    <h2>仅在这些时间段内保持唤醒</h2>
+    <p>
+      如果你只在工作时间需要这台 Mac，就给它设定时间段。在这些时间之外，它会像平常一样睡眠，
+      夜间可以节省电量。
+    </p>
+
+    <h2>每天唤醒</h2>
+    <p>
+      Mac 一旦睡着，在被唤醒之前，没有任何办法能连上它。这个开关会安排每天一次的唤醒，
+      所以即使 Mac 真的睡着了，也会在你选定的时间自行醒来。
+    </p>
+
+    <h2>合盖后继续运行</h2>
+    <p>
+      MacBook 通常在盖子合上的瞬间就会睡眠。macOS 只允许应用通过 <code>pmset</code> 改变这一点，
+      所以 Peering 会请你输入一次管理员密码。开启期间，这台 Mac 完全不会睡眠：
+      请把它放在通风的桌面上，而不要关在包里。它会在 Peering 退出时解除；
+      如果 Peering 是被强制退出的，则会在下次启动时修复。
+    </p>
+
+    <h2>唤醒同一网络中的 Mac</h2>
+    <p>
+      当你的 iPhone 与 Mac 处于同一网络时，应用可以在你连接之前发送 Wake on LAN 数据包来唤醒它。
+      这种数据包是本地广播，不会穿越互联网，所以你外出时，上面那些开关才显得重要。
+    </p>
+
+    <h2>也请检查 macOS 自带的设置</h2>
+    <p>
+      如果 macOS 本身被设为永不睡眠（在“节能”或“电池”设置中，“显示器关闭时防止自动进入睡眠”），
+      它的优先级高于这里的一切：无论 Peering 的开关怎么设，Mac 都会保持唤醒。
+      Peering 注意到这种情况时，会提示你。
+    </p>
+
+    <h2>然后随时随地连上它</h2>
+    <p>
+      Mac 保持唤醒之后，在家庭网络中把 iPhone 配对一次，此后无论身在何处，它都能找到这台 Mac。
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问你的 Mac</a>解释了连接的工作方式。
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+      <a class="btn btn-quiet" href="/zh/how-to-pair-iphone-mac">阅读配对指南</a>
+    </div>
+
+    <div class="related">
+      <h2>继续阅读</h2>
+      <ul>
+      <li><a href="/zh/access-your-mac-from-anywhere">随时随地访问你的 Mac</a></li>
+      <li><a href="/zh/coding-agent-notifications">编程智能体需要你时收到通知</a></li>
+      <li><a href="/zh/how-to-pair-iphone-mac">如何将 iPhone 与 Mac 配对</a></li>
+      </ul>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/keep-mac-awake-for-remote-access" hreflang="en" lang="en">English</a>
+      <a href="/de/keep-mac-awake-for-remote-access" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/keep-mac-awake-for-remote-access" hreflang="es" lang="es">Español</a>
+      <a href="/fr/keep-mac-awake-for-remote-access" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/keep-mac-awake-for-remote-access" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/keep-mac-awake-for-remote-access" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/keep-mac-awake-for-remote-access" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/keep-mac-awake-for-remote-access" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/keep-mac-awake-for-remote-access" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/keep-mac-awake-for-remote-access" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -88,7 +88,7 @@ for entry in ${IMAGE_VERSIONS[@]+"${IMAGE_VERSIONS[@]}"}; do
     echo "    assets/${entry%%:*} v=${entry##*:}"
 done
 
-for page in "$STAGE"/site/*.html; do
+for page in "$STAGE"/site/*.html "$STAGE"/site/*/*.html; do
     # The empty argument after -i is the backup suffix, and it is required on macOS. Without it
     # sed reads the next argument as the suffix and edits nothing.
     sed -i '' \
@@ -114,14 +114,14 @@ done
 # Checked rather than assumed, because a rewrite that silently matches nothing produces a deploy
 # that looks like it worked and leaves every browser on the old stylesheet. That is the exact
 # failure this script was written to end, so it does not get to reappear as a quiet one.
-if ! grep -q "styles.css?v=$CSS_V" "$STAGE"/site/*.html; then
+if ! grep -q "styles.css?v=$CSS_V" "$STAGE"/site/*.html "$STAGE"/site/*/*.html; then
     echo "the stylesheet rewrite matched no page. Has the <link> changed shape?" >&2
     exit 1
 fi
 
 # The same check for the image, and it matters more: a stale stylesheet looks wrong, where a stale
 # DMG is an old build that installs cleanly and then refuses to talk to the phone.
-if [ -n "$DMG_V" ] && ! grep -q "download/Peering.dmg?v=$DMG_V" "$STAGE"/site/*.html; then
+if [ -n "$DMG_V" ] && ! grep -q "download/Peering.dmg?v=$DMG_V" "$STAGE"/site/*.html "$STAGE"/site/*/*.html; then
     echo "the disk image rewrite matched no page. Has the download link changed shape?" >&2
     exit 1
 fi
@@ -130,9 +130,9 @@ fi
 # A per-image check only covers the images that existed when it was written, and the way this went
 # wrong the first time is exactly that — the stamps covered the stylesheet, the script and the disk
 # image, and the pictures were simply not in the list. This fails on the next one somebody adds.
-if grep -qE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html; then
+if grep -qE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html "$STAGE"/site/*/*.html; then
     echo "an asset URL is still unstamped, so a browser could hold the old one:" >&2
-    grep -oE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html >&2
+    grep -oE '/assets/[A-Za-z0-9._-]+"' "$STAGE"/site/*.html "$STAGE"/site/*/*.html >&2
     exit 1
 fi
 

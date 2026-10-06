@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>随时随地访问你的 Mac · Peering</title>
+<meta name="description" content="在你自己的网络上配对一次，之后无论身在酒店、火车上还是别人的 Wi-Fi 下，都能连上你的 Mac，并尽可能在两台设备之间直接连接。">
+<link rel="canonical" href="https://getpeering.app/zh/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="en" href="https://getpeering.app/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="de" href="https://getpeering.app/de/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="es" href="https://getpeering.app/es/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="fr" href="https://getpeering.app/fr/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="it" href="https://getpeering.app/it/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ja" href="https://getpeering.app/ja/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ko" href="https://getpeering.app/ko/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="pt-BR" href="https://getpeering.app/pt/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="ru" href="https://getpeering.app/ru/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="zh-Hans" href="https://getpeering.app/zh/access-your-mac-from-anywhere">
+<link rel="alternate" hreflang="x-default" href="https://getpeering.app/access-your-mac-from-anywhere">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Peering">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:url" content="https://getpeering.app/zh/access-your-mac-from-anywhere">
+<meta property="og:title" content="随时随地访问你的 Mac · Peering">
+<meta property="og:description" content="在家配对一次，之后随时随地连上你的 Mac。网络允许时，两台设备之间直接连接。">
+<meta property="og:image" content="https://getpeering.app/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="随时随地访问你的 Mac · Peering">
+<meta name="twitter:description" content="在家配对一次，之后随时随地连上你的 Mac。网络允许时，两台设备之间直接连接。">
+<meta name="twitter:image" content="https://getpeering.app/assets/og.png">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/styles.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "随时随地访问你的 Mac",
+  "description": "在你自己的网络上配对一次，之后无论身在酒店、火车上还是别人的 Wi-Fi 下，都能连上你的 Mac，并尽可能在两台设备之间直接连接。",
+  "url": "https://getpeering.app/zh/access-your-mac-from-anywhere",
+  "mainEntityOfPage": "https://getpeering.app/zh/access-your-mac-from-anywhere",
+  "dateModified": "2026-09-27",
+  "image": "https://getpeering.app/assets/og.png",
+  "author": {
+    "@type": "Person",
+    "name": "Damian Derlecki"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://getpeering.app/assets/pears.png"
+    }
+  },
+  "about": {
+    "@type": "SoftwareApplication",
+    "name": "Peering",
+    "url": "https://getpeering.app/",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "iOS, macOS"
+  }
+}
+</script>
+</head>
+<body>
+
+<header class="bar scrolled">
+  <div class="wrap bar-inner">
+    <a class="brand" href="/zh/" aria-label="Peering，首页">
+      <img src="/assets/pears-128.webp" alt="" width="28" height="28">
+      <span>Peering</span>
+    </a>
+    <nav class="nav" aria-label="页面">
+      <a href="/zh/">首页</a>
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/download">下载</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap doc-inner">
+
+    <h1>随时随地访问你的 Mac</h1>
+    <p class="updated">在你自己的网络上配对一次。之后，无论你在哪里，iPhone 和 Mac 都能找到彼此。</p>
+
+    <div class="card callout">
+      <strong>简而言之。</strong>首次配对需要两台设备处于同一网络，或者扫描 Mac 上的设备 ID 二维码。
+      此后的每次连接，无论在酒店、火车上还是别人的 Wi-Fi 下都能使用：你的两台设备会先尝试直接互联，
+      只有在网络不允许直连时，才退回到中继。
+    </div>
+
+    <h2>两台设备如何找到彼此</h2>
+    <p>
+      两端都处在不接受主动入站流量的网络之后，所以双方都会主动连接到一台中继，由它把两者介绍给彼此。
+      介绍完成后，它们会先尝试在两台设备之间直接建立路径；如果做不到，就由中继继续承载会话。
+      会话画面会告诉你实际走的是哪一种：LAN、RELAY 或 DIRECT&middot;P2P，你无需猜测。
+    </p>
+    <p>
+      目前中继只运行在芬兰的一个地点，所以经由中继的会话，离它越远延迟越明显，从其他大洲连接时最为突出。
+      这只是起点，并非一成不变：随着使用量增长到单个地点难以良好承载时，会增加更多地点。
+    </p>
+
+    <h2>中继能看到什么，不能看到什么</h2>
+    <p>
+      你的设备对连接进行端到端加密，并且从不把密钥交给中继。无论设备是直连还是经由中继，
+      视频、音频、按键、指针输入和剪贴板文本都受到保护。
+    </p>
+    <p>
+      它会处理的内容有：设备标识符、你的 Mac 的名称、技术兼容性信息、正在使用的套餐，
+      以及提供连接所需的中继使用量。和任何服务器一样，它会看到每台设备连接时所用的地址，
+      并把各自的地址交给对方，好让它们尝试直连。完整说明见<a href="/zh/privacy">隐私政策</a>。
+    </p>
+
+    <h2>让 Mac 在你外出时保持可连接</h2>
+    <p>
+      进入睡眠的 Mac 在被唤醒之前无法连接，这正是外出开关的用途：让它自行保持唤醒、按计划唤醒、
+      每天唤醒一次，或者合盖后继续运行。这四项都是可选的，默认关闭，详见
+      <a href="/zh/how-to-pair-iphone-mac">配对指南的第二步</a>。此外还内置了 Wake on LAN，
+      可在你连接之前通过网络唤醒处于睡眠中的 Mac。
+    </p>
+
+    <h2>费用</h2>
+    <p>
+      通过你自己的网络连接你的 Mac 是免费且不限量的，想用多久都可以。通过中继从其他任何地方连接，
+      每天有一小时免费，任何付费套餐都不限时长，价格从每月 $1.99 起。完整对比见<a href="/zh/#pricing">价格表</a>。
+    </p>
+
+    <h2>设置方法</h2>
+    <p>
+      中继路径无需任何额外设置：在同一网络下把 iPhone 和 Mac 配对一次，之后每次连接在需要时就会自动尝试中继。
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>讲解了首次配对本身，
+      其中包括一种完全无需共用网络的配对方式。
+    </p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="/zh/download">下载 Mac 版 Peering</a>
+      <a class="btn btn-quiet" href="/zh/how-to-pair-iphone-mac">阅读配对指南</a>
+    </div>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/assets/pears-128.webp" alt="" width="24" height="24">
+      <span>Peering</span>
+    </div>
+    <nav class="foot-links" aria-label="指南、法律与支持">
+      <a href="/zh/how-to-pair-iphone-mac">配对指南</a>
+      <a href="/zh/remote-desktop-for-mac">远程桌面</a>
+      <a href="/zh/access-your-mac-from-anywhere">随时随地访问</a>
+      <a href="/zh/keep-mac-awake-for-remote-access">留在家里的 Mac</a>
+      <a href="/zh/coding-agent-notifications">编程智能体</a>
+      <a href="/zh/remote-desktop-apps-compared">应用对比</a>
+      <a href="/zh/screens-alternative">Screens 替代方案</a>
+      <a href="/zh/download">下载</a>
+      <a href="/zh/privacy">隐私</a>
+      <a href="/zh/terms">条款</a>
+      <a href="mailto:support@getpeering.app">支持</a>
+    </nav>
+    <nav class="foot-links" aria-label="Languages">
+      <a href="/access-your-mac-from-anywhere" hreflang="en" lang="en">English</a>
+      <a href="/de/access-your-mac-from-anywhere" hreflang="de" lang="de">Deutsch</a>
+      <a href="/es/access-your-mac-from-anywhere" hreflang="es" lang="es">Español</a>
+      <a href="/fr/access-your-mac-from-anywhere" hreflang="fr" lang="fr">Français</a>
+      <a href="/it/access-your-mac-from-anywhere" hreflang="it" lang="it">Italiano</a>
+      <a href="/ja/access-your-mac-from-anywhere" hreflang="ja" lang="ja">日本語</a>
+      <a href="/ko/access-your-mac-from-anywhere" hreflang="ko" lang="ko">한국어</a>
+      <a href="/pt/access-your-mac-from-anywhere" hreflang="pt-BR" lang="pt-BR">Português</a>
+      <a href="/ru/access-your-mac-from-anywhere" hreflang="ru" lang="ru">Русский</a>
+      <a href="/zh/access-your-mac-from-anywhere" hreflang="zh-Hans" lang="zh-Hans">简体中文</a>
+    </nav>
+    <p class="foot-fine">© 2026 Damian Derlecki。Apple、iPhone 和 Mac 是 Apple Inc. 的商标。</p>
+  </div>
+</footer>
+
+</body>
+</html>
