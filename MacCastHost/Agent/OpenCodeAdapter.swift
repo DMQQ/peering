@@ -5,36 +5,28 @@ import RemoteCore
 
 private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
 
-/// OpenCode, one process per turn against a stored session.
-///
-/// The shape is the CLI's own: `opencode run --format json` runs a turn and exits, and the same
-/// with `-s <session id>` runs the next one with the session's memory. Run mode has no approval
-/// channel: without `--auto` a call that would need one (anything outside the folder) is
-/// rejected by the CLI and reported as a failed tool, which is the safe direction and the one this
-/// leaves it in. `--auto` is deliberately not passed.
-///
-/// The model is whatever the user's OpenCode configuration says unless the picker has been used,
-/// when it is passed per turn as `-m provider/model`.
+/// Run mode has no approval channel: without `--auto` a call needing one is rejected as a failed tool, the safe direction; `--auto` is deliberately not passed.
 final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
     var onEvent: (@Sendable (AgentStreamEvent.Payload) -> Void)?
     var onModel: (@Sendable (String?) -> Void)?
+    var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
+
+    /// Run mode cannot ask: without `--auto` it works inside the folder and refuses the rest.
+    let permissionModes: [AgentPermissionMode] = [.acceptEdits, .auto]
+    let defaultPermissionMode: AgentPermissionMode = .acceptEdits
+    private var permissionMode: AgentPermissionMode = .acceptEdits
 
     private let directory: URL
     private let queue = DispatchQueue(label: "pl.dmq.peering.host.agent.opencode")
-    /// Read and written on ``queue`` only.
     private var stream: AgentOpenCodeStream
     private var binary: String?
-    /// Prompts that arrived before ``start()`` resolved the binary. A chat's first prompt can beat
-    /// the login shell that is still resolving where Codex lives, and a prompt dropped by that
-    /// race is a session that sits silent forever while nothing was ever wrong.
+    /// Prompts that beat the login shell resolving the binary are queued, not dropped.
     private var pendingPrompts: [String] = []
     private var turnProcess: AgentProcess?
     private var turnFinished = false
     private var interrupted = false
     private var loggedFirstLine = false
     private var stderrTail: [String] = []
-    /// The model the picker chose (`provider/model`), applied to every turn from here on. Nil runs
-    /// the CLI's own configured default.
     private var model: String?
 
     static let command = "opencode"
@@ -60,7 +52,6 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
         for text in waiting {
             prompt(text)
         }
-        // The session is the CLI's own; nothing else runs until a prompt does.
     }
 
     func prompt(_ text: String) {
@@ -75,9 +66,9 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
                 self.onEvent?(.notice(text: "A turn is already running."))
                 return
             }
-            // `--` ahead of the text, because a prompt that begins with a dash would otherwise be
-            // read as one of the CLI's own flags.
+            // `--` before the text so a prompt starting with a dash is not read as a flag.
             var arguments = ["run", "--format", "json"]
+            if self.permissionMode == .auto { arguments += ["--auto"] }
             if let model = self.model { arguments += ["-m", model] }
             if let session = self.stream.cliSessionID { arguments += ["-s", session] }
             arguments += ["--", text]
@@ -118,8 +109,7 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
-    /// Takes the model for the *next* turn. A turn is a process here, so nothing about the one
-    /// already running changes — which is what the picker says while it spins.
+    /// Applies to the next turn; a turn is a process, so the running one is unchanged.
     func setModel(_ model: String?) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -128,16 +118,21 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
+    func setPermissionMode(_ mode: AgentPermissionMode) {
+        queue.async { [weak self] in
+            guard let self, self.permissionModes.contains(mode) else { return }
+            self.permissionMode = mode
+            self.onPermissionMode?(mode)
+        }
+    }
+
     func respond(approvalID: String, decision: AgentApprovalDecision) {
-        // Run mode has no approval channel: nothing here ever asked, so there is nothing to answer.
     }
 
     func interrupt() {
         queue.async { [weak self] in
             guard let self, let process = self.turnProcess else { return }
             self.interrupted = true
-            // The session outlives the process, so stopping the turn is killing the turn's child:
-            // the next prompt resumes the same conversation.
             process.stop()
         }
     }
@@ -167,8 +162,6 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
         turnProcess = nil
         agentLog.notice("opencode turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
-        // A turn process that ends without its own ending is one that was stopped or crashed. The
-        // thread is intact either way, so this is the turn's outcome and not the session's.
         if interrupted {
             onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false, stopped: true)))
         } else {

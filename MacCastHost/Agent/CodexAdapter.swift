@@ -5,38 +5,28 @@ import RemoteCore
 
 private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
 
-/// Codex, one process per turn against a stored thread.
-///
-/// The shape is the CLI's own: `codex exec --json` runs a turn and exits, and `codex exec resume
-/// <thread_id> --json` runs the next one with the thread's memory. Exec mode has no approval
-/// channel at all, which is a fact about the CLI rather than a choice made here: the sandbox the
-/// session was created with is what constrains it, and the UI says so rather than drawing a
-/// permission bar that could never fill.
-///
-/// The model is whatever the user's Codex configuration says, exactly as in their terminal,
-/// unless the picker has been used: then it is passed per turn with `-c model=…`, because a turn
-/// is a process and this CLI takes its model at spawn. A configuration whose model the account
-/// refuses fails with the API's own sentence rather than being second-guessed here.
+/// Exec mode has no approval channel (a CLI fact): the session's sandbox constrains it. The model is passed per turn with `-c model=` only after the picker is used.
 final class CodexAdapter: AgentAdapter, @unchecked Sendable {
     var onEvent: (@Sendable (AgentStreamEvent.Payload) -> Void)?
     var onModel: (@Sendable (String?) -> Void)?
+    var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
+
+    /// Exec mode cannot ask, so the sandbox is all there is to choose: the folder, or everywhere.
+    let permissionModes: [AgentPermissionMode] = [.acceptEdits, .auto]
+    let defaultPermissionMode: AgentPermissionMode = .acceptEdits
+    private var permissionMode: AgentPermissionMode = .acceptEdits
 
     private let directory: URL
     private let queue = DispatchQueue(label: "pl.dmq.peering.host.agent.codex")
-    /// Read and written on ``queue`` only.
     private var stream: AgentCodexStream
     private var binary: String?
-    /// Prompts that arrived before ``start()`` resolved the binary. A chat's first prompt can beat
-    /// the login shell that is still resolving where Codex lives, and a prompt dropped by that
-    /// race is a session that sits silent forever while nothing was ever wrong.
+    /// Prompts that beat the login shell resolving the binary are queued, not dropped.
     private var pendingPrompts: [String] = []
     private var turnProcess: AgentProcess?
     private var turnFinished = false
     private var interrupted = false
     private var loggedFirstLine = false
     private var stderrTail: [String] = []
-    /// The model the picker chose, applied to every turn from here on. Nil runs the CLI's own
-    /// configured default.
     private var model: String?
 
     static let command = "codex"
@@ -62,7 +52,6 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
         for text in waiting {
             prompt(text)
         }
-        // The session is the thread; nothing else runs until a prompt does.
     }
 
     func prompt(_ text: String) {
@@ -77,20 +66,19 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
                 self.onEvent?(.notice(text: "A turn is already running."))
                 return
             }
-            // A resume names the thread and nothing else: this CLI refuses to re-take the sandbox
-            // or the folder on a resume, and both were fixed when the first turn created the
-            // thread. The process's own working directory is still the session's, which is also
-            // how resume finds the thread.
+            // A resume names the thread only: this CLI refuses to re-take sandbox or folder, and the working directory is how it finds the thread.
             var arguments: [String] = []
-            // Before the subcommand, where this CLI's global overrides go, so the same pair works
-            // for a first turn and for a resume.
+            // Before the subcommand, where global overrides go, so one pair serves first turn and resume.
             if let model = self.model { arguments += ["-c", "model=\(model)"] }
+            let sandbox = self.permissionMode == .auto ? "danger-full-access" : "workspace-write"
+            // A resume refuses `--sandbox`, so it is set through config, which it accepts.
+            if self.stream.cliSessionID != nil { arguments += ["-c", "sandbox_mode=\"\(sandbox)\""] }
             arguments += ["exec"]
             if let thread = self.stream.cliSessionID {
                 arguments += ["resume", "--skip-git-repo-check", "--json", thread, text]
             } else {
                 arguments += [
-                    "--json", "--sandbox", "workspace-write", "--skip-git-repo-check",
+                    "--json", "--sandbox", sandbox, "--skip-git-repo-check",
                     "--cd", self.directory.path, text,
                 ]
             }
@@ -131,8 +119,7 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
-    /// Takes the model for the *next* turn. A turn is a process here, so nothing about the one
-    /// already running changes — which is what the picker says while it spins.
+    /// Applies to the next turn; a turn is a process, so the running one is unchanged.
     func setModel(_ model: String?) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -141,16 +128,21 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
+    func setPermissionMode(_ mode: AgentPermissionMode) {
+        queue.async { [weak self] in
+            guard let self, self.permissionModes.contains(mode) else { return }
+            self.permissionMode = mode
+            self.onPermissionMode?(mode)
+        }
+    }
+
     func respond(approvalID: String, decision: AgentApprovalDecision) {
-        // Exec mode has no approval channel: nothing here ever asked, so there is nothing to answer.
     }
 
     func interrupt() {
         queue.async { [weak self] in
             guard let self, let process = self.turnProcess else { return }
             self.interrupted = true
-            // The thread outlives the process, so stopping the turn is killing the turn's child:
-            // the next prompt resumes the same conversation.
             process.stop()
         }
     }
@@ -180,8 +172,6 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
         turnProcess = nil
         agentLog.notice("codex turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
-        // A turn process that ends without its own ending is one that was stopped or crashed. The
-        // thread is intact either way, so this is the turn's outcome and not the session's.
         if interrupted {
             onEvent?(.turnFinished(summary: AgentTurnSummary(ok: false, stopped: true)))
         } else {

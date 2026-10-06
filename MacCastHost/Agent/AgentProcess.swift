@@ -1,21 +1,9 @@
 import Darwin
 import Foundation
 
-/// One CLI process the host owns: how it starts, how its lines are read, how it is written to and
-/// how it is stopped.
-///
-/// A peer of the terminal manager's `script` wrapping rather than a re-use of it: a PTY is exactly
-/// what this must not be. The CLIs speak JSONL on plain pipes here, and a terminal's line
-/// discipline, echo and signal behaviour would be an interpreter sitting between the parser and
-/// its input.
 final class AgentProcess: @unchecked Sendable {
     struct Launch {
-        /// What the child gets on stdin.
-        ///
-        /// Not cosmetic: `codex exec` reads stdin whenever it is not a terminal, and an open pipe
-        /// that never closes hangs it before it does anything. Claude needs the pipe, because its
-        /// stream-json input *is* stdin; Codex gets `/dev/null`, which reads as the immediate EOF
-        /// it is waiting for.
+        /// `codex exec` hangs on an open stdin pipe, so it gets /dev/null; Claude needs the pipe.
         enum Input {
             case pipe
             case null
@@ -28,10 +16,8 @@ final class AgentProcess: @unchecked Sendable {
         var input: Input = .pipe
     }
 
-    /// A complete line, decoded. Called on the reading thread; the adapter hands work onward.
     var onLine: (@Sendable (String) -> Void)?
     var onStderrLine: (@Sendable (String) -> Void)?
-    /// The process ended, by its own choice or by ``stop()``.
     var onExit: (@Sendable (Int32) -> Void)?
 
     private enum Stream: Hashable {
@@ -46,16 +32,10 @@ final class AgentProcess: @unchecked Sendable {
     private let writeQueue = DispatchQueue(label: "pl.dmq.peering.host.agent.stdin")
     private let lock = NSLock()
     private var buffers: [Stream: Data] = [:]
-    /// Streams currently inside a line that outgrew the buffer, whose remainder is being thrown
-    /// away until the newline that ends it.
     private var dropping: Set<Stream> = []
     private(set) var isRunning = false
 
-    /// How large a single line may grow before it is discarded to the next newline.
-    ///
-    /// A JSONL line is a tool result or a message, and Claude Code bounds the tool output it
-    /// carries long before this; the ceiling exists so a malformed stream cannot grow the buffer
-    /// until the host runs out of memory.
+    /// Ceiling so a malformed stream cannot grow the buffer without bound.
     private static let maximumLineBytes = 16 * 1024 * 1024
 
     // MARK: - Launching
@@ -69,8 +49,7 @@ final class AgentProcess: @unchecked Sendable {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
-        // The handler is set before the run: a CLI that dies immediately would otherwise have
-        // nobody listening for the death, and a session would wait forever for an answer.
+        // Handler set before run so an instant death is still heard.
         process.terminationHandler = { [weak self] finished in
             guard let self else { return }
             self.drain()
@@ -94,12 +73,7 @@ final class AgentProcess: @unchecked Sendable {
         lock.withLock { isRunning = true }
     }
 
-    /// Ends the process the way the CLI documents, then the way the system does.
-    ///
-    /// Closing stdin first is not a courtesy: a stream-json CLI finishes its work and exits on EOF,
-    /// which is the difference between a session that stops and one killed mid-write. The signals
-    /// behind it are for the times that fails. `Process` cannot put the child in its own process
-    /// group, so `terminate()` reaches the child only; grandchildren are left to the system.
+    /// Closes stdin first (stream-json CLIs exit cleanly on EOF), then signals; `terminate()` reaches only the child, not grandchildren.
     func stop() {
         try? stdinPipe.fileHandleForWriting.close()
         DispatchQueue.global().asyncAfter(deadline: .now() + 3) { [weak self] in
@@ -116,8 +90,7 @@ final class AgentProcess: @unchecked Sendable {
 
     // MARK: - Writing
 
-    /// One line of input, on a serial queue so two prompts can never interleave into one corrupt
-    /// line. `FileHandle.write(contentsOf:)` publishes all the bytes before it returns.
+    /// Serial queue so two prompts cannot interleave into one line.
     func write(line: String) {
         var data = Data(line.utf8)
         data.append(0x0A)
@@ -136,7 +109,6 @@ final class AgentProcess: @unchecked Sendable {
             var buffer = buffers[stream] ?? Data()
             var rest = data
             if dropping.contains(stream) {
-                // Inside the overlong line's remainder: everything before the newline goes.
                 guard let newline = rest.firstIndex(of: 0x0A) else { return }
                 dropping.remove(stream)
                 rest = rest[rest.index(after: newline)...]
@@ -165,7 +137,6 @@ final class AgentProcess: @unchecked Sendable {
         }
     }
 
-    /// Whatever arrived after the process ended but before the handlers were cleared.
     private func drain() {
         var lines: [(String, Stream)] = []
         lock.withLock {

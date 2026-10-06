@@ -2,21 +2,12 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// Agent chats on the root model: the forwarders the panels call, and the two questions the
-/// entry points ask.
-///
-/// An extension rather than lines in `SessionModel.swift`, which is the app's god object and
-/// grows every time a feature adds a namespace to it. This is the same pattern the ``MacSession``
-/// extensions already use, applied where the settings live.
 extension SessionModel {
-    /// The agents to offer for a chat: the chat-capable ones the Mac has, once it has said.
     var availableChatAgents: [TerminalAgent] {
         availableAgents.filter(\.supportsChat)
     }
 
-    /// Whether a chat can be started at all: the Mac has said it can, and the plan includes the
-    /// screen. The agent's own CLI stays free in the terminal on every plan; what
-    /// ``PlanCapability/agentChat`` buys is this screen.
+    /// The agent's own CLI stays free in the terminal on every plan; `agentChat` buys this screen.
     var canOpenAgentChat: Bool {
         (activeSession?.hostSupportsAgentChat ?? false) && storeManager.access.includes(.agentChat)
     }
@@ -35,8 +26,7 @@ extension SessionModel {
         return activeSession?.agentSessions.first { $0.id == id }
     }
 
-    /// The chat the Mac has just opened, which the terminals panel moves to. Written back to nil
-    /// when taken, so the same arrival is not opened twice.
+    /// Written back to nil when taken, so the same arrival is not opened twice.
     var newAgentSessionID: UUID? {
         get { activeSession?.newAgentSessionID }
         set { activeSession?.newAgentSessionID = newValue }
@@ -49,7 +39,6 @@ extension SessionModel {
         activeSession?.agentSessions[index].title = name
     }
 
-    /// Whether a chat has an approval waiting, anywhere: what the chrome's dot badge reads.
     var hasAgentApprovalWaiting: Bool {
         agentSessions.contains { !$0.transcript.pendingApprovals.isEmpty }
     }
@@ -68,11 +57,15 @@ extension SessionModel {
 
     func interruptAgent(_ id: UUID) { activeSession?.interruptAgent(id) }
 
-    /// Changes which model a chat runs. Offered only where the Mac has said it can: see
-    /// ``MacSession/hostSupportsAgentModelPicker``.
     func setAgentModel(_ model: String?, in id: UUID) { activeSession?.setAgentModel(model, in: id) }
 
     var hostSupportsAgentModelPicker: Bool { activeSession?.hostSupportsAgentModelPicker ?? false }
+
+    func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
+        activeSession?.setAgentPermissionMode(mode, in: id)
+    }
+
+    var hostSupportsAgentPermissionModes: Bool { activeSession?.hostSupportsAgentPermissionModes ?? false }
 
     func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
 

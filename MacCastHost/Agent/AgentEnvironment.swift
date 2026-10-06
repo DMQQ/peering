@@ -1,15 +1,5 @@
 import Foundation
 
-/// The environment and the binary a chat's CLI needs, taken from the user's own login shell.
-///
-/// The host is a Finder-launched app, so its own environment is not the one a Terminal gives a
-/// command: no `PATH` beyond the system's, no variable a dotfile exports, no API key that was
-/// exported in one. A CLI started with the app's environment would be a CLI the user has never
-/// run, which is why the terminal panel already spawns a login shell and why this does the same
-/// before cutting the shell out of the picture.
-///
-/// Resolved once and kept: the answers are a property of the machine's shell setup and do not
-/// change while the app runs.
 final class AgentEnvironment: @unchecked Sendable {
     static let shared = AgentEnvironment()
 
@@ -17,7 +7,6 @@ final class AgentEnvironment: @unchecked Sendable {
     private var cachedVariables: [String: String]?
     private var cachedBinaries: [String: String] = [:]
 
-    /// The variables a login shell would give a command, plus this app's own corrections.
     func variables() -> [String: String] {
         lock.lock()
         if let cached = cachedVariables {
@@ -27,8 +16,6 @@ final class AgentEnvironment: @unchecked Sendable {
         lock.unlock()
 
         var environment = Self.parseEnvironment(Self.loginShellOutput(script: "/usr/bin/env -0")) ?? [:]
-        // The three the CLIs' own credential and config lookup hangs on, filled in when a shell
-        // startup file said nothing, which is the normal case for HOME in a login shell.
         environment["HOME"] = environment["HOME"] ?? NSHomeDirectory()
         environment["USER"] = environment["USER"] ?? NSUserName()
         environment["LOGNAME"] = environment["LOGNAME"] ?? NSUserName()
@@ -36,8 +23,7 @@ final class AgentEnvironment: @unchecked Sendable {
         if environment["PATH"]?.isEmpty != false {
             environment["PATH"] = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
         }
-        // Output is parsed, never looked at, and a CLI that decides to draw a spinner is a CLI
-        // whose every byte this side would have to throw away.
+        // Output is parsed, never shown, so the CLI must not draw a spinner.
         environment["NO_COLOR"] = "1"
 
         lock.lock()
@@ -46,11 +32,7 @@ final class AgentEnvironment: @unchecked Sendable {
         return environment
     }
 
-    /// Where a command lives, as the user's login shell would find it.
-    ///
-    /// The absolute path is what gets spawned, never the shell: a dotfile that prints a banner
-    /// would put that banner on the stdout this side parses as JSONL, and one stray line is a
-    /// session that cannot start.
+    /// Spawned by absolute path, never via the shell: a dotfile banner would land in the JSONL stdout.
     func binary(named name: String) -> String? {
         guard !name.isEmpty, name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
             return nil
@@ -76,7 +58,6 @@ final class AgentEnvironment: @unchecked Sendable {
         return path
     }
 
-    /// The user's login shell, from the password database first.
     static func loginShellPath() -> String {
         if let entry = getpwuid(getuid()), let shell = entry.pointee.pw_shell {
             let path = String(cString: shell)
@@ -87,11 +68,7 @@ final class AgentEnvironment: @unchecked Sendable {
 
     // MARK: - The shell itself
 
-    /// Runs a command in a login+interactive shell, with the deadline the agent probe uses.
-    ///
-    /// The marker exists because startup files may print whatever they like before the command
-    /// runs; everything of interest is after the marker, and a shell that cannot answer in time
-    /// answers nothing rather than holding a session open.
+    /// Startup files may print before the command; only output after the marker counts.
     private static func loginShellOutput(script: String, seconds: Int = 6) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: loginShellPath())
@@ -121,11 +98,7 @@ final class AgentEnvironment: @unchecked Sendable {
         return String(text[marker.upperBound...])
     }
 
-    /// `env -0`'s output, back into pairs.
-    ///
-    /// NUL separated because a variable's value may contain newlines. Only chunks that look like
-    /// `KEY=value` count, which is what keeps a shell banner that ran into the first variable on
-    /// the same chunk from becoming a variable named after half a sentence.
+    /// NUL separated because values may contain newlines; only `KEY=value` chunks count.
     private static func parseEnvironment(_ text: String?) -> [String: String]? {
         guard let text else { return nil }
         var variables: [String: String] = [:]

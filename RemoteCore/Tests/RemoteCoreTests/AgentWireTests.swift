@@ -19,6 +19,28 @@ struct AgentWireTests {
         model: "claude-sonnet-5-5"
     )
 
+    @Test("permission modes round-trip, and a listing from an older Mac decodes without them")
+    func permissionModesRoundTrip() throws {
+        let id = UUID()
+        let info = AgentSessionInfo(
+            id: id, agentID: "claude", title: "Claude Code", directory: "/tmp", state: .idle, lastIndex: 0,
+            permissionMode: .acceptEdits, permissionModes: [.manual, .acceptEdits],
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+        #expect(try roundTrip(info) == info)
+        let request = AgentRequest.setPermissionMode(sessionID: id, mode: .auto)
+        #expect(try roundTrip(request) == request)
+        let event = AgentEvent.permissionModeChanged(sessionID: id, mode: .manual)
+        #expect(try roundTrip(event) == event)
+
+        let older = Data(
+            #"{"id":"\#(id.uuidString)","agentID":"codex","title":"Codex","directory":"/tmp","state":"idle","lastIndex":0,"createdAt":0}"#.utf8
+        )
+        let decoded = try MessageCodec.decode(AgentSessionInfo.self, from: older)
+        #expect(decoded.permissionMode == nil)
+        #expect(decoded.permissionModes == nil)
+    }
+
     @Test("client requests round-trip, home folder included")
     func requestsRoundTrip() throws {
         let id = UUID(uuidString: "3E3F0A9A-2B77-4C55-9E4A-6F7A2D8E1B30")!
@@ -27,17 +49,13 @@ struct AgentWireTests {
             .history(sessionID: id, since: 0),
             .history(sessionID: id, since: 4_182),
             .start(agentID: "claude", directory: "/Users/someone/projects/app"),
-            // The one request that names no folder, which the host answers with its home folder.
             .start(agentID: "codex", directory: nil),
             .prompt(sessionID: id, text: "Fix the failing test on line 42"),
             .approval(sessionID: id, approvalID: "req_011C", decision: .allow),
             .approval(sessionID: id, approvalID: "req_011C", decision: .deny),
-            // A question ask's answer: the verdict carries the option, so one cannot arrive
-            // without the other.
             .approval(sessionID: id, approvalID: "req_011D", decision: .choose("Blue")),
             .interrupt(sessionID: id),
             .setModel(sessionID: id, model: "sonnet"),
-            // And the reset, which is the only way back to whatever the CLI was configured with.
             .setModel(sessionID: id, model: nil),
             .close(sessionID: id),
             .browse(path: nil),
@@ -89,7 +107,6 @@ struct AgentWireTests {
             .browseFailure(path: "/nope", message: "There is no folder there."),
             .closed(sessionID: id),
             .modelChanged(sessionID: id, model: "claude-opus-5-5"),
-            // And the reset: a session back on its CLI's own default.
             .modelChanged(sessionID: id, model: nil),
             .failed(sessionID: id, message: "The Claude Code process ended."),
             .failed(sessionID: nil, message: "Agent session limit reached."),
@@ -119,23 +136,19 @@ struct AgentWireTests {
         )
         let payloads: [AgentStreamEvent.Payload] = [
             .sessionReady(agentID: "claude", cliSessionID: "76f6f3a1-3b6c", model: "claude-opus-5-5", directory: "/tmp"),
-            // A session whose CLI has not named itself yet.
             .sessionReady(agentID: "codex", cliSessionID: nil, model: nil, directory: "/tmp"),
             .userPrompt(text: "Run the tests"),
             .turnStarted,
             .textDelta(text: "Running "),
             .textFinal(text: "Running the tests now."),
             .toolStarted(call: call),
-            // A tool with an empty detail, which is how a call that names nothing renders.
             .toolStarted(call: AgentToolCall(id: "toolu_03", name: "TodoWrite", title: "TodoWrite")),
             .toolStarted(call: edit),
             .toolFinished(callID: call.id, ok: true, output: "24 tests passed\n", truncated: false),
-            // The one outcome that carries no output at all.
             .toolFinished(callID: call.id, ok: false, output: nil, truncated: false),
             .toolFinished(callID: call.id, ok: true, output: String(repeating: "x", count: 64), truncated: true),
             .approvalRequested(approvalID: "req_011C", call: call, reason: "Bash is not in the allow list."),
             .approvalRequested(approvalID: "req_011D", call: call, reason: nil),
-            // A question ask: the choices are part of the call, so the card can draw them.
             .approvalRequested(
                 approvalID: "req_011E",
                 call: AgentToolCall(
@@ -153,7 +166,6 @@ struct AgentWireTests {
             .approvalResolved(approvalID: "req_011C", decision: .allow),
             .approvalResolved(approvalID: "req_011D", decision: .deny),
             .turnFinished(summary: turnSummary),
-            // An interrupted turn: no cost, no duration, and the summary still round-trips.
             .turnFinished(summary: AgentTurnSummary(ok: false, stopped: true)),
             .notice(text: "Interrupted."),
             .failure(message: "claude exited with status 1"),
@@ -173,7 +185,6 @@ struct AgentWireTests {
         #expect(MessageKind.allCases.contains(.agentEvent))
     }
 
-    /// The three states of both hello fields, asked in both directions.
     @Test("only an explicit chat capability permits traffic")
     func capabilityGate() {
         #expect(AgentChatSupport.maySend(toHostDeclared: true))

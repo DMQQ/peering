@@ -501,6 +501,7 @@ final class MacSession: Identifiable {
     /// Whether this Mac can change which model a chat runs. See
     /// ``ServerHello/supportsAgentModelPicker``.
     var hostSupportsAgentModelPicker = false
+    var hostSupportsAgentPermissionModes = false
 
     /// The agents this Mac can chat with. A Mac from before the list chats with the first two.
     /// See ``ServerHello/agentChatAgents``.

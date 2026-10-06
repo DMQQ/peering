@@ -84,6 +84,11 @@ struct AgentChatScreen: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
+                if let session, model.hostSupportsAgentPermissionModes, session.permissionModes.count > 1 {
+                    AgentPermissionModeMenu(session: session)
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 if let session, offersModelPicker(session) {
                     modelMenu(session)
                 }

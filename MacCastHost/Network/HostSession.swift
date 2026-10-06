@@ -9,16 +9,9 @@ import os
 /// `/usr/bin/log`: zsh's builtin shadows it and the queries silently return nothing.
 private let sessionLog = Logger(subsystem: "pl.dmq.peering.host", category: "session")
 
-/// Drives one connection from its first frame to a usable session.
-///
-/// All state is mutated on the server's serial queue, which is also the connection's queue, so
-/// no locking is needed here.
 final class HostSession: @unchecked Sendable {
     /// The largest payload we will accept on the control channel. Commands and catalogs are
     /// small; anything approaching this is a bug or an attack.
-    ///
-    /// Shared rather than repeated, because it is the number the video fallback cuts its
-    /// chunks to fit under.
     private static let maxControlPayload = ProtocolInfo.maxControlPayload
 
     private enum State {
@@ -70,90 +63,45 @@ final class HostSession: @unchecked Sendable {
     private let emit: @Sendable (HostEvent) -> Void
 
     /// Whether this connection arrived through the relay rather than from this network.
-    ///
-    /// The session's behaviour does not depend on it (TLS and the handshake are the same either
-    /// way) but the user's does: a relayed pairing prompt is asking someone at this Mac to compare
-    /// digits with a person who is not in the room.
     private let arrivedThroughRelay: Bool
 
-    /// Invoked once the session is authenticated and may carry commands.
     var onCommand: (@Sendable (RemoteCommand) -> Void)?
-    /// Invoked with the video connection once a client opens one.
     var onVideoConnection: (@Sendable (PeerConnection) -> Void)?
     /// Used by relayed sessions that temporarily carry video on the control stream. Invoked only
     /// after the same pin/SAS authorization required by a normal video connection.
     var onAuthorized: (@Sendable (PeerConnection) -> Void)?
     /// Called when an authorized client asks for video to move between transports.
-    ///
-    /// Routed out rather than decided here: a session knows only its own connection, while the
-    /// answer needs the video pipeline and the peer being served. The server has both.
     var onVideoTransportRequest: (@Sendable (VideoTransportRequest) -> Void)?
     /// Called when an authorized client asks for the secret that seals video datagrams.
-    ///
-    /// Answers the secret, or `nil` for a refusal, and a refusal is silence rather than an error:
-    /// a Mac that does not answer is still sending the picture down the stream this session
-    /// already has. The server holds the relay's allocation and the pipeline, which a session
-    /// does not.
     var onVideoKeyRequest: (@Sendable () -> Data?)?
 
-    /// Called when a client asks for the picture to be turned on or off. See
-    /// ``RemoteCommand/setVideoEnabled(_:)``.
-    ///
-    /// Carries the request and nothing else; the connection to act on is found from the key this
-    /// session presented, which the server adds on the way out. Same division as
-    /// ``onVideoTransportRequest``: a session knows one connection, the answer needs whichever
-    /// connection is being served now.
     var onVideoEnabled: (@Sendable (Bool) -> Void)?
 
     /// Called when the client requests the clipboard. Return `nil` to send nothing.
-    ///
-    /// A payload rather than a string, because the pasteboard may be holding a picture and only
-    /// this end can find that out.
     var onRequestClipboard: (@Sendable () -> ClipboardPayload?)?
-    /// Called when the client pushes its clipboard to the host.
     var onReceiveClipboard: (@Sendable (ClipboardPayload) -> Void)?
     /// Terminal requests are routed only after this session reaches the authenticated state.
     var onTerminalRequest: (@Sendable (TerminalRequest, @escaping @Sendable (TerminalEvent) -> Void) -> Void)?
-    /// Where an agent chat request goes for the device that sent it. Named by the session rather
-    /// than the request: who owns a chat is the connection it arrived on.
     var onAgentRequest: (@Sendable (AgentRequest, @escaping @Sendable (AgentEvent) -> Void) -> Void)?
 
     private var state: State = .awaitingRole
     private(set) var clientID = ""
     private var clientName = "Unknown device"
-    /// Readable so the server can match a video connection to the control session that
-    /// authorizes it. Both are on the same serial queue, so no lock is needed.
     private(set) var peerPublicKey: Data?
     /// Whether `.clientConnected` has been emitted, so a disconnect is only ever reported
     /// for a connection the UI was told about in the first place.
     private var announced = false
 
     /// Pieces of one oversized payload from the client, put back as they arrive.
-    ///
-    /// The only assembler this end has, unlike the client's two: a picture's chunks travel host to
-    /// client and never the other way, so the only thing a client ever cuts up for the host is a
-    /// command with a screenshot in it.
     private var clipboardChunks = ClipboardTransfer.reassembler()
-    /// Which clipboard payload is being cut up on the way out, so the client can tell two apart.
     private var clipboardFrameID: UInt32 = 0
-    /// What the client said about reading a picture, off its hello. `nil` is a client built before
-    /// the field existed, which is a no.
     private var clientSupportsClipboardImages: Bool?
-    /// Whether the client can decode ``MessageKind/textFocus``. `nil` is a client built before it.
     private var clientSupportsTextFocus: Bool?
     private var clientSupportsFieldState: Bool?
-    /// Whether the client can host an agent chat: it reads ``MessageKind/agentEvent``, which is
-    /// what allows this side to send one. `nil` is a client built before the field existed.
     private var clientSupportsAgentChat: Bool?
+    private var clientSupportsAgentPermissionModes: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
-    ///
-    /// The client pings once a second, so silence here is evidence rather than an inference. It is
-    /// needed because TCP does not reliably report a peer that is gone: a phone killed while the
-    /// network moved on sends no FIN, and the host would hold a session that is still authorized,
-    /// still suppresses the Bonjour advertisement, and is still shown as connected.
-    ///
-    /// Written in ``handle(_:)``, read by the server's reaper, both on the server's serial queue.
     private var lastHeard = DispatchTime.now()
 
     /// Seconds since anything arrived from this client.
@@ -161,11 +109,6 @@ final class HostSession: @unchecked Sendable {
         Double(DispatchTime.now().uptimeNanoseconds - lastHeard.uptimeNanoseconds) / 1_000_000_000
     }
 
-    /// Set when *we* end this session, so its close is not reported as a failure.
-    ///
-    /// The two are indistinguishable at the socket: a client that vanished and a session the host
-    /// just closed both produce a cancelled connection. Without this, reaping a device that went
-    /// quiet reports "Operation canceled" against its name.
     private var closedByHost = false
 
     // Pairing ephemerals. Generated per attempt, never persisted: they exist only to contribute
@@ -236,51 +179,21 @@ final class HostSession: @unchecked Sendable {
     }
 
     /// Called once, on the server queue, when this session's connection is gone.
-    ///
-    /// The server drops the session from its list here. Without it a finished session stays in the
-    /// list, and since ``isAuthorized`` stays `true` on a dead object, that stale entry would go on
-    /// authorizing video connections for a client that disconnected long ago.
     var onEnded: (@Sendable () -> Void)?
 
-    /// Whether this session has completed authorization: either the client presented a key
-    /// matching its stored pin, or the user confirmed a first-time SAS pairing.
-    ///
-    /// `state == .ready` is exactly that: every path that reaches `.ready` has passed one of those
-    /// two checks, and no other path reaches it.
     var isAuthorized: Bool {
         if case .ready = state { return true }
         return false
     }
 
     /// Whether this connection asked for the video role and was handed to the video pipeline.
-    ///
-    /// Set because neither `isAuthorized` nor `state` can say it: a video connection is authorized
-    /// by association (the server checks that an authorized control session exists for the same
-    /// peer key) and its state is parked at `.failed` on the first frame, which is what stops the
-    /// control state machine reading a role frame as a hello. So both questions the server asks
-    /// answer "no" for the one connection working exactly as intended.
-    ///
-    /// The server's silence reaper is the reader: its 30-second limit is for a connection that
-    /// never finished a handshake, and one of these is one-directional, so `silence` climbs from
-    /// the moment it opens and always crosses. Left in the reaper's path, the picture stops about
-    /// half a minute into every session.
     private(set) var isVideoConnection = false
 
     // MARK: - Messages to the client
 
-    /// The last catalogue this session sent, so an identical one is not sent twice.
-    ///
-    /// Per session, not per host: suppressing a repeat push has to be relative to what *this*
-    /// client has been told, or it becomes "send once per host lifetime" and every client that
-    /// connects later is served nothing at all.
     private var lastSentCatalog: CaptureCatalog?
 
     /// Pushes the capture catalogue, for a client that is in a position to render it.
-    ///
-    /// Does nothing before authorization, which is a disclosure rule rather than a protocol one:
-    /// the catalogue lists every open application and window on this Mac by title, so a peer that
-    /// has not finished the handshake must not be handed it. There is no error to report either,
-    /// because a session that cannot receive this has already been told why.
     func sendCatalog(_ catalog: CaptureCatalog) {
         guard isAuthorized else { return }
         guard catalog != lastSentCatalog else { return }
@@ -370,10 +283,10 @@ final class HostSession: @unchecked Sendable {
         clientSupportsTextFocus = hello.supportsTextFocus
         clientSupportsFieldState = hello.supportsFieldState
         clientSupportsAgentChat = hello.supportsAgentChat
+        clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
-            // Someone is claiming a device ID we already trust, with a key we do not.
             throw SessionError.clientKeyMismatch(clientID: clientID)
         }
 
@@ -401,15 +314,10 @@ final class HostSession: @unchecked Sendable {
             // not anything about the user. A client that sends the pause command to a Mac which
             // has not said this gets a decode failure mid-session instead of honest degradation.
             supportsVideoPause: true,
-            // Declared on the same terms, and it covers both directions: this Mac can put a
-            // picture on the phone's pasteboard and take one off it.
             supportsClipboardImages: true,
             // Same terms again: a client that has not seen this may not send a mosaic, because the
             // request is a capture source an older Mac cannot decode.
             supportsMosaic: true,
-            // Same terms once more. The failure this prevents lands when somebody opens the Apps
-            // panel, an ordinary thing to do, and it would end the session rather than show a grid
-            // of names.
             supportsSourceThumbnails: true,
             // Same terms once more: a virtual display rotates only for a client that has said it
             // will report its orientation, so an older phone gets the display shape it always had.
@@ -419,23 +327,17 @@ final class HostSession: @unchecked Sendable {
             // the command, so a Mac that could never make a display does not advertise a row that
             // can only fail.
             supportsVirtualDisplayManagement: VirtualDisplay.isAvailable,
-            // This host sends terminal alerts through APNs even while this control channel is
-            // connected, so an updated phone need not raise the same banner locally as well.
             pushesTerminalAlertsWhileConnected: true,
             supportsAgentList: true,
             // The other half of the pair: this Mac can run a chat with an installed coding agent,
             // and the phone asks only after reading this.
             supportsAgentChat: true,
-            // And this Mac will open a file-browsing scope with no shell behind it, which is what
-            // the Mac terminals screen's own Files screen browses through.
             supportsFileBrowser: true,
-            // And this Mac can change which model a chat runs: Claude inside the running process,
-            // Codex one turn at a time.
             supportsAgentModelPicker: true,
             // Which agents, since the set grows and a phone cannot guess it from the version.
-            agentChatAgents: AgentSessionManager.chatAgents.keys.sorted()
+            agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
+            supportsAgentPermissionModes: true
         ))
-        // A trusted client coming back names what it was watching, so capture can start now.
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))
         }
@@ -560,11 +462,6 @@ final class HostSession: @unchecked Sendable {
     // MARK: - Authenticated commands
 
     /// - Parameter assembled: whether this frame was put back together from chunks on this end.
-    ///
-    ///   The control channel's payload cap is not the limit such a frame was held to, and applying
-    ///   it here would refuse exactly what chunking exists to allow. A reassembled frame was
-    ///   bounded instead by ``ClipboardLimits/maxReassembledBytes`` as it was put together; the
-    ///   cap still covers the direct path, a client claiming a 60 MB command in one frame.
     private func handleCommand(_ frame: Frame, assembled: Bool = false) throws {
         switch frame.kind {
         case .command:
@@ -574,32 +471,21 @@ final class HostSession: @unchecked Sendable {
             let command = try decode(RemoteCommand.self, from: frame, as: .command)
             switch command {
             case .requestClipboard:
-                // Always answered: empty text when there is nothing the phone can take, so the
-                // phone can say so instead of waiting.
                 sendClipboard(onRequestClipboard?() ?? .text(""))
             case .pushClipboard(let text):
                 onReceiveClipboard?(.text(text))
             case .pushClipboardImage(let png):
                 onReceiveClipboard?(.image(png))
             case .setVideoEnabled(let enabled):
-                // Routed here rather than through `onCommand`: the decision is about a connection,
-                // and which one comes from this session's key rather than from the command.
                 onVideoEnabled?(enabled)
             default:
                 onCommand?(command)
             }
 
         case .videoChunk:
-            // The client cutting up something too large for one control message, today a clipboard
-            // picture. Put back together and handed to this same function, so nothing below knows
-            // the difference between a command that fitted and one that did not.
             try handleChunkedPayload(frame)
 
         case .ping:
-            // The payload is echoed rather than understood: it is the number the client timed this
-            // ping with, and returning it is what lets the client match this reply to that
-            // question rather than to whichever ping went out most recently. An empty ping gets an
-            // empty pong.
             connection.send(Frame(kind: .pong, payload: frame.payload))
 
         case .terminalRequest:
@@ -628,8 +514,6 @@ final class HostSession: @unchecked Sendable {
             onVideoTransportRequest?(request)
 
         case .videoKeyRequest:
-            // A question with no payload: what it asks, whether this session may send video over
-            // the relay's datagram path, is answered from the server's own state.
             guard frame.payload.count <= Self.maxControlPayload else {
                 throw SessionError.malformedPayload(.videoKeyRequest, SessionError.protocolMismatch(client: 0, host: 0))
             }
@@ -651,17 +535,11 @@ final class HostSession: @unchecked Sendable {
     /// an unknown frame kind ends its session rather than being dropped.
     func sendAgentEvent(_ event: AgentEvent) {
         guard isAuthorized, AgentChatSupport.mayReceive(clientDeclared: clientSupportsAgentChat) else { return }
+        // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
+        if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
         send(.agentEvent, event)
     }
 
-    /// Sends the clipboard, cut up if it is too large for one control message.
-    ///
-    /// A text payload is one frame; a picture is however many it takes, and the client's assembler
-    /// puts them back without either end knowing which happened.
-    ///
-    /// A picture is not sent to a client that has not said it can read one, and nothing is sent in
-    /// its place: sending the pasteboard's *text* where a picture was copied is worse than sending
-    /// nothing.
     private func sendClipboard(_ payload: ClipboardPayload) {
         guard isAuthorized else { return }
         if payload.kind == .image, !ClipboardImages.mayReceive(clientDeclared: clientSupportsClipboardImages) {
@@ -680,11 +558,6 @@ final class HostSession: @unchecked Sendable {
     }
 
     /// A payload the client cut up, put back together.
-    ///
-    /// A malformed piece costs the payload and not the session, the opposite of the direct path,
-    /// and the difference is who is at fault: a command sent whole and decoded wrongly is a bug or
-    /// an attack, while a piece that does not fit its neighbours is a failed transfer whose worst
-    /// outcome is that the user copies the picture again.
     private func handleChunkedPayload(_ frame: Frame) throws {
         guard let whole = try? clipboardChunks.ingest(frame) else { return }
         try handleCommand(whole, assembled: true)

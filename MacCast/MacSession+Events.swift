@@ -284,6 +284,7 @@ extension MacSession {
             hostPushesTerminalAlertsWhileConnected = hello.pushesTerminalAlertsWhileConnected == true
             hostSupportsFileBrowser = hello.supportsFileBrowser == true
             hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
+            hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
             hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
             // Also the name the widget and the Lock Screen card show for the last Mac, for

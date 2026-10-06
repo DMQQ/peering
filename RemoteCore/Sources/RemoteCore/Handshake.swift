@@ -1,47 +1,27 @@
 import Foundation
 
-/// Sent by the client as the first application-layer message on a control connection.
 public struct ClientHello: Codable, Sendable, Equatable {
-    /// Stable identifier for the client device, generated once per install. Used to look
-    /// up its pin on the host.
     public var clientID: String
-    /// Human-readable label so the host can show "Damian's iPhone".
     public var clientName: String
-    /// Lets the host reject a client speaking a different protocol outright rather than
-    /// failing later on an unrecognised message kind.
     public var protocolVersion: UInt16
-    /// Whether the client believes it already has a usable pin for this host. Advisory
-    /// only: the host decides, because only the host knows its own pin store.
+    /// Advisory only: the host decides, since only it knows its pin store.
     public var wantsPairing: Bool
 
-    /// Whether this client can read a picture on the clipboard, in both directions.
-    /// See ``ServerHello/supportsClipboardImages``, which is the same fact the other way round.
-    ///
-    /// Declared rather than implied by the version: both this build and the one before it speak
-    /// version 16, so a Mac cannot tell them apart at the door and sends a picture only to a client
-    /// that has said it can read one. Optional and additive, so an older client's hello decodes with
-    /// it `nil`, which reads as no.
+    /// Declared, not implied by version: this build and the one before both speak version 16. Optional and additive: `nil` reads as no.
     public var supportsClipboardImages: Bool?
 
-    /// Whether this client reads ``MessageKind/textFocus``. Declared for the same reason as
-    /// ``supportsClipboardImages``: an older client cannot decode the frame kind.
+    /// Declared like ``supportsClipboardImages``: an older client cannot decode the frame kind.
     public var supportsTextFocus: Bool?
 
-    /// Whether this client reads ``MessageKind/fieldState``. Declared for the same reason as
-    /// ``supportsTextFocus``.
     public var supportsFieldState: Bool?
 
-    /// Whether this client can host an agent chat session: it reads ``MessageKind/agentEvent`` and
-    /// sends ``MessageKind/agentRequest``.
-    ///
-    /// Declared in both directions, because both ends send: the Mac answers a chat request with a
-    /// stream of events, so it is the Mac that has to restrain itself when the phone is older.
-    /// Optional and additive, so an older hello decodes with it `nil`, which reads as no.
+    /// Declared in both directions: the Mac streams events, so it is the Mac that must restrain itself when the phone is older. `nil` reads as no.
     public var supportsAgentChat: Bool?
 
-    /// What a reconnecting client was looking at, so the Mac can start capturing it on arrival
-    /// rather than a round trip later when the client asks from the catalogue. Honoured only for a
-    /// client the Mac already trusts. Optional, so either end of an older pair ignores it.
+    /// Whether this client reads ``AgentEvent/permissionModeChanged(sessionID:mode:)``.
+    public var supportsAgentPermissionModes: Bool?
+
+    /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
     public init(
@@ -53,6 +33,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsTextFocus: Bool? = nil,
         supportsFieldState: Bool? = nil,
         supportsAgentChat: Bool? = nil,
+        supportsAgentPermissionModes: Bool? = nil,
         resumeSource: CaptureSource? = nil
     ) {
         self.clientID = clientID
@@ -63,110 +44,58 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsTextFocus = supportsTextFocus
         self.supportsFieldState = supportsFieldState
         self.supportsAgentChat = supportsAgentChat
+        self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.resumeSource = resumeSource
     }
 }
 
-/// The host's reply to ``ClientHello``.
-///
-/// Deliberately does not carry the host's public key, which the client takes from the TLS
-/// certificate it actually received: a man-in-the-middle cannot send its own and have both screens
-/// agree by construction.
+/// Does not carry the host's public key: the client takes it from the TLS certificate it received, so a man-in-the-middle cannot make both screens agree.
 public struct ServerHello: Codable, Sendable, Equatable {
     public var serverID: String
     public var hostName: String
     public var protocolVersion: UInt16
-    /// True when the host already holds a pin for this client, so no pairing is needed
-    /// and the client can proceed straight to commands.
     public var alreadyPaired: Bool
-    /// Ethernet/Wi-Fi MAC addresses of the host's physical interfaces, for Wake-on-LAN.
-    /// Each entry is a colon-separated hex string ("aa:bb:cc:dd:ee:ff").
+    /// Physical interface MACs for Wake-on-LAN, colon-separated hex.
     public var macAddresses: [String]?
-    /// Whether this Mac can be asked to stop sending the picture without ending the session.
-    /// See ``RemoteCommand/setVideoEnabled(_:)``.
-    ///
-    /// A capability rather than a version bump, so an older Mac keeps streaming rather than failing
-    /// mid-session. Optional and additive, so an older Mac decodes with it `nil`, which reads as
-    /// "no"; the client sends the command only on an explicit `true`, an unknown command being a
-    /// decode failure in the middle of a session.
+    /// A capability, not a version bump: an older Mac keeps streaming. The client sends the command only on an explicit `true`; `nil` reads as no.
     public var supportsVideoPause: Bool?
 
-    /// Whether this Mac can carry a picture on the clipboard, in both directions.
-    /// See ``RemoteCommand/pushClipboardImage(png:)``.
-    ///
-    /// A capability on the same argument, one flag covering both directions: a Mac that can receive
-    /// a picture can send one, being the same encoder and pasteboard code. Optional and additive, so
-    /// `nil` reads as "no", and the command is sent only on an explicit `true`.
+    /// One flag covers both directions. `nil` reads as no; the command is sent only on an explicit `true`.
     public var supportsClipboardImages: Bool?
 
-    /// Whether this Mac can composite several sources into one picture.
-    ///
-    /// A capability rather than a version bump: `CaptureSource` gains a case an older Mac cannot
-    /// decode, but it is only ever sent by a client and only to a Mac that has said it understands
-    /// it. Optional and additive, so `nil` reads as "no", and a mosaic is sent only on an explicit
-    /// `true`.
+    /// A capability: `CaptureSource` gains a case an older Mac cannot decode, so a mosaic is sent only on an explicit `true`.
     public var supportsMosaic: Bool?
 
-    /// Whether this Mac can photograph its running applications for the picker's grid.
-    /// See ``RemoteCommand/refreshSourceThumbnails``.
-    ///
-    /// A capability on the same argument as the three above: an un-updated Mac throws on the
-    /// command, which is sent when the Apps panel opens. Only the asking needs the flag,
-    /// ``CaptureSourceDescriptor/thumbnail`` being an optional field read with `decodeIfPresent`.
-    /// Optional and additive, so `nil` reads as "no", and the command is sent only on a `true`.
+    /// An un-updated Mac throws on the refresh command, so the client sends it only on an explicit `true`.
     public var supportsSourceThumbnails: Bool?
 
-    /// Whether this Mac will rotate a virtual display's shape to match the phone's own
-    /// orientation. See ``RemoteCommand/reportDeviceOrientation(isLandscape:)``.
-    ///
-    /// A capability on the same argument as the three above: the command is harmless to an old
-    /// Mac's *decoder* only because it is never sent to one. Optional and additive, so `nil`
-    /// reads as "no", and the client keeps quiet about its orientation rather than have it land
-    /// on a Mac with nothing to do with it.
+    /// Sent only on an explicit `true`; `nil` reads as no.
     public var supportsDeviceOrientation: Bool?
 
-    /// Whether this Mac can be asked to make and remove virtual displays beyond the one its own
-    /// settings switch controls. See ``RemoteCommand/addVirtualDisplay(name:)`` and
-    /// ``RemoteCommand/removeVirtualDisplay(displayID:)``.
-    ///
-    /// Unlike the flags above, this is not simply the software version: a Mac whose system
-    /// software lacks the private virtual-display API at all has nothing to offer, so the host
-    /// sends its own `VirtualDisplay.isAvailable` here rather than an unconditional `true`.
-    /// Optional and additive on the same terms as the rest: `nil` reads as "no."
+    /// Not simply the software version: the host sends `VirtualDisplay.isAvailable`, since an OS without the private API has nothing to offer. `nil` reads as no.
     public var supportsVirtualDisplayManagement: Bool?
 
-    /// Whether this Mac sends terminal alerts through APNs even while the phone's control channel
-    /// is connected. A phone uses this to suppress its duplicate local banner. Optional so an
-    /// older Mac reads as `false` and the phone keeps the local path that older Mac depends on.
+    /// A phone uses this to suppress its duplicate local banner. `nil` reads as false so an older Mac keeps the local path.
     public var pushesTerminalAlertsWhileConnected: Bool?
 
-    /// Whether this Mac can say which coding-agent commands are installed on it, in answer to
-    /// ``TerminalRequest/agents``. A capability because an older Mac cannot decode that request,
-    /// so the phone asks only on an explicit `true` and shows every agent otherwise.
+    /// An older Mac cannot decode ``TerminalRequest/agents``, so the phone asks only on an explicit `true` and shows every agent otherwise.
     public var supportsAgentList: Bool?
 
-    /// Whether this Mac can run a chat session with an installed coding agent, in answer to
-    /// ``AgentRequest``. A capability because an older Mac cannot decode that request, and the
-    /// pair of new message kinds behind it. Optional and additive: `nil` reads as no, and a chat
-    /// is started only on an explicit `true`.
+    /// An older Mac cannot decode ``AgentRequest`` or its new message kinds; a chat starts only on an explicit `true`.
     public var supportsAgentChat: Bool?
 
-    /// Whether this Mac will open a file-browsing scope that is not a shell, in answer to
-    /// ``TerminalRequest/startBrowser(id:)``. The browsing requests themselves are the ones a
-    /// terminal sends — they name a scope rather than a terminal — so what an older Mac cannot do
-    /// is *create* one, and it refuses the request it cannot decode. Optional and additive: `nil`
-    /// reads as no, and the hub's own file browser is offered only on an explicit `true`.
+    /// An older Mac cannot *create* a browsing scope and refuses the request it cannot decode, so the hub's file browser is offered only on an explicit `true`.
     public var supportsFileBrowser: Bool?
 
-    /// Whether this Mac can change which model a chat runs, in answer to
-    /// ``AgentRequest/setModel(sessionID:model:)``. Optional and additive: `nil` reads as no, and
-    /// the picker is drawn only on an explicit `true`.
+    /// The picker is drawn only on an explicit `true`.
     public var supportsAgentModelPicker: Bool?
 
-    /// Which agents this Mac can hold a chat with, by catalogue id. Optional and additive: `nil`
-    /// is a Mac from before this list, which chats with Claude Code and Codex and nothing else, so
-    /// an agent added later is offered only on an explicit entry.
+    /// `nil` is a Mac from before this list, which chats with Claude Code and Codex only.
     public var agentChatAgents: [String]?
+
+    /// Whether this Mac takes ``AgentRequest/setPermissionMode(sessionID:mode:)``. Optional and
+    /// additive: `nil` reads as no, and the toggle is drawn only on an explicit `true`.
+    public var supportsAgentPermissionModes: Bool?
 
     public init(
         serverID: String,
@@ -185,7 +114,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsAgentChat: Bool? = nil,
         supportsFileBrowser: Bool? = nil,
         supportsAgentModelPicker: Bool? = nil,
-        agentChatAgents: [String]? = nil
+        agentChatAgents: [String]? = nil,
+        supportsAgentPermissionModes: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -203,11 +133,11 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsFileBrowser = supportsFileBrowser
         self.supportsAgentModelPicker = supportsAgentModelPicker
         self.agentChatAgents = agentChatAgents
+        self.supportsAgentPermissionModes = supportsAgentPermissionModes
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }
 
-/// A hash commitment, revealing nothing about the value committed to.
 public struct PairingCommit: Codable, Sendable, Equatable {
     public var commitment: Data
 
@@ -228,7 +158,6 @@ public struct PairingReveal: Codable, Sendable, Equatable {
     }
 }
 
-/// The user's verdict on the six digits, sent by the client after comparing the two screens.
 public struct PairConfirm: Codable, Sendable, Equatable {
     public var accepted: Bool
 
@@ -237,11 +166,9 @@ public struct PairConfirm: Codable, Sendable, Equatable {
     }
 }
 
-/// The host's answer: whether the pin was stored.
 public struct PairResult: Codable, Sendable, Equatable {
     public var accepted: Bool
-    /// Present when `accepted` is false, so the client can say why: a bare failure beside two
-    /// screens is indistinguishable from a bug.
+    /// Present when `accepted` is false: a bare failure beside two screens looks like a bug.
     public var reason: String?
 
     public init(accepted: Bool, reason: String? = nil) {
@@ -250,21 +177,14 @@ public struct PairResult: Codable, Sendable, Equatable {
     }
 }
 
-/// A descriptive failure the host can report without tearing the connection down.
 /// A standing condition on the host, or `nil` when there is none.
-///
-/// `nil` rather than an empty string, so "there is nothing to say" is not a message.
 public struct NoticePayload: Codable, Sendable, Equatable {
     public let message: String?
 
-    /// An SF Symbol for the client to draw above the message, picked by the host, which is the side
-    /// that knows which thing is wrong: a sleeping screen and a disconnected one produce the same
-    /// black frames and want different pictures.
+    /// An SF Symbol picked by the host, which knows which thing is wrong (sleeping and disconnected screens both look black).
     public let symbol: String?
 
-    /// Set while the Mac is locked: the display its lock screen is on, which is where the password
-    /// has to be typed. Present even when `message` is nil, because a phone already showing that
-    /// display has nothing to be told but still needs to know when the lock ends.
+    /// Set while the Mac is locked: the display showing its lock screen. Present even when `message` is nil so a phone already on that display knows when the lock ends.
     public let lockedDisplayID: UInt32?
 
     public init(message: String?, symbol: String? = nil, lockedDisplayID: UInt32? = nil) {
@@ -274,29 +194,16 @@ public struct NoticePayload: Codable, Sendable, Equatable {
     }
 }
 
-/// What is on a pasteboard, in the one shape both directions carry it in.
-///
-/// Text and a picture are the same message with a different payload: the two ends have to agree
-/// about when a pasteboard changed and which of them may act on it, and those rules are identical
-/// for a line of text and for a screenshot. Only how the contents travel differs, which is the
-/// business of ``ClipboardTransfer``.
 public struct ClipboardPayload: Codable, Sendable, Equatable {
-    /// Which thing is on the pasteboard.
-    ///
-    /// A field rather than "whichever of the two is set": nothing about the payload's shape stops
-    /// both being present, and the two ends would then disagree about which wins.
+    /// A field rather than "whichever is set": both could be present and the ends would disagree on which wins.
     public enum Kind: String, Codable, Sendable {
         case text
         case image
     }
 
     public var kind: Kind
-    /// The text, for a `.text` payload.
     public var text: String?
-    /// The picture, for an `.image` payload, as PNG in both directions.
-    ///
-    /// One format rather than whatever the pasteboard held, which is what makes this readable
-    /// without a second exchange: macOS puts a screenshot there as TIFF, which iOS reads not at all.
+    /// PNG only: macOS puts a screenshot on the pasteboard as TIFF, which iOS cannot read.
     public var image: Data?
 
     public init(kind: Kind, text: String? = nil, image: Data? = nil) {
@@ -313,19 +220,12 @@ public struct ClipboardPayload: Codable, Sendable, Equatable {
         ClipboardPayload(kind: .image, image: png)
     }
 
-    /// The picture, if there is one and it is within the size both ends promise to carry.
-    ///
-    /// The same question at both ends, so the answer belongs in one place.
-    /// See ``ClipboardLimits/maxImageBytes``.
     public var carriedImage: Data? {
         guard kind == .image, let image, image.count <= ClipboardLimits.maxImageBytes else { return nil }
         return image
     }
 
-    /// Reads a payload written before there was a kind.
-    ///
-    /// The synthesised decoder would refuse an older Mac's clipboard: it sends `{"text": "..."}`
-    /// with no `kind` in it, so an absent kind means text, the only thing that could have been sent.
+    /// An older Mac sends `{"text": ...}` with no `kind`, which the synthesised decoder would refuse; absent kind means text.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         kind = try container.decodeIfPresent(Kind.self, forKey: .kind) ?? .text
@@ -334,14 +234,7 @@ public struct ClipboardPayload: Codable, Sendable, Equatable {
     }
 }
 
-/// The number a ping went out with, echoed by its pong.
-///
-/// A ping with no number cannot be timed: a reply arriving after the next ping had gone out was
-/// measured against the newer one. The number is what lets a pong be matched to the question it
-/// answers, and one that arrives too late be thrown away instead of believed.
-///
-/// It travels as a payload rather than as a new message kind, so a Mac which does not read it
-/// answers with an empty pong and nothing breaks. See ``ClientSession/pingIndex(answeredBy:)``.
+/// A pong is matched to its ping by this number so a late one is discarded. It is a payload, not a new kind, so a Mac that ignores it answers with an empty pong.
 public struct PingPayload: Codable, Sendable, Equatable {
     public let sequence: UInt64
 
@@ -363,10 +256,6 @@ public struct ErrorPayload: Codable, Sendable, Equatable {
     }
 }
 
-/// JSON coding for the control channel's structured payloads.
-///
-/// These messages are small, infrequent, and the traffic is already inside TLS. Video frames take
-/// the binary path and never come through here.
 public enum MessageCodec {
     public static func encode<T: Encodable>(_ value: T) throws -> Data {
         try JSONEncoder().encode(value)

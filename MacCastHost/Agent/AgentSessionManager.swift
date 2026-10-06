@@ -5,18 +5,9 @@ import RemoteCore
 
 private let agentLog = Logger(subsystem: "pl.dmq.peering.host", category: "agent")
 
-/// Agent chat sessions, owned independently of the connection that started them.
-///
-/// The shape is ``TerminalSessionManager``'s, for the same reasons: a session outlives the phone
-/// that opened it, a later authenticated connection with the same client identity reattaches and
-/// is replayed what it missed, and every request naming a session is checked against its owner.
-/// What differs is what a session is: not a shell whose bytes are forwarded, but a CLI whose
-/// events are normalised, indexed and kept as a transcript.
 final class AgentSessionManager: @unchecked Sendable {
     typealias Sink = @Sendable (AgentEvent) -> Void
 
-    /// Which catalogue commands can hold a chat. The other agents in the list are terminal-only:
-    /// a structured stream is what separates the two, and only these have one.
     static let chatAgents: [String: String] = [
         "claude": "Claude Code",
         "codex": "Codex",
@@ -32,17 +23,14 @@ final class AgentSessionManager: @unchecked Sendable {
         let createdAt = Date()
         let adapter: any AgentAdapter
 
-        /// The normalised conversation, indexed, trimmed at turn boundaries. Read under the
-        /// manager's lock.
         var transcript: [AgentStreamEvent] = []
         var nextIndex: UInt64 = 1
         var bytes = 0
         var truncatedAtFront = false
         var state: AgentSessionState = .idle
         var pendingApprovals: Set<String> = []
-        /// What the CLI says it runs, which the picker shows and the listing carries.
         var model: String?
-        /// The last thing the agent said, for a notification body worth reading.
+        var permissionMode: AgentPermissionMode
         var lastReply: String?
 
         init(ownerClientID: String, agentID: String, title: String, directory: String, adapter: any AgentAdapter) {
@@ -51,6 +39,7 @@ final class AgentSessionManager: @unchecked Sendable {
             self.title = title
             self.directory = directory
             self.adapter = adapter
+            self.permissionMode = adapter.defaultPermissionMode
         }
 
         var lastIndex: UInt64 { nextIndex - 1 }
@@ -64,27 +53,22 @@ final class AgentSessionManager: @unchecked Sendable {
                 state: state,
                 lastIndex: lastIndex,
                 model: model,
+                permissionMode: permissionMode,
+                permissionModes: adapter.permissionModes,
                 createdAt: createdAt
             )
         }
     }
 
-    /// Nothing said to the phone can make this side run out of disk or memory.
     private static let maximumSessionsPerClient = 4
-    /// How much of one chunk of replay, roughly, beside the event count.
     private static let replayChunkBytes = 64 * 1024
 
     private let lock = NSLock()
     private var sessions: [UUID: Session] = [:]
     private var sinks: [String: Sink] = [:]
 
-    /// Called when the phone should learn about something while its control channel is not there
-    /// to hear it: an approval that is waiting, or a turn that ended. Arguments: APNs device
-    /// token, notification title, body. Same contract as the terminal manager's.
     var onPushNeeded: (@Sendable (String, String, String) -> Void)?
 
-    /// Called when the set of sessions that are doing something becomes empty or stops being
-    /// empty, so the Mac can hold its sleep assertion while an agent is working.
     var onActivityChanged: (@Sendable (Bool) -> Void)?
     private var wasActive = false
 
@@ -132,9 +116,6 @@ final class AgentSessionManager: @unchecked Sendable {
                 return
             }
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            // The prompt goes into the transcript here and not from the CLI's echo, so both CLIs
-            // read the same way to the phone and the user's own words are on screen the moment
-            // they are sent.
             append(.userPrompt(text: text), to: session)
             session.adapter.prompt(text)
 
@@ -143,18 +124,26 @@ final class AgentSessionManager: @unchecked Sendable {
                 sink(.failed(sessionID: id, message: "That chat is no longer here."))
                 return
             }
-            // The adapter answers through ``onModel`` once the change is real: Claude confirms it
-            // inside the running process and Codex takes one for its next turn, so nothing here
-            // reports the model as changed on the strength of the ask alone.
+            // Model changes are reported by the adapter via ``onModel`` once real, never on the strength of the ask alone.
             session.adapter.setModel(model)
+
+        case .setPermissionMode(let id, let mode):
+            guard let session = ownedSession(id, ownerClientID: clientID) else {
+                sink(.failed(sessionID: id, message: "That chat is no longer here."))
+                return
+            }
+            guard session.adapter.permissionModes.contains(mode) else {
+                sink(.failed(sessionID: id, message: "This agent cannot run in that mode."))
+                return
+            }
+            // Reported through ``onPermissionMode`` once the CLI has taken it, as the model is.
+            session.adapter.setPermissionMode(mode)
 
         case .approval(let id, let approvalID, let decision):
             guard let session = ownedSession(id, ownerClientID: clientID) else {
                 sink(.failed(sessionID: id, message: "That chat is no longer here."))
                 return
             }
-            // Answered twice, or answered late: a prompt that is no longer waiting cannot be
-            // answered, and saying so would be noise about something already decided.
             guard lock.withLock({ session.pendingApprovals.remove(approvalID) != nil }) else { return }
             append(.approvalResolved(approvalID: approvalID, decision: decision), to: session)
             session.adapter.respond(approvalID: approvalID, decision: decision)
@@ -173,8 +162,6 @@ final class AgentSessionManager: @unchecked Sendable {
         }
     }
 
-    /// A phone that has gone drops its sink and nothing else: the sessions keep working, and a
-    /// later connection with the same client identity lists them and is replayed.
     func disconnect(clientID: String) {
         lock.withLock { sinks.removeValue(forKey: clientID) }
     }
@@ -187,8 +174,7 @@ final class AgentSessionManager: @unchecked Sendable {
             return
         }
 
-        // The same shape the terminal browser enforces, for the same reason: a relative path would
-        // resolve against this process's working directory rather than anything the user meant.
+        // A relative path would resolve against this process's working directory.
         let path = requested ?? FileManager.default.homeDirectoryForCurrentUser.path
         guard path.hasPrefix("/") else {
             sink(.failed(sessionID: nil, message: "That is not a folder this Mac can open."))
@@ -232,6 +218,17 @@ final class AgentSessionManager: @unchecked Sendable {
             guard let self, let session else { return }
             self.append(payload, to: session)
         }
+        adapter.onPermissionMode = { [weak self, weak session] mode in
+            guard let self, let session else { return }
+            let changed: Bool = self.lock.withLock {
+                guard session.permissionMode != mode else { return false }
+                session.permissionMode = mode
+                return true
+            }
+            guard changed else { return }
+            let sink = self.lock.withLock { self.sinks[session.ownerClientID] }
+            sink?(.permissionModeChanged(sessionID: session.id, mode: mode))
+        }
         adapter.onModel = { [weak self, weak session] model in
             guard let self, let session else { return }
             let changed: Bool = self.lock.withLock {
@@ -240,18 +237,14 @@ final class AgentSessionManager: @unchecked Sendable {
                 return true
             }
             guard changed else { return }
-            // Sent rather than appended: the model is a fact about the session, not a line of the
-            // conversation, so it is not indexed into the transcript and not replayed. A phone
-            // that reattaches learns it from the listing.
+            // Sent, not appended: the model is a session fact, not transcript, so it is neither indexed nor replayed.
             let sink = self.lock.withLock { self.sinks[session.ownerClientID] }
             sink?(.modelChanged(sessionID: session.id, model: model))
         }
         sink(.created(session.info))
         agentLog.notice("agent chat created · \(agentID, privacy: .public) · \(directory.path, privacy: .public)")
 
-        // Off the connection's queue: resolving the binary runs a login shell, and starting a CLI
-        // reads a disk. Both can take a noticeable moment on the first chat of a launch, and the
-        // queue behind them carries the phone's pings.
+        // Off the connection's queue: resolving the binary runs a login shell and that queue carries pings.
         DispatchQueue.global(qos: .userInitiated).async { [weak self, weak session] in
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory),
@@ -294,11 +287,8 @@ final class AgentSessionManager: @unchecked Sendable {
 
     // MARK: - Events
 
-    /// The one place an event becomes the session's state: indexed, stored, sent, and worth a
-    /// notification when nobody is listening.
     private func append(_ payload: AgentStreamEvent.Payload, to session: Session) {
-        // Read before the lock, the terminal manager's rule: the token store has a lock of its
-        // own, and one lock order held everywhere is one fewer way for two to deadlock.
+        // Read before the lock: one lock order everywhere avoids deadlock with the token store.
         let token = PushTokenStore.shared.tokensByClient()[session.ownerClientID]
         var event: AgentStreamEvent?
         var sink: Sink?
@@ -319,9 +309,7 @@ final class AgentSessionManager: @unchecked Sendable {
             case .approvalRequested(let approvalID, let call, let reason):
                 session.pendingApprovals.insert(approvalID)
                 session.state = .awaitingApproval
-                // Reaches the user whether or not the control channel is up: a phone can be
-                // suspended behind Picture in Picture with the socket still open, which is the
-                // case terminal alerts already push through.
+                // Reaches the user even with the socket open: the phone may be suspended behind Picture in Picture.
                 if token != nil {
                     push = (
                         "\(Self.displayName(of: session)) asks",
@@ -338,17 +326,11 @@ final class AgentSessionManager: @unchecked Sendable {
             case .turnFinished(let summary):
                 session.pendingApprovals.removeAll()
                 session.state = .idle
-                // **The CLI's own answer to what ran, and the only one worth keeping.** A model
-                // asked for is announced when the CLI accepts it, and this corrects that to the
-                // truth: a Mac whose configuration pins a model goes on running it whatever the
-                // picker was told, and the picker should end up saying so rather than naming a
-                // model that never ran.
+                // The CLI's own answer wins: a Mac whose config pins a model keeps running it whatever the picker was told.
                 if let model = summary.model, model != session.model {
                     session.model = model
                     correctedModel = model
                 }
-                // Only when the phone is not there to see it: a banner for every turn while the
-                // user is watching the transcript would be the app telling them what they read.
                 if sinks[session.ownerClientID] == nil, token != nil {
                     push = (
                         "\(Self.displayName(of: session)) \(summary.ok ? "finished" : (summary.stopped ? "stopped" : "failed"))",
@@ -360,8 +342,6 @@ final class AgentSessionManager: @unchecked Sendable {
             case .sessionExited:
                 session.state = .exited
             case .sessionReady(_, _, let model, _):
-                // The CLI naming its model is the same fact as the picker changing it, and the
-                // listing should carry whichever happened last.
                 if let model { session.model = model }
             case .userPrompt, .textDelta, .toolStarted, .toolFinished, .notice:
                 break
@@ -400,8 +380,6 @@ final class AgentSessionManager: @unchecked Sendable {
         return summary.ok ? "The turn finished." : (summary.stopped ? "The turn was stopped." : "The turn failed.")
     }
 
-    /// Drops whole turns from the front once a session outgrows its budget, cutting at a user
-    /// prompt so a card and its result are never separated.
     private static func trim(_ transcript: inout [AgentStreamEvent], bytes: inout Int, truncatedAtFront: inout Bool) {
         guard bytes > AgentLimits.maximumTranscriptBytes else { return }
         let turnStarts = transcript.indices.filter { index in

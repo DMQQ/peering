@@ -71,6 +71,12 @@ extension MacSession {
         wire?.sendAgent(.setModel(sessionID: id, model: model))
     }
 
+    /// How freely the session may act from now on. The mode shown changes when the Mac confirms it.
+    func setAgentPermissionMode(_ mode: AgentPermissionMode, in id: UUID) {
+        guard hostSupportsAgentPermissionModes else { return }
+        wire?.sendAgent(.setPermissionMode(sessionID: id, mode: mode))
+    }
+
     /// Ends the session and the CLI with it.
     func closeAgentSession(_ id: UUID) {
         wire?.sendAgent(.close(sessionID: id))
@@ -131,6 +137,10 @@ extension MacSession {
         case .modelChanged(let id, let model):
             guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
             agentSessions[index].model = model
+
+        case .permissionModeChanged(let id, let mode):
+            guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
+            agentSessions[index].permissionMode = mode
 
         case .replay(let id, let events, _, let truncatedAtFront):
             guard let index = agentSessions.firstIndex(where: { $0.id == id }) else { return }
