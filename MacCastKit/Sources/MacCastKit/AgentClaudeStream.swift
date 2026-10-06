@@ -1,41 +1,27 @@
 import Foundation
 import RemoteCore
 
-/// Claude Code's stream-json lines, turned into the app's own events.
-///
-/// A value fed one line at a time: the host owns the process and the line buffering, so everything
-/// here is a pure function of the bytes and the state so far, which is what makes the two CLIs'
-/// quirks testable without a process or a network.
-///
-/// The shapes were captured from Claude Code 2.1.289 (`claude -p --input-format stream-json
-/// --output-format stream-json --verbose --include-partial-messages --replay-user-messages
-/// --permission-prompt-tool stdio`), not from documentation: the SDK's types and a live run
-/// disagree with the prose in places.
 public struct AgentClaudeStream {
     public init() {}
 
-    /// The CLI's own session id, captured from the init line, for resuming after a restart.
     public private(set) var cliSessionID: String?
+
+    /// What the session has used, as far as the stream has said. Read by the adapter after each line.
+    public private(set) var usage = AgentUsage()
 
     /// Types this build has already said it does not know, so a chatty unknown does not fill the
     /// transcript with the same line.
     private var announcedUnknownTypes: Set<String> = []
 
-    /// The session's running cost, which the CLI reports as a total and the pill shows as a turn.
     private var lastTotalCostUSD: Double?
 
     /// What each waiting approval asked for, kept so the answer can echo the tool's input back.
-    ///
-    /// The CLI documents an allow as carrying the input it is applying, and the input only exists
-    /// on the request line, so it is kept here for the moment between the ask and the answer.
     private var approvalInputs: [String: [String: Any]] = [:]
 
-    /// The input of a waiting approval, taken so it is not held after it can no longer be used.
     public mutating func takeApprovalInput(_ approvalID: String) -> [String: Any]? {
         approvalInputs.removeValue(forKey: approvalID)
     }
 
-    /// What the init line said, used when a later line wants to repeat it.
     private var model: String?
 
     /// Everything the line means, in order. Empty for the lines that mean nothing to a reader.
@@ -47,9 +33,6 @@ public struct AgentClaudeStream {
             return [.notice(text: "A line of Claude Code's output could not be read.")]
         }
 
-        // Subagent traffic rides the same stream. Nothing here draws it: its ids name a
-        // conversation the user is not looking at, and a card that belongs to a subagent reads as
-        // the main one doing something it did not do.
         if let parent = json["parent_tool_use_id"] as? String, !parent.isEmpty {
             return []
         }
@@ -65,11 +48,12 @@ public struct AgentClaudeStream {
             return user(json)
         case "result":
             return result(json)
+        case "rate_limit_event":
+            noteLimits(json["rate_limit_info"] as? [String: Any])
+            return []
         case "control_request":
             return controlRequest(json)
         case "control_response", "control_cancel_request":
-            // The CLI's answers to this side's own control requests (an interrupt's receipt, an
-            // ask it is no longer waiting on). Machinery, not conversation.
             return []
         default:
             return ignore(type)
@@ -98,7 +82,6 @@ public struct AgentClaudeStream {
         case "permission_denied":
             return [.notice(text: "Claude Code denied a tool call by its own rules.")]
         case "status", "thinking_tokens", "informational", "worker_shutting_down":
-            // Progress meters and status chatter, none of which is a sentence for a reader.
             return []
         default:
             return []
@@ -112,8 +95,6 @@ public struct AgentClaudeStream {
               delta["type"] as? String == "text_delta",
               let text = delta["text"] as? String, !text.isEmpty
         else {
-            // Thinking deltas, tool-input deltas and the block markers. The text they build is
-            // also sent whole, and the whole copy is the one the transcript keeps.
             return []
         }
         return [.textDelta(text: text)]
@@ -123,6 +104,13 @@ public struct AgentClaudeStream {
         guard let message = json["message"] as? [String: Any],
               let blocks = message["content"] as? [[String: Any]]
         else { return [] }
+
+        // The size of the conversation at this call, which is what the next one starts from.
+        if let used = message["usage"] as? [String: Any] {
+            let tokens = ["input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens"]
+                .reduce(0) { $0 + (used[$1] as? Int ?? 0) }
+            if tokens > 0 { usage.contextUsedTokens = tokens }
+        }
 
         var payloads: [AgentStreamEvent.Payload] = []
         for block in blocks {
@@ -171,9 +159,6 @@ public struct AgentClaudeStream {
 
     private mutating func result(_ json: [String: Any]) -> [AgentStreamEvent.Payload] {
         let total = json["total_cost_usd"] as? Double
-        // The CLI reports the session's total, and the pill is about this turn: the difference is
-        // what this turn cost. A total that moved backwards is a reset (`/clear`), and then the
-        // total is the turn.
         var cost: Double?
         if let total {
             if let last = lastTotalCostUSD, total >= last {
@@ -184,6 +169,7 @@ public struct AgentClaudeStream {
             lastTotalCostUSD = total
         }
         let usage = json["usage"] as? [String: Any]
+        noteTurnUsage(usage, cumulativeCostUSD: total, modelUsage: json["modelUsage"] as? [String: Any])
         let reason = json["terminal_reason"] as? String
         let summary = AgentTurnSummary(
             ok: json["is_error"] as? Bool != true,
@@ -195,6 +181,47 @@ public struct AgentClaudeStream {
             model: (json["modelUsage"] as? [String: Any])?.keys.first ?? model
         )
         return [.turnFinished(summary: summary)]
+    }
+
+    /// A turn's tokens are added to the session's; the cost is already the session's running total.
+    private mutating func noteTurnUsage(
+        _ turn: [String: Any]?, cumulativeCostUSD: Double?, modelUsage: [String: Any]?
+    ) {
+        if let turn {
+            usage.inputTokens += (turn["input_tokens"] as? Int ?? 0) + (turn["cache_creation_input_tokens"] as? Int ?? 0)
+            usage.cachedTokens += turn["cache_read_input_tokens"] as? Int ?? 0
+            usage.outputTokens += turn["output_tokens"] as? Int ?? 0
+        }
+        if let cumulativeCostUSD { usage.costUSD = cumulativeCostUSD }
+        if let window = (modelUsage?.values.first as? [String: Any])?["contextWindow"] as? Int {
+            usage.contextWindowTokens = window
+        }
+    }
+
+    private static let limitOrder = ["five_hour", "seven_day"]
+
+    private mutating func noteLimits(_ info: [String: Any]?) {
+        guard let windows = info?["unifiedWindows"] as? [String: Any] else { return }
+        let keys = windows.keys.sorted {
+            (Self.limitOrder.firstIndex(of: $0) ?? Self.limitOrder.count, $0)
+                < (Self.limitOrder.firstIndex(of: $1) ?? Self.limitOrder.count, $1)
+        }
+        usage.limits = keys.compactMap { key in
+            guard let window = windows[key] as? [String: Any],
+                  let used = window["utilization"] as? Double
+            else { return nil }
+            let label: String
+            switch key {
+            case "five_hour": label = "5 hours"
+            case "seven_day": label = "7 days"
+            default: label = key.replacingOccurrences(of: "_", with: " ")
+            }
+            return AgentUsageLimit(
+                label: label,
+                usedFraction: min(max(used, 0), 1),
+                resetsAt: (window["resetsAt"] as? Double).map { Date(timeIntervalSince1970: $0) }
+            )
+        }
     }
 
     private mutating func controlRequest(_ json: [String: Any]) -> [AgentStreamEvent.Payload] {
@@ -214,13 +241,10 @@ public struct AgentClaudeStream {
             input: input,
             displayName: request["display_name"] as? String
         )
-        // The tool's own sentence about what it is asking, which is what the bar shows above the
-        // buttons. The command itself is already the card's detail.
         let reason = (input["description"] as? String) ?? (request["decision_reason"] as? String)
         return [.approvalRequested(approvalID: approvalID, call: call, reason: reason)]
     }
 
-    /// A type this build has nothing to say about, said once.
     private mutating func ignore(_ type: String) -> [AgentStreamEvent.Payload] {
         guard announcedUnknownTypes.insert(type).inserted else { return [] }
         return [.notice(text: "Claude Code sent something this app does not know how to show (\(type)).")]
@@ -229,17 +253,12 @@ public struct AgentClaudeStream {
     // MARK: - Shapes
 
     /// One tool call as the card will draw it.
-    ///
-    /// The input keys are the CLI's own, per tool, which is why this is a table and not a decoder:
-    /// a tool this build has never heard of still becomes a card, with its name and no detail.
     static func call(
         id: String,
         name: String,
         input: [String: Any],
         displayName: String? = nil
     ) -> AgentToolCall {
-        // A question ask is the one call whose *content* is the ask: the card shows the question
-        // and the choices, and the answer travels back as the chosen label.
         if name == "AskUserQuestion", let questions = input["questions"] as? [[String: Any]] {
             let first = questions.first
             let question = first?["question"] as? String
@@ -279,8 +298,6 @@ public struct AgentClaudeStream {
         case "Task": detail = input["description"] as? String
         default: detail = nil
         }
-        // The proposed change is known before it is approved, and showing it is the point of an
-        // approval card that is not just a yes button.
         let diff: String?
         if name == "Edit",
            let old = input["old_string"] as? String, let new = input["new_string"] as? String {

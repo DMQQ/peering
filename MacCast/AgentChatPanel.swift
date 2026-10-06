@@ -3,15 +3,7 @@ import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// One chat, as its own screen: the conversation, the ask above the composer, and the composer.
-///
-/// Pushed from the hub, so the way to another chat is the back button and the screen holds nothing
-/// about its siblings. The transcript is the model's, and every action here is one of
-/// ``SessionModel``'s forwarders; what this screen owns is what is being typed, which tool cards
-/// are open, and where the eye is.
 struct AgentChatScreen: View {
-    /// The chat on screen. A tab changes it without pushing another screen, the same way the
-    /// terminal's strip works, and for the same reason: jumping between chats is a glance.
     @State var currentID: UUID
 
     init(sessionID: UUID) {
@@ -21,27 +13,19 @@ struct AgentChatScreen: View {
     @Environment(SessionModel.self) var model
     @Environment(\.dismiss) var dismiss
 
-    /// What has been typed, per chat. A draft belongs to the conversation it was written in: the
-    /// tab strip makes switching one tap, and a message half-written for one agent appearing over
-    /// another's transcript is a message sent to the wrong place waiting to happen.
     @State var drafts: [UUID: String] = [:]
     @State var expandedTools: Set<UUID> = []
-    /// The chat a close was asked for and not yet confirmed.
     @State var pendingClose: RemoteAgentSession?
-    /// The tab whose name is being typed.
     @State var renamingID: UUID?
     @State var renameText = ""
-    /// The ask currently open as a sheet. The Mac's approval, not a flag: the sheet is about one
-    /// ask, and answering it is what closes it.
     @State var answering: AgentApproval?
-    /// The chat whose model is being typed, and what has been typed.
     @State var typingModelFor: UUID?
     @State var modelText = ""
-    /// The system picker, and the file it handed over while it is on its way to the Mac.
     @State var showsAttachPicker = false
     @State var attaching: Attachment?
     @State var stickToBottom = true
     @FocusState var composerFocused: Bool
+    @State private var showsUsage = false
 
     var session: RemoteAgentSession? {
         model.agentSessions.first { $0.id == currentID }
@@ -63,11 +47,10 @@ struct AgentChatScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .sheet(isPresented: $showsUsage) {
+            AgentUsageSheet(sessionID: currentID)
+        }
         .toolbar {
-            // **What this is and where it works, in the bar.** The screen used to be titled with
-            // the session's own name — "Claude Code · app" — which said the folder only when the
-            // folder happened to be one word long and never said the rest of it. Two lines say
-            // both properly, and the name answers "who am I talking to" at a glance.
             ToolbarItem(placement: .principal) {
                 if let session {
                     VStack(spacing: 1) {
@@ -81,6 +64,14 @@ struct AgentChatScreen: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if session != nil, model.hostSupportsAgentUsage {
+                    Button { showsUsage = true } label: {
+                        Image(systemName: "gauge.with.dots.needle.33percent")
+                    }
+                    .accessibilityLabel(Text("Usage"))
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -101,11 +92,7 @@ struct AgentChatScreen: View {
                     .accessibilityLabel(Text("Close \(session.title)"))
                 }
             }
-            // No keyboard bar here, and the one that was here is why: with the composer on the
-            // bottom safe-area inset, an accessory row on the keyboard is counted twice — the
-            // bar's height is added above a keyboard that already includes it — and the field
-            // floated a row too high with a band of nothing under it. Dragging the transcript
-            // puts the keyboard away instead.
+            // No keyboard accessory bar: with the composer on the bottom safe-area inset the bar's height is counted twice and the field floats a row too high.
         }
         .terminalEndPrompt(
             name: pendingClose?.title ?? "",
@@ -123,10 +110,6 @@ struct AgentChatScreen: View {
         )
         .onAppear { model.selectedAgentSessionID = currentID }
         .onChange(of: currentID) { _, id in model.selectedAgentSessionID = id }
-        // **The ask opens itself.** An approval is the one thing in a chat that stops the agent
-        // until a person acts, and a card sitting quietly at the bottom of a transcript is a card
-        // that gets missed. A sheet arrives over everything, and the chip above the composer is
-        // what is left once it has been swiped away without an answer.
         .onChange(of: session?.transcript.pendingApprovals.first?.id, initial: true) { _, id in
             guard let id else {
                 answering = nil
@@ -136,8 +119,6 @@ struct AgentChatScreen: View {
                 answering = approval
             }
         }
-        // A chat that is gone leaves the screen showing another one, or leaves the cover: a screen
-        // with nothing in it is a dead end.
         .onChange(of: model.agentSessions.map(\.id)) { _, ids in
             guard !ids.contains(currentID) else { return }
             if let next = ids.first {
@@ -181,22 +162,16 @@ struct AgentChatScreen: View {
 
     // MARK: - The model
 
-    /// What the bar calls this chat: the agent's own name rather than the Mac's title for the
-    /// session, because the folder is on the line below it.
     private func agentName(_ session: RemoteAgentSession) -> String {
         TerminalAgent.all.first { $0.id == session.agentID }?.name ?? session.title
     }
 
-    /// Whether the picker is offered at all: the Mac has said it can change a model, and this is
-    /// one of the two agents known to take one. A control that would silently do nothing is worse
-    /// than one that was never drawn.
     private func offersModelPicker(_ session: RemoteAgentSession) -> Bool {
         model.hostSupportsAgentModelPicker
             && (session.agentID == "claude" || session.agentID == "codex")
     }
 
-    /// The models offered by name. Only Claude's, because they are the CLI's own documented
-    /// aliases; Codex models are the account's own and are typed in through "Custom".
+    /// Only Claude's models are listed (the CLI's documented aliases); Codex models are typed in through Custom.
     private func modelSuggestions(_ agentID: String) -> [String] {
         agentID == "claude" ? ["sonnet", "opus", "haiku"] : []
     }
@@ -212,8 +187,7 @@ struct AgentChatScreen: View {
                 Button {
                     model.setAgentModel(name, in: session.id)
                 } label: {
-                    // Matched on the front of the name, because the CLI answers an alias with a
-                    // dated full name: asking for "sonnet" is what puts "claude-sonnet-4-5-…" here.
+                    // Matched on the front of the name: the CLI answers an alias with a dated full name.
                     if let current = session.model, current.hasPrefix(name) || current.contains(name) {
                         Label(name, systemImage: "checkmark")
                     } else {
@@ -238,8 +212,6 @@ struct AgentChatScreen: View {
         .accessibilityLabel(Text("Model, \(shortModel(session))"))
     }
 
-    /// What the toolbar says. A dated full name is a paragraph in a navigation bar, so the family
-    /// is what is left of it.
     private func shortModel(_ session: RemoteAgentSession) -> String {
         guard let name = session.model else { return String(localized: "Default") }
         var short = name.hasPrefix("claude-") ? String(name.dropFirst("claude-".count)) : name
@@ -250,7 +222,6 @@ struct AgentChatScreen: View {
         return short
     }
 
-    /// The open chats, as tabs, with the state each one is in.
     var tabStrip: some View {
         TabStrip(items: model.agentSessions, selection: currentID) { session, isSelected in
             chip(session, isSelected: isSelected)
@@ -284,7 +255,6 @@ struct AgentChatScreen: View {
         renamingID = session.id
     }
 
-    /// The tab's own state mark, in the slot every strip uses.
     @ViewBuilder
     func mark(for state: AgentSessionState) -> some View {
         switch state {
@@ -307,10 +277,7 @@ struct AgentChatScreen: View {
         }
     }
 
-    /// The conversation, with the composer riding the safe area above the keyboard.
-    ///
-    /// The composer is an inset at the bottom edge rather than a view at the end of a stack, which
-    /// is the whole of why the keyboard pushes it up instead of drawing over it.
+    /// The composer is a bottom inset rather than the end of a stack, so the keyboard pushes it up instead of covering it.
     @ViewBuilder
     private func content(_ session: RemoteAgentSession) -> some View {
         ZStack {
@@ -334,10 +301,6 @@ struct AgentChatScreen: View {
         .animation(Motion.settle, value: session.transcript.isEmpty)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                // Floating suggestions: in a chat with nothing said yet they ride above the
-                // composer and go when the first message does. Suggestions parked in the middle of
-                // the screen are read once and then in the way of the conversation that replaces
-                // them; here they are where the hand already is, and they leave on their own.
                 if session.transcript.isEmpty, session.transcript.pendingApprovals.isEmpty {
                     AgentSuggestionStrip { text in
                         drafts[session.id] = text
@@ -345,9 +308,6 @@ struct AgentChatScreen: View {
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                // What is left of an ask that was swiped away unanswered: one line, and one tap
-                // back into it. An approval nobody can find again is a chat that has stopped with
-                // no way of saying so.
                 if let approval = session.transcript.pendingApprovals.first, answering == nil {
                     Button { answering = approval } label: {
                         HStack(spacing: 7) {
@@ -376,9 +336,6 @@ struct AgentChatScreen: View {
                     .padding(.bottom, 2)
                     .transition(.opacity)
                 }
-                // A file on its way, or one that did not make it: one line, and only while there
-                // is something to say. What it becomes on arrival is a mention in the message,
-                // which is the part both agents can act on.
                 if let attaching {
                     attachmentLine(attaching, session: session)
                 }
@@ -397,9 +354,6 @@ struct AgentChatScreen: View {
             .animation(Motion.tap, value: session.transcript.pendingApprovals.isEmpty)
             .animation(Motion.settle, value: attaching)
         }
-        // Sending is the same mechanism the file browser uses: chunked writes through this
-        // phone's browsing scope, into the folder this chat works in. Nothing about it needs a
-        // shell, and nothing about it is new on the wire.
         .fileImporter(
             isPresented: $showsAttachPicker,
             allowedContentTypes: [.item],
@@ -408,8 +362,6 @@ struct AgentChatScreen: View {
             guard case .success(let urls) = result, let url = urls.first else { return }
             beginAttachment(url, session: session)
         }
-        // The Mac's answer, by the only signal there is: the write stops being in flight. A
-        // failure that arrived instead is said on the line above the composer.
         .onChange(of: model.isWritingFile(sessionID: model.browserID ?? UUID())) { _, writing in
             guard !writing, let pending = attaching else { return }
             attaching = nil
@@ -425,20 +377,12 @@ struct AgentChatScreen: View {
                 model.respondToAgentApproval(approval.id, decision: decision, in: session.id)
                 answering = nil
             }
-            // As tall as what is in it, rather than one fixed size for every ask: a two-line
-            // permission question and a five-option choice are not the same sheet, and a medium
-            // detent gave the first one a screenful of nothing under it.
+            // Sized to content: a medium detent left a screenful of nothing under a short ask.
             .presentationSizing(.fitted)
             .presentationDragIndicator(.visible)
         }
     }
 
-    /// A chat with nothing said in it yet, which was a black screen with a field on it.
-    ///
-    /// What the user needs here is what this is and what to ask it, so the screen names the agent,
-    /// says where it is working, and offers three things a coding agent can be asked. A tap puts
-    /// the question in the composer rather than sending it: the first prompt deserves to be read
-    /// before it goes.
     private func emptyChat(_ session: RemoteAgentSession) -> some View {
         let agent = TerminalAgent.all.first { $0.id == session.agentID }
         return VStack(spacing: 12) {
@@ -484,8 +428,6 @@ struct AgentChatScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Whether an attachment can be sent at all: the file lane exists, and this Mac announced it.
-    /// A clip that opens a picker and then does nothing is worse than no clip.
     private var attachAvailable: Bool {
         model.browserID != nil && model.hostSupportsFileBrowser
     }
@@ -499,7 +441,6 @@ struct AgentChatScreen: View {
         model.uploadFile(url, toFolder: folder, sessionID: id)
     }
 
-    /// What the line above the composer says while a file is going, or why it did not.
     @ViewBuilder
     private func attachmentLine(_ attachment: Attachment, session: RemoteAgentSession) -> some View {
         let id = model.browserID ?? UUID()
@@ -536,7 +477,6 @@ struct AgentChatScreen: View {
         .transition(.opacity)
     }
 
-    /// The composer's own text, which is this chat's draft and no other's.
     private var draft: Binding<String> {
         Binding(
             get: { drafts[currentID] ?? "" },
@@ -552,15 +492,11 @@ struct AgentChatScreen: View {
     }
 }
 
-/// A file on its way into the chat's folder.
 struct Attachment: Equatable {
-    /// What it is called on the phone, for the line that says it is going.
     let name: String
-    /// Where it lands on the Mac, which is what goes into the message when it arrives.
     let path: String
 }
 
-/// The three things a chat screen offers before anything has been asked.
 private enum AgentSuggestions {
     static let all: [String] = [
         String(localized: "What does this project do?"),
@@ -569,11 +505,6 @@ private enum AgentSuggestions {
     ]
 }
 
-/// The suggestions, as chips that float above the composer.
-///
-/// Each is a glass capsule, the same material the session chrome's controls are made of, so they
-/// read as something laid over the chat rather than as part of it. A tap fills the composer rather
-/// than sending: the first prompt in a chat deserves to be read before it goes.
 private struct AgentSuggestionStrip: View {
     let pick: (String) -> Void
 
@@ -603,13 +534,11 @@ private struct AgentSuggestionStrip: View {
 
 // MARK: - The transcript
 
-/// The conversation, drawn from the session's own transcript.
 private struct AgentChatTranscript: View {
     let session: RemoteAgentSession
     @Binding var expandedTools: Set<UUID>
     @Binding var stickToBottom: Bool
-    /// Whether a question can be asked again right now: a turn already running cannot take one
-    /// for Codex, so the row offers nothing rather than a tap that goes nowhere.
+    /// A running Codex turn cannot take another question.
     let canSend: Bool
     let resend: (String) -> Void
 
@@ -642,24 +571,18 @@ private struct AgentChatTranscript: View {
                 .padding(.vertical, 12)
             }
             .scrollBounceBehavior(.basedOnSize)
-            // Dragging the conversation puts the keyboard away, the same way the terminal's log
-            // does: the composer is pinned to the bottom, and reading above it is the other thing
-            // a thumb does here.
             .scrollDismissesKeyboard(.interactively)
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 geometry.contentOffset.y + geometry.containerSize.height
                     >= geometry.contentSize.height - 40
             } action: { _, atBottom in
-                // The same manual stick-to-bottom the terminal uses: a default scroll anchor
-                // fights a finger that has scrolled up to read.
+                // Manual stick-to-bottom: a default scroll anchor fights a finger that has scrolled up.
                 stickToBottom = atBottom
             }
             .onChange(of: session.transcript.items.count) { _, _ in
                 guard stickToBottom else { return }
                 withAnimation(Motion.settle) { reader.scrollTo("chat-end", anchor: .bottom) }
             }
-            // A tab switching chats arrives at the end of the new one, wherever the last was left:
-            // the bottom of a conversation is the part anybody wants first.
             .onChange(of: session.id) { _, _ in
                 stickToBottom = true
                 reader.scrollTo("chat-end", anchor: .bottom)
@@ -668,7 +591,6 @@ private struct AgentChatTranscript: View {
     }
 }
 
-/// One row of the conversation.
 private struct AgentTranscriptRow: View {
     let item: AgentTranscriptItem
     @Binding var expandedTools: Set<UUID>
@@ -694,9 +616,6 @@ private struct AgentTranscriptRow: View {
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .strokeBorder(.white.opacity(0.07))
                     }
-                    // What a question one has already asked is worth: reading it back, copying it,
-                    // and asking it again — the last of which is what a failed or stopped turn
-                    // leaves a person wanting.
                     .contextMenu {
                         Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
                             .menuInk()
@@ -767,7 +686,6 @@ private struct AgentTranscriptRow: View {
     }
 }
 
-/// The reply text, with the block structure the markdown splitter found.
 private struct AgentMarkdownText: View {
     let text: String
 
@@ -811,8 +729,7 @@ private struct AgentMarkdownText: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Inline markdown (`code`, **bold**) when it parses, the raw text when it does not: a
-    /// half-typed `**` mid-stream must not make the line vanish.
+    /// Raw text when markdown does not parse: a half-typed `**` mid-stream must not make the line vanish.
     private func inline(_ string: String) -> Text {
         if let attributed = try? AttributedString(
             markdown: string,
@@ -824,7 +741,6 @@ private struct AgentMarkdownText: View {
     }
 }
 
-/// User text and tool output: drawn as typed, never re-flowed as markdown.
 private struct AgentPlainText: View {
     let text: String
 
@@ -837,8 +753,6 @@ private struct AgentPlainText: View {
     }
 }
 
-/// A monospaced block that scrolls sideways rather than wrapping: a command that wraps is a
-/// command with invented line breaks in it.
 private struct AgentMonospaceBlock: View {
     let text: String
 
@@ -863,7 +777,6 @@ private struct AgentMonospaceBlock: View {
     }
 }
 
-/// One tool call, drawn as a card: what ran, where, and what came back.
 private struct AgentToolCard: View {
     let tool: AgentToolItem
     let isExpanded: Bool
@@ -971,12 +884,7 @@ private struct AgentToolCard: View {
     }
 }
 
-/// A diff, drawn as a card: the file it is about, how much moved, and then the lines.
-///
-/// No red and green, and the prefix is what carries the meaning — the same rule the palette keeps
-/// everywhere: colour here would be a second, louder copy of a `+`. What a change *looks* like is
-/// a band of brighter text on a faint lift for additions, and dimmed text for removals, which
-/// survives being read on a phone in daylight and at night.
+/// No red and green: the +/- prefix carries the meaning, as everywhere in the palette.
 private struct AgentDiffBlock: View {
     let diff: String
 
@@ -999,8 +907,7 @@ private struct AgentDiffBlock: View {
         }
     }
 
-    /// The file, and the two counts. The `---`/`+++` pair the CLI writes is a file header rather
-    /// than a change, so it is drawn as one and not as two lines of the diff.
+    /// The file header pair the CLI writes (old and new path) is not two diff lines.
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "doc.text")
@@ -1027,9 +934,6 @@ private struct AgentDiffBlock: View {
         .padding(.vertical, 9)
     }
 
-    /// One line, wrapped rather than scrolled sideways: a diff is the one block where the whole
-    /// line has to be readable, and a horizontal scroller inside a chat is a line half of which is
-    /// off screen at the moment it matters.
     private func row(_ line: String) -> some View {
         let kind = kind(of: line)
         return HStack(alignment: .top, spacing: 8) {
@@ -1074,7 +978,6 @@ private struct AgentDiffBlock: View {
         }
     }
 
-    /// Everything but the file header.
     private var lines: [String] {
         diff.split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
@@ -1091,7 +994,6 @@ private struct AgentDiffBlock: View {
     private var removed: Int { lines.filter { $0.hasPrefix("-") }.count }
 }
 
-/// What one finished turn cost, in the readings style the app uses for numbers.
 private struct AgentTurnSummaryPill: View {
     let summary: AgentTurnSummary
 
@@ -1123,10 +1025,6 @@ private struct AgentTurnSummaryPill: View {
 
 // MARK: - Approval, composer
 
-/// The ask, as a sheet over the chat: what would run, and the ways to answer it.
-///
-/// Two shapes behind one design. A permission ask shows what would run and two answers side by
-/// side; a question ask shows the question and one row per choice, and a row *is* the answer.
 private struct AgentApprovalSheet: View {
     let approval: AgentApproval
     let answer: (AgentApprovalDecision) -> Void
@@ -1136,9 +1034,7 @@ private struct AgentApprovalSheet: View {
     private var options: [AgentToolOption] { call.options ?? [] }
 
     var body: some View {
-        // A plain stack rather than a scroller: the sheet is sized to its content, and a scroll
-        // view's idea of its ideal height is "as much as you will give me", which is a sheet that
-        // fits itself to the screen and defeats the point.
+        // A plain stack, not a scroller: a scroll view's ideal height is as much as it is given, which defeats a content-sized sheet.
         VStack(alignment: .leading, spacing: 16) {
             header
             if let detail = approval.reason ?? call.detail, !detail.isEmpty {
@@ -1187,8 +1083,6 @@ private struct AgentApprovalSheet: View {
         }
     }
 
-    /// One of the two answers to a permission ask, drawn as half the row so neither is the button
-    /// you have to find: they are the only two things this sheet does.
     private func side(_ label: String, filled: Bool, run: @escaping () -> Void) -> some View {
         Button(action: run) {
             Text(label)
@@ -1242,15 +1136,12 @@ private struct AgentApprovalSheet: View {
     }
 }
 
-/// The prompt row: multiline growth, a send that becomes a stop while a turn runs.
 private struct AgentComposer: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
     let isWorking: Bool
     let canSend: Bool
     let send: () -> Void
-    /// Sends a file into the chat's folder, and puts its path in the message when it lands.
-    /// Absent where the Mac cannot do it, which draws no clip rather than a clip that does nothing.
     var attach: (() -> Void)?
     let stop: () -> Void
 
@@ -1277,9 +1168,6 @@ private struct AgentComposer: View {
                 .focused($isFocused)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
-                // Readable at a glance, which the first cut of this was not: at six per cent over a
-                // near-black page the field was a rumour of a rectangle rather than the thing the
-                // whole screen is for.
                 .background {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(.white.opacity(0.1))
@@ -1308,14 +1196,10 @@ private struct AgentComposer: View {
             .disabled(!isWorking && !canSend)
             .accessibilityLabel(isWorking ? "Stop" : "Send")
         }
-        // The button changing its job — send becoming stop — is the one place in this row where a
-        // shape changes rather than a shade, so it is the one place an animation is owed.
         .animation(Motion.tap, value: isWorking)
         .padding(.horizontal, 14)
         .padding(.top, 8)
         .padding(.bottom, 10)
-        // A band rather than a floating row: the seam is what says the conversation ends here and
-        // the controls begin, and the slight lift keeps the field from sharing the page's black.
         .background(Color.white.opacity(0.02).overlay(ColorPalette.backdrop))
         .overlay(alignment: .top) {
             Rectangle().fill(.white.opacity(0.08)).frame(height: 1)

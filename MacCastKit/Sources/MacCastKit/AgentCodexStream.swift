@@ -2,14 +2,6 @@ import Foundation
 import RemoteCore
 
 /// Codex's `exec --json` lines, turned into the app's own events.
-///
-/// The shapes were captured from codex-cli 0.157.1 (`codex exec --json --sandbox workspace-write
-/// --skip-git-repo-check -m <model> "<prompt>"`, and the same with `exec resume <thread_id>`).
-///
-/// Two facts shape this parser. One process serves one turn, so `thread.started` on a resume
-/// repeats the id the first turn already gave, and a turn that ends is not a session that ended:
-/// the thread stays resumable. And exec mode has no approval channel at all, so nothing here ever
-/// produces an approval: what the sandbox allows is what runs.
 public struct AgentCodexStream {
     /// The folder the session runs in. Codex never says: it is the cwd the host spawned it with,
     /// which is the one thing this side knows and the CLI does not repeat.
@@ -20,6 +12,10 @@ public struct AgentCodexStream {
     }
 
     public private(set) var cliSessionID: String?
+
+    /// Totals from the turn reports. Superseded by the session log where it can be read, which
+    /// also knows the context and the limits: see ``AgentCodexSessionLog``.
+    public private(set) var usage = AgentUsage()
     private var announcedUnknownNames: Set<String> = []
     private var lastErrorMessage: String?
 
@@ -49,10 +45,14 @@ public struct AgentCodexStream {
         case "item.completed":
             return item(json, started: false)
         case "item.updated":
-            // The plan branch's incremental updates; the started and completed edges carry enough.
             return []
         case "turn.completed":
             let usage = json["usage"] as? [String: Any]
+            let input = usage?["input_tokens"] as? Int ?? 0
+            let cached = usage?["cached_input_tokens"] as? Int ?? 0
+            self.usage.inputTokens += max(input - cached, 0)
+            self.usage.cachedTokens += cached
+            self.usage.outputTokens += usage?["output_tokens"] as? Int ?? 0
             return [
                 .turnFinished(
                     summary: AgentTurnSummary(
@@ -127,8 +127,6 @@ public struct AgentCodexStream {
                     id: id,
                     name: kind,
                     title: "Edit",
-                    // The kind first, then the first path: a card with three files says what it
-                    // did and where, and the rest is in the output.
                     detail: paths.first,
                     filePath: paths.first
                     // No diff: this CLI's file-change items carry none in this version, unlike
@@ -188,8 +186,6 @@ public struct AgentCodexStream {
 
     // MARK: - Error text
 
-    /// Codex reports API failures as a JSON document inside a string field, so the sentence a user
-    /// can read is one layer down. A message that is not that shape is its own text.
     static func errorText(_ value: Any?) -> String {
         guard let object = value as? [String: Any], let raw = object["message"] as? String else {
             return "Codex reported an error."

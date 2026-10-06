@@ -10,6 +10,8 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
     var onEvent: (@Sendable (AgentStreamEvent.Payload) -> Void)?
     var onModel: (@Sendable (String?) -> Void)?
     var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
+    var onUsage: (@Sendable (AgentUsage) -> Void)?
+    private var logPath: URL?
 
     /// Exec mode cannot ask, so the sandbox is all there is to choose: the folder, or everywhere.
     let permissionModes: [AgentPermissionMode] = [.acceptEdits, .auto]
@@ -167,9 +169,21 @@ final class CodexAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
+    /// The session log knows the context and the limits, and by the time the process has ended it
+    /// has been written; the turn reports are the fallback when it cannot be found.
+    private func reportUsage() {
+        var usage = stream.usage
+        if let thread = stream.cliSessionID,
+           let logged = CodexSessionLogFile.usage(thread: thread, knownPath: &logPath) {
+            usage = logged
+        }
+        onUsage?(usage)
+    }
+
     private func turnEnded(_ status: Int32) {
         guard turnProcess != nil else { return }
         turnProcess = nil
+        reportUsage()
         agentLog.notice("codex turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
         if interrupted {

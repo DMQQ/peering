@@ -10,6 +10,8 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
     var onEvent: (@Sendable (AgentStreamEvent.Payload) -> Void)?
     var onModel: (@Sendable (String?) -> Void)?
     var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
+    var onUsage: (@Sendable (AgentUsage) -> Void)?
+    private var contextWindows: [String: Int] = [:]
 
     /// Run mode cannot ask: without `--auto` it works inside the folder and refuses the rest.
     let permissionModes: [AgentPermissionMode] = [.acceptEdits, .auto]
@@ -157,9 +159,42 @@ final class OpenCodeAdapter: AgentAdapter, @unchecked Sendable {
         }
     }
 
+    /// The totals now, and the context window once the model's own listing has been asked: that
+    /// takes two short commands, so it follows on rather than holding the first report back.
+    private func reportUsage() {
+        var usage = stream.usage
+        onUsage?(usage)
+        guard let binary, let session = stream.cliSessionID else { return }
+        let environment = AgentEnvironment.shared.variables()
+        let directory = self.directory
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let data = AgentCommand.output(
+                binary: binary, arguments: ["export", session], directory: directory, environment: environment
+            ), let model = AgentOpenCodeModels.lastModel(inExport: data) else { return }
+            var window = self?.queue.sync { self?.contextWindows[model.listed] }
+            if window == nil,
+               let listing = AgentCommand.output(
+                   binary: binary, arguments: ["models", model.provider, "--verbose"],
+                   directory: directory, environment: environment
+               ) {
+                window = AgentOpenCodeModels.contextWindow(
+                    of: model, inListing: String(decoding: listing, as: UTF8.self)
+                )
+            }
+            guard let window else { return }
+            self?.queue.async {
+                guard let self else { return }
+                self.contextWindows[model.listed] = window
+                usage.contextWindowTokens = window
+                self.onUsage?(usage)
+            }
+        }
+    }
+
     private func turnEnded(_ status: Int32) {
         guard turnProcess != nil else { return }
         turnProcess = nil
+        reportUsage()
         agentLog.notice("opencode turn process ended · status \(status) · finished \(self.turnFinished) · stderr \(self.stderrTail.count) line(s)")
         guard !turnFinished else { return }
         if interrupted {

@@ -2,33 +2,17 @@ import MacCastKit
 import RemoteCore
 import SwiftUI
 
-/// What arrives from one Mac, turned into state.
-///
-/// **The whole reason this file is on the session and not on the model.** An event belongs to
-/// the connection that delivered it, so it has to be applied to that connection's state — and
-/// once there can be more than one connection, an event from the Mac on the right of the strip
-/// must not move the picture, the phase or the terminal list of the Mac on the left. Every
-/// mutation below is therefore `self.`, and only the genuinely app-wide consequences (the
-/// notification, the Live Activity, the history store, the reconnect ladder) reach through
-/// ``model``.
+/// An event belongs to the connection that delivered it, so it is applied to that connection's state: an event from one Mac must not move another's picture, phase or terminals. Every mutation is `self.`; only app-wide consequences (notification, Live Activity, history store, reconnect ladder) reach through ``model``.
 extension MacSession {
     func apply(_ event: ClientSession.Event) {
         switch event {
         case .phase(let phase):
             CrashLog.note("phase \(phase) · \(hostID ?? "unknown")\(isReconnecting ? " (reconnecting)" : "")")
             var shouldScheduleReconnect = true
-            // A failure during a resume is retried, not shown. See ``SessionModel/isResuming``:
-            // when this Mac had already reached Ready, this is one step of the reconnect ladder
-            // and the phase is deliberately not taken. A cold-launch restoration is different:
-            // its first failure is terminal, is shown once, and clears the persisted request so
-            // lifecycle and browser callbacks cannot open the connecting card again.
+            // A failure during a resume is retried, not shown: when this Mac had reached Ready it is one step of the reconnect ladder (see ``SessionModel/isResuming``). A cold-launch restoration's first failure is terminal, shown once, and clears the persisted request.
             if case .failed = phase, model.isResuming {
                 model.isResuming = false
-                // **The attempt is over, so it stops counting as one in flight.**
-                // `resumeIfNeeded` refuses to start while a wire is held, on the reasoning that
-                // a session object means an attempt is already underway, true from the moment
-                // `connect(to:)` assigns it, and false from the moment the attempt fails, which
-                // is the state this branch exists in.
+                // The attempt is over: `resumeIfNeeded` refuses to start while a wire is held, which is true from `connect(to:)` until the attempt fails.
                 connectTask?.cancel()
                 connectTask = nil
                 wire = nil
@@ -39,36 +23,20 @@ extension MacSession {
                 case .stopAndShowFailure:
                     UserDefaults.standard.set(false, forKey: SessionModel.resumeKey)
                     shouldScheduleReconnect = false
-                    // Nothing will dial this Mac again, so it stops being one the app is putting
-                    // back. Left set, the failure would be shown under a header that went on saying
-                    // it was reconnecting, and the screen would never hand back to the picker.
+                    // Nothing will dial this Mac again, so it stops being one the app is putting back; left set, the failure would be shown under a header still saying reconnecting.
                     isComingBack = false
                 }
             }
             if phase.holdsSession {
                 model.isResuming = false
-                // A session that is up again is a resume that arrived, so this Mac is a Mac we are
-                // connected to rather than one whose ladder has run out. Without this the next drop
-                // would be the tail of the last one, and the shorter ladder would already be spent.
+                // A session that is up again is a resume that arrived; without this the next drop would be the tail of the last one, with the shorter ladder already spent.
                 hasGivenUpResuming = false
             }
 
-            // Read before the assignment. Everything said about a transition — the banner,
-            // the point the stopwatch starts from — is about where the session came from,
-            // not only about where it landed.
+            // Read before the assignment: what is said about a transition is about where the session came from as well as where it landed.
             let previous = self.phase
             if previous == .ready, phase != .ready {
-                // Read before `finishSessionHistory()` and before the teardown below, both of
-                // which take a piece of it: the live session out of the meter, and the path out of
-                // `connectionPath`. What is recorded is only that a session on the relay ended
-                // without the user ending it. See ``SessionModel/relaySessionDropped``.
-                //
-                // A drop over the LAN is deliberately not recorded: the relay is not metering a
-                // local session and cannot have cut one, so a refusal that followed would be the
-                // other situation entirely.
-                // Read from this Mac's own record rather than the container's: the flag below is
-                // cleared on the way past, so the third Mac in a loop would have read the second
-                // one's answer. See ``MacSession/userEndedDeliberately``.
+                // Read before `finishSessionHistory()` and the teardown below, both of which take a piece of it. Only a relay session ending without the user ending it is recorded (``SessionModel/relaySessionDropped``); a LAN drop is not, since the relay cannot have cut it. Read from this Mac's own record because the flag below is cleared on the way past (``MacSession/userEndedDeliberately``).
                 if !userEndedDeliberately, connectionPath == .relay {
                     model.relaySessionDropped = true
                 }
@@ -77,26 +45,18 @@ extension MacSession {
             self.phase = phase
             if phase == .ready {
                 model.pairedHostIDs = model.pins.hostIDs
-                // A handshake that reached `.ready` has just established or confirmed a pin, and
-                // that is one of the few moments the paired list can have changed.
+                // A handshake reaching `.ready` has just established or confirmed a pin, one of the few moments the paired list can change.
                 model.publishKnownMacs()
-                // And the same moment is when this Mac's own ID becomes known at all, which is
-                // what the widget's list is keyed by. See ``SessionModel/publishOpenMacs()``.
+                // Also when this Mac's own ID becomes known, which the widget's list is keyed by. See ``SessionModel/publishOpenMacs()``.
                 model.publishOpenMacs()
                 applyInitialQuality()
                 wire?.sendTerminal(.list)
                 refreshAgentSessions()
-                // Every arrival at `.ready`, not only when the browser is opened: the Mac keeps a
-                // scope only for as long as the connection that made it, so a reconnect has to
-                // announce this phone's id again before anything can be browsed through it.
+                // Every arrival at `.ready`: the Mac keeps a scope only for the connection that made it, so a reconnect must announce this phone's id again.
                 openFileScope()
-                // Through the model rather than the token directly: this is the moment the Mac
-                // learns where to reach this device, and whether it may is the plan's answer,
-                // which the model owns. See ``SessionModel/sendPushToken()``.
+                // Through the model: whether the Mac may learn where to reach this device is the plan's answer. See ``SessionModel/sendPushToken()``.
                 model.sendPushToken()
-                // Every arrival at `.ready`, a reconnect as much as a first connection: the Mac on
-                // the other end of this wire has no memory of the one before it. See
-                // ``pendingSourceReassertion``.
+                // Every arrival at `.ready`, a reconnect included: the Mac on the other end has no memory of the one before. See ``pendingSourceReassertion``.
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
@@ -106,33 +66,19 @@ extension MacSession {
                 videoStatus = String(localized: "Disconnected")
             }
             if phase == .ready {
-                // **Read here because the line below is about to overwrite it, and used further
-                // down.** `hasBeenReady` is how a reconnect is told from a connection, and the
-                // record a drop filed is continued by the first and a new one started by the
-                // second. The line below records that *this attempt* came up, which is a different
-                // fact and is true of every connection by the time its record is begun. What is
-                // read here is the value the ladder carried onto this object; see
-                // ``SessionModel/connect(to:replacing:)``, which is where it crosses the dial.
+                // Read before the line below overwrites it: `hasBeenReady` tells a reconnect from a connection, which decides whether the record a drop filed is continued or a new one started. The value is the one the ladder carried onto this object (see ``SessionModel/connect(to:replacing:)``).
                 let hadBeenReady = hasBeenReady
                 hasBeenReady = true
-                // A session that came up is not a session that was cut, whatever the last one
-                // did. Cleared here so a drop that was followed by a working reconnect cannot
-                // label a refusal an hour later as the relay having cut something.
+                // Cleared so a drop followed by a working reconnect cannot label a refusal an hour later as the relay cutting something.
                 model.relaySessionDropped = false
-                // Restarted on every fresh arrival rather than only the first: a reconnect
-                // emits `.ready` again, and elapsed time that kept counting through it would
-                // be describing a session that no longer exists.
+                // Restarted on every arrival: a reconnect emits `.ready` again, and elapsed time kept counting through it would describe a session that no longer exists.
                 if previous != .ready {
                     model.reconnectAttempt = 0
-                    // The episode is over, so its clock goes with it: kept, the next drop would be
-                    // judged against a window that had already run out.
+                    // The episode is over, so its clock goes with it: kept, the next drop would be judged against an expired window.
                     reconnectingSince = nil
                     sessionStartedAt = Date()
-                    // The one place the two facts meet: this Mac is up, and whether it had been up
-                    // before decides whether that is a session being filed or one being continued.
                     beginSessionHistory(resuming: hadBeenReady)
                     UserDefaults.standard.set(true, forKey: SessionModel.resumeKey)
-                    // Record the last-connected timestamp for the Trusted Macs list.
                     if let id = hostID {
                         model.lastConnectedAt[id] = Date()
                         if let data = try? JSONEncoder().encode(model.lastConnectedAt) {
@@ -144,62 +90,18 @@ extension MacSession {
                 sessionStartedAt = nil
             }
 
-            // **This Mac's own answer, cleared as it is read.** One flag served every Mac, and
-            // ending several at once meant the first transition consumed it: the rest were read as
-            // having dropped and armed a ladder that could never complete.
-            //
-            // **And it stays on the record rather than being cleared here, which it used to be.**
-            // This transition is not the only reader: everything that asks whether a session is
-            // being put back reads it too, a moment later, and a user who tapped Quit was left
-            // looking at a screen that said it was reconnecting while nothing was reconnecting at
-            // all. Their second tap ended it only because that tap changes no phase, and a phase
-            // that does not change consumes nothing. Nothing needs it cleared, either: every
-            // attempt at a Mac is a new session object, and the flag goes with the object it was
-            // set on. See ``MacSession/userEndedDeliberately``.
+            // This Mac's own answer, kept on the record rather than cleared here: everything asking whether a session is being put back reads it a moment later, and clearing it left a Quit showing reconnecting. Every attempt is a new session object, so nothing needs it cleared. See ``MacSession/userEndedDeliberately``.
             let userEnded = userEndedDeliberately
-            // A session that ended without the user asking is put back on its own. The flag
-            // inside `scheduleReconnect` is what decides whether this was theirs; the phase alone
-            // cannot tell a drop from a disconnect.
-            //
-            // Before the activity is told, not after: scheduling is what sets `isReconnecting`,
-            // and the card has to go up saying "reconnecting" rather than be taken down and
-            // brought back a moment later as though nothing had happened.
-            //
-            // **Before the banner too, and for a reason of its own.** The banner's question is
-            // whether this drop is already being put back, and the whole of that answer is
-            // `isReconnecting`, which is false until this block has run. Posted first, every
-            // network switch would announce itself in the most visible place it has, which is
-            // exactly the thing being fixed here.
+            // A session that ended without the user asking is put back on its own; the flag inside `scheduleReconnect` decides, since the phase cannot tell a drop from a disconnect. Before the activity is told, since scheduling sets `isReconnecting` and the card must say reconnecting, and before the banner, whose question is whether the drop is already being put back.
             if !phase.holdsSession, !userEnded, shouldScheduleReconnect {
-                // **Released here, or the ladder cannot take a single step.**
-                //
-                // `resumeIfNeeded` opens with `guard session == nil, !phase.holdsSession`, and the
-                // first half of that is the record of an attempt being in flight. Only
-                // `disconnect()` and `connect(to:)` used to clear it, and neither runs when a
-                // session drops on its own: the phase went to `.failed` with the dead session
-                // still held here. The ladder armed itself, its first tick called `resumeIfNeeded`,
-                // the guard saw a session and called `stopReconnecting`, and nothing ever re-armed
-                // it. The five attempts the app documents never happened once, which is the
-                // opposite of what the failure card said at the time.
-                //
-                // The object is finished with by now. `ClientSession.fail` cancels the control
-                // connection, the video socket, the datagram lane and the relay proxy before it
-                // emits this phase, so what is being let go of here is a reference to something
-                // that has already let go of everything else.
+                // Released here, or the ladder cannot take a single step: `resumeIfNeeded` guards on `session == nil`, and neither `disconnect()` nor `connect(to:)` runs when a session drops on its own, so the first tick saw a session, called `stopReconnecting`, and nothing re-armed. The object is finished with: `ClientSession.fail` cancels the control connection, video socket, datagram lane and relay proxy before emitting this phase.
                 connectTask?.cancel()
                 connectTask = nil
                 wire = nil
                 scheduleReconnect()
             }
 
-            // **Every Mac, unlike the card.** A banner is about a Mac the user is not looking at
-            // by definition, and a background Mac dropping is exactly the thing holding the
-            // connection open was supposed to spare them. Keyed by host, so two Macs' banners
-            // queue rather than replace each other. See ``SessionAwareness/Notification/hostID``.
-            //
-            // The same transition, said twice: once as something that can interrupt the user from
-            // another app, and once as something they will see without unlocking. Neither is a
-            // substitute for the other, and both read from this one place.
+            // Every Mac, unlike the card: a banner is about a Mac the user is not looking at. Keyed by host so two Macs' banners queue rather than replace each other. See ``SessionAwareness/Notification/hostID``.
             model.notifier.sessionMoved(
                 from: previous,
                 to: phase,
@@ -208,21 +110,14 @@ extension MacSession {
                 deliberate: userEnded,
                 resuming: isResumingAfterDrop
             )
-            // Held open for as long as there is a session, so the socket outlives the app being
-            // on screen. Start before the card rather than after: the card is worth nothing if
-            // the session it describes has already been suspended. See ``SessionAudio``.
+            // Held open as long as there is a session, so the socket outlives the app being on screen. Started before the card, which is worthless if its session was already suspended. See ``SessionAudio``.
             if phase.holdsSession {
                 SessionAudio.shared.begin()
             } else {
                 SessionAudio.shared.end()
             }
 
-            // **The card describes the Mac on screen and no other.** There is one Activity and
-            // one handle for the whole app, so a Mac behind the active one reporting its own
-            // transition would take the card away from the Mac the user is looking at — its name,
-            // its clock, its path — and a background Mac dropping would replace a working session
-            // on the Lock Screen with the news that something the user cannot see has failed.
-            // That news is a banner's job, and it has one. See ``SessionNotifier``.
+            // The card describes the Mac on screen only: there is one Activity for the app, so a background Mac's transition would take the card from the Mac the user is looking at. That news is a banner's job (``SessionNotifier``).
             if isActive {
                 SessionActivity.shared.sessionMoved(
                     from: previous,
@@ -236,11 +131,7 @@ extension MacSession {
             }
 
             if !phase.holdsSession {
-                // The buttons stop claiming a modifier the moment the link that carried it is
-                // gone. Nothing else can: the release would have to travel back over the same
-                // connection. Observed on this Mac, the window server keeps the flag until a
-                // real key-up arrives, so the Mac may still be holding it — which is why this
-                // says so rather than quietly showing the buttons as released.
+                // The buttons stop claiming a modifier once its link is gone, since the release cannot travel back. The window server keeps the flag until a real key-up, so the Mac may still hold it, which is why this says so.
                 if !model.latchedModifiers.isEmpty {
                     append(note: String(localized: "The connection ended while \(model.latchedModifiers.label) was held on the Mac. It may still be held there."))
                 }
@@ -248,36 +139,23 @@ extension MacSession {
                 privacyModeEnabled = false
             }
         case .host(let hello):
-            // The host's own name is authoritative. Bonjour is only a hint about where to
-            // find it, and it can be stale by minutes.
+            // The host's own name is authoritative; Bonjour is only a hint and can be minutes stale.
             hostName = hello.hostName
             hostID = hello.serverID
-            // What this Mac can be asked for, recorded once at the door rather than guessed at
-            // each time a picture needs stopping. See ``PicturePause/mayAsk(hostDeclared:)``.
+            // Recorded once at the door rather than guessed each time. See ``PicturePause/mayAsk(hostDeclared:)``.
             hostSupportsVideoPause = PicturePause.mayAsk(hostDeclared: hello.supportsVideoPause)
             hostSupportsAgentList = hello.supportsAgentList == true
-            // The second capability the agent launcher needs, and the stronger one: a chat is a
-            // request an older Mac cannot decode, so it is sent only to a Mac that has said it
-            // can take one. See ``AgentChatSupport``.
+            // A chat is a request an older Mac cannot decode, so it is sent only to a Mac that said it can. See ``AgentChatSupport``.
             hostSupportsAgentChat = AgentChatSupport.maySend(toHostDeclared: hello.supportsAgentChat)
-            // The same shape for the clipboard, and the same three states on the flag. See
-            // ``ClipboardImages``, which both ends read.
             hostSupportsClipboardImages = ClipboardImages.maySend(toHostDeclared: hello.supportsClipboardImages)
-            // And what it said about compositing several sources into one picture, which is the
-            // first request this client can make that an older Mac cannot decode at all. See
-            // ``MosaicSupport``.
+            // Compositing is the first request this client can make that an older Mac cannot decode at all. See ``MosaicSupport``.
             hostSupportsMosaic = MosaicSupport.maySend(hostDeclared: hello.supportsMosaic)
-            // And the same shape once more, for the pictures in the Apps panel's grid. See
-            // ``SourceThumbnailSupport``.
             hostSupportsSourceThumbnails = SourceThumbnailSupport.maySend(
                 hostDeclared: hello.supportsSourceThumbnails
             )
-            // And once more, for the virtual display's shape. See ``DeviceOrientationSupport``.
             hostSupportsDeviceOrientation = DeviceOrientationSupport.maySend(
                 hostDeclared: hello.supportsDeviceOrientation
             )
-            // And once more, for the virtual displays this phone makes. See
-            // ``VirtualDisplayManagementSupport``.
             hostSupportsVirtualDisplayManagement = VirtualDisplayManagementSupport.maySend(
                 hostDeclared: hello.supportsVirtualDisplayManagement
             )
@@ -285,13 +163,10 @@ extension MacSession {
             hostSupportsFileBrowser = hello.supportsFileBrowser == true
             hostSupportsAgentModelPicker = hello.supportsAgentModelPicker == true
             hostSupportsAgentPermissionModes = hello.supportsAgentPermissionModes == true
+            hostSupportsAgentUsage = hello.supportsAgentUsage == true
             hostChatAgents = Set(hello.agentChatAgents ?? ["claude", "codex"])
             UserDefaults.standard.set(hello.serverID, forKey: SessionModel.lastHostIDKey)
-            // Also the name the widget and the Lock Screen card show for the last Mac, for
-            // the same reason: it is the only one of the two that came from the Mac itself.
-            // It matters most where there was nothing to go on before the handshake — a
-            // first pairing dialled by an ID knows no name at all until this arrives, and
-            // the placeholder it was carrying would otherwise outlive the session.
+            // Also the name the widget and Lock Screen card show, as the only one that came from the Mac itself; a first pairing by ID knows no name until this arrives.
             UserDefaults.standard.set(hello.hostName, forKey: SessionModel.lastHostNameKey)
             SharedStore.lastHostName = hello.hostName
             if model.hostNames[hello.serverID] != hello.hostName {
@@ -307,15 +182,9 @@ extension MacSession {
             }
         case .catalog(let catalog):
             self.catalog = catalog
-            // **A catalogue that has changed may have lost a window.** The Mac re-sends one when an
-            // application quits, when the arrangement was built with a window that had already
-            // gone, and when a tile stops while a mosaic is running — which is every way this end
-            // can learn that one of the arrangement's windows is not there any more. What it does
-            // about it is not immediate: see ``scheduleMosaicGapCheck()`` for why the grace exists.
+            // A changed catalogue may have lost a window (an app quit, a stale arrangement, a tile stopped). The reaction is not immediate: see ``scheduleMosaicGapCheck()``.
             if !mosaicChoices.isEmpty { model.scheduleMosaicGapCheck() }
-            // **Consumed here, the first catalogue this connection receives.** Reading it before the
-            // branch below decides which of the two this is: a session with nothing chosen yet, or
-            // one repeating a choice the Mac has forgotten. See ``pendingSourceReassertion``.
+            // Consumed here, the first catalogue this connection receives, before the branch below decides between a session with nothing chosen and one repeating a choice the Mac forgot. See ``pendingSourceReassertion``.
             let reasserting = pendingSourceReassertion
             pendingSourceReassertion = false
             if let requested = sourceRequestedOnOpen,
@@ -324,63 +193,22 @@ extension MacSession {
                 sourceRequestedOnOpen = nil
                 model.selectSource(descriptor)
             } else if activeSourceID == nil {
-                // **An arrangement the user left behind comes back before the default does**, and
-                // the decision has to be made here rather than after: the fallback below picks the
-                // first display, and a mosaic asked for on top of that would be a second capture
-                // built in the time it takes to notice the user had a mosaic at all.
-                //
-                // Only when nothing has been chosen yet, which is a session that has just
-                // connected: a session that was already showing something keeps showing it, and a
-                // resumed one still has the mosaic's own id as its source.
+                // A remembered arrangement comes back before the default: the fallback picks the first display, and a mosaic asked on top would be a second capture. Only when nothing has been chosen yet; a session already showing something keeps it, and a resumed one still has the mosaic's id as its source.
                 let remembered = model.mosaicToRestore(hostID: hostID, catalog: catalog)
                 if !remembered.isEmpty {
-                    // Asked for, not remembered: this is the arrangement the store already holds,
-                    // thinned by what this catalogue can see, and writing the thinned version back
-                    // would lose a window to a catalogue that merely failed to list it.
+                    // Asked for, not remembered: the store holds the arrangement, thinned here by what this catalogue can see, and writing the thinned version back would lose a window the catalogue merely failed to list.
                     model.showMosaic(remembered, remembering: false)
                 } else if let source = model.sourceToRestore(hostID: hostID, catalog: catalog) {
-                    // **After the arrangement, before the first display.** One source is the
-                    // weaker statement of what an arrangement says: a Mac the user arranged is a
-                    // Mac they meant to arrange, while the source they last left it on is where
-                    // they happened to be, and the first display is what is left when they have
-                    // said nothing at all.
-                    //
-                    // Through the door rather than assigned here, and not for the sake of the
-                    // write it makes: a remembered source is one the Mac has to be *told* about.
-                    // A remembered window is not what it is showing, and a session that knew the
-                    // source without asking for it would go on describing a picture the Mac is not
-                    // sending.
+                    // After the arrangement, before the first display. Through the door rather than assigned here: a remembered source is one the Mac has to be told about, else the session would describe a picture the Mac is not sending.
                     model.selectSource(source)
                 } else if let first = catalog.displays.first ?? catalog.all.first {
-                    // Asked for too, though it is the display the Mac would fall back to: the Mac
-                    // waits a second for an ask before falling back, and a new pairing, with
-                    // nothing remembered, would otherwise always spend it.
+                    // Asked for too, though it is the Mac's fallback: the Mac waits a second for an ask, which a new pairing would otherwise always spend.
                     model.selectSource(first)
                 }
             } else if reasserting {
-                // **A reconnect, and this end already knows what it wants.** Told again rather than
-                // left to the Mac's own guess: the fresh capture pipeline behind this wire has no
-                // memory of `activeSourceID`, only the client does, and the Mac's default arrives on
-                // its own clock whether or not this end is still showing something. See
-                // ``pendingSourceReassertion``.
-                //
-                // **Read from `activeSourceID` against the arrangement, not from `isAskingForMosaic`.**
-                // This session object is new — built to replace the one the drop ended — and only
-                // `activeSourceID` and `mosaicChoices` were carried onto it (see
-                // ``SessionModel/connect(to:replacing:)``); `isAskingForMosaic` and
-                // `askedMosaicLayout` are written as a side effect of asking, which is what this is
-                // about to do. Whether the picture *was* the arrangement itself, rather than one of
-                // its tiles, is the one thing only `activeSourceID` can still say.
-                //
-                // **By prefix, not by recomputing the layout and comparing its hash.** A mosaic's
-                // `stableID` is hashed from its exact canvas size, which is itself derived from the
-                // catalogue's reported window sizes — and a catalogue re-enumerated after a reconnect
-                // reports them in whatever order and precision this pass happened to see, which is
-                // not guaranteed to be byte-identical to the one before the drop. A hash compared
-                // against a *different* hash of the same arrangement never matches, and this
-                // reassertion silently did nothing: the picture stayed the last frame from before the
-                // drop, with nothing behind it asking the Mac to keep sending it. The prefix is the
-                // one part of the id that does not move. See ``CaptureSource/stableID``.
+                // A reconnect where this end knows what it wants: told again, since the fresh capture pipeline has no memory of `activeSourceID`. See ``pendingSourceReassertion``.
+                // Read from `activeSourceID`, not `isAskingForMosaic`: the session object is new and only `activeSourceID` and `mosaicChoices` were carried (see ``SessionModel/connect(to:replacing:)``).
+                // Matched by prefix, not by recomputing the layout hash: the `stableID` hashes the exact canvas size, which depends on window sizes a re-enumerated catalogue may report in a different order or precision, so a hash comparison never matched and the reassertion silently did nothing. The prefix is the part of the id that does not move. See ``CaptureSource/stableID``.
                 if !mosaicChoices.isEmpty, activeSourceID?.hasPrefix("mosaic:") == true,
                    model.storeManager.access.includes(.mosaic) {
                     model.showMosaic(mosaicChoices, remembering: false)
@@ -401,35 +229,15 @@ extension MacSession {
         case .note(let message):
             append(note: message)
         case .path(let path):
-            // Which way the picture is actually arriving, which is the one thing about a session
-            // this app can only learn from the session itself.
-            //
-            // Recorded and deliberately not shown. The session already emits a note in words at the
-            // moment it changes, and that note goes into the session's own log — see
-            // ``append(note:)`` — so the fact is kept where somebody diagnosing a slow session would
-            // look for it, rather than added to the screen as a standing caption about the plumbing.
-            //
-            // It is *not* folded into ``connectionPath``, and that is a decision rather than an
-            // omission: the relay meters by how long it splices a session, whether or not the video
-            // went around it, so a session that punched successfully still spends its allowance.
-            // Moving the connection path off `.relay` here would make
-            // ``SessionModel/relaySecondsUsedThisPeriod`` stop counting a session the relay is
-            // still charging for, and the meter would under-report by exactly the sessions that
-            // used the app most.
+            // Recorded and deliberately not shown: the session already logs a note when it changes. Not folded into ``connectionPath``: the relay meters by splice time whether or not video went around it, so moving the path off `.relay` would make ``SessionModel/relaySecondsUsedThisPeriod`` under-report sessions the relay still charges for.
             usedDirectPath = path == .direct
         case .directPath(let outcome):
-            // The other half of the same fact, and the half that was missing. `path` above says
-            // where the picture *is* arriving, which is only ever answered when it works; this
-            // says what the attempt came to when it does not, which is the sentence somebody
-            // diagnosing a slow session actually needs. Shown rather than logged, because unlike
-            // the success case there is no note in the session's own log to find it in.
+            // The other half: `path` says where the picture is arriving when it works; this says what the attempt came to when it does not. Shown rather than logged because a failure has no note in the session log to find it in.
             directPathStatus = outcome
             append(note: String(localized: "Direct path: \(outcome.summary)"))
         case .remoteNotice(let message):
             remoteNotice = message
-            // A locked Mac draws no frames for an application or a window, so a session resumed on one
-            // would sit on a paused picture with the password nowhere in reach. Go to the lock screen
-            // as the Unlock button would; the detour puts the source back once the Mac is unlocked.
+            // A locked Mac draws no frames for an application or window, so a session resumed on one would sit paused with no password in reach. Go to the lock screen as Unlock would; the detour restores the source once unlocked.
             if let displayID = message?.lockedDisplayID, isActive, unlockDetour == nil,
                model.activeSourceID != CaptureSource.display(displayID).stableID {
                 model.showLockScreen(on: displayID)
@@ -449,24 +257,13 @@ extension MacSession {
         case .clipboard(let payload):
             hostClipboard = payload
             clipboardPulling = false
-            // Every pull of *text* is filed, so the next one does not overwrite the last one
-            // anywhere but on the phone's own pasteboard.
-            //
-            // **Pictures are not filed, and that is a decision rather than an omission.** The
-            // history is written to `UserDefaults` and read back at launch, so an entry costs its
-            // own size in the app's stored state for as long as it is kept: twelve screenshots
-            // would be a hundred megabytes of PNG in a plist, which is both a launch cost and the
-            // kind of thing a phone runs out of room for. What a picture history would need is a
-            // file store and its own eviction, which is a feature rather than a line here.
+            // Text pulls are filed; pictures are not, deliberately: the history lives in `UserDefaults` and is read at launch, so twelve screenshots would be a hundred megabytes of PNG in a plist. A picture history needs a file store with its own eviction.
             if let text = payload.text { model.rememberClipboard(text) }
         case .audio(let event):
             switch event {
             case .config(let config):
                 audioPlayer = RemoteAudioPlayer(config: config)
-                // A fresh player per stream, so the preference has to be handed to each one, the
-                // plan with it, and the question of whether this is the Mac on screen. See
-                // ``shouldPlayAudio``: a free user's audio is still sent and a background Mac's
-                // audio is still sent, and this is the line that stops either being played.
+                // A fresh player per stream, so the preference, plan and whether this is the Mac on screen are handed to each. See ``shouldPlayAudio``: a free user's audio and a background Mac's audio are still sent, and this stops them playing.
                 refreshAudioMuteState()
             case .frame(let frame):
                 audioPlayer?.enqueue(frame)
@@ -476,67 +273,29 @@ extension MacSession {
         case .agent(let event):
             apply(agent: event)
         case .hostStopped:
-            // Arrives just before the failure it explains, so that failure ends the session
-            // instead of arming the reconnect ladder against a Mac that is no longer listening.
+            // Arrives just before the failure it explains, so that failure ends the session instead of arming the ladder against a Mac that is no longer listening.
             userEndedDeliberately = true
             stopReconnecting()
         case .relayQuotaExceeded:
-            // **Through ``StoreManager/access``, which is the answer every other screen states.**
-            // `relayPlan` is what this device tells the relay, and it is free for anybody with no
-            // receipt, which is a build running a developer plan override and the moment before
-            // StoreKit has answered. Read for copy, it contradicts every badge in the app: the sheet
-            // told a user whose plan card said Pro that their free relay time was up.
+            // Through ``StoreManager/access``, the answer every other screen states: `relayPlan` is what the device tells the relay and is free with no receipt (a developer override, or before StoreKit answers), so read for copy it contradicted every badge.
             let plan = model.storeManager.access.plan
             if plan?.isUnlimited != false {
-                // A plan the relay does not meter was refused, which means the relay read this
-                // device as free — an older relay that does not know the plan field, or a plan it
-                // does not recognise. Nothing this side can do about it, and the connection may
-                // well succeed on a retry against a relay that has been updated, so it stays a
-                // note rather than a paywall in front of somebody who has already paid.
+                // A plan the relay does not meter was refused, so the relay read this device as free (an older relay or an unknown plan). Nothing to do here and a retry against an updated relay may succeed, so it stays a note rather than a paywall in front of someone who has paid.
                 append(note: String(localized: "Relay quota reached. Your subscription is active; please try again later."))
             } else if model.relaySessionDropped {
-                // **The mid-session cut, which the user has had no explanation for until now.**
-                // The relay ends a session the moment its allowance is spent, and it ends it by
-                // dropping the connection: there is nowhere to tell the two ends why, because
-                // everything past the token is a TLS session the relay cannot write into. So what
-                // the user saw was their Mac vanish, then a reconnect that failed, and nothing at
-                // all about money. This is the sheet that says it, and it opens on the plans.
-                //
-                // Not the paywall itself, which is the other door and the wrong one here: that
-                // screen's question is "which of these is worth it", and the only question this
-                // moment raises is "what just happened to the session I was using". Being sold to
-                // in the same breath as being told is how a wall turns into a con.
+                // The mid-session cut: the relay ends a session the moment its allowance is spent by dropping the connection, with no way to say why (everything past the token is TLS). This sheet says it, opening on the plans. Not the paywall itself, whose question is which plan is worth it; being sold to while being told is how a wall turns into a con.
                 model.spentAllowance = plan ?? .free
                 model.relaySessionDropped = false
-                // **The cut is simultaneous, so the answer to it is too.** The relay reads the
-                // allowance live off one counter per client, so every session it is splicing sees
-                // zero within the same charge period and every one of them is being dropped at
-                // this moment. Ending only the Mac that happened to notice leaves the user with
-                // dead tabs behind the sheet, each one failing its own way a second later.
-                //
-                // The flag is cleared above rather than after, so the ends this causes cannot
-                // re-enter this branch and end everything a second time.
-                //
-                // **Nothing is recorded here about who ended it**, and there used to be a line that
-                // looked like it did. It set the container's flag immediately before calling
-                // `disconnect(deliberate: false)`, which assigns that same flag from its own
-                // argument, so the write was overwritten before it could be read. The ladder arming
-                // after a cut is the behaviour this path has always had: the next attempt is refused
-                // for the same reason and is answered by the branch below.
+                // The cut is simultaneous: the relay reads one counter per client, so every spliced session is dropped at once. Ending only the Mac that noticed leaves dead tabs behind the sheet.
+                // The flag is cleared above so the ends this causes cannot re-enter this branch.
+                // Nothing is recorded here about who ended it: `disconnect(deliberate: false)` assigns that flag from its own argument, so an earlier write was overwritten before it could be read. The ladder arming after a cut is long-standing: the next attempt is refused for the same reason and answered by the branch below.
                 model.disconnect(deliberate: false)
             } else if model.spentAllowance != nil {
-                // **A later refusal from the same ladder, and it has nothing to add.** The
-                // explanation is already on screen, and the one thing this must not do is put the
-                // purchase screen over it, the user has just been told why their session ended,
-                // and a sale arriving on top of that is the app talking over itself. The ladder
-                // re-arms on a failed attempt by design, so this is the second and third refusal of
-                // the same cut rather than a new one.
+                // A later refusal from the same ladder has nothing to add: the explanation is on screen and the purchase screen must not cover it. The ladder re-arms on a failed attempt by design, so this is the second and third refusal of the same cut.
                 userEndedDeliberately = true
                 model.stopReconnecting()
             } else {
-                // Free with the day's allowance spent, and the user tapped Connect
-                // into it. A wall they walked into rather than one that took a session away, which
-                // is the whole of why this branch is the paywall and the one above is not.
+                // Free with the day's allowance spent and the user tapped Connect into it: a wall they walked into, not a session taken away, which is why this branch is the paywall.
                 model.paywallReason = .quotaExhausted
                 // Suppress the reconnect ladder: there is nothing to reconnect to.
                 userEndedDeliberately = true
@@ -545,82 +304,34 @@ extension MacSession {
         }
     }
 
-    /// The picture half of the same stream of events.
     func apply(video event: ClientSession.VideoEvent) {
         switch event {
         case .connecting:
             videoStatus = String(localized: "Opening the video channel…")
             isVideoStreaming = false
         case .config(let config):
-            // The decoder half of this is done on the network queue, in the same place the
-            // frames are handled, so that it is ordered against them — see the event handler
-            // in `connect(to:)`. Flushing and reconfiguring here instead would put the reset
-            // *after* a keyframe that arrived in the same read, and throw that keyframe away.
-            // Only the labels belong on the main actor.
+            // The decoder half is done on the network queue where frames are handled, so it is ordered against them (see the event handler in `connect(to:)`): doing it here would reset after a keyframe from the same read and throw it away. Only the labels belong on the main actor.
             videoStatus = "\(config.codec.rawValue.uppercased()) \(config.pixelWidth)×\(config.pixelHeight)"
             isVideoStreaming = true
-            // A picture has been sent to this Mac's attempt, which is the fact the relay handover
-            // is allowed by, and it is sticky because a config is: see ``MacSession/hasHadPicture``.
+            // A picture has been sent to this attempt, which allows the relay handover; sticky because a config is. See ``MacSession/hasHadPicture``.
             hasHadPicture = true
-            // The one place the picture on screen can turn out to be a different picture. This is
-            // published rather than acted on: the zoom and the pan that have to answer to it live
-            // in the screen, and ``PictureIdentity`` is the whole of what the screen needs to
-            // decide. It is a value, so a config that describes the stream it already described
-            // (a change of lane, a re-attach) leaves it equal and costs nothing.
+            // Published, not acted on: the zoom and pan that answer to it live in the screen, and ``PictureIdentity`` is all it needs. A config describing the stream it already described leaves it equal.
             picture = pictureIdentity(of: config)
-            // The renderer receives the source identity atomically with the config on its own
-            // serial queue. Setting it here used to race the first frame and could remember that
-            // frame under the source the stream had already left.
-            // **And the arrangement the picture is of, recorded here for the same reason.** A
-            // config is the Mac answering the ask — the mosaic it built, or the single source it
-            // switched back to — so it is the moment the picture and this end's idea of it agree
-            // again, and the moment everything drawn over the picture is allowed to move. See
-            // ``pictureMosaicLayout``.
-            //
-            // **Not animated, and the attempt is worth recording.** The borders travelling from
-            // where they were to where they now belong reads as an explanation of the change in
-            // the abstract; over a picture that has *already* changed it reads as six rectangles
-            // shuffling around on their own, because the thing they describe is not moving at all.
-            // A canvas that arrives is a new picture, and the borders belong to the picture: they
-            // are drawn for the new one in the frame it arrives in, or they are describing the old
-            // one for as long as they are travelling.
-            // **Recorded only when this picture really is that arrangement.** ``mosaicLayout`` is
-            // built from the live screen and the live catalogue, so it moves on its own: the
-            // median window aspect changes when the catalogue does, and the canvas changes with
-            // it. Written unconditionally, this recorded an arrangement the Mac had never built,
-            // and everything drawn over the picture was mapped through a canvas that was not on
-            // screen. Traced, over a picture of 1290x1208:
-            //
-            //     overlay arrived=1290x1088/6  asked=1290x1088/5  picture=1290x1208  same=false
-            //
-            // which is the user's "one long tile at the bottom with two x buttons": the borders
-            // and the buttons of one arrangement drawn on the canvas of another.
-            //
-            // **The canvas is the one thing the config states about which arrangement this is**,
-            // and it is the only thing the Mac could not have got from anywhere but the ask.
-            // A picture that does not match the ask leaves the record alone, because the picture
-            // is still the last arrangement that did.
-            // **The ask as it was made, not the one this end would make now.** ``mosaicLayout`` is
-            // rebuilt from the live screen and the live catalogue, so it drifts on its own, and a
-            // version of this that read it recorded arrangements the Mac had never built. The ask
-            // that was sent is what the Mac built, so that is what is matched against the canvas
-            // the config states. See ``MacSession/askedMosaicLayout``.
+            // The renderer gets the source identity atomically with the config on its serial queue; setting it here raced the first frame.
+            // Record the arrangement the picture is of here, because a config is the Mac answering the ask and the moment picture and this end's idea of it agree again. Not animated: borders travelling over a picture that has already changed read as rectangles shuffling on their own.
+            // Recorded only when the config's canvas matches the ask as it was made (``MacSession/askedMosaicLayout``), not the one this end would build now: ``mosaicLayout`` is rebuilt from the live screen and catalogue, so recording it stored arrangements the Mac never built and overlays were mapped through a canvas that was not on screen. A picture that does not match leaves the record alone.
             if let asked = askedMosaicLayout,
                CaptureSource.mosaic(asked).stableID == config.sourceID {
                 pictureMosaicLayout = asked
             } else if !config.sourceID.hasPrefix("mosaic:") {
                 pictureMosaicLayout = nil
             }
-            // Anything else leaves the record alone: the ask has moved on and the picture is still
-            // the last arrangement that answered, so the borders go on describing what is on screen
-            // until the Mac catches up.
+            // Anything else leaves the record alone: the picture is still the last arrangement that answered, until the Mac catches up.
             append(note: "Video stream started: \(config.pixelWidth)×\(config.pixelHeight) \(config.codec.rawValue.uppercased())")
         case .frame:
             break // Handled on the network queue; see `connect(to:)`.
         case .transport(let transport):
-            // The client's own decision, reported back to the screen. The picture looks the
-            // same on either lane and is smaller on one of them, so without this the user is
-            // left to guess why the Mac suddenly looks soft.
+            // The client's own decision, reported back: the picture looks the same on either lane but smaller on one, so without this the user guesses why the Mac looks soft.
             videoTransport = transport
             if transport == .control {
                 append(note: String(localized: "The picture is coming over the control channel, at reduced quality."))
@@ -639,10 +350,7 @@ extension MacSession {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard let self else { return }
-                // **The one tick that outlives a dial.** A Mac being put back is waited on by a
-                // ladder whose every rung ends in a failure, and a dial that never answers ends
-                // nothing: this is what stops the screen saying "Reconnecting" for as long as the
-                // network is silent. See ``SessionModel/reconnectWindow``.
+                // The one tick that outlives a dial: a dial that never answers ends nothing, and this stops the screen saying Reconnecting while the network is silent. See ``SessionModel/reconnectWindow``.
                 giveUpAfterReconnectWindow()
                 let snapshot = self.renderer.currentSnapshot
                 if snapshot.hasConfig {
@@ -653,14 +361,9 @@ extension MacSession {
 
                     let suffix = snapshot.framesDropped > 0 ? String(localized: " · \(snapshot.framesDropped) dropped") : ""
                     let waiting = snapshot.awaitingKeyframe ? String(localized: " · waiting for a keyframe") : ""
-                    // Said here rather than only in the notes, because this is the line the
-                    // user reads when the picture looks wrong. A reduced rate that nothing on
-                    // screen explains reads as a fault in the app.
+                    // Said here, not only in the notes: a reduced rate nothing on screen explains reads as a fault.
                     let lane = self.videoTransport == .control ? String(localized: " · sharing the control channel") : ""
-                    // The *rate* leads, and the running total follows it. "1234 frames" answers
-                    // how long the session has been up; the question a picture that looks choppy
-                    // actually raises is how many are arriving each second, and only a
-                    // difference between two samples can answer it.
+                    // The rate leads: the question a choppy picture raises is frames per second, which only a difference between two samples answers.
                     let rate = self.videoFramesPerSecond > 0
                         ? String(localized: " · \(Int(self.videoFramesPerSecond.rounded())) fps")
                         : ""
@@ -670,19 +373,13 @@ extension MacSession {
         }
     }
 
-    /// Frames per second as they are actually arriving, smoothed.
-    ///
-    /// Derived from the difference between two polls rather than reported by anyone: neither end
-    /// knows the rate at which the other is running, and the only place the two meet is here.
-    /// Smoothed heavily because a half-second window is short enough that a single late batch
-    /// reads as a swing, and what this is for is telling thirty apart from sixty.
+    /// Derived from two polls since neither end knows the other's rate. Smoothed heavily: a half-second window reads one late batch as a swing, and this is for telling thirty from sixty.
     func updateFrameRate(from snapshot: VideoRenderer.Snapshot) {
         let now = Date()
         defer { lastFrameSample = (snapshot.framesEnqueued, now) }
 
         guard let last = lastFrameSample else { return }
-        // A count that has gone backwards is a reset, not a negative rate — the renderer drops
-        // its totals when the stream restarts.
+        // A count that went backwards is a reset, not a negative rate: the renderer drops its totals when the stream restarts.
         guard snapshot.framesEnqueued >= last.count else {
             videoFramesPerSecond = 0
             return

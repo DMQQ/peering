@@ -7,6 +7,7 @@ final class ClaudeCodeAdapter: AgentAdapter, @unchecked Sendable {
     var onEvent: (@Sendable (AgentStreamEvent.Payload) -> Void)?
     var onModel: (@Sendable (String?) -> Void)?
     var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)?
+    var onUsage: (@Sendable (AgentUsage) -> Void)?
 
     let permissionModes: [AgentPermissionMode] = [.manual, .acceptEdits]
     let defaultPermissionMode: AgentPermissionMode = .manual
@@ -188,6 +189,7 @@ final class ClaudeCodeAdapter: AgentAdapter, @unchecked Sendable {
             }
             flushText()
             if case .sessionReady = payload { seenReady = true }
+            if case .turnFinished = payload { onUsage?(stream.usage) }
             onEvent?(payload)
         }
     }

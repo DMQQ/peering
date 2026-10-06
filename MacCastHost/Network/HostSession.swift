@@ -100,6 +100,7 @@ final class HostSession: @unchecked Sendable {
     private var clientSupportsFieldState: Bool?
     private var clientSupportsAgentChat: Bool?
     private var clientSupportsAgentPermissionModes: Bool?
+    private var clientSupportsAgentUsage: Bool?
 
     /// When the last frame arrived from this client, and what stops a session outliving its peer.
     private var lastHeard = DispatchTime.now()
@@ -284,6 +285,7 @@ final class HostSession: @unchecked Sendable {
         clientSupportsFieldState = hello.supportsFieldState
         clientSupportsAgentChat = hello.supportsAgentChat
         clientSupportsAgentPermissionModes = hello.supportsAgentPermissionModes
+        clientSupportsAgentUsage = hello.supportsAgentUsage
 
         let existingPin = pins.pin(for: clientID)
         if let existingPin, !SPKI.matches(existingPin, presentedKey) {
@@ -336,7 +338,8 @@ final class HostSession: @unchecked Sendable {
             supportsAgentModelPicker: true,
             // Which agents, since the set grows and a phone cannot guess it from the version.
             agentChatAgents: AgentSessionManager.chatAgents.keys.sorted(),
-            supportsAgentPermissionModes: true
+            supportsAgentPermissionModes: true,
+            supportsAgentUsage: true
         ))
         if alreadyPaired, let source = hello.resumeSource {
             onCommand?(.setCaptureSource(source))
@@ -537,6 +540,7 @@ final class HostSession: @unchecked Sendable {
         guard isAuthorized, AgentChatSupport.mayReceive(clientDeclared: clientSupportsAgentChat) else { return }
         // A frame kind an older phone cannot decode ends its session, so it is withheld from one.
         if case .permissionModeChanged = event, clientSupportsAgentPermissionModes != true { return }
+        if case .usageChanged = event, clientSupportsAgentUsage != true { return }
         send(.agentEvent, event)
     }
 

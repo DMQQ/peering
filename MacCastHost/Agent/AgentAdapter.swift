@@ -32,5 +32,8 @@ protocol AgentAdapter: AnyObject, Sendable {
 
     var onPermissionMode: (@Sendable (AgentPermissionMode) -> Void)? { get set }
 
+    /// What the session has used, reported when a turn ends.
+    var onUsage: (@Sendable (AgentUsage) -> Void)? { get set }
+
     func stop()
 }

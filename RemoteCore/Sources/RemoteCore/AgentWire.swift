@@ -12,6 +12,54 @@ public enum AgentPermissionMode: String, Codable, Equatable, Sendable, CaseItera
     case auto
 }
 
+/// What a session has used and what is left, as far as its CLI says. Every field a CLI does not
+/// report is left empty rather than guessed, and the phone draws only what is there.
+public struct AgentUsage: Codable, Equatable, Sendable {
+    /// What the next turn starts with: the size of the conversation now.
+    public var contextUsedTokens: Int?
+    public var contextWindowTokens: Int?
+    /// Session totals. Input is what was not served from cache; cached is what was.
+    public var inputTokens: Int
+    public var cachedTokens: Int
+    public var outputTokens: Int
+    public var costUSD: Double?
+    /// The account's rate-limit windows, when the CLI reports them.
+    public var limits: [AgentUsageLimit]
+
+    public init(
+        contextUsedTokens: Int? = nil,
+        contextWindowTokens: Int? = nil,
+        inputTokens: Int = 0,
+        cachedTokens: Int = 0,
+        outputTokens: Int = 0,
+        costUSD: Double? = nil,
+        limits: [AgentUsageLimit] = []
+    ) {
+        self.contextUsedTokens = contextUsedTokens
+        self.contextWindowTokens = contextWindowTokens
+        self.inputTokens = inputTokens
+        self.cachedTokens = cachedTokens
+        self.outputTokens = outputTokens
+        self.costUSD = costUSD
+        self.limits = limits
+    }
+}
+
+/// One rate-limit window: how much of it is spent and when it renews.
+public struct AgentUsageLimit: Codable, Equatable, Sendable {
+    /// What the window is called: "5 hours", "7 days", "30 days".
+    public var label: String
+    /// 0 to 1.
+    public var usedFraction: Double
+    public var resetsAt: Date?
+
+    public init(label: String, usedFraction: Double, resetsAt: Date? = nil) {
+        self.label = label
+        self.usedFraction = usedFraction
+        self.resetsAt = resetsAt
+    }
+}
+
 /// A chat session with a coding agent, as the Mac describes it in a listing.
 ///
 /// Identified stably while the control client is away, so a reconnecting phone can reattach.
@@ -31,6 +79,8 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
     /// predates the toggle, which is how the phone knows not to draw it.
     public let permissionMode: AgentPermissionMode?
     public let permissionModes: [AgentPermissionMode]?
+    /// Nil from a Mac that predates usage reporting, or before a CLI has said anything.
+    public let usage: AgentUsage?
     public let createdAt: Date
 
     public init(
@@ -43,6 +93,7 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
         model: String? = nil,
         permissionMode: AgentPermissionMode? = nil,
         permissionModes: [AgentPermissionMode]? = nil,
+        usage: AgentUsage? = nil,
         createdAt: Date
     ) {
         self.id = id
@@ -54,6 +105,7 @@ public struct AgentSessionInfo: Codable, Equatable, Sendable, Identifiable {
         self.model = model
         self.permissionMode = permissionMode
         self.permissionModes = permissionModes
+        self.usage = usage
         self.createdAt = createdAt
     }
 }
@@ -232,6 +284,9 @@ public enum AgentEvent: Codable, Equatable, Sendable {
     /// The mode the session is now in, once the CLI has taken it. Sent only to a client that
     /// declared ``ClientHello/supportsAgentPermissionModes``.
     case permissionModeChanged(sessionID: UUID, mode: AgentPermissionMode)
+    /// What the session has used, sent when a turn ends. Sent only to a client that declared
+    /// ``ClientHello/supportsAgentUsage``.
+    case usageChanged(sessionID: UUID, usage: AgentUsage)
     case failed(sessionID: UUID?, message: String)
 }
 

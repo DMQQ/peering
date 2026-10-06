@@ -67,6 +67,8 @@ extension SessionModel {
 
     var hostSupportsAgentPermissionModes: Bool { activeSession?.hostSupportsAgentPermissionModes ?? false }
 
+    var hostSupportsAgentUsage: Bool { activeSession?.hostSupportsAgentUsage ?? false }
+
     func closeAgentSession(_ id: UUID) { activeSession?.closeAgentSession(id) }
 
     func browseAgentFolder(_ path: String?) { activeSession?.browseAgentFolder(path) }

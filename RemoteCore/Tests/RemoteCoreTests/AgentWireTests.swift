@@ -19,6 +19,28 @@ struct AgentWireTests {
         model: "claude-sonnet-5-5"
     )
 
+    @Test("usage round-trips in a listing and as an event, and an older listing decodes without it")
+    func usageRoundTrips() throws {
+        let id = UUID()
+        let usage = AgentUsage(
+            contextUsedTokens: 84_000, contextWindowTokens: 1_000_000,
+            inputTokens: 16_000, cachedTokens: 41_000, outputTokens: 900, costUSD: 0.07,
+            limits: [AgentUsageLimit(label: "5 hours", usedFraction: 0.07, resetsAt: Date(timeIntervalSince1970: 1_791_286_200))]
+        )
+        let info = AgentSessionInfo(
+            id: id, agentID: "claude", title: "Claude Code", directory: "/tmp", state: .idle, lastIndex: 0,
+            usage: usage, createdAt: Date(timeIntervalSince1970: 0)
+        )
+        #expect(try roundTrip(info) == info)
+        let event = AgentEvent.usageChanged(sessionID: id, usage: usage)
+        #expect(try roundTrip(event) == event)
+
+        let older = Data(
+            #"{"id":"\#(id.uuidString)","agentID":"codex","title":"Codex","directory":"/tmp","state":"idle","lastIndex":0,"createdAt":0}"#.utf8
+        )
+        #expect(try MessageCodec.decode(AgentSessionInfo.self, from: older).usage == nil)
+    }
+
     @Test("permission modes round-trip, and a listing from an older Mac decodes without them")
     func permissionModesRoundTrip() throws {
         let id = UUID()

@@ -2,15 +2,6 @@ import Foundation
 import RemoteCore
 
 /// OpenCode's `run --format json` lines, turned into the app's own events.
-///
-/// The shapes were captured from opencode 1.18.34 (`opencode run --format json -m
-/// opencode/big-pickle "<prompt>"`, and the same with `-s <session id>`).
-///
-/// Three facts shape this parser. One process serves one turn, as with Codex, and the session id
-/// every line carries is what the next turn resumes. A tool arrives **once, already finished**:
-/// there is no started edge, so a card is opened and closed from the same line. And a turn is not
-/// one step: the CLI loops model call, tools, model call, and only the `step_finish` whose reason is
-/// not `tool-calls` is the end of it.
 public struct AgentOpenCodeStream {
     private let directory: String
 
@@ -19,6 +10,10 @@ public struct AgentOpenCodeStream {
     }
 
     public private(set) var cliSessionID: String?
+
+    /// What the session has used. The context window is not in the stream: the adapter fills it
+    /// from the model's own listing.
+    public private(set) var usage = AgentUsage()
     private var inTurn = false
     private var inputTokens = 0
     private var outputTokens = 0
@@ -57,6 +52,7 @@ public struct AgentOpenCodeStream {
             let tokens = part["tokens"] as? [String: Any]
             inputTokens += tokens?["input"] as? Int ?? 0
             outputTokens += tokens?["output"] as? Int ?? 0
+            noteStepUsage(tokens)
             if part["reason"] as? String != "tool-calls" {
                 events += beginTurnIfNeeded()
                 events.append(finishTurn(ok: true))
@@ -66,12 +62,24 @@ public struct AgentOpenCodeStream {
             events.append(.notice(text: Self.errorText(json["error"])))
             events.append(finishTurn(ok: false))
         case "reasoning":
-            // Thinking is not shown, as with the other two agents.
             break
         default:
             events += ignore("line/\(type)")
         }
         return events
+    }
+
+    private mutating func noteStepUsage(_ tokens: [String: Any]?) {
+        guard let tokens else { return }
+        let cache = tokens["cache"] as? [String: Any]
+        let input = tokens["input"] as? Int ?? 0
+        let read = cache?["read"] as? Int ?? 0
+        let write = cache?["write"] as? Int ?? 0
+        let output = tokens["output"] as? Int ?? 0
+        usage.inputTokens += input + write
+        usage.cachedTokens += read
+        usage.outputTokens += output
+        usage.contextUsedTokens = input + read + write + output
     }
 
     // MARK: - Turns
@@ -126,9 +134,6 @@ public struct AgentOpenCodeStream {
         }
 
         let ok = state["status"] as? String == "completed"
-        // What a card shows beneath the line: a command's output and a search's matches. A file
-        // that was read or written is already said by the title and path, and its contents or the
-        // CLI's "Edit applied successfully" are noise under it.
         let quiet: Set<String> = ["read", "write", "edit", "patch", "multiedit", "todowrite", "todoread"]
         let raw = ok ? (quiet.contains(name) ? nil : state["output"] as? String) : state["error"] as? String
         let (kept, truncated) = raw.map { AgentLimits.trimmed($0, to: AgentLimits.maximumToolOutputBytes) }
@@ -154,8 +159,6 @@ public struct AgentOpenCodeStream {
         return [.notice(text: "OpenCode sent something this app does not know how to show (\(name)).")]
     }
 
-    /// The sentence a user can read: the CLI nests it under `data.message`, and an API failure
-    /// may carry its own under `data.responseBody`.
     static func errorText(_ value: Any?) -> String {
         guard let object = value as? [String: Any] else { return "OpenCode reported an error." }
         let data = object["data"] as? [String: Any]

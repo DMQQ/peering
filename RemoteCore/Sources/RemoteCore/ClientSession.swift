@@ -489,6 +489,7 @@ public final class ClientSession: @unchecked Sendable {
             supportsFieldState: true,
             supportsAgentChat: true,
             supportsAgentPermissionModes: true,
+            supportsAgentUsage: true,
             resumeSource: knowsHost ? resumeSource : nil
         ))
 

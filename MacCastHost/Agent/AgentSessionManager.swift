@@ -31,6 +31,7 @@ final class AgentSessionManager: @unchecked Sendable {
         var pendingApprovals: Set<String> = []
         var model: String?
         var permissionMode: AgentPermissionMode
+        var usage: AgentUsage?
         var lastReply: String?
 
         init(ownerClientID: String, agentID: String, title: String, directory: String, adapter: any AgentAdapter) {
@@ -55,6 +56,7 @@ final class AgentSessionManager: @unchecked Sendable {
                 model: model,
                 permissionMode: permissionMode,
                 permissionModes: adapter.permissionModes,
+                usage: usage,
                 createdAt: createdAt
             )
         }
@@ -217,6 +219,17 @@ final class AgentSessionManager: @unchecked Sendable {
         adapter.onEvent = { [weak self, weak session] payload in
             guard let self, let session else { return }
             self.append(payload, to: session)
+        }
+        adapter.onUsage = { [weak self, weak session] usage in
+            guard let self, let session else { return }
+            let changed: Bool = self.lock.withLock {
+                guard session.usage != usage else { return false }
+                session.usage = usage
+                return true
+            }
+            guard changed else { return }
+            let sink = self.lock.withLock { self.sinks[session.ownerClientID] }
+            sink?(.usageChanged(sessionID: session.id, usage: usage))
         }
         adapter.onPermissionMode = { [weak self, weak session] mode in
             guard let self, let session else { return }

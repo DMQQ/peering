@@ -21,6 +21,9 @@ public struct ClientHello: Codable, Sendable, Equatable {
     /// Whether this client reads ``AgentEvent/permissionModeChanged(sessionID:mode:)``.
     public var supportsAgentPermissionModes: Bool?
 
+    /// Whether this client reads ``AgentEvent/usageChanged(sessionID:usage:)``.
+    public var supportsAgentUsage: Bool?
+
     /// Honoured only for a client the Mac already trusts.
     public var resumeSource: CaptureSource?
 
@@ -34,6 +37,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         supportsFieldState: Bool? = nil,
         supportsAgentChat: Bool? = nil,
         supportsAgentPermissionModes: Bool? = nil,
+        supportsAgentUsage: Bool? = nil,
         resumeSource: CaptureSource? = nil
     ) {
         self.clientID = clientID
@@ -45,6 +49,7 @@ public struct ClientHello: Codable, Sendable, Equatable {
         self.supportsFieldState = supportsFieldState
         self.supportsAgentChat = supportsAgentChat
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
+        self.supportsAgentUsage = supportsAgentUsage
         self.resumeSource = resumeSource
     }
 }
@@ -97,6 +102,10 @@ public struct ServerHello: Codable, Sendable, Equatable {
     /// additive: `nil` reads as no, and the toggle is drawn only on an explicit `true`.
     public var supportsAgentPermissionModes: Bool?
 
+    /// Whether this Mac reports what a session has used. Optional and additive: `nil` reads as no,
+    /// and the usage sheet is offered only on an explicit `true`.
+    public var supportsAgentUsage: Bool?
+
     public init(
         serverID: String,
         hostName: String,
@@ -115,7 +124,8 @@ public struct ServerHello: Codable, Sendable, Equatable {
         supportsFileBrowser: Bool? = nil,
         supportsAgentModelPicker: Bool? = nil,
         agentChatAgents: [String]? = nil,
-        supportsAgentPermissionModes: Bool? = nil
+        supportsAgentPermissionModes: Bool? = nil,
+        supportsAgentUsage: Bool? = nil
     ) {
         self.serverID = serverID
         self.hostName = hostName
@@ -134,6 +144,7 @@ public struct ServerHello: Codable, Sendable, Equatable {
         self.supportsAgentModelPicker = supportsAgentModelPicker
         self.agentChatAgents = agentChatAgents
         self.supportsAgentPermissionModes = supportsAgentPermissionModes
+        self.supportsAgentUsage = supportsAgentUsage
         self.pushesTerminalAlertsWhileConnected = pushesTerminalAlertsWhileConnected
     }
 }
