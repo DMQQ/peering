@@ -23,6 +23,7 @@ Written 18 September 2026. Self-contained on purpose — move it wherever it bel
 | Virtual displays | | | yes |
 | Several Macs at once | | | yes |
 | Macros, snippets, quick commands | | | yes |
+| Chat with your coding agents | | | yes |
 | Several of the Mac's windows in one picture | | | yes |
 | The sharpest picture over the relay | | | yes |
 
@@ -105,7 +106,7 @@ each with a `minimumPlan`, and every gate in the app asks one of them. Nothing i
 plan by hand: the cards, the badges and the lock messages all read `capability.minimumPlan.name`, so
 there is one list and no second place to drift from.
 
-**Those twelve are the whole of what a plan decides.**
+**Those thirteen are the whole of what a plan decides.**
 
 | Gated feature | Capability | Cheapest plan |
 |---|---|---|
@@ -121,6 +122,7 @@ there is one list and no second place to drift from.
 | Several of the Mac's windows in one picture | `mosaic` | Pro |
 | Virtual displays on the phone | `virtualDisplays` | Pro |
 | The sharpest picture over the relay | `highBitrate` | Pro |
+| Chat with your coding agents (the native chat screen) | `agentChat` | Pro |
 
 **Everything else is free on every plan**, and the tables below say so row by row. Two of those
 free rows are free deliberately against the field, and both are argued in section 1: SSH servers,
@@ -221,6 +223,22 @@ Tabs stayed paid, and that is the row doing the arguing on its own: it is a *con
 gate rather than a capability gate, one shell is free on every plan, and the second one at the same
 moment is what costs a login on the far end.
 
+### Coding agents
+
+| Feature | Free | Relay | Pro |
+|---|---|---|---|
+| Start an installed agent in a Mac terminal | ✅ | ✅ | ✅ |
+| Choose the folder it works in (pushed pages, recents) | ✅ | ✅ | ✅ |
+| Chat screen: replies, tools, diffs, Allow and Deny | · | · | ✅ |
+| Banner over the app when a chat finishes or asks | · | · | ✅ |
+| Queue messages while the agent works | · | · | ✅ |
+| Attach photos and files to a message | · | · | ✅ |
+| Agents widget and chat Live Activity | ✅ | ✅ | ✅ |
+
+The agent's own CLI stays free in the terminal on every plan, and only the native screen is
+`agentChat`. The gate is one check, `canOpenAgentChat`, and everything inside the chat (the banner,
+the queue, attachments) rides on it rather than being a row of its own.
+
 ### Around the app
 
 | Feature | Free | Relay | Pro |
@@ -253,6 +271,7 @@ map in `PlanAccess.swift`, and every gate in the app draws itself through `PlanL
   number rather than with the user: every session held open is a control connection the relay goes
   on splicing whether or not anybody is looking at it.
 - **Terminal tabs** (`shellTabs`) are counted client-side at "New shell".
+- **Agent chat** (`agentChat`) is checked on the phone at "Chat with X", through `canOpenAgentChat`. The host does not ask: running the agent in a terminal is free, so there is no door to close on the Mac.
 - **Sound, Picture in Picture, moving files, macros, virtual displays and the bitrate ceiling** are
   each one check at their own entry point. The virtual display one sits on the rows in the sources
   panel and on the "+": a phone on a plan without it is shown each display it already made dimmed

@@ -287,6 +287,14 @@ public struct AgentClaudeStream {
             )
         }
 
+        if name == "TodoWrite", let todos = input["todos"] as? [[String: Any]] {
+            let steps = todos.compactMap { todo -> AgentPlanStep? in
+                guard let text = todo["content"] as? String else { return nil }
+                return AgentPlanStep(text: text, status: AgentPlanStep.status(from: todo["status"] as? String))
+            }
+            return AgentToolCall(id: id, name: name, title: "Plan", plan: steps.isEmpty ? nil : steps)
+        }
+
         let filePath = input["file_path"] as? String
         let detail: String?
         switch name {

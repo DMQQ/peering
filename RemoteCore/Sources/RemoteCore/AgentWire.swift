@@ -141,6 +141,32 @@ public struct AgentToolOption: Codable, Equatable, Sendable {
     }
 }
 
+/// One line of an agent's own plan, as its to-do tool last wrote it.
+public struct AgentPlanStep: Codable, Equatable, Sendable {
+    public enum Status: String, Codable, Sendable {
+        case pending
+        case inProgress
+        case completed
+    }
+
+    public let text: String
+    public let status: Status
+
+    public init(text: String, status: Status) {
+        self.text = text
+        self.status = status
+    }
+
+    /// The CLIs spell the states `in_progress`, `inProgress`, `done`; anything unrecognised is still to do.
+    public static func status(from raw: String?) -> Status {
+        switch raw?.lowercased().replacingOccurrences(of: "_", with: "") {
+        case "inprogress", "active", "running": .inProgress
+        case "completed", "complete", "done": .completed
+        default: .pending
+        }
+    }
+}
+
 /// One tool call, in the shape both CLIs' events are normalised into.
 ///
 /// ``name`` is an open string on purpose: a new tool in a new CLI release must draw a generic card, not fail a decode.
@@ -155,6 +181,8 @@ public struct AgentToolCall: Codable, Equatable, Sendable {
     public let filePath: String?
     public let diff: String?
     public let options: [AgentToolOption]?
+    /// Set on a to-do tool: the whole plan as it stands after this call.
+    public let plan: [AgentPlanStep]?
 
     public init(
         id: String,
@@ -163,8 +191,10 @@ public struct AgentToolCall: Codable, Equatable, Sendable {
         detail: String? = nil,
         filePath: String? = nil,
         diff: String? = nil,
-        options: [AgentToolOption]? = nil
+        options: [AgentToolOption]? = nil,
+        plan: [AgentPlanStep]? = nil
     ) {
+        self.plan = plan
         self.id = id
         self.name = name
         self.title = title

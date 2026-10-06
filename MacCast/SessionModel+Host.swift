@@ -45,5 +45,6 @@ extension SessionModel {
             UserDefaults.standard.set(name, forKey: Self.lastHostNameKey)
         }
         WidgetCenter.shared.reloadTimelines(ofKind: "PeeringQuickConnect")
+        AgentWidgetPublisher.shared.prune(keeping: Set(openSessions.compactMap { $0.hostID ?? $0.hostName ?? $0.id.uuidString }))
     }
 }

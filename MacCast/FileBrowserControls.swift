@@ -44,16 +44,11 @@ private struct ModeButtonSurface: ViewModifier {
 /// The row under a file browser, shared by both browsers: everything they differ by is a closure. The switch back to the shell lives in the navigation bar, since two labelled buttons left the command field nowhere to type.
 struct FileBrowseBar: View {
     let isEnabled: Bool
-    let showsHidden: Bool
-
-    /// False for the hub's browser, which has no shell to send keys to.
     var showsKeys = true
 
     var onInterrupt: () -> Void
     var onEscape: () -> Void
     var onTab: () -> Void
-    var onReload: () -> Void
-    var onToggleHidden: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -64,41 +59,13 @@ struct FileBrowseBar: View {
                 TerminalKeyChip(title: "tab", label: String(localized: "Tab"), height: 30, action: onTab)
 
                 Spacer(minLength: 0)
-            } else {
-                Spacer(minLength: 0)
             }
-
-            icon("arrow.clockwise", label: String(localized: "Reload this folder"), action: onReload)
-
-            icon(
-                showsHidden ? "eye" : "eye.slash",
-                label: showsHidden ? String(localized: "Hide hidden files") : String(localized: "Show hidden files"),
-                isOn: showsHidden,
-                action: onToggleHidden
-            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.black)
         .overlay(alignment: .top) { hairline }
         .disabled(!isEnabled)
-    }
-
-    private func icon(
-        _ symbol: String,
-        label: String,
-        isOn: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isOn ? ColorPalette.accent : Color.secondary)
-                .frame(width: 30, height: 30)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     private var hairline: some View {

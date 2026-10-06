@@ -3,11 +3,19 @@ import RemoteCore
 import SwiftUI
 
 /// The Mac's folders with no shell: the same browser as the terminal's, on a browsing scope. No shell keys or Run button, since there is no shell.
+/// One page per folder, so the swipe back is one level up. The first page has no path of its own and opens where the Mac last left it.
 struct MacFilesScreen: View {
+    let path: String?
+    let push: (String) -> Void
+
     @Environment(SessionModel.self) var model
 
     @State var showsHiddenFiles = false
     @State private var restoredPath: String?
+    /// The folder the first page settled on, so pages pushed above it do not drag it along through the shared browser path.
+    @State private var home: String?
+
+    private var shownPath: String? { path ?? home }
 
     var body: some View {
         Group {
@@ -21,24 +29,38 @@ struct MacFilesScreen: View {
             }
         }
         .background(Color.black)
-        .navigationTitle("Files")
+        .navigationTitle(shownPath.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? String(localized: "Files"))
         .navigationBarTitleDisplayMode(.inline)
+        .ancestorsMenu(of: shownPath) { push($0) }
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .onAppear {
             guard let id = model.browserID else { return }
             // The scope first: the Mac keeps one only for the connection that made it, and the listing that follows travels after it on the same connection.
             model.openFileScope()
-            if model.browserPath == nil, let saved = model.rememberedFilesFolder {
-                restoredPath = saved
-                model.setBrowserPath(saved)
+            if let path {
+                model.setBrowserPath(path)
+                model.listDirectory(path, sessionID: id)
+                return
             }
-            model.listDirectory(model.browserPath, sessionID: id)
+            if home == nil {
+                home = model.browserPath
+                if home == nil, let saved = model.rememberedFilesFolder {
+                    restoredPath = saved
+                    home = saved
+                    model.setBrowserPath(saved)
+                }
+            }
+            model.listDirectory(home, sessionID: id)
+        }
+        .onChange(of: model.browserPath) { _, new in
+            if path == nil, home == nil { home = new }
         }
         // A remembered folder that is gone, renamed or no longer readable falls back to the home folder instead of leaving the browser on an error.
         .onChange(of: restoredFailure) { _, failure in
             guard failure != nil, let id = model.browserID else { return }
             restoredPath = nil
+            home = nil
             model.forgetFilesFolder()
             model.setBrowserPath(nil)
             model.listDirectory(nil, sessionID: id)
@@ -46,7 +68,7 @@ struct MacFilesScreen: View {
     }
 
     private var restoredFailure: String? {
-        guard let id = model.browserID, let restoredPath, model.browserPath == restoredPath else { return nil }
+        guard path == nil, let id = model.browserID, let restoredPath, home == restoredPath else { return nil }
         return model.browseFailure(restoredPath, sessionID: id)
     }
 
@@ -67,18 +89,20 @@ struct MacFilesScreen: View {
             } else {
                 FileBrowserPanel(
                     path: model.browserPath,
-                    directory: model.directory(model.browserPath, sessionID: id),
-                    isLoading: model.isLoadingDirectory(model.browserPath, sessionID: id),
+                    directory: model.directory(shownPath, sessionID: id),
+                    isLoading: model.isLoadingDirectory(shownPath, sessionID: id),
                     failure: model.uploadFailure(sessionID: id)
-                        ?? model.browseFailure(model.browserPath, sessionID: id),
+                        ?? model.browseFailure(shownPath, sessionID: id),
                     showsHidden: showsHiddenFiles,
+                    onToggleHidden: { showsHiddenFiles.toggle() },
+                    showsBreadcrumbs: false,
                     // The Mac blocks inside the listing call while macOS shows a Files-and-Folders prompt, and nothing of that reaches this phone, so the wait says what it is probably waiting for.
                     waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
                     progress: model.folderProgress(sessionID: id),
                     onOpen: { open($0, in: id) },
-                    onNavigate: { navigate(to: $0, in: id) },
+                    onNavigate: { push($0) },
                     onRevealPath: nil,
-                    onReload: { model.listDirectory(model.browserPath, sessionID: id) },
+                    onReload: { model.listDirectory(shownPath, sessionID: id) },
                     onUpload: { model.uploadFile($0, sessionID: id) },
                     onUploadItems: { model.uploadItems($0, sessionID: id) },
                     onRun: nil,
@@ -96,34 +120,19 @@ struct MacFilesScreen: View {
                     changeFailure: model.changeFailure(sessionID: id)
                 )
             }
-            FileBrowseBar(
-                isEnabled: true,
-                showsHidden: showsHiddenFiles,
-                showsKeys: false,
-                onInterrupt: {},
-                onEscape: {},
-                onTab: {},
-                onReload: { model.listDirectory(model.browserPath, sessionID: id) },
-                onToggleHidden: { showsHiddenFiles.toggle() }
-            )
         }
     }
 
-    private var canMake: Bool { model.browserPath != nil }
+    private var canMake: Bool { shownPath != nil }
 
-    private var folder: String { model.browserPath ?? "" }
+    private var folder: String { shownPath ?? "" }
 
     private func open(_ entry: RemoteDirectoryEntry, in id: UUID) {
-        let path = childPath(entry.name, of: model.browserPath)
+        let path = childPath(entry.name, of: shownPath)
         if entry.isDirectory {
-            navigate(to: path, in: id)
+            push(path)
         } else {
             model.previewFile(path, sessionID: id)
         }
-    }
-
-    private func navigate(to path: String, in id: UUID) {
-        model.setBrowserPath(path)
-        model.listDirectory(path, sessionID: id)
     }
 }

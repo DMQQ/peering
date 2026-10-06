@@ -533,6 +533,15 @@ final class MacSession: Identifiable {
     // MARK: - Agent chats
 
     var agentSessions: [RemoteAgentSession] = []
+    /// Messages typed while a turn runs: the CLIs take one question at a time, so the rest wait here and go as each turn ends.
+    var agentQueues: [UUID: [String]] = [:]
+    /// The chat list's own copy, rebuilt at most a few times a second: see ``AgentCardDigest``.
+    var agentCards: [AgentCardDigest] = []
+    @ObservationIgnored var agentCardsTask: Task<Void, Never>?
+    var terminalCards: [TerminalCardDigest] = []
+    @ObservationIgnored var terminalCardsTask: Task<Void, Never>?
+    /// Chats whose full history has been asked for, so a stream of events does not ask again for each one.
+    var agentHistoryRequested: Set<UUID> = []
     var selectedAgentSessionID: UUID?
 
     var newAgentSessionID: UUID?

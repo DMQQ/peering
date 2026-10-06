@@ -5,9 +5,9 @@ import SwiftUI
 enum TerminalFlowStep: Hashable {
     case terminal(UUID)
     case chat(UUID)
-    case folder(TerminalAgent)
-    case files
-    case terminalFolder
+    case folder(TerminalAgent, String?)
+    case files(String?)
+    case terminalFolder(String?)
 }
 
 struct TerminalPanel: View {
@@ -16,16 +16,48 @@ struct TerminalPanel: View {
 
     @State var path: [TerminalFlowStep] = []
 
+    /// The folder pages were only the way to the new session: back from it lands on the list, not on a folder.
+    private func dropFolderPages() {
+        path.removeAll {
+            switch $0 {
+            case .folder, .terminalFolder, .files: true
+            default: false
+            }
+        }
+    }
+
+    /// One page per depth, so the swipe back is one level up. A folder already in the stack is returned to rather than stacked again.
+    private func openFolder(_ target: String, _ step: (String) -> TerminalFlowStep) {
+        let destination = step(target)
+        if let index = path.lastIndex(of: destination) {
+            path = Array(path[...index])
+        } else {
+            path.append(destination)
+        }
+    }
+
+    private func takeBannerRequest() {
+        guard let id = InAppBanner.shared.openChatRequest else { return }
+        InAppBanner.shared.openChatRequest = nil
+        model.selectedAgentSessionID = id
+        path = [.chat(id)]
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             TerminalHubScreen(path: $path)
-                .navigationTitle("Mac terminals")
+                .onAppear { takeBannerRequest() }
+                .onChange(of: InAppBanner.shared.openChatRequest) { _, _ in takeBannerRequest() }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(ColorPalette.backdrop, for: .navigationBar)
                 .toolbarBackground(.visible, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
+                        Button { dismiss() } label: {
+                            Image(systemName: "chevron.left")
+                                .fontWeight(.semibold)
+                        }
+                        .accessibilityLabel("Close")
                     }
                 }
                 .navigationDestination(for: TerminalFlowStep.self) { step in
@@ -34,15 +66,25 @@ struct TerminalPanel: View {
                         TerminalScreen(terminalID: id)
                     case .chat(let id):
                         AgentChatScreen(sessionID: id)
-                    case .folder(let agent):
-                        AgentFolderPicker(title: agent.name, agentID: agent.id) { directory in
+                    case .folder(let agent, let directory):
+                        AgentFolderPicker(
+                            title: agent.name,
+                            agentID: agent.id,
+                            directory: directory,
+                            open: { openFolder($0) { .folder(agent, $0) } }
+                        ) { directory in
                             // The picker stays up while the Mac opens the chat, so the way in is one push.
                             model.startAgentChat(agentID: agent.id, directory: directory)
                         }
-                    case .files:
-                        MacFilesScreen()
-                    case .terminalFolder:
-                        AgentFolderPicker(title: String(localized: "New terminal"), agentID: "terminal") { directory in
+                    case .files(let directory):
+                        MacFilesScreen(path: directory) { openFolder($0) { .files($0) } }
+                    case .terminalFolder(let directory):
+                        AgentFolderPicker(
+                            title: String(localized: "New terminal"),
+                            agentID: "terminal",
+                            directory: directory,
+                            open: { openFolder($0) { .terminalFolder($0) } }
+                        ) { directory in
                             AgentFolderHistory.record(directory: directory, agentID: "terminal", macName: model.hostName)
                             model.createTerminal(inDirectory: directory)
                         }
@@ -62,6 +104,7 @@ struct TerminalPanel: View {
         .onChange(of: model.newTerminalID) { _, id in
             guard let id else { return }
             model.newTerminalID = nil
+            dropFolderPages()
             path.append(.terminal(id))
         }
         .onChange(of: model.newAgentSessionID) { _, id in
@@ -69,6 +112,7 @@ struct TerminalPanel: View {
             model.newAgentSessionID = nil
             switch path.last {
             case .folder, .terminalFolder:
+                dropFolderPages()
                 path.append(.chat(id))
             default:
                 path = [.chat(id)]
@@ -82,6 +126,10 @@ private struct TerminalHubScreen: View {
     @Environment(SessionModel.self) var model
 
     @State private var history = AgentHistory.load()
+    @State private var selectedAgentID: String?
+    @State private var pickerOpen = false
+    @State private var choosing: String?
+    @State private var tab: HubTab = HubTab(rawValue: UserDefaults.standard.string(forKey: "Peering.hubTab") ?? "") ?? .agents
     /// Both kinds behind one alert: two alerts on one screen means one does not present.
     @State private var pendingEnd: PendingEnd?
     @State private var renaming: Renaming?
@@ -98,19 +146,42 @@ private struct TerminalHubScreen: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                terminalsSection
-                filesSection
+        // Both pages stay built: tearing one down and building the other on each switch was the lag. Only opacity changes.
+        ZStack {
+            page(.agents) {
+                pageHeading(
+                    "Agents",
+                    detail: model.agentCards.contains { $0.isLive }
+                        ? String(localized: "\(model.agentCards.filter(\.isLive).count) open on your Mac")
+                        : String(localized: "Chat with a coding agent on your Mac")
+                )
                 chatsSection
-                agentsSection
+                agentsNotice
                 historySection
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 18)
-            .padding(.bottom, 28)
+            page(.terminals) {
+                pageHeading(
+                    "Terminals",
+                    detail: model.hostName.map { String(localized: "Shells running on \($0)") }
+                        ?? String(localized: "Shells running on your Mac")
+                )
+                terminalsSection
+            }
         }
+        .animation(.easeOut(duration: 0.12), value: tab)
+        .onChange(of: tab) { _, tab in UserDefaults.standard.set(tab.rawValue, forKey: "Peering.hubTab") }
         .scrollBounceBehavior(.basedOnSize)
+        .toolbar { tabsItem }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if dockIsShown {
+                Group {
+                    if tab == .agents { agentDock } else { terminalDock }
+                }
+            }
+        }
+        .animation(Motion.settle, value: dockIsShown)
+        .overlay { agentPicker }
+        .onChange(of: tab) { _, _ in pickerOpen = false }
         .background(ColorPalette.backdrop)
         .terminalEndPrompt(
             name: pendingEndName,
@@ -135,57 +206,16 @@ private struct TerminalHubScreen: View {
     // MARK: - Terminals
 
     private var terminalsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Controls.sectionLabel("Terminals", systemImage: "terminal")
-            VStack(spacing: 10) {
-                if model.terminals.isEmpty {
-                    emptyTerminals
-                } else {
-                    ForEach(model.terminals) { terminal in
-                        terminalRow(terminal)
-                    }
-                    newTerminalRow
-                }
-            }
-        }
-    }
-
-    private var emptyTerminals: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                IconTile(symbol: "terminal")
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("No terminals")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(ColorPalette.ink)
-                    Text("Runs on your Mac, not here. It keeps going when you disconnect.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            if model.terminalCards.isEmpty {
+                TerminalEmptyState(canCreate: model.canOpenAnotherShellFromCards) {
+                    path.append(.terminalFolder(nil))
                 }
-                Spacer(minLength: 0)
-            }
-            PlanLocked(
-                capability: .shellTabs,
-                title: String(localized: "New terminal"),
-                diameter: 42,
-                isIncluded: model.canOpenAnotherShell
-            ) {
-                Button { path.append(.terminalFolder) } label: {
-                    HStack(spacing: 7) {
-                        Image(systemName: "terminal")
-                            .font(.system(size: 13, weight: .semibold))
-                        Text("New terminal")
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                    .foregroundStyle(ColorPalette.onInk)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(ColorPalette.ink, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                ForEach(Array(model.terminalCards.enumerated()), id: \.element.id) { index, terminal in
+                    terminalRow(terminal, index: index)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("New terminal")
+                newTerminalRow
             }
         }
     }
@@ -195,55 +225,33 @@ private struct TerminalHubScreen: View {
             capability: .shellTabs,
             title: String(localized: "New terminal"),
             diameter: 30,
-            isIncluded: model.canOpenAnotherShell
+            isIncluded: model.canOpenAnotherShellFromCards
         ) {
-            Button { path.append(.terminalFolder) } label: {
-                hubRow(symbol: "plus", title: String(localized: "New terminal"), detail: nil) {
-                    chevron
+            Button { path.append(.terminalFolder(nil)) } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus").font(.system(size: 13, weight: .bold))
+                    Text("New terminal").font(.system(size: 14.5, weight: .semibold))
                 }
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("New terminal")
         }
     }
 
-    // MARK: - Files
-
-    @ViewBuilder
-    private var filesSection: some View {
-        if model.hostSupportsFileBrowser {
-            VStack(alignment: .leading, spacing: 10) {
-                Controls.sectionLabel("Files", systemImage: "folder")
-                Button { path.append(.files) } label: {
-                    hubRow(
-                        symbol: "folder",
-                        title: String(localized: "This Mac's files"),
-                        detail: String(localized: "Browse, upload and download")
-                    ) {
-                        chevron
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("files-row")
-            }
-            .padding(.top, 20)
-        }
-    }
-
-    private func terminalRow(_ terminal: RemoteTerminal) -> some View {
+    private func terminalRow(_ terminal: TerminalCardDigest, index: Int) -> some View {
         Button {
             model.selectTerminal(terminal.id)
             path.append(.terminal(terminal.id))
         } label: {
-            hubRowLive(
-                symbol: "terminal",
-                title: terminal.name,
-                state: hubState(terminal.state)
-            ) {
-                terminalDetail(terminal)
-            } control: {
-                chevron
-            }
+            TerminalWindowCard(terminal: terminal, index: index, host: model.hostName)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -255,63 +263,16 @@ private struct TerminalHubScreen: View {
         .accessibilityIdentifier("terminal-row")
     }
 
-    private func hubState(_ state: TerminalState) -> HubState? {
-        switch state {
-        case .running: return .live
-        case .attention: return .pending
-        case .failed: return .failed
-        case .starting, .stopped: return nil
-        }
-    }
-
-    @ViewBuilder
-    private func terminalDetail(_ terminal: RemoteTerminal) -> some View {
-        let (text, tint) = terminalState(detail: terminal)
-        TimelineView(.periodic(from: .now, by: 60)) { _ in
-            Text(tint == nil && terminal.isRunning ? text + runningSuffix(terminal) : text)
-                .font(.caption)
-                .foregroundStyle(tint ?? .secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-    }
-
-    private func runningSuffix(_ terminal: RemoteTerminal) -> String {
-        guard let createdAt = terminal.createdAt else { return "" }
-        let seconds = Date.now.timeIntervalSince(createdAt)
-        guard seconds >= 60 else { return "" }
-        let minutes = Int(seconds / 60)
-        if minutes < 60 { return " · \(minutes)m" }
-        return " · \(minutes / 60)h \(minutes % 60)m"
-    }
-
-    private func terminalState(detail terminal: RemoteTerminal) -> (String, Color?) {
-        switch terminal.state {
-        case .starting:
-            return (String(localized: "Starting…"), nil)
-        case .running:
-            return (String(localized: "Running on your Mac"), nil)
-        case .attention(let kind):
-            return kind == .password
-                ? (String(localized: "Waiting for your password"), ColorPalette.caution)
-                : (String(localized: "Waiting for you to confirm"), ColorPalette.caution)
-        case .failed(let message):
-            return (message, ColorPalette.danger)
-        case .stopped:
-            return (String(localized: "Exited"), nil)
-        }
-    }
-
     // MARK: - Chats
 
     @ViewBuilder
     private var chatsSection: some View {
-        if !model.agentSessions.isEmpty {
+        if !model.agentCards.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Controls.sectionLabel("Chats", systemImage: "bubble.left.and.text.bubble.right")
                 VStack(spacing: 10) {
-                    ForEach(model.agentSessions) { session in
-                        chatRow(session)
+                    ForEach(Array(model.agentCards.enumerated()), id: \.element.id) { index, session in
+                        chatRow(session, index: index)
                     }
                 }
             }
@@ -319,15 +280,37 @@ private struct TerminalHubScreen: View {
         }
     }
 
-    private func chatRow(_ session: RemoteAgentSession) -> some View {
-        let (detail, tint) = chatDetail(session)
-        let symbol = TerminalAgent.all.first { $0.id == session.agentID }?.symbol ?? "sparkles"
+    private func chatBadge(_ state: AgentSessionState) -> SessionBadge {
+        switch state {
+        case .idle: return .ready
+        case .working: return .working
+        case .awaitingApproval: return .needsYou
+        case .exited: return .ended
+        case .failed: return .failed
+        }
+    }
+
+    private func chatRow(_ session: AgentCardDigest, index: Int) -> some View {
+        let agent = TerminalAgent.all.first { $0.id == session.agentID }
+        let folder = (session.directory as NSString).lastPathComponent
         return Button {
             model.selectedAgentSessionID = session.id
             path.append(.chat(session.id))
         } label: {
-            hubRow(symbol: symbol, title: session.title, detail: detail, detailTint: tint, state: hubState(session.state)) {
-                chevron
+            SessionCard(
+                symbol: agent?.symbol ?? "sparkles",
+                title: session.title,
+                badge: chatBadge(session.state),
+                index: index,
+                folder: folder.isEmpty ? nil : folder,
+                preview: session.preview,
+                activity: session.activity,
+                plan: session.plan
+            ) {
+                // The title usually starts with the agent's name already: saying it twice wrapped the row.
+                if !session.title.localizedCaseInsensitiveContains(agent?.name ?? session.agentID) {
+                    Text(verbatim: agent?.name ?? session.agentID)
+                }
             }
         }
         .buttonStyle(.plain)
@@ -346,117 +329,201 @@ private struct TerminalHubScreen: View {
         .accessibilityIdentifier("chat-row")
     }
 
-    private func hubState(_ state: AgentSessionState) -> HubState? {
-        switch state {
-        case .working: return .live
-        case .awaitingApproval: return .pending
-        case .failed: return .failed
-        case .idle, .exited: return nil
-        }
-    }
-
-    private func chatDetail(_ session: RemoteAgentSession) -> (String, Color?) {
-        switch session.state {
-        case .idle:
-            return (String(localized: "Ready"), nil)
-        case .working:
-            return (String(localized: "Working…"), nil)
-        case .awaitingApproval:
-            return (String(localized: "Waiting on you"), ColorPalette.caution)
-        case .exited:
-            return (String(localized: "Ended"), nil)
-        case .failed:
-            return (String(localized: "Failed"), ColorPalette.danger)
-        }
-    }
-
     // MARK: - Agents
 
-    private var agentsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Controls.sectionLabel("Agents", systemImage: "sparkles")
-            VStack(spacing: 10) {
-                if model.isAwaitingAgentList {
-                    EmptyView()
-                } else if model.availableAgents.isEmpty {
-                    HStack(spacing: 12) {
-                        IconTile(symbol: "sparkles")
-                        Text("No supported agents were found on this Mac. Install one and it will show up here.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 0)
-                    }
-                } else {
-                    ForEach(model.availableAgents) { agent in
-                        agentRow(agent)
-                    }
-                }
-                if !model.availableAgents.isEmpty {
-                    Text("Chat is this app's own screen for the agent, where its questions arrive as buttons. Terminal opens the same agent in a shell on your Mac.")
+    /// Only what the page cannot be silent about: no agent found, or nothing started yet. The agent itself is chosen in the bar.
+    @ViewBuilder
+    private var agentsNotice: some View {
+        if !model.isAwaitingAgentList {
+            if model.availableAgents.isEmpty {
+                HStack(spacing: 12) {
+                    IconTile(symbol: "sparkles")
+                    Text("No supported agents were found on this Mac. Install one and it will show up here.")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 4)
-                        .padding(.top, 2)
+                    Spacer(minLength: 0)
                 }
+                .padding(.top, 20)
+            } else if model.agentCards.isEmpty {
+                Text("Choose an agent below, then Chat with it or open it in a terminal.")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 20)
             }
         }
-        .padding(.top, 20)
     }
 
-    private func agentRow(_ agent: TerminalAgent) -> some View {
-        let canChat = agent.supportsChat && model.activeSession?.hostSupportsAgentChat == true
+    /// Nothing is chosen until the person chooses, unless there is only one agent to choose.
+    private var selectedAgent: TerminalAgent? {
+        model.availableAgents.first { $0.id == selectedAgentID }
+            ?? (model.availableAgents.count == 1 ? model.availableAgents.first : nil)
+    }
+
+    private static let pickerSpring = Animation.spring(response: 0.45, dampingFraction: 0.78)
+
+    /// The agents as a panel rising out of the bar, which a menu is too small to be. Always built, so the way out animates as well as the way in: a parent removed with its children never plays their transitions.
+    private var agentPicker: some View {
+        ZStack(alignment: .bottom) {
+            if pickerOpen {
+                Color.black.opacity(0.55)
+                    .ignoresSafeArea()
+                    .onTapGesture { closePicker() }
+                    .transition(.opacity)
+            }
+            // The column stays while the cards come and go inside it: a card's own transition only plays when its parent is not the thing being removed.
+            VStack(spacing: 10) {
+                ForEach(Array(model.availableAgents.enumerated()), id: \.element.id) { index, agent in
+                    if pickerOpen {
+                        pickerCard(agent, index: index)
+                            .transition(Self.cardTransition(index: index, of: model.availableAgents.count))
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 84)
+        }
+        .allowsHitTesting(pickerOpen)
+    }
+
+    /// Cards fan up out of the bar nearest first and fold back into it farthest first, so the panel reads as one thing opening and closing from the button.
+    private static func cardTransition(index: Int, of count: Int) -> AnyTransition {
+        let fromBar = Double(count - 1 - index)
+        return .asymmetric(
+            insertion: AnyTransition(RisingCard())
+                .animation(.spring(response: 0.5, dampingFraction: 0.74).delay(0.04 * fromBar)),
+            removal: AnyTransition(RisingCard())
+                .animation(.spring(response: 0.34, dampingFraction: 0.9).delay(0.035 * Double(index)))
+        )
+    }
+
+    private func closePicker() {
+        withAnimation(Self.pickerSpring) { pickerOpen = false; choosing = nil }
+    }
+
+    private func pickerCard(_ agent: TerminalAgent, index: Int) -> some View {
+        let chats = model.agentCards.filter { $0.agentID == agent.id && $0.isLive }
+        let status = AgentCardStatus(
+            working: chats.filter { $0.state == .working }.count,
+            needsYou: chats.filter { $0.state == .awaitingApproval }.count,
+            chats: chats.count,
+            lastUsed: lastUsedLine(agent)
+        )
+        return AgentHubCard(
+            agent: agent,
+            status: status,
+            index: index,
+            isSelected: selectedAgentID == agent.id,
+            select: {
+                selectedAgentID = agent.id
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { choosing = agent.id }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(240))
+                    closePicker()
+                }
+            }
+        )
+        .scaleEffect(choosing == agent.id ? 1.045 : 1)
+        .opacity(choosing != nil && choosing != agent.id ? 0.4 : 1)
+        .background(ColorPalette.backdrop, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private func chatCapable(_ agent: TerminalAgent) -> Bool {
+        agent.supportsChat && model.activeSession?.hostSupportsAgentChat == true
             && model.activeSession?.hostChatAgents.contains(agent.id) == true
-        return hubRow(symbol: agent.symbol, title: agent.name, detail: lastUsedLine(agent)) {
-        } footer: {
-            if canChat {
-                HStack(spacing: 0) {
-                    PlanLocked(
-                        capability: .agentChat,
-                        title: String(localized: "Chat with \(agent.name)"),
-                        diameter: 26,
-                        isIncluded: model.canOpenAgentChat
-                    ) {
-                        Button { path.append(.folder(agent)) } label: {
-                            splitSegment("Chat", symbol: "bubble.left.and.text.bubble.right")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text("Chat with \(agent.name)"))
-                    }
-                    Rectangle().fill(.white.opacity(0.3)).frame(width: 1, height: 18)
-                    Button { start(agent) } label: {
-                        splitSegment("Terminal", symbol: "terminal")
-                            .padding(.horizontal, 6)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Start \(agent.name)"))
-                }
-                .frame(height: 34)
-                .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
-            } else {
-                Button { start(agent) } label: {
-                    splitSegment("Terminal", symbol: "terminal")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Start \(agent.name)"))
-                .frame(height: 34)
-                .overlay(Capsule().strokeBorder(.white.opacity(0.3)))
+    }
+
+    private func pageHeading(_ title: LocalizedStringKey, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(DisplayFont.display(34))
+                .tracking(-0.8)
+                .foregroundStyle(ColorPalette.ink)
+            Text(verbatim: detail)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+    }
+
+    private func page<Content: View>(_ which: HubTab, @ViewBuilder content: () -> Content) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                content()
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 28)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .opacity(tab == which ? 1 : 0)
+        .environment(\.animationsPaused, tab != which)
+        .allowsHitTesting(tab == which)
+        .accessibilityHidden(tab != which)
+    }
+
+    private var tabSwitcher: some View {
+        HubTabs(
+            selection: $tab,
+            terminalCount: model.terminalCards.count,
+            agentCount: model.agentCards.filter(\.isLive).count,
+            agentsBusy: model.agentCards.contains { $0.state == .working },
+            compact: true
+        )
+        .frame(width: 296)
+    }
+
+    /// Trailing rather than centred: the bar is empty but for the close button, and a centred item is limited to what the larger side leaves.
+    /// Without the bar's own capsule behind it: that one adds its own padding round the item, so the gap beside the selected pill was wider than the one above it, and ours sat inside it as a second glass.
+    @ToolbarContentBuilder
+    private var tabsItem: some ToolbarContent {
+        if #available(iOS 26.0, *) {
+            ToolbarItem(placement: .topBarTrailing) { tabSwitcher }
+                .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .topBarTrailing) { tabSwitcher }
         }
     }
 
-    private func splitSegment(_ title: LocalizedStringKey, symbol: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
-            Text(title).font(.system(size: 14, weight: .semibold))
+    private var dockIsShown: Bool {
+        tab == .terminals || !model.availableAgents.isEmpty || model.hostSupportsFileBrowser
+    }
+
+    private var terminalDock: some View {
+        TerminalDock(offersFiles: model.hostSupportsFileBrowser, files: { path.append(.files(nil)) }) { button in
+            PlanLocked(
+                capability: .shellTabs,
+                title: String(localized: "New terminal"),
+                diameter: 26,
+                isIncluded: model.canOpenAnotherShell
+            ) { button }
+        } newTerminal: {
+            path.append(.terminalFolder(nil))
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 10)
-        .frame(height: 34)
-        .contentShape(Rectangle())
+    }
+
+    private var agentDock: some View {
+        AgentDock(
+            agent: selectedAgent,
+            agentCount: model.availableAgents.count,
+            openPicker: { withAnimation(Self.pickerSpring) { pickerOpen = true } },
+            canChat: selectedAgent.map(chatCapable) ?? false,
+            offersFiles: model.hostSupportsFileBrowser,
+            files: { path.append(.files(nil)) },
+            chat: { if let agent = selectedAgent { path.append(.folder(agent, nil)) } },
+            terminal: { if let agent = selectedAgent { start(agent) } }
+        ) { button in
+            PlanLocked(
+                capability: .agentChat,
+                title: String(localized: "Chat with \(selectedAgent?.name ?? "")"),
+                diameter: 26,
+                isIncluded: model.canOpenAgentChat
+            ) { button }
+        }
     }
 
     private func start(_ agent: TerminalAgent, restarting entry: AgentLaunch? = nil) {
@@ -492,67 +559,36 @@ private struct TerminalHubScreen: View {
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
                 }
-                VStack(spacing: 10) {
-                    ForEach(Array(history.prefix(20)), id: \.id) { entry in
-                        historyRow(entry)
-                    }
-                }
+                HistoryCard(entries: history.prefix(20).map(historyEntry))
             }
             .padding(.top, 20)
         }
     }
 
-    private func historyRow(_ entry: AgentLaunch) -> some View {
+    private func historyEntry(_ entry: AgentLaunch) -> HistoryCard.Entry {
         let agent = TerminalAgent.all.first { $0.id == entry.agentID }
         let live = entry.terminalID.flatMap { id in
-            model.terminals.first { $0.id == id && $0.isRunning }?.id
+            model.terminalCards.first { $0.id == id && $0.isRunning }?.id
         }
-
-        return Button {
+        return HistoryCard.Entry(
+            id: entry.id,
+            symbol: agent?.symbol ?? "sparkles",
+            title: agent?.name ?? entry.agentID,
+            detail: entry.macName,
+            date: entry.date,
+            isLive: live != nil,
+            isEnabled: agent != nil || live != nil
+        ) {
             if let live {
                 model.selectTerminal(live)
                 path.append(.terminal(live))
             } else if let agent {
                 start(agent, restarting: entry)
             }
-        } label: {
-            hubRow(
-                symbol: agent?.symbol ?? "sparkles",
-                title: agent?.name ?? entry.agentID,
-                detail: entry.macName
-            ) {
-                HStack(spacing: 6) {
-                    Text(live != nil
-                        ? String(localized: "Open")
-                        : entry.date.formatted(.relative(presentation: .named)))
-                        .font(.caption)
-                        .foregroundStyle(live != nil ? ColorPalette.ink : .secondary)
-                    chevron
-                }
-            }
         }
-        .buttonStyle(.plain)
-        .disabled(agent == nil && live == nil)
-        .accessibilityLabel(live != nil
-            ? Text("Open the running \(agent?.name ?? entry.agentID)")
-            : Text("Start \(agent?.name ?? entry.agentID) again"))
     }
 
     // MARK: - Rows
-
-    private func hubRowLive<Control: View, Detail: View>(
-        symbol: String,
-        title: String,
-        state: HubState? = nil,
-        @ViewBuilder detail: () -> Detail,
-        @ViewBuilder control: () -> Control
-    ) -> some View {
-        hubLayout(symbol: symbol, title: title, state: state) {
-            detail()
-        } control: {
-            control()
-        }
-    }
 
     private func hubRow<Control: View>(
         symbol: String,
@@ -643,12 +679,12 @@ private struct TerminalHubScreen: View {
 
     // MARK: - Renaming and ending
 
-    private func beginRename(_ terminal: RemoteTerminal) {
+    private func beginRename(_ terminal: TerminalCardDigest) {
         renameText = terminal.name
         renaming = .terminal(terminal.id)
     }
 
-    private func beginRename(_ session: RemoteAgentSession) {
+    private func beginRename(_ session: AgentCardDigest) {
         renameText = session.title
         renaming = .chat(session.id)
     }
@@ -665,8 +701,8 @@ private struct TerminalHubScreen: View {
 
     private var pendingEndName: String {
         switch pendingEnd {
-        case .terminal(let id): return model.terminals.first { $0.id == id }?.name ?? ""
-        case .chat(let id): return model.agentSessions.first { $0.id == id }?.title ?? ""
+        case .terminal(let id): return model.terminalCards.first { $0.id == id }?.name ?? ""
+        case .chat(let id): return model.agentCards.first { $0.id == id }?.title ?? ""
         case nil: return ""
         }
     }
@@ -689,5 +725,15 @@ private struct TerminalHubScreen: View {
         case nil: break
         }
         pendingEnd = nil
+    }
+}
+
+private struct RisingCard: Transition {
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content
+            .scaleEffect(phase.isIdentity ? 1 : 0.82, anchor: .bottom)
+            .offset(y: phase.isIdentity ? 0 : 56)
+            .blur(radius: phase.isIdentity ? 0 : 8)
+            .opacity(phase.isIdentity ? 1 : 0)
     }
 }

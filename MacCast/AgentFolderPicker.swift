@@ -5,26 +5,32 @@ import SwiftUI
 struct AgentFolderPicker: View {
     let title: String
     let agentID: String
+    /// Nil is the Mac's home folder.
+    let directory: String?
+    /// Pushes a page for a folder.
+    let open: (String) -> Void
     let choose: (String?) -> Void
 
     @Environment(SessionModel.self) var model
 
+    /// This page's own listing: the model keeps one, which the next page overwrites.
+    @State private var shown = AgentPickerState()
+    @State private var awaiting = false
+    @State private var hasLoaded = false
     @State private var query = ""
     @State private var chosen = false
     @State private var showsHiddenFolders = false
     @FocusState private var searchFocused: Bool
 
-    private var picker: AgentPickerState { model.agentPicker }
+    private var picker: AgentPickerState {
+        var state = shown
+        state.isLoading = awaiting
+        return state
+    }
 
-    private var segments: [(title: String, path: String)] {
-        guard let path = picker.path, path.hasPrefix("/") else { return [] }
-        var result: [(title: String, path: String)] = [("/", "/")]
-        var walked = ""
-        for component in path.split(separator: "/") {
-            walked += "/" + component
-            result.append((String(component), walked))
-        }
-        return result
+    private func request() {
+        awaiting = true
+        model.browseAgentFolder(directory)
     }
 
     private var folders: [RemoteDirectoryEntry] {
@@ -42,128 +48,31 @@ struct AgentFolderPicker: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            VStack(spacing: 0) {
-                header
-                list
-            }
-            floatingAction
+        list
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            FolderBrowserBar(
+                prompt: String(localized: "Search in \(currentName)"),
+                query: $query,
+                showsHidden: $showsHiddenFolders,
+                isLoading: picker.isLoading,
+                searchFocused: $searchFocused
+            ) { useButton }
         }
+        .ancestorsMenu(of: picker.path) { open($0) }
         .background(ColorPalette.backdrop)
-        .navigationTitle(title)
+        .navigationTitle(shown.path.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? title)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             chosen = false
-            if picker.path == nil, !picker.isLoading {
-                model.browseAgentFolder(nil)
-            }
+            // Coming back from a deeper page, the model holds that page's listing, so this one asks again and shows what it had meanwhile.
+            if !hasLoaded || model.agentPicker.path != shown.path { request() }
         }
-        // Cleared on the way into the next folder: a filter that follows you down hides folders you have not seen.
-        .onChange(of: picker.path) { _, _ in
-            query = ""
-            searchFocused = false
+        .onChange(of: model.agentPicker.isLoading) { _, loading in
+            guard awaiting, !loading else { return }
+            shown = model.agentPicker
+            awaiting = false
+            hasLoaded = true
         }
-    }
-
-    // MARK: - Header
-
-    private var header: some View {
-        VStack(spacing: 0) {
-            ScrollViewReader { reader in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 5) {
-                        ForEach(Array(segments.enumerated()), id: \.element.path) { index, segment in
-                            if index > 0 {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 8, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            if index == segments.count - 1 {
-                                Text(segment.title)
-                                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(ColorPalette.ink)
-                                    .lineLimit(1)
-                            } else {
-                                Button { model.browseAgentFolder(segment.path) } label: {
-                                    Text(segment.title)
-                                        .font(.system(size: 12, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 9)
-                }
-                .onAppear { reader.scrollTo(segments.last?.path, anchor: .trailing) }
-                .onChange(of: picker.path) { _, _ in
-                    withAnimation(Motion.settle) { reader.scrollTo(segments.last?.path, anchor: .trailing) }
-                }
-            }
-            .overlay(alignment: .trailing) {
-                if picker.isLoading {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .padding(.trailing, 14)
-                }
-            }
-            HStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
-
-                    TextField("Filter these names", text: $query)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                        .foregroundStyle(ColorPalette.ink)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .focused($searchFocused)
-                        .submitLabel(.done)
-                        .onSubmit { searchFocused = false }
-
-                    if !query.isEmpty {
-                        Button { query = "" } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(.tertiary)
-                                .frame(width: 24, height: 24)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Clear the filter")
-                    }
-                }
-                .padding(.leading, 11)
-                .padding(.trailing, query.isEmpty ? 11 : 5)
-                .frame(height: 32)
-                .background(Color.white.opacity(0.07), in: Capsule())
-
-                Button { showsHiddenFolders.toggle() } label: {
-                    Image(systemName: showsHiddenFolders ? "eye" : "eye.slash")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(showsHiddenFolders ? ColorPalette.accent : Color.secondary)
-                        .frame(width: 32, height: 32)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(showsHiddenFolders ? "Hide hidden folders" : "Show hidden folders")
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 9)
-
-            Text("The agent can read and change files in the folder you choose.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 9)
-        }
-        .background(Color.white.opacity(0.05))
-        .overlay(alignment: .bottom) { hairline }
     }
 
     // MARK: - List
@@ -204,18 +113,32 @@ struct AgentFolderPicker: View {
                     if picker.path == picker.startPath, !recents.isEmpty {
                         recentSection
                     }
+                    Text(verbatim: picker.path ?? "")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+                    Text("The agent can read and change files in the folder you choose.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 2)
+                        .padding(.bottom, 14)
                 }
             }
         }
-        // Padding for the floating button goes on the content end only: padding the scroll view shrank it and left a dead band.
-        .contentMargins(.bottom, Self.floatingClearance, for: .scrollContent)
         .scrollBounceBehavior(.basedOnSize)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func row(_ entry: RemoteDirectoryEntry) -> some View {
         Button {
             guard let path = picker.path else { return }
-            model.browseAgentFolder(path + "/" + entry.name)
+            open((path == "/" ? "" : path) + "/" + entry.name)
         } label: {
             HStack(spacing: 11) {
                 Controls.icon(entry.isSymlink ? "folder.badge.questionmark" : "folder")
@@ -245,7 +168,7 @@ struct AgentFolderPicker: View {
 
     private func upRow(_ parent: String) -> some View {
         Button {
-            model.browseAgentFolder(parent)
+            open(parent)
         } label: {
             HStack(spacing: 11) {
                 Controls.icon("arrow.up.left")
@@ -308,26 +231,25 @@ struct AgentFolderPicker: View {
         }
     }
 
-    // MARK: - Action bar
+    private var currentName: String {
+        shown.path.map { $0 == "/" ? "/" : ($0 as NSString).lastPathComponent } ?? title
+    }
 
-    private static let floatingClearance: CGFloat = 70
-
-    private var floatingAction: some View {
+    private var useButton: some View {
         Button {
             pick(picker.path)
         } label: {
-            Text(isAtHome ? "Use the home folder" : "Use this folder")
+            Text("Use")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(ColorPalette.onInk)
-                .padding(.horizontal, 26)
-                .frame(height: 50)
+                .padding(.horizontal, 22)
+                .frame(height: 48)
                 .background(Capsule().fill(ColorPalette.ink))
                 .contentShape(Capsule())
         }
-        .buttonStyle(RailButtonStyle(scale: 0.96))
+        .buttonStyle(RailButtonStyle(scale: 0.95))
         .disabled(picker.path == nil && picker.isLoading)
-        .shadow(color: .black.opacity(0.55), radius: 22, y: 10)
-        .padding(.bottom, 12)
+        .accessibilityLabel(isAtHome ? "Use the home folder" : "Use this folder")
     }
 
     // MARK: - Paths
@@ -353,7 +275,4 @@ struct AgentFolderPicker: View {
         picker.path == picker.startPath
     }
 
-    private var hairline: some View {
-        Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-    }
 }

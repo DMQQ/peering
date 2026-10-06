@@ -161,10 +161,16 @@ public struct AgentCodexStream {
             return [.toolFinished(callID: id, ok: true, output: nil, truncated: false)]
 
         case "todo_list":
-            let todos = (item["items"] as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }
+            let entries = item["items"] as? [[String: Any]] ?? []
+            let todos = entries.compactMap { $0["text"] as? String }
+            let steps = entries.compactMap { entry -> AgentPlanStep? in
+                guard let text = entry["text"] as? String else { return nil }
+                return AgentPlanStep(text: text, status: entry["completed"] as? Bool == true ? .completed : .pending)
+            }
             if started {
                 return [.toolStarted(call: AgentToolCall(
-                    id: id, name: kind, title: "Plan", detail: todos.isEmpty ? nil : todos.joined(separator: "; ")
+                    id: id, name: kind, title: "Plan", detail: todos.isEmpty ? nil : todos.joined(separator: "; "),
+                    plan: steps.isEmpty ? nil : steps
                 ))]
             }
             return [.toolFinished(callID: id, ok: true, output: nil, truncated: false)]

@@ -12,6 +12,12 @@ struct FileBrowserPanel: View {
     let failure: String?
     let showsHidden: Bool
 
+    /// Where the hidden-files switch lives: in the bottom bar with the search. Nil leaves the caller to draw its own.
+    var onToggleHidden: (() -> Void)?
+
+    /// False where the screen puts the path in its navigation title.
+    var showsBreadcrumbs = true
+
     /// Supplied by whoever answers the callbacks: on the Mac a slow read is usually a permission prompt, on a server the network.
     /// `var` rather than `let` for the default: a `let` with an initial value is not part of the memberwise initialiser.
     var waitingHint: String? = nil
@@ -104,6 +110,7 @@ struct FileBrowserPanel: View {
                 }
             if let progress { progressLine(progress) }
             content
+                .refreshable { onReload() }
                 .confirmationDialog(
                     deleteTitle,
                     isPresented: Binding(
@@ -120,6 +127,7 @@ struct FileBrowserPanel: View {
                 } message: {
                     Text(deleteMessage)
                 }
+            bottomBar
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         // Only the thing being uploaded, not the whole Finder tree. Multi-select only where the caller can take more than one, so the app never silently discards a chosen file.

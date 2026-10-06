@@ -1,4 +1,5 @@
 import MacCastKit
+import PhotosUI
 import RemoteCore
 import SwiftUI
 import UniformTypeIdentifiers
@@ -19,10 +20,15 @@ struct AgentChatScreen: View {
     @State var renamingID: UUID?
     @State var renameText = ""
     @State var answering: AgentApproval?
+    /// A chat whose history never arrived (an older Mac), so it shows as empty instead of loading for ever.
+    @State private var gaveUpLoading: UUID?
     @State var typingModelFor: UUID?
     @State var modelText = ""
     @State var showsAttachPicker = false
+    @State var showsPhotoPicker = false
+    @State var pickedPhoto: PhotosPickerItem?
     @State var attaching: Attachment?
+    @State var attached: [UUID: [Attachment]] = [:]
     @State var stickToBottom = true
     @FocusState var composerFocused: Bool
     @State private var showsUsage = false
@@ -66,32 +72,6 @@ struct AgentChatScreen: View {
                     }
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                if session != nil, model.hostSupportsAgentUsage {
-                    Button { showsUsage = true } label: {
-                        Image(systemName: "gauge.with.dots.needle.33percent")
-                    }
-                    .accessibilityLabel(Text("Usage"))
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                if let session, model.hostSupportsAgentPermissionModes, session.permissionModes.count > 1 {
-                    AgentPermissionModeMenu(session: session)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                if let session, offersModelPicker(session) {
-                    modelMenu(session)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                if let session {
-                    Button { pendingClose = session } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel(Text("Close \(session.title)"))
-                }
-            }
             // No keyboard accessory bar: with the composer on the bottom safe-area inset the bar's height is counted twice and the field floats a row too high.
         }
         .terminalEndPrompt(
@@ -108,8 +88,17 @@ struct AgentChatScreen: View {
                 dismiss()
             }
         )
-        .onAppear { model.selectedAgentSessionID = currentID }
-        .onChange(of: currentID) { _, id in model.selectedAgentSessionID = id }
+        .onAppear {
+            model.selectedAgentSessionID = currentID
+            model.ensureAgentHistory(currentID)
+            InAppBanner.shared.chatOnScreen = currentID
+        }
+        .onDisappear { InAppBanner.shared.chatOnScreen = nil }
+        .onChange(of: currentID) { _, id in
+            model.selectedAgentSessionID = id
+            model.ensureAgentHistory(id)
+            InAppBanner.shared.chatOnScreen = id
+        }
         .onChange(of: session?.transcript.pendingApprovals.first?.id, initial: true) { _, id in
             guard let id else {
                 answering = nil
@@ -176,40 +165,92 @@ struct AgentChatScreen: View {
         agentID == "claude" ? ["sonnet", "opus", "haiku"] : []
     }
 
-    private func modelMenu(_ session: RemoteAgentSession) -> some View {
-        Menu {
-            Button {
-                model.setAgentModel(nil, in: session.id)
-            } label: {
-                Text("Default")
-            }
-            ForEach(modelSuggestions(session.agentID), id: \.self) { name in
-                Button {
-                    model.setAgentModel(name, in: session.id)
+    /// What was four header buttons, down by the composer where the thumb is: this chat's model and permissions as chips that say their current value, and the rest behind a menu.
+    private func optionsBar(_ session: RemoteAgentSession) -> some View {
+        HStack(spacing: 8) {
+            if offersModelPicker(session) {
+                Menu {
+                    Button("Default") { model.setAgentModel(nil, in: session.id) }
+                    ForEach(modelSuggestions(session.agentID), id: \.self) { name in
+                        Button {
+                            model.setAgentModel(name, in: session.id)
+                        } label: {
+                            // Matched on the front of the name: the CLI answers an alias with a dated full name.
+                            if let current = session.model, current.hasPrefix(name) || current.contains(name) {
+                                Label(name, systemImage: "checkmark")
+                            } else {
+                                Text(name)
+                            }
+                        }
+                    }
+                    Divider()
+                    Button("Custom…") {
+                        modelText = session.model ?? ""
+                        typingModelFor = session.id
+                    }
                 } label: {
-                    // Matched on the front of the name: the CLI answers an alias with a dated full name.
-                    if let current = session.model, current.hasPrefix(name) || current.contains(name) {
-                        Label(name, systemImage: "checkmark")
-                    } else {
-                        Text(name)
+                    chip(shortModel(session), symbol: "cpu")
+                }
+                .accessibilityLabel(Text("Model, \(shortModel(session))"))
+            }
+            if model.hostSupportsAgentPermissionModes, session.permissionModes.count > 1 {
+                let current = session.permissionMode ?? session.permissionModes.first ?? .manual
+                Menu {
+                    ForEach(session.permissionModes, id: \.self) { mode in
+                        Button {
+                            model.setAgentPermissionMode(mode, in: session.id)
+                        } label: {
+                            Text(AgentPermissionModeMenu.title(mode))
+                            Text(AgentPermissionModeMenu.detail(mode, agentID: session.agentID))
+                            Image(systemName: mode == current ? "checkmark" : AgentPermissionModeMenu.symbol(mode))
+                        }
+                    }
+                } label: {
+                    chip(AgentPermissionModeMenu.title(current), symbol: AgentPermissionModeMenu.symbol(current))
+                }
+                .accessibilityLabel(Text("Permissions, \(AgentPermissionModeMenu.title(current))"))
+            }
+            Spacer(minLength: 0)
+            Menu {
+                if model.hostSupportsAgentUsage {
+                    Button { showsUsage = true } label: {
+                        Label("Usage and limits", systemImage: "gauge.with.dots.needle.33percent")
                     }
                 }
+                Button("Rename", systemImage: "character.cursor.ibeam") { beginRename(session) }
+                Divider()
+                Button(role: .destructive) { pendingClose = session } label: {
+                    Label("Close chat", systemImage: "xmark")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 34, height: 30)
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
+                    .contentShape(Capsule())
             }
-            Divider()
-            Button("Custom…") {
-                modelText = session.model ?? ""
-                typingModelFor = session.id
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "cpu")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(shortModel(session))
-                    .font(.system(size: 14))
-                    .lineLimit(1)
-            }
+            .accessibilityLabel(Text("Chat options"))
         }
-        .accessibilityLabel(Text("Model, \(shortModel(session))"))
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
+    }
+
+    private func chip(_ title: String, symbol: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
+            Text(verbatim: title)
+                .font(.system(size: 12.5, weight: .medium))
+                .lineLimit(1)
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .foregroundStyle(.white.opacity(0.85))
+        .padding(.horizontal, 11)
+        .frame(height: 30)
+        .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
+        .contentShape(Capsule())
     }
 
     private func shortModel(_ session: RemoteAgentSession) -> String {
@@ -259,13 +300,15 @@ struct AgentChatScreen: View {
     func mark(for state: AgentSessionState) -> some View {
         switch state {
         case .working:
-            ProgressView()
-                .controlSize(.mini)
-                .tint(.secondary)
+            Image(systemName: "sparkles")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .symbolEffect(.variableColor.iterative.reversing)
         case .awaitingApproval:
             Image(systemName: "hand.raised.fill")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(ColorPalette.caution)
+                .symbolEffect(.pulse)
         case .failed:
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 11, weight: .semibold))
@@ -281,7 +324,15 @@ struct AgentChatScreen: View {
     @ViewBuilder
     private func content(_ session: RemoteAgentSession) -> some View {
         ZStack {
-            if session.transcript.isEmpty {
+            if session.transcript.isEmpty, !session.isLoaded, gaveUpLoading != session.id {
+                // The empty placeholder here said the conversation was gone while it was still on its way.
+                AgentHistoryLoading()
+                    .transition(.opacity)
+                    .task(id: session.id) {
+                        try? await Task.sleep(for: .seconds(8))
+                        if !session.isLoaded { gaveUpLoading = session.id }
+                    }
+            } else if session.transcript.isEmpty {
                 emptyChat(session)
                     .transition(.opacity)
             } else {
@@ -289,11 +340,14 @@ struct AgentChatScreen: View {
                     session: session,
                     expandedTools: $expandedTools,
                     stickToBottom: $stickToBottom,
-                    canSend: session.transcript.state != .working,
+                    canSend: true,
+                    queued: model.agentQueue(for: session.id),
+                    unqueue: { model.removeQueuedAgentPrompt(at: $0, in: session.id) },
                     resend: { text in
                         stickToBottom = true
                         model.sendAgentPrompt(text, to: session.id)
-                    }
+                    },
+                    review: { answering = $0 }
                 )
                 .transition(.opacity)
             }
@@ -301,58 +355,40 @@ struct AgentChatScreen: View {
         .animation(Motion.settle, value: session.transcript.isEmpty)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                if session.transcript.isEmpty, session.transcript.pendingApprovals.isEmpty {
-                    AgentSuggestionStrip { text in
-                        drafts[session.id] = text
-                        composerFocused = true
+                if attaching != nil || !(attached[session.id] ?? []).isEmpty {
+                    AgentAttachmentTray(items: attached[session.id] ?? [], uploading: attaching) { id in
+                        attached[session.id]?.removeAll { $0.id == id }
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                if let approval = session.transcript.pendingApprovals.first, answering == nil {
-                    Button { answering = approval } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: "hand.raised.fill")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("Waiting on you")
-                                .font(.system(size: 13, weight: .medium))
-                            Spacer(minLength: 6)
-                            Text("Review")
-                                .font(.system(size: 12, weight: .semibold))
-                            Image(systemName: "chevron.up")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                        .foregroundStyle(ColorPalette.caution)
-                        .padding(.horizontal, 12)
-                        .frame(height: 36)
-                        .background(ColorPalette.caution.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(ColorPalette.caution.opacity(0.3))
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 2)
-                    .transition(.opacity)
-                }
-                if let attaching {
-                    attachmentLine(attaching, session: session)
-                }
+                optionsBar(session)
                 AgentComposer(
                     text: draft,
                     isFocused: $composerFocused,
                     isWorking: session.transcript.state == .working,
-                    canSend: session.transcript.state != .working
-                        && !(drafts[session.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                    canSend: attaching == nil
+                        && (!(drafts[session.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || (attached[session.id] ?? []).contains { $0.failure == nil }),
                     send: { send(session) },
-                    attach: attachAvailable ? { showsAttachPicker = true } : nil,
+                    attach: attachAvailable
+                        ? { source in
+                            switch source {
+                            case .files: showsAttachPicker = true
+                            case .photos: showsPhotoPicker = true
+                            }
+                        }
+                        : nil,
                     stop: { model.interruptAgent(session.id) }
                 )
             }
             .background(ColorPalette.backdrop)
-            .animation(Motion.tap, value: session.transcript.pendingApprovals.isEmpty)
-            .animation(Motion.settle, value: attaching)
+            .animation(Motion.settle, value: attaching == nil)
+        }
+        .photosPicker(isPresented: $showsPhotoPicker, selection: $pickedPhoto, matching: .images)
+        .onChange(of: pickedPhoto) { _, item in
+            guard let item else { return }
+            pickedPhoto = nil
+            Task { await attachPhoto(item, session: session) }
         }
         .fileImporter(
             isPresented: $showsAttachPicker,
@@ -363,57 +399,29 @@ struct AgentChatScreen: View {
             beginAttachment(url, session: session)
         }
         .onChange(of: model.isWritingFile(sessionID: model.browserID ?? UUID())) { _, writing in
-            guard !writing, let pending = attaching else { return }
+            guard !writing, var pending = attaching else { return }
             attaching = nil
-            if model.uploadFailure(sessionID: model.browserID ?? UUID()) == nil {
-                let mention = "@" + pending.path
-                let existing = drafts[currentID] ?? ""
-                drafts[currentID] = existing.isEmpty ? mention + " " : existing + " " + mention + " "
-                composerFocused = true
-            }
+            pending.failure = model.uploadFailure(sessionID: model.browserID ?? UUID())
+            attached[currentID, default: []].append(pending)
         }
         .sheet(item: $answering) { approval in
             AgentApprovalSheet(approval: approval) { decision in
                 model.respondToAgentApproval(approval.id, decision: decision, in: session.id)
                 answering = nil
             }
-            // Sized to content: a medium detent left a screenful of nothing under a short ask.
-            .presentationSizing(.fitted)
             .presentationDragIndicator(.visible)
         }
     }
 
     private func emptyChat(_ session: RemoteAgentSession) -> some View {
-        let agent = TerminalAgent.all.first { $0.id == session.agentID }
-        return VStack(spacing: 12) {
-            Spacer(minLength: 20)
-            IconTile(symbol: agent?.symbol ?? "sparkles", size: 56)
-            VStack(spacing: 5) {
-                Text(verbatim: agent?.name ?? session.title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(ColorPalette.ink)
-                Text(session.directory)
-                    .font(.caption2.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 24)
-            }
-            if session.state == .exited || session.state == .failed {
-                Text("This chat has ended. Its conversation is above; start a new chat to keep going.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            } else {
-                Text("Runs on your Mac, not here. It keeps working when you disconnect.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            Spacer()
+        AgentEmptyChat(
+            agent: TerminalAgent.all.first { $0.id == session.agentID },
+            session: session,
+            compact: composerFocused
+        ) { text in
+            drafts[session.id] = text
+            composerFocused = true
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 20)
     }
 
     private var ended: some View {
@@ -432,49 +440,29 @@ struct AgentChatScreen: View {
         model.browserID != nil && model.hostSupportsFileBrowser
     }
 
+    /// Re-encoded as JPEG: a library photo is usually HEIC, which the agents cannot read.
+    private func attachPhoto(_ item: PhotosPickerItem, session: RemoteAgentSession) async {
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data),
+              let jpeg = image.jpegData(compressionQuality: 0.9)
+        else { return }
+        let stamp = Date.now.formatted(.verbatim("\(year: .defaultDigits)\(month: .twoDigits)\(day: .twoDigits)-\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased))\(minute: .twoDigits)\(second: .twoDigits)", locale: .init(identifier: "en_US_POSIX"), timeZone: .current, calendar: .current))
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let url = folder.appendingPathComponent("Photo-\(stamp).jpg")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try jpeg.write(to: url)
+        } catch { return }
+        beginAttachment(url, session: session)
+    }
+
     private func beginAttachment(_ url: URL, session: RemoteAgentSession) {
         guard let id = model.browserID else { return }
         let name = url.lastPathComponent
         let folder = session.directory
         let path = folder.hasSuffix("/") ? folder + name : folder + "/" + name
-        attaching = Attachment(name: name, path: path)
+        attaching = Attachment(name: name, path: path, thumbnail: Attachment.thumbnail(of: url))
         model.uploadFile(url, toFolder: folder, sessionID: id)
-    }
-
-    @ViewBuilder
-    private func attachmentLine(_ attachment: Attachment, session: RemoteAgentSession) -> some View {
-        let id = model.browserID ?? UUID()
-        let failure = model.uploadFailure(sessionID: id)
-        HStack(spacing: 7) {
-            if failure == nil {
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(.secondary)
-            } else {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(ColorPalette.danger)
-            }
-            Text(failure ?? String(localized: "Sending \(attachment.name) to your Mac…"))
-                .font(.system(size: 12))
-                .foregroundStyle(failure == nil ? .secondary : ColorPalette.danger)
-                .lineLimit(2)
-            Spacer(minLength: 6)
-            Button {
-                attaching = nil
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 26, height: 26)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss")
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .transition(.opacity)
     }
 
     private var draft: Binding<String> {
@@ -485,50 +473,13 @@ struct AgentChatScreen: View {
     }
 
     private func send(_ session: RemoteAgentSession) {
-        let text = drafts[session.id] ?? ""
+        // The files go first as `@path`, the CLIs' own way to read one; the transcript turns them back into chips.
+        let mentions = (attached[session.id] ?? []).filter { $0.failure == nil }.map { "@" + $0.path }
+        let text = (mentions + [drafts[session.id] ?? ""]).filter { !$0.isEmpty }.joined(separator: " ")
         drafts[session.id] = ""
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) { attached[session.id] = nil }
         stickToBottom = true
         model.sendAgentPrompt(text, to: session.id)
-    }
-}
-
-struct Attachment: Equatable {
-    let name: String
-    let path: String
-}
-
-private enum AgentSuggestions {
-    static let all: [String] = [
-        String(localized: "What does this project do?"),
-        String(localized: "Fix the failing tests"),
-        String(localized: "Review the latest changes"),
-    ]
-}
-
-private struct AgentSuggestionStrip: View {
-    let pick: (String) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(AgentSuggestions.all, id: \.self) { text in
-                    Button { pick(text) } label: {
-                        Text(text)
-                            .font(.system(size: 13.5, weight: .medium))
-                            .foregroundStyle(ColorPalette.ink)
-                            .lineLimit(1)
-                            .padding(.horizontal, 14)
-                            .frame(height: 34)
-                            .glassSurface(in: Capsule(), interactive: true)
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 4)
-        }
-        .scrollBounceBehavior(.basedOnSize)
     }
 }
 
@@ -540,7 +491,15 @@ private struct AgentChatTranscript: View {
     @Binding var stickToBottom: Bool
     /// A running Codex turn cannot take another question.
     let canSend: Bool
+    let queued: [String]
+    let unqueue: (Int) -> Void
     let resend: (String) -> Void
+    let review: (AgentApproval) -> Void
+
+    private func approval(for item: AgentTranscriptItem) -> AgentApproval? {
+        guard case .tool(_, let tool) = item, case .awaitingApproval = tool.state else { return nil }
+        return session.transcript.pendingApprovals.first { $0.call.id == tool.call.id }
+    }
 
     var body: some View {
         ScrollViewReader { reader in
@@ -557,8 +516,19 @@ private struct AgentChatTranscript: View {
                             item: item,
                             expandedTools: $expandedTools,
                             canSend: canSend,
-                            resend: resend
+                            resend: resend,
+                            approval: approval(for: item),
+                            review: review
                         )
+                        .agentRowArrival()
+                    }
+                    ForEach(Array(queued.enumerated()), id: \.offset) { offset, text in
+                        AgentQueuedRow(text: text, position: offset + 1, total: queued.count) { unqueue(offset) }
+                            .agentRowArrival()
+                    }
+                    if session.transcript.state == .working {
+                        AgentThinkingRow()
+                            .transition(.opacity.combined(with: .offset(y: 8)))
                     }
                     if let failure = session.failure {
                         Text(failure)
@@ -569,6 +539,9 @@ private struct AgentChatTranscript: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
+                .animation(Motion.settle, value: session.transcript.items.count)
+                .animation(Motion.settle, value: queued.count)
+                .animation(Motion.settle, value: session.transcript.state == .working)
             }
             .scrollBounceBehavior(.basedOnSize)
             .scrollDismissesKeyboard(.interactively)
@@ -591,39 +564,95 @@ private struct AgentChatTranscript: View {
     }
 }
 
+private struct AgentQueuedRow: View {
+    let text: String
+    let position: Int
+    let total: Int
+    let remove: () -> Void
+
+    var body: some View {
+        HStack {
+            Spacer(minLength: 40)
+            VStack(alignment: .trailing, spacing: 5) {
+                AgentPlainText(text: text)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    }
+                    .opacity(0.6)
+                HStack(spacing: 5) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10, weight: .semibold))
+                        .symbolEffect(.pulse)
+                    Text(label)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundStyle(.white.opacity(0.7))
+                .padding(.horizontal, 9)
+                .frame(height: 22)
+                .background(.white.opacity(0.08), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.14)))
+            }
+            .contextMenu {
+                Button("Remove from queue", systemImage: "xmark", role: .destructive, action: remove)
+                    .menuDanger()
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Queued, not started yet"))
+    }
+
+    private var label: LocalizedStringKey {
+        total > 1 ? "Queued, \(position) of \(total), not started" : "Queued, starts when this turn ends"
+    }
+}
+
 private struct AgentTranscriptRow: View {
     let item: AgentTranscriptItem
     @Binding var expandedTools: Set<UUID>
     let canSend: Bool
     let resend: (String) -> Void
+    /// Set while this tool call is the question the agent is waiting on.
+    var approval: AgentApproval?
+    var review: (AgentApproval) -> Void = { _ in }
 
     var body: some View {
         switch item {
         case .user(let id, let text):
+            let (files, rest) = AgentMentions.split(text)
             HStack {
                 Spacer(minLength: 40)
-                AgentPlainText(text: text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(LinearGradient(
-                                colors: [.white.opacity(0.09), .white.opacity(0.045)],
-                                startPoint: .top, endPoint: .bottom
-                            ))
+                VStack(alignment: .trailing, spacing: 6) {
+                    ForEach(files, id: \.self) { path in
+                        AgentFileChip(name: (path as NSString).lastPathComponent, symbol: AgentFileGlyph.symbol(for: path))
                     }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(.white.opacity(0.07))
+                    if !rest.isEmpty || files.isEmpty {
+                        AgentPlainText(text: files.isEmpty ? text : rest)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                            .background {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(LinearGradient(
+                                        colors: [.white.opacity(0.09), .white.opacity(0.045)],
+                                        startPoint: .top, endPoint: .bottom
+                                    ))
+                            }
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(.white.opacity(0.07))
+                            }
                     }
-                    .contextMenu {
-                        Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                }
+                .contextMenu {
+                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
+                        .menuInk()
+                    if canSend {
+                        Button("Ask again", systemImage: "arrow.clockwise") { resend(text) }
                             .menuInk()
-                        if canSend {
-                            Button("Ask again", systemImage: "arrow.clockwise") { resend(text) }
-                                .menuInk()
-                        }
                     }
+                }
             }
             .id(id)
 
@@ -637,6 +666,10 @@ private struct AgentTranscriptRow: View {
 
         case .tool(let id, let tool):
             AgentToolCard(tool: tool, isExpanded: expandedTools.contains(id)) {
+                if let approval {
+                    review(approval)
+                    return
+                }
                 withAnimation(Motion.settle) {
                     if expandedTools.contains(id) { expandedTools.remove(id) } else { expandedTools.insert(id) }
                 }
@@ -789,6 +822,9 @@ private struct AgentToolCard: View {
                     Image(systemName: symbol)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(tint)
+                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: tool.state == .ok)
+                        .symbolEffect(.variableColor.iterative, isActive: tool.state == .running)
                         .frame(width: 28, height: 28)
                         .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
@@ -827,6 +863,8 @@ private struct AgentToolCard: View {
         .background {
             RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.clear)
         }
+        .runningEdge(tool.state == .running, radius: 16)
+        .animation(Motion.settle, value: tool.state)
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
@@ -865,9 +903,12 @@ private struct AgentToolCard: View {
                 .controlSize(.mini)
                 .tint(.white.opacity(0.6))
         case .awaitingApproval:
-            Text("Needs you")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(ColorPalette.caution)
+            Text("Review")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ColorPalette.onInk)
+                .padding(.horizontal, 11)
+                .frame(height: 26)
+                .background(Capsule().fill(ColorPalette.ink))
         case .denied:
             Text("Denied")
                 .font(.caption2.weight(.semibold))
@@ -1033,8 +1074,11 @@ private struct AgentApprovalSheet: View {
 
     private var options: [AgentToolOption] { call.options ?? [] }
 
+    @State private var height: CGFloat = 340
+
     var body: some View {
-        // A plain stack, not a scroller: a scroll view's ideal height is as much as it is given, which defeats a content-sized sheet.
+        // Measured inside a scroll view: measured in a plain stack the content was squeezed to the sheet's own height first, so a long question could never make the sheet taller and was cut off. The scroll view proposes no height, and still scrolls if the ask outgrows the screen.
+        ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             header
             if let detail = approval.reason ?? call.detail, !detail.isEmpty {
@@ -1060,16 +1104,21 @@ private struct AgentApprovalSheet: View {
             }
         }
         .padding(20)
-        .background(ColorPalette.backdrop)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        // Measured rather than `.fitted`, which left a screen-tall sheet with the system's tint around the content.
+        .presentationDetents([.height(height), .large])
+        .presentationBackground(ColorPalette.backdrop)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: options.isEmpty ? "hand.raised.fill" : "questionmark.bubble.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(ColorPalette.caution)
+                .foregroundStyle(.white.opacity(0.9))
                 .frame(width: 30, height: 30)
-                .background(ColorPalette.caution.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: call.title)
                     .font(.system(size: 16, weight: .semibold))
@@ -1136,73 +1185,82 @@ private struct AgentApprovalSheet: View {
     }
 }
 
+enum AttachSource { case photos, files }
+
 private struct AgentComposer: View {
     @Binding var text: String
     @FocusState.Binding var isFocused: Bool
     let isWorking: Bool
     let canSend: Bool
     let send: () -> Void
-    var attach: (() -> Void)?
+    var attach: ((AttachSource) -> Void)?
     let stop: () -> Void
 
+    /// While a turn runs, typing turns Stop into a send that queues.
+    private var showsStop: Bool { isWorking && !canSend }
+
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: InputBar.height / 2, style: .continuous)
         HStack(alignment: .bottom, spacing: 8) {
-            if let attach {
-                Button(action: attach) {
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.8))
-                        .frame(width: 34, height: 34)
-                        .contentShape(Circle())
+            InputCapsule(alignment: .bottom) {
+                if let attach {
+                    Menu {
+                        Button { attach(.photos) } label: { Label("Photo Library", systemImage: "photo.on.rectangle") }
+                        Button { attach(.files) } label: { Label("Files", systemImage: "folder") }
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .frame(width: 28, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .menuOrder(.fixed)
+                    .disabled(isWorking)
+                    .opacity(isWorking ? 0.4 : 1)
+                    .accessibilityLabel("Attach a file")
                 }
-                .buttonStyle(.plain)
-                .disabled(isWorking)
-                .opacity(isWorking ? 0.4 : 1)
-                .accessibilityLabel("Attach a file")
-            }
 
-            TextField("Message", text: $text, axis: .vertical)
-                .font(.system(size: 15))
-                .foregroundStyle(.white)
-                .lineLimit(1...6)
-                .focused($isFocused)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.white.opacity(0.1))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(.white.opacity(0.16))
-                }
-                .disabled(isWorking)
-
-            Button {
-                isWorking ? stop() : send()
-            } label: {
-                Image(systemName: isWorking ? "stop.fill" : "arrow.up")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(isWorking ? .white : ColorPalette.onInk)
-                    .frame(width: 34, height: 34)
-                    .background(
-                        Circle().fill(isWorking
-                            ? AnyShapeStyle(.white.opacity(0.14))
-                            : AnyShapeStyle(canSend ? ColorPalette.ink : .white.opacity(0.25)))
-                    )
-                    .contentShape(Circle())
+                TextField(isWorking ? "Queue a message…" : "Message", text: $text, axis: .vertical)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white)
+                    .lineLimit(1...6)
+                    .focused($isFocused)
+                    .padding(.vertical, 12)
             }
-            .buttonStyle(.plain)
-            .disabled(!isWorking && !canSend)
-            .accessibilityLabel(isWorking ? "Stop" : "Send")
+            .overlay {
+                shape.strokeBorder(.white.opacity(isFocused ? 0.3 : 0), lineWidth: 1)
+            }
+            .runningEdge(isWorking, radius: InputBar.height / 2)
+            .contentShape(shape)
+            .onTapGesture { isFocused = true }
+            .animation(Motion.tap, value: isFocused)
+
+            InputSendButton(
+                symbol: showsStop ? "stop.fill" : "arrow.up",
+                isEnabled: showsStop || canSend,
+                filled: !showsStop,
+                label: showsStop ? "Stop" : (isWorking ? "Queue" : "Send")
+            ) {
+                showsStop ? stop() : send()
+            }
         }
-        .animation(Motion.tap, value: isWorking)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(Color.white.opacity(0.02).overlay(ColorPalette.backdrop))
-        .overlay(alignment: .top) {
-            Rectangle().fill(.white.opacity(0.08)).frame(height: 1)
+        .padding(.bottom, 6)
+    }
+}
+
+private struct AgentHistoryLoading: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.regular)
+                .tint(.white.opacity(0.7))
+            Text("Loading the conversation")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.5))
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }

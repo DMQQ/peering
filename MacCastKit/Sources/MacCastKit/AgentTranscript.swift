@@ -50,6 +50,9 @@ public struct AgentTranscript: Equatable {
     /// transcript begins mid-story rather than pretending it does not.
     public private(set) var truncatedAtFront = false
 
+    /// Kept as it arrives: a card in a list reads it on every streamed event, and finding it by walking the whole conversation each time was most of that cost.
+    public private(set) var latestPlan: [AgentPlanStep]?
+
     private var openReplyID: UUID?
     /// An approximate total of the text held, kept so trimming does not walk the whole list on
     /// every token.
@@ -114,6 +117,7 @@ public struct AgentTranscript: Equatable {
 
         case .toolStarted(let call):
             openReplyID = nil
+            if let plan = call.plan, !plan.isEmpty { latestPlan = plan }
             append(.tool(id: UUID(), item: AgentToolItem(call: call, state: .running, output: nil, truncated: false)), bytes: 0)
             state = .working
 

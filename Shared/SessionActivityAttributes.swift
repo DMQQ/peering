@@ -45,6 +45,18 @@ nonisolated enum SharedStore {
         }
     }
 
+    /// The agent chats the phone holds, as the Agents widget and its Live Activity draw them. Written by the app, a few times a second at most.
+    static var agentChats: [AgentChatSnapshot] {
+        get {
+            guard let data = defaults?.data(forKey: "agentChats") else { return [] }
+            return (try? JSONDecoder().decode([AgentChatSnapshot].self, from: data)) ?? []
+        }
+        set {
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults?.set(data, forKey: "agentChats")
+        }
+    }
+
     /// One SSH server the phone knows about, mirrored for the widget and for Siri, which resolves "open a shell on prod" while the app is not running. Strings, not `SSHHost`: the widget does not link `SSHCore`.
     struct KnownServer: Codable, Identifiable, Hashable {
         let id: String

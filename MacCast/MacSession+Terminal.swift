@@ -687,7 +687,26 @@ extension MacSession {
     /// paid once per this many bytes rather than once per chunk.
     static let outputSlack = 64 * 1024
 
+    func refreshTerminalCards() {
+        terminalCardsTask?.cancel()
+        terminalCardsTask = nil
+        let cards = terminals.map(TerminalCardDigest.init)
+        if cards != terminalCards { terminalCards = cards }
+    }
+
+    func scheduleTerminalCards() {
+        guard terminalCardsTask == nil else { return }
+        terminalCardsTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            self?.refreshTerminalCards()
+        }
+    }
+
     func apply(terminal event: TerminalEvent) {
+        defer {
+            if case .output = event { scheduleTerminalCards() } else { refreshTerminalCards() }
+        }
         switch event {
         case .agents(let installed):
             installedAgents = Set(installed)
@@ -715,6 +734,7 @@ extension MacSession {
             // it does not re-title the shell or fill the command history with a `cd`.
             if let directory = pendingTerminalDirectory {
                 pendingTerminalDirectory = nil
+                TerminalFolders.record(directory, for: info.id)
                 sendTerminalBytes(Array("cd -- \(ShellPath.quoted(directory))\r".utf8), to: info.id)
             }
             if let command = pendingRun {

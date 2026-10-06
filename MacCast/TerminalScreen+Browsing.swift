@@ -35,6 +35,7 @@ extension TerminalScreen {
                             ?? model.browseFailure(browsingPath, sessionID: terminal.id))
                         : String(localized: "This shell has ended. Open a new terminal to browse your Mac's files."),
                     showsHidden: showsHiddenFiles,
+                    onToggleHidden: { showsHiddenFiles.toggle() },
                     // The Mac blocks in the listing call while macOS shows a Files-and-Folders prompt and the phone is told nothing, so the wait guesses and says where the answer is.
                     waitingHint: String(localized: "If your Mac is asking whether Peering may read this folder, answer it there."),
                     // Progress of a folder being sent, or what the last one came to.
@@ -78,12 +79,9 @@ extension TerminalScreen {
     func browseControls(_ terminal: RemoteTerminal) -> some View {
         FileBrowseBar(
             isEnabled: terminal.isRunning,
-            showsHidden: showsHiddenFiles,
             onInterrupt: { send("\u{03}", to: terminal.id) },
             onEscape: { send("\u{1B}", to: terminal.id) },
-            onTab: { send("\t", to: terminal.id) },
-            onReload: { model.listDirectory(browsingPath, sessionID: terminal.id) },
-            onToggleHidden: { showsHiddenFiles.toggle() }
+            onTab: { send("\t", to: terminal.id) }
         )
     }
 

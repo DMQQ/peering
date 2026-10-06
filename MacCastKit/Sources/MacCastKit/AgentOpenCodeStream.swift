@@ -128,6 +128,15 @@ public struct AgentOpenCodeStream {
         default: (title, detail) = (name.prefix(1).uppercased() + name.dropFirst(), nil)
         }
 
+        var plan: [AgentPlanStep]?
+        if name == "todowrite", let todos = input["todos"] as? [[String: Any]] {
+            let steps = todos.compactMap { todo -> AgentPlanStep? in
+                guard let text = todo["content"] as? String else { return nil }
+                return AgentPlanStep(text: text, status: AgentPlanStep.status(from: todo["status"] as? String))
+            }
+            plan = steps.isEmpty ? nil : steps
+        }
+
         var diff: String?
         if name == "edit", let unified = metadata?["diff"] as? String {
             diff = AgentLimits.trimmed(unified, to: AgentLimits.maximumToolOutputBytes).text
@@ -141,7 +150,7 @@ public struct AgentOpenCodeStream {
 
         return [
             .toolStarted(call: AgentToolCall(
-                id: id, name: name, title: title, detail: detail, filePath: filePath, diff: diff
+                id: id, name: name, title: title, detail: detail, filePath: filePath, diff: diff, plan: plan
             )),
             .toolFinished(
                 callID: id,

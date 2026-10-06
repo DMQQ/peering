@@ -35,23 +35,26 @@ extension FileBrowserPanel {
 
     // MARK: - Header
 
+    @ViewBuilder
     var header: some View {
-        VStack(spacing: 0) {
+        if showsBreadcrumbs {
             breadcrumbs
-            searchField
+                .background(Color.white.opacity(0.05))
+                // Only along the bottom: the tab strip draws the seam above, and a second hairline would read as two rules.
+                .overlay(alignment: .bottom) { hairline }
         }
-        .background(Color.white.opacity(0.05))
-        // Only along the bottom: the tab strip draws the seam above, and a second hairline would read as two rules.
-        .overlay(alignment: .bottom) { hairline }
     }
 
     /// The filter is always on screen: a control that has to be found does not get used, and a folder of two hundred rows needs it.
     /// The create control is a menu because a third circle would squeeze the filter. These controls sit beside the field, not in it, because they change the machine rather than the view.
-    @ViewBuilder
-    var searchField: some View {
-        HStack(spacing: 8) {
-            filterField
-
+    var bottomBar: some View {
+        FolderBrowserBar(
+            prompt: String(localized: "Search this folder"),
+            query: $query,
+            showsHidden: Binding(get: { showsHidden }, set: { _ in onToggleHidden?() }),
+            searchFocused: $searchFocused
+        ) {
+            // On the left, away from the send button: two round buttons side by side read as one control.
             if onCreate != nil {
                 Menu {
                     Button("New Folder", systemImage: "folder.badge.plus") {
@@ -67,13 +70,13 @@ extension FileBrowserPanel {
                 .disabled(isChanging)
                 .accessibilityLabel("New file or folder")
             }
-
+        } actions: {
             if onUpload != nil {
                 // The button rather than the row, dimmed with the plan's name on its corner for plans without file transfer: a free user who never sees the control never learns the app can do it. Tapping opens the plans.
                 PlanLocked(
                     capability: .fileTransfer,
                     title: "Send a file or a folder here",
-                    diameter: 32
+                    diameter: 48
                 ) {
                     Button { showsImporter = true } label: {
                         chrome("arrow.up.to.line")
@@ -84,16 +87,14 @@ extension FileBrowserPanel {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 10)
     }
 
     func chrome(_ symbol: String) -> some View {
         Image(systemName: symbol)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(ColorPalette.ink)
-            .frame(width: 32, height: 32)
-            .background(Color.white.opacity(0.07), in: Circle())
+            .frame(width: 48, height: 48)
+            .glassSurface(in: Circle())
             .contentShape(Circle())
     }
 
@@ -107,41 +108,6 @@ extension FileBrowserPanel {
             among: directory?.entries.map(\.name) ?? []
         )
         pendingCreate = kind
-    }
-
-    var filterField: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-
-            TextField("Filter these names", text: $query)
-                .textFieldStyle(.plain)
-                .font(.system(size: 13))
-                .foregroundStyle(ColorPalette.ink)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .focused($searchFocused)
-                // Return puts the keyboard away: this panel cannot add a key to the host keyboard (the Mac panel's Done is wired to the command field and the SSH screen has none).
-                .submitLabel(.done)
-                .onSubmit { searchFocused = false }
-
-            if !query.isEmpty {
-                Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 24, height: 24)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Clear the filter")
-            }
-        }
-        .padding(.leading, 11)
-        .padding(.trailing, query.isEmpty ? 11 : 5)
-        .frame(height: 32)
-        .background(Color.white.opacity(0.07), in: Capsule())
     }
 
     // MARK: - Breadcrumbs

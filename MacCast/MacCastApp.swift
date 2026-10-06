@@ -90,6 +90,7 @@ struct MacCastApp: App {
                         model.startBrowsing()
                     }
                     TerminalActivity.shared.adoptOrphan()
+                    AgentChatActivity.shared.adoptOrphan()
                 }
                 // PiP cannot wait for a tap: it is armed in advance and spends itself when the app is left, so the plan is pushed in on every change and the holder keeps the last. See ``SessionPiP/isOnPlan``.
                 .onChange(of: model.storeManager.access) { _, _ in
@@ -136,6 +137,14 @@ struct MacCastApp: App {
                         } else {
                             model.reconnectToLastHost()
                         }
+                    case "chat":
+                        // A chat lives on its Mac: that Mac is opened first, and the chat is asked for once its screen is up (see `InAppBanner.openChatRequest`).
+                        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+                        guard let chatID = items?.first(where: { $0.name == "id" })?.value.flatMap(UUID.init(uuidString:)) else { return }
+                        if let hostID = items?.first(where: { $0.name == "host" })?.value {
+                            model.openFromNotification(hostID: hostID, sourceID: nil)
+                        }
+                        InAppBanner.shared.openChatRequest = chatID
                     case "disconnect":
                         model.disconnect()
                     case "end-shells":

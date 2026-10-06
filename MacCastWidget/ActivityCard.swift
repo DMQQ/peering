@@ -13,6 +13,7 @@ struct ActivityCard: View {
     var action: ActivityCardAction?
 
     var work: [SessionActivityAttributes.ContentState.Work] = []
+    var plan: ActivityCardPlan?
 
     static let workRows = 3
 
@@ -29,6 +30,9 @@ struct ActivityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             sessionRow
+            if let plan {
+                PlanBar(plan: plan)
+            }
             if !work.isEmpty {
                 Rectangle()
                     .fill(.white.opacity(0.18))
@@ -196,5 +200,63 @@ private extension View {
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
             .background(.white.opacity(0.16), in: Capsule())
+    }
+}
+
+/// An agent's own plan under the card: how far along it is and the step it is on.
+struct ActivityCardPlan {
+    let done: Int
+    let total: Int
+    let stepNumber: Int?
+    let step: String?
+}
+
+struct PlanBar: View {
+    let plan: ActivityCardPlan
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            PlanSegments(done: plan.done, total: plan.total)
+            HStack(spacing: 6) {
+                if let number = plan.stepNumber {
+                    Text("Step \(number) of \(plan.total)")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                if let step = plan.step {
+                    Text(step)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+}
+
+/// Done steps bright, the one in hand half, the rest faint; a long plan is one bar.
+struct PlanSegments: View {
+    let done: Int
+    let total: Int
+
+    var body: some View {
+        if total <= 14 {
+            HStack(spacing: 3) {
+                ForEach(0..<total, id: \.self) { index in
+                    Capsule()
+                        .fill(.white.opacity(index < done ? 0.85 : (index == done ? 0.4 : 0.14)))
+                        .frame(height: 4)
+                }
+            }
+        } else {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.14))
+                    Capsule().fill(.white.opacity(0.85))
+                        .frame(width: geometry.size.width * CGFloat(done) / CGFloat(max(total, 1)))
+                }
+            }
+            .frame(height: 4)
+        }
     }
 }

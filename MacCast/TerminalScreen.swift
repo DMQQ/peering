@@ -386,45 +386,49 @@ struct TerminalScreen: View {
 
     func input(_ terminal: RemoteTerminal) -> some View {
         HStack(spacing: 8) {
-            // Keyboard dismiss at the far end from send, always shown so layout does not jump on focus.
-            TerminalHideKeyboardKey {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-
-            if !model.terminalHistory.isEmpty {
-                Button {
-                    withAnimation(Motion.tap) { showsHistory.toggle() }
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(showsHistory ? ColorPalette.accent : Color.secondary)
-                        .frame(width: 30, height: 30)
-                        .contentShape(Rectangle())
+            InputCapsule {
+                if !model.terminalHistory.isEmpty {
+                    Button {
+                        withAnimation(Motion.tap) { showsHistory.toggle() }
+                    } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(showsHistory ? ColorPalette.accent : Color.secondary)
+                            .frame(width: 28, height: 36)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showsHistory ? "Hide command history" : "Show command history")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(showsHistory ? "Hide command history" : "Show command history")
-            }
 
-            TerminalCommandField(
-                text: $command,
-                isFocused: Binding(
-                    get: { inputFocused },
-                    set: { inputFocused = $0 }
-                ),
-                placeholder: terminal.isRunning ? String(localized: "Type a command") : String(localized: "Process exited"),
-                isEnabled: terminal.isRunning,
-                onSubmit: { submit(to: terminal.id) }
-            )
-            // A height, not a minimum: a `UITextField` has no intrinsic height SwiftUI holds, so `minHeight` grew the row to a 328pt band.
-            .frame(height: TerminalCommandField.height)
-            Button { submit(to: terminal.id) } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
+                TerminalCommandField(
+                    text: $command,
+                    isFocused: Binding(
+                        get: { inputFocused },
+                        set: { inputFocused = $0 }
+                    ),
+                    placeholder: terminal.isRunning ? String(localized: "Type a command") : String(localized: "Process exited"),
+                    isEnabled: terminal.isRunning,
+                    onSubmit: { submit(to: terminal.id) }
+                )
+                // A height, not a minimum: a `UITextField` has no intrinsic height SwiftUI holds, so `minHeight` grew the row to a 328pt band.
+                .frame(height: TerminalCommandField.height)
+
+                if inputFocused {
+                    TerminalHideKeyboardKey()
+                }
             }
-            .disabled(!terminal.isRunning || command.isEmpty)
+            .animation(Motion.tap, value: inputFocused)
+
+            // An empty line sends Return on its own, which is what the deck's Enter key was.
+            InputSendButton(
+                symbol: command.isEmpty ? "return" : "arrow.up",
+                isEnabled: terminal.isRunning,
+                label: command.isEmpty ? "Enter" : "Send"
+            ) {
+                if command.isEmpty { self.send("\r", to: terminal.id) } else { submit(to: terminal.id) }
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.black)
-        .overlay(alignment: .top) { hairline }
+        .inputBarMargins()
     }
 }

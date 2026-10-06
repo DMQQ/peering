@@ -310,6 +310,7 @@ struct SSHTerminalScreen: View {
                             ?? model.browseFailure(browsingPath, sessionID: terminal.id))
                         : String(localized: "This shell has ended. Open a new shell to browse the server's files."),
                     showsHidden: showsHiddenFiles,
+                    onToggleHidden: { showsHiddenFiles.toggle() },
                     onOpen: { open($0) },
                     onNavigate: { navigate(to: $0) },
                     onRevealPath: { reveal($0) },
@@ -347,12 +348,9 @@ struct SSHTerminalScreen: View {
     private var browseControls: some View {
         FileBrowseBar(
             isEnabled: canType,
-            showsHidden: showsHiddenFiles,
             onInterrupt: { model.send(Data("\u{03}".utf8), to: terminal) },
             onEscape: { model.send(Data("\u{1B}".utf8), to: terminal) },
-            onTab: { model.send(Data("\t".utf8), to: terminal) },
-            onReload: { model.listDirectory(browsingPath, sessionID: terminal.id) },
-            onToggleHidden: { showsHiddenFiles.toggle() }
+            onTab: { model.send(Data("\t".utf8), to: terminal) }
         )
     }
 
@@ -401,33 +399,34 @@ struct SSHTerminalScreen: View {
 
     private var input: some View {
         HStack(spacing: 8) {
-            TerminalHideKeyboardKey {
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
+            InputCapsule {
+                TerminalCommandField(
+                    text: $command,
+                    isFocused: $inputFocused,
+                    placeholder: String(localized: "Send a command"),
+                    isEnabled: canType,
+                    onSubmit: submit
+                )
+                // A `UITextField` has no intrinsic height, so the frame is here rather than inside the
+                // representable, and it is the representable's own number.
+                .frame(height: TerminalCommandField.height)
 
-            TerminalCommandField(
-                text: $command,
-                isFocused: $inputFocused,
-                placeholder: String(localized: "Send a command"),
+                if inputFocused {
+                    TerminalHideKeyboardKey()
+                }
+            }
+            .animation(Motion.tap, value: inputFocused)
+
+            // An empty line sends Return on its own, which is what the deck's Enter key was.
+            InputSendButton(
+                symbol: command.isEmpty ? "return" : "arrow.up",
                 isEnabled: canType,
-                onSubmit: submit
-            )
-            // A `UITextField` has no intrinsic height, so the frame is here rather than inside the
-            // representable, and it is the representable's own number.
-            .frame(height: TerminalCommandField.height)
-
-            Button(action: submit) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 26))
-                    .foregroundStyle(command.isEmpty ? ColorPalette.ink.opacity(0.28) : ColorPalette.accent)
+                label: command.isEmpty ? "Enter" : "Send"
+            ) {
+                if command.isEmpty { model.send(Data("\r".utf8), to: terminal) } else { submit() }
             }
-            .disabled(command.isEmpty)
-            .accessibilityLabel("Send")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.black)
-        .overlay(alignment: .top) { hairline }
+        .inputBarMargins()
     }
 
     private func submit() {

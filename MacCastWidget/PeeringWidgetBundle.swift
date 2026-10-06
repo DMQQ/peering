@@ -5,7 +5,9 @@ import WidgetKit
 struct PeeringWidgetBundle: WidgetBundle {
     var body: some Widget {
         QuickConnectWidget()
+        AgentsWidget()
         SessionLiveActivity()
         TerminalLiveActivity()
+        AgentChatLiveActivity()
     }
 }
