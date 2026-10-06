@@ -53,6 +53,11 @@ extension MacSession {
     }
 
     func refreshAgentCards() {
+        #if DEBUG
+        if AgentSeed.isRequested, !agentSessions.contains(where: { AgentSeed.owns($0.id) }) {
+            agentSessions = AgentSeed.sessions() + agentSessions
+        }
+        #endif
         agentCardsTask?.cancel()
         agentCardsTask = nil
         let cards = agentSessions.map(AgentCardDigest.init)
@@ -212,6 +217,9 @@ extension MacSession {
             }
 
         case .failed(let id, let message):
+            #if DEBUG
+            if let id, AgentSeed.owns(id) { return }
+            #endif
             if let id, let index = agentSessions.firstIndex(where: { $0.id == id }) {
                 agentSessions[index].failure = message
             } else {

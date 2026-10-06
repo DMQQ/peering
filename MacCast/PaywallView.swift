@@ -122,8 +122,6 @@ struct PaywallView: View {
                 return String(localized: "Save a sequence and fire it with a tap. The commands you type most wait as chips above the terminal keyboard, in every shell.")
             case .highBitrate:
                 return String(localized: "A sharper picture when the session is relayed. On your own network it is already uncapped on every plan.")
-            case .agentChat:
-                return String(localized: "Your coding agents as a conversation: their replies, the tools they run and the files they touch drawn natively, with an approve button where the agent asks. Running them in the terminal is on every plan.")
             }
         }
     }

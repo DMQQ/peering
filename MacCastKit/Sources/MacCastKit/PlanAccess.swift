@@ -33,10 +33,6 @@ public enum PlanCapability: String, CaseIterable, Sendable {
     /// it.
     case virtualDisplays
 
-    /// A chat with a coding agent on the Mac: the native screen, rather than the agent's own
-    /// terminal UI.
-    case agentChat
-
     public var minimumPlan: RelayPlan {
         switch self {
         case .extraMacs, .macSound, .pictureInPicture, .fileTransfer, .clipboardHistory,
@@ -46,7 +42,7 @@ public enum PlanCapability: String, CaseIterable, Sendable {
             // The second Mac costs and the first must not, which is why the gate is asked against
             // an empty list as well as a paid plan.
             return .pro
-        case .shellTabs, .virtualDisplays, .macros, .highBitrate, .mosaic, .agentChat:
+        case .shellTabs, .virtualDisplays, .macros, .highBitrate, .mosaic:
             // The toolbox: the rung somebody buys to have the tool rather than to run out of it.
             // One shell is free and only the second costs; a display the Mac does not physically
             // have is the same shape of ask.
@@ -68,7 +64,6 @@ public enum PlanCapability: String, CaseIterable, Sendable {
         case .shellTabs: return String(localized: "Several shells at once")
         case .macros: return String(localized: "Macros, snippets and quick commands")
         case .highBitrate: return String(localized: "The sharpest picture")
-        case .agentChat: return String(localized: "Chat with your coding agents")
         }
     }
 }

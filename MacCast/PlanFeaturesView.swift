@@ -353,26 +353,22 @@ struct PlanFeaturesView: View {
             PlanFeature(
                 icon: "bubble.left.and.text.bubble.right",
                 title: String(localized: "Chat with your coding agents"),
-                detail: String(localized: "An agent as a conversation: its replies, the tools it runs and the files it touches drawn natively, with Allow and Deny buttons, or the answers themselves, where it asks."),
-                capability: .agentChat
+                detail: String(localized: "An agent as a conversation: its replies, the tools it runs and the files it touches drawn natively, with Allow and Deny buttons, or the answers themselves, where it asks.")
             ),
             PlanFeature(
                 icon: "rectangle.topthird.inset.filled",
                 title: String(localized: "Answer from anywhere in the app"),
-                detail: String(localized: "When an agent finishes or needs you, a banner drops from the top of whatever you are looking at. Open it to read more, or answer it right there."),
-                capability: .agentChat
+                detail: String(localized: "When an agent finishes or needs you, a banner drops from the top of whatever you are looking at. Open it to read more, or answer it right there.")
             ),
             PlanFeature(
                 icon: "clock",
                 title: String(localized: "Queue the next message"),
-                detail: String(localized: "Keep typing while the agent works. Each message waits in line, marked as queued, and goes when the turn ends."),
-                capability: .agentChat
+                detail: String(localized: "Keep typing while the agent works. Each message waits in line, marked as queued, and goes when the turn ends.")
             ),
             PlanFeature(
                 icon: "paperclip",
                 title: String(localized: "Attach photos and files"),
-                detail: String(localized: "Pick from your photos or the phone's files. They are sent into the project folder on the Mac and shown as attachments in the conversation."),
-                capability: .agentChat
+                detail: String(localized: "Pick from your photos or the phone's files. They are sent into the project folder on the Mac and shown as attachments in the conversation.")
             ),
             PlanFeature(
                 icon: "folder.badge.gearshape",

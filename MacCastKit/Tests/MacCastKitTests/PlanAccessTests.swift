@@ -24,7 +24,6 @@ final class PlanAccessTests: XCTestCase {
         .highBitrate: .pro,
         .mosaic: .pro,
         .virtualDisplays: .pro,
-        .agentChat: .pro,
     ]
 
     func testTheMapSaysWhatTheCardsAndTheSiteSay() {

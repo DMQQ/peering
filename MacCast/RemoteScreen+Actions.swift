@@ -110,9 +110,10 @@ extension RemoteScreen {
                     .frame(width: size.width, height: size.height)
                     .background(ColorPalette.ink, in: shape)
             } else {
+                // Yields width on a narrow phone: the keyboard bar's key row adds up to more than a 402pt screen with every key at full size, and a row wider than the screen drags the header pill's buttons off both edges.
                 Image(systemName: icon)
                     .font(.system(size: glyph, weight: .semibold))
-                    .frame(width: size.width, height: size.height)
+                    .frame(minWidth: large ? size.width : 28, idealWidth: size.width, maxWidth: size.width, minHeight: size.height, maxHeight: size.height)
                     .glassSurface(in: shape, interactive: true)
             }
         }

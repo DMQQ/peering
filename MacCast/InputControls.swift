@@ -619,7 +619,7 @@ struct ModifierBar: View {
                 } label: {
                     Text(key.title)
                         .font(.system(size: 17, weight: .medium))
-                        .frame(width: large ? nil : 38, height: large ? 44 : 34)
+                        .frame(minWidth: large ? nil : 28, idealWidth: large ? nil : 38, maxWidth: large ? nil : 38, minHeight: large ? 44 : 34, maxHeight: large ? 44 : 34)
                         .frame(maxWidth: large ? .infinity : nil)
                         .foregroundStyle(isOn ? ColorPalette.ink : Color.primary)
                         .background(isOn ? ColorPalette.selectedFill : Color.clear, in: RoundedRectangle(cornerRadius: 9, style: .continuous))

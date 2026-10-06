@@ -519,14 +519,7 @@ private struct TerminalHubScreen: View {
             files: { path.append(.files(nil)) },
             chat: { if let agent = selectedAgent { path.append(.folder(agent, nil)) } },
             terminal: { if let agent = selectedAgent { start(agent) } }
-        ) { button in
-            PlanLocked(
-                capability: .agentChat,
-                title: String(localized: "Chat with \(selectedAgent?.name ?? "")"),
-                diameter: 26,
-                isIncluded: model.canOpenAgentChat
-            ) { button }
-        }
+        )
     }
 
     private func start(_ agent: TerminalAgent, restarting entry: AgentLaunch? = nil) {

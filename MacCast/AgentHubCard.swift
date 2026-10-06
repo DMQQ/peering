@@ -184,7 +184,7 @@ struct TerminalDock<Gate: View>: View {
 }
 
 /// The floating bar at the bottom: files always, and Chat and Terminal for the selected agent.
-struct AgentDock<ChatGate: View>: View {
+struct AgentDock: View {
     let agent: TerminalAgent?
     let agentCount: Int
     let openPicker: () -> Void
@@ -193,7 +193,6 @@ struct AgentDock<ChatGate: View>: View {
     let files: () -> Void
     let chat: () -> Void
     let terminal: () -> Void
-    @ViewBuilder let gate: (_ button: AnyView) -> ChatGate
 
     @State private var held = false
 
@@ -222,12 +221,10 @@ struct AgentDock<ChatGate: View>: View {
             }
             if let agent {
                 if canChat {
-                    gate(AnyView(
-                        holdsToChoose(chat) {
-                            primary("Chat with \(agent.name)", symbol: agent.symbol, id: agent.id)
-                        }
-                        .accessibilityLabel(Text("Chat with \(agent.name)"))
-                    ))
+                    holdsToChoose(chat) {
+                        primary("Chat with \(agent.name)", symbol: agent.symbol, id: agent.id)
+                    }
+                    .accessibilityLabel(Text("Chat with \(agent.name)"))
                     .frame(maxWidth: .infinity)
                     .transition(.blurReplace)
                     Button(action: terminal) {

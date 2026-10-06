@@ -7,11 +7,6 @@ extension SessionModel {
         availableAgents.filter(\.supportsChat)
     }
 
-    /// The agent's own CLI stays free in the terminal on every plan; `agentChat` buys this screen.
-    var canOpenAgentChat: Bool {
-        (activeSession?.hostSupportsAgentChat ?? false) && storeManager.access.includes(.agentChat)
-    }
-
     var agentSessions: [RemoteAgentSession] { activeSession?.agentSessions ?? [] }
 
     var agentPicker: AgentPickerState { activeSession?.agentPicker ?? AgentPickerState() }
