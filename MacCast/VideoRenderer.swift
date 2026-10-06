@@ -653,6 +653,7 @@ final class SessionPiP: NSObject {
         // Where it was asked is part of the record: a refusal names nothing, so app state is the only difference.
         lastAttempt = String(localized: "asked while \(Self.appState)")
         videoLog.notice("Asking for Picture in Picture while \(Self.appState, privacy: .public)")
+        Analytics.featureUsed(.pipStarted)
         controller.startPictureInPicture()
     }
 

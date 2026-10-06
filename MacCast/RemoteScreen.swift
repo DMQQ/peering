@@ -240,6 +240,13 @@ struct RemoteScreen: View {
         }
         .onChange(of: openPanel) { previous, panel in
             if panel == nil { chromeFrames[.panel] = nil }
+            switch panel {
+            case .shortcuts: Analytics.panelOpened(.shortcuts)
+            case .clipboard: Analytics.panelOpened(.clipboard)
+            case .sources: Analytics.panelOpened(.sources)
+            case .settings: Analytics.panelOpened(.settings)
+            case nil: break
+            }
             if panel == .sources { askForSourcePictures() }
             if previous == .sources, panel != .sources { stopWatchingSourcePictures() }
         }
@@ -257,6 +264,7 @@ struct RemoteScreen: View {
         }
         .onChange(of: showsTerminals) { _, shown in
             model.isPanelOpen = shown || openPanel != nil
+            if shown { Analytics.panelOpened(.terminals) }
             if shown { model.showKeyboard = false }
         }
         .onDisappear {

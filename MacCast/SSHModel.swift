@@ -175,6 +175,7 @@ final class SSHModel {
     // MARK: - The list
 
     func save(_ host: SSHHost) {
+        Analytics.featureUsed(.sshHostSaved)
         saved.removeAll { $0.id == host.id }
         saved.append(host)
         store.save(saved)
@@ -188,6 +189,7 @@ final class SSHModel {
     }
 
     func delete(_ host: SSHHost) {
+        Analytics.featureUsed(.sshHostDeleted)
         saved.removeAll { $0.id == host.id }
         store.save(saved)
         hosts = SSHHostStore.ordered(saved)
@@ -268,6 +270,7 @@ final class SSHModel {
 
     /// One method, not a `save` plus a `setPasscode`: a server marked passcode-locked with nothing stored behind it has no way in.
     func save(_ host: SSHHost, passcode: String?) {
+        Analytics.featureUsed(.sshHostSaved)
         var accepted = host
         if host.lock == .passcode {
             if let passcode {
@@ -301,6 +304,7 @@ final class SSHModel {
 
     /// Cancelling the system prompt is the user changing their mind, not a failed attempt, so the sheet is left exactly as it was.
     func unlockWithDevice(_ host: SSHHost) async {
+        Analytics.featureUsed(.sshUnlocked)
         guard await DeviceAuthentication.unlock(reason: String(localized: "Open a shell on \(host.displayName).")) else { return }
         acceptUnlock(of: host)
     }
@@ -353,6 +357,7 @@ final class SSHModel {
 
     @discardableResult
     func open(_ host: SSHHost, credential: SSHCredential, remember: Bool) -> SSHTerminal {
+        Analytics.featureUsed(.sshConnected)
         SessionNotifier.shared.prepareForFirstConnect()
         if remember {
             credentials.save(credential, for: host.id)

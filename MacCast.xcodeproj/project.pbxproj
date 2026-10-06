@@ -27,6 +27,8 @@
 		D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA2305B000100ABF943 /* MacCastKit */; };
 		D4C0FFA5305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA3305B000100ABF943 /* MacCastKit */; };
 		D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */ = {isa = PBXBuildFile; productRef = D4C0FFA7305B000100ABF943 /* MacCastKit */; };
+		F0A10001305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10003305B000100ABF943 /* PostHog */; };
+		F0A10002305B000100ABF943 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = F0A10004305B000100ABF943 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -163,6 +165,7 @@
 				C2C039EF30574AB600ABF943 /* RemoteCore in Frameworks */,
 				D4C0FF03305B000100ABF943 /* SSHCore in Frameworks */,
 				D4C0FFA4305B000100ABF943 /* MacCastKit in Frameworks */,
+				F0A10001305B000100ABF943 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +192,7 @@
 				C2B2281E306093ED008FB38C /* Sparkle in Frameworks */,
 				D4C0FFA6305B000100ABF943 /* MacCastKit in Frameworks */,
 				C2C039F130574AB600ABF943 /* RemoteCore in Frameworks */,
+				F0A10002305B000100ABF943 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -285,6 +289,7 @@
 				C2C039EC30574AB600ABF943 /* RemoteCore */,
 				D4C0FF02305B000100ABF943 /* SSHCore */,
 				D4C0FFA2305B000100ABF943 /* MacCastKit */,
+				F0A10003305B000100ABF943 /* PostHog */,
 			);
 			productName = MacCast;
 			productReference = C2C039BF30574AB400ABF943 /* MacCast.app */;
@@ -360,6 +365,7 @@
 				C2C039ED30574AB600ABF943 /* RemoteCore */,
 				D4C0FFA7305B000100ABF943 /* MacCastKit */,
 				E1A00002305B000100ABF943 /* Sparkle */,
+				F0A10004305B000100ABF943 /* PostHog */,
 			);
 			productName = MacCastHost;
 			productReference = C2C039F330574AB600ABF943 /* Peering.app */;
@@ -466,6 +472,7 @@
 				C2C039FB30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-certificates" */,
 				C2C039FE30574AB600ABF943 /* XCRemoteSwiftPackageReference "swift-asn1" */,
 				E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C2C039C030574AB400ABF943 /* Products */;
@@ -1163,6 +1170,14 @@
 				minimumVersion = 2.10.0;
 			};
 		};
+		F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.59.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1198,6 +1213,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E1A00001305B000100ABF943 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		F0A10003305B000100ABF943 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		F0A10004305B000100ABF943 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F0A10005305B000100ABF943 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

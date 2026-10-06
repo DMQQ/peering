@@ -14,7 +14,7 @@ enum SettingsSearch {
             case .controls: String(localized: "session controls interaction observe control picture fit fill keyboard unicode keycode open keyboard text fields close panels after selecting")
             case .quality: String(localized: "stream quality bitrate resolution video auto")
             case .remoteAccess: String(localized: "remote access relay privacy mode internet away upgrade pro")
-            case .security: String(localized: "security face id touch id biometric unlock lock passcode")
+            case .security: String(localized: "security face id touch id biometric unlock lock passcode privacy analytics usage statistics anonymous")
             case .pip: String(localized: "picture in picture pip float automatically floating window")
             case .widget: String(localized: "home screen widget")
             case .liveActivity: String(localized: "live activity lock screen dynamic island")

@@ -23,6 +23,7 @@ extension SessionModel {
     /// The one path into a Mac with no pin behind it: the user has just read a device ID off the other machine. The guard is answered, not relaxed: the Mac still asks both people to compare six digits.
     @discardableResult
     func pairWithRemoteMac(hostID text: String) -> PairingPayloadError? {
+        Analytics.featureUsed(.remotePairingStarted)
         let hostID: String
         do {
             hostID = try PairingPayload.hostID(from: text)
@@ -46,6 +47,10 @@ extension SessionModel {
     func confirmPairing(accepted: Bool) {
         // Declining ends the session from the Mac's side too and arrives as `.disconnected`, so without this the user's own "no" reads as a lost connection.
         if !accepted { activeSession?.userEndedDeliberately = true }
+        Analytics.pairingDecided(accepted: accepted)
+        PostHogLog.info("pairing decision submitted", attributes: [
+            "pairing_outcome": accepted ? "accepted" : "declined",
+        ])
         session?.confirmPairing(accepted: accepted)
     }
 
@@ -54,6 +59,7 @@ extension SessionModel {
         // Taken first: the card that outlives a non-deliberate end needs both, and below they are nil.
         let wasStartedAt = sessionStartedAt
         let wasPath = MacSession.activityPath(connectionPath)
+        let analyticsPath = connectionPath?.rawValue ?? "unknown"
 
         // Only for a deliberate end: a drop and the end iOS forces should find the session restored on return.
         if deliberate { UserDefaults.standard.set(false, forKey: Self.resumeKey) }
@@ -90,6 +96,10 @@ extension SessionModel {
         SessionPiP.shared.detach()
 
         if deliberate {
+            Analytics.sessionEnded(path: analyticsPath)
+            PostHogLog.info("session disconnect requested", attributes: [
+                "connection_path": analyticsPath,
+            ])
             SessionActivity.shared.sessionEnded()
         } else {
             SessionActivity.shared.sessionDropped(
@@ -181,6 +191,7 @@ extension SessionModel {
 
     /// `UserDefaults` rather than the app group: the widget only needs to know there is one Mac to offer, which keeps a shared container out of the feature.
     func connectToManualAddress() {
+        Analytics.featureUsed(.manualAddressConnect)
         guard let port = UInt16(manualPort.trimmingCharacters(in: .whitespaces)) else {
             append(note: String(localized: "“\(manualPort)” is not a port number."))
             return
@@ -439,6 +450,7 @@ extension SessionModel {
 
     /// The Mac keeps its half, so the next connection is refused by it until unpaired there too: the honest behaviour for "forget".
     func forget(hostID: String) {
+        Analytics.featureUsed(.macForgotten)
         pins.remove(hostID: hostID)
         pairedHostIDs = pins.hostIDs
         publishKnownMacs()

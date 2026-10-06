@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>PostHogHost</key>
+	<string>https://eu.i.posthog.com</string>
+	<key>PostHogProjectToken</key>
+	<string>phc_rHyoJfChRvDwVG6jizmJkvpGjQ2yLrKMxAY9GUpWf4QW</string>
 	<key>CFBundleDisplayName</key>
 	<string>Peering</string>
 	<key>CFBundleName</key>

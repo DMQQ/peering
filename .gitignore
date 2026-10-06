@@ -66,3 +66,4 @@ codex-session-*.md
 
 # Design-tool scratch state, written beside whatever it was pointed at.
 .impeccable/
+.env

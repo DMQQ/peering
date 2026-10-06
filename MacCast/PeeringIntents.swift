@@ -93,6 +93,7 @@ struct ConnectToMacIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        await MainActor.run { Analytics.featureUsed(.intentRun) }
         guard let model = IntentHost.model else {
             return .result(dialog: "Peering is not ready yet. Try again in a moment.")
         }
@@ -114,6 +115,7 @@ struct DisconnectIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        await MainActor.run { Analytics.featureUsed(.intentRun) }
         // **Any Mac, not the one on screen.** With several open, asking about the active
         // session's phase would answer "not connected" while two other Macs are connected, and
         // the phrase is the same one a user says to mean stop everything.
@@ -137,6 +139,7 @@ struct OpenShellIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        await MainActor.run { Analytics.featureUsed(.intentRun) }
         guard let model = IntentHost.servers else {
             return .result(dialog: "Peering is not ready yet. Try again in a moment.")
         }
@@ -168,6 +171,7 @@ struct EndShellsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        await MainActor.run { Analytics.featureUsed(.intentRun) }
         guard let model = IntentHost.servers, !model.openShells.isEmpty else {
             return .result(dialog: "No shells are open.")
         }

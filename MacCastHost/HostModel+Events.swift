@@ -152,6 +152,7 @@ extension HostModel {
 
     /// A brightness write where it holds, otherwise a cover window the window server keeps out of capture.
     func setPrivacyMode(_ enabled: Bool) {
+        Analytics.track(.privacyModeChanged)
         if enabled {
             guard !privacyModeEnabled else { return }
             // Before the cover goes up, so a display that arrives while it is up is not missed:

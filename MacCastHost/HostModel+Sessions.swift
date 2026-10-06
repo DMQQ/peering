@@ -67,6 +67,7 @@ extension HostModel {
     }
 
     func beginSession(id: String, name: String) {
+        Analytics.track(.sessionStarted)
         openSessions[id] = OpenSession(
             deviceName: name,
             started: Date(),
@@ -173,6 +174,7 @@ extension HostModel {
     }
 
     func endSession(id: String) {
+        Analytics.track(.sessionEnded)
         guard let open = openSessions.removeValue(forKey: id) else {
             hostLog.notice("session closed for \(id, privacy: .public) with nothing open for it")
             return

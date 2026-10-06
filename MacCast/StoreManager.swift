@@ -148,6 +148,12 @@ final class StoreManager {
         isPurchasing = true
         purchaseError = nil
         defer { isPurchasing = false }
+        let outcome = await performPurchase(product)
+        Analytics.purchaseFinished(outcome: "\(outcome)")
+        return outcome
+    }
+
+    private func performPurchase(_ product: Product) async -> PurchaseOutcome {
         do {
             switch try await product.purchase() {
             case .success(let verification):
@@ -174,6 +180,7 @@ final class StoreManager {
     /// Returns the outcome because the screen must tell "restored nothing" from "restored something".
     @discardableResult
     func restore() async -> Bool {
+        Analytics.featureUsed(.restorePurchases)
         isPurchasing = true
         purchaseError = nil
         defer { isPurchasing = false }

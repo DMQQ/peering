@@ -32,6 +32,10 @@ extension HostStatusView {
 
                 Divider().padding(.leading, 52)
 
+                analyticsRow
+
+                Divider().padding(.leading, 52)
+
                 clientPointerRow
 
                 Divider().padding(.leading, 52)
@@ -108,6 +112,35 @@ extension HostStatusView {
                 .controlSize(.small)
                 // The accent, unlike the rest of the window: a switch with no colour differs on and off only by knob position.
                 .tint(HostPalette.accent)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    var analyticsRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "chart.bar")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(analyticsEnabled ? HostPalette.ink : HostPalette.muted)
+                .frame(width: 26, height: 26)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Share anonymous usage statistics")
+                    .font(.subheadline.weight(.medium))
+                Text("Counts of which screens and features are used, and crash reports. Never your screen, files, commands or names, and nothing that identifies you or this Mac.")
+                    .hostCaption()
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle("", isOn: $analyticsEnabled)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .tint(HostPalette.accent)
+                .onChange(of: analyticsEnabled) { _, enabled in
+                    PostHogConfiguration.setEnabled(enabled)
+                }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

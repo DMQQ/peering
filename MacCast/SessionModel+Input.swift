@@ -11,6 +11,7 @@ extension SessionModel {
     static let pointerSpeeds: [Double] = [1, 1.5, 2, 2.5, 3]
 
     func cyclePointerSpeed() {
+        Analytics.featureUsed(.pointerSpeedChanged)
         let speeds = Self.pointerSpeeds
         // `firstIndex` on the value, not a stored index: a speed not in the list (an older build's or hand-edited default) restarts the cycle instead of trapping.
         let index = speeds.firstIndex(of: pointerSpeed) ?? 0
@@ -32,6 +33,7 @@ extension SessionModel {
     }
 
     func setObserveOnly(_ enabled: Bool) {
+        Analytics.featureUsed(.observeOnlyChanged)
         guard enabled != isObserving else { return }
         if enabled { releaseLatchedModifiers() }
         isObserving = enabled
@@ -52,12 +54,14 @@ extension SessionModel {
     }
 
     func setPrivacyMode(_ enabled: Bool) {
+        Analytics.featureUsed(.privacyModeChanged)
         guard phase == .ready else { return }
         privacyModeEnabled = enabled
         send(.setPrivacyMode(enabled: enabled))
     }
 
     func lockMac() {
+        Analytics.featureUsed(.macLocked)
         guard phase == .ready else { return }
         send(.lockScreen)
     }
@@ -71,6 +75,7 @@ extension SessionModel {
     /// Shows the display with the Mac's lock screen and opens the keyboard for the password.
     /// The source it leaves is restored when the Mac reports the lock is gone.
     func showLockScreen(on displayID: UInt32) {
+        Analytics.featureUsed(.lockScreenShown)
         guard let session = activeSession else { return }
         let current: CaptureSource? = activeSourceID?.hasPrefix("mosaic:") == true
             ? session.askedMosaicLayout.map { .mosaic($0) }
@@ -84,6 +89,7 @@ extension SessionModel {
     }
 
     func selectSource(_ source: CaptureSource) {
+        Analytics.featureUsed(.sourceSelected)
         // Read before the write below: it answers "was this end showing an arrangement a moment ago".
         let wasArrangement = activeSourceID?.hasPrefix("mosaic:") == true
         activeSourceID = source.stableID
@@ -120,11 +126,13 @@ extension SessionModel {
 
     /// The canvas is the phone's screen in pixels: a smaller one makes every tile soft before the encoder sees it, and the Mac trims a larger one.
     func showMosaic(_ sources: [CaptureSource]) {
+        Analytics.featureUsed(.mosaicShown)
         showMosaic(sources.map { MosaicChoice(source: $0) })
     }
 
     /// - Parameter remembering: false when restoring, which must not write what it thinned: a window the catalogue merely failed to list would be lost from the store.
     func showMosaic(_ choices: [MosaicChoice], remembering: Bool = true) {
+        Analytics.featureUsed(.mosaicShown)
         // Shaped by the choices being asked for, not those on screen: a restore runs before the new choices are stored and would shape its canvas from the fallback aspect.
         guard let layout = MosaicGrid.layout(
             choices: choices,
@@ -173,6 +181,7 @@ extension SessionModel {
 
     /// A weight, not a size: it survives a seventh window being added.
     func stepMosaicTileSize(at index: Int, by step: Int) {
+        Analytics.featureUsed(.mosaicTileResized)
         guard mosaicChoices.indices.contains(index) else { return }
         let current = mosaicChoices[index].weight
         let next = min(max(current + step, MosaicChoice.minimumWeight), MosaicChoice.maximumWeight)
@@ -202,6 +211,7 @@ extension SessionModel {
     }
 
     func removeMosaicTile(at index: Int) {
+        Analytics.featureUsed(.mosaicTileRemoved)
         guard mosaicChoices.indices.contains(index) else { return }
         var choices = mosaicChoices
         choices.remove(at: index)
@@ -287,10 +297,12 @@ extension SessionModel {
     }
 
     func launchApplication(_ descriptor: InstalledApplicationDescriptor) {
+        Analytics.featureUsed(.applicationLaunched)
         send(.launchApplication(bundleIdentifier: descriptor.bundleIdentifier))
     }
 
     func setKeyboardMode(_ mode: KeyboardMode) {
+        Analytics.featureUsed(.keyboardModeChanged)
         keyboardMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: PreferenceKeys.keyboardMode)
     }
@@ -374,6 +386,7 @@ extension SessionModel {
 
     /// The Settings tab is unreachable mid-session, so the no-session branch is the case it exists for: it writes the choice down and the next session reads it back.
     func setAutomaticQuality(_ automatic: Bool) {
+        Analytics.featureUsed(.autoQualityChanged)
         guard let activeSession else {
             rememberQualityChoice(automatic ? .auto : (lastManualQuality ?? streamQuality))
             return
@@ -383,6 +396,7 @@ extension SessionModel {
 
     /// Saving makes the Settings row and this one the same setting. Written even with no session.
     func setStreamQuality(_ quality: StreamQuality) {
+        Analytics.featureUsed(.qualityChanged)
         guard let activeSession else {
             // No Mac to tell and nothing to gate: with no session no relay carries the bytes.
             rememberQualityChoice(quality)

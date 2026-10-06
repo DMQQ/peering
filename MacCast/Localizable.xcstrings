@@ -64319,6 +64319,180 @@
           }
         }
       }
+    },
+    "Security and privacy" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheit und Datenschutz"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seguridad y privacidad"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sécurité et confidentialité"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicurezza e privacy"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セキュリティとプライバシー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 및 개인정보 보호"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Segurança e privacidade"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Безопасность и конфиденциальность"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安全与隐私"
+          }
+        }
+      }
+    },
+    "Share anonymous usage statistics" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anonyme Nutzungsstatistik teilen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir estadísticas de uso anónimas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager des statistiques d'utilisation anonymes"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Condividi statistiche d'uso anonime"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匿名の利用統計を共有"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "익명 사용 통계 공유"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartilhar estatísticas de uso anônimas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Делиться анонимной статистикой использования"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享匿名使用统计"
+          }
+        }
+      }
+    },
+    "Usage statistics are anonymous counts of app opens and sessions, with the app version and your plan. Never your screen, files, keystrokes or Macs." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Nutzungsstatistik besteht aus anonymen Zählungen von App-Starts und Sitzungen, mit App-Version und Tarif. Nie dein Bildschirm, deine Dateien, Tastenanschläge oder Macs."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las estadísticas de uso son recuentos anónimos de aperturas de la app y sesiones, con la versión de la app y tu plan. Nunca tu pantalla, archivos, pulsaciones de teclas ni Macs."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les statistiques d'utilisation sont des comptages anonymes des ouvertures de l'app et des sessions, avec la version de l'app et votre formule. Jamais votre écran, vos fichiers, vos frappes ni vos Mac."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le statistiche d'uso sono conteggi anonimi di aperture dell'app e sessioni, con la versione dell'app e il tuo piano. Mai il tuo schermo, i file, i tasti premuti o i Mac."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用統計は、アプリの起動回数とセッション数の匿名の集計で、アプリのバージョンとプランが含まれます。画面、ファイル、キー入力、Macが送られることはありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 통계는 앱 실행 및 세션 횟수를 익명으로 집계한 것으로, 앱 버전과 플랜이 포함됩니다. 화면, 파일, 키 입력, Mac은 절대 전송되지 않습니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As estatísticas de uso são contagens anônimas de aberturas do app e sessões, com a versão do app e o seu plano. Nunca a sua tela, arquivos, teclas digitadas ou Macs."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Статистика использования это анонимные подсчёты запусков приложения и сеансов с версией приложения и вашим тарифом. Никогда не ваш экран, файлы, нажатия клавиш или Mac."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用统计是对应用打开次数和会话次数的匿名计数，包含应用版本和你的方案。绝不包含你的屏幕、文件、按键或 Mac。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

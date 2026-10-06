@@ -60,6 +60,7 @@ extension MacSession {
                 pendingSourceReassertion = true
             }
             if case .failed(let message) = phase {
+                Analytics.connectFailed(afterReady: hasBeenReady)
                 videoStatus = String(localized: "Stopped: \(message)")
             }
             if phase == .disconnected {
@@ -77,6 +78,9 @@ extension MacSession {
                     // The episode is over, so its clock goes with it: kept, the next drop would be judged against an expired window.
                     reconnectingSince = nil
                     sessionStartedAt = Date()
+                    if !hadBeenReady {
+                        Analytics.sessionStarted(path: (connectionPath ?? .lan).rawValue, plan: model.storeManager.access.plan)
+                    }
                     beginSessionHistory(resuming: hadBeenReady)
                     UserDefaults.standard.set(true, forKey: SessionModel.resumeKey)
                     if let id = hostID {

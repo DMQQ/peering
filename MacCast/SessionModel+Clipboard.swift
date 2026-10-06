@@ -14,6 +14,7 @@ extension SessionModel {
     // MARK: - Clipboard
 
     func pullClipboard() {
+        Analytics.featureUsed(.clipboardPull)
         guard phase == .ready else { return }
         clipboardPulling = true
         session?.send(.requestClipboard)
@@ -23,6 +24,7 @@ extension SessionModel {
     /// A picture over `maxImageBytes` is refused, not truncated, and the caller is told its size; the text is not sent in its place.
     @discardableResult
     func pushClipboard() -> ClipboardPushResult {
+        Analytics.featureUsed(.clipboardPush)
         guard phase == .ready else { return .failed }
         let board = UIPasteboard.general
 
@@ -42,6 +44,7 @@ extension SessionModel {
     /// The Mac writes its pasteboard before the next command, so the keystroke cannot paste the old contents.
     @discardableResult
     func pushClipboardAndPaste() -> ClipboardPushResult {
+        Analytics.featureUsed(.clipboardPushAndPaste)
         let result = pushClipboard()
         guard result == .sent else { return result }
         send(.keyDown(keyCode: 9, modifiers: [.command]))
@@ -57,6 +60,7 @@ extension SessionModel {
 
     /// The size is checked again here as a backstop against a Mac that sends more than it promised; it is the same figure as the Mac's so it never rejects a payload the Mac considered legal.
     func copyHostClipboard() {
+        Analytics.featureUsed(.clipboardCopyHost)
         guard let payload = hostClipboard else { return }
         switch payload.kind {
         case .text:
@@ -103,17 +107,20 @@ extension SessionModel {
     }
 
     func clearClipboardHistory() {
+        Analytics.featureUsed(.clipboardHistoryCleared)
         clipboardHistory = []
         persistClipboardHistory()
     }
 
     func copyToPhone(_ entry: ClipboardEntry) {
+        Analytics.featureUsed(.clipboardCopyToPhone)
         UIPasteboard.general.string = entry.text
         knownPhoneClipboard = (UIPasteboard.general.changeCount, entry.text)
         clipboardHistoryCount += 1
     }
 
     func pushToMac(_ entry: ClipboardEntry) {
+        Analytics.featureUsed(.clipboardPushToMac)
         guard phase == .ready else { return }
         session?.send(.pushClipboard(text: entry.text))
         hostClipboard = .text(entry.text)

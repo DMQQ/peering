@@ -50,6 +50,9 @@ struct MacCastApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        PostHogConfiguration.setup()
+        Analytics.observeSettings()
+
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "Peering.clearDelivered") {
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
@@ -105,6 +108,7 @@ struct MacCastApp: App {
                         SessionPiP.shared.stop()
                         SessionNotifier.shared.retractAll()
                         model.enteringForeground()
+                        Analytics.appOpened(plan: model.storeManager.access.plan)
                     case .background:
                         CrashLog.setForeground(false)
                         // The few seconds iOS grants before suspending: the session still ends when that runs out (``SessionModel/backgroundTimeExpired()``), but tidy, with the Mac told and the Live Activity taken down.

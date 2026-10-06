@@ -11,6 +11,7 @@ struct SettingsTab: View {
     @Environment(SessionModel.self) private var model
     @AppStorage(PreferenceKeys.requireBiometricUnlock) private var requiresBiometricUnlock = false
     @AppStorage(PreferenceKeys.allowRelay) private var allowsRelay = true
+    @AppStorage(PreferenceKeys.analyticsEnabled) private var analyticsEnabled = true
     @AppStorage(PreferenceKeys.pipAutoStart) private var pipAutoStart = true
     @AppStorage(PreferenceKeys.liveActivities) private var liveActivitiesEnabled = true
     @AppStorage(PreferenceKeys.hasSeenWelcome) private var hasSeenWelcome = true
@@ -220,7 +221,10 @@ struct SettingsTab: View {
     }
 
     private var securitySection: some View {
-        Controls.card(String(localized: "Security")) {
+        Controls.card(
+            String(localized: "Security and privacy"),
+            footer: String(localized: "Usage statistics are anonymous counts of app opens and sessions, with the app version and your plan. Never your screen, files, keystrokes or Macs.")
+        ) {
             Controls.toggle(String(localized: "Require \(DeviceAuthentication.biometryName) on open"), systemImage: DeviceAuthentication.biometrySymbol, isOn: Binding(
                 get: { requiresBiometricUnlock },
                 set: { requested in
@@ -238,6 +242,9 @@ struct SettingsTab: View {
                 }
             ))
             .disabled(!DeviceAuthentication.isAvailable)
+            Controls.divider
+            Controls.toggle(String(localized: "Share anonymous usage statistics"), systemImage: "chart.bar", isOn: $analyticsEnabled)
+                .onChange(of: analyticsEnabled) { _, enabled in PostHogConfiguration.setEnabled(enabled) }
         }
     }
 

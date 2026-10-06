@@ -26,6 +26,7 @@ extension SessionModel {
 
     /// The preview stops describing anything at Return: a bar still showing the old text claims the Mac holds what it already took.
     func run(_ macro: Macro) {
+        Analytics.featureUsed(.macro)
         // Down then up, never coalesced: a dropped release leaves the Mac holding a modifier.
         // Latched modifiers ride along: ⌃ held turns the ⌘C chip into ⌃⌘C.
         let modifiers = macro.modifiers.union(latchedModifiers)

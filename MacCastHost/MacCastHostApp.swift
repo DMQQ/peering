@@ -8,6 +8,10 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
     let model = HostModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        PostHogConfiguration.setup()
+        Analytics.observeSettings()
+        Analytics.hostLaunched()
+
         // Before the model is used for anything: a crash in the launch path is the one this is for,
         // and this is the earliest point the delegate is given.
         CrashLog.install(subject: "host")

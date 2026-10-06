@@ -169,7 +169,10 @@ private struct TerminalHubScreen: View {
             }
         }
         .animation(.easeOut(duration: 0.12), value: tab)
-        .onChange(of: tab) { _, tab in UserDefaults.standard.set(tab.rawValue, forKey: "Peering.hubTab") }
+        .onChange(of: tab) { _, tab in
+            UserDefaults.standard.set(tab.rawValue, forKey: "Peering.hubTab")
+            Analytics.panelOpened(tab == .agents ? .agents : .terminals)
+        }
         .scrollBounceBehavior(.basedOnSize)
         .toolbar { tabsItem }
         .safeAreaInset(edge: .bottom, spacing: 0) {

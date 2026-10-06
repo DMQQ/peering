@@ -72,10 +72,12 @@ final class Updater {
     }
 
     func check() {
+        Analytics.track(.updateChecked)
         controller.checkForUpdates(nil)
     }
 
     func install() {
+        Analytics.track(.updateInstalled)
         if let installNow { installNow() } else { check() }
     }
 }

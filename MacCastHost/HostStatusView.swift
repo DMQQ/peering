@@ -1,6 +1,7 @@
 import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
+import MacCastKit
 import RemoteCore
 import SwiftUI
 
@@ -62,6 +63,7 @@ struct HostStatusView: View {
 
     /// Off, the snapshot loop does not run at all: the preview is the only thing this app does that touches the screen unasked. Not a privacy control; a connected iPhone sees the same screen either way.
     @AppStorage("hostShowsPreview") var showsPreview = true
+    @AppStorage(PreferenceKeys.analyticsEnabled) var analyticsEnabled = true
 
     private struct PreviewKey: Equatable {
         let source: CaptureSource?

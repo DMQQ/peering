@@ -717,6 +717,14 @@ final class SessionModel {
             // The handshake replaces this with the real ID; a different Mac's ID in the window could make a retry dial the relay for the wrong machine.
             UserDefaults.standard.removeObject(forKey: Self.lastHostIDKey)
         }
+        if old == nil {
+            switch target {
+            case .discovered: Analytics.connectStarted(route: .discovered)
+            case .relay: Analytics.connectStarted(route: .relay)
+            case .relayPairing: Analytics.connectStarted(route: .pairing)
+            case .address: Analytics.connectStarted(route: .address)
+            }
+        }
         // Fresh for the path this session just chose: the policy's tier is tuned per path.
         session.autoQualityPolicy = AutoQualityPolicy(path: session.autoQualityPath)
         session.lastAutoDroppedFrames = 0
@@ -852,6 +860,7 @@ final class SessionModel {
 
     /// A magic packet is an unacknowledged UDP broadcast, so silence would look like a row that did nothing; the sentence carries the limit that it does not leave the network.
     func wakeHost(id: String) {
+        Analytics.featureUsed(.wakeOnLAN)
         let addresses = hostMACAddresses[id] ?? []
         let sent = addresses.filter { WakeOnLAN.send(to: $0) }.count
         guard sent > 0 else {
@@ -1010,13 +1019,13 @@ final class SessionModel {
         set { activeSession?.newTerminalID = newValue }
     }
 
-    func createTerminal() { activeSession?.createTerminal() }
+    func createTerminal() { Analytics.featureUsed(.terminalCreated); activeSession?.createTerminal() }
 
-    func createTerminal(inDirectory path: String?) { activeSession?.createTerminal(inDirectory: path) }
+    func createTerminal(inDirectory path: String?) { Analytics.featureUsed(.terminalCreated); activeSession?.createTerminal(inDirectory: path) }
 
-    func runInNewTerminal(_ command: String) { activeSession?.runInNewTerminal(command) }
+    func runInNewTerminal(_ command: String) { Analytics.featureUsed(.terminalRunCommand); activeSession?.runInNewTerminal(command) }
 
-    func renameTerminal(_ id: UUID, to name: String) { activeSession?.renameTerminal(id, to: name) }
+    func renameTerminal(_ id: UUID, to name: String) { Analytics.featureUsed(.terminalRenamed); activeSession?.renameTerminal(id, to: name) }
 
     func selectTerminal(_ id: UUID) { activeSession?.selectTerminal(id) }
 
@@ -1032,7 +1041,7 @@ final class SessionModel {
         activeSession?.resizeTerminal(id, columns: columns, rows: rows)
     }
 
-    func closeTerminal(_ id: UUID) { activeSession?.closeTerminal(id) }
+    func closeTerminal(_ id: UUID) { Analytics.featureUsed(.terminalClosed); activeSession?.closeTerminal(id) }
 
     // MARK: - The active Mac's file browser
 
@@ -1072,17 +1081,20 @@ final class SessionModel {
     }
 
     func previewFile(_ path: String, sessionID id: UUID) {
+        Analytics.featureUsed(.filePreviewed)
         activeSession?.previewFile(path, sessionID: id)
     }
 
     func closePreview() { activeSession?.closePreview() }
 
     func saveFile(_ text: String, sessionID id: UUID) {
+        Analytics.featureUsed(.fileSaved)
         activeSession?.saveFile(text, sessionID: id)
     }
 
     /// The chat screen's attachments go into the folder the agent works in, not whatever a browser is looking at.
     func uploadFile(_ url: URL, toFolder folder: String, sessionID id: UUID) {
+        Analytics.featureUsed(.fileUpload)
         activeSession?.uploadFile(url, toFolder: folder, sessionID: id)
     }
 
@@ -1091,6 +1103,7 @@ final class SessionModel {
     }
 
     func uploadItems(_ urls: [URL], sessionID id: UUID) {
+        Analytics.featureUsed(.folderUpload)
         activeSession?.uploadItems(urls, sessionID: id)
     }
 
@@ -1099,14 +1112,17 @@ final class SessionModel {
     }
 
     func createEntry(_ name: String, kind: RemoteEntryKind, in folder: String, sessionID id: UUID) {
+        Analytics.featureUsed(.fileCreated)
         activeSession?.createEntry(name, kind: kind, in: folder, sessionID: id)
     }
 
     func renameEntry(_ entry: RemoteDirectoryEntry, to name: String, in folder: String, sessionID id: UUID) {
+        Analytics.featureUsed(.fileRenamed)
         activeSession?.renameEntry(entry, to: name, in: folder, sessionID: id)
     }
 
     func deleteEntry(_ entry: RemoteDirectoryEntry, in folder: String, sessionID id: UUID) {
+        Analytics.featureUsed(.fileDeleted)
         activeSession?.deleteEntry(entry, in: folder, sessionID: id)
     }
 

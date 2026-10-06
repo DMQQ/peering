@@ -58,6 +58,12 @@ struct PermissionOnboardingView: View {
             }
         }
         .frame(minWidth: 720, idealWidth: 900, minHeight: 560, idealHeight: 680)
+        .onChange(of: permissions.accessibilityGranted) { _, granted in
+            Analytics.permissionChanged(.accessibility, granted: granted)
+        }
+        .onChange(of: permissions.screenRecordingGranted) { _, granted in
+            Analytics.permissionChanged(.screenRecording, granted: granted)
+        }
         // The Accessibility checkbox takes effect immediately. Poll only that inexpensive API;
         // probing ScreenCaptureKit repeatedly can raise another system permission interaction.
         .task {

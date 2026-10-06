@@ -272,6 +272,9 @@ extension HostModel {
 
         do {
             try server.start()
+            PostHogLog.info("remote host started", attributes: [
+                "component": "host_server",
+            ])
             let registration = RelayHostRegistration(
                 device: device,
                 identity: identity,
@@ -311,6 +314,10 @@ extension HostModel {
             let message = (error as? LocalizedError)?.errorDescription ?? "\(error)"
             status = .failed(message)
             record(message)
+            Analytics.serverStartFailed()
+            PostHogLog.error("remote host failed to start", attributes: [
+                "failure_stage": "server_start",
+            ])
             self.server = nil
         }
 
@@ -346,6 +353,7 @@ extension HostModel {
 
     /// The stream is rebuilt while the video connection is kept, so the client sees a new config and keyframe. The source is looked up at switch time, so a vanished one fails here and the failure names it.
     func applyCaptureSource(_ source: CaptureSource) {
+        Analytics.track(.captureSourceChanged)
         guard let coordinator else {
             // Nothing is captured, so the request is kept only for the window; a client with no video connection gets the default source.
             record("Capture source requested before any video connection")
@@ -371,6 +379,7 @@ extension HostModel {
     }
 
     func unpairAll() {
+        Analytics.track(.unpairedAll)
         guard let pins else { return }
         if pins.removeAll() {
             pairedClientIDs = []
@@ -387,11 +396,13 @@ extension HostModel {
 
     /// Drops a connection but leaves the phone trusted: the pin stays, so it reconnects without a pairing code.
     func disconnect(clientID: String) {
+        Analytics.track(.clientDisconnected)
         server?.disconnect(clientID: clientID)
         record("Disconnected \(displayName(for: clientID))")
     }
 
     func unpair(clientID: String) {
+        Analytics.track(.unpaired)
         guard let pins else { return }
         let removed = server?.unpair(clientID: clientID) ?? pins.remove(peerID: clientID)
         guard removed else {

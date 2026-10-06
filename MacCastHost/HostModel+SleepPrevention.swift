@@ -31,6 +31,7 @@ extension HostModel {
     /// PreventSystemSleep (as caffeinate -s) is process-scoped, so it can never leave a Mac unable to sleep. It does not reliably cover a lid close; that is pmset disablesleep, the switch below.
     /// The switch records an intention and the schedule decides what is held, even with no schedule set, so a switch flipped at midnight cannot hand back assertions on a Mac with its window shut. See applyKeepAwakeSchedule().
     func setPreventLidCloseSleep(_ on: Bool) {
+        Analytics.track(.lidCloseChanged)
         preventLidCloseSleep = on
         UserDefaults.standard.set(on, forKey: "preventLidCloseSleep")
         keepAwakeReleasedByHand = false
@@ -160,6 +161,7 @@ extension HostModel {
     }
 
     func setKeepAwakeSchedule(enabled: Bool) {
+        Analytics.track(.keepAwakeScheduleChanged)
         keepAwakeScheduleEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: Self.keepAwakeScheduleEnabledKey)
         keepAwakeReleasedByHand = false
@@ -234,6 +236,7 @@ extension HostModel {
 
     /// nil clears it. The prompt is by design: a wake time is rarely changed, so it uses the system dialog rather than widening the standing sudoers rule to pmset repeat.
     func setWakeSchedule(hour: Int?) async {
+        Analytics.track(.wakeScheduleChanged)
         guard !wakeScheduleBusy else { return }
         wakeScheduleBusy = true
         defer { wakeScheduleBusy = false }

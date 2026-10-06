@@ -29,6 +29,16 @@ struct PaywallView: View {
         case runningLow(remaining: TimeInterval)
         case feature(PlanCapability)
 
+        var analyticsName: String {
+            switch self {
+            case .quotaExhausted: "quota_exhausted"
+            case .upgrade: "upgrade"
+            case .firstSession: "first_session"
+            case .runningLow: "running_low"
+            case .feature(let capability): "feature_\(capability.rawValue)"
+            }
+        }
+
         var title: String {
             switch self {
             case .quotaExhausted: return String(localized: "Keep going from anywhere")
@@ -202,6 +212,7 @@ struct PaywallView: View {
             awaitingApproval = false
             justBought = tier
         }
+        .onAppear { Analytics.paywallShown(reason: reason.analyticsName) }
     }
 
     // MARK: - Sections

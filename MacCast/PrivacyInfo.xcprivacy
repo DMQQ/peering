@@ -5,9 +5,10 @@
 
   **What is declared, and why each line is here.**
 
-  *No tracking.* There is no advertising SDK, no analytics, no attribution and no third party of
-  any kind in the bundle, so there is nothing to declare and no domain to list. `NSPrivacyTracking`
-  false is the whole of it.
+  *No tracking.* There is no advertising SDK, no attribution and no third-party SDK in the bundle,
+  so `NSPrivacyTracking` is false and no tracking domain is listed. Anonymous usage counts go to
+  PostHog over plain HTTPS (`Analytics.swift`), declared below as Product Interaction and Device ID
+  for analytics, not linked to anybody and not used to track.
 
   *User defaults, two reasons.* `CA92.1` covers the store the app keeps for itself: every
   preference in `PreferenceKeys`, the session history, the macro list and the SSH hosts. `1C8F.1`
@@ -63,6 +64,31 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

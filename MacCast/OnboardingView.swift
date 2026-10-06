@@ -105,6 +105,7 @@ struct OnboardingView: View {
             }
         }
         .onAppear(perform: revealContent)
+        .onChange(of: index, initial: true) { _, page in Analytics.onboardingPage(page) }
     }
 
     var compactWidthBody: some View {
@@ -444,6 +445,7 @@ struct OnboardingView: View {
     var isLast: Bool { index == Self.pages.count - 1 }
 
     func skip() {
+        Analytics.onboardingSkipped(atPage: index)
         guard !store.isPro else { return onFinish() }
         withAnimation(Motion.settle) { index = Self.pages.count - 1 }
     }
@@ -471,7 +473,10 @@ struct OnboardingView: View {
 
         Task {
             await store.purchase(product)
-            if store.isPro { onFinish() }
+            if store.isPro {
+                Analytics.onboardingCompleted()
+                onFinish()
+            }
         }
     }
 
@@ -481,6 +486,7 @@ struct OnboardingView: View {
     /// between turning a page and watching the page that was already there be replaced.
     func advance() {
         guard !isLast else {
+            Analytics.onboardingCompleted()
             onFinish()
             return
         }

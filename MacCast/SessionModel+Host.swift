@@ -14,6 +14,7 @@ extension SessionModel {
     func displayName(forHostID id: String) -> String? { customHostNames[id] ?? hostNames[id] }
 
     func rename(hostID: String, to name: String) {
+        Analytics.featureUsed(.macRenamed)
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
             customHostNames.removeValue(forKey: hostID)

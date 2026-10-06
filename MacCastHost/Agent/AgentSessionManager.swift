@@ -33,6 +33,8 @@ final class AgentSessionManager: @unchecked Sendable {
         var permissionMode: AgentPermissionMode
         var usage: AgentUsage?
         var lastReply: String?
+        var aiTurn: AIAssistantAnalytics.Turn?
+        var aiToolRuns: [String: AIAssistantAnalytics.ToolRun] = [:]
 
         init(ownerClientID: String, agentID: String, title: String, directory: String, adapter: any AgentAdapter) {
             self.ownerClientID = ownerClientID
@@ -309,6 +311,9 @@ final class AgentSessionManager: @unchecked Sendable {
         var nowActive = false
         /// A model the turn's own report disagrees with what this session was showing.
         var correctedModel: String??
+        var completedTurn: (turn: AIAssistantAnalytics.Turn, summary: AgentTurnSummary, model: String?)?
+        var failedTurn: (turn: AIAssistantAnalytics.Turn, model: String?)?
+        var completedTool: (run: AIAssistantAnalytics.ToolRun, ok: Bool, output: String?, truncated: Bool)?
 
         lock.withLock {
             let indexed = AgentStreamEvent(index: session.nextIndex, payload: payload)
@@ -334,8 +339,20 @@ final class AgentSessionManager: @unchecked Sendable {
                 if session.pendingApprovals.isEmpty, session.state == .awaitingApproval {
                     session.state = .working
                 }
+            case .userPrompt(let text):
+                session.aiTurn = AIAssistantAnalytics.Turn(input: text)
+                session.aiToolRuns.removeAll()
             case .textFinal(let text):
                 session.lastReply = text
+                session.aiTurn?.outputParts.append(text)
+            case .toolStarted(let call):
+                if let traceID = session.aiTurn?.traceID {
+                    session.aiToolRuns[call.id] = AIAssistantAnalytics.ToolRun(traceID: traceID, call: call)
+                }
+            case .toolFinished(let callID, let ok, let output, let truncated):
+                if let run = session.aiToolRuns.removeValue(forKey: callID) {
+                    completedTool = (run, ok, output, truncated)
+                }
             case .turnFinished(let summary):
                 session.pendingApprovals.removeAll()
                 session.state = .idle
@@ -343,6 +360,11 @@ final class AgentSessionManager: @unchecked Sendable {
                 if let model = summary.model, model != session.model {
                     session.model = model
                     correctedModel = model
+                }
+                if let turn = session.aiTurn {
+                    completedTurn = (turn, summary, summary.model ?? session.model)
+                    session.aiTurn = nil
+                    session.aiToolRuns.removeAll()
                 }
                 if sinks[session.ownerClientID] == nil, token != nil {
                     push = (
@@ -352,11 +374,16 @@ final class AgentSessionManager: @unchecked Sendable {
                 }
             case .failure:
                 session.state = .failed
+                if let turn = session.aiTurn {
+                    failedTurn = (turn, session.model)
+                    session.aiTurn = nil
+                    session.aiToolRuns.removeAll()
+                }
             case .sessionExited:
                 session.state = .exited
             case .sessionReady(_, _, let model, _):
                 if let model { session.model = model }
-            case .userPrompt, .textDelta, .toolStarted, .toolFinished, .notice:
+            case .textDelta, .notice:
                 break
             }
 
@@ -366,6 +393,33 @@ final class AgentSessionManager: @unchecked Sendable {
             nowActive = self.sessions.values.contains { $0.state == .working || $0.state == .awaitingApproval }
         }
 
+        if let completedTool {
+            AIAssistantAnalytics.captureTool(
+                agentID: session.agentID,
+                sessionID: session.id,
+                run: completedTool.run,
+                ok: completedTool.ok,
+                output: completedTool.output,
+                truncated: completedTool.truncated
+            )
+        }
+        if let completedTurn {
+            AIAssistantAnalytics.captureGeneration(
+                agentID: session.agentID,
+                sessionID: session.id,
+                turn: completedTurn.turn,
+                summary: completedTurn.summary,
+                model: completedTurn.model
+            )
+        }
+        if let failedTurn {
+            AIAssistantAnalytics.captureFailedGeneration(
+                agentID: session.agentID,
+                sessionID: session.id,
+                turn: failedTurn.turn,
+                model: failedTurn.model
+            )
+        }
         if let event {
             sink?(.stream(sessionID: session.id, event: event))
         }

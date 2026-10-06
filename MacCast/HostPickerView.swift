@@ -92,6 +92,14 @@ struct HostPickerView: View {
                     .tag(item)
             }
         }
+        .onChange(of: screen, initial: true) { _, screen in
+            switch screen {
+            case .connect: Analytics.screen(.home)
+            case .sessions: Analytics.screen(.activity)
+            case .settings: Analytics.screen(.settings)
+            case .servers, .faq: break
+            }
+        }
     }
 
     private var showsSessionAccessory: Bool {

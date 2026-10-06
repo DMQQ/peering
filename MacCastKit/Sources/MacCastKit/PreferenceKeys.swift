@@ -9,6 +9,8 @@ public enum PreferenceKeys {
     /// Set when the card appears, not when dismissed: the remote screen is rebuilt each session, so a flag written only by the tap would let it return.
     public static let hasSeenLandscapeHint = "Peering.hasSeenLandscapeHint"
     /// Whether a Mac may be reached through the relay, or only over the local network.
+    /// Anonymous usage counts; on unless the user turns it off. See `Analytics`.
+    public static let analyticsEnabled = "Peering.analyticsEnabled"
     public static let allowRelay = "Peering.allowRelay"
     public static let requireBiometricUnlock = "Peering.requireBiometricUnlock"
     /// Whether the Mac's audio is played on the phone, or dropped.
